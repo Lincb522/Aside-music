@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Lincb522/Aside-music/main/Sources/AsideMusic/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512%402x.png" width="128" height="128" alt="Aside Music Logo">
+  <img src="docs/assets/logo.png" width="128" height="128" alt="Aside Music Logo" style="border-radius: 24px;">
 </p>
 
 <h1 align="center">Aside Music</h1>
