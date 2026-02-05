@@ -38,8 +38,8 @@ struct LiquidGlassBlur: View {
     }
 }
 
-// MARK: - Liquid Glass Card
-struct LiquidGlassCard<Content: View>: View {
+// MARK: - Aside Liquid Glass Card (本地版本，支持 fallback)
+struct AsideLiquidCard<Content: View>: View {
     let cornerRadius: CGFloat
     let useMetal: Bool
     let content: Content
@@ -74,7 +74,7 @@ extension View {
     }
     
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = true) -> some View {
-        LiquidGlassCard(cornerRadius: cornerRadius, useMetal: useMetal) {
+        AsideLiquidCard(cornerRadius: cornerRadius, useMetal: useMetal) {
             self
         }
     }
