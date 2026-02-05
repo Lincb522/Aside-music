@@ -537,19 +537,32 @@ class PlayerManager: ObservableObject {
                         print("Failed to get song url: \(error)")
                         self.isLoading = false
                         
+                        // 判断错误类型
+                        let isUnavailable = error is APIService.PlaybackError && 
+                            (error as! APIService.PlaybackError) == .unavailable
+                        
                         // 增加失败计数
                         self.consecutiveFailures += 1
                         
                         // 检查是否超过最大失败次数
                         if self.consecutiveFailures >= self.maxConsecutiveFailures {
                             print("⚠️ 连续失败 \(self.consecutiveFailures) 次，停止自动播放下一首")
-                            // 显示错误提示
-                            AlertManager.shared.show(
-                                title: "播放失败",
-                                message: "连续多首歌曲无法播放，请检查网络连接",
-                                primaryButtonTitle: "确定",
-                                primaryAction: {}
-                            )
+                            // 根据错误类型显示不同提示
+                            if isUnavailable {
+                                AlertManager.shared.show(
+                                    title: "无法播放",
+                                    message: "连续多首歌曲暂无版权，可在设置中开启「解灰」功能",
+                                    primaryButtonTitle: "确定",
+                                    primaryAction: {}
+                                )
+                            } else {
+                                AlertManager.shared.show(
+                                    title: "播放失败",
+                                    message: "连续多首歌曲无法播放，请检查网络连接",
+                                    primaryButtonTitle: "确定",
+                                    primaryAction: {}
+                                )
+                            }
                             // 重置计数器和延迟
                             self.consecutiveFailures = 0
                             self.retryDelay = 1.0

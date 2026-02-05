@@ -412,6 +412,24 @@ class APIService {
     
     // MARK: - Song URL & Detail
     
+    /// 播放错误类型
+    enum PlaybackError: Error {
+        case unavailable      // 无版权
+        case networkError     // 网络错误
+        case unknown          // 未知错误
+        
+        var localizedDescription: String {
+            switch self {
+            case .unavailable:
+                return "该歌曲暂无版权"
+            case .networkError:
+                return "网络连接失败"
+            case .unknown:
+                return "播放失败"
+            }
+        }
+    }
+    
     /// 获取歌曲播放URL（支持解灰）
     /// - Parameters:
     ///   - id: 歌曲ID
@@ -422,13 +440,17 @@ class APIService {
         return fetch("/song/url/v1?id=\(id)&level=\(level)")
             .tryMap { (response: SongUrlResponse) -> String in
                 guard let url = response.data.first?.url, !url.isEmpty else {
-                    throw URLError(.resourceUnavailable)
+                    throw PlaybackError.unavailable
                 }
                 return url
             }
             .catch { [weak self] error -> AnyPublisher<String, Error> in
                 guard let self = self, enableUnblock else {
-                    return Fail(error: error).eraseToAnyPublisher()
+                    // 不启用解灰，直接返回无版权错误
+                    if error is PlaybackError {
+                        return Fail(error: error).eraseToAnyPublisher()
+                    }
+                    return Fail(error: PlaybackError.unavailable).eraseToAnyPublisher()
                 }
                 // 正常获取失败，尝试解灰
                 return self.fetchUnblockedSongUrl(id: id)
@@ -444,14 +466,14 @@ class APIService {
         return fetch("/song/url/match?id=\(id)")
             .tryMap { (response: UnblockResponse) -> String in
                 guard let url = response.data, !url.isEmpty else {
-                    throw URLError(.resourceUnavailable)
+                    throw PlaybackError.unavailable
                 }
                 // 优先使用代理URL（如果有）
                 return response.proxyUrl?.isEmpty == false ? response.proxyUrl! : url
             }
             .catch { [weak self] _ -> AnyPublisher<String, Error> in
                 guard let self = self else {
-                    return Fail(error: URLError(.resourceUnavailable)).eraseToAnyPublisher()
+                    return Fail(error: PlaybackError.unavailable).eraseToAnyPublisher()
                 }
                 // 方式2: 使用 ncmget 接口作为备用
                 return self.fetchNcmGetUrl(id: id)
@@ -464,7 +486,7 @@ class APIService {
         return fetch("/song/url/ncmget?id=\(id)&br=320")
             .tryMap { (response: NcmGetResponse) -> String in
                 guard let url = response.data?.url, !url.isEmpty else {
-                    throw URLError(.resourceUnavailable)
+                    throw PlaybackError.unavailable
                 }
                 // 优先使用代理URL
                 return response.data?.proxyUrl?.isEmpty == false ? response.data!.proxyUrl! : url
