@@ -1,0 +1,41 @@
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+build/
+DerivedData/
+*.moved-aside
+.build/
+
+# macOS
+.DS_Store
+
+# IDE
+.trae/
+.vscode/
+.idea/
+
+# Build artifacts
+*.ipa
+*.app
+*.dSYM
+*.xcarchive
+
+# Logs
+*.log
+
+# Backup files
+*.backup
+*.bak
+
+# Environment
+.env
+.env.local
+
+# Archives & Compressed
+*.tar.gz
+*.zip
+
+# Temporary
+*.tmp
+Payload/

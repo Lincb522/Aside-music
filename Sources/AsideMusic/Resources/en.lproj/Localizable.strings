@@ -1,0 +1,153 @@
+"loading_music" = "Loading your music...";
+"popular_week" = "Popular of this week";
+"daily_recommend" = "Daily Recommend";
+"recommended_playlists" = "Recommended Playlists";
+"my_playlists" = "My Playlists";
+"recently_played" = "Recently Played";
+"search_placeholder" = "Search songs, artists...";
+"cancel" = "Cancel";
+"play_now" = "Play Now";
+"login_title" = "Login to Aside";
+"scan_qr" = "Scan QR Code";
+"phone_login" = "Phone Login";
+"scan_instruction" = "Please use NetEase Music App to scan";
+"phone_number" = "Phone Number";
+"captcha" = "Captcha";
+"get_captcha" = "Get Captcha";
+"login" = "Login";
+"sent" = "Sent";
+"songs_count_by" = "%d songs • by %@";
+"qr_loading" = "Loading QR Code...";
+"qr_expired" = "QR Code Expired";
+"qr_waiting" = "Waiting for scan...";
+"qr_scanned" = "Scanned! Please confirm on phone.";
+"login_success" = "Login Successful!";
+"refreshing" = "Refreshing...";
+"login_failed" = "Login Failed: %d";
+"tab_home" = "Home";
+"tab_podcast" = "Podcast";
+"tab_library" = "Library";
+"tab_search" = "Search";
+"tab_profile" = "Profile";
+
+/* New Additions */
+"good_morning" = "Good Morning";
+"good_afternoon" = "Good Afternoon";
+"good_evening" = "Good Evening";
+"default_nickname" = "Music Lover";
+"search_bar_placeholder" = "Search songs, artists, playlists...";
+"new_releases" = "New Releases";
+"quick_daily" = "Daily";
+"quick_fm" = "Private FM";
+"quick_karaoke" = "Karaoke";
+"quick_charts" = "Charts";
+"made_for_you" = "Made For You";
+"fresh_tunes_daily" = "Fresh tunes daily";
+"view_all" = "View All";
+"playlists_love" = "Playlists You'll Love";
+"based_on_taste" = "Based on your taste";
+"top_charts" = "Top Charts";
+"trending_now" = "Trending now";
+"jump_back_in" = "Jump Back In";
+"recently_played_subtitle" = "Recently played";
+"your_library" = "Your Library";
+"playlists_count" = "%d playlists";
+"tag_new_release" = "NEW RELEASE";
+"search_in_playlist" = "Search in playlist";
+"songs_count" = "%d songs";
+"count_hundred_million" = "%.1fB";
+"count_ten_thousand" = "%.1fK";
+
+/* Library Tabs & Filters */
+"lib_tab_playlists" = "Playlists";
+"lib_tab_artists" = "Artists";
+"lib_tab_charts" = "Charts";
+"filter_all" = "All";
+"filter_chinese" = "Chinese";
+"filter_western" = "Western";
+"filter_japanese" = "Japanese";
+"filter_korean" = "Korean";
+"filter_others" = "Others";
+"filter_male" = "Male";
+"filter_female" = "Female";
+"filter_band" = "Band";
+
+/* Artist Detail */
+"artist_popular_songs" = "Popular Songs";
+"artist_albums" = "Albums";
+"artist_eps" = "EPs & Singles";
+
+/* Search */
+"search_hot" = "Hot Search";
+"search_history" = "History";
+"search_clear" = "Clear";
+
+/* Login */
+"login_switch_phone" = "Or login with phone";
+"login_switch_qr" = "Or scan QR code";
+
+/* Playlist Detail */
+"playlist_created_by" = "Created by %@";
+"playlist_updated" = "Updated %@";
+"playlist_description" = "Description";
+
+/* Player Queue */
+"queue_tab_now_playing" = "Now Playing";
+"queue_tab_history" = "History";
+"queue_playing" = "PLAYING";
+"queue_up_next" = "UP NEXT · %d";
+"queue_empty" = "No songs in queue";
+"queue_history_empty" = "No history yet";
+"mode_sequence" = "Sequence";
+"mode_loop_one" = "Loop One";
+"mode_shuffle" = "Shuffle";
+
+/* Actions */
+"action_play" = "Play";
+"action_play_next" = "Play Next";
+"action_add_to_queue" = "Add to Queue";
+"action_artist" = "Artist";
+"action_details" = "Details";
+"action_retry" = "Retry";
+"action_logout" = "Log Out";
+
+/* Empty States */
+"empty_no_results" = "No results found";
+"empty_no_playlists" = "No playlists found";
+"empty_no_artists" = "No artists found";
+"empty_no_charts" = "No charts found";
+"library_playlists_empty" = "No playlists found. Create or like some!";
+"fm_offline" = "Station Offline";
+"fm_offline_desc" = "Please check your internet and try again.";
+
+/* Profile */
+"profile_liked_songs" = "Liked Songs";
+"profile_recently_played" = "Recently Played";
+"profile_downloads" = "Downloads";
+"profile_settings" = "Settings";
+"profile_dynamic" = "Dynamic";
+"profile_following" = "Following";
+"profile_followers" = "Followers";
+"profile_cloud_disk" = "Cloud Disk";
+
+/* Player */
+"player_now_playing" = "Now Playing";
+"player_private_fm" = "Private FM";
+"player_queue" = "QUEUE";
+"artist_details" = "Artist Details";
+"more_by_artist" = "More by %@";
+
+/* Format Strings */
+"songs_count_format" = "%d Songs";
+"user_id_format" = "ID: %d";
+"created_by_format" = "by %@";
+"track_count_songs" = "%d songs";
+
+/* Search */
+"search_artists" = "Search artists";
+
+/* Alerts */
+"alert_logout_title" = "Log Out";
+"alert_logout_message" = "Are you sure you want to log out?";
+"alert_logout_confirm" = "Log Out";
+"alert_cancel" = "Cancel";

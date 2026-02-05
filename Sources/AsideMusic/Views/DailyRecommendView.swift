@@ -1,0 +1,592 @@
+import SwiftUI
+import Combine
+
+// MARK: - ViewModel
+
+class DailyRecommendViewModel: ObservableObject {
+    // State
+    @Published var songs: [Song] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    
+    // History Data
+    @Published var historyDates: [String] = []
+    @Published var showHistorySheet = false
+    @Published var isLoadingHistory = false
+    
+    // Style Picker Sheet
+    @Published var showStyleMenu = false
+    
+    private var cancellables = Set<AnyCancellable>()
+    private let api = APIService.shared
+    private let styleManager = StyleManager.shared
+    
+    init() {
+        // Initial load
+        refreshContent()
+        
+        // Listen for global style changes
+        styleManager.$currentStyle
+            .dropFirst()
+            .receive(on: DispatchQueue.main) // Ensure UI updates on main thread
+            .sink { [weak self] style in
+                print("DEBUG: DailyRecommendViewModel - Style changed to: \(style?.finalName ?? "Default")")
+                self?.refreshContent()
+            }
+            .store(in: &cancellables)
+    }
+    
+    func refreshContent() {
+        if let style = styleManager.currentStyle {
+            loadStyleSongs(style: style)
+        } else {
+            loadStandardRecommend()
+        }
+    }
+    
+    func loadStandardRecommend() {
+        isLoading = true
+        errorMessage = nil
+        
+        api.fetchDailySongs(cachePolicy: .staleWhileRevalidate, ttl: 3600)
+            .sink(receiveCompletion: { [weak self] completion in
+                if case .failure(let error) = completion {
+                    self?.errorMessage = error.localizedDescription
+                    self?.isLoading = false
+                }
+            }, receiveValue: { [weak self] songs in
+                self?.songs = songs
+                self?.isLoading = false
+            })
+            .store(in: &cancellables)
+    }
+    
+    private func loadStyleSongs(style: APIService.StyleTag) {
+        isLoading = true
+        errorMessage = nil
+        
+        print("DEBUG: Loading songs for style: \(style.finalName) (ID: \(style.finalId))")
+        api.fetchStyleSongs(tagId: style.finalId)
+            .sink(receiveCompletion: { [weak self] completion in
+                if case .failure(let error) = completion {
+                    print("DEBUG: Style Songs Error: \(error)")
+                    self?.errorMessage = "Songs Error: \(error.localizedDescription)"
+                    self?.isLoading = false
+                }
+            }, receiveValue: { [weak self] songs in
+                print("DEBUG: Received \(songs.count) songs for style \(style.finalName)")
+                self?.songs = songs
+                self?.isLoading = false
+            })
+            .store(in: &cancellables)
+    }
+    
+    // History
+    @Published var noHistoryMessage: String?
+    
+    func loadHistoryDates() {
+        isLoadingHistory = true
+        noHistoryMessage = nil
+        print("DEBUG: Loading history recommend dates...")
+        api.fetchHistoryRecommendDates()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoadingHistory = false
+                if case .failure(let error) = completion {
+                    print("DEBUG: History dates load error: \(error)")
+                    self?.noHistoryMessage = "加载失败，请稍后重试"
+                }
+            }, receiveValue: { [weak self] dates in
+                print("DEBUG: Received history dates: \(dates)")
+                self?.historyDates = dates
+                self?.isLoadingHistory = false
+                if !dates.isEmpty {
+                    print("DEBUG: Setting showHistorySheet = true")
+                    self?.showHistorySheet = true
+                    print("DEBUG: showHistorySheet is now: \(self?.showHistorySheet ?? false)")
+                } else {
+                    print("DEBUG: History dates is empty")
+                    self?.noHistoryMessage = "暂无历史推荐记录，明天再来看看吧"
+                }
+            })
+            .store(in: &cancellables)
+    }
+}
+
+// MARK: - View
+
+struct DailyRecommendView: View {
+    @StateObject private var viewModel = DailyRecommendViewModel()
+    @ObservedObject private var styleManager = StyleManager.shared
+    @Namespace private var animationNamespace
+    
+    // Theme Reference
+    typealias Theme = PlaylistDetailView.Theme
+    
+    var body: some View {
+        ZStack(alignment: .top) {
+            // Background
+            AsideBackground()
+            
+            mainContent
+            
+            // Morph Overlay
+            // Always present in hierarchy but hidden, to ensure seamless matchedGeometryEffect
+            Group {
+                // Dimmed background
+                if viewModel.showStyleMenu {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                viewModel.showStyleMenu = false
+                            }
+                        }
+                        .zIndex(1) // Ensure background is below the morph view but above content
+                }
+                
+                if viewModel.showStyleMenu {
+                    StyleSelectionMorphView(
+                        styleManager: styleManager,
+                        isPresented: $viewModel.showStyleMenu,
+                        namespace: animationNamespace
+                    )
+                    .zIndex(2) // Ensure morph view is on top
+                }
+            }
+            
+            // History Sheet
+            // ... (keep history sheet)
+        }
+        .sheet(isPresented: $viewModel.showHistorySheet) {
+            DailyHistoryView(dates: viewModel.historyDates)
+        }
+        .alert("历史推荐", isPresented: Binding(
+            get: { viewModel.noHistoryMessage != nil },
+            set: { if !$0 { viewModel.noHistoryMessage = nil } }
+        )) {
+            Button("好的", role: .cancel) {
+                viewModel.noHistoryMessage = nil
+            }
+        } message: {
+            Text(viewModel.noHistoryMessage ?? "")
+        }
+        .navigationBarHidden(true)
+        .onChange(of: viewModel.showStyleMenu) { isShown in
+            // Hide/Show Tab Bar when menu is active
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                PlayerManager.shared.isTabBarHidden = isShown
+            }
+        }
+    }
+    
+    private var mainContent: some View {
+        VStack(spacing: 0) {
+            // Header
+            headerSection
+            
+            // Content
+            // ... (keep existing content logic)
+            if viewModel.isLoading && viewModel.songs.isEmpty {
+                Spacer()
+                VStack {
+                    AsideLoadingView(text: "LOADING...")
+                    Text("Current Style: \(styleManager.currentStyleName)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                Spacer()
+            } else if let error = viewModel.errorMessage {
+                errorView(msg: error)
+            } else {
+                songList
+            }
+        }
+    }
+    
+    // MARK: - Subviews
+    
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            // Top Row: Back only
+            HStack {
+                AsideBackButton()
+                Spacer()
+            }
+            
+            // Date & Greeting & Filter
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Big Date
+                    HStack(alignment: .lastTextBaseline, spacing: 4) {
+                        Text(dayString)
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(Theme.text)
+                        
+                        Text("/ \(monthString)")
+                            .font(.system(size: 18, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                            .padding(.bottom, 4)
+                    }
+                    
+                    // Style & History Buttons Row
+                    if !viewModel.showStyleMenu {
+                        HStack(spacing: 10) {
+                            // Style Selection Button
+                            Button(action: {
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    viewModel.showStyleMenu = true
+                                }
+                            }) {
+                                HStack(spacing: 6) {
+                                    Text(styleManager.currentStyle == nil ? "每日推荐" : styleManager.currentStyleName)
+                                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                                        .foregroundColor(Theme.secondaryText)
+                                        .matchedGeometryEffect(id: "filter_text", in: animationNamespace)
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(Theme.secondaryText)
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.black.opacity(0.05))
+                                        .matchedGeometryEffect(id: "filter_bg", in: animationNamespace)
+                                )
+                            }
+                            
+                            // History Button
+                            Button(action: {
+                                viewModel.loadHistoryDates()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Text("历史")
+                                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                                }
+                                .foregroundColor(Theme.secondaryText)
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.black.opacity(0.05))
+                                )
+                            }
+                            .buttonStyle(ScaleButtonStyle())
+                        }
+                    } else {
+                        // Invisible placeholder to keep layout stable
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(height: 32)
+                            .frame(width: 200, alignment: .leading)
+                    }
+                }
+                
+                Spacer()
+                
+                // Play All Button
+                if !viewModel.songs.isEmpty {
+                    Button(action: {
+                        if let first = viewModel.songs.first {
+                            PlayerManager.shared.play(song: first, in: viewModel.songs)
+                        }
+                    }) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(Theme.accent)
+                            .shadow(color: Theme.accent.opacity(0.3), radius: 10, x: 0, y: 5)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, DeviceLayout.headerTopPadding)
+        .padding(.bottom, 10)
+    }
+    
+    private var songList: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
+                    SongListRow(song: song, index: index)
+                        .asButton {
+                            PlayerManager.shared.play(song: song, in: viewModel.songs)
+                        }
+                }
+            }
+            .padding(.bottom, 120)
+        }
+    }
+    
+    private func errorView(msg: String) -> some View {
+        VStack {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundColor(.gray)
+            Text(msg)
+                .foregroundColor(.gray)
+                .padding()
+            Button("Retry") {
+                viewModel.loadStandardRecommend()
+            }
+            Spacer()
+        }
+    }
+    
+    // Date Helpers
+    private var dayString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd"
+        return formatter.string(from: Date())
+    }
+    
+    private var monthString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM"
+        return formatter.string(from: Date())
+    }
+}
+
+// MARK: - History View
+
+struct DailyHistoryView: View {
+    let dates: [String]
+    @Environment(\.dismiss) var dismiss
+    @State private var selectedDate: String?
+    @State private var songs: [Song] = []
+    @State private var isLoading = false
+    @State private var cancellables = Set<AnyCancellable>()
+    
+    // Theme
+    typealias Theme = PlaylistDetailView.Theme
+    
+    var body: some View {
+        ZStack {
+            // Background
+            AsideBackground()
+            
+            VStack(spacing: 0) {
+                // Header
+                headerSection
+                
+                // Date Selector
+                dateSelector
+                    .padding(.top, 8)
+                
+                // Content
+                if isLoading {
+                    Spacer()
+                    AsideLoadingView(text: "加载中...")
+                    Spacer()
+                } else if songs.isEmpty {
+                    emptyState
+                } else {
+                    songList
+                }
+            }
+        }
+        .onAppear {
+            print("DEBUG: DailyHistoryView appeared with \(dates.count) dates: \(dates)")
+            if let first = dates.first {
+                loadSongs(for: first)
+            }
+        }
+    }
+    
+    // MARK: - Header
+    
+    private var headerSection: some View {
+        HStack {
+            // Close Button
+            Button(action: { dismiss() }) {
+                AsideIcon(icon: .close, size: 20, color: Theme.text)
+                    .padding(10)
+                    .background(Color.white.opacity(0.6))
+                    .clipShape(Circle())
+            }
+            
+            Spacer()
+            
+            // Title
+            VStack(spacing: 2) {
+                Text("历史日推")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(Theme.text)
+                
+                Text("回顾往日推荐")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(Theme.secondaryText)
+            }
+            
+            Spacer()
+            
+            // Play All Button
+            if !songs.isEmpty {
+                Button(action: {
+                    if let first = songs.first {
+                        PlayerManager.shared.play(song: first, in: songs)
+                    }
+                }) {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(Theme.accent)
+                }
+            } else {
+                // Placeholder for alignment
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 40, height: 40)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+    }
+    
+    // MARK: - Date Selector
+    
+    private var dateSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(dates, id: \.self) { date in
+                    dateButton(for: date)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+        }
+    }
+    
+    private func dateButton(for date: String) -> some View {
+        let isSelected = selectedDate == date
+        let displayDate = formatDateShort(date)
+        
+        return Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                loadSongs(for: date)
+            }
+        }) {
+            Text(displayDate)
+                .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
+                .foregroundColor(isSelected ? .white : .black.opacity(0.85))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.black.opacity(0.85) : Color.gray.opacity(0.1))
+                )
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+    
+    // MARK: - Content
+    
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            
+            AsideIcon(icon: .clock, size: 48, color: .gray.opacity(0.5))
+            
+            Text("选择日期查看历史推荐")
+                .font(.system(size: 16, weight: .medium, design: .rounded))
+                .foregroundColor(.gray)
+            
+            Spacer()
+        }
+    }
+    
+    private var songList: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 0) {
+                // Selected Date Header
+                if let date = selectedDate {
+                    HStack {
+                        Text(formatFullDate(date))
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                        
+                        Spacer()
+                        
+                        Text("\(songs.count) 首歌曲")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText.opacity(0.7))
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                }
+                
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    SongListRow(song: song, index: index)
+                        .asButton {
+                            PlayerManager.shared.play(song: song, in: songs)
+                        }
+                }
+            }
+            .padding(.bottom, 100)
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private func loadSongs(for date: String) {
+        selectedDate = date
+        isLoading = true
+        songs = []
+        
+        print("DEBUG: Loading history songs for date: \(date)")
+        APIService.shared.fetchHistoryRecommendSongs(date: date)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { completion in
+                isLoading = false
+                if case .failure(let error) = completion {
+                    print("DEBUG: History songs load error: \(error)")
+                }
+            }, receiveValue: { loadedSongs in
+                print("DEBUG: Received \(loadedSongs.count) history songs")
+                self.songs = loadedSongs
+                isLoading = false
+            })
+            .store(in: &cancellables)
+    }
+    
+    private func formatDateShort(_ dateString: String) -> String {
+        // Input format: "2025-02-03" -> "02/03"
+        let components = dateString.split(separator: "-")
+        if components.count >= 3 {
+            return "\(components[1])/\(components[2])"
+        }
+        return dateString
+    }
+    
+    private func formatDate(_ dateString: String) -> (day: String, month: String) {
+        // Input format: "2025-02-03" or similar
+        let components = dateString.split(separator: "-")
+        if components.count >= 3 {
+            let day = String(components[2])
+            let monthNum = Int(components[1]) ?? 1
+            let months = ["", "一月", "二月", "三月", "四月", "五月", "六月", 
+                         "七月", "八月", "九月", "十月", "十一月", "十二月"]
+            let month = months[min(monthNum, 12)]
+            return (day, month)
+        }
+        return (dateString, "")
+    }
+    
+    private func formatFullDate(_ dateString: String) -> String {
+        // Input format: "2025-02-03"
+        let components = dateString.split(separator: "-")
+        if components.count >= 3 {
+            return "\(components[0])年\(components[1])月\(components[2])日 推荐"
+        }
+        return dateString
+    }
+}
+
+

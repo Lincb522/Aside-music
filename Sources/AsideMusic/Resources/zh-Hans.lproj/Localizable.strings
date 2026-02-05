@@ -1,0 +1,153 @@
+"loading_music" = "正在加载音乐...";
+"popular_week" = "本周流行";
+"daily_recommend" = "每日推荐";
+"recommended_playlists" = "推荐歌单";
+"my_playlists" = "我的歌单";
+"recently_played" = "最近播放";
+"search_placeholder" = "搜索歌曲、歌手...";
+"cancel" = "取消";
+"play_now" = "立即播放";
+"login_title" = "登录独白";
+"scan_qr" = "扫码登录";
+"phone_login" = "手机号登录";
+"scan_instruction" = "请使用网易云音乐 App 扫码";
+"phone_number" = "手机号";
+"captcha" = "验证码";
+"get_captcha" = "获取验证码";
+"login" = "登录";
+"sent" = "已发送";
+"songs_count_by" = "%d 首 • By %@";
+"qr_loading" = "正在加载二维码...";
+"qr_expired" = "二维码已过期";
+"qr_waiting" = "等待扫码...";
+"qr_scanned" = "已扫描！请在手机上确认。";
+"login_success" = "登录成功！";
+"refreshing" = "刷新中...";
+"login_failed" = "登录失败: %d";
+"tab_home" = "首页";
+"tab_podcast" = "播客";
+"tab_library" = "音乐库";
+"tab_search" = "搜索";
+"tab_profile" = "我的";
+
+/* New Additions */
+"good_morning" = "早上好";
+"good_afternoon" = "下午好";
+"good_evening" = "晚上好";
+"default_nickname" = "音乐爱好者";
+"search_bar_placeholder" = "搜索歌曲、歌手、歌单...";
+"new_releases" = "新歌首发";
+"quick_daily" = "每日推荐";
+"quick_fm" = "私人FM";
+"quick_karaoke" = "歌房";
+"quick_charts" = "排行榜";
+"made_for_you" = "为你量身打造";
+"fresh_tunes_daily" = "每日新鲜好歌";
+"view_all" = "查看全部";
+"playlists_love" = "你的专属歌单";
+"based_on_taste" = "基于你的口味推荐";
+"top_charts" = "巅峰榜";
+"trending_now" = "时下最火";
+"jump_back_in" = "继续播放";
+"recently_played_subtitle" = "最近播放的歌曲";
+"your_library" = "你的音乐库";
+"playlists_count" = "%d 个歌单";
+"tag_new_release" = "最新单曲";
+"search_in_playlist" = "搜索歌单内歌曲";
+"songs_count" = "%d 首歌曲";
+"count_hundred_million" = "%.1f亿";
+"count_ten_thousand" = "%.1f万";
+
+/* Library Tabs & Filters */
+"lib_tab_playlists" = "歌单";
+"lib_tab_artists" = "歌手";
+"lib_tab_charts" = "榜单";
+"filter_all" = "全部";
+"filter_chinese" = "华语";
+"filter_western" = "欧美";
+"filter_japanese" = "日本";
+"filter_korean" = "韩国";
+"filter_others" = "其他";
+"filter_male" = "男歌手";
+"filter_female" = "女歌手";
+"filter_band" = "乐队";
+
+/* Artist Detail */
+"artist_popular_songs" = "热门歌曲";
+"artist_albums" = "专辑";
+"artist_eps" = "EP & 单曲";
+
+/* Search */
+"search_hot" = "热门搜索";
+"search_history" = "搜索历史";
+"search_clear" = "清空";
+
+/* Login */
+"login_switch_phone" = "切换手机登录";
+"login_switch_qr" = "切换扫码登录";
+
+/* Playlist Detail */
+"playlist_created_by" = "%@ 创建";
+"playlist_updated" = "更新于 %@";
+"playlist_description" = "简介";
+
+/* Player Queue */
+"queue_tab_now_playing" = "播放队列";
+"queue_tab_history" = "历史记录";
+"queue_playing" = "正在播放";
+"queue_up_next" = "即将播放 · %d";
+"queue_empty" = "队列为空";
+"queue_history_empty" = "暂无历史记录";
+"mode_sequence" = "顺序播放";
+"mode_loop_one" = "单曲循环";
+"mode_shuffle" = "随机播放";
+
+/* Actions */
+"action_play" = "播放";
+"action_play_next" = "下一首播放";
+"action_add_to_queue" = "加入队列";
+"action_artist" = "歌手";
+"action_details" = "详情";
+"action_retry" = "重试";
+"action_logout" = "退出登录";
+
+/* Empty States */
+"empty_no_results" = "未找到结果";
+"empty_no_playlists" = "暂无歌单";
+"empty_no_artists" = "暂无歌手";
+"empty_no_charts" = "暂无榜单";
+"library_playlists_empty" = "暂无歌单，快去收藏一些吧！";
+"fm_offline" = "电台离线";
+"fm_offline_desc" = "请检查网络连接后重试。";
+
+/* Profile */
+"profile_liked_songs" = "我喜欢的音乐";
+"profile_recently_played" = "最近播放";
+"profile_downloads" = "下载管理";
+"profile_settings" = "设置";
+"profile_dynamic" = "动态";
+"profile_following" = "关注";
+"profile_followers" = "粉丝";
+"profile_cloud_disk" = "我的云盘";
+
+/* Player */
+"player_now_playing" = "正在播放";
+"player_private_fm" = "私人FM";
+"player_queue" = "播放队列";
+"artist_details" = "歌手详情";
+"more_by_artist" = "%@ 的更多歌曲";
+
+/* Format Strings */
+"songs_count_format" = "%d 首歌曲";
+"user_id_format" = "ID: %d";
+"created_by_format" = "由 %@ 创建";
+"track_count_songs" = "%d 首歌曲";
+
+/* Search */
+"search_artists" = "搜索歌手";
+
+/* Alerts */
+"alert_logout_title" = "退出登录";
+"alert_logout_message" = "确定要退出登录吗？";
+"alert_logout_confirm" = "退出";
+"alert_cancel" = "取消";

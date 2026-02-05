@@ -1,0 +1,31 @@
+name: AuroraMusic
+options:
+  bundleIdPrefix: com.aurora
+  deploymentTarget:
+    iOS: 16.2
+packages:
+  LiquidGlassEffect:
+    url: https://github.com/Lincb522/LiquidGlassEffect
+    from: 1.0.0
+targets:
+  AuroraMusic:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/AuroraMusic
+        excludes:
+          - Info.plist
+          - AuroraMusic.entitlements
+    dependencies:
+      - package: LiquidGlassEffect
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aurora.music
+        INFOPLIST_FILE: Sources/AuroraMusic/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Sources/AuroraMusic/AuroraMusic.entitlements
+        marketingVersion: 1.0.0
+        currentProjectVersion: 1
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        SKIP_INSTALL: "NO"

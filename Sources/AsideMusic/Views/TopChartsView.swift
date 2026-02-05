@@ -1,0 +1,108 @@
+import SwiftUI
+import Combine
+
+struct TopChartsView: View {
+    @State private var topLists: [TopList] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    
+    // Theme Reference
+    typealias Theme = PlaylistDetailView.Theme
+    
+    let columns = [
+        GridItem(.flexible()),
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
+    
+    var body: some View {
+        ZStack {
+            // Background
+            AsideBackground()
+            
+            if isLoading {
+                AsideLoadingView(text: "LOADING CHARTS")
+            } else if let error = errorMessage {
+                VStack {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.gray)
+                    Text(error)
+                        .foregroundColor(.gray)
+                        .padding()
+                    Button("Retry") {
+                        loadData()
+                    }
+                }
+            } else {
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        AsideBackButton()
+                        Spacer()
+                        Text(LocalizedStringKey("top_charts"))
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(Theme.text)
+                        Spacer()
+                        // Placeholder for symmetry
+                        Color.clear.frame(width: 44, height: 44)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, DeviceLayout.headerTopPadding)
+                    .padding(.bottom, 16)
+                    
+                    ScrollView(showsIndicators: false) {
+                        // Grid
+                        LazyVGrid(columns: columns, spacing: 20) {
+                            ForEach(topLists) { list in
+                                NavigationLink(destination: PlaylistDetailView(playlist: Playlist(id: list.id, name: list.name, coverImgUrl: list.coverImgUrl, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil))) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        CachedAsyncImage(url: list.coverUrl) {
+                                            Color.gray.opacity(0.1)
+                                        }
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(height: 110)
+                                        .cornerRadius(12)
+                                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                                        
+                                        Text(list.name)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(Theme.text)
+                                            .lineLimit(2)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Text(list.updateFrequency)
+                                            .font(.system(size: 10))
+                                            .foregroundColor(Theme.secondaryText)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 120)
+                    }
+                }
+            }
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            loadData()
+        }
+    }
+    
+    private func loadData() {
+        APIService.shared.fetchTopLists()
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }, receiveValue: { lists in
+                self.topLists = lists
+                self.isLoading = false
+            })
+            .store(in: &cancellables)
+    }
+    
+    @State private var cancellables = Set<AnyCancellable>()
+}

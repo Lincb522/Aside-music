@@ -1,0 +1,1080 @@
+import SwiftUI
+
+// MARK: - Aside Icon System (Aura Floating Icon Set)
+// Style: Deconstructed Linear, 1.6px Stroke
+// Features: Floating elements, disconnected lines, geometric construction.
+
+struct AsideIcon: View {
+    enum IconType {
+        // Tab Bar
+        case home
+        case podcast
+        case library
+        case search
+        case profile
+        
+        // Player Controls
+        case play
+        case pause
+        case next
+        case previous
+        case stop
+        case repeatMode
+        case repeatOne
+        case shuffle
+        case refresh
+        
+        // Actions
+        case like
+        case liked // Active state
+        case list
+        case back
+        case more
+        case close
+        case trash
+        case fm
+        case bell
+        
+        // Settings & Profile
+        case settings
+        case download
+        case cloud
+        case chevronRight
+        case magnifyingGlass
+        case xmark
+        case fullscreen
+        case sparkle
+        case soundQuality
+        case storage
+        case haptic
+        case info
+        
+        // Player Extras
+        case clock
+        case musicNoteList
+        case chart
+        case translate
+        case karaoke
+        case lock
+        case qr
+        case phone
+        case send
+        case musicNote
+    }
+    
+    let icon: IconType
+    var size: CGFloat = 24
+    var color: Color = .black
+    var lineWidth: CGFloat = 1.6
+    
+    // Derived colors
+    private var strokeColor: Color { color }
+    private var fillColor: Color { color.opacity(0.15) } // Lighter tint
+    
+    var body: some View {
+        ZStack {
+            // Layer 1: Tint Fill (Background Shape)
+            // Most Aura icons are linear, but we keep the fill for the "Dual Tone" brand identity
+            // where applicable.
+            if shouldShowFill {
+                fillLayer
+            }
+            
+            // Layer 2: Stroke (Outline)
+            strokeLayer
+        }
+        .frame(width: size, height: size)
+    }
+    
+    private var shouldShowFill: Bool {
+        switch icon {
+        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne:
+            return false
+        default:
+            return true
+        }
+    }
+    
+    @ViewBuilder
+    private var fillLayer: some View {
+        switch icon {
+        case .liked:        LikePath().fill(color.opacity(0.15)) // Special case for liked
+        default:            pathForIcon(icon).fill(fillColor)
+        }
+    }
+    
+    @ViewBuilder
+    private var strokeLayer: some View {
+        let style = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+        
+        switch icon {
+        case .liked:
+            // Liked has a filled heart + a dot. We render the heart outline and the dot.
+            LikedPath().stroke(strokeColor, style: style)
+            // Note: LikedPath in SVG is just the dot because the heart is filled. 
+            // But usually we want the outline too. 
+            // SVG: Heart (Fill 0.15) + Dot (Fill). 
+            // Let's make LikedPath return the Dot, and we rely on fillLayer for the Heart?
+            // Or we just compose it here.
+            // Let's use a specialized view for Liked to match SVG exactly.
+            ZStack {
+                LikePath().stroke(strokeColor, style: style)
+                LikePath().fill(color.opacity(0.15))
+                Circle().frame(width: size * (3.0/24.0), height: size * (3.0/24.0)).position(x: size * (12.0/24.0), y: size * (10.0/24.0)).foregroundColor(color)
+            }
+        default:
+            pathForIcon(icon).stroke(strokeColor, style: style)
+        }
+    }
+    
+    private func pathForIcon(_ icon: IconType) -> some Shape {
+        switch icon {
+        case .home:         return AnyShape(HomePath())
+        case .podcast:      return AnyShape(PodcastPath())
+        case .library:      return AnyShape(LibraryPath())
+        case .search:       return AnyShape(SearchPath())
+        case .profile:      return AnyShape(ProfilePath())
+        case .play:         return AnyShape(PlayPath())
+        case .pause:        return AnyShape(PausePath())
+        case .next:         return AnyShape(NextPath())
+        case .previous:     return AnyShape(PreviousPath())
+        case .stop:         return AnyShape(StopPath())
+        case .like:         return AnyShape(LikePath())
+        case .liked:        return AnyShape(LikePath()) // Placeholder, handled in ViewBuilder
+        case .list:         return AnyShape(ListPath())
+        case .back:         return AnyShape(BackPath())
+        case .more:         return AnyShape(MorePath())
+        case .close:        return AnyShape(ClosePath())
+        case .trash:        return AnyShape(TrashPath())
+        case .fm:           return AnyShape(FMPath())
+        case .bell:         return AnyShape(BellPath())
+        case .settings:     return AnyShape(SettingsPath())
+        case .download:     return AnyShape(DownloadPath())
+        case .cloud:        return AnyShape(CloudPath())
+        case .chevronRight: return AnyShape(ChevronRightPath())
+        case .magnifyingGlass: return AnyShape(MagnifyingGlassPath())
+        case .xmark:        return AnyShape(XmarkPath())
+        case .repeatMode:   return AnyShape(RepeatPath())
+        case .repeatOne:    return AnyShape(RepeatOnePath())
+        case .shuffle:      return AnyShape(ShufflePath())
+        case .clock:        return AnyShape(ClockPath())
+        case .musicNoteList: return AnyShape(MusicNoteListPath())
+        case .chart:        return AnyShape(ChartPath())
+        case .refresh:      return AnyShape(RefreshPath())
+        case .translate:    return AnyShape(TranslatePath())
+        case .karaoke:      return AnyShape(KaraokePath())
+        case .lock:         return AnyShape(LockPath())
+        case .qr:           return AnyShape(QRPath())
+        case .phone:        return AnyShape(PhonePath())
+        case .send:         return AnyShape(SendPath())
+        case .musicNote:    return AnyShape(MusicNotePath())
+        case .fullscreen:   return AnyShape(FullscreenPath())
+        case .sparkle:      return AnyShape(SparklePath())
+        case .soundQuality: return AnyShape(SoundQualityPath())
+        case .storage:      return AnyShape(StoragePath())
+        case .haptic:       return AnyShape(HapticPath())
+        case .info:         return AnyShape(InfoPath())
+        }
+    }
+}
+
+// Type eraser for Shapes
+struct AnyShape: Shape {
+    private let _path: (CGRect) -> Path
+    
+    init<S: Shape>(_ shape: S) {
+        _path = { rect in shape.path(in: rect) }
+    }
+    
+    func path(in rect: CGRect) -> Path {
+        _path(rect)
+    }
+}
+
+// MARK: - Aura Paths
+
+// 01. Home
+private struct HomePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // Base
+        path.move(to: CGPoint(x: 6*s, y: 13*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 20*s), control1: CGPoint(x: 6*s, y: 18.6*s), control2: CGPoint(x: 7.4*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 18*s, y: 17*s), control1: CGPoint(x: 16.6*s, y: 20*s), control2: CGPoint(x: 18*s, y: 18.6*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 13*s))
+        
+        // Roof
+        path.move(to: CGPoint(x: 4*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 11*s))
+        
+        return path
+    }
+}
+
+// 02. Podcast
+private struct PodcastPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // Capsule
+        let capsule = CGRect(x: 10*s, y: 7*s, width: 4*s, height: 8*s)
+        path.addRoundedRect(in: capsule, cornerSize: CGSize(width: 2*s, height: 2*s))
+        
+        // Waves
+        path.move(to: CGPoint(x: 6*s, y: 9*s))
+        path.addCurve(to: CGPoint(x: 6*s, y: 15*s), control1: CGPoint(x: 5*s, y: 10.5*s), control2: CGPoint(x: 5*s, y: 13.5*s))
+        
+        path.move(to: CGPoint(x: 18*s, y: 9*s))
+        path.addCurve(to: CGPoint(x: 18*s, y: 15*s), control1: CGPoint(x: 19*s, y: 10.5*s), control2: CGPoint(x: 19*s, y: 13.5*s))
+        
+        // Stand
+        path.move(to: CGPoint(x: 12*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 20*s))
+        
+        return path
+    }
+}
+
+// 03. Library (Music Library - Aura Floating Style)
+// 设计：唱片堆叠 + 音符元素，体现"音乐库"概念
+private struct LibraryPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 底部唱片（圆角矩形，略微倾斜感）
+        path.move(to: CGPoint(x: 5*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 8*s, y: 7*s), control1: CGPoint(x: 5*s, y: 8.3*s), control2: CGPoint(x: 6.3*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 10*s), control1: CGPoint(x: 17.7*s, y: 7*s), control2: CGPoint(x: 19*s, y: 8.3*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 18*s))
+        path.addCurve(to: CGPoint(x: 16*s, y: 21*s), control1: CGPoint(x: 19*s, y: 19.7*s), control2: CGPoint(x: 17.7*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 21*s))
+        path.addCurve(to: CGPoint(x: 5*s, y: 18*s), control1: CGPoint(x: 6.3*s, y: 21*s), control2: CGPoint(x: 5*s, y: 19.7*s))
+        
+        // 中间唱片层（浮动线条 - ghost element）
+        path.move(to: CGPoint(x: 7*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 5*s))
+        
+        // 顶部唱片层（浮动线条）
+        path.move(to: CGPoint(x: 9*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 3*s))
+        
+        // 唱片中心圆（音乐元素）
+        path.addEllipse(in: CGRect(x: 10*s, y: 12*s, width: 4*s, height: 4*s))
+        
+        return path
+    }
+}
+
+// 04. Search
+private struct SearchPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 12*s, height: 12*s)) // cx=10, cy=10, r=6 -> x=4, y=4, w=12, h=12
+        path.move(to: CGPoint(x: 15*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 19*s))
+        
+        return path
+    }
+}
+
+// 05. Profile
+private struct ProfilePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // Head
+        path.addEllipse(in: CGRect(x: 8.5*s, y: 3.5*s, width: 7*s, height: 7*s)) // cx=12, cy=7, r=3.5
+        
+        // Body
+        path.move(to: CGPoint(x: 5*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 14.5*s), control1: CGPoint(x: 5*s, y: 16.5*s), control2: CGPoint(x: 8*s, y: 14.5*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 20*s), control1: CGPoint(x: 16*s, y: 14.5*s), control2: CGPoint(x: 19*s, y: 16.5*s))
+        
+        return path
+    }
+}
+
+// 06. Back
+private struct BackPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 15*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 19*s))
+        
+        // Ghost line
+        path.move(to: CGPoint(x: 4*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 12*s))
+        
+        return path
+    }
+}
+
+// 07. More
+private struct MorePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        let r = 1.2 * s
+        
+        path.addEllipse(in: CGRect(x: 12*s - r, y: 5*s - r, width: 2*r, height: 2*r))
+        path.addEllipse(in: CGRect(x: 12*s - r, y: 12*s - r, width: 2*r, height: 2*r))
+        path.addEllipse(in: CGRect(x: 12*s - r, y: 19*s - r, width: 2*r, height: 2*r))
+        
+        return path
+    }
+}
+
+// 08. Close
+private struct ClosePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 7*s, y: 7*s)); path.addLine(to: CGPoint(x: 11*s, y: 11*s))
+        path.move(to: CGPoint(x: 13*s, y: 13*s)); path.addLine(to: CGPoint(x: 17*s, y: 17*s))
+        path.move(to: CGPoint(x: 17*s, y: 7*s)); path.addLine(to: CGPoint(x: 13*s, y: 11*s))
+        path.move(to: CGPoint(x: 11*s, y: 13*s)); path.addLine(to: CGPoint(x: 7*s, y: 17*s))
+        
+        return path
+    }
+}
+
+// 09. Play
+private struct PlayPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 8*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 19*s))
+        // path.closeSubpath() // SVG doesn't close explicitly but usually triangles do. SVG path: M8 5L18 12L8 19. It's an open V unless filled. But for stroke, it's open.
+        // Wait, stroke-linejoin="round". If it's open, the join at 8,19 won't be round connected to 8,5.
+        // The SVG doesn't have 'z'.
+        
+        // Ghost line
+        path.move(to: CGPoint(x: 8*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 16*s))
+        
+        return path
+    }
+}
+
+// 10. Pause
+private struct PausePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 8*s, y: 6*s)); path.addLine(to: CGPoint(x: 8*s, y: 18*s))
+        path.move(to: CGPoint(x: 16*s, y: 6*s)); path.addLine(to: CGPoint(x: 16*s, y: 18*s))
+        
+        return path
+    }
+}
+
+// 11. Next
+private struct NextPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 6*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 19*s))
+        
+        path.move(to: CGPoint(x: 18*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 18*s))
+        
+        return path
+    }
+}
+
+// 12. Previous
+private struct PreviousPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 18*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 19*s))
+        
+        path.move(to: CGPoint(x: 6*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 18*s))
+        
+        return path
+    }
+}
+
+// 13. Stop
+private struct StopPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        let box = CGRect(x: 6*s, y: 6*s, width: 12*s, height: 12*s)
+        path.addRoundedRect(in: box, cornerSize: CGSize(width: 3*s, height: 3*s))
+        
+        return path
+    }
+}
+
+// 14. Repeat
+private struct RepeatPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // Top
+        path.move(to: CGPoint(x: 17*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 14*s, y: 20*s), control1: CGPoint(x: 17*s, y: 18.5*s), control2: CGPoint(x: 15.5*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 3*s, y: 17*s), control1: CGPoint(x: 4.5*s, y: 20*s), control2: CGPoint(x: 3*s, y: 18.5*s))
+        path.addLine(to: CGPoint(x: 3*s, y: 12*s))
+        
+        // Bottom
+        path.move(to: CGPoint(x: 7*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 10*s, y: 4*s), control1: CGPoint(x: 7*s, y: 5.5*s), control2: CGPoint(x: 8.5*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 7*s), control1: CGPoint(x: 19.5*s, y: 4*s), control2: CGPoint(x: 21*s, y: 5.5*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 12*s))
+        
+        // Arrow
+        path.move(to: CGPoint(x: 19*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 23*s, y: 10*s))
+        
+        return path
+    }
+}
+
+// 15. Shuffle
+private struct ShufflePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // Path 1
+        path.move(to: CGPoint(x: 4*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 11*s, y: 14.5*s), control1: CGPoint(x: 9*s, y: 17*s), control2: CGPoint(x: 10*s, y: 16*s))
+        
+        path.move(to: CGPoint(x: 13*s, y: 11.5*s))
+        path.addLine(to: CGPoint(x: 14.5*s, y: 9.5*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 7*s), control1: CGPoint(x: 15.5*s, y: 8*s), control2: CGPoint(x: 17*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 7*s))
+        
+        // Path 2
+        path.move(to: CGPoint(x: 4*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 11*s, y: 9.5*s), control1: CGPoint(x: 9*s, y: 7*s), control2: CGPoint(x: 10*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 15.5*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 18*s), control1: CGPoint(x: 16*s, y: 17*s), control2: CGPoint(x: 17.5*s, y: 18*s))
+        
+        // Arrowheads
+        path.move(to: CGPoint(x: 18*s, y: 4*s)); path.addLine(to: CGPoint(x: 21*s, y: 7*s)); path.addLine(to: CGPoint(x: 18*s, y: 10*s))
+        path.move(to: CGPoint(x: 18*s, y: 15*s)); path.addLine(to: CGPoint(x: 21*s, y: 18*s)); path.addLine(to: CGPoint(x: 18*s, y: 21*s))
+        
+        return path
+    }
+}
+
+// 16. Refresh
+private struct RefreshPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 19*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 5*s), control1: CGPoint(x: 18*s, y: 7*s), control2: CGPoint(x: 15.5*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 4*s, y: 13*s), control1: CGPoint(x: 7.5*s, y: 5*s), control2: CGPoint(x: 4*s, y: 8.5*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 21*s), control1: CGPoint(x: 4*s, y: 17.5*s), control2: CGPoint(x: 7.5*s, y: 21*s))
+        path.addCurve(to: CGPoint(x: 20*s, y: 13*s), control1: CGPoint(x: 16.5*s, y: 21*s), control2: CGPoint(x: 20*s, y: 17.5*s))
+        
+        path.move(to: CGPoint(x: 17*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 8*s))
+        
+        return path
+    }
+}
+
+// 17. Like & Liked
+private struct LikePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 12*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 10.5*s, y: 17.5*s))
+        path.addCurve(to: CGPoint(x: 2*s, y: 6*s), control1: CGPoint(x: 5.5*s, y: 13*s), control2: CGPoint(x: 2*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 7.5*s, y: 0.5*s), control1: CGPoint(x: 2*s, y: 3*s), control2: CGPoint(x: 4.5*s, y: 0.5*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 2.5*s), control1: CGPoint(x: 9.2*s, y: 0.5*s), control2: CGPoint(x: 10.8*s, y: 1.3*s))
+        path.addCurve(to: CGPoint(x: 16.5*s, y: 0.5*s), control1: CGPoint(x: 13.2*s, y: 1.3*s), control2: CGPoint(x: 14.8*s, y: 0.5*s))
+        path.addCurve(to: CGPoint(x: 22*s, y: 6*s), control1: CGPoint(x: 19.5*s, y: 0.5*s), control2: CGPoint(x: 22*s, y: 3*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 12.5*s), control1: CGPoint(x: 22*s, y: 8*s), control2: CGPoint(x: 21*s, y: 10*s))
+        
+        return path
+    }
+}
+
+// Special Liked Path containing just the dot
+private struct LikedPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        // The dot is drawn as a circle view, so this might be empty or redundant?
+        // Actually, we can return just the dot here for the stroke layer, but the dot is filled.
+        // Let's rely on the ZStack in strokeLayer.
+        return path
+    }
+}
+
+// 19. FM
+private struct FMPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        let box = CGRect(x: 4*s, y: 9*s, width: 16*s, height: 11*s)
+        path.addRoundedRect(in: box, cornerSize: CGSize(width: 3*s, height: 3*s))
+        
+        path.addEllipse(in: CGRect(x: 6*s, y: 12.5*s, width: 4*s, height: 4*s)) // cx=8, cy=14.5, r=2
+        
+        path.move(to: CGPoint(x: 13*s, y: 14.5*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 14.5*s))
+        
+        path.move(to: CGPoint(x: 16*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 4*s))
+        
+        return path
+    }
+}
+
+// 20. Bell
+private struct BellPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 18*s, y: 13*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 7*s), control1: CGPoint(x: 18*s, y: 9.7*s), control2: CGPoint(x: 15.3*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 6*s, y: 13*s), control1: CGPoint(x: 8.7*s, y: 7*s), control2: CGPoint(x: 6*s, y: 9.7*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 13*s))
+        path.closeSubpath()
+        
+        path.move(to: CGPoint(x: 10*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 15*s, y: 20*s), control1: CGPoint(x: 10.5*s, y: 21*s), control2: CGPoint(x: 14.5*s, y: 21*s)) // Simplified arc from SVG path
+        
+        return path
+    }
+}
+
+// 21. Trash
+private struct TrashPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 6*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 18*s))
+        path.addCurve(to: CGPoint(x: 8.5*s, y: 20.5*s), control1: CGPoint(x: 6*s, y: 19.5*s), control2: CGPoint(x: 7*s, y: 20.5*s))
+        path.addLine(to: CGPoint(x: 15.5*s, y: 20.5*s))
+        path.addCurve(to: CGPoint(x: 18*s, y: 18*s), control1: CGPoint(x: 17*s, y: 20.5*s), control2: CGPoint(x: 18*s, y: 19.5*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 10*s))
+        
+        path.move(to: CGPoint(x: 4*s, y: 7*s)); path.addLine(to: CGPoint(x: 20*s, y: 7*s))
+        path.move(to: CGPoint(x: 10*s, y: 7*s)); path.addLine(to: CGPoint(x: 10*s, y: 4*s)); path.addLine(to: CGPoint(x: 14*s, y: 4*s)); path.addLine(to: CGPoint(x: 14*s, y: 7*s))
+        
+        return path
+    }
+}
+
+// 22. List
+private struct ListPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 8*s, y: 7*s)); path.addLine(to: CGPoint(x: 20*s, y: 7*s))
+        path.move(to: CGPoint(x: 8*s, y: 12*s)); path.addLine(to: CGPoint(x: 17*s, y: 12*s))
+        path.move(to: CGPoint(x: 8*s, y: 17*s)); path.addLine(to: CGPoint(x: 20*s, y: 17*s))
+        
+        path.move(to: CGPoint(x: 4*s, y: 7*s)); path.addLine(to: CGPoint(x: 5*s, y: 7*s))
+        path.move(to: CGPoint(x: 4*s, y: 12*s)); path.addLine(to: CGPoint(x: 5*s, y: 12*s))
+        path.move(to: CGPoint(x: 4*s, y: 17*s)); path.addLine(to: CGPoint(x: 5*s, y: 17*s))
+        
+        return path
+    }
+}
+
+// 23. Settings
+private struct SettingsPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.addEllipse(in: CGRect(x: 9*s, y: 9*s, width: 6*s, height: 6*s))
+        
+        path.move(to: CGPoint(x: 12*s, y: 3*s)); path.addLine(to: CGPoint(x: 12*s, y: 5*s))
+        path.move(to: CGPoint(x: 12*s, y: 19*s)); path.addLine(to: CGPoint(x: 12*s, y: 21*s))
+        path.move(to: CGPoint(x: 3*s, y: 12*s)); path.addLine(to: CGPoint(x: 5*s, y: 12*s))
+        path.move(to: CGPoint(x: 19*s, y: 12*s)); path.addLine(to: CGPoint(x: 21*s, y: 12*s))
+        
+        path.move(to: CGPoint(x: 5.6*s, y: 5.6*s)); path.addLine(to: CGPoint(x: 7*s, y: 7*s))
+        path.move(to: CGPoint(x: 17*s, y: 17*s)); path.addLine(to: CGPoint(x: 18.4*s, y: 18.4*s))
+        
+        return path
+    }
+}
+
+// 24. Download
+private struct DownloadPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 12*s, y: 4*s)); path.addLine(to: CGPoint(x: 12*s, y: 13*s))
+        path.move(to: CGPoint(x: 12*s, y: 13*s)); path.addLine(to: CGPoint(x: 8*s, y: 9*s))
+        path.move(to: CGPoint(x: 12*s, y: 13*s)); path.addLine(to: CGPoint(x: 16*s, y: 9*s))
+        
+        path.move(to: CGPoint(x: 5*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 8*s, y: 20*s), control1: CGPoint(x: 5*s, y: 18.7*s), control2: CGPoint(x: 6.3*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 17*s), control1: CGPoint(x: 17.7*s, y: 20*s), control2: CGPoint(x: 19*s, y: 18.7*s))
+        
+        return path
+    }
+}
+
+// 25. Karaoke
+private struct KaraokePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        let box = CGRect(x: 9*s, y: 4*s, width: 6*s, height: 9*s)
+        path.addRoundedRect(in: box, cornerSize: CGSize(width: 3*s, height: 3*s))
+        
+        path.move(to: CGPoint(x: 6*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 16*s), control1: CGPoint(x: 6*s, y: 13.3*s), control2: CGPoint(x: 8.7*s, y: 16*s))
+        path.addCurve(to: CGPoint(x: 18*s, y: 10*s), control1: CGPoint(x: 15.3*s, y: 16*s), control2: CGPoint(x: 18*s, y: 13.3*s))
+        
+        path.move(to: CGPoint(x: 12*s, y: 16*s)); path.addLine(to: CGPoint(x: 12*s, y: 20*s))
+        path.move(to: CGPoint(x: 9*s, y: 20*s)); path.addLine(to: CGPoint(x: 15*s, y: 20*s))
+        
+        return path
+    }
+}
+
+// 26. Cloud
+private struct CloudPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 7*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 4*s, y: 16*s), control1: CGPoint(x: 5.3*s, y: 19*s), control2: CGPoint(x: 4*s, y: 17.7*s))
+        path.addCurve(to: CGPoint(x: 7*s, y: 13*s), control1: CGPoint(x: 4*s, y: 14.3*s), control2: CGPoint(x: 5.3*s, y: 13*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 8*s), control1: CGPoint(x: 7*s, y: 10.2*s), control2: CGPoint(x: 9.2*s, y: 8*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 13*s), control1: CGPoint(x: 14.8*s, y: 8*s), control2: CGPoint(x: 17*s, y: 10.2*s))
+        
+        path.move(to: CGPoint(x: 19*s, y: 13*s))
+        path.addCurve(to: CGPoint(x: 22*s, y: 16*s), control1: CGPoint(x: 20.7*s, y: 13*s), control2: CGPoint(x: 22*s, y: 14.3*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 19*s), control1: CGPoint(x: 22*s, y: 17.7*s), control2: CGPoint(x: 20.7*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 19*s))
+        
+        return path
+    }
+}
+
+// 27. Clock
+private struct ClockPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 16*s, height: 16*s))
+        
+        path.move(to: CGPoint(x: 12*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 14*s))
+        
+        return path
+    }
+}
+
+// 28. Chart
+private struct ChartPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 5*s, y: 18*s)); path.addLine(to: CGPoint(x: 5*s, y: 14*s))
+        path.move(to: CGPoint(x: 11*s, y: 18*s)); path.addLine(to: CGPoint(x: 11*s, y: 7*s))
+        path.move(to: CGPoint(x: 17*s, y: 18*s)); path.addLine(to: CGPoint(x: 17*s, y: 11*s))
+        
+        path.move(to: CGPoint(x: 4*s, y: 21*s)); path.addLine(to: CGPoint(x: 20*s, y: 21*s))
+        
+        return path
+    }
+}
+
+// 29. Lock
+private struct LockPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        let box = CGRect(x: 6*s, y: 11*s, width: 12*s, height: 9*s)
+        path.addRoundedRect(in: box, cornerSize: CGSize(width: 3*s, height: 3*s))
+        
+        path.move(to: CGPoint(x: 9*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 4*s), control1: CGPoint(x: 9*s, y: 5.3*s), control2: CGPoint(x: 10.3*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 15*s, y: 7*s), control1: CGPoint(x: 13.7*s, y: 4*s), control2: CGPoint(x: 15*s, y: 5.3*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 11*s))
+        
+        return path
+    }
+}
+
+// 30. QR
+private struct QRPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 5*s, y: 9*s)); path.addLine(to: CGPoint(x: 5*s, y: 5*s)); path.addLine(to: CGPoint(x: 9*s, y: 5*s))
+        path.move(to: CGPoint(x: 15*s, y: 5*s)); path.addLine(to: CGPoint(x: 19*s, y: 5*s)); path.addLine(to: CGPoint(x: 19*s, y: 9*s))
+        path.move(to: CGPoint(x: 19*s, y: 15*s)); path.addLine(to: CGPoint(x: 19*s, y: 19*s)); path.addLine(to: CGPoint(x: 15*s, y: 19*s))
+        path.move(to: CGPoint(x: 9*s, y: 19*s)); path.addLine(to: CGPoint(x: 5*s, y: 19*s)); path.addLine(to: CGPoint(x: 5*s, y: 15*s))
+        
+        let box = CGRect(x: 9*s, y: 9*s, width: 6*s, height: 6*s)
+        path.addRoundedRect(in: box, cornerSize: CGSize(width: 1*s, height: 1*s))
+        
+        return path
+    }
+}
+
+// 31. Phone
+private struct PhonePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 18*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 12.5*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 14.5*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 10.5*s), control1: CGPoint(x: 11*s, y: 13.5*s), control2: CGPoint(x: 10*s, y: 12.5*s))
+        path.addLine(to: CGPoint(x: 11*s, y: 8.5*s))
+        path.addLine(to: CGPoint(x: 8.5*s, y: 5.5*s))
+        path.addLine(to: CGPoint(x: 5.5*s, y: 8.5*s))
+        path.addCurve(to: CGPoint(x: 15.5*s, y: 18.5*s), control1: CGPoint(x: 5.5*s, y: 14.5*s), control2: CGPoint(x: 9.5*s, y: 18.5*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 15*s))
+        path.closeSubpath()
+        
+        return path
+    }
+}
+
+// 32. Send
+private struct SendPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 21*s, y: 3*s)); path.addLine(to: CGPoint(x: 10*s, y: 14*s))
+        path.move(to: CGPoint(x: 21*s, y: 3*s)); path.addLine(to: CGPoint(x: 3*s, y: 10*s)); path.addLine(to: CGPoint(x: 10*s, y: 14*s))
+        path.move(to: CGPoint(x: 21*s, y: 3*s)); path.addLine(to: CGPoint(x: 14*s, y: 21*s)); path.addLine(to: CGPoint(x: 10*s, y: 14*s))
+        
+        return path
+    }
+}
+
+// 33. MusicNote
+private struct MusicNotePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.addEllipse(in: CGRect(x: 5*s, y: 14*s, width: 6*s, height: 6*s)) // cx=8, cy=17, r=3
+        
+        path.move(to: CGPoint(x: 11*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 11*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 8*s))
+        
+        return path
+    }
+}
+
+// 34. MusicNoteList
+private struct MusicNoteListPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 8*s, y: 6*s)); path.addLine(to: CGPoint(x: 8*s, y: 15*s))
+        path.addEllipse(in: CGRect(x: 2.5*s, y: 12.5*s, width: 5*s, height: 5*s)) // cx=5, cy=15, r=2.5
+        
+        path.move(to: CGPoint(x: 13*s, y: 7*s)); path.addLine(to: CGPoint(x: 20*s, y: 7*s))
+        path.move(to: CGPoint(x: 13*s, y: 12*s)); path.addLine(to: CGPoint(x: 19*s, y: 12*s))
+        path.move(to: CGPoint(x: 13*s, y: 17*s)); path.addLine(to: CGPoint(x: 20*s, y: 17*s))
+        
+        return path
+    }
+}
+
+// 35. Translate
+private struct TranslatePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 文
+        path.move(to: CGPoint(x: 4*s, y: 7*s)); path.addLine(to: CGPoint(x: 14*s, y: 7*s))
+        path.move(to: CGPoint(x: 9*s, y: 4*s)); path.addLine(to: CGPoint(x: 9*s, y: 7*s))
+        path.move(to: CGPoint(x: 12*s, y: 11*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 7*s), control1: CGPoint(x: 11*s, y: 9*s), control2: CGPoint(x: 9*s, y: 7*s))
+        path.move(to: CGPoint(x: 9*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 6*s, y: 11*s), control1: CGPoint(x: 7*s, y: 9*s), control2: CGPoint(x: 6*s, y: 11*s))
+        
+        // A
+        path.move(to: CGPoint(x: 14*s, y: 19*s)); path.addLine(to: CGPoint(x: 17*s, y: 12*s)); path.addLine(to: CGPoint(x: 20*s, y: 19*s))
+        path.move(to: CGPoint(x: 15.5*s, y: 16*s)); path.addLine(to: CGPoint(x: 18.5*s, y: 16*s))
+        
+        return path
+    }
+}
+
+// 36. RepeatOne (Aura Floating Style - matches RepeatPath)
+private struct RepeatOnePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // Top arc (floating, disconnected)
+        path.move(to: CGPoint(x: 17*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 14*s, y: 20*s), control1: CGPoint(x: 17*s, y: 18.5*s), control2: CGPoint(x: 15.5*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 3*s, y: 17*s), control1: CGPoint(x: 4.5*s, y: 20*s), control2: CGPoint(x: 3*s, y: 18.5*s))
+        path.addLine(to: CGPoint(x: 3*s, y: 12*s))
+        
+        // Bottom arc (floating, disconnected)
+        path.move(to: CGPoint(x: 7*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 10*s, y: 4*s), control1: CGPoint(x: 7*s, y: 5.5*s), control2: CGPoint(x: 8.5*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 7*s), control1: CGPoint(x: 19.5*s, y: 4*s), control2: CGPoint(x: 21*s, y: 5.5*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 12*s))
+        
+        // Arrow (floating)
+        path.move(to: CGPoint(x: 19*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 23*s, y: 10*s))
+        
+        // "1" in center (minimal, geometric - floating style)
+        path.move(to: CGPoint(x: 11*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 15*s))
+        
+        // Ghost underline for "1" (Aura floating accent)
+        path.move(to: CGPoint(x: 11*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
+        
+        return path
+    }
+}
+
+// 37. ChevronRight
+private struct ChevronRightPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 10*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 16*s))
+        
+        return path
+    }
+}
+
+// 38. MagnifyingGlass
+private struct MagnifyingGlassPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 12*s, height: 12*s))
+        path.move(to: CGPoint(x: 14.5*s, y: 14.5*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 19*s))
+        
+        return path
+    }
+}
+
+// 39. Xmark
+private struct XmarkPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 8*s, y: 8*s)); path.addLine(to: CGPoint(x: 16*s, y: 16*s))
+        path.move(to: CGPoint(x: 16*s, y: 8*s)); path.addLine(to: CGPoint(x: 8*s, y: 16*s))
+        
+        return path
+    }
+}
+
+// 40. Fullscreen
+private struct FullscreenPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 4*s, y: 9*s)); path.addLine(to: CGPoint(x: 4*s, y: 4*s)); path.addLine(to: CGPoint(x: 9*s, y: 4*s))
+        path.move(to: CGPoint(x: 15*s, y: 4*s)); path.addLine(to: CGPoint(x: 20*s, y: 4*s)); path.addLine(to: CGPoint(x: 20*s, y: 9*s))
+        path.move(to: CGPoint(x: 20*s, y: 15*s)); path.addLine(to: CGPoint(x: 20*s, y: 20*s)); path.addLine(to: CGPoint(x: 15*s, y: 20*s))
+        path.move(to: CGPoint(x: 9*s, y: 20*s)); path.addLine(to: CGPoint(x: 4*s, y: 20*s)); path.addLine(to: CGPoint(x: 4*s, y: 15*s))
+        
+        return path
+    }
+}
+
+// 41. Sparkle (液态玻璃效果图标)
+private struct SparklePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 主星芒
+        path.move(to: CGPoint(x: 12*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 13.5*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 14.5*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 9.5*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 10.5*s, y: 9*s))
+        path.closeSubpath()
+        
+        // 小星点 (浮动元素)
+        path.addEllipse(in: CGRect(x: 17*s, y: 3*s, width: 2.5*s, height: 2.5*s))
+        path.addEllipse(in: CGRect(x: 4*s, y: 18*s, width: 2*s, height: 2*s))
+        
+        return path
+    }
+}
+
+// 42. SoundQuality (音质图标)
+private struct SoundQualityPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 扬声器主体
+        path.move(to: CGPoint(x: 5*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 15*s))
+        path.closeSubpath()
+        
+        // 声波 (浮动弧线)
+        path.move(to: CGPoint(x: 15*s, y: 9*s))
+        path.addQuadCurve(to: CGPoint(x: 15*s, y: 15*s), control: CGPoint(x: 18*s, y: 12*s))
+        
+        path.move(to: CGPoint(x: 17*s, y: 6*s))
+        path.addQuadCurve(to: CGPoint(x: 17*s, y: 18*s), control: CGPoint(x: 22*s, y: 12*s))
+        
+        return path
+    }
+}
+
+// 43. Storage (存储图标)
+private struct StoragePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 硬盘主体
+        path.addRoundedRect(in: CGRect(x: 4*s, y: 6*s, width: 16*s, height: 12*s), cornerSize: CGSize(width: 2*s, height: 2*s))
+        
+        // 分隔线
+        path.move(to: CGPoint(x: 4*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 12*s))
+        
+        // 指示灯 (浮动元素)
+        path.addEllipse(in: CGRect(x: 16*s, y: 8*s, width: 2*s, height: 2*s))
+        path.addEllipse(in: CGRect(x: 16*s, y: 14*s, width: 2*s, height: 2*s))
+        
+        return path
+    }
+}
+
+// 44. Haptic (触感反馈图标)
+private struct HapticPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 手机轮廓
+        path.addRoundedRect(in: CGRect(x: 7*s, y: 3*s, width: 10*s, height: 18*s), cornerSize: CGSize(width: 2*s, height: 2*s))
+        
+        // 震动波纹 (左侧)
+        path.move(to: CGPoint(x: 5*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 3*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 15*s))
+        
+        // 震动波纹 (右侧)
+        path.move(to: CGPoint(x: 19*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 15*s))
+        
+        return path
+    }
+}
+
+// 45. Info (信息图标)
+private struct InfoPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 圆形背景
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 16*s, height: 16*s))
+        
+        // i 的点 (浮动)
+        path.addEllipse(in: CGRect(x: 11*s, y: 7*s, width: 2*s, height: 2*s))
+        
+        // i 的竖线
+        path.move(to: CGPoint(x: 12*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 16*s))
+        
+        return path
+    }
+}

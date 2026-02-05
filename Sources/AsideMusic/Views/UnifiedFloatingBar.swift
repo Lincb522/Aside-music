@@ -1,0 +1,324 @@
+import SwiftUI
+import LiquidGlassEffect
+
+// MARK: - Subviews for Performance
+struct MiniPlayerSection: View {
+    let song: Song
+    let isPlaying: Bool
+    let togglePlayPause: () -> Void
+    @State private var showPlaylist = false
+    @ObservedObject var player = PlayerManager.shared
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                // Cover
+                CachedAsyncImage(url: song.coverUrl) {
+                    Color.gray.opacity(0.3)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 32, height: 32)
+                .cornerRadius(6)
+                
+                // Info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(song.name)
+                        .font(.rounded(size: 12, weight: .bold))
+                        .foregroundColor(.black)
+                        .lineLimit(1)
+                    Text(song.artistName)
+                        .font(.rounded(size: 10, weight: .medium))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // Controls
+                HStack(spacing: 12) {
+                    // Play/Pause Button
+                    Button(action: togglePlayPause) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.black)
+                                .frame(width: 32, height: 32)
+                            
+                            if player.isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.6)
+                            } else {
+                                if isPlaying {
+                                    AsideIcon(icon: .pause, size: 14, color: .white)
+                                } else {
+                                    AsideIcon(icon: .play, size: 14, color: .white)
+                                }
+                            }
+                        }
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle())
+                    
+                    // Playlist Button
+                    Button(action: { showPlaylist.toggle() }) {
+                        AsideIcon(icon: .list, size: 16, color: .black)
+                            .frame(width: 32, height: 32)
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle())
+                    
+                    // Close Button (Only visible when paused)
+                    if !isPlaying {
+                        Button(action: {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                player.stopAndClear()
+                            }
+                        }) {
+                            AsideIcon(icon: .close, size: 12, color: .gray)
+                                .frame(width: 24, height: 24)
+                                .background(Color.gray.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle())
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    if player.isPlayingFM {
+                        NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+                    }
+                }
+            }
+            
+            // Progress Bar
+            ProgressBarView()
+                .frame(height: 2)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+        }
+        .sheet(isPresented: $showPlaylist) {
+            PlaylistPopupView()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+struct ProgressBarView: View {
+    @ObservedObject var player = PlayerManager.shared
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.1))
+                    .frame(height: 3)
+                
+                let progress = player.duration > 0 ? player.currentTime / player.duration : 0
+                Capsule()
+                    .fill(Color.black)
+                    .frame(width: geometry.size.width * CGFloat(progress), height: 3)
+                    .animation(.linear(duration: 0.1), value: progress)
+            }
+        }
+    }
+}
+
+// MARK: - Aside TabBar (使用 LiquidGlassEffect 风格)
+struct AsideTabBar: View {
+    @Binding var selectedIndex: Int
+    @ObservedObject private var settings = SettingsManager.shared
+    
+    /// 每个 tab 的宽度
+    private let itemWidth: CGFloat = 64
+    /// 每个 tab 的高度
+    private let itemHeight: CGFloat = 44
+    /// 气泡宽度
+    private let bubbleWidth: CGFloat = 56
+    /// 内边距
+    private let padding: CGFloat = 6
+    
+    private let items: [(icon: AsideIcon.IconType, label: String)] = [
+        (.home, "首页"),
+        (.podcast, "播客"),
+        (.library, "音乐库"),
+        (.profile, "我的")
+    ]
+    
+    /// 计算气泡的水平偏移量
+    private var bubbleOffset: CGFloat {
+        let totalWidth = CGFloat(items.count) * itemWidth
+        let startX = -totalWidth / 2 + itemWidth / 2
+        return startX + CGFloat(selectedIndex) * itemWidth
+    }
+    
+    var body: some View {
+        ZStack {
+            // 单一气泡 - 通过位置动画移动，避免闪烁
+            Group {
+                if settings.liquidGlassEnabled {
+                    LiquidGlassContainer(config: .thumb(), cornerRadius: 16) {
+                        Color.clear
+                            .frame(width: bubbleWidth, height: itemHeight)
+                    }
+                } else {
+                    // 原生毛玻璃气泡
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.regularMaterial)
+                        .frame(width: bubbleWidth, height: itemHeight)
+                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                }
+            }
+            .offset(x: bubbleOffset)
+            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedIndex)
+            
+            // Tab 项目
+            HStack(spacing: 0) {
+                ForEach(0..<items.count, id: \.self) { index in
+                    AsideTabItemView(
+                        icon: items[index].icon,
+                        label: items[index].label,
+                        isSelected: selectedIndex == index
+                    ) {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            selectedIndex = index
+                        }
+                    }
+                    .frame(width: itemWidth, height: itemHeight)
+                }
+            }
+        }
+        .padding(.vertical, padding)
+    }
+}
+
+// MARK: - Tab Item View (复用 LiquidGlassEffect 风格)
+private struct AsideTabItemView: View {
+    let icon: AsideIcon.IconType
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            
+            isPressed = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isPressed = false
+            }
+            action()
+        }) {
+            // 图标和文字
+            VStack(spacing: 2) {
+                AsideIcon(icon: icon, size: 20, color: isSelected ? .black : .black.opacity(0.4))
+                    .scaleEffect(isPressed ? 0.8 : (isSelected ? 1.05 : 0.95))
+                    .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
+                
+                Text(label)
+                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
+                    .foregroundColor(isSelected ? .black : .black.opacity(0.4))
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Unified Floating Bar
+struct UnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Mini Player Section
+            if let song = player.currentSong {
+                MiniPlayerSection(
+                    song: song,
+                    isPlaying: player.isPlaying,
+                    togglePlayPause: { player.togglePlayPause() }
+                )
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .bottom)),
+                    removal: .opacity.combined(with: .scale(scale: 0.95, anchor: .bottom))
+                ))
+            }
+            
+            // Tab Bar Section - 使用新的 AsideTabBar
+            AsideTabBar(selectedIndex: Binding(
+                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
+                set: { currentTab = Tab.allCases[$0] }
+            ))
+        }
+        .background {
+            ZStack {
+                // 根据设置选择液态玻璃或原生毛玻璃
+                if settings.liquidGlassEnabled {
+                    // 使用较低的背景捕获帧率，静态场景会自动冻结
+                    LiquidGlassMetalView(cornerRadius: 20, backgroundCaptureFrameRate: 30)
+                    
+                    // 白色半透明叠加层
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(0.4))
+                } else {
+                    // 原生毛玻璃效果
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0.2), value: player.currentSong != nil)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentTab)
+        .animation(.easeInOut(duration: 0.3), value: settings.liquidGlassEnabled)
+        .gesture(
+            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                .onEnded { value in
+                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    
+                    if value.translation.width < 0 {
+                        switchTab(direction: 1)
+                    } else if value.translation.width > 0 {
+                        switchTab(direction: -1)
+                    }
+                }
+        )
+    }
+    
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+        
+        let nextIndex = currentIndex + direction
+        
+        if nextIndex >= 0 && nextIndex < allTabs.count {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+// MARK: - Tab Enum Extension for Aside Icons
+extension Tab {
+    var asideIcon: AsideIcon.IconType {
+        switch self {
+        case .home: return .home
+        case .podcast: return .podcast
+        case .library: return .library
+        case .profile: return .profile
+        }
+    }
+}

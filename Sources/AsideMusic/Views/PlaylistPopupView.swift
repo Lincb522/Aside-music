@@ -1,0 +1,327 @@
+import SwiftUI
+
+struct PlaylistPopupView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @ObservedObject var player = PlayerManager.shared
+    @State private var selectedTab = 0 // 0: Current, 1: History
+    @Namespace private var namespace
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            headerView
+                .padding(.top, 24)
+                .padding(.bottom, 16)
+            
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if selectedTab == 0 {
+                        currentQueueView
+                    } else {
+                        historyView
+                    }
+                }
+                .padding(.bottom, 30)
+            }
+        }
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(Color.white.opacity(0.6))
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+    
+    private var headerView: some View {
+        HStack(spacing: 0) {
+            // Tab Buttons
+            HStack(spacing: 24) {
+                tabButton(title: "queue_tab_now_playing", tabIndex: 0)
+                tabButton(title: "queue_tab_history", tabIndex: 1)
+            }
+            
+            Spacer()
+            
+            // Play Mode Button
+            Button(action: { player.switchMode() }) {
+                HStack(spacing: 6) {
+                    AsideIcon(icon: player.mode.asideIcon, size: 16, color: .black)
+                    Text(modeName(player.mode))
+                        .font(.rounded(size: 14, weight: .medium))
+                }
+                .foregroundColor(.black)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.black.opacity(0.05))
+                .cornerRadius(20)
+            }
+        }
+        .padding(.horizontal, 24)
+    }
+    
+    private func tabButton(title: String, tabIndex: Int) -> some View {
+        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tabIndex } }) {
+            VStack(spacing: 6) {
+                Text(LocalizedStringKey(title))
+                    .font(.rounded(size: 18, weight: selectedTab == tabIndex ? .bold : .medium))
+                    .foregroundColor(selectedTab == tabIndex ? .black : .gray)
+                
+                if selectedTab == tabIndex {
+                    Capsule()
+                        .fill(Color.black)
+                        .frame(width: 20, height: 4)
+                        .matchedGeometryEffect(id: "tabIndicator", in: namespace)
+                } else {
+                    Capsule().fill(Color.clear).frame(height: 4)
+                }
+            }
+        }
+    }
+    
+    private var currentQueueView: some View {
+        VStack(spacing: 0) {
+            // Now Playing Section
+            if let currentSong = player.currentSong {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(LocalizedStringKey("queue_playing"))
+                        .font(.rounded(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                        .tracking(1.5)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 12)
+                    
+                    NowPlayingRow(song: currentSong)
+                }
+                
+                Divider()
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+            }
+            
+            // Up Next Section
+            if !player.upcomingSongs.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(format: NSLocalizedString("queue_up_next", comment: ""), player.upcomingSongs.count))
+                        .font(.rounded(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                        .tracking(1.5)
+                        .padding(.horizontal, 24)
+                    
+                    ForEach(Array(player.upcomingSongs.enumerated()), id: \.offset) { index, song in
+                        let canRemove = player.isUpcomingIndexInUserQueue(at: index)
+                        
+                        QueueRow(
+                            song: song,
+                            isCurrent: false,
+                            isFromUserQueue: canRemove,
+                            action: {
+                                player.playFromQueue(song: song)
+                            },
+                            removeAction: canRemove ? {
+                                withAnimation {
+                                    player.removeFromUpcoming(at: index)
+                                }
+                            } : nil
+                        )
+                    }
+                }
+            } else if player.currentSong == nil {
+                EmptyStateView(text: "queue_empty", icon: .musicNoteList)
+            }
+        }
+    }
+    
+    private var historyView: some View {
+        Group {
+            if player.history.isEmpty {
+                EmptyStateView(text: "queue_history_empty", icon: .clock)
+            } else {
+                ForEach(player.history) { song in
+                    HistoryRow(song: song) {
+                        player.playFromQueue(song: song)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func modeName(_ mode: PlayerManager.PlayMode) -> String {
+        switch mode {
+        case .sequence: return NSLocalizedString("mode_sequence", comment: "")
+        case .loopSingle: return NSLocalizedString("mode_loop_one", comment: "")
+        case .shuffle: return NSLocalizedString("mode_shuffle", comment: "")
+        }
+    }
+}
+
+// MARK: - Now Playing Row (Highlighted)
+struct NowPlayingRow: View {
+    let song: Song
+    @ObservedObject var player = PlayerManager.shared
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Cover Art
+            CachedAsyncImage(url: song.coverUrl) {
+                Color.gray.opacity(0.2)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 52, height: 52)
+            .cornerRadius(10)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(song.name)
+                .font(.rounded(size: 16, weight: .bold))
+                .foregroundColor(.black)
+                .lineLimit(1)
+                Text(song.artistName)
+                .font(.rounded(size: 13, weight: .medium))
+                .foregroundColor(.gray)
+                .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Playing Indicator
+            HStack(spacing: 2) {
+                ForEach(0..<3) { i in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.black)
+                        .frame(width: 3, height: player.isPlaying ? CGFloat([8, 14, 10][i]) : 4)
+                        .animation(
+                            player.isPlaying ?
+                                .easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.1) :
+                                .easeInOut(duration: 0.2),
+                            value: player.isPlaying
+                        )
+                }
+            }
+            .frame(width: 20)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 24)
+        .background(Color.black.opacity(0.03))
+    }
+}
+
+// MARK: - Queue Row
+struct QueueRow: View {
+    let song: Song
+    let isCurrent: Bool
+    var isFromUserQueue: Bool = false
+    let action: () -> Void
+    var removeAction: (() -> Void)? = nil
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Cover Art
+                CachedAsyncImage(url: song.coverUrl) {
+                    Color.gray.opacity(0.2)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 44, height: 44)
+                .cornerRadius(8)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(song.name)
+                            .font(.rounded(size: 15, weight: .medium))
+                            .foregroundColor(.black)
+                            .lineLimit(1)
+                        
+                        if isFromUserQueue {
+                            Text(LocalizedStringKey("player_queue"))
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(3)
+                        }
+                    }
+                    Text(song.artistName)
+                        .font(.rounded(size: 12, weight: .regular))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                if let removeAction = removeAction {
+                    Button(action: removeAction) {
+                        AsideIcon(icon: .xmark, size: 12, color: .gray.opacity(0.5))
+                            .padding(8)
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 24)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - History Row
+struct HistoryRow: View {
+    let song: Song
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Cover Art
+                CachedAsyncImage(url: song.coverUrl) {
+                    Color.gray.opacity(0.2)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 44, height: 44)
+                .cornerRadius(8)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.name)
+                        .font(.rounded(size: 15, weight: .medium))
+                        .foregroundColor(.black)
+                        .lineLimit(1)
+                    Text(song.artistName)
+                        .font(.rounded(size: 12, weight: .regular))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+                Spacer()
+                AsideIcon(icon: .play, size: 24, color: .gray.opacity(0.5))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 24)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Empty State
+struct EmptyStateView: View {
+    let text: String
+    let icon: AsideIcon.IconType
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+                .frame(height: 100)
+            AsideIcon(icon: icon, size: 48, color: .gray.opacity(0.3))
+            Text(LocalizedStringKey(text))
+                .font(.rounded(size: 16, weight: .medium))
+                .foregroundColor(.gray)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Extensions
+extension PlayerManager.PlayMode {
+    var asideIcon: AsideIcon.IconType {
+        switch self {
+        case .sequence: return .repeatMode
+        case .loopSingle: return .repeatOne
+        case .shuffle: return .shuffle
+        }
+    }
+}
