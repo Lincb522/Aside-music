@@ -1,25 +1,277 @@
-# AsideMusic
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Lincb522/Aside-music/main/Sources/AsideMusic/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512%402x.png" width="128" height="128" alt="Aside Music Logo">
+</p>
 
-iOS 音乐播放器应用，采用 iOS 26 风格液态玻璃设计。
+<h1 align="center">Aside Music</h1>
 
-## 依赖
+<p align="center">
+  <strong>🎵 一款精致的第三方网易云音乐 iOS 客户端</strong>
+</p>
 
-- [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) - 液态玻璃效果库
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-iOS%2017%2B-blue?style=flat-square&logo=apple" alt="Platform">
+  <img src="https://img.shields.io/badge/Swift-5.9-orange?style=flat-square&logo=swift" alt="Swift">
+  <img src="https://img.shields.io/badge/SwiftUI-Native-green?style=flat-square" alt="SwiftUI">
+  <img src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square" alt="License">
+</p>
 
-## 构建
+<p align="center">
+  <a href="#-特性">特性</a> •
+  <a href="#-截图">截图</a> •
+  <a href="#-安装">安装</a> •
+  <a href="#-项目结构">项目结构</a> •
+  <a href="#-技术栈">技术栈</a> •
+  <a href="#-致谢">致谢</a>
+</p>
+
+---
+
+## ✨ 特性
+
+### 🎨 视觉设计
+- **Liquid Glass 效果** - iOS 26 风格的液态玻璃视觉效果
+- **Aura 图标系统** - 自研的浮动线条图标，1.6px 描边
+- **流畅动画** - 全局弹性动画与手势交互
+- **深色/浅色模式** - 自适应系统主题
+
+### 🎵 播放功能
+- **多种播放模式** - 顺序播放、单曲循环、随机播放
+- **播放队列管理** - 下一首播放、添加到队列
+- **私人 FM** - 个性化推荐电台
+- **歌词显示** - 逐行滚动歌词
+- **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质
+- **解灰功能** - 自动匹配其他音源播放无版权歌曲
+
+### 📱 核心功能
+- **QR 码登录** - 扫码快速登录
+- **手机号登录** - 验证码登录
+- **每日推荐** - 每日 30 首个性化推荐
+- **歌单管理** - 查看、播放用户歌单
+- **搜索** - 歌曲、歌手、歌单、专辑搜索
+- **排行榜** - 各类音乐榜单
+- **歌手详情** - 歌手信息与热门歌曲
+- **播放历史** - 最近播放记录
+
+### 🔧 系统功能
+- **后台播放** - 支持后台持续播放
+- **锁屏控制** - 锁屏界面播放控制
+- **控制中心** - 系统控制中心集成
+- **智能缓存** - 图片与数据缓存优化
+- **本地数据库** - SQLite 持久化存储
+
+---
+
+## 📸 截图
+
+> 截图待添加
+
+---
+
+## 📦 安装
+
+### 环境要求
+- macOS 14.0+
+- Xcode 15.0+
+- iOS 17.0+
+
+### 后端服务
+本项目需要配合 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 后端服务使用。
 
 ```bash
-# 生成 Xcode 项目
-xcodegen generate
+# 克隆后端项目
+git clone https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced.git
+cd api-enhanced
+pnpm install
+node app.js
+```
 
-# 构建 IPA
+### 构建 iOS 应用
+
+```bash
+# 克隆本项目
+git clone https://github.com/Lincb522/Aside-music.git
+cd Aside-music
+
+# 配置 API 地址
+# 编辑 .env 文件设置 API_BASE_URL
+
+# 使用 Xcode 打开项目
+open AsideMusic.xcodeproj
+
+# 或使用脚本构建 IPA
 ./build_ipa.sh
 ```
 
-## 配置
+---
 
-在 `.env` 文件中配置 API 地址：
+## 🏗 项目结构
 
 ```
-API_BASE_URL=your_api_url
+AsideMusic/
+├── Sources/AsideMusic/
+│   ├── AsideMusicApp.swift          # 应用入口
+│   │
+│   ├── Models/                       # 数据模型
+│   │   ├── Song.swift               # 歌曲模型
+│   │   └── SoundQuality.swift       # 音质枚举
+│   │
+│   ├── Views/                        # 视图层
+│   │   ├── ContentView.swift        # 主容器视图
+│   │   ├── HomeView.swift           # 首页
+│   │   ├── LibraryView.swift        # 音乐库
+│   │   ├── SearchView.swift         # 搜索页
+│   │   ├── ProfileView.swift        # 个人中心
+│   │   ├── FullScreenPlayerView.swift # 全屏播放器
+│   │   ├── MiniPlayerView.swift     # 迷你播放器
+│   │   ├── PersonalFMView.swift     # 私人FM
+│   │   ├── DailyRecommendView.swift # 每日推荐
+│   │   ├── PlaylistDetailView.swift # 歌单详情
+│   │   ├── ArtistDetailView.swift   # 歌手详情
+│   │   ├── SettingsView.swift       # 设置页
+│   │   ├── LoginView.swift          # 登录页
+│   │   ├── AsideIcons.swift         # Aura 图标系统
+│   │   │
+│   │   └── Components/              # 可复用组件
+│   │       ├── SongListRow.swift    # 歌曲列表行
+│   │       ├── LyricsView.swift     # 歌词视图
+│   │       ├── LikeButton.swift     # 喜欢按钮
+│   │       ├── AsideAlert.swift     # 自定义弹窗
+│   │       ├── AsideBackground.swift # 背景组件
+│   │       ├── VisualEffectBlur.swift # 模糊效果
+│   │       └── PlayingVisualizerView.swift # 播放动画
+│   │
+│   ├── ViewModels/                   # 视图模型
+│   │   ├── PlayerManager.swift      # 播放器管理
+│   │   ├── HomeViewModel.swift      # 首页数据
+│   │   └── LoginViewModel.swift     # 登录逻辑
+│   │
+│   ├── Network/                      # 网络层
+│   │   ├── APIService.swift         # API 服务
+│   │   └── APIService+Search.swift  # 搜索扩展
+│   │
+│   ├── Database/                     # 数据库层
+│   │   ├── DatabaseManager.swift    # 数据库管理
+│   │   ├── Models/                  # 缓存模型
+│   │   └── Repositories/            # 数据仓库
+│   │
+│   ├── Managers/                     # 管理器
+│   │   ├── SettingsManager.swift    # 设置管理
+│   │   ├── CacheManager.swift       # 缓存管理
+│   │   ├── LikeManager.swift        # 喜欢管理
+│   │   ├── StyleManager.swift       # 样式管理
+│   │   └── DataSyncCoordinator.swift # 数据同步
+│   │
+│   ├── Utils/                        # 工具类
+│   │   ├── AlertManager.swift       # 弹窗管理
+│   │   ├── DeviceLayout.swift       # 设备布局
+│   │   └── ErrorHandler.swift       # 错误处理
+│   │
+│   └── Resources/                    # 资源文件
+│       ├── Assets.xcassets/         # 图片资源
+│       ├── en.lproj/                # 英文本地化
+│       └── zh-Hans.lproj/           # 中文本地化
+│
+├── Package.swift                     # Swift Package 配置
+└── build_ipa.sh                      # IPA 构建脚本
 ```
+
+---
+
+## 🛠 技术栈
+
+| 类别 | 技术 |
+|------|------|
+| **UI 框架** | SwiftUI |
+| **架构模式** | MVVM |
+| **网络请求** | URLSession + Combine |
+| **数据持久化** | SQLite (自定义封装) |
+| **缓存策略** | 内存缓存 + 磁盘缓存 |
+| **音频播放** | AVFoundation |
+| **远程控制** | MediaPlayer |
+| **视觉效果** | [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) |
+| **依赖管理** | Swift Package Manager |
+
+---
+
+## 🚧 待开发功能
+
+### 高优先级
+- [ ] **歌曲下载** - 离线缓存歌曲
+- [ ] **播放列表编辑** - 创建、编辑、删除歌单
+- [ ] **评论系统** - 查看歌曲评论
+- [ ] **分享功能** - 分享歌曲/歌单
+
+### 中优先级
+- [ ] **MV 播放** - 音乐视频播放
+- [ ] **歌词翻译** - 显示翻译歌词
+- [ ] **定时关闭** - 睡眠定时器
+- [ ] **均衡器** - 音效调节
+- [ ] **CarPlay 支持** - 车载播放
+
+### 低优先级
+- [ ] **社交功能** - 关注、动态
+- [ ] **播客** - 播客内容
+- [ ] **直播** - 音乐直播
+- [ ] **Widget** - 桌面小组件
+- [ ] **Apple Watch** - 手表应用
+
+---
+
+## 🙏 致谢
+
+### 核心依赖
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced">
+        <img src="https://avatars.githubusercontent.com/u/200893893?s=200&v=4" width="64" height="64" alt="NeteaseCloudMusicApi Enhanced">
+        <br>
+        <strong>NeteaseCloudMusicApi Enhanced</strong>
+      </a>
+      <br>
+      <sub>网易云音乐 API 服务</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/Lincb522/LiquidGlassEffect">
+        <img src="https://raw.githubusercontent.com/Lincb522/LiquidGlassEffect/main/docs/assets/logo.png" width="64" height="64" alt="LiquidGlassEffect">
+        <br>
+        <strong>LiquidGlassEffect</strong>
+      </a>
+      <br>
+      <sub>iOS 26 液态玻璃效果库</sub>
+    </td>
+  </tr>
+</table>
+
+### 特别感谢
+
+- [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced) - 提供强大的网易云音乐 API 服务，包括解灰功能
+- [Binaryify](https://github.com/Binaryify) - 原版 NeteaseCloudMusicApi 作者
+- 所有为网易云音乐逆向工程做出贡献的开发者
+
+### 参考项目
+
+- [YesPlayMusic](https://github.com/qier222/YesPlayMusic) - 高颜值的第三方网易云播放器
+- [listen1](https://github.com/listen1/listen1_chrome_extension) - 多平台音乐聚合
+
+---
+
+## 📄 许可证
+
+本项目基于 [MIT License](LICENSE) 开源。
+
+---
+
+## ⚠️ 免责声明
+
+- 本项目仅供学习交流使用，请勿用于商业用途
+- 使用本项目时请遵守相关法律法规
+- 音乐版权归网易云音乐及相关权利人所有
+- 本项目不提供任何音乐资源，所有数据来自网易云音乐官方 API
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/Lincb522">Lincb522</a>
+</p>
