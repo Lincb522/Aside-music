@@ -412,27 +412,32 @@ class PlayerManager: ObservableObject {
             let time = currentTime
             let wasPlaying = isPlaying
             
-            // 先获取新 URL，成功后再切换
-            APIService.shared.fetchSongUrl(id: current.id, level: quality.rawValue)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] completion in
-                    if case .failure(let error) = completion {
-                        print("切换音质失败: \(error)")
-                        // 保持原音质不变
-                        AlertManager.shared.show(
-                            title: "切换失败",
-                            message: "无法获取该音质的音频，请稍后重试",
-                            primaryButtonTitle: "确定",
-                            primaryAction: {}
-                        )
-                    }
-                }, receiveValue: { [weak self] urlString in
-                    guard let self = self, let url = URL(string: urlString) else { return }
-                    // 成功获取新 URL，更新音质设置并播放
-                    self.soundQuality = quality
-                    self.startPlayback(url: url, autoPlay: wasPlaying, startTime: time)
-                })
-                .store(in: &cancellables)
+            // 在主线程获取设置值
+            Task { @MainActor in
+                let enableUnblock = SettingsManager.shared.unblockEnabled
+                
+                // 先获取新 URL，成功后再切换
+                APIService.shared.fetchSongUrl(id: current.id, level: quality.rawValue, enableUnblock: enableUnblock)
+                    .receive(on: DispatchQueue.main)
+                    .sink(receiveCompletion: { [weak self] completion in
+                        if case .failure(let error) = completion {
+                            print("切换音质失败: \(error)")
+                            // 保持原音质不变
+                            AlertManager.shared.show(
+                                title: "切换失败",
+                                message: "无法获取该音质的音频，请稍后重试",
+                                primaryButtonTitle: "确定",
+                                primaryAction: {}
+                            )
+                        }
+                    }, receiveValue: { [weak self] urlString in
+                        guard let self = self, let url = URL(string: urlString) else { return }
+                        // 成功获取新 URL，更新音质设置并播放
+                        self.soundQuality = quality
+                        self.startPlayback(url: url, autoPlay: wasPlaying, startTime: time)
+                    })
+                    .store(in: &self.cancellables)
+            }
         } else {
             // 没有播放中的歌曲，直接更新设置
             soundQuality = quality
@@ -520,39 +525,43 @@ class PlayerManager: ObservableObject {
         addToHistory(song: song)
         saveState()
         
-        APIService.shared.fetchSongUrl(id: song.id, level: soundQuality.rawValue)
-            .sink(receiveCompletion: { [weak self] completion in
-                guard let self = self else { return }
-                
-                if case .failure(let error) = completion {
-                    print("Failed to get song url: \(error)")
-                    self.isLoading = false
+        // 在主线程获取设置值
+        Task { @MainActor in
+            let enableUnblock = SettingsManager.shared.unblockEnabled
+            
+            APIService.shared.fetchSongUrl(id: song.id, level: self.soundQuality.rawValue, enableUnblock: enableUnblock)
+                .sink(receiveCompletion: { [weak self] completion in
+                    guard let self = self else { return }
                     
-                    // 增加失败计数
-                    self.consecutiveFailures += 1
-                    
-                    // 检查是否超过最大失败次数
-                    if self.consecutiveFailures >= self.maxConsecutiveFailures {
-                        print("⚠️ 连续失败 \(self.consecutiveFailures) 次，停止自动播放下一首")
-                        // 显示错误提示
-                        AlertManager.shared.show(
-                            title: "播放失败",
-                            message: "连续多首歌曲无法播放，请检查网络连接",
-                            primaryButtonTitle: "确定",
-                            primaryAction: {}
-                        )
-                        // 重置计数器和延迟
-                        self.consecutiveFailures = 0
-                        self.retryDelay = 1.0
-                        return
-                    }
-                    
-                    // 如果是自动播放且未超过限制，使用指数退避尝试下一首
-                    if autoPlay {
-                        print("尝试播放下一首 (失败次数: \(self.consecutiveFailures)/\(self.maxConsecutiveFailures), 延迟: \(self.retryDelay)秒)")
-                        let currentDelay = self.retryDelay
-                        // 指数退避：每次失败后延迟翻倍，最大不超过 maxRetryDelay
-                        self.retryDelay = min(self.retryDelay * 2, self.maxRetryDelay)
+                    if case .failure(let error) = completion {
+                        print("Failed to get song url: \(error)")
+                        self.isLoading = false
+                        
+                        // 增加失败计数
+                        self.consecutiveFailures += 1
+                        
+                        // 检查是否超过最大失败次数
+                        if self.consecutiveFailures >= self.maxConsecutiveFailures {
+                            print("⚠️ 连续失败 \(self.consecutiveFailures) 次，停止自动播放下一首")
+                            // 显示错误提示
+                            AlertManager.shared.show(
+                                title: "播放失败",
+                                message: "连续多首歌曲无法播放，请检查网络连接",
+                                primaryButtonTitle: "确定",
+                                primaryAction: {}
+                            )
+                            // 重置计数器和延迟
+                            self.consecutiveFailures = 0
+                            self.retryDelay = 1.0
+                            return
+                        }
+                        
+                        // 如果是自动播放且未超过限制，使用指数退避尝试下一首
+                        if autoPlay {
+                            print("尝试播放下一首 (失败次数: \(self.consecutiveFailures)/\(self.maxConsecutiveFailures), 延迟: \(self.retryDelay)秒)")
+                            let currentDelay = self.retryDelay
+                            // 指数退避：每次失败后延迟翻倍，最大不超过 maxRetryDelay
+                            self.retryDelay = min(self.retryDelay * 2, self.maxRetryDelay)
                         
                         DispatchQueue.main.asyncAfter(deadline: .now() + currentDelay) { [weak self] in
                             self?.autoNext()
@@ -567,7 +576,8 @@ class PlayerManager: ObservableObject {
                 self.retryDelay = 1.0
                 self.startPlayback(url: url, autoPlay: autoPlay, startTime: startTime)
             })
-            .store(in: &cancellables)
+            .store(in: &self.cancellables)
+        }
     }
     
     /// 自动播放下一首（不重置失败计数器）

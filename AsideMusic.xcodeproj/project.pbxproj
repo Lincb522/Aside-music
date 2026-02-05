@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F4DB6D6C2F34A9440079E1AF /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		F4CCFD782F320B5900FC36CA /* AsideMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AsideMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -36,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F4DB6D6C2F34A9440079E1AF /* LiquidGlassEffect in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +83,7 @@
 			);
 			name = AsideMusic;
 			packageProductDependencies = (
+				F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */,
 			);
 			productName = AsideMusic;
 			productReference = F4CCFD782F320B5900FC36CA /* AsideMusic.app */;
@@ -109,6 +115,7 @@
 			mainGroup = F4CCFD6F2F320B5900FC36CA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -360,6 +367,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Lincb522/LiquidGlassEffect.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */;
+			productName = LiquidGlassEffect;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F4CCFD702F320B5900FC36CA /* Project object */;
 }

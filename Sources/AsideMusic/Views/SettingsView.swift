@@ -115,6 +115,16 @@ struct SettingsView: View {
                     subtitle: nil,
                     isOn: $settings.autoPlayNext
                 )
+                
+                Divider()
+                    .padding(.leading, 56)
+                
+                SettingsToggleRow(
+                    icon: .unlock,
+                    title: "解灰",
+                    subtitle: "灰色歌曲自动匹配其他音源",
+                    isOn: $settings.unblockEnabled
+                )
             }
         }
     }

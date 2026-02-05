@@ -30,6 +30,9 @@ final class SettingsManager: ObservableObject {
     /// 自动播放下一首
     @AppStorage("autoPlayNext") var autoPlayNext: Bool = true
     
+    /// 启用解灰（灰色歌曲自动匹配其他音源）
+    @AppStorage("unblockEnabled") var unblockEnabled: Bool = true
+    
     // MARK: - 缓存设置
     
     /// 最大缓存大小 (MB)

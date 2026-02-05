@@ -56,6 +56,7 @@ struct AsideIcon: View {
         case translate
         case karaoke
         case lock
+        case unlock
         case qr
         case phone
         case send
@@ -164,6 +165,7 @@ struct AsideIcon: View {
         case .translate:    return AnyShape(TranslatePath())
         case .karaoke:      return AnyShape(KaraokePath())
         case .lock:         return AnyShape(LockPath())
+        case .unlock:       return AnyShape(UnlockPath())
         case .qr:           return AnyShape(QRPath())
         case .phone:        return AnyShape(PhonePath())
         case .send:         return AnyShape(SendPath())
@@ -753,6 +755,27 @@ private struct LockPath: Shape {
         path.addCurve(to: CGPoint(x: 12*s, y: 4*s), control1: CGPoint(x: 9*s, y: 5.3*s), control2: CGPoint(x: 10.3*s, y: 4*s))
         path.addCurve(to: CGPoint(x: 15*s, y: 7*s), control1: CGPoint(x: 13.7*s, y: 4*s), control2: CGPoint(x: 15*s, y: 5.3*s))
         path.addLine(to: CGPoint(x: 15*s, y: 11*s))
+        
+        return path
+    }
+}
+
+// 29.5 Unlock (开锁图标)
+private struct UnlockPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 锁体
+        let box = CGRect(x: 6*s, y: 11*s, width: 12*s, height: 9*s)
+        path.addRoundedRect(in: box, cornerSize: CGSize(width: 3*s, height: 3*s))
+        
+        // 开着的锁扣（右侧打开）
+        path.move(to: CGPoint(x: 9*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 4*s), control1: CGPoint(x: 9*s, y: 5.3*s), control2: CGPoint(x: 10.3*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 15*s, y: 7*s), control1: CGPoint(x: 13.7*s, y: 4*s), control2: CGPoint(x: 15*s, y: 5.3*s))
+        // 锁扣打开，不连接到锁体
         
         return path
     }

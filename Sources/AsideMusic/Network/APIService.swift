@@ -411,16 +411,65 @@ class APIService {
     }
     
     // MARK: - Song URL & Detail
-    func fetchSongUrl(id: Int, level: String = "exhigh") -> AnyPublisher<String, Error> {
-         // Using v1 endpoint for level support (standard, exhigh, lossless, hires, jyeffect, sky, jymaster)
-         return fetch("/song/url/v1?id=\(id)&level=\(level)")
-             .tryMap { (response: SongUrlResponse) -> String in
-                 guard let url = response.data.first?.url else {
-                     throw URLError(.resourceUnavailable)
-                 }
-                 return url
-             }
-             .eraseToAnyPublisher()
+    
+    /// 获取歌曲播放URL（支持解灰）
+    /// - Parameters:
+    ///   - id: 歌曲ID
+    ///   - level: 音质等级
+    ///   - enableUnblock: 是否启用解灰（URL为空时自动尝试其他音源）
+    func fetchSongUrl(id: Int, level: String = "exhigh", enableUnblock: Bool = true) -> AnyPublisher<String, Error> {
+        // 先尝试正常获取
+        return fetch("/song/url/v1?id=\(id)&level=\(level)")
+            .tryMap { (response: SongUrlResponse) -> String in
+                guard let url = response.data.first?.url, !url.isEmpty else {
+                    throw URLError(.resourceUnavailable)
+                }
+                return url
+            }
+            .catch { [weak self] error -> AnyPublisher<String, Error> in
+                guard let self = self, enableUnblock else {
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+                // 正常获取失败，尝试解灰
+                return self.fetchUnblockedSongUrl(id: id)
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    /// 解灰接口 - 从其他音源匹配歌曲
+    /// - Parameter id: 歌曲ID
+    /// - Returns: 解锁后的播放URL
+    private func fetchUnblockedSongUrl(id: Int) -> AnyPublisher<String, Error> {
+        // 方式1: 使用 /song/url/match 接口
+        return fetch("/song/url/match?id=\(id)")
+            .tryMap { (response: UnblockResponse) -> String in
+                guard let url = response.data, !url.isEmpty else {
+                    throw URLError(.resourceUnavailable)
+                }
+                // 优先使用代理URL（如果有）
+                return response.proxyUrl?.isEmpty == false ? response.proxyUrl! : url
+            }
+            .catch { [weak self] _ -> AnyPublisher<String, Error> in
+                guard let self = self else {
+                    return Fail(error: URLError(.resourceUnavailable)).eraseToAnyPublisher()
+                }
+                // 方式2: 使用 ncmget 接口作为备用
+                return self.fetchNcmGetUrl(id: id)
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    /// NCM Get 接口 - GD音乐台备用解灰
+    private func fetchNcmGetUrl(id: Int) -> AnyPublisher<String, Error> {
+        return fetch("/song/url/ncmget?id=\(id)&br=320")
+            .tryMap { (response: NcmGetResponse) -> String in
+                guard let url = response.data?.url, !url.isEmpty else {
+                    throw URLError(.resourceUnavailable)
+                }
+                // 优先使用代理URL
+                return response.data?.proxyUrl?.isEmpty == false ? response.data!.proxyUrl! : url
+            }
+            .eraseToAnyPublisher()
     }
     
     // Batch fetch song details

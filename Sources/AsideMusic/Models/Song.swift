@@ -71,6 +71,20 @@ struct Song: Identifiable, Codable {
     var qualityBadge: String? {
         return maxQuality.badgeText
     }
+    
+    /// 判断歌曲是否无版权（灰色歌曲）
+    /// st < 0 表示无版权，常见值：-200 无版权
+    var isUnavailable: Bool {
+        // 优先检查 privilege.st
+        if let st = privilege?.st, st < 0 {
+            return true
+        }
+        // 备用检查：pl = 0 且 fee != 0 通常也表示无法播放
+        if let pl = privilege?.pl, pl == 0, let fee = privilege?.fee, fee != 0 {
+            return true
+        }
+        return false
+    }
 }
 
 struct SongQuality: Codable {
@@ -495,6 +509,30 @@ struct SongUrlResponse: Codable {
 struct SongUrlData: Codable {
     let id: Int
     let url: String?
+}
+
+// MARK: - Unblock Response Models
+
+/// 解灰接口响应 (/song/url/match)
+struct UnblockResponse: Codable {
+    let code: Int
+    let data: String?      // 解锁后的URL
+    let proxyUrl: String?  // 代理URL（酷我等需要）
+    let msg: String?
+}
+
+/// NCM Get 接口响应 (/song/url/ncmget)
+struct NcmGetResponse: Codable {
+    let code: Int
+    let message: String?
+    let data: NcmGetData?
+}
+
+struct NcmGetData: Codable {
+    let id: String?
+    let br: String?
+    let url: String?
+    let proxyUrl: String?
 }
 
 // MARK: - Playlist Square Models

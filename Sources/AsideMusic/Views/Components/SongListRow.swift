@@ -46,12 +46,23 @@ struct SongListRow: View {
                 // Title
                 Text(song.name)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(isCurrent ? Theme.accent : Theme.text)
+                    .foregroundColor(song.isUnavailable && !SettingsManager.shared.unblockEnabled ? Theme.text.opacity(0.4) : (isCurrent ? Theme.accent : Theme.text))
                     .lineLimit(1)
                 
                 // Artist & Badges
                 HStack(spacing: 6) {
-                    if let badge = song.qualityBadge {
+                    // 无版权标识（优先显示）
+                    if song.isUnavailable && !SettingsManager.shared.unblockEnabled {
+                        Text("无版权")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundColor(.red.opacity(0.8))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(Color.red.opacity(0.8), lineWidth: 0.5)
+                            )
+                    } else if let badge = song.qualityBadge {
                         let maxQuality = song.maxQuality
                         // Only show if VIP or special quality
                         if maxQuality.isVIP || maxQuality == .lossless || maxQuality == .hires {
@@ -69,7 +80,7 @@ struct SongListRow: View {
                     
                     Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
                         .font(.system(size: 13))
-                        .foregroundColor(Theme.secondaryText)
+                        .foregroundColor(song.isUnavailable && !SettingsManager.shared.unblockEnabled ? Theme.secondaryText.opacity(0.5) : Theme.secondaryText)
                         .lineLimit(1)
                 }
             }
