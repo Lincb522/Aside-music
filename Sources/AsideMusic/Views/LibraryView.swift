@@ -763,9 +763,7 @@ struct ArtistLibraryView: View {
                     AsideLoadingView()
                 } else if viewModel.topArtists.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: "person.slash")
-                            .font(.system(size: 50))
-                            .foregroundColor(Theme.secondaryText.opacity(0.5))
+                        AsideIcon(icon: .personEmpty, size: 50, color: Theme.secondaryText.opacity(0.5))
                         Text(LocalizedStringKey("empty_no_artists"))
                             .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.secondaryText)

@@ -625,6 +625,12 @@ class PlayerManager: ObservableObject {
         
         let playerItem = AVPlayerItem(url: url)
         
+        // 添加 EQ 处理 (iOS 17+ 可用 assumeIsolated)
+        let eqEnabled = MainActor.assumeIsolated { AudioEQManager.shared.isEnabled }
+        if eqEnabled {
+            AudioEQManager.shared.attachEQ(to: playerItem)
+        }
+        
         // 使用独立的 cancellable 追踪 playerItem 状态
         playerItemStatusCancellable = playerItem.publisher(for: \.status)
             .sink { [weak self] status in

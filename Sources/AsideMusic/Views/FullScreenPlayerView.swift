@@ -11,6 +11,7 @@ struct FullScreenPlayerView: View {
     @State private var showActionSheet = false
     @State private var showQualitySheet = false // Sound Quality Sheet
     @State private var showLyrics = false // Toggle for lyrics view
+    @State private var showEQ = false // EQ Sheet
     
     // Settings
     @AppStorage("showTranslation") var showTranslation: Bool = true
@@ -185,10 +186,12 @@ struct FullScreenPlayerView: View {
             Button("取消", role: .cancel) { }
         }
         .confirmationDialog("更多操作", isPresented: $showActionSheet, titleVisibility: .visible) {
-            Button("音质选择: \(player.soundQuality.displayName)") {
-                showQualitySheet = true
-            }
             Button("取消", role: .cancel) { }
+        }
+        .sheet(isPresented: $showEQ) {
+            EQView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
     
@@ -416,57 +419,81 @@ struct FullScreenPlayerView: View {
     }
     
     private var controlsView: some View {
-        HStack(spacing: 0) {
-            // Mode
-            Button(action: { player.switchMode() }) {
-                AsideIcon(icon: player.mode.asideIcon, size: 22, color: secondaryContentColor)
-            }
-            .frame(width: 44)
-            
-            Spacer()
-            
-            // Previous
-            Button(action: { player.previous() }) {
-                AsideIcon(icon: .previous, size: 32, color: contentColor)
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            Spacer()
-            
-            // Play/Pause
-            Button(action: { player.togglePlayPause() }) {
-                ZStack {
-                    Circle()
-                        .fill(contentColor)
-                        .frame(width: 72, height: 72)
-                        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-                    
-                    if player.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.2)
-                    } else {
-                        AsideIcon(icon: player.isPlaying ? .pause : .play, size: 32, color: .white)
+        VStack(spacing: 16) {
+            // 主控制行
+            HStack(spacing: 0) {
+                // Mode
+                Button(action: { player.switchMode() }) {
+                    AsideIcon(icon: player.mode.asideIcon, size: 22, color: secondaryContentColor)
+                }
+                .frame(width: 44)
+                
+                Spacer()
+                
+                // Previous
+                Button(action: { player.previous() }) {
+                    AsideIcon(icon: .previous, size: 32, color: contentColor)
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+                
+                Spacer()
+                
+                // Play/Pause
+                Button(action: { player.togglePlayPause() }) {
+                    ZStack {
+                        Circle()
+                            .fill(contentColor)
+                            .frame(width: 72, height: 72)
+                            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+                        
+                        if player.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.2)
+                        } else {
+                            AsideIcon(icon: player.isPlaying ? .pause : .play, size: 32, color: .white)
+                        }
                     }
                 }
+                .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
+                
+                Spacer()
+                
+                // Next
+                Button(action: { player.next() }) {
+                    AsideIcon(icon: .next, size: 32, color: contentColor)
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+                
+                Spacer()
+                
+                // Playlist
+                Button(action: { showPlaylist = true }) {
+                    AsideIcon(icon: .list, size: 22, color: secondaryContentColor)
+                }
+                .frame(width: 44)
             }
-            .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
             
-            Spacer()
-            
-            // Next
-            Button(action: { player.next() }) {
-                AsideIcon(icon: .next, size: 32, color: contentColor)
+            // 副控制行 (EQ)
+            HStack(spacing: 24) {
+                Spacer()
+                
+                // EQ 按钮
+                Button(action: { showEQ = true }) {
+                    HStack(spacing: 6) {
+                        AsideIcon(icon: .eq, size: 18, color: AudioEQManager.shared.isEnabled ? contentColor : secondaryContentColor)
+                        Text("EQ")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(AudioEQManager.shared.isEnabled ? contentColor : secondaryContentColor)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(contentColor.opacity(0.08))
+                    .cornerRadius(16)
+                }
+                
+                Spacer()
             }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            Spacer()
-            
-            // Playlist
-            Button(action: { showPlaylist = true }) {
-                AsideIcon(icon: .list, size: 22, color: secondaryContentColor)
-            }
-            .frame(width: 44)
         }
     }
     

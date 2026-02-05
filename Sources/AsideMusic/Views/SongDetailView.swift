@@ -117,8 +117,7 @@ struct SongDetailView: View {
                     }
                 }) {
                     HStack(spacing: 6) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 12))
+                        AsideIcon(icon: .play, size: 12, color: .white)
                         Text(LocalizedStringKey("action_play"))
                             .font(.system(size: 12, weight: .bold))
                     }
@@ -134,9 +133,7 @@ struct SongDetailView: View {
                 Button(action: {
                     PlayerManager.shared.playNext(song: song)
                 }) {
-                    Image(systemName: "text.line.first.and.arrowtriangle.forward")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.accent)
+                    AsideIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(Color.white)
                         .clipShape(Circle())
@@ -148,9 +145,7 @@ struct SongDetailView: View {
                 Button(action: {
                     PlayerManager.shared.addToQueue(song: song)
                 }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.accent)
+                    AsideIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(Color.white)
                         .clipShape(Circle())

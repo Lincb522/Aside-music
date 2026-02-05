@@ -48,6 +48,7 @@ struct AsideIcon: View {
         case storage
         case haptic
         case info
+        case eq
         
         // Player Extras
         case clock
@@ -61,6 +62,16 @@ struct AsideIcon: View {
         case phone
         case send
         case musicNote
+        case save
+        
+        // New Icons
+        case history      // 历史记录
+        case playCircle   // 圆形播放按钮
+        case warning      // 警告/错误
+        case personEmpty  // 空用户状态
+        case playNext     // 下一首播放
+        case add          // 添加/加号
+        case addToQueue   // 添加到队列
     }
     
     let icon: IconType
@@ -89,7 +100,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne:
+        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue:
             return false
         default:
             return true
@@ -176,6 +187,15 @@ struct AsideIcon: View {
         case .storage:      return AnyShape(StoragePath())
         case .haptic:       return AnyShape(HapticPath())
         case .info:         return AnyShape(InfoPath())
+        case .eq:           return AnyShape(EQPath())
+        case .save:         return AnyShape(SavePath())
+        case .history:      return AnyShape(HistoryPath())
+        case .playCircle:   return AnyShape(PlayCirclePath())
+        case .warning:      return AnyShape(WarningPath())
+        case .personEmpty:  return AnyShape(PersonEmptyPath())
+        case .playNext:     return AnyShape(PlayNextPath())
+        case .add:          return AnyShape(AddPath())
+        case .addToQueue:   return AnyShape(AddToQueuePath())
         }
     }
 }
@@ -1097,6 +1117,229 @@ private struct InfoPath: Shape {
         // i 的竖线
         path.move(to: CGPoint(x: 12*s, y: 11*s))
         path.addLine(to: CGPoint(x: 12*s, y: 16*s))
+        
+        return path
+    }
+}
+
+
+// 46. EQ (均衡器图标 - 音频频谱风格)
+private struct EQPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 5 条垂直频谱条，高度不同，模拟 EQ 调节
+        // 第1条 (低频)
+        path.move(to: CGPoint(x: 5*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 10*s))
+        
+        // 第2条
+        path.move(to: CGPoint(x: 9*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 6*s))
+        
+        // 第3条 (中频，最高)
+        path.move(to: CGPoint(x: 12*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 4*s))
+        
+        // 第4条
+        path.move(to: CGPoint(x: 15*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 8*s))
+        
+        // 第5条 (高频)
+        path.move(to: CGPoint(x: 19*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 12*s))
+        
+        // 底部基线 (浮动元素)
+        path.move(to: CGPoint(x: 3*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 19*s))
+        
+        return path
+    }
+}
+
+// 47. Save (保存图标 - Aura 浮动风格)
+// 设计：向下箭头 + 托盘，体现"保存/存储"概念
+private struct SavePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 向下箭头主体
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        
+        // 箭头头部
+        path.move(to: CGPoint(x: 8*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 10*s))
+        
+        // 托盘/容器 (浮动元素风格)
+        path.move(to: CGPoint(x: 5*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 8*s, y: 20*s), control1: CGPoint(x: 5*s, y: 18.7*s), control2: CGPoint(x: 6.3*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 17*s), control1: CGPoint(x: 17.7*s, y: 20*s), control2: CGPoint(x: 19*s, y: 18.7*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 14*s))
+        
+        return path
+    }
+}
+
+// 48. History (历史记录 - 时钟 + 逆时针箭头)
+private struct HistoryPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 时钟圆形（不完整，留出箭头空间）
+        path.addArc(center: CGPoint(x: 12*s, y: 12*s), radius: 7*s, startAngle: .degrees(-60), endAngle: .degrees(240), clockwise: false)
+        
+        // 逆时针箭头
+        path.move(to: CGPoint(x: 5*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 8.5*s, y: 6*s))
+        path.move(to: CGPoint(x: 5*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 9.5*s))
+        
+        // 时钟指针
+        path.move(to: CGPoint(x: 12*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 9*s))
+        path.move(to: CGPoint(x: 12*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 12*s))
+        
+        return path
+    }
+}
+
+// 49. PlayCircle (圆形播放按钮)
+private struct PlayCirclePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        
+        // 播放三角形
+        path.move(to: CGPoint(x: 10*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 16*s))
+        path.closeSubpath()
+        
+        return path
+    }
+}
+
+// 50. Warning (警告/错误 - 三角形 + 感叹号)
+private struct WarningPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 三角形外框
+        path.move(to: CGPoint(x: 12*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 21*s), control1: CGPoint(x: 21.5*s, y: 20*s), control2: CGPoint(x: 20.5*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 21*s))
+        path.addCurve(to: CGPoint(x: 3*s, y: 19*s), control1: CGPoint(x: 3.5*s, y: 21*s), control2: CGPoint(x: 2.5*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 3*s))
+        
+        // 感叹号竖线
+        path.move(to: CGPoint(x: 12*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        
+        // 感叹号点（浮动元素）
+        path.addEllipse(in: CGRect(x: 11*s, y: 16.5*s, width: 2*s, height: 2*s))
+        
+        return path
+    }
+}
+
+// 51. PersonEmpty (空用户状态 - 人形 + 斜线)
+private struct PersonEmptyPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 头部
+        path.addEllipse(in: CGRect(x: 8.5*s, y: 3*s, width: 7*s, height: 7*s))
+        
+        // 身体
+        path.move(to: CGPoint(x: 5*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 14*s), control1: CGPoint(x: 5*s, y: 16.5*s), control2: CGPoint(x: 8*s, y: 14*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 20*s), control1: CGPoint(x: 16*s, y: 14*s), control2: CGPoint(x: 19*s, y: 16.5*s))
+        
+        // 斜线（表示空/无）
+        path.move(to: CGPoint(x: 4*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 20*s))
+        
+        return path
+    }
+}
+
+// 52. PlayNext (下一首播放 - 播放三角 + 向前箭头)
+private struct PlayNextPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 播放三角
+        path.move(to: CGPoint(x: 4*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 19*s))
+        
+        // 向前箭头
+        path.move(to: CGPoint(x: 14*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 16*s))
+        
+        // 浮动竖线
+        path.move(to: CGPoint(x: 20*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 16*s))
+        
+        return path
+    }
+}
+
+// 53. Add (添加/加号)
+private struct AddPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 横线
+        path.move(to: CGPoint(x: 5*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 12*s))
+        
+        // 竖线
+        path.move(to: CGPoint(x: 12*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 19*s))
+        
+        return path
+    }
+}
+
+// 54. AddToQueue (添加到队列 - 列表 + 加号)
+private struct AddToQueuePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 三条列表线
+        path.move(to: CGPoint(x: 4*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 6*s))
+        
+        path.move(to: CGPoint(x: 4*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 11*s))
+        
+        path.move(to: CGPoint(x: 4*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 16*s))
+        
+        // 加号（右下角）
+        path.move(to: CGPoint(x: 15*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 16*s))
+        path.move(to: CGPoint(x: 18*s, y: 13*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 19*s))
         
         return path
     }

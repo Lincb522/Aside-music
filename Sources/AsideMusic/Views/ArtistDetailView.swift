@@ -133,9 +133,7 @@ struct ArtistDetailView: View {
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
                                 
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(Theme.secondaryText)
+                                AsideIcon(icon: .chevronRight, size: 12, color: Theme.secondaryText)
                             }
                         }
                     }
@@ -147,8 +145,7 @@ struct ArtistDetailView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 12))
+                            AsideIcon(icon: .play, size: 12, color: .white)
                             Text(LocalizedStringKey("artist_popular_songs"))
                                 .font(.system(size: 12, weight: .bold))
                         }

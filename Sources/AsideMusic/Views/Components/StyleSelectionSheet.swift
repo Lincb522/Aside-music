@@ -43,9 +43,7 @@ struct StyleSelectionMorphView: View {
                             isPresented = false
                         }
                     }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.gray)
+                        AsideIcon(icon: .close, size: 14, color: .gray)
                             .padding(8)
                             .background(Color.black.opacity(0.05))
                             .clipShape(Circle())

@@ -245,9 +245,7 @@ struct DailyRecommendView: View {
                                         .foregroundColor(Theme.secondaryText)
                                         .matchedGeometryEffect(id: "filter_text", in: animationNamespace)
                                     
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(Theme.secondaryText)
+                                    AsideIcon(icon: .chevronRight, size: 12, color: Theme.secondaryText)
                                 }
                                 .padding(.vertical, 6)
                                 .padding(.horizontal, 12)
@@ -263,8 +261,7 @@ struct DailyRecommendView: View {
                                 viewModel.loadHistoryDates()
                             }) {
                                 HStack(spacing: 6) {
-                                    Image(systemName: "clock.arrow.circlepath")
-                                        .font(.system(size: 12, weight: .medium))
+                                    AsideIcon(icon: .history, size: 14, color: Theme.secondaryText)
                                     Text("历史")
                                         .font(.system(size: 14, weight: .medium, design: .rounded))
                                 }
@@ -296,9 +293,7 @@ struct DailyRecommendView: View {
                             PlayerManager.shared.play(song: first, in: viewModel.songs)
                         }
                     }) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundColor(Theme.accent)
+                        AsideIcon(icon: .playCircle, size: 44, color: Theme.accent)
                             .shadow(color: Theme.accent.opacity(0.3), radius: 10, x: 0, y: 5)
                     }
                 }
@@ -327,9 +322,7 @@ struct DailyRecommendView: View {
     private func errorView(msg: String) -> some View {
         VStack {
             Spacer()
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundColor(.gray)
+            AsideIcon(icon: .warning, size: 48, color: .gray)
             Text(msg)
                 .foregroundColor(.gray)
                 .padding()
@@ -434,9 +427,7 @@ struct DailyHistoryView: View {
                         PlayerManager.shared.play(song: first, in: songs)
                     }
                 }) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 36))
-                        .foregroundColor(Theme.accent)
+                    AsideIcon(icon: .playCircle, size: 36, color: Theme.accent)
                 }
             } else {
                 // Placeholder for alignment

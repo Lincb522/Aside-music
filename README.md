@@ -30,7 +30,7 @@
 
 ### 🎨 视觉设计
 - **Liquid Glass 效果** - iOS 26 风格的液态玻璃视觉效果
-- **Aura 图标系统** - 自研的浮动线条图标，1.6px 描边
+- **Aura 图标系统** - 自研的浮动线条图标，1.6px 描边，54+ 自定义图标
 - **流畅动画** - 全局弹性动画与手势交互
 - **深色/浅色模式** - 自适应系统主题
 
@@ -41,6 +41,14 @@
 - **歌词显示** - 逐行滚动歌词
 - **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质
 - **解灰功能** - 自动匹配其他音源播放无版权歌曲
+
+### 🎛️ 专业音频系统 (NEW)
+- **10 段参数均衡器** - 32Hz ~ 16kHz 全频段调节，±12dB 增益范围
+- **25+ 预设** - 涵盖基础、音乐风格、场景、空间音效四大类
+- **自定义预设** - 保存最多 10 个个人 EQ 预设
+- **HiFi 引擎** - 空间音效、3D 环绕、低音增强、动态压缩、响度均衡
+- **智能模式** - 实时音频分析，自动识别音乐类型并推荐 EQ
+- **智能降噪** - 基于频谱分析的自适应噪声抑制
 
 ### 📱 核心功能
 - **QR 码登录** - 扫码快速登录
@@ -61,13 +69,13 @@
 
 ---
 
-## 📸 截图
+## � 截图
 
 > 截图待添加
 
 ---
 
-## 📦 安装
+## �📦 安装
 
 ### 环境要求
 - macOS 14.0+
@@ -129,7 +137,8 @@ AsideMusic/
 │   │   ├── ArtistDetailView.swift   # 歌手详情
 │   │   ├── SettingsView.swift       # 设置页
 │   │   ├── LoginView.swift          # 登录页
-│   │   ├── AsideIcons.swift         # Aura 图标系统
+│   │   ├── EQView.swift             # 均衡器界面
+│   │   ├── AsideIcons.swift         # Aura 图标系统 (54+ 图标)
 │   │   │
 │   │   └── Components/              # 可复用组件
 │   │       ├── SongListRow.swift    # 歌曲列表行
@@ -159,7 +168,15 @@ AsideMusic/
 │   │   ├── CacheManager.swift       # 缓存管理
 │   │   ├── LikeManager.swift        # 喜欢管理
 │   │   ├── StyleManager.swift       # 样式管理
-│   │   └── DataSyncCoordinator.swift # 数据同步
+│   │   ├── DataSyncCoordinator.swift # 数据同步
+│   │   │
+│   │   │── # 音频处理系统
+│   │   ├── AudioEQManager.swift     # EQ 主管理器
+│   │   ├── AudioEQProcessor.swift   # 音频处理器 (MTAudioProcessingTap)
+│   │   ├── HiFiEngine.swift         # HiFi 音频引擎
+│   │   ├── AudioAnalyzer.swift      # 智能音频分析
+│   │   ├── NoiseReducer.swift       # 智能降噪
+│   │   └── BiquadFilter.swift       # 双二阶滤波器
 │   │
 │   ├── Utils/                        # 工具类
 │   │   ├── AlertManager.swift       # 弹窗管理
@@ -177,6 +194,87 @@ AsideMusic/
 
 ---
 
+## 🎛️ 音频系统架构
+
+### 均衡器 (EQ)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AudioEQManager                           │
+│  • 预设管理 (25+ 内置预设)                                    │
+│  • 自定义预设 (最多 10 个)                                    │
+│  • 智能模式控制                                              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   AudioEQProcessor                          │
+│  • MTAudioProcessingTap 音频拦截                             │
+│  • 实时音频流处理                                            │
+│  • 采样率自适应                                              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│   FilterBank    │ │  AudioAnalyzer  │ │   HiFiEngine    │
+│  10 段参数 EQ    │ │  FFT 频谱分析    │ │  空间/3D/低音   │
+│  Biquad 滤波器   │ │  音乐类型检测    │ │  动态/响度      │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+### 预设分类
+
+| 类别 | 预设 |
+|------|------|
+| **基础** | 平坦、低音增强、高音增强、人声增强 |
+| **音乐风格** | 摇滚、流行、爵士、古典、电子、嘻哈、R&B、金属、原声、钢琴 |
+| **场景** | 深夜模式、小音箱、耳机优化、车载音响、响度增强 |
+| **空间音效** | 3D环绕、宽广舞台、亲密空间 |
+
+### HiFi 引擎功能
+
+| 功能 | 说明 |
+|------|------|
+| **空间音效** | 立体声宽度增强 + 混响效果 |
+| **3D 环绕** | Crossfeed 交叉馈送，模拟环绕声 |
+| **低音增强** | 低频搁架滤波器，4 级增强 |
+| **动态压缩** | 平衡音量差异，保护听力 |
+| **响度均衡** | 自动调整音量，保持一致响度 |
+
+### 智能模式
+
+- **实时 FFT 分析** - 2048 点 FFT，10 段频谱能量
+- **音乐类型检测** - 人声、电子、摇滚、古典、爵士、嘻哈、流行、原声
+- **自动 EQ 推荐** - 根据频谱特征智能调节
+- **自适应降噪** - 基于噪声估计的频谱减法
+
+---
+
+## 🎨 Aura 图标系统
+
+自研的浮动线条图标系统，采用 1.6px 描边，支持双色调渲染。
+
+### 图标分类 (54+ 图标)
+
+| 类别 | 图标 |
+|------|------|
+| **Tab Bar** | home, podcast, library, search, profile |
+| **播放控制** | play, pause, next, previous, stop, repeatMode, repeatOne, shuffle, refresh |
+| **操作** | like, liked, list, back, more, close, trash, fm, bell, save, add, playNext, addToQueue |
+| **设置** | settings, download, cloud, chevronRight, magnifyingGlass, xmark, fullscreen, sparkle, soundQuality, storage, haptic, info, eq |
+| **播放器** | clock, musicNoteList, chart, translate, karaoke, lock, unlock, qr, phone, send, musicNote, history, playCircle |
+| **状态** | warning, personEmpty |
+
+### 设计特点
+
+- **浮动元素** - 断开的线条，几何构造
+- **双色调** - 描边 + 15% 透明度填充
+- **圆角连接** - lineCap: round, lineJoin: round
+- **统一尺寸** - 24x24 基准，支持任意缩放
+
+---
+
 ## 🛠 技术栈
 
 | 类别 | 技术 |
@@ -187,6 +285,7 @@ AsideMusic/
 | **数据持久化** | SQLite (自定义封装) |
 | **缓存策略** | 内存缓存 + 磁盘缓存 |
 | **音频播放** | AVFoundation |
+| **音频处理** | MTAudioProcessingTap + Accelerate (vDSP) |
 | **远程控制** | MediaPlayer |
 | **视觉效果** | [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) |
 | **依赖管理** | Swift Package Manager |
@@ -205,7 +304,7 @@ AsideMusic/
 - [ ] **MV 播放** - 音乐视频播放
 - [ ] **歌词翻译** - 显示翻译歌词
 - [ ] **定时关闭** - 睡眠定时器
-- [ ] **均衡器** - 音效调节
+- [x] **均衡器** - 音效调节 ✅
 - [ ] **CarPlay 支持** - 车载播放
 
 ### 低优先级

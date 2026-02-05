@@ -24,9 +24,7 @@ struct TopChartsView: View {
                 AsideLoadingView(text: "LOADING CHARTS")
             } else if let error = errorMessage {
                 VStack {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundColor(.gray)
+                    AsideIcon(icon: .warning, size: 48, color: .gray)
                     Text(error)
                         .foregroundColor(.gray)
                         .padding()
