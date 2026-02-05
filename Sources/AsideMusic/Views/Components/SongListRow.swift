@@ -55,12 +55,12 @@ struct SongListRow: View {
                     if song.isUnavailable && !SettingsManager.shared.unblockEnabled {
                         Text("无版权")
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(.red.opacity(0.8))
+                            .foregroundColor(Theme.secondaryText.opacity(0.6))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 2)
-                                    .stroke(Color.red.opacity(0.8), lineWidth: 0.5)
+                                    .stroke(Theme.secondaryText.opacity(0.4), lineWidth: 0.5)
                             )
                     } else if let badge = song.qualityBadge {
                         let maxQuality = song.maxQuality
