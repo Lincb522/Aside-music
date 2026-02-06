@@ -592,6 +592,33 @@ class PlayerManager: ObservableObject {
         if startTime > 0 {
             audioPlayer.seek(to: startTime)
         }
+        
+        // 异步下载封面图并更新锁屏/灵动岛显示
+        updateNowPlayingArtwork(for: song)
+    }
+    
+    /// 下载封面图并设置到 NowPlayingInfoCenter
+    private func updateNowPlayingArtwork(for song: Song?) {
+        guard let coverUrl = song?.coverUrl else { return }
+        
+        Task.detached {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: coverUrl)
+                guard let image = UIImage(data: data) else { return }
+                
+                let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                
+                await MainActor.run {
+                    // 确保还是同一首歌
+                    guard self.currentSong?.id == song?.id else { return }
+                    var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                    info[MPMediaItemPropertyArtwork] = artwork
+                    MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                }
+            } catch {
+                print("[PlayerManager] 封面图下载失败: \(error)")
+            }
+        }
     }
     
     private func addToHistory(song: Song) {
