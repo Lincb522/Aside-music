@@ -430,23 +430,42 @@ class APIService {
         }
     }
     
+    /// 歌曲URL结果
+    struct SongUrlResult {
+        let url: String
+        let isUnblocked: Bool  // 是否来自第三方源（解灰）
+        let source: String?    // 来源平台名称
+        
+        /// 从 URL 域名推断来源平台
+        static func detectSource(from url: String) -> String {
+            let lowered = url.lowercased()
+            if lowered.contains("kuwo") { return "酷我音乐" }
+            if lowered.contains("kugou") { return "酷狗音乐" }
+            if lowered.contains("qq.com") || lowered.contains("qqmusic") { return "QQ音乐" }
+            if lowered.contains("migu") { return "咪咕音乐" }
+            if lowered.contains("bilibili") { return "哔哩哔哩" }
+            if lowered.contains("youtube") || lowered.contains("ytimg") { return "YouTube" }
+            if lowered.contains("pyncmd") || lowered.contains("163") { return "网易云" }
+            return "第三方源"
+        }
+    }
+    
     /// 获取歌曲播放URL（支持解灰）
     /// - Parameters:
     ///   - id: 歌曲ID
     ///   - level: 音质等级
     ///   - enableUnblock: 是否启用解灰（URL为空时自动尝试其他音源）
-    func fetchSongUrl(id: Int, level: String = "exhigh", enableUnblock: Bool = true) -> AnyPublisher<String, Error> {
+    func fetchSongUrl(id: Int, level: String = "exhigh", enableUnblock: Bool = true) -> AnyPublisher<SongUrlResult, Error> {
         // 先尝试正常获取
         return fetch("/song/url/v1?id=\(id)&level=\(level)")
-            .tryMap { (response: SongUrlResponse) -> String in
+            .tryMap { (response: SongUrlResponse) -> SongUrlResult in
                 guard let url = response.data.first?.url, !url.isEmpty else {
                     throw PlaybackError.unavailable
                 }
-                return url
+                return SongUrlResult(url: url, isUnblocked: false, source: nil)
             }
-            .catch { [weak self] error -> AnyPublisher<String, Error> in
+            .catch { [weak self] error -> AnyPublisher<SongUrlResult, Error> in
                 guard let self = self, enableUnblock else {
-                    // 不启用解灰，直接返回无版权错误
                     if error is PlaybackError {
                         return Fail(error: error).eraseToAnyPublisher()
                     }
@@ -461,17 +480,18 @@ class APIService {
     /// 解灰接口 - 从其他音源匹配歌曲
     /// - Parameter id: 歌曲ID
     /// - Returns: 解锁后的播放URL
-    private func fetchUnblockedSongUrl(id: Int) -> AnyPublisher<String, Error> {
+    private func fetchUnblockedSongUrl(id: Int) -> AnyPublisher<SongUrlResult, Error> {
         // 方式1: 使用 /song/url/match 接口
         return fetch("/song/url/match?id=\(id)")
-            .tryMap { (response: UnblockResponse) -> String in
+            .tryMap { (response: UnblockResponse) -> SongUrlResult in
                 guard let url = response.data, !url.isEmpty else {
                     throw PlaybackError.unavailable
                 }
-                // 优先使用代理URL（如果有）
-                return response.proxyUrl?.isEmpty == false ? response.proxyUrl! : url
+                let finalUrl = response.proxyUrl?.isEmpty == false ? response.proxyUrl! : url
+                let source = SongUrlResult.detectSource(from: url)
+                return SongUrlResult(url: finalUrl, isUnblocked: true, source: source)
             }
-            .catch { [weak self] _ -> AnyPublisher<String, Error> in
+            .catch { [weak self] _ -> AnyPublisher<SongUrlResult, Error> in
                 guard let self = self else {
                     return Fail(error: PlaybackError.unavailable).eraseToAnyPublisher()
                 }
@@ -482,14 +502,15 @@ class APIService {
     }
     
     /// NCM Get 接口 - GD音乐台备用解灰
-    private func fetchNcmGetUrl(id: Int) -> AnyPublisher<String, Error> {
+    private func fetchNcmGetUrl(id: Int) -> AnyPublisher<SongUrlResult, Error> {
         return fetch("/song/url/ncmget?id=\(id)&br=320")
-            .tryMap { (response: NcmGetResponse) -> String in
+            .tryMap { (response: NcmGetResponse) -> SongUrlResult in
                 guard let url = response.data?.url, !url.isEmpty else {
                     throw PlaybackError.unavailable
                 }
-                // 优先使用代理URL
-                return response.data?.proxyUrl?.isEmpty == false ? response.data!.proxyUrl! : url
+                let finalUrl = response.data?.proxyUrl?.isEmpty == false ? response.data!.proxyUrl! : url
+                let source = SongUrlResult.detectSource(from: url)
+                return SongUrlResult(url: finalUrl, isUnblocked: true, source: source)
             }
             .eraseToAnyPublisher()
     }

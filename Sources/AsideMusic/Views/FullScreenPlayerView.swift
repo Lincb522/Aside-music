@@ -11,7 +11,6 @@ struct FullScreenPlayerView: View {
     @State private var showActionSheet = false
     @State private var showQualitySheet = false // Sound Quality Sheet
     @State private var showLyrics = false // Toggle for lyrics view
-    @State private var showEQ = false // EQ Sheet
     
     // Settings
     @AppStorage("showTranslation") var showTranslation: Bool = true
@@ -170,28 +169,16 @@ struct FullScreenPlayerView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .confirmationDialog("音质选择", isPresented: $showQualitySheet, titleVisibility: .visible) {
-            ForEach(SoundQuality.allCases.filter { $0 != .none }, id: \.self) { quality in
-                Button(action: {
-                    player.switchQuality(quality)
-                }) {
-                    HStack {
-                        Text(quality.displayName)
-                        if player.soundQuality == quality {
-                            Text("(当前)")
-                        }
-                    }
-                }
+        .sheet(isPresented: $showQualitySheet) {
+            SoundQualitySheet(currentQuality: player.soundQuality) { quality in
+                player.switchQuality(quality)
+                showQualitySheet = false
             }
-            Button("取消", role: .cancel) { }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .confirmationDialog("更多操作", isPresented: $showActionSheet, titleVisibility: .visible) {
             Button("取消", role: .cancel) { }
-        }
-        .sheet(isPresented: $showEQ) {
-            EQView()
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
         }
     }
     
@@ -270,11 +257,13 @@ struct FullScreenPlayerView: View {
             
             Spacer()
             
-            // Quality Switcher
+            // Quality Switcher / Source indicator
             Button(action: {
-                showQualitySheet = true
+                if !player.isCurrentSongUnblocked {
+                    showQualitySheet = true
+                }
             }) {
-                Text(player.soundQuality.buttonText)
+                Text(player.isCurrentSongUnblocked ? (player.currentSongSource ?? "来源") : player.soundQuality.buttonText)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(contentColor)
                     .padding(.horizontal, 6)
@@ -472,27 +461,6 @@ struct FullScreenPlayerView: View {
                     AsideIcon(icon: .list, size: 22, color: secondaryContentColor)
                 }
                 .frame(width: 44)
-            }
-            
-            // 副控制行 (EQ)
-            HStack(spacing: 24) {
-                Spacer()
-                
-                // EQ 按钮
-                Button(action: { showEQ = true }) {
-                    HStack(spacing: 6) {
-                        AsideIcon(icon: .eq, size: 18, color: AudioEQManager.shared.isEnabled ? contentColor : secondaryContentColor)
-                        Text("EQ")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(AudioEQManager.shared.isEnabled ? contentColor : secondaryContentColor)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(contentColor.opacity(0.08))
-                    .cornerRadius(16)
-                }
-                
-                Spacer()
             }
         }
     }

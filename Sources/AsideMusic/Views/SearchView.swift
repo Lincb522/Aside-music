@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 class SearchViewModel: ObservableObject {
     @Published var query: String = ""
     @Published var searchResults: [Song] = []
@@ -71,7 +72,14 @@ class SearchViewModel: ObservableObject {
             .sink(receiveCompletion: { [weak self] _ in
                 self?.isLoading = false
             }, receiveValue: { [weak self] songs in
-                self?.searchResults = songs
+                // 解灰开启时，将无版权歌曲排到前面（可通过解灰播放）
+                if SettingsManager.shared.unblockEnabled {
+                    let unavailable = songs.filter { $0.isUnavailable }
+                    let available = songs.filter { !$0.isUnavailable }
+                    self?.searchResults = unavailable + available
+                } else {
+                    self?.searchResults = songs
+                }
                 self?.canLoadMore = !songs.isEmpty
             })
             .store(in: &cancellables)
@@ -153,7 +161,7 @@ struct SearchView: View {
                                         viewModel.performSearch(keyword: viewModel.query)
                                     }
                                 }
-                                .onChange(of: viewModel.query) { newValue in
+                                .onChange(of: viewModel.query) { _, newValue in
                                     if !newValue.isEmpty {
                                         // Reset search state if user starts typing again
                                         if viewModel.hasSearched {

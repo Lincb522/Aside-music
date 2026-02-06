@@ -48,7 +48,6 @@ struct AsideIcon: View {
         case storage
         case haptic
         case info
-        case eq
         
         // Player Extras
         case clock
@@ -187,7 +186,6 @@ struct AsideIcon: View {
         case .storage:      return AnyShape(StoragePath())
         case .haptic:       return AnyShape(HapticPath())
         case .info:         return AnyShape(InfoPath())
-        case .eq:           return AnyShape(EQPath())
         case .save:         return AnyShape(SavePath())
         case .history:      return AnyShape(HistoryPath())
         case .playCircle:   return AnyShape(PlayCirclePath())
@@ -201,8 +199,8 @@ struct AsideIcon: View {
 }
 
 // Type eraser for Shapes
-struct AnyShape: Shape {
-    private let _path: (CGRect) -> Path
+struct AnyShape: Shape, @unchecked Sendable {
+    private let _path: @Sendable (CGRect) -> Path
     
     init<S: Shape>(_ shape: S) {
         _path = { rect in shape.path(in: rect) }
@@ -1122,41 +1120,6 @@ private struct InfoPath: Shape {
     }
 }
 
-
-// 46. EQ (均衡器图标 - 音频频谱风格)
-private struct EQPath: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let s = rect.width / 24.0
-        
-        // 5 条垂直频谱条，高度不同，模拟 EQ 调节
-        // 第1条 (低频)
-        path.move(to: CGPoint(x: 5*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 5*s, y: 10*s))
-        
-        // 第2条
-        path.move(to: CGPoint(x: 9*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 9*s, y: 6*s))
-        
-        // 第3条 (中频，最高)
-        path.move(to: CGPoint(x: 12*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 4*s))
-        
-        // 第4条
-        path.move(to: CGPoint(x: 15*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 8*s))
-        
-        // 第5条 (高频)
-        path.move(to: CGPoint(x: 19*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 19*s, y: 12*s))
-        
-        // 底部基线 (浮动元素)
-        path.move(to: CGPoint(x: 3*s, y: 19*s))
-        path.addLine(to: CGPoint(x: 21*s, y: 19*s))
-        
-        return path
-    }
-}
 
 // 47. Save (保存图标 - Aura 浮动风格)
 // 设计：向下箭头 + 托盘，体现"保存/存储"概念

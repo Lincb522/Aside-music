@@ -51,7 +51,7 @@ struct SongListRow: View {
                 
                 // Artist & Badges
                 HStack(spacing: 6) {
-                    // 无版权标识（优先显示）
+                    // 无版权标识
                     if song.isUnavailable && !SettingsManager.shared.unblockEnabled {
                         Text("无版权")
                             .font(.system(size: 7, weight: .bold))
@@ -61,6 +61,28 @@ struct SongListRow: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 2)
                                     .stroke(Theme.secondaryText.opacity(0.4), lineWidth: 0.5)
+                            )
+                    } else if isCurrent && player.isCurrentSongUnblocked, let source = player.currentSongSource {
+                        // 当前播放的解灰歌曲显示具体来源平台
+                        Text(source)
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundColor(Theme.accent)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(Theme.accent, lineWidth: 0.5)
+                            )
+                    } else if song.isUnavailable && SettingsManager.shared.unblockEnabled {
+                        // 未播放的无版权歌曲，解灰开启时显示"解灰"
+                        Text("解灰")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundColor(Theme.accent)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(Theme.accent, lineWidth: 0.5)
                             )
                     } else if let badge = song.qualityBadge {
                         let maxQuality = song.maxQuality

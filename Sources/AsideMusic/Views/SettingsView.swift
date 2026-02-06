@@ -200,11 +200,8 @@ struct SettingsView: View {
     // MARK: - Actions
     
     private func updateCacheSize() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let size = OptimizedCacheManager.shared.getCacheSize()
-            DispatchQueue.main.async {
-                self.cacheSize = size
-            }
+        Task { @MainActor in
+            cacheSize = OptimizedCacheManager.shared.getCacheSize()
         }
     }
     
