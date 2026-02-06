@@ -1,13 +1,17 @@
 import SwiftUI
 
 struct SongListRow: View {
-    @ObservedObject var player = PlayerManager.shared // Observe player state
+    @ObservedObject var player = PlayerManager.shared // 监听播放状态
     let song: Song
     let index: Int
-    var onArtistTap: ((Int) -> Void)? = nil  // 可选的歌手点击回调
-    var onDetailTap: ((Song) -> Void)? = nil // 可选的详情点击回调
+    var onArtistTap: ((Int) -> Void)? = nil  // 可选的歌手点击回调（向后兼容）
+    var onDetailTap: ((Song) -> Void)? = nil // 可选的详情点击回调（向后兼容）
     
-    // Computed property to determine if this row is currently playing
+    // 内置导航状态
+    @State private var navigateToArtist = false
+    @State private var navigateToSongDetail = false
+    
+    // 当前是否正在播放
     var isCurrent: Bool {
         player.currentSong?.id == song.id
     }
@@ -117,6 +121,16 @@ struct SongListRow: View {
             isCurrent ? Theme.accent.opacity(0.05) : Color.clear
         )
         .contentShape(Rectangle())
+        // 隐藏的 NavigationLink，用于 context menu 触发导航
+        .background {
+            if let artistId = song.ar?.first?.id {
+                NavigationLink(value: HomeView.HomeDestination.artist(artistId)) {
+                    EmptyView()
+                }
+                .opacity(0)
+                .frame(width: 0, height: 0)
+            }
+        }
         // 内置上下文菜单 - 长按显示
         .contextMenu {
             // 下一首播放
@@ -135,23 +149,38 @@ struct SongListRow: View {
             
             Divider()
             
-            // 歌手详情 (如果有回调)
-            if let artistId = song.ar?.first?.id, let onArtistTap = onArtistTap {
+            // 歌手详情 - 始终显示（如果有歌手信息）
+            if let artistId = song.ar?.first?.id {
                 Button {
-                    onArtistTap(artistId)
+                    if let onArtistTap = onArtistTap {
+                        onArtistTap(artistId)
+                    } else {
+                        navigateToArtist = true
+                    }
                 } label: {
                     Label(LocalizedStringKey("action_artist"), systemImage: "person.circle")
                 }
             }
             
-            // 歌曲详情 (如果有回调)
-            if let onDetailTap = onDetailTap {
-                Button {
+            // 歌曲详情 - 始终显示
+            Button {
+                if let onDetailTap = onDetailTap {
                     onDetailTap(song)
-                } label: {
-                    Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
+                } else {
+                    navigateToSongDetail = true
                 }
+            } label: {
+                Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
             }
+        }
+        // 通过 navigationDestination 处理内置导航
+        .navigationDestination(isPresented: $navigateToArtist) {
+            if let artistId = song.ar?.first?.id {
+                ArtistDetailView(artistId: artistId)
+            }
+        }
+        .navigationDestination(isPresented: $navigateToSongDetail) {
+            SongDetailView(song: song)
         }
     }
 }
