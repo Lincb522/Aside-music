@@ -62,9 +62,9 @@ struct SongListRow: View {
                                 RoundedRectangle(cornerRadius: 2)
                                     .stroke(Theme.secondaryText.opacity(0.4), lineWidth: 0.5)
                             )
-                    } else if isCurrent && player.isCurrentSongUnblocked, let source = player.currentSongSource {
-                        // 当前播放的解灰歌曲显示具体来源平台
-                        Text(source)
+                    } else if isCurrent && player.isCurrentSongUnblocked {
+                        // 当前播放的解灰歌曲统一显示"解灰"
+                        Text("解灰")
                             .font(.system(size: 7, weight: .bold))
                             .foregroundColor(Theme.accent)
                             .padding(.horizontal, 4)
