@@ -578,6 +578,10 @@ class PlayerManager: ObservableObject {
     private func startPlayback(url: URL, autoPlay: Bool = true, startTime: Double = 0) {
         isLoading = false
         
+        // 重置进度，避免切换音质时进度条异常
+        self.currentTime = 0
+        self.duration = 0
+        
         let song = currentSong
         let item = DefaultAudioItem(
             audioUrl: url.absoluteString,
