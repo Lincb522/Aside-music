@@ -113,6 +113,15 @@ class PlayerManager: ObservableObject {
     }
     
     private func setupAudioPlayer() {
+        // 配置 AVAudioSession 支持后台播放
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [])
+            try session.setActive(true)
+        } catch {
+            print("[PlayerManager] AVAudioSession 配置失败: \(error)")
+        }
+        
         audioPlayer.event.stateChange.addListener(self) { [weak self] state in
             DispatchQueue.main.async { self?.handleStateChange(state: state) }
         }
