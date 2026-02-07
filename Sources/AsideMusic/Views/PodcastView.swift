@@ -132,17 +132,25 @@ struct PodcastView: View {
     private var categoriesSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
+                // 分类浏览入口
+                NavigationLink(value: PodcastDestination.categoryBrowse) {
+                    HStack(spacing: 6) {
+                        AsideIcon(icon: .gridSquare, size: 16, color: .asideTextPrimary, lineWidth: 1.4)
+                        Text("全部")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.asideCardBackground)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(ScaleButtonStyle())
+
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
                         HStack(spacing: 6) {
-                            if let iconUrl = cat.iconUrl {
-                                CachedAsyncImage(url: iconUrl) {
-                                    Circle()
-                                        .fill(Color.asideCardBackground)
-                                }
-                                .frame(width: 22, height: 22)
-                                .clipShape(Circle())
-                            }
+                            AsideIcon(icon: cat.asideIconType, size: 16, color: .asideTextPrimary, lineWidth: 1.4)
                             Text(cat.name)
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)

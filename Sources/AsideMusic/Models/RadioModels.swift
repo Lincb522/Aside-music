@@ -79,6 +79,42 @@ struct RadioCategory: Identifiable, Codable, Hashable {
         if let url = pic84x84IdUrl { return URL(string: url) }
         return nil
     }
+
+    /// 根据分类名称映射到 AsideIcon 图标类型
+    var asideIconType: AsideIcon.IconType {
+        // 分类名称到图标的映射表
+        let mapping: [String: AsideIcon.IconType] = [
+            "音乐": .catMusic,
+            "生活": .catLife,
+            "情感": .catEmotion,
+            "创作|翻唱": .catCreate,
+            "创作": .catCreate,
+            "翻唱": .catCreate,
+            "二次元": .catAcg,
+            "娱乐": .catEntertain,
+            "脱口秀": .catTalkshow,
+            "有声书": .catBook,
+            "知识": .catKnowledge,
+            "商业财经": .catBusiness,
+            "商业": .catBusiness,
+            "财经": .catBusiness,
+            "人文历史": .catHistory,
+            "历史": .catHistory,
+            "新闻资讯": .catNews,
+            "新闻": .catNews,
+            "资讯": .catNews,
+            "亲子": .catParenting,
+            "旅途": .catTravel,
+            "旅行": .catTravel,
+            "相声曲艺": .catCrosstalk,
+            "相声": .catCrosstalk,
+            "曲艺": .catCrosstalk,
+            "美食": .catFood,
+            "科技": .catTech,
+            "电台": .radio,
+        ]
+        return mapping[name] ?? .catDefault
+    }
 }
 
 // MARK: - API 响应包装
