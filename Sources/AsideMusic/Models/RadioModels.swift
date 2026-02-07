@@ -85,9 +85,11 @@ struct RadioCategory: Identifiable, Codable, Hashable {
         // 分类名称到图标的映射表
         let mapping: [String: AsideIcon.IconType] = [
             "音乐": .catMusic,
+            "音乐播客": .catPodcast,
             "生活": .catLife,
             "情感": .catEmotion,
             "创作|翻唱": .catCreate,
+            "创作翻唱": .catCreate,
             "创作": .catCreate,
             "翻唱": .catCreate,
             "二次元": .catAcg,
@@ -112,6 +114,15 @@ struct RadioCategory: Identifiable, Codable, Hashable {
             "美食": .catFood,
             "科技": .catTech,
             "电台": .radio,
+            "电音": .catElectronic,
+            "明星专区": .catStar,
+            "明星": .catStar,
+            "广播剧": .catDrama,
+            "故事": .catStory,
+            "其他": .catOther,
+            "文学出版": .catPublish,
+            "文学": .catPublish,
+            "出版": .catPublish,
         ]
         return mapping[name] ?? .catDefault
     }

@@ -95,6 +95,13 @@ struct AsideIcon: View {
         case catFood         // 美食
         case catTech         // 科技
         case catDefault      // 默认分类图标
+        case catPodcast      // 音乐播客
+        case catElectronic   // 电音
+        case catStar         // 明星专区
+        case catDrama        // 广播剧
+        case catStory        // 故事
+        case catOther        // 其他
+        case catPublish      // 文学出版
     }
     
     let icon: IconType
@@ -118,7 +125,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .catDefault:
+        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
             return false
         default:
             return true
@@ -234,6 +241,13 @@ struct AsideIcon: View {
         case .catFood:      return AnyShape(CatFoodPath())
         case .catTech:      return AnyShape(CatTechPath())
         case .catDefault:   return AnyShape(CatDefaultPath())
+        case .catPodcast:   return AnyShape(CatPodcastPath())
+        case .catElectronic: return AnyShape(CatElectronicPath())
+        case .catStar:      return AnyShape(CatStarPath())
+        case .catDrama:     return AnyShape(CatDramaPath())
+        case .catStory:     return AnyShape(CatStoryPath())
+        case .catOther:     return AnyShape(CatOtherPath())
+        case .catPublish:   return AnyShape(CatPublishPath())
         }
     }
 }
@@ -1895,6 +1909,151 @@ private struct CatDefaultPath: Shape {
         path.closeSubpath()
         // 小圆点
         path.addEllipse(in: CGRect(x: 7*s, y: 8*s, width: 2.5*s, height: 2.5*s))
+        return path
+    }
+}
+
+
+// 音乐播客 — 耳机
+private struct CatPodcastPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 头带弧线
+        path.addArc(center: CGPoint(x: 12*s, y: 11*s), radius: 7*s, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false)
+        // 左耳罩
+        path.move(to: CGPoint(x: 5*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 17*s))
+        path.addRoundedRect(in: CGRect(x: 3*s, y: 13*s, width: 4*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
+        // 右耳罩
+        path.move(to: CGPoint(x: 19*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 17*s))
+        path.addRoundedRect(in: CGRect(x: 17*s, y: 13*s, width: 4*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
+        return path
+    }
+}
+
+// 电音 — 闪电
+private struct CatElectronicPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        path.move(to: CGPoint(x: 14*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 13*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 13*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 11*s))
+        path.closeSubpath()
+        return path
+    }
+}
+
+// 明星专区 — 皇冠
+private struct CatStarPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 皇冠主体
+        path.move(to: CGPoint(x: 4*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 18*s))
+        path.closeSubpath()
+        // 底部横线
+        path.move(to: CGPoint(x: 4*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 20*s))
+        return path
+    }
+}
+
+// 广播剧 — 电影胶片
+private struct CatDramaPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 胶片外框
+        path.addRoundedRect(in: CGRect(x: 4*s, y: 4*s, width: 16*s, height: 16*s), cornerSize: CGSize(width: 2*s, height: 2*s))
+        // 左侧齿孔
+        path.addRoundedRect(in: CGRect(x: 5.5*s, y: 6*s, width: 2*s, height: 2.5*s), cornerSize: CGSize(width: 0.5*s, height: 0.5*s))
+        path.addRoundedRect(in: CGRect(x: 5.5*s, y: 10.5*s, width: 2*s, height: 2.5*s), cornerSize: CGSize(width: 0.5*s, height: 0.5*s))
+        path.addRoundedRect(in: CGRect(x: 5.5*s, y: 15*s, width: 2*s, height: 2.5*s), cornerSize: CGSize(width: 0.5*s, height: 0.5*s))
+        // 右侧齿孔
+        path.addRoundedRect(in: CGRect(x: 16.5*s, y: 6*s, width: 2*s, height: 2.5*s), cornerSize: CGSize(width: 0.5*s, height: 0.5*s))
+        path.addRoundedRect(in: CGRect(x: 16.5*s, y: 10.5*s, width: 2*s, height: 2.5*s), cornerSize: CGSize(width: 0.5*s, height: 0.5*s))
+        path.addRoundedRect(in: CGRect(x: 16.5*s, y: 15*s, width: 2*s, height: 2.5*s), cornerSize: CGSize(width: 0.5*s, height: 0.5*s))
+        // 中间播放三角
+        path.move(to: CGPoint(x: 10.5*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 10.5*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 12*s))
+        path.closeSubpath()
+        return path
+    }
+}
+
+// 故事 — 翻开的卷轴
+private struct CatStoryPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 卷轴主体
+        path.move(to: CGPoint(x: 7*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 18*s))
+        path.addCurve(to: CGPoint(x: 10*s, y: 20*s), control1: CGPoint(x: 7*s, y: 19.5*s), control2: CGPoint(x: 8*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 17*s), control1: CGPoint(x: 20.5*s, y: 20*s), control2: CGPoint(x: 20.5*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 7*s, y: 18*s), control1: CGPoint(x: 8*s, y: 17*s), control2: CGPoint(x: 7*s, y: 17.2*s))
+        // 顶部卷曲
+        path.move(to: CGPoint(x: 7*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 5*s, y: 6*s), control1: CGPoint(x: 5.5*s, y: 4*s), control2: CGPoint(x: 5*s, y: 4.5*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 7*s))
+        // 文字行
+        path.move(to: CGPoint(x: 10*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 8*s))
+        path.move(to: CGPoint(x: 10*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 11*s))
+        path.move(to: CGPoint(x: 10*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 14*s))
+        return path
+    }
+}
+
+// 其他 — 三个点（省略号圆圈）
+private struct CatOtherPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        // 三个圆点
+        let dotR = 1.5*s
+        path.addEllipse(in: CGRect(x: 6.5*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        path.addEllipse(in: CGRect(x: 12*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        path.addEllipse(in: CGRect(x: 17.5*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        return path
+    }
+}
+
+// 文学出版 — 竖立的书 + 书签
+private struct CatPublishPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 书本外框
+        path.addRoundedRect(in: CGRect(x: 5*s, y: 3*s, width: 14*s, height: 18*s), cornerSize: CGSize(width: 2*s, height: 2*s))
+        // 书脊线
+        path.move(to: CGPoint(x: 8*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 21*s))
+        // 书签
+        path.move(to: CGPoint(x: 13*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 8.5*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 3*s))
         return path
     }
 }
