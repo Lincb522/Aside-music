@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 
 // MARK: - 电台模型
 
@@ -73,29 +72,12 @@ struct RadioCategory: Identifiable, Codable, Hashable {
     let pic56x56Url: String?
     let pic84x84IdUrl: String?
 
+    /// 图标 URL（96x96 优先）
     var iconUrl: URL? {
         if let url = pic96x96Url { return URL(string: url) }
         if let url = picWebUrl { return URL(string: url) }
         if let url = pic56x56Url { return URL(string: url) }
         if let url = pic84x84IdUrl { return URL(string: url) }
-        return nil
-    }
-
-    /// 从 Bundle 加载本地分类图标（根据外观模式选择黑/白版本）
-    func localIconImage(for colorScheme: UIUserInterfaceStyle) -> UIImage? {
-        let prefix = colorScheme == .dark ? "dark" : "light"
-        let filename = "\(prefix)_cat_\(id)"
-        let subdir = "CategoryIcons/\(prefix)"
-        // 尝试从 main bundle 加载
-        if let path = Bundle.main.path(forResource: filename, ofType: "jpg", inDirectory: subdir) {
-            return UIImage(contentsOfFile: path)
-        }
-        // 尝试从 SPM resource bundle 加载
-        if let bundle = Bundle.asideResources,
-           let url = bundle.url(forResource: filename, withExtension: "jpg", subdirectory: subdir),
-           let data = try? Data(contentsOf: url) {
-            return UIImage(data: data)
-        }
         return nil
     }
 
