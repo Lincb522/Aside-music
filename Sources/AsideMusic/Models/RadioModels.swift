@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // MARK: - 电台模型
 
@@ -77,6 +78,21 @@ struct RadioCategory: Identifiable, Codable, Hashable {
         if let url = picWebUrl { return URL(string: url) }
         if let url = pic56x56Url { return URL(string: url) }
         if let url = pic84x84IdUrl { return URL(string: url) }
+        return nil
+    }
+
+    /// 从 Bundle 加载本地分类图标（优先本地，无则返回 nil）
+    var localIconImage: UIImage? {
+        let filename = "cat_\(id)"
+        // 尝试从 Bundle.main 加载
+        if let path = Bundle.main.path(forResource: filename, ofType: "jpg", inDirectory: "CategoryIcons") {
+            return UIImage(contentsOfFile: path)
+        }
+        // 尝试从 SPM Bundle.module 加载
+        if let url = Bundle.asideResources?.url(forResource: filename, withExtension: "jpg", subdirectory: "CategoryIcons"),
+           let data = try? Data(contentsOf: url) {
+            return UIImage(data: data)
+        }
         return nil
     }
 

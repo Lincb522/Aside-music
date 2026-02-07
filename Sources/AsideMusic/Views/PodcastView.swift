@@ -150,7 +150,22 @@ struct PodcastView: View {
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
                         HStack(spacing: 6) {
-                            AsideIcon(icon: cat.asideIconType, size: 16, color: .asideTextPrimary, lineWidth: 1.4)
+                            if let uiImage = cat.localIconImage {
+                                // 优先使用本地图标
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 22, height: 22)
+                                    .clipShape(Circle())
+                            } else if let iconUrl = cat.iconUrl {
+                                // 本地没有则从网络加载
+                                CachedAsyncImage(url: iconUrl) {
+                                    Circle()
+                                        .fill(Color.asideCardBackground)
+                                }
+                                .frame(width: 22, height: 22)
+                                .clipShape(Circle())
+                            }
                             Text(cat.name)
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)
