@@ -113,6 +113,10 @@ struct DailyRecommendView: View {
     @StateObject private var viewModel = DailyRecommendViewModel()
     @ObservedObject private var styleManager = StyleManager.shared
     @Namespace private var animationNamespace
+    @State private var selectedArtistId: Int?
+    @State private var showArtistDetail = false
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -159,6 +163,16 @@ struct DailyRecommendView: View {
             Text(viewModel.noHistoryMessage ?? "")
         }
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $showArtistDetail) {
+            if let artistId = selectedArtistId {
+                ArtistDetailView(artistId: artistId)
+            }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+            }
+        }
         .onChange(of: viewModel.showStyleMenu) { isShown in
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 PlayerManager.shared.isTabBarHidden = isShown
@@ -283,7 +297,13 @@ struct DailyRecommendView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
-                    SongListRow(song: song, index: index)
+                    SongListRow(song: song, index: index, onArtistTap: { artistId in
+                        selectedArtistId = artistId
+                        showArtistDetail = true
+                    }, onDetailTap: { detailSong in
+                        selectedSongForDetail = detailSong
+                        showSongDetail = true
+                    })
                         .asButton {
                             PlayerManager.shared.play(song: song, in: viewModel.songs)
                         }
@@ -430,7 +450,7 @@ struct DailyHistoryView: View {
         }) {
             Text(displayDate)
                 .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : .asideTextPrimary)
+                .foregroundColor(isSelected ? .asideIconForeground : .asideTextPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(

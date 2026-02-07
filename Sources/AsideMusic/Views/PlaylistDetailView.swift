@@ -140,6 +140,16 @@ struct PlaylistDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $showArtistDetail) {
+            if let artistId = selectedArtistId {
+                ArtistDetailView(artistId: artistId)
+            }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+            }
+        }
         .onAppear {
             if let songs = initialSongs {
                 viewModel.setSongs(songs)
@@ -204,11 +214,11 @@ struct PlaylistDetailView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            AsideIcon(icon: .play, size: 12, color: .white)
+                            AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
                             Text(LocalizedStringKey("play_now"))
                                 .font(.system(size: 12, weight: .bold))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.asideIconForeground)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(Theme.accent)
@@ -253,6 +263,9 @@ struct PlaylistDetailView: View {
                 }
                 if viewModel.hasMore && !viewModel.isLoading && !viewModel.isLoadingMore {
                     Color.clear.frame(height: 20).onAppear { viewModel.loadMore() }
+                }
+                if !viewModel.hasMore && !viewModel.songs.isEmpty && !viewModel.isLoading {
+                    NoMoreDataView()
                 }
                 
                 Color.clear.frame(height: 100)

@@ -108,6 +108,18 @@ struct PersonalFMView: View {
         }
     }
 
+    // MARK: - FM 播放状态分离
+
+    /// 当前 player 是否正在播放 FM 内容
+    private var isOwnFMContent: Bool {
+        player.playSource == .fm
+    }
+
+    /// FM 是否正在播放（只有播放源匹配时才为 true）
+    private var isFMPlaying: Bool {
+        isOwnFMContent && player.isPlaying
+    }
+
     @State private var dragOffset: CGSize = .zero
     @State private var cardScale: CGFloat = 1.0
     @State private var isDraggingSlider = false
@@ -147,10 +159,10 @@ struct PersonalFMView: View {
 
                         WaveformProgressBar(
                             currentTime: Binding(
-                                get: { isDraggingSlider ? dragTimeValue : player.currentTime },
+                                get: { isDraggingSlider ? dragTimeValue : (isOwnFMContent ? player.currentTime : 0) },
                                 set: { _ in }
                             ),
-                            duration: player.duration,
+                            duration: isOwnFMContent ? player.duration : 0,
                             color: .asideTextPrimary,
                             onSeek: { time in
                                 isDraggingSlider = true
@@ -158,7 +170,10 @@ struct PersonalFMView: View {
                             },
                             onCommit: { time in
                                 isDraggingSlider = false
-                                player.seek(to: time)
+                                // 只有 FM 播放源时才执行 seek
+                                if isOwnFMContent {
+                                    player.seek(to: time)
+                                }
                             }
                         )
                         .frame(width: 200, height: 32)
@@ -294,12 +309,12 @@ struct PersonalFMView: View {
                                 .frame(width: 72, height: 72)
                                 .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
 
-                            AsideIcon(icon: PlayerManager.shared.isPlaying ? .pause : .play, size: 26, color: .asideIconForeground)
-                                .offset(x: PlayerManager.shared.isPlaying ? 0 : 2)
+                            AsideIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: .asideIconForeground)
+                                .offset(x: isFMPlaying ? 0 : 2)
                         }
                     }
-                    .scaleEffect(player.isPlaying ? 1.0 : 0.95)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: player.isPlaying)
+                    .scaleEffect(isFMPlaying ? 1.0 : 0.95)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFMPlaying)
 
                     Button(action: {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -367,6 +382,9 @@ struct PersonalFMView: View {
     }
 
     private func syncPlayerState() {
+        // 只有当播放源是 FM 时才同步状态
+        guard isOwnFMContent else { return }
+
         if let playerSong = player.currentSong {
             if self.currentFMSong?.id != playerSong.id {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -429,7 +447,8 @@ struct PersonalFMView: View {
     private func trashCurrentSong() {
         guard let song = currentFMSong else { return }
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        let currentTime = Int(PlayerManager.shared.currentTime)
+        // 只有 FM 播放源时才读取真实播放时间
+        let currentTime = isOwnFMContent ? Int(PlayerManager.shared.currentTime) : 0
         APIService.shared.trashFM(id: song.id, time: currentTime)
             .sink(receiveCompletion: { _ in }, receiveValue: { _ in })
             .store(in: &cancellables)

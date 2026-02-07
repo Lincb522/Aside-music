@@ -120,6 +120,10 @@ class SearchViewModel: ObservableObject {
 
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
+    @State private var selectedArtistId: Int?
+    @State private var showArtistDetail = false
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
     @FocusState private var isFocused: Bool
     
     var body: some View {
@@ -197,7 +201,13 @@ struct SearchView: View {
                             ScrollView {
                                 LazyVStack(spacing: 0) {
                                     ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { index, song in
-                                        SongListRow(song: song, index: index)
+                                        SongListRow(song: song, index: index, onArtistTap: { artistId in
+                                            selectedArtistId = artistId
+                                            showArtistDetail = true
+                                        }, onDetailTap: { detailSong in
+                                            selectedSongForDetail = detailSong
+                                            showSongDetail = true
+                                        })
                                             .asButton {
                                                 PlayerManager.shared.play(song: song, in: viewModel.searchResults)
                                                 isFocused = false
@@ -267,6 +277,16 @@ struct SearchView: View {
             }
         }
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $showArtistDetail) {
+            if let artistId = selectedArtistId {
+                ArtistDetailView(artistId: artistId)
+            }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+            }
+        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isFocused = true

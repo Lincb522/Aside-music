@@ -82,9 +82,12 @@ struct MiniPlayerSection: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    if player.isPlayingFM {
+                    switch player.playSource {
+                    case .fm:
                         NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-                    } else {
+                    case .podcast(let radioId):
+                        NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+                    case .normal:
                         NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
                     }
                 }

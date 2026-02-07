@@ -4,11 +4,8 @@ struct SongListRow: View {
     @ObservedObject var player = PlayerManager.shared
     let song: Song
     let index: Int
-    var onArtistTap: ((Int) -> Void)? = nil  // 可选的歌手点击回调（向后兼容）
-    var onDetailTap: ((Song) -> Void)? = nil // 可选的详情点击回调（向后兼容）
-    
-    @State private var navigateToArtist = false
-    @State private var navigateToSongDetail = false
+    var onArtistTap: ((Int) -> Void)? = nil
+    var onDetailTap: ((Song) -> Void)? = nil
     
     var isCurrent: Bool {
         player.currentSong?.id == song.id
@@ -112,17 +109,6 @@ struct SongListRow: View {
             isCurrent ? Theme.accent.opacity(0.05) : Color.clear
         )
         .contentShape(Rectangle())
-        // 隐藏的 NavigationLink，用于 context menu 触发导航
-        .background {
-            if let artistId = song.ar?.first?.id {
-                NavigationLink(value: HomeView.HomeDestination.artist(artistId)) {
-                    EmptyView()
-                }
-                .opacity(0)
-                .frame(width: 0, height: 0)
-            }
-        }
-        // 内置上下文菜单 - 长按显示
         .contextMenu {
             Button {
                 PlayerManager.shared.playNext(song: song)
@@ -140,33 +126,17 @@ struct SongListRow: View {
             
             if let artistId = song.ar?.first?.id {
                 Button {
-                    if let onArtistTap = onArtistTap {
-                        onArtistTap(artistId)
-                    } else {
-                        navigateToArtist = true
-                    }
+                    onArtistTap?(artistId)
                 } label: {
                     Label(LocalizedStringKey("action_artist"), systemImage: "person.circle")
                 }
             }
             
             Button {
-                if let onDetailTap = onDetailTap {
-                    onDetailTap(song)
-                } else {
-                    navigateToSongDetail = true
-                }
+                onDetailTap?(song)
             } label: {
                 Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
             }
-        }
-        .navigationDestination(isPresented: $navigateToArtist) {
-            if let artistId = song.ar?.first?.id {
-                ArtistDetailView(artistId: artistId)
-            }
-        }
-        .navigationDestination(isPresented: $navigateToSongDetail) {
-            SongDetailView(song: song)
         }
     }
 }

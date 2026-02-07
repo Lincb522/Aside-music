@@ -712,4 +712,90 @@ class APIService {
             }
             .eraseToAnyPublisher()
     }
+    
+    // MARK: - 播客/电台接口
+    
+    func fetchDJPersonalizeRecommend(limit: Int = 6) -> AnyPublisher<[RadioStation], Error> {
+        return fetch("/dj/personalize/recommend?limit=\(limit)")
+            .map { (response: DJPersonalizeResponse) -> [RadioStation] in
+                return response.data ?? []
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func fetchDJCategories() -> AnyPublisher<[RadioCategory], Error> {
+        return fetch("/dj/catelist")
+            .map { (response: DJCategoryResponse) -> [RadioCategory] in
+                let cats = response.categories ?? []
+                print("📻 电台分类数量: \(cats.count), 名称: \(cats.map { $0.name })")
+                return cats
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func fetchDJRecommend() -> AnyPublisher<[RadioStation], Error> {
+        return fetch("/dj/recommend")
+            .map { (response: DJRecommendResponse) -> [RadioStation] in
+                return response.djRadios ?? []
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func fetchDJDetail(id: Int) -> AnyPublisher<RadioStation, Error> {
+        return fetch("/dj/detail?rid=\(id)")
+            .tryMap { (response: DJDetailResponse) -> RadioStation in
+                guard let data = response.data else {
+                    throw URLError(.badServerResponse)
+                }
+                return data
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func fetchDJPrograms(radioId: Int, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[RadioProgram], Error> {
+        return fetch("/dj/program?rid=\(radioId)&limit=\(limit)&offset=\(offset)")
+            .map { (response: DJProgramResponse) -> [RadioProgram] in
+                return response.programs ?? []
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func fetchDJCategoryHot(cateId: Int, limit: Int = 30, offset: Int = 0) -> AnyPublisher<(radios: [RadioStation], hasMore: Bool), Error> {
+        return fetch("/dj/radio/hot?cateId=\(cateId)&limit=\(limit)&offset=\(offset)")
+            .map { (response: DJCategoryHotResponse) -> (radios: [RadioStation], hasMore: Bool) in
+                let radios = response.djRadios ?? []
+                let hasMore = response.hasMore ?? (radios.count >= limit)
+                print("📻 分类热门电台: cateId=\(cateId), offset=\(offset), 返回\(radios.count)条, hasMore=\(hasMore)")
+                return (radios: radios, hasMore: hasMore)
+            }
+            .eraseToAnyPublisher()
+    }
+
+    /// 热门电台榜（支持分页）
+    func fetchDJToplist(type: String = "hot", limit: Int = 30, offset: Int = 0) -> AnyPublisher<[RadioStation], Error> {
+        return fetch("/dj/toplist?type=\(type)&limit=\(limit)&offset=\(offset)")
+            .map { (response: DJToplistResponse) -> [RadioStation] in
+                return response.toplist ?? []
+            }
+            .eraseToAnyPublisher()
+    }
+
+    /// 热门电台（支持分页）
+    func fetchDJHot(limit: Int = 30, offset: Int = 0) -> AnyPublisher<[RadioStation], Error> {
+        return fetch("/dj/hot?limit=\(limit)&offset=\(offset)")
+            .map { (response: DJHotResponse) -> [RadioStation] in
+                return response.djRadios ?? []
+            }
+            .eraseToAnyPublisher()
+    }
+
+    /// 搜索电台（cloudsearch type=1009）
+    func searchDJRadio(keywords: String, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[RadioStation], Error> {
+        let encoded = keywords.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keywords
+        return fetch("/cloudsearch?keywords=\(encoded)&type=1009&limit=\(limit)&offset=\(offset)")
+            .map { (response: DJSearchResponse) -> [RadioStation] in
+                return response.result?.djRadios ?? []
+            }
+            .eraseToAnyPublisher()
+    }
 }

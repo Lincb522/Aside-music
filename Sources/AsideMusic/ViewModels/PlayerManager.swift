@@ -45,9 +45,35 @@ class PlayerManager: ObservableObject {
     @Published var showFullScreenPlayer = false
     @Published var mode: PlayMode = .sequence
     @Published var isTabBarHidden: Bool = false
-    @Published var isPlayingFM: Bool = false
     @Published var isCurrentSongUnblocked: Bool = false
     @Published var currentSongSource: String? = nil
+    
+    // MARK: - 播放源类型
+    enum PlaySource: Codable, Equatable {
+        case normal          // 普通歌曲播放
+        case fm              // 私人 FM
+        case podcast(radioId: Int)  // 播客/电台
+    }
+    
+    @Published var playSource: PlaySource = .normal
+    
+    /// 向后兼容：是否正在播放 FM
+    var isPlayingFM: Bool {
+        get { playSource == .fm }
+        set { playSource = newValue ? .fm : .normal }
+    }
+    
+    /// 是否正在播放播客
+    var isPlayingPodcast: Bool {
+        if case .podcast = playSource { return true }
+        return false
+    }
+    
+    /// 当前播客电台 ID（如果正在播放播客）
+    var currentRadioId: Int? {
+        if case .podcast(let radioId) = playSource { return radioId }
+        return nil
+    }
     
     // MARK: - Settings
     @Published var soundQuality: SoundQuality = {
@@ -230,7 +256,7 @@ class PlayerManager: ObservableObject {
     
     func play(song: Song, in context: [Song]) {
         self.context = context
-        self.isPlayingFM = false
+        self.playSource = .normal
         
         if let index = context.firstIndex(where: { $0.id == song.id }) {
             self.contextIndex = index
@@ -248,7 +274,7 @@ class PlayerManager: ObservableObject {
     
     func playFM(song: Song, in context: [Song], autoPlay: Bool = true) {
         self.context = context
-        self.isPlayingFM = true
+        self.playSource = .fm
         
         if let index = context.firstIndex(where: { $0.id == song.id }) {
             self.contextIndex = index
@@ -258,6 +284,22 @@ class PlayerManager: ObservableObject {
         
         self.mode = .sequence
         loadAndPlay(song: song, autoPlay: autoPlay)
+    }
+    
+    /// 播客/电台模式播放
+    func playPodcast(song: Song, in context: [Song], radioId: Int) {
+        self.context = context
+        self.playSource = .podcast(radioId: radioId)
+        
+        if let index = context.firstIndex(where: { $0.id == song.id }) {
+            self.contextIndex = index
+        } else {
+            self.context.insert(song, at: 0)
+            self.contextIndex = 0
+        }
+        
+        self.mode = .sequence
+        loadAndPlay(song: song)
     }
     
     func appendContext(songs: [Song]) {
@@ -280,7 +322,7 @@ class PlayerManager: ObservableObject {
         self.context = [song]
         self.contextIndex = 0
         self.shuffledContext = [song]
-        self.isPlayingFM = false
+        self.playSource = .normal
         
         loadAndPlay(song: song)
     }
@@ -688,6 +730,7 @@ class PlayerManager: ObservableObject {
         let userQueue: [Song]
         let mode: PlayMode
         let history: [Song]
+        let playSource: PlaySource?
     }
     
     private func saveState() {
@@ -699,9 +742,10 @@ class PlayerManager: ObservableObject {
                 currentSong: self.currentSong,
                 userQueue: self.userQueue,
                 mode: self.mode,
-                history: self.history
+                history: self.history,
+                playSource: self.playSource
             )
-            CacheManager.shared.setObject(state, forKey: "player_state_v3")
+            CacheManager.shared.setObject(state, forKey: "player_state_v4")
         }
         
         saveStateWorkItem = workItem
@@ -714,22 +758,40 @@ class PlayerManager: ObservableObject {
             currentSong: currentSong,
             userQueue: userQueue,
             mode: mode,
-            history: history
+            history: history,
+            playSource: playSource
         )
-        CacheManager.shared.setObject(state, forKey: "player_state_v3")
+        CacheManager.shared.setObject(state, forKey: "player_state_v4")
     }
     
     private func restoreState() {
-        if let state = CacheManager.shared.getObject(forKey: "player_state_v3", type: PlayerState.self) {
+        if let state = CacheManager.shared.getObject(forKey: "player_state_v4", type: PlayerState.self) {
             self.userQueue = state.userQueue
             self.mode = state.mode
             self.history = state.history
+            self.playSource = state.playSource ?? .normal
             
             if let song = state.currentSong {
                 self.currentSong = song
                 self.context = [song]
                 self.contextIndex = 0
             }
+            return
+        }
+        
+        // 兼容旧版本 v3
+        if let state = CacheManager.shared.getObject(forKey: "player_state_v3", type: PlayerState.self) {
+            self.userQueue = state.userQueue
+            self.mode = state.mode
+            self.history = state.history
+            self.playSource = state.playSource ?? .normal
+            
+            if let song = state.currentSong {
+                self.currentSong = song
+                self.context = [song]
+                self.contextIndex = 0
+            }
+            saveStateImmediately()
             return
         }
         

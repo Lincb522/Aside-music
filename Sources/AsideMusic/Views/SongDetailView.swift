@@ -27,6 +27,10 @@ struct SongDetailView: View {
     @StateObject private var viewModel = SongDetailViewModel()
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var playerManager = PlayerManager.shared
+    @State private var selectedArtistId: Int?
+    @State private var showArtistDetail = false
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
     
     struct Theme {
         static let text = Color.asideTextPrimary
@@ -53,6 +57,16 @@ struct SongDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $showArtistDetail) {
+            if let artistId = selectedArtistId {
+                ArtistDetailView(artistId: artistId)
+            }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+            }
+        }
         .onAppear {
             if let artistId = song.artists.first?.id {
                 viewModel.loadRelatedSongs(artistId: artistId)
@@ -157,7 +171,13 @@ struct SongDetailView: View {
             
             LazyVStack(spacing: 0) {
                 ForEach(Array(viewModel.relatedSongs.enumerated()), id: \.element.id) { index, relatedSong in
-                    SongListRow(song: relatedSong, index: index)
+                    SongListRow(song: relatedSong, index: index, onArtistTap: { artistId in
+                        selectedArtistId = artistId
+                        showArtistDetail = true
+                    }, onDetailTap: { detailSong in
+                        selectedSongForDetail = detailSong
+                        showSongDetail = true
+                    })
                         .asButton {
                             PlayerManager.shared.play(song: relatedSong, in: viewModel.relatedSongs)
                         }

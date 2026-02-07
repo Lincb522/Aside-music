@@ -8,6 +8,8 @@ public struct ContentView: View {
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
+    @State private var showRadioPlayer = false
+    @State private var radioPlayerRadioId: Int = 0
     @StateObject private var alertManager = AlertManager.shared
     @Namespace private var animation
 
@@ -41,15 +43,9 @@ public struct ContentView: View {
                         .opacity(currentTab == .home ? 1 : 0)
                         .zIndex(currentTab == .home ? 1 : 0)
 
-                    ZStack {
-                        AsideBackground()
-                            .ignoresSafeArea()
-                        Text(LocalizedStringKey("tab_podcast"))
-                            .font(.rounded(size: 20, weight: .bold))
-                            .foregroundColor(.asideTextPrimary)
-                    }
-                    .opacity(currentTab == .podcast ? 1 : 0)
-                    .zIndex(currentTab == .podcast ? 1 : 0)
+                    PodcastView()
+                        .opacity(currentTab == .podcast ? 1 : 0)
+                        .zIndex(currentTab == .podcast ? 1 : 0)
 
                     LibraryView()
                         .opacity(currentTab == .library ? 1 : 0)
@@ -84,11 +80,20 @@ public struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
                 currentTab = .library
             }
+            .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
+                if let radioId = notification.object as? Int {
+                    radioPlayerRadioId = radioId
+                    showRadioPlayer = true
+                }
+            }
             .fullScreenCover(isPresented: $showPersonalFM) {
                 PersonalFMView()
             }
             .fullScreenCover(isPresented: $showNormalPlayer) {
                 FullScreenPlayerView()
+            }
+            .fullScreenCover(isPresented: $showRadioPlayer) {
+                RadioPlayerView(radioId: radioPlayerRadioId)
             }
 
             if showWelcome {

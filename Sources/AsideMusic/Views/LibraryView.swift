@@ -605,10 +605,10 @@ struct PlaylistSquareView: View {
                                 .padding(.vertical, 8)
                                 .background(
                                     Capsule()
-                                        .fill(viewModel.selectedCategory == cat.name ? Theme.text : Color.asideCardBackground)
+                                        .fill(viewModel.selectedCategory == cat.name ? Color.asideIconBackground : Color.asideCardBackground)
                                         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                                 )
-                                .foregroundColor(viewModel.selectedCategory == cat.name ? .white : Theme.text)
+                                .foregroundColor(viewModel.selectedCategory == cat.name ? .asideIconForeground : Theme.text)
                         }
                         .buttonStyle(AsideBouncingButtonStyle())
                     }
@@ -641,6 +641,9 @@ struct PlaylistSquareView: View {
                     if viewModel.isLoadingMoreSquare && viewModel.hasMoreSquarePlaylists {
                         AsideLoadingView(centered: false)
                             .padding()
+                    }
+                    if !viewModel.hasMoreSquarePlaylists && !viewModel.squarePlaylists.isEmpty {
+                        NoMoreDataView()
                     }
                 }
 
@@ -747,6 +750,9 @@ struct ArtistLibraryView: View {
                         AsideLoadingView()
                             .padding()
                     }
+                    if !viewModel.hasMoreArtists && !viewModel.topArtists.isEmpty && !viewModel.isSearchingArtists {
+                        NoMoreDataView()
+                    }
                 }
 
                 Color.clear.frame(height: 120)
@@ -772,10 +778,10 @@ struct ArtistLibraryView: View {
                         .padding(.vertical, 8)
                         .background(
                             Capsule()
-                                .fill(selected.wrappedValue == option.1 ? Theme.text : Color.asideCardBackground)
+                                .fill(selected.wrappedValue == option.1 ? Color.asideIconBackground : Color.asideCardBackground)
                                 .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                         )
-                        .foregroundColor(selected.wrappedValue == option.1 ? .white : Theme.text)
+                        .foregroundColor(selected.wrappedValue == option.1 ? .asideIconForeground : Theme.text)
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }

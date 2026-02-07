@@ -132,7 +132,7 @@ struct StyleSelectionMorphView: View {
         Button(action: action) {
             Text(name)
                 .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : .asideTextPrimary.opacity(0.85))
+                .foregroundColor(isSelected ? .asideIconForeground : .asideTextPrimary.opacity(0.85))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(
@@ -156,7 +156,7 @@ struct StyleSelectionMorphView: View {
         }) {
             Text("确认选择")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .foregroundColor(.asideIconForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
