@@ -4,6 +4,7 @@ struct PodcastView: View {
     @StateObject private var viewModel = PodcastViewModel()
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen: Int = 0
+    @Environment(\.colorScheme) private var colorScheme
 
     enum PodcastDestination: Hashable {
         case category(RadioCategory)
@@ -150,13 +151,13 @@ struct PodcastView: View {
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
                         HStack(spacing: 6) {
-                            if let uiImage = cat.localIconImage {
+                            let style: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+                            if let uiImage = cat.localIconImage(for: style) {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()
                                     .frame(width: 22, height: 22)
                                     .clipShape(Circle())
-                                    .adaptiveDarkInvert()
                             } else if let iconUrl = cat.iconUrl {
                                 CachedAsyncImage(url: iconUrl) {
                                     Circle()

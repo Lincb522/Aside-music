@@ -81,15 +81,18 @@ struct RadioCategory: Identifiable, Codable, Hashable {
         return nil
     }
 
-    /// 从 Bundle 加载本地分类图标（优先本地，无则返回 nil）
-    var localIconImage: UIImage? {
-        let filename = "cat_\(id)"
-        // 尝试从 Bundle.main 加载
-        if let path = Bundle.main.path(forResource: filename, ofType: "jpg", inDirectory: "CategoryIcons") {
+    /// 从 Bundle 加载本地分类图标（根据外观模式选择黑/白版本）
+    func localIconImage(for colorScheme: UIUserInterfaceStyle) -> UIImage? {
+        let prefix = colorScheme == .dark ? "dark" : "light"
+        let filename = "\(prefix)_cat_\(id)"
+        let subdir = "CategoryIcons/\(prefix)"
+        // 尝试从 main bundle 加载
+        if let path = Bundle.main.path(forResource: filename, ofType: "jpg", inDirectory: subdir) {
             return UIImage(contentsOfFile: path)
         }
-        // 尝试从 SPM Bundle.module 加载
-        if let url = Bundle.asideResources?.url(forResource: filename, withExtension: "jpg", subdirectory: "CategoryIcons"),
+        // 尝试从 SPM resource bundle 加载
+        if let bundle = Bundle.asideResources,
+           let url = bundle.url(forResource: filename, withExtension: "jpg", subdirectory: subdir),
            let data = try? Data(contentsOf: url) {
             return UIImage(data: data)
         }
