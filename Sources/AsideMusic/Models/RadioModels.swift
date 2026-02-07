@@ -174,3 +174,10 @@ struct DJHotResponse: Codable {
     let djRadios: [RadioStation]?
     let hasMore: Bool?
 }
+
+struct DJSublistResponse: Codable {
+    let djRadios: [RadioStation]?
+    let count: Int?
+    let hasMore: Bool?
+    let time: Int?
+}

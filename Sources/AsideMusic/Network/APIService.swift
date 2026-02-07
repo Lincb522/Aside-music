@@ -798,4 +798,29 @@ class APIService {
             }
             .eraseToAnyPublisher()
     }
+
+    // MARK: - 收藏/订阅接口
+
+    /// 获取用户订阅的播客列表
+    func fetchDJSublist(limit: Int = 30, offset: Int = 0) -> AnyPublisher<[RadioStation], Error> {
+        return fetch("/dj/sublist?limit=\(limit)&offset=\(offset)")
+            .map { (response: DJSublistResponse) -> [RadioStation] in
+                return response.djRadios ?? []
+            }
+            .eraseToAnyPublisher()
+    }
+
+    /// 订阅/取消订阅播客（t=1 订阅，t=0 取消）
+    func subscribeDJ(rid: Int, subscribe: Bool) -> AnyPublisher<SimpleResponse, Error> {
+        let t = subscribe ? 1 : 0
+        return fetch("/dj/sub?rid=\(rid)&t=\(t)")
+            .eraseToAnyPublisher()
+    }
+
+    /// 收藏/取消收藏歌单（t=1 收藏，t=2 取消）
+    func subscribePlaylist(id: Int, subscribe: Bool) -> AnyPublisher<SimpleResponse, Error> {
+        let t = subscribe ? 1 : 2
+        return fetch("/playlist/subscribe?t=\(t)&id=\(id)")
+            .eraseToAnyPublisher()
+    }
 }

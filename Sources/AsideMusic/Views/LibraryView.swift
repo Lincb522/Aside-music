@@ -26,12 +26,14 @@ class LibraryViewModel: ObservableObject {
         case playlist(Playlist)
         case artist(Int)
         case artistInfo(ArtistInfo)
+        case radioDetail(Int)
 
         func hash(into hasher: inout Hasher) {
             switch self {
             case .playlist(let p): hasher.combine("p_\(p.id)")
             case .artist(let id): hasher.combine("a_\(id)")
             case .artistInfo(let a): hasher.combine("a_\(a.id)")
+            case .radioDetail(let id): hasher.combine("r_\(id)")
             }
         }
 
@@ -40,6 +42,7 @@ class LibraryViewModel: ObservableObject {
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
             case (.artist(let l), .artist(let r)): return l == r
             case (.artistInfo(let l), .artistInfo(let r)): return l.id == r.id
+            case (.radioDetail(let l), .radioDetail(let r)): return l == r
             default: return false
             }
         }
@@ -401,6 +404,8 @@ struct LibraryView: View {
                     ArtistDetailView(artistId: id)
                 case .artistInfo(let artist):
                     ArtistDetailView(artistId: artist.id)
+                case .radioDetail(let id):
+                    RadioDetailView(radioId: id)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
@@ -482,7 +487,7 @@ struct MyPlaylistsContainerView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 subTabButton(title: "网易云歌单", index: 0)
-                subTabButton(title: "本地歌单", index: 1)
+                subTabButton(title: "我的播客", index: 1)
                 Spacer()
             }
             .padding(.horizontal, 24)
@@ -492,7 +497,7 @@ struct MyPlaylistsContainerView: View {
                 NetEasePlaylistsView(viewModel: viewModel)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             } else {
-                LocalPlaylistsView()
+                MyPodcastsView()
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -527,19 +532,89 @@ struct MyPlaylistsContainerView: View {
     }
 }
 
-struct LocalPlaylistsView: View {
+// MARK: - 我的播客（订阅的播客列表）
+
+struct MyPodcastsView: View {
     typealias Theme = PlaylistDetailView.Theme
+    @ObservedObject private var subManager = SubscriptionManager.shared
 
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Text("本地歌单功能开发中...")
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .foregroundColor(Theme.secondaryText)
-            Spacer()
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 12) {
+                if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("加载中...")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .padding(.top, 50)
+                } else if subManager.subscribedRadios.isEmpty {
+                    VStack(spacing: 16) {
+                        AsideIcon(icon: .radio, size: 40, color: .asideTextSecondary.opacity(0.3))
+                        Text("还没有订阅播客")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                        Text("去播客页面发现感兴趣的内容")
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundColor(Theme.secondaryText.opacity(0.6))
+                    }
+                    .padding(.top, 50)
+                } else {
+                    ForEach(subManager.subscribedRadios) { radio in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                            podcastRow(radio: radio)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 120)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
+        .onAppear {
+            if subManager.subscribedRadios.isEmpty {
+                subManager.fetchSubscribedRadios()
+            }
+        }
+    }
+
+    private func podcastRow(radio: RadioStation) -> some View {
+        HStack(spacing: 14) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.asideCardBackground)
+            }
+            .frame(width: 56, height: 56)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(radio.name)
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    if let dj = radio.dj?.nickname {
+                        Text(dj)
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                    }
+                    if let count = radio.programCount, count > 0 {
+                        Text("·")
+                            .foregroundColor(.asideTextSecondary)
+                        Text("\(count)期")
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+        }
+        .padding(.vertical, 6)
     }
 }
 
