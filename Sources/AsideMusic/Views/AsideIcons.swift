@@ -1506,625 +1506,552 @@ private struct GridSquarePath: Shape {
 
 // MARK: - 电台分类图标 Paths
 
-// 音乐 — 双八分音符（两个音符头 + 横梁连接）
+// 音乐 — 音符 + 弦线（Aura Floating）
 private struct CatMusicPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 左音符头
-        path.addEllipse(in: CGRect(x: 4*s, y: 15*s, width: 5*s, height: 4*s))
-        // 右音符头
-        path.addEllipse(in: CGRect(x: 13*s, y: 13*s, width: 5*s, height: 4*s))
-        // 左音符杆
-        path.move(to: CGPoint(x: 9*s, y: 17*s))
-        path.addLine(to: CGPoint(x: 9*s, y: 5*s))
-        // 右音符杆
-        path.move(to: CGPoint(x: 18*s, y: 15*s))
-        path.addLine(to: CGPoint(x: 18*s, y: 4*s))
-        // 横梁
-        path.move(to: CGPoint(x: 9*s, y: 5*s))
-        path.addLine(to: CGPoint(x: 18*s, y: 4*s))
+        // 音符头圆
+        path.addEllipse(in: CGRect(x: 5*s, y: 13*s, width: 6*s, height: 6*s))
+        // 音符杆
+        path.move(to: CGPoint(x: 11*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 11*s, y: 6*s))
+        // 旗帜弦线
+        path.addLine(to: CGPoint(x: 18*s, y: 8.5*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 生活 — 咖啡杯（杯身 + 把手 + 蒸汽）
+// 生活 — 咖啡杯（Aura Floating）
 private struct CatLifePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         // 杯身
-        path.addRoundedRect(in: CGRect(x: 4*s, y: 10*s, width: 12*s, height: 9*s), cornerSize: CGSize(width: 2*s, height: 2*s))
-        // 把手
-        path.move(to: CGPoint(x: 16*s, y: 12*s))
-        path.addCurve(to: CGPoint(x: 16*s, y: 17*s), control1: CGPoint(x: 20*s, y: 12*s), control2: CGPoint(x: 20*s, y: 17*s))
-        // 蒸汽（三条波浪线）
-        path.move(to: CGPoint(x: 7*s, y: 8*s))
-        path.addQuadCurve(to: CGPoint(x: 7*s, y: 4*s), control: CGPoint(x: 5*s, y: 6*s))
-        path.move(to: CGPoint(x: 10*s, y: 8*s))
-        path.addQuadCurve(to: CGPoint(x: 10*s, y: 4*s), control: CGPoint(x: 12*s, y: 6*s))
-        path.move(to: CGPoint(x: 13*s, y: 8*s))
-        path.addQuadCurve(to: CGPoint(x: 13*s, y: 4*s), control: CGPoint(x: 11*s, y: 6*s))
-        // 底部托盘
-        path.move(to: CGPoint(x: 2*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 20*s, y: 20*s))
+        path.move(to: CGPoint(x: 5*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 15*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 19*s), control1: CGPoint(x: 5*s, y: 17.2*s), control2: CGPoint(x: 6.8*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 15*s), control1: CGPoint(x: 15.2*s, y: 19*s), control2: CGPoint(x: 17*s, y: 17.2*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 9*s))
+        // 把手（半透明）
+        path.move(to: CGPoint(x: 17*s, y: 11*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 13*s), control1: CGPoint(x: 19*s, y: 11*s), control2: CGPoint(x: 21*s, y: 11.9*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 14*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 16*s), control1: CGPoint(x: 21*s, y: 15.1*s), control2: CGPoint(x: 19*s, y: 16*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 情感 — 心形（更饱满的贝塞尔心）
+// 情感 — 半心 + 余韵弧线（Aura Floating）
 private struct CatEmotionPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        path.move(to: CGPoint(x: 12*s, y: 21*s))
-        path.addCurve(to: CGPoint(x: 2*s, y: 10*s), control1: CGPoint(x: 5*s, y: 18*s), control2: CGPoint(x: 2*s, y: 14*s))
-        path.addCurve(to: CGPoint(x: 7*s, y: 5*s), control1: CGPoint(x: 2*s, y: 7*s), control2: CGPoint(x: 4*s, y: 5*s))
-        path.addCurve(to: CGPoint(x: 12*s, y: 9*s), control1: CGPoint(x: 10*s, y: 5*s), control2: CGPoint(x: 12*s, y: 7*s))
-        path.addCurve(to: CGPoint(x: 17*s, y: 5*s), control1: CGPoint(x: 12*s, y: 7*s), control2: CGPoint(x: 14*s, y: 5*s))
-        path.addCurve(to: CGPoint(x: 22*s, y: 10*s), control1: CGPoint(x: 20*s, y: 5*s), control2: CGPoint(x: 22*s, y: 7*s))
-        path.addCurve(to: CGPoint(x: 12*s, y: 21*s), control1: CGPoint(x: 22*s, y: 14*s), control2: CGPoint(x: 19*s, y: 18*s))
+        // 半心（左半，带断裂空气感）
+        let sc: CGFloat = 0.85
+        let tx: CGFloat = 0
+        let ty: CGFloat = 2*s
+        path.move(to: CGPoint(x: 12*sc*s + tx, y: 18.5*sc*s + ty))
+        path.addLine(to: CGPoint(x: 10.5*sc*s + tx, y: 17.2*sc*s + ty))
+        path.addCurve(
+            to: CGPoint(x: 2*sc*s + tx, y: 5.5*sc*s + ty),
+            control1: CGPoint(x: 5.4*sc*s + tx, y: 12.5*sc*s + ty),
+            control2: CGPoint(x: 2*sc*s + tx, y: 9.4*sc*s + ty)
+        )
+        path.addCurve(
+            to: CGPoint(x: 7.5*sc*s + tx, y: 0.5*sc*s + ty),
+            control1: CGPoint(x: 2*sc*s + tx, y: 2.4*sc*s + ty),
+            control2: CGPoint(x: 4.4*sc*s + tx, y: 0.5*sc*s + ty)
+        )
+        path.addCurve(
+            to: CGPoint(x: 12*sc*s + tx, y: 2*sc*s + ty),
+            control1: CGPoint(x: 9.2*sc*s + tx, y: 0.5*sc*s + ty),
+            control2: CGPoint(x: 10.9*sc*s + tx, y: 1.3*sc*s + ty)
+        )
+        // 余韵弧线（半透明）
+        path.move(to: CGPoint(x: 16*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 9*s), control1: CGPoint(x: 18*s, y: 5*s), control2: CGPoint(x: 19*s, y: 7*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 创作|翻唱 — 录音棚麦克风（大振膜电容麦 + 防震架）
+// 创作|翻唱 — 画笔（Aura Floating）
 private struct CatCreatePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 麦克风头部（椭圆）
-        path.addEllipse(in: CGRect(x: 8*s, y: 3*s, width: 8*s, height: 11*s))
-        // 麦克风网格横线
-        path.move(to: CGPoint(x: 8.5*s, y: 7*s))
-        path.addLine(to: CGPoint(x: 15.5*s, y: 7*s))
-        path.move(to: CGPoint(x: 8.5*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 15.5*s, y: 10*s))
-        // 支架弧线
-        path.move(to: CGPoint(x: 6*s, y: 12*s))
-        path.addCurve(to: CGPoint(x: 18*s, y: 12*s), control1: CGPoint(x: 6*s, y: 18*s), control2: CGPoint(x: 18*s, y: 18*s))
-        // 底部杆
-        path.move(to: CGPoint(x: 12*s, y: 18*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 21*s))
-        // 底座
-        path.move(to: CGPoint(x: 8*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 16*s, y: 21*s))
+        // 画笔主体
+        path.move(to: CGPoint(x: 4*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 20*s))
+        path.closeSubpath()
+        // 笔尖延伸线（半透明断裂）
+        path.move(to: CGPoint(x: 14*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 5*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 二次元 — 猫耳（动漫风格猫耳轮廓）
+// 二次元 — 猫耳弧线（Aura Floating）
 private struct CatAcgPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 脸部圆弧（下半）
-        path.addArc(center: CGPoint(x: 12*s, y: 13*s), radius: 8*s, startAngle: .degrees(30), endAngle: .degrees(150), clockwise: false)
+        // 脸部弧线
+        path.addArc(center: CGPoint(x: 12*s, y: 16*s), radius: 7*s, startAngle: .degrees(-160), endAngle: .degrees(-20), clockwise: false)
         // 左猫耳
-        path.move(to: CGPoint(x: 5*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 3*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 9*s))
+        path.move(to: CGPoint(x: 4*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 8*s))
         // 右猫耳
-        path.move(to: CGPoint(x: 19*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 21*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 14*s, y: 9*s))
-        // 左眼
-        path.addEllipse(in: CGRect(x: 8*s, y: 13*s, width: 2.5*s, height: 2.5*s))
-        // 右眼
-        path.addEllipse(in: CGRect(x: 13.5*s, y: 13*s, width: 2.5*s, height: 2.5*s))
-        // 嘴巴（小 w）
-        path.move(to: CGPoint(x: 10*s, y: 17*s))
-        path.addQuadCurve(to: CGPoint(x: 12*s, y: 17*s), control: CGPoint(x: 11*s, y: 18.5*s))
-        path.addQuadCurve(to: CGPoint(x: 14*s, y: 17*s), control: CGPoint(x: 13*s, y: 18.5*s))
+        path.move(to: CGPoint(x: 14*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 11*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 娱乐 — 骰子（立体感，三个面各有点数）
+// 娱乐 — 星形 + 中心圆（Aura Floating）
 private struct CatEntertainPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 骰子正面
-        path.addRoundedRect(in: CGRect(x: 4*s, y: 4*s, width: 16*s, height: 16*s), cornerSize: CGSize(width: 3*s, height: 3*s))
-        // 左上点
-        path.addEllipse(in: CGRect(x: 7*s, y: 7*s, width: 2.5*s, height: 2.5*s))
-        // 右上点
-        path.addEllipse(in: CGRect(x: 14.5*s, y: 7*s, width: 2.5*s, height: 2.5*s))
-        // 中心点
-        path.addEllipse(in: CGRect(x: 10.75*s, y: 10.75*s, width: 2.5*s, height: 2.5*s))
-        // 左下点
-        path.addEllipse(in: CGRect(x: 7*s, y: 14.5*s, width: 2.5*s, height: 2.5*s))
-        // 右下点
-        path.addEllipse(in: CGRect(x: 14.5*s, y: 14.5*s, width: 2.5*s, height: 2.5*s))
+        // 星形轮廓（半透明）
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 10*s))
+        path.closeSubpath()
+        // 中心圆
+        path.addEllipse(in: CGRect(x: 9*s, y: 9*s, width: 6*s, height: 6*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
 
-// 脱口秀 — 舞台聚光灯下的话筒（立式话筒 + 光束）
+// 脱口秀 — 气泡对话框 + 三点（Aura Floating，断裂虚线）
 private struct CatTalkshowPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 话筒头（圆形）
-        path.addEllipse(in: CGRect(x: 9*s, y: 3*s, width: 6*s, height: 6*s))
-        // 话筒杆
-        path.move(to: CGPoint(x: 12*s, y: 9*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 18*s))
-        // 底座（三角支撑）
-        path.move(to: CGPoint(x: 12*s, y: 18*s))
-        path.addLine(to: CGPoint(x: 7*s, y: 21*s))
-        path.move(to: CGPoint(x: 12*s, y: 18*s))
-        path.addLine(to: CGPoint(x: 17*s, y: 21*s))
-        // 左光束
-        path.move(to: CGPoint(x: 4*s, y: 2*s))
-        path.addLine(to: CGPoint(x: 8*s, y: 6*s))
-        // 右光束
-        path.move(to: CGPoint(x: 20*s, y: 2*s))
-        path.addLine(to: CGPoint(x: 16*s, y: 6*s))
+        // 对话气泡（带断裂感的弧线）
+        path.move(to: CGPoint(x: 20*s, y: 12*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 5*s), control1: CGPoint(x: 20*s, y: 8.1*s), control2: CGPoint(x: 16.4*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 4*s, y: 12*s), control1: CGPoint(x: 7.6*s, y: 5*s), control2: CGPoint(x: 4*s, y: 8.1*s))
+        path.addCurve(to: CGPoint(x: 5.5*s, y: 16*s), control1: CGPoint(x: 4*s, y: 13.5*s), control2: CGPoint(x: 4.5*s, y: 14.8*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 8.5*s, y: 18.5*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 19*s), control1: CGPoint(x: 9.6*s, y: 18.8*s), control2: CGPoint(x: 10.8*s, y: 19*s))
+        // 三个对话点
+        let dotR: CGFloat = 1*s
+        path.addEllipse(in: CGRect(x: 8*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        path.addEllipse(in: CGRect(x: 12*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        path.addEllipse(in: CGRect(x: 16*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 有声书 — 打开的书 + 声波
+// 有声书 — 书本（Aura Floating）
 private struct CatBookPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 左页
-        path.move(to: CGPoint(x: 12*s, y: 6*s))
-        path.addCurve(to: CGPoint(x: 3*s, y: 5*s), control1: CGPoint(x: 9*s, y: 5*s), control2: CGPoint(x: 5*s, y: 4.5*s))
-        path.addLine(to: CGPoint(x: 3*s, y: 19*s))
-        path.addCurve(to: CGPoint(x: 12*s, y: 20*s), control1: CGPoint(x: 5*s, y: 18.5*s), control2: CGPoint(x: 9*s, y: 19*s))
-        // 右页
-        path.move(to: CGPoint(x: 12*s, y: 6*s))
-        path.addCurve(to: CGPoint(x: 21*s, y: 5*s), control1: CGPoint(x: 15*s, y: 5*s), control2: CGPoint(x: 19*s, y: 4.5*s))
-        path.addLine(to: CGPoint(x: 21*s, y: 19*s))
-        path.addCurve(to: CGPoint(x: 12*s, y: 20*s), control1: CGPoint(x: 19*s, y: 18.5*s), control2: CGPoint(x: 15*s, y: 19*s))
-        // 书脊
-        path.move(to: CGPoint(x: 12*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 20*s))
-        // 左页文字行
-        path.move(to: CGPoint(x: 5*s, y: 9*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 9*s))
-        path.move(to: CGPoint(x: 5*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 12*s))
-        path.move(to: CGPoint(x: 5*s, y: 15*s))
-        path.addLine(to: CGPoint(x: 9*s, y: 15*s))
+        // 书本主体
+        path.move(to: CGPoint(x: 4*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 18*s, y: 7*s), control1: CGPoint(x: 17.1*s, y: 5*s), control2: CGPoint(x: 18*s, y: 5.9*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 4*s, y: 17*s), control1: CGPoint(x: 4.9*s, y: 19*s), control2: CGPoint(x: 4*s, y: 18.1*s))
+        // 分隔线（半透明）
+        path.move(to: CGPoint(x: 4*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 15*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 知识 — 学士帽（毕业帽 + 流苏）
+// 知识 — 灯泡（Aura Floating）
 private struct CatKnowledgePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 帽顶（菱形）
-        path.move(to: CGPoint(x: 12*s, y: 4*s))
-        path.addLine(to: CGPoint(x: 22*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 2*s, y: 10*s))
-        path.closeSubpath()
-        // 帽檐下方弧线（左右两侧垂下）
-        path.move(to: CGPoint(x: 6*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 6*s, y: 16*s))
-        path.addCurve(to: CGPoint(x: 18*s, y: 16*s), control1: CGPoint(x: 6*s, y: 19*s), control2: CGPoint(x: 18*s, y: 19*s))
-        path.addLine(to: CGPoint(x: 18*s, y: 12*s))
-        // 流苏线
-        path.move(to: CGPoint(x: 22*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 22*s, y: 17*s))
-        // 流苏穗
-        path.addEllipse(in: CGRect(x: 21*s, y: 17*s, width: 2*s, height: 2*s))
+        // 灯泡主体
+        path.move(to: CGPoint(x: 12*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 7*s, y: 10*s), control1: CGPoint(x: 9*s, y: 5*s), control2: CGPoint(x: 7*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 10*s, y: 16*s), control1: CGPoint(x: 7*s, y: 13*s), control2: CGPoint(x: 10*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 16*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 10*s), control1: CGPoint(x: 14*s, y: 14*s), control2: CGPoint(x: 17*s, y: 13*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 5*s), control1: CGPoint(x: 17*s, y: 7*s), control2: CGPoint(x: 15*s, y: 5*s))
+        // 底部横线
+        path.move(to: CGPoint(x: 10*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 20*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 商业财经 — 钱币（圆形硬币 + ¥ 符号）
+// 商业财经 — 趋势线 + 箭头（Aura Floating）
 private struct CatBusinessPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 外圆
-        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
-        // ¥ 符号
-        path.move(to: CGPoint(x: 8*s, y: 7*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 13*s))
-        path.addLine(to: CGPoint(x: 16*s, y: 7*s))
-        // 竖线
-        path.move(to: CGPoint(x: 12*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 18*s))
-        // 两条横线
-        path.move(to: CGPoint(x: 9*s, y: 13.5*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 13.5*s))
-        path.move(to: CGPoint(x: 9*s, y: 15.5*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 15.5*s))
+        // 趋势折线
+        path.move(to: CGPoint(x: 4*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 9*s))
+        // 箭头
+        path.move(to: CGPoint(x: 16*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 13*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 人文历史 — 沙漏
+// 人文历史 — 沙漏对称结构（Aura Floating）
 private struct CatHistoryPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 顶部横线
-        path.move(to: CGPoint(x: 5*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 19*s, y: 3*s))
-        // 底部横线
-        path.move(to: CGPoint(x: 5*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 19*s, y: 21*s))
-        // 左侧轮廓
-        path.move(to: CGPoint(x: 7*s, y: 3*s))
-        path.addCurve(to: CGPoint(x: 7*s, y: 21*s), control1: CGPoint(x: 7*s, y: 9*s), control2: CGPoint(x: 17*s, y: 9*s))
-        // 右侧轮廓
-        path.move(to: CGPoint(x: 17*s, y: 3*s))
-        path.addCurve(to: CGPoint(x: 17*s, y: 21*s), control1: CGPoint(x: 17*s, y: 9*s), control2: CGPoint(x: 7*s, y: 9*s))
-        // 中间沙粒
-        path.move(to: CGPoint(x: 12*s, y: 11*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        // 中轴骨架（半透明）
+        path.move(to: CGPoint(x: 7*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 5*s))
+        path.move(to: CGPoint(x: 7*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 19*s))
+        path.move(to: CGPoint(x: 12*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 5*s))
+        path.move(to: CGPoint(x: 12*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 19*s))
+        // 沙漏曲线
+        path.move(to: CGPoint(x: 7*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 12*s), control1: CGPoint(x: 7*s, y: 9*s), control2: CGPoint(x: 12*s, y: 9*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 5*s), control1: CGPoint(x: 12*s, y: 9*s), control2: CGPoint(x: 17*s, y: 9*s))
+        path.move(to: CGPoint(x: 7*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 12*s), control1: CGPoint(x: 7*s, y: 15*s), control2: CGPoint(x: 12*s, y: 15*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 19*s), control1: CGPoint(x: 12*s, y: 15*s), control2: CGPoint(x: 17*s, y: 15*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 新闻资讯 — 地球 + 信号（全球资讯感）
+// 新闻资讯 — 报纸（Aura Floating，断裂虚线边框）
 private struct CatNewsPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 地球外圆
-        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
-        // 经线（竖椭圆）
-        path.addEllipse(in: CGRect(x: 8*s, y: 3*s, width: 8*s, height: 18*s))
-        // 纬线
-        path.move(to: CGPoint(x: 3*s, y: 9*s))
-        path.addCurve(to: CGPoint(x: 21*s, y: 9*s), control1: CGPoint(x: 8*s, y: 7*s), control2: CGPoint(x: 16*s, y: 7*s))
-        path.move(to: CGPoint(x: 3*s, y: 15*s))
-        path.addCurve(to: CGPoint(x: 21*s, y: 15*s), control1: CGPoint(x: 8*s, y: 17*s), control2: CGPoint(x: 16*s, y: 17*s))
+        // 报纸边框（圆角矩形）
+        path.addRoundedRect(in: CGRect(x: 4*s, y: 5*s, width: 16*s, height: 14*s), cornerSize: CGSize(width: 2*s, height: 2*s))
+        // 文字行（半透明）
+        path.move(to: CGPoint(x: 7*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 9*s))
+        path.move(to: CGPoint(x: 7*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 12*s))
+        path.move(to: CGPoint(x: 7*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
 
-// 亲子 — 大手牵小手
+// 亲子 — 大小圆（Aura Floating）
 private struct CatParentingPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 大手（简化轮廓）
-        path.move(to: CGPoint(x: 3*s, y: 14*s))
-        path.addCurve(to: CGPoint(x: 3*s, y: 8*s), control1: CGPoint(x: 2*s, y: 12*s), control2: CGPoint(x: 2*s, y: 9*s))
-        path.addCurve(to: CGPoint(x: 7*s, y: 6*s), control1: CGPoint(x: 3.5*s, y: 7*s), control2: CGPoint(x: 5*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 11*s, y: 6*s))
-        path.addCurve(to: CGPoint(x: 13*s, y: 8*s), control1: CGPoint(x: 12.5*s, y: 6*s), control2: CGPoint(x: 13*s, y: 6.5*s))
-        path.addLine(to: CGPoint(x: 13*s, y: 12*s))
-        // 大手指
-        path.move(to: CGPoint(x: 5*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 5*s, y: 3*s))
-        path.move(to: CGPoint(x: 7.5*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 7.5*s, y: 2.5*s))
-        path.move(to: CGPoint(x: 10*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 3*s))
-        // 小手（简化）
-        path.move(to: CGPoint(x: 13*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 17*s, y: 12*s))
-        path.addCurve(to: CGPoint(x: 20*s, y: 14*s), control1: CGPoint(x: 19*s, y: 12*s), control2: CGPoint(x: 20*s, y: 12.5*s))
-        path.addCurve(to: CGPoint(x: 20*s, y: 18*s), control1: CGPoint(x: 20*s, y: 15.5*s), control2: CGPoint(x: 21*s, y: 17*s))
-        path.addCurve(to: CGPoint(x: 15*s, y: 20*s), control1: CGPoint(x: 19*s, y: 19.5*s), control2: CGPoint(x: 17*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 20*s))
-        // 小手指
-        path.move(to: CGPoint(x: 15*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 10*s))
-        path.move(to: CGPoint(x: 17*s, y: 12*s))
-        path.addLine(to: CGPoint(x: 17*s, y: 10.5*s))
+        // 大圆（父）
+        path.addEllipse(in: CGRect(x: 5.5*s, y: 6.5*s, width: 7*s, height: 7*s))
+        // 小圆（子）
+        path.addEllipse(in: CGRect(x: 12.5*s, y: 13.5*s, width: 5*s, height: 5*s))
+        // 连接弧线（半透明）
+        path.move(to: CGPoint(x: 5*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 15*s), control1: CGPoint(x: 5*s, y: 16*s), control2: CGPoint(x: 7*s, y: 15*s))
+        path.move(to: CGPoint(x: 14*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 16*s, y: 18.5*s), control1: CGPoint(x: 14*s, y: 19*s), control2: CGPoint(x: 15*s, y: 18.5*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 旅途 — 山峰 + 太阳（风景）
+// 旅途 — 纸飞机导航（Aura Floating）
 private struct CatTravelPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 太阳
-        path.addEllipse(in: CGRect(x: 15*s, y: 3*s, width: 5*s, height: 5*s))
-        // 大山
-        path.move(to: CGPoint(x: 2*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 8*s))
-        path.addLine(to: CGPoint(x: 14*s, y: 13*s))
-        path.addLine(to: CGPoint(x: 16*s, y: 11*s))
-        path.addLine(to: CGPoint(x: 22*s, y: 20*s))
+        // 纸飞机主体
+        path.move(to: CGPoint(x: 20*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 11*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 21*s))
         path.closeSubpath()
+        // 对角线（半透明）
+        path.move(to: CGPoint(x: 11*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 4*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 相声曲艺 — 快板（两片竹板 + 连接绳）
+// 相声曲艺 — 扇形折扇（Aura Floating）
 private struct CatCrosstalkPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 左竹板
-        path.addRoundedRect(in: CGRect(x: 4*s, y: 5*s, width: 6*s, height: 16*s), cornerSize: CGSize(width: 3*s, height: 3*s))
-        // 右竹板
-        path.addRoundedRect(in: CGRect(x: 14*s, y: 5*s, width: 6*s, height: 16*s), cornerSize: CGSize(width: 3*s, height: 3*s))
-        // 连接绳
-        path.move(to: CGPoint(x: 7*s, y: 5*s))
-        path.addCurve(to: CGPoint(x: 17*s, y: 5*s), control1: CGPoint(x: 7*s, y: 2*s), control2: CGPoint(x: 17*s, y: 2*s))
-        // 左板纹路
-        path.move(to: CGPoint(x: 5.5*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 8.5*s, y: 10*s))
-        path.move(to: CGPoint(x: 5.5*s, y: 14*s))
-        path.addLine(to: CGPoint(x: 8.5*s, y: 14*s))
-        // 右板纹路
-        path.move(to: CGPoint(x: 15.5*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 18.5*s, y: 10*s))
-        path.move(to: CGPoint(x: 15.5*s, y: 14*s))
-        path.addLine(to: CGPoint(x: 18.5*s, y: 14*s))
+        // 扇面轮廓（半透明）
+        path.move(to: CGPoint(x: 12*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 14*s))
+        path.closeSubpath()
+        // 扇骨线条
+        path.move(to: CGPoint(x: 12*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 5*s))
+        path.move(to: CGPoint(x: 12*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 8*s))
+        path.move(to: CGPoint(x: 12*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 8*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 美食 — 碗 + 筷子（中式风格）
+// 美食 — 碗 + 蒸汽（Aura Floating）
 private struct CatFoodPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         // 碗（半圆弧）
-        path.addArc(center: CGPoint(x: 12*s, y: 13*s), radius: 8*s, startAngle: .degrees(0), endAngle: .degrees(180), clockwise: false)
-        // 碗底
-        path.move(to: CGPoint(x: 9*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 21*s))
-        path.move(to: CGPoint(x: 12*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 19*s))
-        // 左筷子
-        path.move(to: CGPoint(x: 8*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 10*s, y: 13*s))
-        // 右筷子
-        path.move(to: CGPoint(x: 16*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 14*s, y: 13*s))
+        path.addArc(center: CGPoint(x: 12*s, y: 11*s), radius: 8*s, startAngle: .degrees(0), endAngle: .degrees(180), clockwise: false)
+        // 蒸汽线（半透明）
+        path.move(to: CGPoint(x: 13*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 9*s))
+        path.move(to: CGPoint(x: 10*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 9*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 科技 — 机器人头（圆头 + 天线 + 方眼）
+// 科技 — 六边形 + 中心圆（Aura Floating）
 private struct CatTechPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 天线
-        path.move(to: CGPoint(x: 12*s, y: 2*s))
-        path.addLine(to: CGPoint(x: 12*s, y: 6*s))
-        path.addEllipse(in: CGRect(x: 11*s, y: 1*s, width: 2*s, height: 2*s))
-        // 头部（圆角矩形）
-        path.addRoundedRect(in: CGRect(x: 4*s, y: 6*s, width: 16*s, height: 12*s), cornerSize: CGSize(width: 4*s, height: 4*s))
-        // 左眼（方形）
-        path.addRoundedRect(in: CGRect(x: 7*s, y: 10*s, width: 3.5*s, height: 3.5*s), cornerSize: CGSize(width: 1*s, height: 1*s))
-        // 右眼（方形）
-        path.addRoundedRect(in: CGRect(x: 13.5*s, y: 10*s, width: 3.5*s, height: 3.5*s), cornerSize: CGSize(width: 1*s, height: 1*s))
-        // 左耳
-        path.move(to: CGPoint(x: 4*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 2*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 2*s, y: 14*s))
-        path.addLine(to: CGPoint(x: 4*s, y: 14*s))
-        // 右耳
-        path.move(to: CGPoint(x: 20*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 22*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 22*s, y: 14*s))
-        path.addLine(to: CGPoint(x: 20*s, y: 14*s))
-        // 嘴巴
-        path.move(to: CGPoint(x: 9*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 16*s))
+        // 六边形
+        path.move(to: CGPoint(x: 12*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 7*s))
+        path.closeSubpath()
+        // 中心圆
+        path.addEllipse(in: CGRect(x: 9.5*s, y: 9.5*s, width: 5*s, height: 5*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 默认分类 — 电台信号塔
+// 默认分类 — 四宫格（Aura Floating）
 private struct CatDefaultPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 信号塔三角
-        path.move(to: CGPoint(x: 12*s, y: 8*s))
-        path.addLine(to: CGPoint(x: 7*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 17*s, y: 21*s))
-        path.closeSubpath()
-        // 横杆
-        path.move(to: CGPoint(x: 8.5*s, y: 16*s))
-        path.addLine(to: CGPoint(x: 15.5*s, y: 16*s))
-        // 左信号弧
-        path.addArc(center: CGPoint(x: 12*s, y: 8*s), radius: 5*s, startAngle: .degrees(210), endAngle: .degrees(250), clockwise: false)
-        // 右信号弧
-        path.addArc(center: CGPoint(x: 12*s, y: 8*s), radius: 5*s, startAngle: .degrees(290), endAngle: .degrees(330), clockwise: false)
-        // 顶部圆点
-        path.addEllipse(in: CGRect(x: 11*s, y: 5*s, width: 2*s, height: 2*s))
+        // 左上格
+        path.addRoundedRect(in: CGRect(x: 5*s, y: 5*s, width: 6*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
+        // 右下格
+        path.addRoundedRect(in: CGRect(x: 13*s, y: 13*s, width: 6*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
+        // 右上格（半透明）
+        path.addRoundedRect(in: CGRect(x: 13*s, y: 5*s, width: 6*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
+        // 左下格（半透明）
+        path.addRoundedRect(in: CGRect(x: 5*s, y: 13*s, width: 6*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
 
-// 音乐播客 — 耳机 + 音符
+// 音乐播客 — 麦克风 + 弧线（Aura Floating）
 private struct CatPodcastPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 头带弧线
-        path.addArc(center: CGPoint(x: 12*s, y: 12*s), radius: 7*s, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false)
-        // 左耳罩
-        path.addRoundedRect(in: CGRect(x: 3*s, y: 12*s, width: 4*s, height: 7*s), cornerSize: CGSize(width: 2*s, height: 2*s))
-        // 右耳罩
-        path.addRoundedRect(in: CGRect(x: 17*s, y: 12*s, width: 4*s, height: 7*s), cornerSize: CGSize(width: 2*s, height: 2*s))
-        // 小音符（右上角）
-        path.move(to: CGPoint(x: 18*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 18*s, y: 8*s))
-        path.addEllipse(in: CGRect(x: 15*s, y: 7*s, width: 3*s, height: 2.5*s))
+        // 麦克风胶囊
+        path.addRoundedRect(in: CGRect(x: 8.5*s, y: 5*s, width: 7*s, height: 10*s), cornerSize: CGSize(width: 3.5*s, height: 3.5*s))
+        // 收音弧线
+        path.move(to: CGPoint(x: 6*s, y: 11*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 17*s), control1: CGPoint(x: 6*s, y: 14.3*s), control2: CGPoint(x: 8.7*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 11*s), control1: CGPoint(x: 15.3*s, y: 17*s), control2: CGPoint(x: 19*s, y: 14.3*s))
+        // 底部杆（半透明）
+        path.move(to: CGPoint(x: 12*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 20*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 电音 — 均衡器波形（5根高低不同的竖条）
+// 电音 — 波形线（Aura Floating）
 private struct CatElectronicPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        let bottom = 20*s
-        let barW = 2*s
-        // 第1根
-        path.addRoundedRect(in: CGRect(x: 3*s, y: 10*s, width: barW, height: bottom - 10*s), cornerSize: CGSize(width: 1*s, height: 1*s))
-        // 第2根
-        path.addRoundedRect(in: CGRect(x: 7*s, y: 5*s, width: barW, height: bottom - 5*s), cornerSize: CGSize(width: 1*s, height: 1*s))
-        // 第3根（最高）
-        path.addRoundedRect(in: CGRect(x: 11*s, y: 3*s, width: barW, height: bottom - 3*s), cornerSize: CGSize(width: 1*s, height: 1*s))
-        // 第4根
-        path.addRoundedRect(in: CGRect(x: 15*s, y: 7*s, width: barW, height: bottom - 7*s), cornerSize: CGSize(width: 1*s, height: 1*s))
-        // 第5根
-        path.addRoundedRect(in: CGRect(x: 19*s, y: 12*s, width: barW, height: bottom - 12*s), cornerSize: CGSize(width: 1*s, height: 1*s))
+        // 心电图波形
+        path.move(to: CGPoint(x: 4*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 12*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 明星专区 — 五角星 + 光芒
+// 明星专区 — 五角星（Aura Floating，断裂虚线）
 private struct CatStarPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        let cx = 12*s, cy = 12*s
         // 五角星
-        let outerR = 8*s
-        let innerR = 3.5*s
-        for i in 0..<10 {
-            let r = i % 2 == 0 ? outerR : innerR
-            let angle = Double(i) * .pi / 5 - .pi / 2
-            let x = cx + CGFloat(cos(angle)) * r
-            let y = cy + CGFloat(sin(angle)) * r
-            if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
-            else { path.addLine(to: CGPoint(x: x, y: y)) }
-        }
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 14.5*s, y: 9.5*s))
+        path.addLine(to: CGPoint(x: 20.5*s, y: 10.5*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 17.5*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 6.5*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 3.5*s, y: 10.5*s))
+        path.addLine(to: CGPoint(x: 9.5*s, y: 9.5*s))
         path.closeSubpath()
-        // 四角光芒
-        path.move(to: CGPoint(x: 3*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 5.5*s, y: 5.5*s))
-        path.move(to: CGPoint(x: 21*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 18.5*s, y: 5.5*s))
-        path.move(to: CGPoint(x: 3*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 5.5*s, y: 18.5*s))
-        path.move(to: CGPoint(x: 21*s, y: 21*s))
-        path.addLine(to: CGPoint(x: 18.5*s, y: 18.5*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 广播剧 — 戏剧面具（喜剧面具轮廓）
+// 广播剧 — 笑脸面具（Aura Floating，断裂弧线）
 private struct CatDramaPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 面具轮廓
-        path.move(to: CGPoint(x: 4*s, y: 6*s))
-        path.addCurve(to: CGPoint(x: 12*s, y: 4*s), control1: CGPoint(x: 4*s, y: 4*s), control2: CGPoint(x: 8*s, y: 4*s))
-        path.addCurve(to: CGPoint(x: 20*s, y: 6*s), control1: CGPoint(x: 16*s, y: 4*s), control2: CGPoint(x: 20*s, y: 4*s))
-        path.addCurve(to: CGPoint(x: 20*s, y: 14*s), control1: CGPoint(x: 20*s, y: 8*s), control2: CGPoint(x: 21*s, y: 12*s))
-        path.addCurve(to: CGPoint(x: 12*s, y: 20*s), control1: CGPoint(x: 19*s, y: 17*s), control2: CGPoint(x: 16*s, y: 20*s))
-        path.addCurve(to: CGPoint(x: 4*s, y: 14*s), control1: CGPoint(x: 8*s, y: 20*s), control2: CGPoint(x: 5*s, y: 17*s))
-        path.addCurve(to: CGPoint(x: 4*s, y: 6*s), control1: CGPoint(x: 3*s, y: 12*s), control2: CGPoint(x: 4*s, y: 8*s))
+        // 面具圆弧（断裂虚线感）
+        path.addArc(center: CGPoint(x: 12*s, y: 12*s), radius: 7*s, startAngle: .degrees(20), endAngle: .degrees(340), clockwise: false)
         // 左眼
-        path.addEllipse(in: CGRect(x: 7*s, y: 8*s, width: 3*s, height: 3*s))
+        let eyeR: CGFloat = 0.75*s
+        path.addEllipse(in: CGRect(x: 8.5*s - eyeR, y: 10*s - eyeR, width: eyeR*2, height: eyeR*2))
         // 右眼
-        path.addEllipse(in: CGRect(x: 14*s, y: 8*s, width: 3*s, height: 3*s))
-        // 微笑嘴巴
-        path.move(to: CGPoint(x: 8*s, y: 14*s))
-        path.addCurve(to: CGPoint(x: 16*s, y: 14*s), control1: CGPoint(x: 9*s, y: 18*s), control2: CGPoint(x: 15*s, y: 18*s))
+        path.addEllipse(in: CGRect(x: 14*s - eyeR, y: 10*s - eyeR, width: eyeR*2, height: eyeR*2))
+        // 微笑弧线
+        path.move(to: CGPoint(x: 9*s, y: 15*s))
+        path.addCurve(to: CGPoint(x: 15*s, y: 15*s), control1: CGPoint(x: 10*s, y: 16*s), control2: CGPoint(x: 14*s, y: 16*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 故事 — 月亮 + 星星（睡前故事感）
+// 故事 — 翻开的书页（Aura Floating）
 private struct CatStoryPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 月牙
-        path.addArc(center: CGPoint(x: 10*s, y: 12*s), radius: 8*s, startAngle: .degrees(-60), endAngle: .degrees(200), clockwise: false)
-        path.addArc(center: CGPoint(x: 14*s, y: 10*s), radius: 6*s, startAngle: .degrees(180), endAngle: .degrees(-40), clockwise: true)
-        // 大星星
-        let starCx = 18*s, starCy = 6*s
-        let outerR = 2.5*s, innerR = 1*s
-        for i in 0..<10 {
-            let r = i % 2 == 0 ? outerR : innerR
-            let angle = Double(i) * .pi / 5 - .pi / 2
-            let x = starCx + CGFloat(cos(angle)) * r
-            let y = starCy + CGFloat(sin(angle)) * r
-            if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
-            else { path.addLine(to: CGPoint(x: x, y: y)) }
-        }
+        // 后页（半透明）
+        path.move(to: CGPoint(x: 7*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 17*s), control1: CGPoint(x: 18.1*s, y: 19*s), control2: CGPoint(x: 19*s, y: 18.1*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 7*s))
+        // 前页（主体）
+        path.move(to: CGPoint(x: 5*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 17*s))
         path.closeSubpath()
-        // 小星星
-        let s2Cx = 20*s, s2Cy = 13*s
-        let outerR2 = 1.5*s, innerR2 = 0.6*s
-        for i in 0..<10 {
-            let r = i % 2 == 0 ? outerR2 : innerR2
-            let angle = Double(i) * .pi / 5 - .pi / 2
-            let x = s2Cx + CGFloat(cos(angle)) * r
-            let y = s2Cy + CGFloat(sin(angle)) * r
-            if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
-            else { path.addLine(to: CGPoint(x: x, y: y)) }
-        }
-        path.closeSubpath()
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 其他 — 四叶草（四个圆瓣 + 茎）
+// 其他 — 三点省略号（Aura Floating）
 private struct CatOtherPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        let cx = 12*s, cy = 10*s, r = 3.5*s
-        // 上瓣
-        path.addEllipse(in: CGRect(x: cx - r, y: cy - r*2, width: r*2, height: r*2))
-        // 下瓣
-        path.addEllipse(in: CGRect(x: cx - r, y: cy, width: r*2, height: r*2))
-        // 左瓣
-        path.addEllipse(in: CGRect(x: cx - r*2, y: cy - r, width: r*2, height: r*2))
-        // 右瓣
-        path.addEllipse(in: CGRect(x: cx, y: cy - r, width: r*2, height: r*2))
-        // 茎
-        path.move(to: CGPoint(x: 12*s, y: 13.5*s))
-        path.addCurve(to: CGPoint(x: 14*s, y: 21*s), control1: CGPoint(x: 12*s, y: 16*s), control2: CGPoint(x: 13*s, y: 19*s))
+        let dotR: CGFloat = 1.2*s
+        // 左点
+        path.addEllipse(in: CGRect(x: 6*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        // 中点
+        path.addEllipse(in: CGRect(x: 12*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        // 右点（半透明）
+        path.addEllipse(in: CGRect(x: 18*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
 
-// 文学出版 — 竖立的书架（三本书并排）
+// 文学出版 — 羽毛笔 + 文字行（Aura Floating）
 private struct CatPublishPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        // 第一本书（最左，略倾斜）
-        path.move(to: CGPoint(x: 3*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 5*s, y: 4*s))
-        path.addLine(to: CGPoint(x: 8*s, y: 4*s))
-        path.addLine(to: CGPoint(x: 8*s, y: 20*s))
-        path.closeSubpath()
-        // 第二本书（中间，最高）
-        path.move(to: CGPoint(x: 9*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 9*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 14*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 14*s, y: 20*s))
-        path.closeSubpath()
-        // 中间书的书脊线
-        path.move(to: CGPoint(x: 11.5*s, y: 3*s))
-        path.addLine(to: CGPoint(x: 11.5*s, y: 20*s))
-        // 第三本书（右侧）
-        path.move(to: CGPoint(x: 15*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 19*s, y: 6*s))
-        path.addLine(to: CGPoint(x: 19*s, y: 20*s))
-        path.closeSubpath()
-        // 底部书架线
-        path.move(to: CGPoint(x: 2*s, y: 20*s))
-        path.addLine(to: CGPoint(x: 22*s, y: 20*s))
+        // 文字行（半透明）
+        path.move(to: CGPoint(x: 5*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 19*s))
+        path.move(to: CGPoint(x: 5*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 15*s))
+        path.move(to: CGPoint(x: 5*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 11*s))
+        // 羽毛笔
+        path.move(to: CGPoint(x: 16*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 8*s))
+        path.move(to: CGPoint(x: 16*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 6*s))
+        path.move(to: CGPoint(x: 16*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 6*s))
+        // 灵魂锚点
+        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }

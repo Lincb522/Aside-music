@@ -150,22 +150,7 @@ struct PodcastView: View {
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
                         HStack(spacing: 6) {
-                            // 本地白色图标，浅色模式反色为黑色
-                            if let img = UIImage(named: "cat_\(cat.id)") {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 22, height: 22)
-                                    .clipShape(Circle())
-                                    .modifier(LightModeInvertModifier())
-                            } else if let iconUrl = cat.iconUrl {
-                                CachedAsyncImage(url: iconUrl) {
-                                    Circle().fill(Color.clear)
-                                }
-                                .frame(width: 22, height: 22)
-                                .clipShape(Circle())
-                                .modifier(LightModeInvertModifier())
-                            }
+                            AsideIcon(icon: cat.asideIconType, size: 18, color: .asideTextPrimary, lineWidth: 1.4)
                             Text(cat.name)
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)
