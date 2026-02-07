@@ -290,7 +290,7 @@ struct SettingsToggleRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(.asideIconBackground)
+                .tint(Color(light: .black, dark: Color(hex: "555555")))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
