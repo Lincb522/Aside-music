@@ -22,9 +22,7 @@ let package = Package(
             dependencies: [
                 "LiquidGlassEffect",
             ],
-            resources: [
-                .copy("Resources/CategoryIcons"),
-            ]),
+        ),
         .testTarget(
             name: "AsideMusicTests",
             dependencies: ["AsideMusic"]),
