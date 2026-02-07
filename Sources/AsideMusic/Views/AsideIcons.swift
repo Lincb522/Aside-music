@@ -837,7 +837,8 @@ private struct RepeatOnePath: Shape {
         path.addCurve(to: CGPoint(x: 3*s, y: 17*s), control1: CGPoint(x: 4.5*s, y: 20*s), control2: CGPoint(x: 3*s, y: 18.5*s))
         path.addLine(to: CGPoint(x: 3*s, y: 12*s))
         
-        path.move(to: CGPoint(x: 7*s, y: 10*s))        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
+        path.move(to: CGPoint(x: 7*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
         path.addCurve(to: CGPoint(x: 10*s, y: 4*s), control1: CGPoint(x: 7*s, y: 5.5*s), control2: CGPoint(x: 8.5*s, y: 4*s))
         path.addLine(to: CGPoint(x: 18*s, y: 4*s))
         path.addCurve(to: CGPoint(x: 21*s, y: 7*s), control1: CGPoint(x: 19.5*s, y: 4*s), control2: CGPoint(x: 21*s, y: 5.5*s))
@@ -851,7 +852,8 @@ private struct RepeatOnePath: Shape {
         path.addLine(to: CGPoint(x: 13*s, y: 9*s))
         path.addLine(to: CGPoint(x: 13*s, y: 15*s))
         
-        path.move(to: CGPoint(x: 11*s, y: 15*s))        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
+        path.move(to: CGPoint(x: 11*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
         
         return path
     }
