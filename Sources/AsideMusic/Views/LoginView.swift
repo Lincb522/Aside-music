@@ -1,13 +1,11 @@
 import SwiftUI
 import Combine
 
-/// Aside 风格的登录界面
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = LoginViewModel()
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
     
-    // UI State
     @State private var selectedTab: LoginTab = .qr
     @State private var isLoading = false
     
@@ -18,21 +16,17 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            // Background
             AsideBackground()
             
             VStack(spacing: 0) {
-                // Header
                 headerView
                 
                 Spacer()
                 
-                // Login Content
                 loginContent
                 
                 Spacer()
                 
-                // Footer
                 footerView
             }
         }
@@ -50,24 +44,23 @@ struct LoginView: View {
         VStack(spacing: 16) {
             HStack {
                 Button(action: { dismiss() }) {
-                    AsideIcon(icon: .back, size: 20, color: .black)
+                    AsideIcon(icon: .back, size: 20, color: .asideTextPrimary)
                         .frame(width: 44, height: 44)
-                        .background(Color.white)
+                        .background(Color.asideCardBackground)
                         .cornerRadius(12)
                         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                 }
                 Spacer()
             }
             
-            // Title
             VStack(spacing: 8) {
                 Text("登录")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.black)
+                    .foregroundColor(.asideTextPrimary)
                 
                 Text("登录网易云音乐账号")
                     .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
             }
             .padding(.top, 20)
         }
@@ -79,10 +72,8 @@ struct LoginView: View {
     
     private var loginContent: some View {
         VStack(spacing: 32) {
-            // Tab Switcher
             tabSwitcher
             
-            // Content based on selected tab
             if selectedTab == .qr {
                 qrLoginContent
                     .transition(.asymmetric(
@@ -106,7 +97,7 @@ struct LoginView: View {
             tabButton(title: "手机登录", icon: .phone, tab: .phone)
         }
         .padding(4)
-        .background(Color.white)
+        .background(Color.asideCardBackground)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
@@ -121,10 +112,10 @@ struct LoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                AsideIcon(icon: icon, size: 18, color: selectedTab == tab ? .white : .gray)
+                AsideIcon(icon: icon, size: 18, color: selectedTab == tab ? .white : .asideTextSecondary)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? .white : .gray)
+                    .foregroundColor(selectedTab == tab ? .white : .asideTextSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -138,10 +129,9 @@ struct LoginView: View {
     
     private var qrLoginContent: some View {
         VStack(spacing: 24) {
-            // QR Code Container
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.white)
+                    .fill(Color.asideCardBackground)
                     .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
                 
                 if let qrImage = viewModel.qrCodeImage {
@@ -157,20 +147,19 @@ struct LoginView: View {
                             .scaleEffect(1.2)
                         Text("加载中...")
                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.asideTextSecondary)
                     }
                 }
                 
-                // Expired Overlay
                 if viewModel.isQRExpired {
                     ZStack {
-                        Color.white.opacity(0.9)
+                        Color.asideCardBackground.opacity(0.9)
                         
                         VStack(spacing: 16) {
-                            AsideIcon(icon: .refresh, size: 32, color: .black)
+                            AsideIcon(icon: .refresh, size: 32, color: .asideTextPrimary)
                             Text("二维码已过期")
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .foregroundColor(.black)
+                                .foregroundColor(.asideTextPrimary)
                             
                             Button(action: { viewModel.refreshQR() }) {
                                 Text("点击刷新")
@@ -189,13 +178,11 @@ struct LoginView: View {
             }
             .frame(width: 240, height: 240)
             
-            // Status Message
             Text(viewModel.qrStatusMessage)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(.gray)
+                .foregroundColor(.asideTextSecondary)
                 .multilineTextAlignment(.center)
             
-            // Instructions
             VStack(spacing: 8) {
                 instructionRow(number: "1", text: "打开网易云音乐 App")
                 instructionRow(number: "2", text: "点击左上角扫一扫")
@@ -219,7 +206,7 @@ struct LoginView: View {
             
             Text(text)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(.gray)
+                .foregroundColor(.asideTextSecondary)
             
             Spacer()
         }
@@ -229,16 +216,15 @@ struct LoginView: View {
     
     private var phoneLoginContent: some View {
         VStack(spacing: 24) {
-            // Phone Input
             VStack(alignment: .leading, spacing: 8) {
                 Text("手机号")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
                 
                 HStack {
                     Text("+86")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.black)
+                        .foregroundColor(.asideTextPrimary)
                         .padding(.trailing, 8)
                     
                     Divider()
@@ -250,16 +236,15 @@ struct LoginView: View {
                         .padding(.leading, 8)
                 }
                 .padding(16)
-                .background(Color.white)
+                .background(Color.asideCardBackground)
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
             
-            // Captcha Input
             VStack(alignment: .leading, spacing: 8) {
                 Text("验证码")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
                 
                 HStack {
                     TextField("请输入验证码", text: $viewModel.captchaCode)
@@ -269,24 +254,22 @@ struct LoginView: View {
                     Button(action: { viewModel.sendCaptcha() }) {
                         Text(viewModel.isCaptchaSent ? "重新发送" : "获取验证码")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundColor(viewModel.phoneNumber.count == 11 ? .black : .gray)
+                            .foregroundColor(viewModel.phoneNumber.count == 11 ? .asideTextPrimary : .asideTextSecondary)
                     }
                     .disabled(viewModel.phoneNumber.count != 11)
                 }
                 .padding(16)
-                .background(Color.white)
+                .background(Color.asideCardBackground)
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
             
-            // Error Message
             if let error = viewModel.loginErrorMessage {
                 Text(error)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.red)
             }
             
-            // Login Button
             Button(action: { viewModel.loginWithPhone() }) {
                 HStack {
                     if isLoading {
@@ -319,16 +302,16 @@ struct LoginView: View {
         VStack(spacing: 8) {
             Text("登录即表示同意")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(.gray)
+                .foregroundColor(.asideTextSecondary)
             
             HStack(spacing: 4) {
                 Text("《用户协议》")
                 Text("和")
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
                 Text("《隐私政策》")
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundColor(.black)
+            .foregroundColor(.asideTextPrimary)
         }
         .padding(.bottom, 40)
     }

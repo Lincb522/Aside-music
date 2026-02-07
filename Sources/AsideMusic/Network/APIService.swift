@@ -7,14 +7,9 @@ extension Notification.Name {
     static let didLogout = Notification.Name("AsideMusic.didLogout")
 }
 
-// Removing Alamofire dependency completely to fix build errors
 class APIService {
     static let shared = APIService()
     private var baseURL: String {
-        // Priority:
-        // 1. Process Environment (Xcode Scheme)
-        // 2. Info.plist (Injected via .env script)
-        // 3. Default Fallback
         if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"] {
             return envURL
         }
@@ -24,11 +19,10 @@ class APIService {
         return "http://114.66.31.109:3000"
     }
     
-    // Cookie & UserID
     private let cookieKey = "aside_music_cookie"
     private let userIdKey = "aside_music_uid"
     
-    // 使用 @Published 属性以便观察者能够响应变化
+    // MARK: - 使用 @Published 属性以便观察者能够响应变化
     @Published var currentUserId: Int? {
         didSet {
             if let uid = currentUserId {
@@ -50,7 +44,6 @@ class APIService {
         get { UserDefaults.standard.string(forKey: cookieKey) }
         set { 
             UserDefaults.standard.set(newValue, forKey: cookieKey)
-            // Cookie 变化时也触发登录状态检查
             if newValue == nil && currentUserId != nil {
                 currentUserId = nil
             }
@@ -62,7 +55,6 @@ class APIService {
     }
     
     init() {
-        // 从 UserDefaults 恢复 userId
         let uid = UserDefaults.standard.integer(forKey: userIdKey)
         self.currentUserId = uid == 0 ? nil : uid
     }
@@ -70,19 +62,15 @@ class APIService {
     func logout() -> AnyPublisher<SimpleResponse, Error> {
         return fetch("/logout")
             .handleEvents(receiveOutput: { [weak self] _ in
-                // 清除内存中的状态
                 self?.currentCookie = nil
                 self?.currentUserId = nil
                 
-                // 清除 UserDefaults 中保存的数据（使用正确的 key）
                 UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
                 UserDefaults.standard.removeObject(forKey: "aside_music_uid")
                 UserDefaults.standard.set(false, forKey: "isLoggedIn")
                 
-                // 发送退出登录通知
                 NotificationCenter.default.post(name: .didLogout, object: nil)
                 
-                // 清除缓存数据
                 Task { @MainActor in
                     OptimizedCacheManager.shared.clearAll()
                 }
@@ -90,7 +78,7 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // MARK: - Core Fetch Method (Native URLSession)
+    // MARK: - 核心请求方法
     
     enum CachePolicy {
         case networkOnly
@@ -99,11 +87,9 @@ class APIService {
         case staleWhileRevalidate
     }
     
-    // Primary Fetch Method
     func fetch<T: Codable>(_ endpoint: String, method: String = "GET", parameters: [String: Any]? = nil, cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil, retryCount: Int = 3) -> AnyPublisher<T, Error> {
         let cacheKey = "api_\(endpoint)"
         
-        // Construct URL
         guard let url = URL(string: "\(baseURL)\(endpoint)") else {
             return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
         }
@@ -111,20 +97,14 @@ class APIService {
         var request = URLRequest(url: url)
         request.httpMethod = method.uppercased()
         
-        // Headers
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let cookie = currentCookie {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
         
-        // Body / Query
         if method.uppercased() == "GET" {
-            // For GET, we assume parameters are already in endpoint string for simplicity in this project,
-            // or we could append them here. But current usage puts them in endpoint.
-            // Special handling for Netease Cookie in query if needed
             if let cookie = currentCookie, var components = URLComponents(url: url, resolvingAgainstBaseURL: true) {
                 var queryItems = components.queryItems ?? []
-                // Check if cookie already exists to avoid duplication
                 if !queryItems.contains(where: { $0.name == "cookie" }) {
                      queryItems.append(URLQueryItem(name: "cookie", value: cookie))
                      components.queryItems = queryItems
@@ -137,20 +117,17 @@ class APIService {
              request.httpBody = try? JSONSerialization.data(withJSONObject: parameters)
         }
         
-        // Network Publisher
         let networkPublisher = URLSession.shared.dataTaskPublisher(for: request)
-            .retry(retryCount) // Add Retry Logic Here
+            .retry(retryCount)
             .tryMap { data, response -> Data in
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw URLError(.badServerResponse)
                 }
-                // Netease API sometimes returns 200 even for errors, but let's check basic status
                 guard 200..<300 ~= httpResponse.statusCode else {
                     let errorBody = String(data: data, encoding: .utf8) ?? "Unable to decode body"
                     print("❌ API Error [\(httpResponse.statusCode)] for \(url.absoluteString)")
                     print("❌ Response Body: \(errorBody)")
                     
-                    // Try to decode error message if possible
                     if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                        let msg = errorJson["msg"] as? String {
                         print("❌ API Msg: \(msg)")
@@ -161,7 +138,6 @@ class APIService {
             }
             .decode(type: T.self, decoder: JSONDecoder())
             .handleEvents(receiveOutput: { value in
-                // Cache Success Response (GET only)
                 if method.uppercased() == "GET" {
                     CacheManager.shared.setObject(value, forKey: cacheKey, ttl: ttl)
                 }
@@ -169,7 +145,6 @@ class APIService {
             .receive(on: DispatchQueue.main)
             .eraseToAnyPublisher()
             
-        // Helper for Async Cache Fetch
         func fetchCache() -> AnyPublisher<T?, Error> {
             return Future<T?, Error> { promise in
                 DispatchQueue.global(qos: .userInitiated).async {
@@ -181,7 +156,6 @@ class APIService {
             .eraseToAnyPublisher()
         }
             
-        // Cache Strategy
         switch cachePolicy {
         case .networkOnly:
             return networkPublisher
@@ -210,7 +184,6 @@ class APIService {
             return fetchCache()
                 .flatMap { cachedData -> AnyPublisher<T, Error> in
                     if let data = cachedData {
-                        // Return Cache THEN Network
                         let cachePub = Just(data).setFailureType(to: Error.self)
                         return cachePub.merge(with: networkPublisher).eraseToAnyPublisher()
                     }
@@ -220,13 +193,13 @@ class APIService {
         }
     }
     
-    // MARK: - Auth
+    // MARK: - 认证
     
     func fetchLoginStatus() -> AnyPublisher<LoginStatusResponse, Error> {
         return fetch("/login/status?timestamp=\(Int(Date().timeIntervalSince1970 * 1000))")
     }
     
-    // MARK: - Login APIs
+    // MARK: - 登录接口
     
     func fetchQRKey() -> AnyPublisher<QRKeyResponse, Error> {
         return fetch("/login/qr/key?timestamp=\(Int(Date().timeIntervalSince1970 * 1000))")
@@ -248,9 +221,8 @@ class APIService {
         return fetch("/login/cellphone?phone=\(phone)&captcha=\(captcha)&timestamp=\(Int(Date().timeIntervalSince1970 * 1000))")
     }
     
-    // MARK: - Home Data APIs
+    // MARK: - 首页数据接口
     
-    // 1. Daily Recommend Songs (Requires Login)
     func fetchDailySongs(cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil) -> AnyPublisher<[Song], Error> {
         return fetch("/recommend/songs", cachePolicy: cachePolicy, ttl: ttl)
             .map { (response: DailySongsResponse) -> [Song] in
@@ -259,7 +231,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 2. Recommend Playlists (Requires Login)
     func fetchRecommendPlaylists() -> AnyPublisher<[Playlist], Error> {
         return fetch("/recommend/resource")
             .map { (response: RecommendResourceResponse) -> [Playlist] in
@@ -268,7 +239,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 3. User Playlists (Requires UID)
     func fetchUserPlaylists(uid: Int) -> AnyPublisher<[Playlist], Error> {
         return fetch("/user/playlist?uid=\(uid)")
             .map { (response: UserPlaylistResponse) -> [Playlist] in
@@ -277,7 +247,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 4. Popular of Week (Using Personalized New Songs as proxy for "Popular")
     func fetchPopularSongs() -> AnyPublisher<[Song], Error> {
         return fetch("/personalized/newsong?limit=10")
             .map { (response: PersonalizedNewSongResponse) -> [Song] in
@@ -286,7 +255,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 5. Recent Songs (Separate List)
     func fetchRecentSongs() -> AnyPublisher<[Song], Error> {
         return fetch("/record/recent/song?limit=50")
             .map { (response: RecentSongResponse) -> [Song] in
@@ -300,14 +268,11 @@ class APIService {
         let privileges: [Privilege]?
     }
     
-    // 6. Playlist Tracks
     func fetchPlaylistTracks(id: Int, limit: Int = 30, offset: Int = 0, cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil) -> AnyPublisher<[Song], Error> {
         return fetch("/playlist/track/all?id=\(id)&limit=\(limit)&offset=\(offset)", cachePolicy: cachePolicy, ttl: ttl)
             .map { (response: PlaylistTrackResponse) -> [Song] in
                 var songs = response.songs
-                // Merge privileges into songs
                 if let privileges = response.privileges {
-                    // Create a dictionary for faster lookup
                     let privDict = Dictionary(uniqueKeysWithValues: privileges.compactMap { $0.id != nil ? ($0.id!, $0) : nil })
                     
                     for i in 0..<songs.count {
@@ -321,7 +286,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 7. Artist Detail
     func fetchArtistDetail(id: Int) -> AnyPublisher<ArtistInfo, Error> {
         return fetch("/artist/detail?id=\(id)")
             .map { (response: ArtistDetailResponse) -> ArtistInfo in
@@ -330,7 +294,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 8. Artist Top Songs
     func fetchArtistTopSongs(id: Int) -> AnyPublisher<[Song], Error> {
         return fetch("/artist/top/song?id=\(id)")
             .map { (response: ArtistTopSongsResponse) -> [Song] in
@@ -339,7 +302,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 9. Playlist Detail
     func fetchPlaylistDetail(id: Int, cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil) -> AnyPublisher<Playlist, Error> {
         return fetch("/playlist/detail?id=\(id)", cachePolicy: cachePolicy, ttl: ttl)
             .map { (response: PlaylistDetailResponse) -> Playlist in
@@ -348,7 +310,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 10. Banners
     func fetchBanners() -> AnyPublisher<[Banner], Error> {
         return fetch("/banner?type=2")
             .map { (response: BannerResponse) -> [Banner] in
@@ -357,7 +318,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 11. Top Lists
     func fetchTopLists() -> AnyPublisher<[TopList], Error> {
         return fetch("/toplist/detail")
             .map { (response: TopListResponse) -> [TopList] in
@@ -366,7 +326,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 12. Hot Search
     func fetchHotSearch() -> AnyPublisher<[HotSearchItem], Error> {
         return fetch("/search/hot/detail")
             .map { (response: HotSearchResponse) -> [HotSearchItem] in
@@ -375,7 +334,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 13. Homepage Dragon Ball (Icons)
     func fetchDragonBalls() -> AnyPublisher<[DragonBall], Error> {
         return fetch("/homepage/dragon/ball")
             .map { (response: DragonBallResponse) -> [DragonBall] in
@@ -384,7 +342,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 14. Personal FM
     func fetchPersonalFM() -> AnyPublisher<[Song], Error> {
         let timestamp = Int(Date().timeIntervalSince1970 * 1000)
         return fetch("/personal_fm?timestamp=\(timestamp)")
@@ -403,10 +360,7 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 15. FM Trash (Dislike)
     func trashFM(id: Int, time: Int = 0) -> AnyPublisher<SimpleResponse, Error> {
-        // Netease API expects 'id' for songId, and 'time' (played duration in seconds)
-        // Our backend wrapper maps query.id -> songId
         return fetch("/fm_trash?id=\(id)&time=\(time)&timestamp=\(Int(Date().timeIntervalSince1970 * 1000))")
     }
     
@@ -515,12 +469,10 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // Batch fetch song details
     func fetchSongDetails(ids: [Int]) -> AnyPublisher<[Song], Error> {
         let idsStr = ids.map { String($0) }.joined(separator: ",")
         return fetch("/song/detail?ids=\(idsStr)")
             .map { (response: PlaylistTrackResponse) -> [Song] in
-                // Reuse PlaylistTrackResponse structure as it matches (songs + privileges)
                 var privilegeMap: [Int: Privilege] = [:]
                 if let privileges = response.privileges {
                     for priv in privileges {
@@ -540,9 +492,8 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // MARK: - Playlist Square & Artists
+    // MARK: - 歌单广场 & 歌手
     
-    // 16. Playlist Categories (All)
     func fetchPlaylistCategories() -> AnyPublisher<[PlaylistCategory], Error> {
         return fetch("/playlist/catlist")
             .map { (response: PlaylistCatlistResponse) -> [PlaylistCategory] in
@@ -551,7 +502,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 17. Hot Playlist Categories
     func fetchHotPlaylistCategories() -> AnyPublisher<[PlaylistCategory], Error> {
         return fetch("/playlist/hot")
             .map { (response: PlaylistHotCatResponse) -> [PlaylistCategory] in
@@ -560,9 +510,7 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 18. Top Playlists (Playlist Square)
     func fetchTopPlaylists(cat: String = "全部", limit: Int = 30, offset: Int = 0) -> AnyPublisher<[Playlist], Error> {
-        // Encoding category name
         let encodedCat = cat.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cat
         return fetch("/top/playlist?cat=\(encodedCat)&limit=\(limit)&offset=\(offset)")
             .map { (response: TopPlaylistResponse) -> [Playlist] in
@@ -576,11 +524,7 @@ class APIService {
         let more: Bool
     }
     
-    // 19. Artist List (Filtered)
     func fetchArtistList(type: Int = -1, area: Int = -1, initial: String = "-1", limit: Int = 30, offset: Int = 0) -> AnyPublisher<[ArtistInfo], Error> {
-        // type: -1:全部 1:男歌手 2:女歌手 3:乐队
-        // area: -1:全部 7:华语 96:欧美 8:日本 16:韩国 0:其他
-        // initial: -1:热门 a-z:字母
         return fetch("/artist/list?type=\(type)&area=\(area)&initial=\(initial)&limit=\(limit)&offset=\(offset)")
             .map { (response: ArtistListResponse) -> [ArtistInfo] in
                 return response.artists
@@ -588,7 +532,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 20. Top Artists (Deprecated replacement, keeping for compatibility but using list mainly)
     func fetchTopArtists(limit: Int = 30, offset: Int = 0) -> AnyPublisher<[ArtistInfo], Error> {
         return fetch("/top/artists?limit=\(limit)&offset=\(offset)")
             .map { (response: TopArtistsResponse) -> [ArtistInfo] in
@@ -597,9 +540,7 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 21. Search Artists
     func searchArtists(keyword: String, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[ArtistInfo], Error> {
-        // type=100 for artists
         let encodedKw = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword
         return fetch("/search?keywords=\(encodedKw)&type=100&limit=\(limit)&offset=\(offset)")
             .map { (response: SearchArtistResponse) -> [ArtistInfo] in
@@ -608,7 +549,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 23. User Detail (New)
     struct UserDetailResponse: Codable {
         let profile: UserProfile
         let level: Int
@@ -621,28 +561,23 @@ class APIService {
         return fetch("/user/detail?uid=\(uid)")
     }
     
-    // 22. User Signature (Update Profile)
     struct UserUpdateResponse: Codable {
         let code: Int
     }
     
     func updateSignature(signature: String) -> AnyPublisher<UserUpdateResponse, Error> {
-        // /user/update?signature=xxx
         let encodedSig = signature.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? signature
         return fetch("/user/update?signature=\(encodedSig)&timestamp=\(Int(Date().timeIntervalSince1970 * 1000))")
     }
     
-    // 24. Lyric
     func fetchLyric(id: Int) -> AnyPublisher<LyricResponse, Error> {
         return fetch("/lyric?id=\(id)")
     }
     
-    // 25. Like Music
     func likeSong(id: Int, like: Bool) -> AnyPublisher<SimpleResponse, Error> {
         return fetch("/like?id=\(id)&like=\(like)&timestamp=\(Int(Date().timeIntervalSince1970 * 1000))")
     }
     
-    // 26. Liked Songs List (IDs)
     struct LikedSongListResponse: Codable {
         let ids: [Int]
         let code: Int
@@ -656,9 +591,8 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // MARK: - History & Style
+    // MARK: - 历史 & 风格
     
-    // 27. History Recommend Dates
     struct HistoryDateResponse: Codable {
         let code: Int?
         let data: HistoryData?
@@ -678,7 +612,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 28. History Recommend Songs Detail
     struct HistorySongsResponse: Codable {
         let code: Int?
         let data: HistorySongsData?
@@ -699,7 +632,6 @@ class APIService {
             .eraseToAnyPublisher()
     }
     
-    // 29. Style List & Preference
     struct StyleListResponse: Codable {
         let code: Int
         let data: [StyleTag]?
@@ -727,16 +659,12 @@ class APIService {
             case rawName = "name"
         }
         
-        // Unified Accessors
         var finalId: Int { tagId ?? rawId ?? 0 }
         var finalName: String { tagName ?? rawName ?? "Unknown" }
         
-        // Identifiable
         var id: Int { finalId }
         
-        // Manual Init
         init(id: String, name: String, type: Int = 0) {
-            // Mock ID generation from string hash for non-integer IDs
             self.tagId = id.hashValue
             self.tagName = name
             self.rawId = id.hashValue
@@ -744,7 +672,6 @@ class APIService {
             self.colorString = nil
         }
         
-        // Standard Decoder Init
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             tagId = try container.decodeIfPresent(Int.self, forKey: .tagId)
@@ -766,13 +693,11 @@ class APIService {
     func fetchStylePreference() -> AnyPublisher<[StyleTag], Error> {
         return fetch("/style/preference")
             .tryMap { (response: StylePreferenceResponse) -> [StyleTag] in
-                // Check code if needed, usually 200
                 return response.data?.tagPreference ?? []
             }
             .eraseToAnyPublisher()
     }
     
-    // 30. Style Songs
     struct StyleSongResponse: Codable {
         let data: StyleSongData?
         struct StyleSongData: Codable {

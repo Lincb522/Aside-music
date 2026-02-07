@@ -6,7 +6,6 @@ struct ProfileView: View {
     private var viewModel: HomeViewModel { HomeViewModel.shared }
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
     
-    // Navigation State
     @State private var showLoginView = false
     @State private var showSettingsView = false
     
@@ -14,21 +13,17 @@ struct ProfileView: View {
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
     
-    // Theme Constants
-    private let primaryColor = Color.black
-    private let secondaryColor = Color.gray
+    private let primaryColor = Color.asideTextPrimary
+    private let secondaryColor = Color.asideTextSecondary
     
     var body: some View {
         ZStack {
-            // Global Background (Visible)
             AsideBackground()
                 .ignoresSafeArea()
             
             if isAppLoggedIn {
-                // 已登录状态 - 显示用户信息
                 loggedInContent
             } else {
-                // 未登录状态 - 显示登录入口
                 notLoggedInContent
             }
         }
@@ -103,15 +98,12 @@ struct ProfileView: View {
     private var loggedInContent: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                // 1. Large Header & Stats (Integrated)
                 headerStatsSection
                     .padding(.top, DeviceLayout.headerTopPadding + 80)
                     .padding(.bottom, 32)
                 
-                // 2. Action Grid (Downloads & Settings)
                 actionGridSection
                 
-                // 3. Logout
                 logoutSection
                 
                 Spacer(minLength: 120)
@@ -125,19 +117,16 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             Spacer()
             
-            // 未登录提示
             VStack(spacing: 24) {
-                // Avatar Placeholder
                 Circle()
-                    .fill(Color.white)
+                    .fill(Color.asideCardBackground)
                     .frame(width: 120, height: 120)
                     .overlay(
-                        AsideIcon(icon: .profile, size: 50, color: .black.opacity(0.3))
+                        AsideIcon(icon: .profile, size: 50, color: .asideTextPrimary.opacity(0.3))
                     )
                     .overlay(Circle().stroke(Color.white, lineWidth: 4))
                     .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
-                // Title
                 VStack(spacing: 8) {
                     Text("未登录")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
@@ -148,17 +137,16 @@ struct ProfileView: View {
                         .foregroundColor(secondaryColor)
                 }
                 
-                // Login Button
                 Button(action: { showLoginView = true }) {
                     HStack(spacing: 10) {
-                        AsideIcon(icon: .profile, size: 18, color: .white)
+                        AsideIcon(icon: .profile, size: 18, color: .asideIconForeground)
                         Text("登录账号")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 40)
                     .padding(.vertical, 16)
-                    .background(Color.black)
+                    .background(Color.asideIconBackground)
                     .cornerRadius(28)
                     .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 8)
                 }
@@ -179,7 +167,6 @@ struct ProfileView: View {
     private var notLoggedInActionSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 20) {
-                // Settings Card
                 ActionCard(
                     icon: .settings,
                     title: NSLocalizedString("profile_settings", comment: ""),
@@ -203,7 +190,7 @@ struct ProfileView: View {
     
     private var headerStatsSection: some View {
         VStack(spacing: 24) {
-            // Avatar - 使用缓存的 profile 数据
+            // 使用缓存的 profile 数据
             if let avatarUrl = cachedProfile?.avatarUrl ?? viewModel.userProfile?.avatarUrl, 
                let url = URL(string: avatarUrl) {
                 CachedAsyncImage(url: url) {
@@ -216,16 +203,16 @@ struct ProfileView: View {
                 .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
             } else {
                 Circle()
-                    .fill(Color.white.opacity(0.5))
+                    .fill(Color.asideCardBackground.opacity(0.5))
                     .frame(width: 120, height: 120)
                     .overlay(
-                        AsideIcon(icon: .profile, size: 50, color: .black.opacity(0.5))
+                        AsideIcon(icon: .profile, size: 50, color: .asideTextPrimary.opacity(0.5))
                     )
                     .overlay(Circle().stroke(Color.white, lineWidth: 4))
                     .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
             }
             
-            // Info - 使用缓存的 profile 数据
+            // 使用缓存的 profile 数据
             let profile = cachedProfile ?? viewModel.userProfile
             VStack(spacing: 8) {
                 Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
@@ -237,10 +224,9 @@ struct ProfileView: View {
                     .foregroundColor(secondaryColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.6))
+                    .background(Color.asideCardBackground.opacity(0.6))
                     .cornerRadius(20)
                 
-                // Signature
                 if let signature = profile?.signature, !signature.isEmpty {
                     Text(signature)
                         .font(.system(size: 14, weight: .regular, design: .rounded))
@@ -251,7 +237,6 @@ struct ProfileView: View {
                 }
             }
             
-            // Stats (Clean Row)
             HStack(spacing: 40) {
                 StatItemLarge(count: profile?.eventCount ?? 0, label: NSLocalizedString("profile_dynamic", comment: ""))
                 StatItemLarge(count: profile?.follows ?? 0, label: NSLocalizedString("profile_following", comment: ""))
@@ -264,15 +249,13 @@ struct ProfileView: View {
     private var actionGridSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 20) {
-                // Downloads Card
                 ActionCard(
                     icon: .download,
                     title: NSLocalizedString("profile_downloads", comment: ""),
                     subtitle: "Offline Music"
                 )
-                .frame(width: 140) // Fixed width for horizontal scrolling
+                .frame(width: 140)
                 
-                // Settings Card
                 ActionCard(
                     icon: .settings,
                     title: NSLocalizedString("profile_settings", comment: ""),
@@ -281,7 +264,6 @@ struct ProfileView: View {
                 )
                 .frame(width: 140)
                 
-                // Cloud Disk Card
                 ActionCard(
                     icon: .cloud,
                     title: NSLocalizedString("profile_cloud_disk", comment: "Cloud Disk"),
@@ -290,7 +272,7 @@ struct ProfileView: View {
                 .frame(width: 140)
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 20) // Bottom padding for shadow clipping
+            .padding(.bottom, 20)
         }
     }
     
@@ -326,7 +308,6 @@ struct ProfileView: View {
                 primaryButtonTitle: NSLocalizedString("alert_logout_confirm", comment: ""),
                 secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
             ) {
-                // Primary Action: Logout
                 APIService.shared.logout()
                     .sink(receiveCompletion: { completion in
                         // 无论成功失败都退出登录
@@ -353,12 +334,12 @@ struct ProfileView: View {
         }) {
             Text(LocalizedStringKey("action_logout"))
                 .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.black.opacity(0.6))
+                .foregroundColor(.asideTextPrimary.opacity(0.6))
                 .padding(.horizontal, 30)
                 .padding(.vertical, 12)
                 .background(
                     Capsule()
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        .stroke(Color.asideSeparator, lineWidth: 1)
                 )
         }
         .padding(.top, 20)
@@ -367,7 +348,6 @@ struct ProfileView: View {
     private func performLogout() {
         APIService.shared.logout()
             .sink(receiveCompletion: { completion in
-                // Even if it fails, we should clear local state and logout
                 isAppLoggedIn = false
             }, receiveValue: { _ in
                 isAppLoggedIn = false
@@ -386,10 +366,10 @@ struct StatItemLarge: View {
         VStack(spacing: 4) {
             Text("\(count)")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(.black)
+                .foregroundColor(.asideTextPrimary)
             Text(label)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(.gray)
+                .foregroundColor(.asideTextSecondary)
         }
     }
 }
@@ -405,25 +385,25 @@ struct ActionCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.black)
+                        .fill(Color.asideIconBackground)
                         .frame(width: 44, height: 44)
-                    AsideIcon(icon: icon, size: 18, color: .white)
+                    AsideIcon(icon: icon, size: 18, color: .asideIconForeground)
                 }
                 
                 Spacer()
                 
                 Text(title)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(.black)
+                    .foregroundColor(.asideTextPrimary)
                 
                 Text(subtitle)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 140)
             .padding(16)
-            .background(Color.white)
+            .background(Color.asideCardBackground)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
         }

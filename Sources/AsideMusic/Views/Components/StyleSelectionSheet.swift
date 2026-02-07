@@ -5,47 +5,39 @@ struct StyleSelectionMorphView: View {
     @ObservedObject var styleManager: StyleManager
     @Binding var isPresented: Bool
     
-    // Internal State
     @State private var tempSelectedStyle: APIService.StyleTag?
     @State private var selectedTab: String = "曲风"
     
-    // Matched Geometry
     var namespace: Namespace.ID
     
-    // Configuration
     private let tabs = ["曲风"]
     private let columns = [GridItem(.adaptive(minimum: 80, maximum: 120), spacing: 12)]
     
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Expanded Container
             VStack(spacing: 0) {
-                // Header (Morph target for the button)
                 HStack {
                     ZStack(alignment: .leading) {
-                        // 1. Invisible placeholder for smooth morphing (matches source button text exactly)
                         Text(styleManager.currentStyle == nil ? "Fresh tunes daily" : styleManager.currentStyleName)
                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.clear) // Invisible but takes space/morphs
+                            .foregroundColor(.clear)
                             .matchedGeometryEffect(id: "filter_text", in: namespace)
                         
-                        // 2. Real Title for the Popup (Fades in)
                         Text("选择风格")
                             .font(.system(size: 22, weight: .bold, design: .rounded))
-                            .foregroundColor(.black.opacity(0.85))
+                            .foregroundColor(.asideTextPrimary.opacity(0.85))
                     }
                     
                     Spacer()
                     
-                    // Close Button
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             isPresented = false
                         }
                     }) {
-                        AsideIcon(icon: .close, size: 14, color: .gray)
+                        AsideIcon(icon: .close, size: 14, color: .asideTextSecondary)
                             .padding(8)
-                            .background(Color.black.opacity(0.05))
+                            .background(Color.asideSeparator)
                             .clipShape(Circle())
                     }
                 }
@@ -53,11 +45,9 @@ struct StyleSelectionMorphView: View {
                 .padding(.top, 20)       
                 .padding(.bottom, 16)
                 
-                // 1. Tab Bar
                 tabBar
                     .padding(.bottom, 20)
                 
-                // 2. Content Area
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 20) {
                         if styleManager.isLoadingStyles {
@@ -72,7 +62,6 @@ struct StyleSelectionMorphView: View {
                 }
                 .frame(maxHeight: 320)
                 
-                // 3. Action Bar
                 actionBar
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
@@ -80,7 +69,7 @@ struct StyleSelectionMorphView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white)
+                    .fill(Color.asideCardBackground)
                     .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
                     .matchedGeometryEffect(id: "filter_bg", in: namespace)
             )
@@ -107,11 +96,11 @@ struct StyleSelectionMorphView: View {
                         VStack(spacing: 6) {
                             Text(tab)
                                 .font(.system(size: 16, weight: selectedTab == tab ? .bold : .medium, design: .rounded))
-                                .foregroundColor(selectedTab == tab ? .black.opacity(0.85) : .gray)
+                                .foregroundColor(selectedTab == tab ? .asideTextPrimary.opacity(0.85) : .asideTextSecondary)
                             
                             if selectedTab == tab {
                                 Capsule()
-                                    .fill(Color.black.opacity(0.85))
+                                    .fill(Color.asideIconBackground.opacity(0.85))
                                     .frame(width: 20, height: 3)
                                     .matchedGeometryEffect(id: "tab_indicator", in: namespace)
                             } else {
@@ -127,12 +116,10 @@ struct StyleSelectionMorphView: View {
     
     private var styleGrid: some View {
         LazyVGrid(columns: columns, spacing: 10) {
-            // "Default/All" Option (Always first)
             tagButton(name: "默认推荐", isSelected: tempSelectedStyle == nil) {
                 tempSelectedStyle = nil
             }
             
-            // API Styles
             ForEach(styleManager.availableStyles) { style in
                 tagButton(name: style.finalName, isSelected: tempSelectedStyle?.id == style.id) {
                     tempSelectedStyle = style
@@ -145,12 +132,16 @@ struct StyleSelectionMorphView: View {
         Button(action: action) {
             Text(name)
                 .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : .black.opacity(0.85))
+                .foregroundColor(isSelected ? .white : .asideTextPrimary.opacity(0.85))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.black.opacity(0.85) : Color.gray.opacity(0.1))
+                        .fill(isSelected ? Color.asideIconBackground.opacity(0.85) : Color.asideCardBackground)
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.asideSeparator, lineWidth: isSelected ? 0 : 1)
+                        )
                 )
         }
         .buttonStyle(ScaleButtonStyle())
@@ -170,7 +161,7 @@ struct StyleSelectionMorphView: View {
                 .padding(.vertical, 16)
                 .background(
                     Capsule()
-                        .fill(Color.black.opacity(0.85))
+                        .fill(Color.asideIconBackground.opacity(0.85))
                         .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
                 )
         }

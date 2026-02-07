@@ -9,7 +9,6 @@ struct MiniPlayerView: View {
         if let song = player.currentSong {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    // Cover
                     CachedAsyncImage(url: song.coverUrl) {
                         Color.gray.opacity(0.3)
                     }
@@ -17,26 +16,24 @@ struct MiniPlayerView: View {
                     .frame(width: 48, height: 48)
                     .cornerRadius(12)
                     
-                    // Info
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
                             .font(.rounded(size: 16, weight: .bold))
-                            .foregroundColor(.black)
+                            .foregroundColor(.asideTextPrimary)
                             .lineLimit(1)
                         Text(song.artistName)
                             .font(.rounded(size: 14, weight: .medium))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.asideTextSecondary)
                             .lineLimit(1)
                     }
                     
                     Spacer()
                     
-                    // Controls
                     HStack(spacing: 16) {
                         Button(action: {
                             player.previous()
                         }) {
-                            AsideIcon(icon: .previous, size: 16, color: .black)
+                            AsideIcon(icon: .previous, size: 16, color: .asideTextPrimary)
                         }
                         
                         Button(action: {
@@ -44,14 +41,14 @@ struct MiniPlayerView: View {
                         }) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.black)
+                                    .fill(Color.asideIconBackground)
                                     .frame(width: 44, height: 44)
                                 
                                 if player.isLoading {
                                     ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .asideIconForeground))
                                 } else {
-                                    AsideIcon(icon: player.isPlaying ? .pause : .play, size: 18, color: .white)
+                                    AsideIcon(icon: player.isPlaying ? .pause : .play, size: 18, color: .asideIconForeground)
                                 }
                             }
                         }
@@ -59,18 +56,17 @@ struct MiniPlayerView: View {
                         Button(action: {
                             player.next()
                         }) {
-                            AsideIcon(icon: .next, size: 16, color: .black)
+                            AsideIcon(icon: .next, size: 16, color: .asideTextPrimary)
                         }
                         
                         Button(action: {
                             showPlaylist.toggle()
                         }) {
-                            AsideIcon(icon: .list, size: 18, color: .black)
+                            AsideIcon(icon: .list, size: 18, color: .asideTextPrimary)
                         }
                     }
                 }
                 
-                // Progress Bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Capsule()
@@ -79,7 +75,7 @@ struct MiniPlayerView: View {
                         
                         let progress = player.duration > 0 ? player.currentTime / player.duration : 0
                         Capsule()
-                            .fill(Color.black)
+                            .fill(Color.asideIconBackground)
                             .frame(width: geometry.size.width * CGFloat(progress), height: 4)
                     }
                 }
@@ -91,9 +87,9 @@ struct MiniPlayerView: View {
                     // 液态玻璃效果 - 使用较低帧率
                     LiquidGlassMetalView(cornerRadius: 24, backgroundCaptureFrameRate: 30)
                     
-                    // 白色半透明叠加层
+                    // 半透明叠加层
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color.white.opacity(0.4))
+                        .fill(Color.asideCardBackground.opacity(0.4))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -107,4 +103,3 @@ struct MiniPlayerView: View {
         }
     }
 }
-

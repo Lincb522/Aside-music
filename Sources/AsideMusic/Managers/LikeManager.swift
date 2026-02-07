@@ -10,7 +10,6 @@ class LikeManager: ObservableObject {
     private let apiService = APIService.shared
     
     private init() {
-        // Initial fetch if logged in
         if apiService.isLoggedIn, let uid = apiService.currentUserId {
             fetchLikedSongs(uid: uid)
         }
@@ -43,7 +42,6 @@ class LikeManager: ObservableObject {
     
     func toggleLike(songId: Int) {
         guard apiService.isLoggedIn else {
-            // Show login alert or prompt (Should be handled by UI, here we just return or log)
             print("User not logged in")
             return
         }
@@ -51,29 +49,25 @@ class LikeManager: ObservableObject {
         let isCurrentlyLiked = isLiked(id: songId)
         let targetState = !isCurrentlyLiked
         
-        // Optimistic UI Update
         if targetState {
             likedSongIds.insert(songId)
         } else {
             likedSongIds.remove(songId)
         }
         
-        // API Call
         apiService.likeSong(id: songId, like: targetState)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
                     print("Toggle like failed: \(error)")
-                    // Revert state on failure
+                    // 失败时回滚状态
                     if targetState {
                         self?.likedSongIds.remove(songId)
                     } else {
                         self?.likedSongIds.insert(songId)
                     }
                 }
-            }, receiveValue: { _ in
-                // Success, do nothing as we already updated UI
-            })
+            }, receiveValue: { _ in })
             .store(in: &cancellables)
     }
 }

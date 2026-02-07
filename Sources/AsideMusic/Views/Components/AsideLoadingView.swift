@@ -31,7 +31,7 @@ struct AsideLoadingView: View {
                 Text(text)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .tracking(2)
-                    .foregroundColor(.black.opacity(0.8))
+                    .foregroundColor(.asideTextPrimary.opacity(0.8))
                     .textCase(.uppercase)
             }
         }
@@ -45,7 +45,7 @@ private struct LoadingBar: View {
     
     var body: some View {
         Capsule()
-            .fill(Color.black)
+            .fill(Color.asideTextPrimary)
             .frame(width: 5, height: 32)
             .scaleEffect(y: isAnimating ? 1.0 : 0.4)
             .opacity(isAnimating ? 1.0 : 0.6)

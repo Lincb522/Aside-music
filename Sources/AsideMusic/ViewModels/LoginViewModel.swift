@@ -1,22 +1,16 @@
 import SwiftUI
 import Combine
 
-// NOTE: Notification.Name.didLogin 和 .didLogout 已在 APIService.swift 中定义
-// 使用 "AsideMusic.didLogin" 和 "AsideMusic.didLogout"
-
 class LoginViewModel: ObservableObject {
-    // QR Login State
     @Published var qrCodeImage: UIImage?
     @Published var qrStatusMessage: String = NSLocalizedString("qr_loading", comment: "Loading QR Code")
     @Published var isQRExpired = false
     
-    // Phone Login State
     @Published var phoneNumber: String = ""
     @Published var captchaCode: String = ""
     @Published var isCaptchaSent = false
     @Published var loginErrorMessage: String?
     
-    // General
     @Published var isLoggedIn = false
     
     private var qrKey: String?
@@ -47,7 +41,6 @@ class LoginViewModel: ObservableObject {
     }
     
     private func decodeBase64Image(_ base64String: String) {
-        // The API returns "data:image/png;base64,..."
         let cleanBase64 = base64String.components(separatedBy: ",").last ?? base64String
         if let data = Data(base64Encoded: cleanBase64), let image = UIImage(data: data) {
             self.qrCodeImage = image
@@ -86,17 +79,16 @@ class LoginViewModel: ObservableObject {
                     self.qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
                     if let cookie = response.cookie {
                         APIService.shared.currentCookie = cookie
-                        // Fetch User Status/Detail to get UID
                         APIService.shared.fetchLoginStatus()
                             .sink(receiveCompletion: { _ in }, receiveValue: { status in
                                 if let profile = status.data.profile {
                                     APIService.shared.currentUserId = profile.userId
-                                    LikeManager.shared.refreshLikes() // Refresh Likes
+                                    LikeManager.shared.refreshLikes()
                                     self.isLoggedIn = true
                                     self.stopQRPolling()
                                     NotificationCenter.default.post(name: .didLogin, object: nil)
                                     Task { @MainActor in
-                                        GlobalRefreshManager.shared.triggerLoginRefresh() // Trigger Global Refresh
+                                        GlobalRefreshManager.shared.triggerLoginRefresh()
                                     }
                                 }
                             })
@@ -143,12 +135,12 @@ class LoginViewModel: ObservableObject {
                     APIService.shared.currentCookie = cookie
                     if let profile = response.profile {
                         APIService.shared.currentUserId = profile.userId
-                        LikeManager.shared.refreshLikes() // Refresh Likes
+                        LikeManager.shared.refreshLikes()
                     }
                     self?.isLoggedIn = true
                     NotificationCenter.default.post(name: .didLogin, object: nil)
                     Task { @MainActor in
-                        GlobalRefreshManager.shared.triggerLoginRefresh() // Trigger Global Refresh
+                        GlobalRefreshManager.shared.triggerLoginRefresh()
                     }
                 } else {
                     self?.loginErrorMessage = String(format: NSLocalizedString("login_failed", comment: "Login Failed"), response.code)

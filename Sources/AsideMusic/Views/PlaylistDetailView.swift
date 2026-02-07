@@ -43,7 +43,6 @@ class PlaylistDetailViewModel: ObservableObject {
             isLoadingMore = true
         }
         
-        // For first page, use cache-then-network. For others, network only.
         let policy: APIService.CachePolicy = (currentOffset == 0) ? .staleWhileRevalidate : .networkOnly
         let ttl: TimeInterval? = (currentOffset == 0) ? 3600 : nil
         
@@ -63,14 +62,12 @@ class PlaylistDetailViewModel: ObservableObject {
             }, receiveValue: { [weak self] fetchedSongs in
                 guard let self = self else { return }
                 
-                // If offset is 0, we are refreshing the list (or loading first page)
                 if self.currentOffset == 0 {
                     self.songs = fetchedSongs
                     self.currentOffset = fetchedSongs.count
                     self.isFirstPageLoaded = true
                     self.isLoading = false
                 } else {
-                    // Filter duplicates before appending
                     let newSongs = fetchedSongs.filter { newSong in
                         !self.songs.contains(where: { $0.id == newSong.id })
                     }
@@ -94,7 +91,6 @@ class PlaylistDetailViewModel: ObservableObject {
         self.hasMore = false
     }
     
-    // Helper to get current full list for context
     func getCurrentList() -> [Song] {
         return songs
     }
@@ -107,16 +103,13 @@ struct PlaylistDetailView: View {
     
     @StateObject private var viewModel = PlaylistDetailViewModel()
     
-    // Subscribe to PlayerManager updates
     @ObservedObject var playerManager = PlayerManager.shared
     
-    // Navigation States
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
     
-    // Scroll State
     @State private var scrollOffset: CGFloat = 0
     
     init(playlist: Playlist, songs: [Song]? = nil) {
@@ -124,29 +117,25 @@ struct PlaylistDetailView: View {
         self.initialSongs = songs
     }
     
-    // Colors
     struct Theme {
-        static let cream = Color.clear // Was Color.white
-        static let milk = Color.white.opacity(0.8) // Was Color.white
-        static let accent = Color.black
-        static let text = Color.black
-        static let secondaryText = Color.gray
+        static let cream = Color.clear
+        static let milk = Color.asideMilk
+        static let accent = Color.asideIconBackground // 黑/白自适应
+        static let text = Color.asideTextPrimary
+        static let secondaryText = Color.asideTextSecondary
         static let softShadow = Color.clear
     }
 
     var body: some View {
         ZStack {
-            // Background
             AsideBackground()
             
             VStack(spacing: 0) {
-                // Fixed Header
                 cleanHeader
                 
-                // Scrollable Song List
                 ScrollView(showsIndicators: false) {
                     songListSection
-                        .padding(.bottom, 100) // For MiniPlayer
+                        .padding(.bottom, 100)
                 }
             }
         }
@@ -162,16 +151,13 @@ struct PlaylistDetailView: View {
     
     // MARK: - Components
     
-    // Completely redesigned header to match DailyRecommendView & ArtistDetailView
     private var cleanHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Back Button Row
             HStack {
                 AsideBackButton()
                 
                 Spacer()
                 
-                // Track Count Badge
                 if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
                     Text(String(format: NSLocalizedString("songs_count_format", comment: ""), count))
                         .font(.system(size: 12, weight: .bold))
@@ -187,9 +173,7 @@ struct PlaylistDetailView: View {
                 }
             }
             
-            // Main Content Row (Horizontal Layout)
             HStack(alignment: .top, spacing: 16) {
-                // Left: Cover Art
                 CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
                     Color.gray.opacity(0.1)
                 }
@@ -198,16 +182,13 @@ struct PlaylistDetailView: View {
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                 
-                // Right: Info & Actions
                 VStack(alignment: .leading, spacing: 8) {
-                    // Title
                     Text(viewModel.playlistDetail?.name ?? playlist.name)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.text)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    // Subtitle (Creator)
                 if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
                     Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
                         .font(.system(size: 13))
@@ -215,14 +196,8 @@ struct PlaylistDetailView: View {
                         .lineLimit(1)
                 }
                 
-                // DEBUG: Show height info
-                // Text("H: \(UIScreen.main.bounds.height) P: \(DeviceLayout.headerTopPadding)")
-                //    .font(.caption2)
-                //    .foregroundColor(.red)
-                
                 Spacer().frame(height: 4)
                     
-                    // Play All Button (Compact)
                     Button(action: {
                         if let first = viewModel.songs.first {
                             PlayerManager.shared.play(song: first, in: viewModel.songs)
@@ -287,7 +262,6 @@ struct PlaylistDetailView: View {
 }
 
 // MARK: - Utilities
-// extension Color { ... }
 
 struct RoundedCorner: Shape {
     var radius: CGFloat = .infinity
@@ -299,5 +273,5 @@ struct RoundedCorner: Shape {
     }
 }
 
-// MARK: - Appended content removed as user will manually add the file to project
+
 

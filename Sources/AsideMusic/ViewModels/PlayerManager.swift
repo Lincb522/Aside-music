@@ -2,7 +2,6 @@ import Foundation
 import AVFoundation
 import Combine
 import MediaPlayer
-import SwiftAudioEx
 
 @MainActor
 class PlayerManager: ObservableObject {
@@ -10,9 +9,9 @@ class PlayerManager: ObservableObject {
     
     // MARK: - Playback Modes
     enum PlayMode: String, Codable {
-        case sequence   // 顺序播放 (播完继续下一首)
-        case loopSingle // 单曲循环
-        case shuffle    // 随机播放
+        case sequence
+        case loopSingle
+        case shuffle
         
         var icon: String {
             switch self {
@@ -31,15 +30,11 @@ class PlayerManager: ObservableObject {
         }
     }
     
-    // MARK: - SwiftAudioEx Player
-    let audioPlayer: AudioPlayer = {
-        let p = AudioPlayer()
-        p.automaticallyUpdateNowPlayingInfo = true
-        p.remoteCommands = [
-            .play, .pause, .next, .previous, .changePlaybackPosition
-        ]
-        return p
-    }()
+    // MARK: - AVPlayer
+    private var avPlayer = AVPlayer()
+    private var playerItemObservers = Set<AnyCancellable>()
+    private var timeObserverToken: Any?
+    private var didPlayToEndObserver: NSObjectProtocol?
     
     // MARK: - Published Properties
     @Published var currentSong: Song?
@@ -51,8 +46,8 @@ class PlayerManager: ObservableObject {
     @Published var mode: PlayMode = .sequence
     @Published var isTabBarHidden: Bool = false
     @Published var isPlayingFM: Bool = false
-    @Published var isCurrentSongUnblocked: Bool = false  // 当前歌曲是否来自第三方源
-    @Published var currentSongSource: String? = nil     // 来源平台名称
+    @Published var isCurrentSongUnblocked: Bool = false
+    @Published var currentSongSource: String? = nil
     
     // MARK: - Settings
     @Published var soundQuality: SoundQuality = {
@@ -82,7 +77,9 @@ class PlayerManager: ObservableObject {
     private let maxConsecutiveFailures: Int = 3
     private var retryDelay: TimeInterval = 1.0
     private let maxRetryDelay: TimeInterval = 10.0
-    private var timeUpdateTimer: Timer?
+    
+    // MARK: - Remote Command Center
+    private let commandCenter = MPRemoteCommandCenter.shared()
     
     // MARK: - Computed Properties
     var currentContextList: [Song] {
@@ -101,19 +98,28 @@ class PlayerManager: ObservableObject {
     // MARK: - Init
     
     init() {
-        setupAudioPlayer()
+        setupAudioSession()
+        setupRemoteCommands()
+        setupPeriodicTimeObserver()
+        setupPlayerObservers()
         fetchHistory()
         restoreState()
     }
     
     deinit {
-        timeUpdateTimer?.invalidate()
+        if let token = timeObserverToken {
+            avPlayer.removeTimeObserver(token)
+        }
+        if let observer = didPlayToEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         cancellables.removeAll()
         saveStateWorkItem?.cancel()
     }
+
+    // MARK: - Setup
     
-    private func setupAudioPlayer() {
-        // 配置 AVAudioSession 支持后台播放
+    private func setupAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [])
@@ -121,91 +127,105 @@ class PlayerManager: ObservableObject {
         } catch {
             print("[PlayerManager] AVAudioSession 配置失败: \(error)")
         }
-        
-        audioPlayer.event.stateChange.addListener(self) { [weak self] state in
-            DispatchQueue.main.async { self?.handleStateChange(state: state) }
-        }
-        audioPlayer.event.playbackEnd.addListener(self) { [weak self] reason in
-            DispatchQueue.main.async { self?.handlePlaybackEnd(reason: reason) }
-        }
-        audioPlayer.event.updateDuration.addListener(self) { [weak self] duration in
-            DispatchQueue.main.async { self?.handleDurationUpdate(duration: duration) }
-        }
-        
-        // 自定义远程命令处理
-        audioPlayer.remoteCommandController.handlePlayCommand = { [weak self] _ in
+    }
+    
+    private func setupRemoteCommands() {
+        commandCenter.playCommand.addTarget { [weak self] _ in
             self?.togglePlayPause()
             return .success
         }
-        audioPlayer.remoteCommandController.handlePauseCommand = { [weak self] _ in
+        commandCenter.pauseCommand.addTarget { [weak self] _ in
             self?.togglePlayPause()
             return .success
         }
-        audioPlayer.remoteCommandController.handleNextTrackCommand = { [weak self] _ in
+        commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             self?.next()
             return .success
         }
-        audioPlayer.remoteCommandController.handlePreviousTrackCommand = { [weak self] _ in
+        commandCenter.previousTrackCommand.addTarget { [weak self] _ in
             self?.previous()
             return .success
         }
-        audioPlayer.remoteCommandController.handleChangePlaybackPositionCommand = { [weak self] event in
+        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
             if let event = event as? MPChangePlaybackPositionCommandEvent {
                 self?.seek(to: event.positionTime)
             }
             return .success
         }
-        
-        // 定时更新播放时间
-        timeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+    }
+    
+    private func setupPeriodicTimeObserver() {
+        let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+        timeObserverToken = avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             Task { @MainActor in
                 guard let self = self else { return }
-                self.currentTime = self.audioPlayer.currentTime
+                let seconds = time.seconds
+                if seconds.isFinite && !seconds.isNaN {
+                    self.currentTime = seconds
+                }
+                self.updateNowPlayingTime()
             }
         }
     }
     
-    // MARK: - SwiftAudioEx Event Handlers
-    
-    private func handleStateChange(state: AudioPlayerState) {
-        switch state {
-        case .playing:
-            isPlaying = true
-            isLoading = false
-        case .paused, .stopped, .ended:
-            isPlaying = false
-            isLoading = false
-        case .loading, .buffering:
-            isLoading = true
-        case .idle, .ready:
-            isPlaying = false
-            isLoading = false
-        case .failed:
-            isPlaying = false
-            isLoading = false
+    private func setupPlayerObservers() {
+        avPlayer.publisher(for: \.timeControlStatus)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self = self else { return }
+                switch status {
+                case .playing:
+                    self.isPlaying = true
+                    self.isLoading = false
+                case .paused:
+                    self.isPlaying = false
+                case .waitingToPlayAtSpecifiedRate:
+                    self.isLoading = true
+                @unknown default:
+                    break
+                }
+            }
+            .store(in: &cancellables)
+        
+        didPlayToEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let item = notification.object as? AVPlayerItem,
+                  item == self.avPlayer.currentItem else { return }
+            Task { @MainActor in
+                self.playerDidFinishPlaying()
+            }
         }
     }
     
-    private func handlePlaybackEnd(reason: PlaybackEndedReason) {
-        switch reason {
-        case .playedUntilEnd:
-            playerDidFinishPlaying()
-        case .playerStopped, .cleared:
-            isPlaying = false
-        case .failed:
-            isPlaying = false
-            print("❌ 播放失败")
-        case .skippedToNext, .skippedToPrevious, .jumpedToIndex:
-            break
-        }
+    private func observePlayerItem(_ item: AVPlayerItem) {
+        playerItemObservers.removeAll()
+        
+        item.publisher(for: \.status)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self = self else { return }
+                switch status {
+                case .readyToPlay:
+                    self.isLoading = false
+                    let dur = item.duration.seconds
+                    if dur.isFinite && !dur.isNaN && dur > 0 {
+                        self.duration = dur
+                    }
+                case .failed:
+                    self.isPlaying = false
+                    self.isLoading = false
+                    print("❌ AVPlayerItem 加载失败: \(item.error?.localizedDescription ?? "未知错误")")
+                default:
+                    break
+                }
+            }
+            .store(in: &playerItemObservers)
     }
-    
-    private func handleDurationUpdate(duration: Double) {
-        if duration.isFinite && !duration.isNaN && duration > 0 {
-            self.duration = duration
-        }
-    }
-    
+
     // MARK: - Core Playback API
     
     func play(song: Song, in context: [Song]) {
@@ -340,11 +360,15 @@ class PlayerManager: ObservableObject {
         userQueue.removeAll()
         saveState()
     }
-    
+
     // MARK: - Playback Controls
     
     func togglePlayPause() {
-        audioPlayer.togglePlaying()
+        if isPlaying {
+            avPlayer.pause()
+        } else {
+            avPlayer.play()
+        }
     }
     
     func next() {
@@ -403,7 +427,8 @@ class PlayerManager: ObservableObject {
     }
     
     func stopAndClear() {
-        audioPlayer.stop()
+        avPlayer.pause()
+        avPlayer.replaceCurrentItem(with: nil)
         isPlaying = false
         currentSong = nil
         saveState()
@@ -448,7 +473,8 @@ class PlayerManager: ObservableObject {
     // MARK: - Seek
     
     func seek(to time: Double) {
-        audioPlayer.seek(to: time)
+        let cmTime = CMTime(seconds: time, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+        avPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
     }
     
     func seekForward(seconds: Double = 15) {
@@ -458,7 +484,7 @@ class PlayerManager: ObservableObject {
     func seekBackward(seconds: Double = 15) {
         seek(to: max(currentTime - seconds, 0))
     }
-    
+
     // MARK: - Private Methods
     
     private func generateShuffledContext() {
@@ -480,7 +506,7 @@ class PlayerManager: ObservableObject {
         switch mode {
         case .loopSingle:
             seek(to: 0)
-            audioPlayer.play()
+            avPlayer.play()
         case .sequence, .shuffle:
             next()
         }
@@ -578,30 +604,52 @@ class PlayerManager: ObservableObject {
     private func startPlayback(url: URL, autoPlay: Bool = true, startTime: Double = 0) {
         isLoading = false
         
-        // 重置进度，避免切换音质时进度条异常
-        self.currentTime = 0
-        self.duration = 0
-        
-        let song = currentSong
-        let item = DefaultAudioItem(
-            audioUrl: url.absoluteString,
-            artist: song?.artistName,
-            title: song?.name,
-            albumTitle: song?.album?.name,
-            sourceType: .stream
-        )
-        
-        try? audioPlayer.load(item: item, playWhenReady: autoPlay)
-        
-        if startTime > 0 {
-            audioPlayer.seek(to: startTime)
+        // 切换音质时保留当前进度，仅新歌曲才重置
+        if startTime <= 0 {
+            self.currentTime = 0
+            self.duration = 0
         }
         
-        // 异步下载封面图并更新锁屏/灵动岛显示
-        updateNowPlayingArtwork(for: song)
+        let playerItem = AVPlayerItem(url: url)
+        observePlayerItem(playerItem)
+        avPlayer.replaceCurrentItem(with: playerItem)
+        
+        if startTime > 0 {
+            let cmTime = CMTime(seconds: startTime, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+            avPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+        
+        if autoPlay {
+            avPlayer.play()
+        }
+        
+        updateNowPlayingInfo()
+        updateNowPlayingArtwork(for: currentSong)
+    }
+
+    // MARK: - Now Playing Info
+    
+    private func updateNowPlayingInfo() {
+        var info = [String: Any]()
+        info[MPMediaItemPropertyTitle] = currentSong?.name ?? ""
+        info[MPMediaItemPropertyArtist] = currentSong?.artistName ?? ""
+        info[MPMediaItemPropertyAlbumTitle] = currentSong?.album?.name ?? ""
+        info[MPMediaItemPropertyPlaybackDuration] = duration
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
     
-    /// 下载封面图并设置到 NowPlayingInfoCenter
+    private func updateNowPlayingTime() {
+        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        if duration > 0 {
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+    
     private func updateNowPlayingArtwork(for song: Song?) {
         guard let coverUrl = song?.coverUrl else { return }
         

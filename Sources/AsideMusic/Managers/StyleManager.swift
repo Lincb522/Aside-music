@@ -7,14 +7,14 @@ class StyleManager: ObservableObject {
     
     // MARK: - State
     
-    /// Current selected style. Nil means "Default" (Standard Daily Recommend).
+    /// 当前选中的风格，nil 表示默认（标准每日推荐）
     @Published var currentStyle: APIService.StyleTag? {
         didSet {
             saveCurrentStyle()
         }
     }
     
-    /// List of available styles (User Preferences or Fallback).
+    /// 可用风格列表
     @Published var availableStyles: [APIService.StyleTag] = []
     
     @Published var isLoadingStyles = false
@@ -32,7 +32,6 @@ class StyleManager: ObservableObject {
     
     func selectStyle(_ style: APIService.StyleTag?) {
         currentStyle = style
-        // Notification could be posted here if needed, but @Published should suffice for SwiftUI
     }
     
     // MARK: - Persistence
@@ -68,7 +67,7 @@ class StyleManager: ObservableObject {
                     return Just(styles).setFailureType(to: Error.self).eraseToAnyPublisher()
                 } else {
                     print("DEBUG: StyleManager - Preference empty, fallback to full list")
-                    // 2. If empty, fallback to full list
+        // 偏好为空，回退到完整列表
                     return self.api.fetchStyleList()
                 }
             }

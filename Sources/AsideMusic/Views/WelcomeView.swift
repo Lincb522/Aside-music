@@ -1,13 +1,11 @@
 import SwiftUI
 import Combine
 
-/// 欢迎启动画面
-/// 只负责显示 Logo 动画，数据加载在后台进行
 struct WelcomeView: View {
     @Binding var isPresented: Bool
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
     
-    // Animation States - 初始值设为 true 避免白屏
+    // 初始值设为 true 避免白屏
     @State private var showLogo = true
     @State private var logoScale: CGFloat = 0.8
     @State private var logoOpacity: Double = 0
@@ -20,22 +18,18 @@ struct WelcomeView: View {
     
     var body: some View {
         ZStack {
-            // Background - 立即显示
             AsideBackground()
             
-            // Centered Content
             VStack {
                 Spacer()
                 
                 ZStack {
-                    // Logo
                     if showLogo && !showUserGreeting {
                         logoView
                             .scaleEffect(logoScale)
                             .opacity(logoOpacity)
                     }
                     
-                    // Greeting (已登录用户)
                     if showUserGreeting {
                         greetingView
                             .transition(.asymmetric(
@@ -48,7 +42,6 @@ struct WelcomeView: View {
                 Spacer()
             }
             
-            // Footer
             VStack {
                 Spacer()
                 Text("© 2025 ZIJIU STUDIO")
@@ -67,7 +60,6 @@ struct WelcomeView: View {
     
     private var logoView: some View {
         HStack(alignment: .center, spacing: 20) {
-            // Icon - 从 Asset Catalog 加载 AppLogo
             Image("AppLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -75,15 +67,14 @@ struct WelcomeView: View {
                 .cornerRadius(16)
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
             
-            // Text
             VStack(alignment: .leading, spacing: 4) {
                 Text("Aside Music")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.black)
+                    .foregroundColor(.asideTextPrimary)
                 
                 Text("乐章之外，心之独白")
                     .font(.system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
                     .tracking(1)
             }
         }
@@ -102,15 +93,15 @@ struct WelcomeView: View {
                     .shadow(color: Color.black.opacity(0.1), radius: 10, y: 5)
             } else {
                 Circle()
-                    .fill(Color.white)
+                    .fill(Color.asideCardBackground)
                     .frame(width: 80, height: 80)
-                    .overlay(AsideIcon(icon: .profile, size: 30, color: .gray))
+                    .overlay(AsideIcon(icon: .profile, size: 30, color: .asideTextSecondary))
                     .shadow(color: Color.black.opacity(0.1), radius: 10, y: 5)
             }
             
             Text("欢迎回来, \(userProfile?.nickname ?? "用户")")
                 .font(.system(size: 18, weight: .medium, design: .rounded))
-                .foregroundColor(.black.opacity(0.8))
+                .foregroundColor(.asideTextPrimary.opacity(0.8))
         }
     }
     
@@ -160,7 +151,6 @@ struct WelcomeView: View {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
                 if case .failure = completion {
-                    // 获取失败，直接关闭
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         self.dismissWelcome()
                     }
@@ -169,7 +159,6 @@ struct WelcomeView: View {
                 if let profile = status.data.profile {
                     self.userProfile = profile
                     
-                    // 预加载头像
                     let avatarUrl = profile.avatarUrl
                     if !avatarUrl.isEmpty, let url = URL(string: avatarUrl) {
                         self.preloadAvatar(url: url)
@@ -177,7 +166,6 @@ struct WelcomeView: View {
                         self.showGreetingAndDismiss()
                     }
                 } else {
-                    // 没有 profile，直接关闭
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         self.dismissWelcome()
                     }
@@ -200,12 +188,10 @@ struct WelcomeView: View {
     
     /// 显示问候语并关闭
     private func showGreetingAndDismiss() {
-        // 显示问候语
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             showUserGreeting = true
         }
         
-        // 0.8秒后关闭
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             dismissWelcome()
         }

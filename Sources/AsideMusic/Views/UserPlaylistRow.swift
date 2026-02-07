@@ -19,10 +19,10 @@ struct UserPlaylistRow: View {
                     .foregroundColor(.asideTextPrimary)
                 Text(String(format: NSLocalizedString("songs_count_by", comment: "Songs count and creator"), playlist.trackCount ?? 0, playlist.creator?.nickname ?? "Unknown"))
                     .font(.rounded(size: 14, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
             }
             Spacer()
-            AsideIcon(icon: .back, size: 16, color: .gray)
+            AsideIcon(icon: .back, size: 16, color: .asideTextSecondary)
                 .rotationEffect(.degrees(180))
         }
         .padding()
@@ -31,7 +31,7 @@ struct UserPlaylistRow: View {
                 // 列表项使用较低帧率
                 LiquidGlassMetalView(cornerRadius: 16, backgroundCaptureFrameRate: 20)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.4))
+                    .fill(Color.asideCardBackground.opacity(0.4))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

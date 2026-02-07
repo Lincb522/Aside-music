@@ -1,31 +1,27 @@
 import SwiftUI
 
 struct SongListRow: View {
-    @ObservedObject var player = PlayerManager.shared // 监听播放状态
+    @ObservedObject var player = PlayerManager.shared
     let song: Song
     let index: Int
     var onArtistTap: ((Int) -> Void)? = nil  // 可选的歌手点击回调（向后兼容）
     var onDetailTap: ((Song) -> Void)? = nil // 可选的详情点击回调（向后兼容）
     
-    // 内置导航状态
     @State private var navigateToArtist = false
     @State private var navigateToSongDetail = false
     
-    // 当前是否正在播放
     var isCurrent: Bool {
         player.currentSong?.id == song.id
     }
     
-    // Theme Reference (Internal)
     private struct Theme {
-        static let text = Color.black
-        static let secondaryText = Color.gray
-        static let accent = Color.black
+        static let text = Color.asideTextPrimary
+        static let secondaryText = Color.asideTextSecondary
+        static let accent = Color.asideTextPrimary
     }
     
     var body: some View {
         HStack(spacing: 16) {
-            // Index or Playing Visualizer
             ZStack {
                 if isCurrent {
                     PlayingVisualizerView(isAnimating: player.isPlaying, color: Theme.accent)
@@ -35,9 +31,8 @@ struct SongListRow: View {
                         .foregroundColor(Theme.secondaryText.opacity(0.5))
                 }
             }
-            .frame(width: 30) // Fixed width alignment
+            .frame(width: 30)
             
-            // Cover
             CachedAsyncImage(url: song.coverUrl) {
                 Color.gray.opacity(0.1)
             }
@@ -45,15 +40,12 @@ struct SongListRow: View {
             .frame(width: 48, height: 48)
             .cornerRadius(12)
             
-            // Info
             VStack(alignment: .leading, spacing: 4) {
-                // Title
                 Text(song.name)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(song.isUnavailable && !SettingsManager.shared.unblockEnabled ? Theme.text.opacity(0.4) : (isCurrent ? Theme.accent : Theme.text))
                     .lineLimit(1)
                 
-                // Artist & Badges
                 HStack(spacing: 6) {
                     // 无版权标识
                     if song.isUnavailable && !SettingsManager.shared.unblockEnabled {
@@ -90,10 +82,9 @@ struct SongListRow: View {
                             )
                     } else if let badge = song.qualityBadge {
                         let maxQuality = song.maxQuality
-                        // Only show if VIP or special quality
                         if maxQuality.isVIP || maxQuality == .lossless || maxQuality == .hires {
                             Text(badge)
-                                .font(.system(size: maxQuality.isBadgeChinese ? 7 : 8, weight: .bold)) // Smaller font for Chinese
+                                .font(.system(size: maxQuality.isBadgeChinese ? 7 : 8, weight: .bold))
                                 .foregroundColor(Theme.accent)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
@@ -133,14 +124,12 @@ struct SongListRow: View {
         }
         // 内置上下文菜单 - 长按显示
         .contextMenu {
-            // 下一首播放
             Button {
                 PlayerManager.shared.playNext(song: song)
             } label: {
                 Label(LocalizedStringKey("action_play_next"), systemImage: "text.line.first.and.arrowtriangle.forward")
             }
             
-            // 加入队列
             Button {
                 PlayerManager.shared.addToQueue(song: song)
             } label: {
@@ -149,7 +138,6 @@ struct SongListRow: View {
             
             Divider()
             
-            // 歌手详情 - 始终显示（如果有歌手信息）
             if let artistId = song.ar?.first?.id {
                 Button {
                     if let onArtistTap = onArtistTap {
@@ -162,7 +150,6 @@ struct SongListRow: View {
                 }
             }
             
-            // 歌曲详情 - 始终显示
             Button {
                 if let onDetailTap = onDetailTap {
                     onDetailTap(song)
@@ -173,7 +160,6 @@ struct SongListRow: View {
                 Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
             }
         }
-        // 通过 navigationDestination 处理内置导航
         .navigationDestination(isPresented: $navigateToArtist) {
             if let artistId = song.ar?.first?.id {
                 ArtistDetailView(artistId: artistId)
@@ -185,7 +171,6 @@ struct SongListRow: View {
     }
 }
 
-// Extension to wrap SongListRow in a Button for easy usage
 extension SongListRow {
     func asButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {

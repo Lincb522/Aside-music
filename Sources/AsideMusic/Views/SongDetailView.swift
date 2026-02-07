@@ -28,11 +28,10 @@ struct SongDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var playerManager = PlayerManager.shared
     
-    // Theme Reference
     struct Theme {
-        static let text = Color.black
-        static let secondaryText = Color.gray
-        static let accent = Color.black
+        static let text = Color.asideTextPrimary
+        static let secondaryText = Color.asideTextSecondary
+        static let accent = Color.asideIconBackground
     }
     
     var body: some View {
@@ -40,10 +39,8 @@ struct SongDetailView: View {
             AsideBackground()
             
             VStack(spacing: 0) {
-                // Fixed Header
                 headerView
                 
-                // Scrollable Related Songs List
                 ScrollView(showsIndicators: false) {
                     if !viewModel.relatedSongs.isEmpty {
                         songsListView
@@ -67,14 +64,12 @@ struct SongDetailView: View {
     
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Back Button Row
             HStack {
                 AsideBackButton()
                 Spacer()
             }
             
             HStack(alignment: .top, spacing: 16) {
-                // Cover Art
                 CachedAsyncImage(url: song.coverUrl) {
                     Color.gray.opacity(0.3)
                 }
@@ -84,19 +79,16 @@ struct SongDetailView: View {
                 .shadow(radius: 8)
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    // Title
                     Text(song.name)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.text)
                         .lineLimit(2)
                     
-                    // Artist
                     Text(song.artistName)
                         .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .lineLimit(1)
                     
-                    // Album
                     if let album = song.album?.name {
                         Text(album)
                             .font(.system(size: 12))
@@ -106,9 +98,7 @@ struct SongDetailView: View {
                 }
             }
             
-            // Actions Row
             HStack(spacing: 12) {
-                // Play Button
                 Button(action: {
                     if !viewModel.relatedSongs.isEmpty {
                         PlayerManager.shared.play(song: song, in: viewModel.relatedSongs)
@@ -129,7 +119,6 @@ struct SongDetailView: View {
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 
-                // Play Next Button
                 Button(action: {
                     PlayerManager.shared.playNext(song: song)
                 }) {
@@ -141,7 +130,6 @@ struct SongDetailView: View {
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
                 
-                // Add to Queue
                 Button(action: {
                     PlayerManager.shared.addToQueue(song: song)
                 }) {

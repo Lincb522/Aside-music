@@ -9,7 +9,7 @@ enum SoundQuality: String, CaseIterable, Codable {
     case jyeffect = "jyeffect" // 高清臻音 (Spatial)
     case sky = "sky"           // 沉浸环绕声 (Surround)
     case jymaster = "jymaster" // 超清母带 (Master)
-    case none = "none"         // No specific level
+    case none = "none"
     
     var displayName: String {
         switch self {
@@ -69,7 +69,6 @@ enum SoundQuality: String, CaseIterable, Codable {
         }
     }
     
-    // Helper to determine if badge needs smaller font (for Chinese text)
     var isBadgeChinese: Bool {
         switch self {
         case .jyeffect, .sky, .jymaster: return true

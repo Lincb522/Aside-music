@@ -11,7 +11,6 @@ struct AsideAlertView: View {
     
     var body: some View {
         ZStack {
-            // Dimmed Background
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
@@ -20,22 +19,19 @@ struct AsideAlertView: View {
                     }
                 }
             
-            // Alert Content
             VStack(spacing: 24) {
-                // Text
                 VStack(spacing: 8) {
                     Text(title)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(.black)
+                        .foregroundColor(.asideTextPrimary)
                         .multilineTextAlignment(.center)
                     
                     Text(message)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .multilineTextAlignment(.center)
                 }
                 
-                // Buttons
                 HStack(spacing: 12) {
                     if let secondaryTitle = secondaryButtonTitle {
                         Button(action: {
@@ -46,7 +42,7 @@ struct AsideAlertView: View {
                         }) {
                             Text(secondaryTitle)
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                                .foregroundColor(.black)
+                                .foregroundColor(.asideTextPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(Color.gray.opacity(0.1))
@@ -66,14 +62,14 @@ struct AsideAlertView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.black)
+                            .background(Color.asideIconBackground)
                             .cornerRadius(12)
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                 }
             }
             .padding(24)
-            .background(Color.white)
+            .background(Color.asideCardBackground)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
             .padding(.horizontal, 40)

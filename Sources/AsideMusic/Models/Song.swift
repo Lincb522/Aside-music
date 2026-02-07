@@ -5,22 +5,22 @@ import Foundation
 struct Song: Identifiable, Codable {
     let id: Int
     let name: String
-    let ar: [Artist]? 
-    let al: Album?    
-    let dt: Int? // Duration
-    let fee: Int? // 0: Free, 1: VIP, 8: SQ
-    let mv: Int? // MV ID
+    let ar: [Artist]?
+    let al: Album?
+    let dt: Int?
+    let fee: Int?
+    let mv: Int?
     
     let h: SongQuality?
     let m: SongQuality?
     let l: SongQuality?
-    let sq: SongQuality? // Highest quality info
-    let hr: SongQuality? // Hi-Res quality info
+    let sq: SongQuality?
+    let hr: SongQuality?
     
-    let alia: [String]? // Alias list
-    var privilege: Privilege? // Injected manually from separate privileges array
+    let alia: [String]?
+    var privilege: Privilege?
     
-    // Helper accessors
+    // MARK: - 辅助属性
     var artists: [Artist] { ar ?? [] }
     var album: Album? { al }
     
@@ -39,9 +39,7 @@ struct Song: Identifiable, Codable {
         return fee == 1
     }
     
-    // Determine the highest available quality based on metadata
     var maxQuality: SoundQuality {
-        // First check privilege if available (most accurate)
         if let p = privilege, let level = p.playMaxBrLevel {
             return level
         }
@@ -49,22 +47,17 @@ struct Song: Identifiable, Codable {
             return level
         }
         
-        // Fallback to existing logic
         if hr != nil {
-            // Hi-Res
             return .hires
         }
         if sq != nil {
-            // SQ or better
             return .lossless
         }
         
-        // Use fee and other indicators
         if fee == 8 {
             return .lossless
         }
         
-        // Default to Standard if no other info
         return .standard 
     }
     
@@ -92,7 +85,7 @@ struct SongQuality: Codable {
     let fid: Int?
     let size: Int?
     let vd: Double?
-    let sr: Int? // Sample rate
+    let sr: Int?
 }
 
 struct Privilege: Codable {
@@ -194,7 +187,6 @@ struct Playlist: Identifiable, Codable {
         picUrl = try container.decodeIfPresent(String.self, forKey: .picUrl)
         trackCount = try container.decodeIfPresent(Int.self, forKey: .trackCount)
         
-        // Try playcount (lowercase) first, then playCount (camelCase)
         if let count = try container.decodeIfPresent(Int.self, forKey: .playCount) {
             playCount = count
         } else {
@@ -244,7 +236,7 @@ struct UserProfile: Codable {
     let eventCount: Int?
     let follows: Int?
     let followeds: Int?
-    let signature: String? // Added signature
+    let signature: String?
 }
 
 struct Banner: Identifiable, Codable {
@@ -413,16 +405,16 @@ struct ArtistInfo: Codable {
     let id: Int
     let name: String
     let cover: String?
-    let picUrl: String? // Added picUrl
-    let img1v1Url: String? // Added img1v1Url
+    let picUrl: String?
+    let img1v1Url: String?
     let briefDesc: String?
     let albumSize: Int?
     let musicSize: Int?
     
     var coverUrl: URL? {
         if let url = cover { return URL(string: url) }
-        if let url = picUrl { return URL(string: url) } // Fallback 1
-        if let url = img1v1Url { return URL(string: url) } // Fallback 2
+        if let url = picUrl { return URL(string: url) }
+        if let url = img1v1Url { return URL(string: url) }
         return nil
     }
 }
@@ -475,7 +467,6 @@ struct FMSong: Codable {
     let fee: Int?
     let mvid: Int?
     
-    // Quality fields
     let h: SongQuality?
     let m: SongQuality?
     let l: SongQuality?
@@ -550,10 +541,10 @@ struct PlaylistHotCatResponse: Codable {
 struct PlaylistCategory: Identifiable, Codable, Hashable {
     let name: String
     let id: Int?
-    let category: Int? // 0: 语种, 1: 风格, 2: 场景, 3: 情感, 4: 主题
+    let category: Int?
     let hot: Bool?
     
-    var idString: String { name } // Using name as ID for Hashable since id might be nil for some tags
+    var idString: String { name }
 }
 
 struct TopPlaylistResponse: Codable {
@@ -580,8 +571,8 @@ struct LyricResponse: Codable {
     let lrc: LyricData?
     let tlyric: LyricData?
     let romalrc: LyricData?
-    let yrc: LyricData?    // Verbatim lyrics (Word-by-word)
-    let klyric: LyricData? // Karaoke lyrics
+    let yrc: LyricData?
+    let klyric: LyricData?
     let code: Int
 }
 
@@ -594,8 +585,6 @@ struct LyricData: Codable {
 extension URL {
     func sized(_ size: Int) -> URL {
         let absoluteString = self.absoluteString
-        // If already has param, replace or append? Simple append might duplicate.
-        // Netease uses ?param=WxH
         let separator = absoluteString.contains("?") ? "&" : "?"
         return URL(string: absoluteString + "\(separator)param=\(size)y\(size)") ?? self
     }

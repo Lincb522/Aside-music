@@ -15,8 +15,8 @@ struct LyricLine: Identifiable, Equatable {
     let time: TimeInterval
     let text: String
     let translation: String?
-    var duration: TimeInterval = 0 // Duration of this line
-    var words: [LyricWord] = [] // YRC Words
+    var duration: TimeInterval = 0
+    var words: [LyricWord] = []
 }
 
 class LyricViewModel: ObservableObject {
@@ -25,7 +25,6 @@ class LyricViewModel: ObservableObject {
     @Published var currentLineIndex: Int = 0
     @Published var hasLyrics = false
     
-    // For Karaoke Effect (Fallback)
     @Published var currentLineProgress: Double = 0.0
     
     private var cancellables = Set<AnyCancellable>()
@@ -48,12 +47,10 @@ class LyricViewModel: ObservableObject {
             }, receiveValue: { [weak self] response in
                 guard let self = self else { return }
                 
-                // Parse Translations first
                 if let tlyric = response.tlyric?.lyric {
                     self.parseTranslations(tlyric)
                 }
                 
-                // Parse Lyrics (Priority: YRC > LRC)
                 if let yrc = response.yrc?.lyric {
                     self.parseYRC(yrc)
                     self.hasLyrics = !self.lyrics.isEmpty
@@ -80,25 +77,10 @@ class LyricViewModel: ObservableObject {
     }
     
     private func parseYRC(_ text: String) {
-        // YRC Format: [start,duration](start,duration,0)Word(start,duration,0)Word...
-        // Assuming JSON-like structure inside string or standard YRC
-        // Netease YRC is often just text with tags.
-        
         var parsedLines: [LyricLine] = []
         let lines = text.components(separatedBy: .newlines)
         
         for line in lines {
-            // Very basic YRC parser for Netease
-            // Check for line timing [123,456]
-            // Note: Netease YRC usually uses JSON format in 'yrc' field, 
-            // but sometimes it's a string with [time] tags.
-            // Let's assume standard YRC string format for now.
-            
-            // If the format is JSON string, we might need different parsing.
-            // But based on typical API wrappers, it returns a string similar to LRC but with word tags.
-            
-            // Example: [1000,2000](1000,200,0)W(1200,200,0)o(1400,200,0)rd
-            
             guard let closeBracket = line.firstIndex(of: "]"),
                   line.hasPrefix("[") else { continue }
             
@@ -116,7 +98,6 @@ class LyricViewModel: ObservableObject {
             var words: [LyricWord] = []
             var plainText = ""
             
-            // Simple scanner for (s,d,t)Word
             let scanner = Scanner(string: String(contentPart))
             scanner.charactersToBeSkipped = nil
             
@@ -135,21 +116,12 @@ class LyricViewModel: ObservableObject {
                     if let text = scanner.scanUpToString("(") {
                         wText = text
                     } else {
-                        // Read until end if no more (
                          wText = String(contentPart.suffix(from: contentPart.index(contentPart.startIndex, offsetBy: scanner.currentIndex.utf16Offset(in: contentPart))))
-                         // Reset scanner to end to avoid loop? 
-                         // Actually scanUpToString reads until it finds ( or end.
-                         // But if no (, it reads nothing? No, it reads everything.
-                         // Wait, scanUpToString returns string up to target.
-                         // If target not found, it returns the rest of string.
                     }
                     
-                    // Workaround for scanner behavior
                     if wText.isEmpty && !scanner.isAtEnd {
-                        // consume one char?
                         if let char = scanner.scanCharacter() {
                             wText = String(char)
-                            // read rest?
                              if let rest = scanner.scanUpToString("(") {
                                  wText += rest
                              }
@@ -161,7 +133,6 @@ class LyricViewModel: ObservableObject {
                     words.append(word)
                     plainText += wText
                 } else {
-                    // Skip or read plain text
                      _ = scanner.scanCharacter()
                 }
             }
@@ -170,7 +141,7 @@ class LyricViewModel: ObservableObject {
                 plainText = String(contentPart)
             }
             
-            let translation = translations[startTime] // Approx match might be needed
+            let translation = translations[startTime]
             parsedLines.append(LyricLine(time: startTime, text: plainText, translation: translation, duration: duration, words: words))
         }
         
@@ -189,15 +160,13 @@ class LyricViewModel: ObservableObject {
             }
         }
         
-        // Sort lines
         parsedLines.sort { $0.time < $1.time }
         
-        // Calculate durations
         for i in 0..<parsedLines.count {
             if i < parsedLines.count - 1 {
                 parsedLines[i].duration = parsedLines[i+1].time - parsedLines[i].time
             } else {
-                parsedLines[i].duration = 5.0 // Default duration for last line
+                parsedLines[i].duration = 5.0
             }
         }
         
@@ -224,7 +193,6 @@ class LyricViewModel: ObservableObject {
     func updateCurrentTime(_ time: TimeInterval) {
         guard !lyrics.isEmpty else { return }
         
-        // Find the last line that has start time <= current time
         if let index = lyrics.lastIndex(where: { $0.time <= time }) {
             if index != currentLineIndex {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -232,7 +200,6 @@ class LyricViewModel: ObservableObject {
                 }
             }
             
-            // Calculate progress for current line (Fallback)
             let line = lyrics[index]
             let elapsed = time - line.time
             currentLineProgress = min(max(elapsed / line.duration, 0.0), 1.0)
@@ -254,16 +221,16 @@ struct KaraokeWordView: View {
         let progress = calculateProgress()
         
         Text(word.text)
-            .font(.rounded(size: 26, weight: .bold)) // Slightly smaller than 28, but bigger than 20
-            .foregroundColor(.gray.opacity(0.3)) // Background
+            .font(.rounded(size: 26, weight: .bold))
+            .foregroundColor(.gray.opacity(0.3))
             .overlay(
                 GeometryReader { geo in
                     Text(word.text)
                         .font(.rounded(size: 26, weight: .bold))
-                        .foregroundColor(.black) // Foreground Color (Active)
+                        .foregroundColor(.asideTextPrimary)
                         .frame(width: geo.size.width * progress, alignment: .leading)
                         .clipped()
-                        .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.9, blendDuration: 0.1), value: progress) // Fluid liquid effect
+                        .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.9, blendDuration: 0.1), value: progress)
                 }
             )
             .fixedSize(horizontal: true, vertical: false)
@@ -273,15 +240,11 @@ struct KaraokeWordView: View {
         if currentTime < word.startTime { return 0 }
         if currentTime >= word.startTime + word.duration { return 1 }
         
-        // Ease In Out for smoother filling effect inside the word
-        // Or keep linear for accuracy.
-        // Let's try a slight ease out to make it feel like "liquid filling"
         let rawProgress = CGFloat((currentTime - word.startTime) / word.duration)
         return rawProgress
     }
 }
 
-// Simple FlowLayout to handle word wrapping
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
     
@@ -324,7 +287,6 @@ struct FlowLayout: Layout {
             let viewSize = view.sizeThatFits(.unspecified)
             
             if currentX + viewSize.width > maxWidth && !currentItems.isEmpty {
-                // New Row
                 rows.append(Row(y: currentRowY, height: currentRowHeight, items: currentItems))
                 currentRowY += currentRowHeight
                 currentX = 0
@@ -349,15 +311,14 @@ struct KaraokeLineView: View {
     let line: LyricLine
     let isCurrent: Bool
     let currentTime: TimeInterval
-    let progress: Double // Fallback progress
+    let progress: Double
     let showTranslation: Bool
-    let enableKaraoke: Bool // New Prop
+    let enableKaraoke: Bool
     
     var body: some View {
         VStack(spacing: 6) {
             if isCurrent {
                 if enableKaraoke && !line.words.isEmpty {
-                    // Real Karaoke Mode (YRC) with Smooth Filling
                     if #available(iOS 16.0, macOS 13.0, *) {
                         FlowLayout(spacing: 0) {
                             ForEach(line.words) { word in
@@ -373,10 +334,6 @@ struct KaraokeLineView: View {
                             .scaleEffect(1.05)
                     }
                 } else {
-                    // Fallback Mode (Linear) - Also used when Karaoke is disabled but line is active
-                    // If enableKaraoke is false, we still want highlight but maybe not word-by-word if YRC exists?
-                    // Actually, if karaoke is disabled, users usually expect just line highlight, not word filling.
-                    // But here 'progress' is linear fallback.
                     
                     if enableKaraoke {
                         constructFallbackText()
@@ -384,10 +341,9 @@ struct KaraokeLineView: View {
                             .scaleEffect(1.05)
                             .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
                     } else {
-                        // Simple Highlight without progress filling
                         Text(line.text)
-                            .font(.rounded(size: 26, weight: .bold)) // Match size
-                            .foregroundColor(.black)
+                            .font(.rounded(size: 26, weight: .bold))
+                            .foregroundColor(.asideTextPrimary)
                             .multilineTextAlignment(.center)
                             .scaleEffect(1.05)
                             .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
@@ -395,7 +351,7 @@ struct KaraokeLineView: View {
                 }
             } else {
                 Text(line.text)
-                    .font(.rounded(size: 16, weight: .medium)) // Reduced from 18
+                    .font(.rounded(size: 16, weight: .medium))
                     .foregroundColor(.gray.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .blur(radius: 0.5)
@@ -405,7 +361,7 @@ struct KaraokeLineView: View {
             if showTranslation, let trans = line.translation, !trans.isEmpty {
                 Text(trans)
                     .font(.rounded(size: isCurrent ? 15 : 13, weight: .regular)) // Reduced
-                    .foregroundColor(isCurrent ? .black.opacity(0.8) : .gray.opacity(0.5))
+                    .foregroundColor(isCurrent ? .asideTextPrimary.opacity(0.8) : .gray.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .blur(radius: isCurrent ? 0 : 0.3)
                     .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
@@ -419,9 +375,9 @@ struct KaraokeLineView: View {
         for word in line.words {
             let isSung = currentTime >= (word.startTime + word.duration)
             let isSinging = currentTime >= word.startTime && currentTime < (word.startTime + word.duration)
-            let color: Color = (isSung || isSinging) ? .black : .gray.opacity(0.3)
+            let color: Color = (isSung || isSinging) ? .asideTextPrimary : .gray.opacity(0.3)
             combined = combined + Text(word.text)
-                .font(.rounded(size: 26, weight: .bold)) // Match word view size
+                .font(.rounded(size: 26, weight: .bold))
                 .foregroundColor(color)
         }
         return combined
@@ -434,9 +390,9 @@ struct KaraokeLineView: View {
         var combined = Text("")
         for (index, char) in chars.enumerated() {
             let isActive = index <= threshold && progress > 0
-            let color: Color = isActive ? .black : .gray.opacity(0.3)
+            let color: Color = isActive ? .asideTextPrimary : .gray.opacity(0.3)
             combined = combined + Text(String(char))
-                .font(.rounded(size: 26, weight: .bold)) // Match word view size
+                .font(.rounded(size: 26, weight: .bold))
                 .foregroundColor(color)
         }
         return combined
@@ -445,15 +401,13 @@ struct KaraokeLineView: View {
 
 struct LyricsView: View {
     let song: Song
-    var onBackgroundTap: (() -> Void)? // Added callback
+    var onBackgroundTap: (() -> Void)?
     @ObservedObject var player = PlayerManager.shared
     @StateObject private var viewModel = LyricViewModel()
     
-    // Auto-scroll state
     @State private var isUserScrolling = false
     @State private var userScrollTimer: Timer?
     
-    // Settings
     @AppStorage("showTranslation") var showTranslation: Bool = true
     @AppStorage("enableKaraoke") var enableKaraoke: Bool = true
     
@@ -465,7 +419,7 @@ struct LyricsView: View {
             } else if !viewModel.hasLyrics {
                 Text("No Lyrics Available")
                     .font(.rounded(size: 18, weight: .medium))
-                    .foregroundColor(.black.opacity(0.6))
+                    .foregroundColor(.asideTextPrimary.opacity(0.6))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
                     .onTapGesture {
@@ -475,7 +429,6 @@ struct LyricsView: View {
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 24) {
-                            // Top padding
                             Color.clear.frame(height: 200)
                             
                             ForEach(Array(viewModel.lyrics.enumerated()), id: \.element.id) { index, line in
@@ -492,18 +445,17 @@ struct LyricsView: View {
                                     )
                                     .frame(maxWidth: .infinity)
                                     .padding(.horizontal, 32)
-                                    .id(index) // For scroll to
+                                    .id(index)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
                             
-                            // Bottom padding
                             Color.clear.frame(height: 300)
                         }
-                        .frame(maxWidth: .infinity) // Ensure VStack fills width
-                        .contentShape(Rectangle()) // Make empty space tappable
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    // Detect Scroll Drag
+
                     .simultaneousGesture(
                         DragGesture().onChanged { _ in
                             isUserScrolling = true
@@ -518,7 +470,6 @@ struct LyricsView: View {
                         }
                     }
                     .onTapGesture {
-                        // Resume auto scroll on tap AND trigger background tap
                         isUserScrolling = false
                         onBackgroundTap?()
                     }

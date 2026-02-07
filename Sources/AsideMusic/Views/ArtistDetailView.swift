@@ -37,12 +37,11 @@ struct ArtistDetailView: View {
     
     @State private var showFullDescription = false
     
-    // Theme Reference
     struct Theme {
-        static let text = Color.black
-        static let secondaryText = Color.gray
-        static let accent = Color.black
-        static let milk = Color.white.opacity(0.8)
+        static let text = Color.asideTextPrimary
+        static let secondaryText = Color.asideTextSecondary
+        static let accent = Color.asideIconBackground
+        static let milk = Color.asideMilk
     }
     
     var body: some View {
@@ -50,10 +49,8 @@ struct ArtistDetailView: View {
             AsideBackground()
             
             VStack(spacing: 0) {
-                // Fixed Header
                 headerView
                 
-                // Scrollable Songs List
                 ScrollView(showsIndicators: false) {
                     if !viewModel.songs.isEmpty {
                         songsListView
@@ -92,14 +89,12 @@ struct ArtistDetailView: View {
     
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Back Button Row
             HStack {
                 AsideBackButton()
                 Spacer()
             }
             
             HStack(alignment: .top, spacing: 16) {
-                // Avatar
                 if let artist = viewModel.artist {
                     CachedAsyncImage(url: artist.coverUrl?.sized(600)) {
                         Color.gray.opacity(0.3)
@@ -115,13 +110,11 @@ struct ArtistDetailView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    // Name
                     Text(viewModel.artist?.name ?? NSLocalizedString("loading_ellipsis", comment: ""))
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.text)
                         .lineLimit(2)
                     
-                    // Desc
                     if let desc = viewModel.artist?.briefDesc {
                         Button(action: {
                             showFullDescription = true
@@ -138,7 +131,6 @@ struct ArtistDetailView: View {
                         }
                     }
                     
-                    // Play Button
                     Button(action: {
                         if let first = viewModel.songs.first {
                             PlayerManager.shared.play(song: first, in: viewModel.songs)
@@ -162,7 +154,6 @@ struct ArtistDetailView: View {
         .padding(.horizontal, 24)
         .padding(.bottom, 24)
         .padding(.top, DeviceLayout.headerTopPadding)
-        // Removed .background(.ultraThinMaterial) to let AsideBackground show through
     }
     
     private var songsListView: some View {
@@ -177,8 +168,5 @@ struct ArtistDetailView: View {
         .padding(.vertical, 10)
     }
     
-    // Back button is now inside headerView
-    private var backButton: some View {
-        EmptyView()
-    }
+
 }

@@ -13,23 +13,21 @@ struct SoundQualitySheet: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
-                // Header
                 HStack {
                     Text("音质选择")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(.black)
+                        .foregroundColor(.asideTextPrimary)
                     Spacer()
                     Button(action: { dismiss() }) {
-                        AsideIcon(icon: .close, size: 14, color: .gray)
+                        AsideIcon(icon: .close, size: 14, color: .asideTextSecondary)
                             .padding(10)
-                            .background(Color.black.opacity(0.05))
+                            .background(Color.asideSeparator)
                             .clipShape(Circle())
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 
-                // Quality List
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         ForEach(Array(qualities.enumerated()), id: \.element) { index, quality in
@@ -45,7 +43,7 @@ struct SoundQualitySheet: View {
                     }
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.white)
+                            .fill(Color.asideCardBackground)
                             .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -59,32 +57,32 @@ struct SoundQualitySheet: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(currentQuality == quality ? Color.black : Color.black.opacity(0.08))
+                    .fill(currentQuality == quality ? Color.asideIconBackground : Color.asideIconBackground.opacity(0.08))
                     .frame(width: 32, height: 32)
                 
-                AsideIcon(icon: .soundQuality, size: 16, color: currentQuality == quality ? .white : .black)
+                AsideIcon(icon: .soundQuality, size: 16, color: currentQuality == quality ? .asideIconForeground : .asideTextPrimary)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(quality.displayName)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.black)
+                        .foregroundColor(.asideTextPrimary)
                     
                     if let badge = quality.badgeText {
                         Text(badge)
                             .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .foregroundColor(.asideIconForeground)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.black)
+                            .background(Color.asideIconBackground)
                             .cornerRadius(4)
                     }
                 }
                 
                 Text(quality.subtitle)
                     .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.asideTextSecondary)
             }
             
             Spacer()
@@ -92,7 +90,7 @@ struct SoundQualitySheet: View {
             if currentQuality == quality {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.black)
+                    .foregroundColor(.asideTextPrimary)
             }
         }
         .padding(.horizontal, 16)

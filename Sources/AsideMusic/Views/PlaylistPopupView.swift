@@ -26,14 +26,13 @@ struct PlaylistPopupView: View {
         .background {
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .overlay(Color.white.opacity(0.6))
+                .overlay(Color.asideCardBackground.opacity(0.6))
         }
         .ignoresSafeArea(edges: .bottom)
     }
     
     private var headerView: some View {
         HStack(spacing: 0) {
-            // Tab Buttons
             HStack(spacing: 24) {
                 tabButton(title: "queue_tab_now_playing", tabIndex: 0)
                 tabButton(title: "queue_tab_history", tabIndex: 1)
@@ -41,17 +40,16 @@ struct PlaylistPopupView: View {
             
             Spacer()
             
-            // Play Mode Button
             Button(action: { player.switchMode() }) {
                 HStack(spacing: 6) {
-                    AsideIcon(icon: player.mode.asideIcon, size: 16, color: .black)
+                    AsideIcon(icon: player.mode.asideIcon, size: 16, color: .asideTextPrimary)
                     Text(modeName(player.mode))
                         .font(.rounded(size: 14, weight: .medium))
                 }
-                .foregroundColor(.black)
+                .foregroundColor(.asideTextPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.black.opacity(0.05))
+                .background(Color.asideSeparator)
                 .cornerRadius(20)
             }
         }
@@ -63,11 +61,11 @@ struct PlaylistPopupView: View {
             VStack(spacing: 6) {
                 Text(LocalizedStringKey(title))
                     .font(.rounded(size: 18, weight: selectedTab == tabIndex ? .bold : .medium))
-                    .foregroundColor(selectedTab == tabIndex ? .black : .gray)
+                    .foregroundColor(selectedTab == tabIndex ? .asideTextPrimary : .asideTextSecondary)
                 
                 if selectedTab == tabIndex {
                     Capsule()
-                        .fill(Color.black)
+                        .fill(Color.asideIconBackground)
                         .frame(width: 20, height: 4)
                         .matchedGeometryEffect(id: "tabIndicator", in: namespace)
                 } else {
@@ -79,12 +77,11 @@ struct PlaylistPopupView: View {
     
     private var currentQueueView: some View {
         VStack(spacing: 0) {
-            // Now Playing Section
             if let currentSong = player.currentSong {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(LocalizedStringKey("queue_playing"))
                         .font(.rounded(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .tracking(1.5)
                         .padding(.horizontal, 24)
                         .padding(.top, 12)
@@ -97,12 +94,11 @@ struct PlaylistPopupView: View {
                     .padding(.vertical, 12)
             }
             
-            // Up Next Section
             if !player.upcomingSongs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(String(format: NSLocalizedString("queue_up_next", comment: ""), player.upcomingSongs.count))
                         .font(.rounded(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .tracking(1.5)
                         .padding(.horizontal, 24)
                     
@@ -160,7 +156,6 @@ struct NowPlayingRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Cover Art
             CachedAsyncImage(url: song.coverUrl) {
                 Color.gray.opacity(0.2)
             }
@@ -171,21 +166,20 @@ struct NowPlayingRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(song.name)
                 .font(.rounded(size: 16, weight: .bold))
-                .foregroundColor(.black)
+                .foregroundColor(.asideTextPrimary)
                 .lineLimit(1)
                 Text(song.artistName)
                 .font(.rounded(size: 13, weight: .medium))
-                .foregroundColor(.gray)
+                .foregroundColor(.asideTextSecondary)
                 .lineLimit(1)
             }
             
             Spacer()
             
-            // Playing Indicator
             HStack(spacing: 2) {
                 ForEach(0..<3) { i in
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.black)
+                        .fill(Color.asideIconBackground)
                         .frame(width: 3, height: player.isPlaying ? CGFloat([8, 14, 10][i]) : 4)
                         .animation(
                             player.isPlaying ?
@@ -199,7 +193,7 @@ struct NowPlayingRow: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 24)
-        .background(Color.black.opacity(0.03))
+        .background(Color.asideSeparator.opacity(0.3))
     }
 }
 
@@ -214,7 +208,6 @@ struct QueueRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                // Cover Art
                 CachedAsyncImage(url: song.coverUrl) {
                     Color.gray.opacity(0.2)
                 }
@@ -226,22 +219,22 @@ struct QueueRow: View {
                     HStack(spacing: 6) {
                         Text(song.name)
                             .font(.rounded(size: 15, weight: .medium))
-                            .foregroundColor(.black)
+                            .foregroundColor(.asideTextPrimary)
                             .lineLimit(1)
                         
                         if isFromUserQueue {
                             Text(LocalizedStringKey("player_queue"))
                                 .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.asideIconForeground)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(Color.black.opacity(0.6))
+                                .background(Color.asideIconBackground.opacity(0.6))
                                 .cornerRadius(3)
                         }
                     }
                     Text(song.artistName)
                         .font(.rounded(size: 12, weight: .regular))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
                 }
                 
@@ -249,7 +242,7 @@ struct QueueRow: View {
                 
                 if let removeAction = removeAction {
                     Button(action: removeAction) {
-                        AsideIcon(icon: .xmark, size: 12, color: .gray.opacity(0.5))
+                        AsideIcon(icon: .xmark, size: 12, color: .asideTextSecondary.opacity(0.5))
                             .padding(8)
                     }
                 }
@@ -269,7 +262,6 @@ struct HistoryRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                // Cover Art
                 CachedAsyncImage(url: song.coverUrl) {
                     Color.gray.opacity(0.2)
                 }
@@ -280,15 +272,15 @@ struct HistoryRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
                         .font(.rounded(size: 15, weight: .medium))
-                        .foregroundColor(.black)
+                        .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)
                     Text(song.artistName)
                         .font(.rounded(size: 12, weight: .regular))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
                 }
                 Spacer()
-                AsideIcon(icon: .play, size: 24, color: .gray.opacity(0.5))
+                AsideIcon(icon: .play, size: 24, color: .asideTextSecondary.opacity(0.5))
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 24)
@@ -306,10 +298,10 @@ struct EmptyStateView: View {
         VStack(spacing: 16) {
             Spacer()
                 .frame(height: 100)
-            AsideIcon(icon: icon, size: 48, color: .gray.opacity(0.3))
+            AsideIcon(icon: icon, size: 48, color: .asideTextSecondary.opacity(0.3))
             Text(LocalizedStringKey(text))
                 .font(.rounded(size: 16, weight: .medium))
-                .foregroundColor(.gray)
+                .foregroundColor(.asideTextSecondary)
             Spacer()
         }
     }

@@ -1,7 +1,6 @@
 import SwiftUI
 import LiquidGlassEffect
 
-// Shared Back Button Component
 struct AsideBackButton: View {
     enum Style {
         case back // < Back
@@ -19,13 +18,13 @@ struct AsideBackButton: View {
         }) {
             ZStack {
                 Circle()
-                    .fill(isDarkBackground ? Color.white.opacity(0.2) : Color.black.opacity(0.05))
+                    .fill(isDarkBackground ? Color.white.opacity(0.2) : Color.asideSeparator)
                     .frame(width: 40, height: 40)
                 
                 AsideIcon(
                     icon: style == .back ? .back : .chevronRight,
                     size: 20,
-                    color: isDarkBackground ? .white : .black
+                    color: isDarkBackground ? .white : .asideTextPrimary
                 )
                 .rotationEffect(style == .dismiss ? .degrees(90) : .zero)
             }
@@ -37,68 +36,101 @@ struct AsideBackButton: View {
 
 // MARK: - Liquid Glass Background with Metal Shader
 struct AsideBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         ZStack {
-            // Layer 1: Base color - 确保覆盖整个屏幕包括安全区域
-            Color(hex: "F5F5F7")
+            // 确保覆盖整个屏幕包括安全区域
+            (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
                 .ignoresSafeArea()
             
-            // Layer 2: Diffused color blobs
             GeometryReader { geo in
                 Canvas { context, size in
-                    // Pink/purple - top left
-                    let pink = Color(hex: "E8D0E8")
-                    context.fill(
-                        Path(ellipseIn: CGRect(
-                            x: -size.width * 0.3,
-                            y: -size.height * 0.15,
-                            width: size.width * 1.0,
-                            height: size.height * 0.6
-                        )),
-                        with: .color(pink.opacity(0.5))
-                    )
-                    
-                    // Blue - top right
-                    let blue = Color(hex: "D0E4F5")
-                    context.fill(
-                        Path(ellipseIn: CGRect(
-                            x: size.width * 0.4,
-                            y: -size.height * 0.1,
-                            width: size.width * 0.8,
-                            height: size.height * 0.5
-                        )),
-                        with: .color(blue.opacity(0.45))
-                    )
-                    
-                    // Warm - bottom
-                    let warm = Color(hex: "F8E4D0")
-                    context.fill(
-                        Path(ellipseIn: CGRect(
-                            x: -size.width * 0.1,
-                            y: size.height * 0.5,
-                            width: size.width * 1.2,
-                            height: size.height * 0.6
-                        )),
-                        with: .color(warm.opacity(0.4))
-                    )
-                    
-                    // Green - center left
-                    let green = Color(hex: "D5EBE0")
-                    context.fill(
-                        Path(ellipseIn: CGRect(
-                            x: -size.width * 0.2,
-                            y: size.height * 0.3,
-                            width: size.width * 0.7,
-                            height: size.height * 0.5
-                        )),
-                        with: .color(green.opacity(0.35))
-                    )
+                    if colorScheme == .dark {
+                        // 深色模式 - 低饱和度暗色光斑
+                        let purple = Color(hex: "2A1A3A")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: -size.width * 0.3,
+                                y: -size.height * 0.15,
+                                width: size.width * 1.0,
+                                height: size.height * 0.6
+                            )),
+                            with: .color(purple.opacity(0.6))
+                        )
+                        
+                        let blue = Color(hex: "0D1B2A")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: size.width * 0.4,
+                                y: -size.height * 0.1,
+                                width: size.width * 0.8,
+                                height: size.height * 0.5
+                            )),
+                            with: .color(blue.opacity(0.5))
+                        )
+                        
+                        let warm = Color(hex: "1A1210")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: -size.width * 0.1,
+                                y: size.height * 0.5,
+                                width: size.width * 1.2,
+                                height: size.height * 0.6
+                            )),
+                            with: .color(warm.opacity(0.5))
+                        )
+                    } else {
+                        // 浅色模式 - 原有的柔和光斑
+                        let pink = Color(hex: "E8D0E8")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: -size.width * 0.3,
+                                y: -size.height * 0.15,
+                                width: size.width * 1.0,
+                                height: size.height * 0.6
+                            )),
+                            with: .color(pink.opacity(0.5))
+                        )
+                        
+                        let blue = Color(hex: "D0E4F5")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: size.width * 0.4,
+                                y: -size.height * 0.1,
+                                width: size.width * 0.8,
+                                height: size.height * 0.5
+                            )),
+                            with: .color(blue.opacity(0.45))
+                        )
+                        
+                        let warm = Color(hex: "F8E4D0")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: -size.width * 0.1,
+                                y: size.height * 0.5,
+                                width: size.width * 1.2,
+                                height: size.height * 0.6
+                            )),
+                            with: .color(warm.opacity(0.4))
+                        )
+                        
+                        let green = Color(hex: "D5EBE0")
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: -size.width * 0.2,
+                                y: size.height * 0.3,
+                                width: size.width * 0.7,
+                                height: size.height * 0.5
+                            )),
+                            with: .color(green.opacity(0.35))
+                        )
+                    }
                 }
                 .blur(radius: 80)
             }
             .ignoresSafeArea()
             
-            // Layer 3: Frosted glass overlay (fallback + enhancement)
             LiquidGlassOverlay()
                 .ignoresSafeArea()
         }
@@ -136,11 +168,9 @@ struct AsideLiquidGlassCard<Content: View>: View {
             .background(
                 Group {
                     if useMetal {
-                        // Metal shader version (使用 LiquidGlassEffect 库)
                         // 背景组件使用较低帧率，静态场景会自动冻结
                         LiquidGlassMetalView(cornerRadius: cornerRadius, backgroundCaptureFrameRate: 20)
                     } else {
-                        // SwiftUI fallback
                         SwiftUIGlassBackground(cornerRadius: cornerRadius)
                     }
                 }

@@ -1,19 +1,15 @@
 import SwiftUI
 
 // MARK: - Aside Icon System (Aura Floating Icon Set)
-// Style: Deconstructed Linear, 1.6px Stroke
-// Features: Floating elements, disconnected lines, geometric construction.
 
 struct AsideIcon: View {
     enum IconType {
-        // Tab Bar
         case home
         case podcast
         case library
         case search
         case profile
         
-        // Player Controls
         case play
         case pause
         case next
@@ -24,9 +20,8 @@ struct AsideIcon: View {
         case shuffle
         case refresh
         
-        // Actions
         case like
-        case liked // Active state
+        case liked
         case list
         case back
         case more
@@ -35,7 +30,6 @@ struct AsideIcon: View {
         case fm
         case bell
         
-        // Settings & Profile
         case settings
         case download
         case cloud
@@ -49,7 +43,6 @@ struct AsideIcon: View {
         case haptic
         case info
         
-        // Player Extras
         case clock
         case musicNoteList
         case chart
@@ -63,14 +56,13 @@ struct AsideIcon: View {
         case musicNote
         case save
         
-        // New Icons
-        case history      // 历史记录
-        case playCircle   // 圆形播放按钮
-        case warning      // 警告/错误
-        case personEmpty  // 空用户状态
-        case playNext     // 下一首播放
-        case add          // 添加/加号
-        case addToQueue   // 添加到队列
+        case history
+        case playCircle
+        case warning
+        case personEmpty
+        case playNext
+        case add
+        case addToQueue
     }
     
     let icon: IconType
@@ -78,20 +70,15 @@ struct AsideIcon: View {
     var color: Color = .black
     var lineWidth: CGFloat = 1.6
     
-    // Derived colors
     private var strokeColor: Color { color }
-    private var fillColor: Color { color.opacity(0.15) } // Lighter tint
+    private var fillColor: Color { color.opacity(0.15) }
     
     var body: some View {
         ZStack {
-            // Layer 1: Tint Fill (Background Shape)
-            // Most Aura icons are linear, but we keep the fill for the "Dual Tone" brand identity
-            // where applicable.
             if shouldShowFill {
                 fillLayer
             }
             
-            // Layer 2: Stroke (Outline)
             strokeLayer
         }
         .frame(width: size, height: size)
@@ -109,7 +96,7 @@ struct AsideIcon: View {
     @ViewBuilder
     private var fillLayer: some View {
         switch icon {
-        case .liked:        LikePath().fill(color.opacity(0.15)) // Special case for liked
+        case .liked:        LikePath().fill(color.opacity(0.15))
         default:            pathForIcon(icon).fill(fillColor)
         }
     }
@@ -120,14 +107,7 @@ struct AsideIcon: View {
         
         switch icon {
         case .liked:
-            // Liked has a filled heart + a dot. We render the heart outline and the dot.
             LikedPath().stroke(strokeColor, style: style)
-            // Note: LikedPath in SVG is just the dot because the heart is filled. 
-            // But usually we want the outline too. 
-            // SVG: Heart (Fill 0.15) + Dot (Fill). 
-            // Let's make LikedPath return the Dot, and we rely on fillLayer for the Heart?
-            // Or we just compose it here.
-            // Let's use a specialized view for Liked to match SVG exactly.
             ZStack {
                 LikePath().stroke(strokeColor, style: style)
                 LikePath().fill(color.opacity(0.15))
@@ -151,7 +131,7 @@ struct AsideIcon: View {
         case .previous:     return AnyShape(PreviousPath())
         case .stop:         return AnyShape(StopPath())
         case .like:         return AnyShape(LikePath())
-        case .liked:        return AnyShape(LikePath()) // Placeholder, handled in ViewBuilder
+        case .liked:        return AnyShape(LikePath())
         case .list:         return AnyShape(ListPath())
         case .back:         return AnyShape(BackPath())
         case .more:         return AnyShape(MorePath())
@@ -198,7 +178,7 @@ struct AsideIcon: View {
     }
 }
 
-// Type eraser for Shapes
+
 struct AnyShape: Shape, @unchecked Sendable {
     private let _path: @Sendable (CGRect) -> Path
     
@@ -213,21 +193,16 @@ struct AnyShape: Shape, @unchecked Sendable {
 
 // MARK: - Aura Paths
 
-// 01. Home
 private struct HomePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        
-        // Base
         path.move(to: CGPoint(x: 6*s, y: 13*s))
         path.addLine(to: CGPoint(x: 6*s, y: 17*s))
         path.addCurve(to: CGPoint(x: 9*s, y: 20*s), control1: CGPoint(x: 6*s, y: 18.6*s), control2: CGPoint(x: 7.4*s, y: 20*s))
         path.addLine(to: CGPoint(x: 15*s, y: 20*s))
         path.addCurve(to: CGPoint(x: 18*s, y: 17*s), control1: CGPoint(x: 16.6*s, y: 20*s), control2: CGPoint(x: 18*s, y: 18.6*s))
         path.addLine(to: CGPoint(x: 18*s, y: 13*s))
-        
-        // Roof
         path.move(to: CGPoint(x: 4*s, y: 11*s))
         path.addLine(to: CGPoint(x: 12*s, y: 4*s))
         path.addLine(to: CGPoint(x: 20*s, y: 11*s))
@@ -236,24 +211,17 @@ private struct HomePath: Shape {
     }
 }
 
-// 02. Podcast
 private struct PodcastPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        
-        // Capsule
         let capsule = CGRect(x: 10*s, y: 7*s, width: 4*s, height: 8*s)
         path.addRoundedRect(in: capsule, cornerSize: CGSize(width: 2*s, height: 2*s))
-        
-        // Waves
         path.move(to: CGPoint(x: 6*s, y: 9*s))
         path.addCurve(to: CGPoint(x: 6*s, y: 15*s), control1: CGPoint(x: 5*s, y: 10.5*s), control2: CGPoint(x: 5*s, y: 13.5*s))
         
         path.move(to: CGPoint(x: 18*s, y: 9*s))
         path.addCurve(to: CGPoint(x: 18*s, y: 15*s), control1: CGPoint(x: 19*s, y: 10.5*s), control2: CGPoint(x: 19*s, y: 13.5*s))
-        
-        // Stand
         path.move(to: CGPoint(x: 12*s, y: 18*s))
         path.addLine(to: CGPoint(x: 12*s, y: 20*s))
         
@@ -261,7 +229,6 @@ private struct PodcastPath: Shape {
     }
 }
 
-// 03. Library (Music Library - Aura Floating Style)
 // 设计：唱片堆叠 + 音符元素，体现"音乐库"概念
 private struct LibraryPath: Shape {
     func path(in rect: CGRect) -> Path {
@@ -294,13 +261,12 @@ private struct LibraryPath: Shape {
     }
 }
 
-// 04. Search
 private struct SearchPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
-        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 12*s, height: 12*s)) // cx=10, cy=10, r=6 -> x=4, y=4, w=12, h=12
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 12*s, height: 12*s))
         path.move(to: CGPoint(x: 15*s, y: 15*s))
         path.addLine(to: CGPoint(x: 19*s, y: 19*s))
         
@@ -308,16 +274,13 @@ private struct SearchPath: Shape {
     }
 }
 
-// 05. Profile
 private struct ProfilePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
-        // Head
-        path.addEllipse(in: CGRect(x: 8.5*s, y: 3.5*s, width: 7*s, height: 7*s)) // cx=12, cy=7, r=3.5
+        path.addEllipse(in: CGRect(x: 8.5*s, y: 3.5*s, width: 7*s, height: 7*s))
         
-        // Body
         path.move(to: CGPoint(x: 5*s, y: 20*s))
         path.addCurve(to: CGPoint(x: 12*s, y: 14.5*s), control1: CGPoint(x: 5*s, y: 16.5*s), control2: CGPoint(x: 8*s, y: 14.5*s))
         path.addCurve(to: CGPoint(x: 19*s, y: 20*s), control1: CGPoint(x: 16*s, y: 14.5*s), control2: CGPoint(x: 19*s, y: 16.5*s))
@@ -326,7 +289,6 @@ private struct ProfilePath: Shape {
     }
 }
 
-// 06. Back
 private struct BackPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -336,7 +298,6 @@ private struct BackPath: Shape {
         path.addLine(to: CGPoint(x: 8*s, y: 12*s))
         path.addLine(to: CGPoint(x: 15*s, y: 19*s))
         
-        // Ghost line
         path.move(to: CGPoint(x: 4*s, y: 12*s))
         path.addLine(to: CGPoint(x: 6*s, y: 12*s))
         
@@ -344,7 +305,6 @@ private struct BackPath: Shape {
     }
 }
 
-// 07. More
 private struct MorePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -359,7 +319,6 @@ private struct MorePath: Shape {
     }
 }
 
-// 08. Close
 private struct ClosePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -374,7 +333,6 @@ private struct ClosePath: Shape {
     }
 }
 
-// 09. Play
 private struct PlayPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -383,11 +341,7 @@ private struct PlayPath: Shape {
         path.move(to: CGPoint(x: 8*s, y: 5*s))
         path.addLine(to: CGPoint(x: 18*s, y: 12*s))
         path.addLine(to: CGPoint(x: 8*s, y: 19*s))
-        // path.closeSubpath() // SVG doesn't close explicitly but usually triangles do. SVG path: M8 5L18 12L8 19. It's an open V unless filled. But for stroke, it's open.
-        // Wait, stroke-linejoin="round". If it's open, the join at 8,19 won't be round connected to 8,5.
-        // The SVG doesn't have 'z'.
-        
-        // Ghost line
+
         path.move(to: CGPoint(x: 8*s, y: 8*s))
         path.addLine(to: CGPoint(x: 8*s, y: 16*s))
         
@@ -395,7 +349,6 @@ private struct PlayPath: Shape {
     }
 }
 
-// 10. Pause
 private struct PausePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -408,7 +361,6 @@ private struct PausePath: Shape {
     }
 }
 
-// 11. Next
 private struct NextPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -425,7 +377,6 @@ private struct NextPath: Shape {
     }
 }
 
-// 12. Previous
 private struct PreviousPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -442,7 +393,6 @@ private struct PreviousPath: Shape {
     }
 }
 
-// 13. Stop
 private struct StopPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -455,13 +405,11 @@ private struct StopPath: Shape {
     }
 }
 
-// 14. Repeat
 private struct RepeatPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
-        // Top
         path.move(to: CGPoint(x: 17*s, y: 14*s))
         path.addLine(to: CGPoint(x: 17*s, y: 17*s))
         path.addCurve(to: CGPoint(x: 14*s, y: 20*s), control1: CGPoint(x: 17*s, y: 18.5*s), control2: CGPoint(x: 15.5*s, y: 20*s))
@@ -469,7 +417,6 @@ private struct RepeatPath: Shape {
         path.addCurve(to: CGPoint(x: 3*s, y: 17*s), control1: CGPoint(x: 4.5*s, y: 20*s), control2: CGPoint(x: 3*s, y: 18.5*s))
         path.addLine(to: CGPoint(x: 3*s, y: 12*s))
         
-        // Bottom
         path.move(to: CGPoint(x: 7*s, y: 10*s))
         path.addLine(to: CGPoint(x: 7*s, y: 7*s))
         path.addCurve(to: CGPoint(x: 10*s, y: 4*s), control1: CGPoint(x: 7*s, y: 5.5*s), control2: CGPoint(x: 8.5*s, y: 4*s))
@@ -477,7 +424,6 @@ private struct RepeatPath: Shape {
         path.addCurve(to: CGPoint(x: 21*s, y: 7*s), control1: CGPoint(x: 19.5*s, y: 4*s), control2: CGPoint(x: 21*s, y: 5.5*s))
         path.addLine(to: CGPoint(x: 21*s, y: 12*s))
         
-        // Arrow
         path.move(to: CGPoint(x: 19*s, y: 10*s))
         path.addLine(to: CGPoint(x: 21*s, y: 12*s))
         path.addLine(to: CGPoint(x: 23*s, y: 10*s))
@@ -486,13 +432,11 @@ private struct RepeatPath: Shape {
     }
 }
 
-// 15. Shuffle
 private struct ShufflePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
-        // Path 1
         path.move(to: CGPoint(x: 4*s, y: 17*s))
         path.addLine(to: CGPoint(x: 7*s, y: 17*s))
         path.addCurve(to: CGPoint(x: 11*s, y: 14.5*s), control1: CGPoint(x: 9*s, y: 17*s), control2: CGPoint(x: 10*s, y: 16*s))
@@ -502,14 +446,12 @@ private struct ShufflePath: Shape {
         path.addCurve(to: CGPoint(x: 19*s, y: 7*s), control1: CGPoint(x: 15.5*s, y: 8*s), control2: CGPoint(x: 17*s, y: 7*s))
         path.addLine(to: CGPoint(x: 21*s, y: 7*s))
         
-        // Path 2
         path.move(to: CGPoint(x: 4*s, y: 7*s))
         path.addLine(to: CGPoint(x: 7*s, y: 7*s))
         path.addCurve(to: CGPoint(x: 11*s, y: 9.5*s), control1: CGPoint(x: 9*s, y: 7*s), control2: CGPoint(x: 10*s, y: 8*s))
         path.addLine(to: CGPoint(x: 15*s, y: 15.5*s))
         path.addCurve(to: CGPoint(x: 21*s, y: 18*s), control1: CGPoint(x: 16*s, y: 17*s), control2: CGPoint(x: 17.5*s, y: 18*s))
         
-        // Arrowheads
         path.move(to: CGPoint(x: 18*s, y: 4*s)); path.addLine(to: CGPoint(x: 21*s, y: 7*s)); path.addLine(to: CGPoint(x: 18*s, y: 10*s))
         path.move(to: CGPoint(x: 18*s, y: 15*s)); path.addLine(to: CGPoint(x: 21*s, y: 18*s)); path.addLine(to: CGPoint(x: 18*s, y: 21*s))
         
@@ -517,7 +459,6 @@ private struct ShufflePath: Shape {
     }
 }
 
-// 16. Refresh
 private struct RefreshPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -537,7 +478,6 @@ private struct RefreshPath: Shape {
     }
 }
 
-// 17. Like & Liked
 private struct LikePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -556,18 +496,13 @@ private struct LikePath: Shape {
     }
 }
 
-// Special Liked Path containing just the dot
 private struct LikedPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        // The dot is drawn as a circle view, so this might be empty or redundant?
-        // Actually, we can return just the dot here for the stroke layer, but the dot is filled.
-        // Let's rely on the ZStack in strokeLayer.
         return path
     }
 }
 
-// 19. FM
 private struct FMPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -576,7 +511,7 @@ private struct FMPath: Shape {
         let box = CGRect(x: 4*s, y: 9*s, width: 16*s, height: 11*s)
         path.addRoundedRect(in: box, cornerSize: CGSize(width: 3*s, height: 3*s))
         
-        path.addEllipse(in: CGRect(x: 6*s, y: 12.5*s, width: 4*s, height: 4*s)) // cx=8, cy=14.5, r=2
+        path.addEllipse(in: CGRect(x: 6*s, y: 12.5*s, width: 4*s, height: 4*s))
         
         path.move(to: CGPoint(x: 13*s, y: 14.5*s))
         path.addLine(to: CGPoint(x: 17*s, y: 14.5*s))
@@ -588,7 +523,6 @@ private struct FMPath: Shape {
     }
 }
 
-// 20. Bell
 private struct BellPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -603,13 +537,12 @@ private struct BellPath: Shape {
         path.closeSubpath()
         
         path.move(to: CGPoint(x: 10*s, y: 20*s))
-        path.addCurve(to: CGPoint(x: 15*s, y: 20*s), control1: CGPoint(x: 10.5*s, y: 21*s), control2: CGPoint(x: 14.5*s, y: 21*s)) // Simplified arc from SVG path
+        path.addCurve(to: CGPoint(x: 15*s, y: 20*s), control1: CGPoint(x: 10.5*s, y: 21*s), control2: CGPoint(x: 14.5*s, y: 21*s))
         
         return path
     }
 }
 
-// 21. Trash
 private struct TrashPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -629,7 +562,6 @@ private struct TrashPath: Shape {
     }
 }
 
-// 22. List
 private struct ListPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -647,7 +579,6 @@ private struct ListPath: Shape {
     }
 }
 
-// 23. Settings
 private struct SettingsPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -667,7 +598,6 @@ private struct SettingsPath: Shape {
     }
 }
 
-// 24. Download
 private struct DownloadPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -686,7 +616,6 @@ private struct DownloadPath: Shape {
     }
 }
 
-// 25. Karaoke
 private struct KaraokePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -706,7 +635,6 @@ private struct KaraokePath: Shape {
     }
 }
 
-// 26. Cloud
 private struct CloudPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -727,7 +655,6 @@ private struct CloudPath: Shape {
     }
 }
 
-// 27. Clock
 private struct ClockPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -743,7 +670,6 @@ private struct ClockPath: Shape {
     }
 }
 
-// 28. Chart
 private struct ChartPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -759,7 +685,6 @@ private struct ChartPath: Shape {
     }
 }
 
-// 29. Lock
 private struct LockPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -778,7 +703,6 @@ private struct LockPath: Shape {
     }
 }
 
-// 29.5 Unlock (开锁图标)
 private struct UnlockPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -799,7 +723,6 @@ private struct UnlockPath: Shape {
     }
 }
 
-// 30. QR
 private struct QRPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -817,7 +740,6 @@ private struct QRPath: Shape {
     }
 }
 
-// 31. Phone
 private struct PhonePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -838,7 +760,6 @@ private struct PhonePath: Shape {
     }
 }
 
-// 32. Send
 private struct SendPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -852,13 +773,12 @@ private struct SendPath: Shape {
     }
 }
 
-// 33. MusicNote
 private struct MusicNotePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
-        path.addEllipse(in: CGRect(x: 5*s, y: 14*s, width: 6*s, height: 6*s)) // cx=8, cy=17, r=3
+        path.addEllipse(in: CGRect(x: 5*s, y: 14*s, width: 6*s, height: 6*s))
         
         path.move(to: CGPoint(x: 11*s, y: 17*s))
         path.addLine(to: CGPoint(x: 11*s, y: 5*s))
@@ -868,14 +788,13 @@ private struct MusicNotePath: Shape {
     }
 }
 
-// 34. MusicNoteList
 private struct MusicNoteListPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
         path.move(to: CGPoint(x: 8*s, y: 6*s)); path.addLine(to: CGPoint(x: 8*s, y: 15*s))
-        path.addEllipse(in: CGRect(x: 2.5*s, y: 12.5*s, width: 5*s, height: 5*s)) // cx=5, cy=15, r=2.5
+        path.addEllipse(in: CGRect(x: 2.5*s, y: 12.5*s, width: 5*s, height: 5*s))
         
         path.move(to: CGPoint(x: 13*s, y: 7*s)); path.addLine(to: CGPoint(x: 20*s, y: 7*s))
         path.move(to: CGPoint(x: 13*s, y: 12*s)); path.addLine(to: CGPoint(x: 19*s, y: 12*s))
@@ -885,7 +804,6 @@ private struct MusicNoteListPath: Shape {
     }
 }
 
-// 35. Translate
 private struct TranslatePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -907,13 +825,11 @@ private struct TranslatePath: Shape {
     }
 }
 
-// 36. RepeatOne (Aura Floating Style - matches RepeatPath)
 private struct RepeatOnePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
         
-        // Top arc (floating, disconnected)
         path.move(to: CGPoint(x: 17*s, y: 14*s))
         path.addLine(to: CGPoint(x: 17*s, y: 17*s))
         path.addCurve(to: CGPoint(x: 14*s, y: 20*s), control1: CGPoint(x: 17*s, y: 18.5*s), control2: CGPoint(x: 15.5*s, y: 20*s))
@@ -921,33 +837,26 @@ private struct RepeatOnePath: Shape {
         path.addCurve(to: CGPoint(x: 3*s, y: 17*s), control1: CGPoint(x: 4.5*s, y: 20*s), control2: CGPoint(x: 3*s, y: 18.5*s))
         path.addLine(to: CGPoint(x: 3*s, y: 12*s))
         
-        // Bottom arc (floating, disconnected)
-        path.move(to: CGPoint(x: 7*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
+        path.move(to: CGPoint(x: 7*s, y: 10*s))        path.addLine(to: CGPoint(x: 7*s, y: 7*s))
         path.addCurve(to: CGPoint(x: 10*s, y: 4*s), control1: CGPoint(x: 7*s, y: 5.5*s), control2: CGPoint(x: 8.5*s, y: 4*s))
         path.addLine(to: CGPoint(x: 18*s, y: 4*s))
         path.addCurve(to: CGPoint(x: 21*s, y: 7*s), control1: CGPoint(x: 19.5*s, y: 4*s), control2: CGPoint(x: 21*s, y: 5.5*s))
         path.addLine(to: CGPoint(x: 21*s, y: 12*s))
         
-        // Arrow (floating)
         path.move(to: CGPoint(x: 19*s, y: 10*s))
         path.addLine(to: CGPoint(x: 21*s, y: 12*s))
         path.addLine(to: CGPoint(x: 23*s, y: 10*s))
         
-        // "1" in center (minimal, geometric - floating style)
         path.move(to: CGPoint(x: 11*s, y: 10*s))
         path.addLine(to: CGPoint(x: 13*s, y: 9*s))
         path.addLine(to: CGPoint(x: 13*s, y: 15*s))
         
-        // Ghost underline for "1" (Aura floating accent)
-        path.move(to: CGPoint(x: 11*s, y: 15*s))
-        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
+        path.move(to: CGPoint(x: 11*s, y: 15*s))        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
         
         return path
     }
 }
 
-// 37. ChevronRight
 private struct ChevronRightPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -961,7 +870,6 @@ private struct ChevronRightPath: Shape {
     }
 }
 
-// 38. MagnifyingGlass
 private struct MagnifyingGlassPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -975,7 +883,6 @@ private struct MagnifyingGlassPath: Shape {
     }
 }
 
-// 39. Xmark
 private struct XmarkPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -988,7 +895,6 @@ private struct XmarkPath: Shape {
     }
 }
 
-// 40. Fullscreen
 private struct FullscreenPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1003,7 +909,7 @@ private struct FullscreenPath: Shape {
     }
 }
 
-// 41. Sparkle (液态玻璃效果图标)
+// 液态玻璃效果图标
 private struct SparklePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1030,7 +936,7 @@ private struct SparklePath: Shape {
     }
 }
 
-// 42. SoundQuality (音质图标)
+// 音质图标
 private struct SoundQualityPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1056,7 +962,7 @@ private struct SoundQualityPath: Shape {
     }
 }
 
-// 43. Storage (存储图标)
+// 存储图标
 private struct StoragePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1077,7 +983,7 @@ private struct StoragePath: Shape {
     }
 }
 
-// 44. Haptic (触感反馈图标)
+// 触感反馈图标
 private struct HapticPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1100,7 +1006,7 @@ private struct HapticPath: Shape {
     }
 }
 
-// 45. Info (信息图标)
+// 信息图标
 private struct InfoPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1121,8 +1027,7 @@ private struct InfoPath: Shape {
 }
 
 
-// 47. Save (保存图标 - Aura 浮动风格)
-// 设计：向下箭头 + 托盘，体现"保存/存储"概念
+// 保存图标 - 设计：向下箭头 + 托盘，体现"保存/存储"概念
 private struct SavePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1149,7 +1054,7 @@ private struct SavePath: Shape {
     }
 }
 
-// 48. History (历史记录 - 时钟 + 逆时针箭头)
+// 历史记录 - 时钟 + 逆时针箭头
 private struct HistoryPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1174,7 +1079,7 @@ private struct HistoryPath: Shape {
     }
 }
 
-// 49. PlayCircle (圆形播放按钮)
+// 圆形播放按钮
 private struct PlayCirclePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1193,7 +1098,7 @@ private struct PlayCirclePath: Shape {
     }
 }
 
-// 50. Warning (警告/错误 - 三角形 + 感叹号)
+// 警告/错误 - 三角形 + 感叹号
 private struct WarningPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1218,7 +1123,7 @@ private struct WarningPath: Shape {
     }
 }
 
-// 51. PersonEmpty (空用户状态 - 人形 + 斜线)
+// 空用户状态 - 人形 + 斜线
 private struct PersonEmptyPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1240,7 +1145,7 @@ private struct PersonEmptyPath: Shape {
     }
 }
 
-// 52. PlayNext (下一首播放 - 播放三角 + 向前箭头)
+// 下一首播放 - 播放三角 + 向前箭头
 private struct PlayNextPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1264,7 +1169,7 @@ private struct PlayNextPath: Shape {
     }
 }
 
-// 53. Add (添加/加号)
+// 添加/加号
 private struct AddPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1282,7 +1187,7 @@ private struct AddPath: Shape {
     }
 }
 
-// 54. AddToQueue (添加到队列 - 列表 + 加号)
+// 添加到队列 - 列表 + 加号
 private struct AddToQueuePath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()

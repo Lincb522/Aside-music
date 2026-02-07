@@ -22,7 +22,6 @@ class AlertManager: ObservableObject {
         primaryAction: @escaping () -> Void,
         secondaryAction: (() -> Void)? = nil
     ) {
-        // Run on main thread
         DispatchQueue.main.async {
             self.title = title
             self.message = message

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F4C86C402F35B1EF000DE1EB /* SwiftAudioEx in Frameworks */ = {isa = PBXBuildFile; productRef = F4C86C3F2F35B1EF000DE1EB /* SwiftAudioEx */; };
 		F4DB6D6C2F34A9440079E1AF /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */; };
 /* End PBXBuildFile section */
 
@@ -41,7 +40,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F4C86C402F35B1EF000DE1EB /* SwiftAudioEx in Frameworks */,
 				F4DB6D6C2F34A9440079E1AF /* LiquidGlassEffect in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -86,7 +84,6 @@
 			name = AsideMusic;
 			packageProductDependencies = (
 				F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */,
-				F4C86C3F2F35B1EF000DE1EB /* SwiftAudioEx */,
 			);
 			productName = AsideMusic;
 			productReference = F4CCFD782F320B5900FC36CA /* AsideMusic.app */;
@@ -119,7 +116,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */,
-				F4C86C3E2F35B1EF000DE1EB /* XCRemoteSwiftPackageReference "SwiftAudio" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -373,14 +369,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		F4C86C3E2F35B1EF000DE1EB /* XCRemoteSwiftPackageReference "SwiftAudio" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/doublesymmetry/SwiftAudio.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.0;
-			};
-		};
 		F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Lincb522/LiquidGlassEffect.git";
@@ -392,11 +380,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F4C86C3F2F35B1EF000DE1EB /* SwiftAudioEx */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F4C86C3E2F35B1EF000DE1EB /* XCRemoteSwiftPackageReference "SwiftAudio" */;
-			productName = SwiftAudioEx;
-		};
 		F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */;

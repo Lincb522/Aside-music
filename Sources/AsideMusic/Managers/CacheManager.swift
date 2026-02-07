@@ -4,15 +4,12 @@ import Combine
 class CacheManager {
     static let shared = CacheManager()
     
-    // Memory Cache
     private let memoryCache = NSCache<NSString, AnyObject>()
     
-    // Disk Cache Directory
     private var diskCacheURL: URL {
         let urls = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         let cacheDirectory = urls[0].appendingPathComponent("AsideMusicCache")
         
-        // Create directory if not exists
         if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
             try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
         }
@@ -20,33 +17,24 @@ class CacheManager {
         return cacheDirectory
     }
     
-    // Configuration
-    private let memoryLimit = 50 * 1024 * 1024 // 50MB (降低)
-    private let diskLimit = 300 * 1024 * 1024 // 300MB (降低)
-    private let defaultExpiration: TimeInterval = 60 * 60 * 24 * 7 // 7 Days
+    private let memoryLimit = 50 * 1024 * 1024
+    private let diskLimit = 300 * 1024 * 1024
+    private let defaultExpiration: TimeInterval = 60 * 60 * 24 * 7
     
     init() {
         memoryCache.totalCostLimit = memoryLimit
-        memoryCache.countLimit = 100 // 限制对象数量
-        // Clean disk cache on background launch
+        memoryCache.countLimit = 100
         DispatchQueue.global(qos: .utility).async {
             self.cleanExpiredDiskCache()
         }
     }
     
-    // MARK: - Generic Data Caching
+    // MARK: - 通用数据缓存
     
-    /// Save object to cache
-    /// - Parameters:
-    ///   - object: The object to save (must be Codable)
-    ///   - key: Unique key
-    ///   - ttl: Time to live in seconds (default: 7 days). Pass nil for permanent (until disk limit).
     func setObject<T: Codable>(_ object: T, forKey key: String, ttl: TimeInterval? = nil) {
-        // 1. Save to Memory
         if let encoded = try? JSONEncoder().encode(object) {
             memoryCache.setObject(encoded as NSData, forKey: key as NSString, cost: encoded.count)
             
-            // 2. Save to Disk (Async)
             DispatchQueue.global(qos: .background).async {
                 self.saveToDisk(data: encoded, key: key, ttl: ttl)
             }
@@ -54,16 +42,13 @@ class CacheManager {
     }
     
     func getObject<T: Codable>(forKey key: String, type: T.Type) -> T? {
-        // 1. Try Memory
         if let data = memoryCache.object(forKey: key as NSString) as? Data {
             if let object = try? JSONDecoder().decode(T.self, from: data) {
                 return object
             }
         }
         
-        // 2. Try Disk
         if let data = loadFromDisk(key: key) {
-            // Restore to Memory
             memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
             
             if let object = try? JSONDecoder().decode(T.self, from: data) {
@@ -76,12 +61,10 @@ class CacheManager {
     
     /// 获取原始数据（用于预热缓存）
     func getData(forKey key: String) -> Data? {
-        // 1. Try Memory
         if let data = memoryCache.object(forKey: key as NSString) as? Data {
             return data
         }
         
-        // 2. Try Disk
         if let data = loadFromDisk(key: key) {
             memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
             return data
@@ -90,21 +73,19 @@ class CacheManager {
         return nil
     }
     
-    // MARK: - Image Caching Helpers
+    // MARK: - 图片缓存
     
     func setImageData(_ data: Data, forKey key: String) {
         memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
         DispatchQueue.global(qos: .background).async {
-            self.saveToDisk(data: data, key: key, ttl: nil) // Images usually don't expire quickly
+            self.saveToDisk(data: data, key: key, ttl: nil)
         }
     }
     
-    // Direct disk access (Blocking, use on background thread)
     func getImageData(forKey key: String) -> Data? {
         if let data = memoryCache.object(forKey: key as NSString) as? Data {
             return data
         }
-        // If not in memory, try load from disk synchronously
         if let data = loadFromDisk(key: key) {
             memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
             return data
@@ -112,7 +93,6 @@ class CacheManager {
         return nil
     }
     
-    // Async version for background disk reads
     func getImageDataAsync(forKey key: String, completion: @escaping (Data?) -> Void) {
         if let data = memoryCache.object(forKey: key as NSString) as? Data {
             completion(data)
@@ -144,7 +124,7 @@ class CacheManager {
         try? FileManager.default.removeItem(at: diskCacheURL)
     }
     
-    // MARK: - Cache Info
+    // MARK: - 缓存信息
     
     func calculateCacheSize() -> String {
         guard let urls = try? FileManager.default.contentsOfDirectory(at: diskCacheURL, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else {
@@ -171,20 +151,17 @@ class CacheManager {
         }
     }
     
-    // MARK: - Disk Operations
+    // MARK: - 磁盘操作
     
     private func saveToDisk(data: Data, key: String, ttl: TimeInterval?) {
         let fileURL = diskCacheURL.appendingPathComponent(key.cacheFileName)
         do {
             try data.write(to: fileURL)
             
-            // Calculate expiration date
             let expirationDate = Date().addingTimeInterval(ttl ?? defaultExpiration)
-            
-            // Save attributes: Modification Date (for LRU) and Expiration Date
             let attributes: [FileAttributeKey: Any] = [
                 .modificationDate: Date(),
-                .creationDate: expirationDate // We abuse creationDate to store expiration to avoid sidecar files
+                .creationDate: expirationDate
             ]
             try FileManager.default.setAttributes(attributes, ofItemAtPath: fileURL.path)
         } catch {
@@ -195,11 +172,9 @@ class CacheManager {
     private func loadFromDisk(key: String) -> Data? {
         let fileURL = diskCacheURL.appendingPathComponent(key.cacheFileName)
         
-        // Check existence and expiration
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         
         if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path) {
-            // Check Expiration (stored in creationDate)
             if let expirationDate = attributes[.creationDate] as? Date {
                 if Date() > expirationDate {
                     try? FileManager.default.removeItem(at: fileURL)
@@ -209,8 +184,6 @@ class CacheManager {
         }
         
         if let data = try? Data(contentsOf: fileURL) {
-            // Update modification date to mark as recently used (LRU)
-            // Don't touch creationDate (expiration)
             try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: fileURL.path)
             return data
         }
@@ -234,16 +207,12 @@ class CacheManager {
                    let date = resourceValues.contentModificationDate,
                    let size = resourceValues.totalFileAllocatedSize {
                     
-                    // Remove expired immediately
-                    // Check creationDate for expiration
                     if let expirationDate = resourceValues.creationDate {
                         if Date() > expirationDate {
                              try? FileManager.default.removeItem(at: url)
                              continue
                         }
-                    }
-                    // Fallback to old expiration interval check if creationDate is not set correctly or for legacy files
-                    else if Date().timeIntervalSince(date) > self.defaultExpiration {
+                    } else if Date().timeIntervalSince(date) > self.defaultExpiration {
                         try? FileManager.default.removeItem(at: url)
                         continue
                     }
@@ -253,9 +222,8 @@ class CacheManager {
                 }
             }
             
-            // If over limit, remove oldest files
             if totalSize > self.diskLimit {
-                files.sort { $0.date < $1.date } // Oldest first
+                files.sort { $0.date < $1.date }
                 
                 for file in files {
                     if totalSize <= self.diskLimit { break }
@@ -267,7 +235,7 @@ class CacheManager {
     }
 }
 
-// Helper for Key Hashing - 使用 SHA256 替代不安全的 MD5
+// MARK: - 缓存文件名哈希
 import CryptoKit
 
 extension String {
@@ -277,7 +245,6 @@ extension String {
         return digest.map { String(format: "%02hhx", $0) }.joined()
     }
     
-    /// 保留 MD5 用于向后兼容（标记为废弃）
     @available(*, deprecated, message: "Use cacheFileName (SHA256) instead")
     var md5: String {
         let digest = Insecure.MD5.hash(data: self.data(using: .utf8) ?? Data())

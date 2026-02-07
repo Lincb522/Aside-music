@@ -6,7 +6,6 @@ struct TopChartsView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     
-    // Theme Reference
     typealias Theme = PlaylistDetailView.Theme
     
     let columns = [
@@ -17,16 +16,15 @@ struct TopChartsView: View {
     
     var body: some View {
         ZStack {
-            // Background
             AsideBackground()
             
             if isLoading {
                 AsideLoadingView(text: "LOADING CHARTS")
             } else if let error = errorMessage {
                 VStack {
-                    AsideIcon(icon: .warning, size: 48, color: .gray)
+                    AsideIcon(icon: .warning, size: 48, color: .asideTextSecondary)
                     Text(error)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .padding()
                     Button("Retry") {
                         loadData()
@@ -34,7 +32,6 @@ struct TopChartsView: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    // Header
                     HStack {
                         AsideBackButton()
                         Spacer()
@@ -42,7 +39,6 @@ struct TopChartsView: View {
                             .font(.system(size: 18, weight: .bold, design: .rounded))
                             .foregroundColor(Theme.text)
                         Spacer()
-                        // Placeholder for symmetry
                         Color.clear.frame(width: 44, height: 44)
                     }
                     .padding(.horizontal, 20)
@@ -50,7 +46,6 @@ struct TopChartsView: View {
                     .padding(.bottom, 16)
                     
                     ScrollView(showsIndicators: false) {
-                        // Grid
                         LazyVGrid(columns: columns, spacing: 20) {
                             ForEach(topLists) { list in
                                 NavigationLink(destination: PlaylistDetailView(playlist: Playlist(id: list.id, name: list.name, coverImgUrl: list.coverImgUrl, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil))) {

@@ -43,10 +43,6 @@ class SearchViewModel: ObservableObject {
     }
     
     func fetchSuggestions(keyword: String) {
-        // If we already searched, don't show suggestions unless user is typing again (handled by hasSearched flag logic in UI or reset)
-        // But here we want real-time suggestions while typing.
-        // We need to differentiate "Typing" vs "Submitted".
-        
         self.showSuggestions = true
         apiService.fetchSearchSuggestions(keyword: keyword)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] suggestions in
@@ -58,12 +54,11 @@ class SearchViewModel: ObservableObject {
     func performSearch(keyword: String) {
         isLoading = true
         hasSearched = true
-        showSuggestions = false // Hide suggestions
-        suggestions = [] // Clear suggestions
+        showSuggestions = false
+        suggestions = []
         currentPage = 0
         canLoadMore = true
         
-        // Update query if called from suggestion tap
         if query != keyword {
             query = keyword
         }
@@ -133,7 +128,6 @@ struct SearchView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Header & Search Bar
                 VStack(spacing: 16) {
                     HStack {
                         AsideBackButton()
@@ -163,7 +157,6 @@ struct SearchView: View {
                                 }
                                 .onChange(of: viewModel.query) { _, newValue in
                                     if !newValue.isEmpty {
-                                        // Reset search state if user starts typing again
                                         if viewModel.hasSearched {
                                             viewModel.hasSearched = false
                                             viewModel.showSuggestions = true
@@ -181,7 +174,7 @@ struct SearchView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color.white)
+                        .background(Color.asideCardBackground)
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     }
@@ -189,22 +182,18 @@ struct SearchView: View {
                 }
                 .padding(.bottom, 20)
                 
-                // Content Layer
                 ZStack {
-                    // 1. Search Results
                     if viewModel.hasSearched {
                         if viewModel.isLoading {
                             AsideLoadingView(text: "SEARCHING")
                         } else if viewModel.searchResults.isEmpty {
-                            // No Results
                             VStack(spacing: 16) {
                                 AsideIcon(icon: .musicNoteList, size: 50, color: .gray.opacity(0.3))
                                 Text(LocalizedStringKey("empty_no_results"))
                                     .font(.rounded(size: 16, weight: .medium))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.asideTextSecondary)
                             }
                         } else {
-                            // Results List
                             ScrollView {
                                 LazyVStack(spacing: 0) {
                                     ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { index, song in
@@ -232,18 +221,16 @@ struct SearchView: View {
                             })
                         }
                     } else if viewModel.query.isEmpty {
-                        // 2. Initial State (Empty)
                         VStack(spacing: 16) {
                             AsideIcon(icon: .magnifyingGlass, size: 50, color: .gray.opacity(0.3))
                             Text(LocalizedStringKey("search_history"))
                                 .font(.rounded(size: 16, weight: .medium))
-                                .foregroundColor(.gray)
+                                .foregroundColor(.asideTextSecondary)
                         }
                     }
                     
-                    // 3. Search Suggestions Overlay
                     if viewModel.showSuggestions && !viewModel.suggestions.isEmpty {
-                        AsideBackground() // Cover underlying content
+                        AsideBackground()
                         
                         ScrollView {
                             LazyVStack(spacing: 0) {
@@ -276,12 +263,11 @@ struct SearchView: View {
                         .asideBackground()
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity) // Force to fill remaining space
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationBarHidden(true)
         .onAppear {
-            // Auto focus
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isFocused = true
             }

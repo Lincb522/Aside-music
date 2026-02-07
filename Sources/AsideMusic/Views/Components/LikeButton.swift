@@ -11,19 +11,15 @@ struct LikeButton: View {
     
     var body: some View {
         Button(action: {
-            // Haptic Feedback
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
             
-            // Animation
             withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
                 isAnimating = true
             }
             
-            // Action
             likeManager.toggleLike(songId: songId)
             
-            // Reset Animation
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 isAnimating = false
             }

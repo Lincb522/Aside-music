@@ -12,7 +12,6 @@ struct MiniPlayerSection: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                // Cover
                 CachedAsyncImage(url: song.coverUrl) {
                     Color.gray.opacity(0.3)
                 }
@@ -20,52 +19,47 @@ struct MiniPlayerSection: View {
                 .frame(width: 32, height: 32)
                 .cornerRadius(6)
                 
-                // Info
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.name)
                         .font(.rounded(size: 12, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)
                     Text(song.artistName)
                         .font(.rounded(size: 10, weight: .medium))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
                 }
                 
                 Spacer()
                 
-                // Controls
                 HStack(spacing: 12) {
-                    // Play/Pause Button
                     Button(action: togglePlayPause) {
                         ZStack {
                             Circle()
-                                .fill(Color.black)
+                                .fill(Color.asideIconBackground)
                                 .frame(width: 32, height: 32)
                             
                             if player.isLoading {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .asideIconForeground))
                                     .scaleEffect(0.6)
                             } else {
                                 if isPlaying {
-                                    AsideIcon(icon: .pause, size: 14, color: .white)
+                                    AsideIcon(icon: .pause, size: 14, color: .asideIconForeground)
                                 } else {
-                                    AsideIcon(icon: .play, size: 14, color: .white)
+                                    AsideIcon(icon: .play, size: 14, color: .asideIconForeground)
                                 }
                             }
                         }
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                     
-                    // Playlist Button
                     Button(action: { showPlaylist.toggle() }) {
-                        AsideIcon(icon: .list, size: 16, color: .black)
+                        AsideIcon(icon: .list, size: 16, color: .asideTextPrimary)
                             .frame(width: 32, height: 32)
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                     
-                    // Close Button (Only visible when paused)
                     if !isPlaying {
                         Button(action: {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -96,7 +90,6 @@ struct MiniPlayerSection: View {
                 }
             }
             
-            // Progress Bar
             ProgressBarView()
                 .frame(height: 2)
                 .padding(.horizontal, 12)
@@ -122,7 +115,7 @@ struct ProgressBarView: View {
                 
                 let progress = player.duration > 0 ? player.currentTime / player.duration : 0
                 Capsule()
-                    .fill(Color.black)
+                    .fill(Color.asideIconBackground)
                     .frame(width: geometry.size.width * CGFloat(progress), height: 3)
                     .animation(.linear(duration: 0.1), value: progress)
             }
@@ -178,7 +171,6 @@ struct AsideTabBar: View {
             .offset(x: bubbleOffset)
             .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedIndex)
             
-            // Tab 项目
             HStack(spacing: 0) {
                 ForEach(0..<items.count, id: \.self) { index in
                     AsideTabItemView(
@@ -218,15 +210,14 @@ private struct AsideTabItemView: View {
             }
             action()
         }) {
-            // 图标和文字
             VStack(spacing: 2) {
-                AsideIcon(icon: icon, size: 20, color: isSelected ? .black : .black.opacity(0.4))
+                AsideIcon(icon: icon, size: 20, color: isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4))
                     .scaleEffect(isPressed ? 0.8 : (isSelected ? 1.05 : 0.95))
                     .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
                 
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
-                    .foregroundColor(isSelected ? .black : .black.opacity(0.4))
+                    .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4))
             }
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
@@ -242,7 +233,6 @@ struct UnifiedFloatingBar: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Mini Player Section
             if let song = player.currentSong {
                 MiniPlayerSection(
                     song: song,
@@ -255,7 +245,7 @@ struct UnifiedFloatingBar: View {
                 ))
             }
             
-            // Tab Bar Section - 使用新的 AsideTabBar
+            // 使用新的 AsideTabBar
             AsideTabBar(selectedIndex: Binding(
                 get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
                 set: { currentTab = Tab.allCases[$0] }
@@ -268,9 +258,9 @@ struct UnifiedFloatingBar: View {
                     // 使用较低的背景捕获帧率，静态场景会自动冻结
                     LiquidGlassMetalView(cornerRadius: 20, backgroundCaptureFrameRate: 30)
                     
-                    // 白色半透明叠加层
+                    // 半透明叠加层
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color.white.opacity(0.4))
+                        .fill(Color.asideCardBackground.opacity(0.4))
                 } else {
                     // 原生毛玻璃效果
                     RoundedRectangle(cornerRadius: 20, style: .continuous)

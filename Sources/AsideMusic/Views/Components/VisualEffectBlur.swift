@@ -1,10 +1,3 @@
-//
-//  VisualEffectBlur.swift
-//  AsideMusic
-//
-//  统一的毛玻璃效果组件 - 使用 LiquidGlassEffect 库
-//
-
 import UIKit
 import SwiftUI
 import LiquidGlassEffect

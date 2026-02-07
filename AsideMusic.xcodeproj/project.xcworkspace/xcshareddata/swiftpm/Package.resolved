@@ -1,5 +1,5 @@
 {
-  "originHash" : "3b47ce45e64ba3c5f19363528a91ccb3deb6ae683af18781af1ead80a0f88b64",
+  "originHash" : "c5ce8b587014b8ea00da6aba9af05f48e229b6c0d08b6452d0327191f9472bac",
   "pins" : [
     {
       "identity" : "liquidglasseffect",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "9d7b23be661cb519b355cdc26c7f12816b1b2f9e",
         "version" : "2.1.0"
-      }
-    },
-    {
-      "identity" : "swiftaudio",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/doublesymmetry/SwiftAudio.git",
-      "state" : {
-        "revision" : "7b506bebabd68b542256c0e1e55519fab5f4c092",
-        "version" : "1.1.0"
       }
     }
   ],

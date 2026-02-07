@@ -8,7 +8,7 @@ private struct ImageCacheConfig {
     static let maxConcurrentLoads = 4             // 最大并发加载数
 }
 
-// Shared Memory Cache for Images - 优化内存限制
+// MARK: - 图片内存缓存
 private let imageCache: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
     cache.totalCostLimit = ImageCacheConfig.maxMemoryCost
@@ -16,7 +16,7 @@ private let imageCache: NSCache<NSString, UIImage> = {
     return cache
 }()
 
-// Concurrency limiter for image loading
+// MARK: - 图片加载并发控制
 private let imageConcurrencyQueue = DispatchQueue(label: "com.aside.imageLoader", qos: .userInitiated, attributes: .concurrent)
 private let imageSemaphore = DispatchSemaphore(value: ImageCacheConfig.maxConcurrentLoads)
 
@@ -33,7 +33,6 @@ class ImageLoader: ObservableObject {
     }
     
     func load(url: URL) {
-        // Fast path: Check memory cache first (Main Thread safe)
         let cacheKey = url.absoluteString as NSString
         if let cachedImage = imageCache.object(forKey: cacheKey) {
             self.image = cachedImage
@@ -48,18 +47,14 @@ class ImageLoader: ObservableObject {
         isLoading = true
         image = nil
         
-        // Create work item for cancellation support
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             
-            // Acquire semaphore to limit concurrency
             imageSemaphore.wait()
             defer { imageSemaphore.signal() }
             
-            // Check if cancelled
             if self.loadingTask?.isCancelled == true { return }
             
-            // Double check memory cache
             if let cachedImage = imageCache.object(forKey: cacheKey) {
                 DispatchQueue.main.async {
                     if self.currentUrl == url {
@@ -70,7 +65,6 @@ class ImageLoader: ObservableObject {
                 return
             }
             
-            // Check disk cache
             if let data = CacheManager.shared.getImageData(forKey: url.absoluteString),
                let cachedImage = self.downsampleImage(data: data, maxSize: 300) {
                 
@@ -87,7 +81,6 @@ class ImageLoader: ObservableObject {
                 return
             }
             
-            // Download from network
             DispatchQueue.main.async {
                 if self.currentUrl != url { return }
                 

@@ -6,11 +6,9 @@ class HomeViewModel: ObservableObject {
     // MARK: - 单例
     static let shared = HomeViewModel()
     
-    // Data Sources
     @Published var dailySongs: [Song] = []
-    @Published var popularSongs: [Song] = [] // Changed to array for Carousel
+    @Published var popularSongs: [Song] = []
     @Published var recommendPlaylists: [Playlist] = []
-    // @Published var userPlaylists: [Playlist] = [] // Moved to LibraryViewModel
     @Published var recentSongs: [Song] = []
     @Published var banners: [Banner] = []
     @Published var hotSearch: String = NSLocalizedString("search_bar_placeholder", comment: "")
@@ -33,13 +31,11 @@ class HomeViewModel: ObservableObject {
             }
             .store(in: &cancellables)
             
-        // Subscribe to StyleManager
         styleManager.$currentStyle
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] style in
                 print("DEBUG: HomeViewModel - Style changed to: \(style?.finalName ?? "Default")")
-                // When style changes, refresh daily songs immediately
                 self?.fetchDailySongsOrStyle(force: true, completion: {})
             }
             .store(in: &cancellables)
@@ -49,13 +45,10 @@ class HomeViewModel: ObservableObject {
     }
     
     func fetchData(forceDaily: Bool = false) {
-        // Load cache first
         loadCache()
         
-        // If we have a persisted style but loaded standard songs from cache, we need to force refresh
         let styleMismatch = (styleManager.currentStyle != nil)
         
-        // Only show loading if we have no data
         if dailySongs.isEmpty && popularSongs.isEmpty && recommendPlaylists.isEmpty {
             isLoading = true
         }
@@ -94,31 +87,23 @@ class HomeViewModel: ObservableObject {
     }
     
     private func fetchUserProfile(completion: @escaping () -> Void) {
-        // First get login status to get UID
         apiService.fetchLoginStatus()
             .flatMap { [weak self] response -> AnyPublisher<APIService.UserDetailResponse, Error> in
                 guard let self = self, let profile = response.data.profile else {
-                    // Not logged in or no profile
                     return Fail(error: URLError(.userAuthenticationRequired)).eraseToAnyPublisher()
                 }
                 self.apiService.currentUserId = profile.userId
-                // Then fetch full user detail using UID to get follows/followers/signature
                 return self.apiService.fetchUserDetail(uid: profile.userId)
             }
             .sink(receiveCompletion: { [weak self] completionResult in
                 if case .failure(let error) = completionResult {
                     print("User Profile Fetch Error: \(error)")
-                    // If fetch failed but we already have a UID (e.g. from LoginViewModel), 
-                    // we should still proceed to fetch content.
                     if self?.apiService.currentUserId != nil {
                         completion()
                     } else {
-                        // Truly failed to get user identity, stop loading
                         self?.isLoading = false
                     }
                 } else {
-                    // Success case handles completion in receiveValue or implicit finish
-                    // But sink's receiveCompletion is called after receiveValue
                     completion()
                 }
             }, receiveValue: { [weak self] detailResponse in
@@ -142,13 +127,12 @@ class HomeViewModel: ObservableObject {
             }
         }
         
-        // 1. Daily Songs (Smart Refresh with Style Support)
+        // 每日推荐（支持风格切换）
         fetchDailySongsOrStyle(force: forceDaily || dailySongs.isEmpty) { 
             dailySongsLoaded = true
             checkAndMarkReady()
         }
             
-        // 2. Popular Songs (Weekly)
         apiService.fetchPopularSongs()
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
                 self?.popularSongs = songs
@@ -159,7 +143,6 @@ class HomeViewModel: ObservableObject {
             })
             .store(in: &cancellables)
             
-        // 3. Recommend Playlists (Smart Refresh)
         if forceDaily || recommendPlaylists.isEmpty {
             apiService.fetchRecommendPlaylists()
                 .sink(receiveCompletion: { completion in
@@ -176,7 +159,7 @@ class HomeViewModel: ObservableObject {
                 .store(in: &cancellables)
         }
         
-        // 4. Banners (不需要登录)
+        // Banner
         apiService.fetchBanners()
             .sink(receiveCompletion: { _ in
                 bannersLoaded = true
@@ -189,7 +172,7 @@ class HomeViewModel: ObservableObject {
             })
             .store(in: &cancellables)
         
-        // 5. Hot Search (不需要登录)
+        // 热搜
         apiService.fetchHotSearch()
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] items in
                 if let first = items.first {
@@ -198,9 +181,8 @@ class HomeViewModel: ObservableObject {
             })
             .store(in: &cancellables)
         
-        // 6. 需要登录的数据（Recent Songs, User Profile）
+        // 需要登录的数据
         if let uid = apiService.currentUserId {
-            // Recent Songs
             apiService.fetchRecentSongs()
                 .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
                     self?.recentSongs = songs
@@ -211,7 +193,6 @@ class HomeViewModel: ObservableObject {
                 })
                 .store(in: &cancellables)
             
-            // User Profile
             apiService.fetchUserDetail(uid: uid)
                 .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] response in
                     self?.userProfile = response.profile
@@ -232,7 +213,6 @@ class HomeViewModel: ObservableObject {
         }
         
         if let style = styleManager.currentStyle {
-            // Fetch Style Songs
             print("HomeViewModel: Fetching songs for style: \(style.finalName)")
             apiService.fetchStyleSongs(tagId: style.finalId)
                 .sink(receiveCompletion: { result in
@@ -242,7 +222,6 @@ class HomeViewModel: ObservableObject {
                     completion()
                 }, receiveValue: { [weak self] songs in
                     self?.dailySongs = songs
-                    // Note: We might want separate cache keys for styles, or just overwrite daily_songs
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
                         OptimizedCacheManager.shared.cacheSongs(songs)
@@ -250,7 +229,6 @@ class HomeViewModel: ObservableObject {
                 })
                 .store(in: &cancellables)
         } else {
-            // Fetch Standard Daily Songs
             print("HomeViewModel: Fetching standard daily songs")
             apiService.fetchDailySongs()
                 .sink(receiveCompletion: { result in
@@ -283,8 +261,6 @@ class HomeViewModel: ObservableObject {
                 }
             }, receiveValue: { songs in
                 if let first = songs.first {
-                    // For FM, we usually want to replace the queue or have a special mode
-                    // For now, we just play the list
                     PlayerManager.shared.play(song: first, in: songs)
                 }
             })
