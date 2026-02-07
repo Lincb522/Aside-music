@@ -111,20 +111,29 @@ struct RadioDetailView: View {
                         .padding(.horizontal, 20)
                 }
 
-                // 收音机模式播放按钮
-                Button(action: { showRadioPlayer = true }) {
-                    HStack(spacing: 8) {
-                        AsideIcon(icon: .radio, size: 16, color: .asideIconForeground, lineWidth: 1.4)
-                        Text("收音机模式")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                // 操作按钮
+                HStack(spacing: 12) {
+                    // 订阅按钮
+                    SubscribeButton(
+                        isSubscribed: SubscriptionManager.shared.isRadioSubscribed(radio.id),
+                        action: { SubscriptionManager.shared.toggleRadioSubscription(radio) }
+                    )
+
+                    // 收音机模式播放按钮
+                    Button(action: { showRadioPlayer = true }) {
+                        HStack(spacing: 8) {
+                            AsideIcon(icon: .radio, size: 16, color: .asideIconForeground, lineWidth: 1.4)
+                            Text("收音机模式")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.asideIconForeground)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.asideIconBackground)
+                        .clipShape(Capsule())
                     }
-                    .foregroundColor(.asideIconForeground)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.asideIconBackground)
-                    .clipShape(Capsule())
+                    .buttonStyle(AsideBouncingButtonStyle())
                 }
-                .buttonStyle(AsideBouncingButtonStyle())
                 .padding(.top, 4)
             }
         }

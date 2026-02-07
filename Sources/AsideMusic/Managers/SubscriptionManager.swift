@@ -126,6 +126,76 @@ class SubscriptionManager: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// 删除用户创建的歌单（真实 API 调用）
+    func deletePlaylist(id: Int, completion: @escaping (Bool) -> Void) {
+        guard apiService.isLoggedIn else {
+            completion(false)
+            return
+        }
+
+        apiService.deletePlaylist(id: id)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { result in
+                if case .failure(let error) = result {
+                    print("删除歌单失败: \(error)")
+                    completion(false)
+                }
+            }, receiveValue: { response in
+                completion(response.code == 200)
+            })
+            .store(in: &cancellables)
+    }
+
+    /// 取消收藏歌单（真实 API 调用）
+    func unsubscribePlaylist(id: Int, completion: @escaping (Bool) -> Void) {
+        guard apiService.isLoggedIn else {
+            completion(false)
+            return
+        }
+
+        subscribedPlaylistIds.remove(id)
+
+        apiService.subscribePlaylist(id: id, subscribe: false)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] result in
+                if case .failure(let error) = result {
+                    print("取消收藏歌单失败: \(error)")
+                    self?.subscribedPlaylistIds.insert(id)
+                    completion(false)
+                }
+            }, receiveValue: { response in
+                completion(response.code == 200)
+            })
+            .store(in: &cancellables)
+    }
+
+    /// 取消订阅播客（真实 API 调用）
+    func unsubscribeRadio(_ radio: RadioStation, completion: @escaping (Bool) -> Void) {
+        guard apiService.isLoggedIn else {
+            completion(false)
+            return
+        }
+
+        // 乐观更新
+        subscribedRadioIds.remove(radio.id)
+        subscribedRadios.removeAll { $0.id == radio.id }
+
+        apiService.subscribeDJ(rid: radio.id, subscribe: false)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] result in
+                if case .failure(let error) = result {
+                    print("取消订阅播客失败: \(error)")
+                    // 回滚
+                    self?.subscribedRadioIds.insert(radio.id)
+                    self?.subscribedRadios.insert(radio, at: 0)
+                    completion(false)
+                }
+            }, receiveValue: { response in
+                completion(response.code == 200)
+            })
+            .store(in: &cancellables)
+    }
+
     /// 刷新所有订阅数据
     func refresh() {
         if apiService.isLoggedIn {

@@ -537,6 +537,8 @@ struct MyPlaylistsContainerView: View {
 struct MyPodcastsView: View {
     typealias Theme = PlaylistDetailView.Theme
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @State private var radioToRemove: RadioStation?
+    @State private var showUnsubAlert = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -566,6 +568,14 @@ struct MyPodcastsView: View {
                             podcastRow(radio: radio)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                radioToRemove = radio
+                                showUnsubAlert = true
+                            } label: {
+                                Label("取消订阅", systemImage: "heart.slash")
+                            }
+                        }
                     }
                 }
             }
@@ -575,6 +585,20 @@ struct MyPodcastsView: View {
         .onAppear {
             if subManager.subscribedRadios.isEmpty {
                 subManager.fetchSubscribedRadios()
+            }
+        }
+        .alert("取消订阅", isPresented: $showUnsubAlert) {
+            Button("取消", role: .cancel) {
+                radioToRemove = nil
+            }
+            Button("取消订阅", role: .destructive) {
+                guard let radio = radioToRemove else { return }
+                subManager.unsubscribeRadio(radio) { _ in }
+                radioToRemove = nil
+            }
+        } message: {
+            if let radio = radioToRemove {
+                Text("确定取消订阅「\(radio.name)」？")
             }
         }
     }
@@ -620,6 +644,10 @@ struct MyPodcastsView: View {
 
 struct NetEasePlaylistsView: View {
     @ObservedObject var viewModel: LibraryViewModel
+    @ObservedObject private var subManager = SubscriptionManager.shared
+    @State private var playlistToRemove: Playlist?
+    @State private var showRemoveAlert = false
+    @State private var isOwnPlaylist = false
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
@@ -639,6 +667,16 @@ struct NetEasePlaylistsView: View {
                             LibraryPlaylistRow(playlist: playlist)
                         }
                         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                playlistToRemove = playlist
+                                isOwnPlaylist = isUserCreated(playlist)
+                                showRemoveAlert = true
+                            } label: {
+                                Label(isUserCreated(playlist) ? "删除歌单" : "取消收藏",
+                                      systemImage: isUserCreated(playlist) ? "trash" : "heart.slash")
+                            }
+                        }
                     }
                 }
 
@@ -651,6 +689,41 @@ struct NetEasePlaylistsView: View {
         .refreshable {
             viewModel.fetchPlaylists(force: true)
         }
+        .alert(isOwnPlaylist ? "删除歌单" : "取消收藏", isPresented: $showRemoveAlert) {
+            Button("取消", role: .cancel) {
+                playlistToRemove = nil
+            }
+            Button(isOwnPlaylist ? "删除" : "取消收藏", role: .destructive) {
+                guard let playlist = playlistToRemove else { return }
+                if isOwnPlaylist {
+                    subManager.deletePlaylist(id: playlist.id) { success in
+                        if success {
+                            viewModel.fetchPlaylists(force: true)
+                        }
+                    }
+                } else {
+                    subManager.unsubscribePlaylist(id: playlist.id) { success in
+                        if success {
+                            viewModel.fetchPlaylists(force: true)
+                        }
+                    }
+                }
+                playlistToRemove = nil
+            }
+        } message: {
+            if let playlist = playlistToRemove {
+                Text(isOwnPlaylist ? "确定删除「\(playlist.name)」？此操作不可恢复。" : "确定取消收藏「\(playlist.name)」？")
+            }
+        }
+    }
+
+    /// 判断歌单是否为用户自己创建的
+    private func isUserCreated(_ playlist: Playlist) -> Bool {
+        guard let uid = APIService.shared.currentUserId,
+              let creatorId = playlist.creator?.userId else {
+            return false
+        }
+        return creatorId == uid
     }
 }
 

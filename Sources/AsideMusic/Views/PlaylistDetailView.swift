@@ -167,6 +167,14 @@ struct PlaylistDetailView: View {
                 AsideBackButton()
                 
                 Spacer()
+
+                // 收藏歌单按钮（非自己创建的歌单才显示）
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    SubscribeButton(
+                        isSubscribed: SubscriptionManager.shared.isPlaylistSubscribed(playlist.id),
+                        action: { SubscriptionManager.shared.togglePlaylistSubscription(id: playlist.id) }
+                    )
+                }
                 
                 if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
                     Text(String(format: NSLocalizedString("songs_count_format", comment: ""), count))

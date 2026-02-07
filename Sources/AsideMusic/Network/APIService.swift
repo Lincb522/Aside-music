@@ -823,4 +823,10 @@ class APIService {
         return fetch("/playlist/subscribe?t=\(t)&id=\(id)")
             .eraseToAnyPublisher()
     }
+
+    /// 删除用户创建的歌单
+    func deletePlaylist(id: Int) -> AnyPublisher<SimpleResponse, Error> {
+        return fetch("/playlist/delete?id=\(id)")
+            .eraseToAnyPublisher()
+    }
 }

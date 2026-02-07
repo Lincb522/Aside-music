@@ -225,6 +225,7 @@ struct Playlist: Identifiable, Codable {
 }
 
 struct Creator: Codable {
+    let userId: Int?
     let nickname: String?
     let avatarUrl: String?
 }

@@ -101,7 +101,7 @@ final class CachedPlaylist {
     func toPlaylist() -> Playlist {
         var creator: Creator? = nil
         if let creatorName = creatorName {
-            creator = Creator(nickname: creatorName, avatarUrl: nil)
+            creator = Creator(userId: nil, nickname: creatorName, avatarUrl: nil)
         }
         
         return Playlist(
