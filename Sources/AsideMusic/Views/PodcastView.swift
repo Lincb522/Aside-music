@@ -151,14 +151,13 @@ struct PodcastView: View {
                     NavigationLink(value: PodcastDestination.category(cat)) {
                         HStack(spacing: 6) {
                             if let uiImage = cat.localIconImage {
-                                // 优先使用本地图标
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()
                                     .frame(width: 22, height: 22)
                                     .clipShape(Circle())
+                                    .adaptiveDarkInvert()
                             } else if let iconUrl = cat.iconUrl {
-                                // 本地没有则从网络加载
                                 CachedAsyncImage(url: iconUrl) {
                                     Circle()
                                         .fill(Color.asideCardBackground)
