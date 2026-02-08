@@ -87,8 +87,8 @@ class RadioDetailViewModel: ObservableObject {
     func songsFromPrograms() -> [Song] {
         return programs.compactMap { program -> Song? in
             guard var song = program.mainSong else { return nil }
-            // 如果歌曲没有专辑封面，使用节目封面或电台封面
-            if song.al?.picUrl == nil {
+            // 如果歌曲没有专辑封面（nil 或空字符串），使用节目封面或电台封面
+            if song.al?.picUrl == nil || (song.al?.picUrl?.isEmpty ?? true) {
                 song.podcastCoverUrl = program.coverUrl ?? radioDetail?.picUrl
             }
             return song

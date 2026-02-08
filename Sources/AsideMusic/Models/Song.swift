@@ -37,11 +37,12 @@ struct Song: Identifiable, Codable {
     }
     
     var coverUrl: URL? {
-        if let picUrl = al?.picUrl {
+        // 优先使用专辑封面（排除空字符串）
+        if let picUrl = al?.picUrl, !picUrl.isEmpty {
             return URL(string: picUrl)
         }
         // 播客节目封面备用
-        if let podcastCover = podcastCoverUrl {
+        if let podcastCover = podcastCoverUrl, !podcastCover.isEmpty {
             return URL(string: podcastCover)
         }
         return nil
