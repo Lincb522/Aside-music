@@ -41,6 +41,7 @@
 - **歌词显示** - 逐行滚动歌词
 - **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质
 - **解灰功能** - 自动匹配其他音源播放无版权歌曲
+- **第三方源管理** - 导入 JS 脚本音源（洛雪格式）或自定义 HTTP 音源，全平台测试与调试日志
 - **多播放源独立管理** - 普通播放、私人FM、播客电台三种播放源互不干扰，各自维护播放状态
 
 ### 📻 播客电台
@@ -152,6 +153,7 @@ AsideMusic/
 │   │   ├── TopRadioListView.swift   # 热门电台排行
 │   │   │
 │   │   ├── SettingsView.swift       # 设置页
+│   │   ├── UnblockSourceManageView.swift # 第三方源管理
 │   │   ├── LoginView.swift          # 登录页
 │   │   ├── LoginComponents.swift    # 登录组件
 │   │   ├── WelcomeView.swift        # 欢迎页
@@ -185,7 +187,8 @@ AsideMusic/
 │   │
 │   ├── Network/                      # 网络层
 │   │   ├── APIService.swift         # API 服务
-│   │   └── APIService+Search.swift  # 搜索扩展
+│   │   ├── APIService+Search.swift  # 搜索扩展
+│   │   └── NCMBridge.swift          # NCM SDK 桥接层
 │   │
 │   ├── Database/                     # 数据库层
 │   │   ├── DatabaseManager.swift    # 数据库管理
@@ -196,6 +199,7 @@ AsideMusic/
 │   │   ├── SettingsManager.swift    # 设置管理
 │   │   ├── CacheManager.swift       # 缓存管理
 │   │   ├── OptimizedCacheManager.swift # 优化缓存管理
+│   │   ├── UnblockSourceManager.swift # 第三方音源管理
 │   │   ├── LikeManager.swift        # 喜欢管理
 │   │   ├── StyleManager.swift       # 样式管理
 │   │   ├── AsideAnimation.swift     # 动画管理
@@ -253,6 +257,7 @@ AsideMusic/
 | **UI 框架** | SwiftUI |
 | **架构模式** | MVVM |
 | **网络请求** | URLSession + Combine |
+| **网易云 API** | [NeteaseCloudMusicAPI-Swift](https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift) (自研 SDK) |
 | **数据持久化** | SQLite (自定义封装) |
 | **缓存策略** | 内存缓存 + 磁盘缓存 |
 | **音频播放** | [SwiftAudioEx](https://github.com/doublesymmetry/SwiftAudioEx) |
@@ -291,6 +296,15 @@ AsideMusic/
 
 <table>
   <tr>
+    <td align="center">
+      <a href="https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift">
+        <img src="https://avatars.githubusercontent.com/u/200893893?s=200&v=4" width="64" height="64" alt="NeteaseCloudMusicAPI-Swift">
+        <br>
+        <strong>NeteaseCloudMusicAPI-Swift</strong>
+      </a>
+      <br>
+      <sub>网易云音乐 Swift SDK</sub>
+    </td>
     <td align="center">
       <a href="https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced">
         <img src="https://avatars.githubusercontent.com/u/200893893?s=200&v=4" width="64" height="64" alt="NeteaseCloudMusicApi Enhanced">
