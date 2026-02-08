@@ -20,6 +20,14 @@ struct Song: Identifiable, Codable {
     let alia: [String]?
     var privilege: Privilege?
     
+    /// 播客节目封面（非 API 字段，手动注入）
+    var podcastCoverUrl: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, ar, al, dt, fee, mv
+        case h, m, l, sq, hr, alia, privilege
+    }
+    
     // MARK: - 辅助属性
     var artists: [Artist] { ar ?? [] }
     var album: Album? { al }
@@ -31,6 +39,10 @@ struct Song: Identifiable, Codable {
     var coverUrl: URL? {
         if let picUrl = al?.picUrl {
             return URL(string: picUrl)
+        }
+        // 播客节目封面备用
+        if let podcastCover = podcastCoverUrl {
+            return URL(string: podcastCover)
         }
         return nil
     }

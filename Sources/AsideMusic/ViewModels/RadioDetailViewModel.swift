@@ -83,8 +83,15 @@ class RadioDetailViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// 将节目列表转换为 Song 数组用于播放
+    /// 将节目列表转换为 Song 数组用于播放，注入节目封面
     func songsFromPrograms() -> [Song] {
-        return programs.compactMap { $0.mainSong }
+        return programs.compactMap { program -> Song? in
+            guard var song = program.mainSong else { return nil }
+            // 如果歌曲没有专辑封面，使用节目封面或电台封面
+            if song.al?.picUrl == nil {
+                song.podcastCoverUrl = program.coverUrl ?? radioDetail?.picUrl
+            }
+            return song
+        }
     }
 }

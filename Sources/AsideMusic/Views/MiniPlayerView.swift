@@ -9,12 +9,21 @@ struct MiniPlayerView: View {
         if let song = player.currentSong {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    CachedAsyncImage(url: song.coverUrl) {
-                        Color.gray.opacity(0.3)
+                    ZStack(alignment: .bottomTrailing) {
+                        CachedAsyncImage(url: song.coverUrl) {
+                            Color.gray.opacity(0.3)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 48, height: 48)
+                        .cornerRadius(12)
+
+                        // 播放来源小图标
+                        if player.playSource == .fm {
+                            sourceIndicator(icon: .fm)
+                        } else if player.isPlayingPodcast {
+                            sourceIndicator(icon: .radio)
+                        }
                     }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 48, height: 48)
-                    .cornerRadius(12)
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
@@ -101,5 +110,17 @@ struct MiniPlayerView: View {
                     .presentationDragIndicator(.visible)
             }
         }
+    }
+
+    /// 播放来源角标
+    private func sourceIndicator(icon: AsideIcon.IconType) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.asideIconBackground)
+                .frame(width: 18, height: 18)
+                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+            AsideIcon(icon: icon, size: 10, color: .asideIconForeground, lineWidth: 1.4)
+        }
+        .offset(x: 4, y: 4)
     }
 }
