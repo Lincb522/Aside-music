@@ -11,6 +11,7 @@ struct AsideAlertView: View {
     
     var body: some View {
         ZStack {
+            // Dimmed Background
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
@@ -19,7 +20,9 @@ struct AsideAlertView: View {
                     }
                 }
             
+            // Alert Content
             VStack(spacing: 24) {
+                // Text
                 VStack(spacing: 8) {
                     Text(title)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -32,6 +35,7 @@ struct AsideAlertView: View {
                         .multilineTextAlignment(.center)
                 }
                 
+                // Buttons
                 HStack(spacing: 12) {
                     if let secondaryTitle = secondaryButtonTitle {
                         Button(action: {

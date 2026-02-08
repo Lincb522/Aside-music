@@ -1,6 +1,7 @@
 import SwiftUI
 import LiquidGlassEffect
 
+// Shared Back Button Component
 struct AsideBackButton: View {
     enum Style {
         case back // < Back
@@ -40,10 +41,11 @@ struct AsideBackground: View {
     
     var body: some View {
         ZStack {
-            // 确保覆盖整个屏幕包括安全区域
+            // Layer 1: Base color - 确保覆盖整个屏幕包括安全区域
             (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
                 .ignoresSafeArea()
             
+            // Layer 2: Diffused color blobs
             GeometryReader { geo in
                 Canvas { context, size in
                     if colorScheme == .dark {
@@ -131,6 +133,7 @@ struct AsideBackground: View {
             }
             .ignoresSafeArea()
             
+            // Layer 3: Frosted glass overlay
             LiquidGlassOverlay()
                 .ignoresSafeArea()
         }
@@ -168,9 +171,11 @@ struct AsideLiquidGlassCard<Content: View>: View {
             .background(
                 Group {
                     if useMetal {
+                        // Metal shader version (使用 LiquidGlassEffect 库)
                         // 背景组件使用较低帧率，静态场景会自动冻结
                         LiquidGlassMetalView(cornerRadius: cornerRadius, backgroundCaptureFrameRate: 20)
                     } else {
+                        // SwiftUI fallback
                         SwiftUIGlassBackground(cornerRadius: cornerRadius)
                     }
                 }

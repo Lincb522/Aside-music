@@ -541,9 +541,9 @@ struct MyPodcastsView: View {
     @State private var showUnsubAlert = false
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 12) {
-                if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
+        Group {
+            if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text("加载中...")
@@ -551,7 +551,9 @@ struct MyPodcastsView: View {
                             .foregroundColor(Theme.secondaryText)
                     }
                     .padding(.top, 50)
-                } else if subManager.subscribedRadios.isEmpty {
+                }
+            } else if subManager.subscribedRadios.isEmpty {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .radio, size: 40, color: .asideTextSecondary.opacity(0.3))
                         Text("还没有订阅播客")
@@ -562,12 +564,21 @@ struct MyPodcastsView: View {
                             .foregroundColor(Theme.secondaryText.opacity(0.6))
                     }
                     .padding(.top, 50)
-                } else {
+                }
+            } else {
+                List {
                     ForEach(subManager.subscribedRadios) { radio in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
                             podcastRow(radio: radio)
                         }
-                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                radioToRemove = radio
+                                showUnsubAlert = true
+                            } label: {
+                                Label("取消订阅", systemImage: "heart.slash")
+                            }
+                        }
                         .contextMenu {
                             Button(role: .destructive) {
                                 radioToRemove = radio
@@ -576,11 +587,21 @@ struct MyPodcastsView: View {
                                 Label("取消订阅", systemImage: "heart.slash")
                             }
                         }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 2, leading: 24, bottom: 2, trailing: 24))
                     }
+
+                    Color.clear.frame(height: 120)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .refreshable {
+                    subManager.fetchSubscribedRadios()
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 120)
         }
         .onAppear {
             if subManager.subscribedRadios.isEmpty {
@@ -651,9 +672,9 @@ struct NetEasePlaylistsView: View {
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 16) {
-                if viewModel.userPlaylists.isEmpty {
+        Group {
+            if viewModel.userPlaylists.isEmpty {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
                         Text(LocalizedStringKey("library_playlists_empty"))
@@ -661,12 +682,23 @@ struct NetEasePlaylistsView: View {
                             .foregroundColor(.asideTextSecondary)
                     }
                     .padding(.top, 50)
-                } else {
+                }
+            } else {
+                List {
                     ForEach(viewModel.userPlaylists) { playlist in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                             LibraryPlaylistRow(playlist: playlist)
                         }
-                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                playlistToRemove = playlist
+                                isOwnPlaylist = isUserCreated(playlist)
+                                showRemoveAlert = true
+                            } label: {
+                                Label(isUserCreated(playlist) ? "删除" : "取消收藏",
+                                      systemImage: isUserCreated(playlist) ? "trash" : "heart.slash")
+                            }
+                        }
                         .contextMenu {
                             Button(role: .destructive) {
                                 playlistToRemove = playlist
@@ -677,18 +709,23 @@ struct NetEasePlaylistsView: View {
                                       systemImage: isUserCreated(playlist) ? "trash" : "heart.slash")
                             }
                         }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
                     }
-                }
 
-                Color.clear.frame(height: 120)
+                    Color.clear.frame(height: 120)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .refreshable {
+                    viewModel.fetchPlaylists(force: true)
+                }
             }
-            .padding(24)
         }
-        .scrollContentBackground(.hidden)
         .background(Color.clear)
-        .refreshable {
-            viewModel.fetchPlaylists(force: true)
-        }
         .alert(isOwnPlaylist ? "删除歌单" : "取消收藏", isPresented: $showRemoveAlert) {
             Button("取消", role: .cancel) {
                 playlistToRemove = nil
