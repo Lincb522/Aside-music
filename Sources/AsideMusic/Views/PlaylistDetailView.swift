@@ -104,6 +104,7 @@ struct PlaylistDetailView: View {
     @StateObject private var viewModel = PlaylistDetailViewModel()
     
     @ObservedObject var playerManager = PlayerManager.shared
+    @ObservedObject var subManager = SubscriptionManager.shared
     
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
@@ -171,8 +172,8 @@ struct PlaylistDetailView: View {
                 // 收藏歌单按钮（非自己创建的歌单才显示）
                 if playlist.creator?.userId != APIService.shared.currentUserId {
                     SubscribeButton(
-                        isSubscribed: SubscriptionManager.shared.isPlaylistSubscribed(playlist.id),
-                        action: { SubscriptionManager.shared.togglePlaylistSubscription(id: playlist.id) }
+                        isSubscribed: subManager.isPlaylistSubscribed(playlist.id),
+                        action: { subManager.togglePlaylistSubscription(id: playlist.id) }
                     )
                 }
                 

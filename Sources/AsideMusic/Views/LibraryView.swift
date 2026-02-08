@@ -177,6 +177,8 @@ class LibraryViewModel: ObservableObject {
                 }
             }, receiveValue: { [weak self] playlists in
                 self?.userPlaylists = playlists
+                // 初始化歌单收藏状态
+                SubscriptionManager.shared.updatePlaylistSubscriptions(from: playlists, userId: uid)
                 // 使用优化的缓存管理器
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(playlists, forKey: "user_playlists")

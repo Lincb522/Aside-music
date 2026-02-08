@@ -5,6 +5,7 @@ struct RadioDetailView: View {
     let radioId: Int
     @StateObject private var viewModel: RadioDetailViewModel
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var subManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showRadioPlayer = false
 
@@ -115,8 +116,8 @@ struct RadioDetailView: View {
                 HStack(spacing: 12) {
                     // 订阅按钮
                     SubscribeButton(
-                        isSubscribed: SubscriptionManager.shared.isRadioSubscribed(radio.id),
-                        action: { SubscriptionManager.shared.toggleRadioSubscription(radio) }
+                        isSubscribed: subManager.isRadioSubscribed(radio.id),
+                        action: { subManager.toggleRadioSubscription(radio) }
                     )
 
                     // 收音机模式播放按钮
