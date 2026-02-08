@@ -1518,8 +1518,6 @@ private struct CatMusicPath: Shape {
         path.addLine(to: CGPoint(x: 11*s, y: 6*s))
         // 旗帜弦线
         path.addLine(to: CGPoint(x: 18*s, y: 8.5*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1542,8 +1540,6 @@ private struct CatLifePath: Shape {
         path.addCurve(to: CGPoint(x: 21*s, y: 13*s), control1: CGPoint(x: 19*s, y: 11*s), control2: CGPoint(x: 21*s, y: 11.9*s))
         path.addLine(to: CGPoint(x: 21*s, y: 14*s))
         path.addCurve(to: CGPoint(x: 17*s, y: 16*s), control1: CGPoint(x: 21*s, y: 15.1*s), control2: CGPoint(x: 19*s, y: 16*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1577,8 +1573,6 @@ private struct CatEmotionPath: Shape {
         // 余韵弧线（半透明）
         path.move(to: CGPoint(x: 16*s, y: 4*s))
         path.addCurve(to: CGPoint(x: 19*s, y: 9*s), control1: CGPoint(x: 18*s, y: 5*s), control2: CGPoint(x: 19*s, y: 7*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1598,8 +1592,6 @@ private struct CatCreatePath: Shape {
         // 笔尖延伸线（半透明断裂）
         path.move(to: CGPoint(x: 14*s, y: 8*s))
         path.addLine(to: CGPoint(x: 17*s, y: 5*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1619,8 +1611,6 @@ private struct CatAcgPath: Shape {
         path.move(to: CGPoint(x: 14*s, y: 8*s))
         path.addLine(to: CGPoint(x: 17*s, y: 4*s))
         path.addLine(to: CGPoint(x: 20*s, y: 11*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1644,8 +1634,6 @@ private struct CatEntertainPath: Shape {
         path.closeSubpath()
         // 中心圆
         path.addEllipse(in: CGRect(x: 9*s, y: 9*s, width: 6*s, height: 6*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1669,8 +1657,6 @@ private struct CatTalkshowPath: Shape {
         path.addEllipse(in: CGRect(x: 8*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
         path.addEllipse(in: CGRect(x: 12*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
         path.addEllipse(in: CGRect(x: 16*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1691,8 +1677,6 @@ private struct CatBookPath: Shape {
         // 分隔线（半透明）
         path.move(to: CGPoint(x: 4*s, y: 15*s))
         path.addLine(to: CGPoint(x: 18*s, y: 15*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1712,8 +1696,6 @@ private struct CatKnowledgePath: Shape {
         // 底部横线
         path.move(to: CGPoint(x: 10*s, y: 20*s))
         path.addLine(to: CGPoint(x: 14*s, y: 20*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1732,8 +1714,6 @@ private struct CatBusinessPath: Shape {
         path.move(to: CGPoint(x: 16*s, y: 9*s))
         path.addLine(to: CGPoint(x: 20*s, y: 9*s))
         path.addLine(to: CGPoint(x: 20*s, y: 13*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1759,8 +1739,6 @@ private struct CatHistoryPath: Shape {
         path.move(to: CGPoint(x: 7*s, y: 19*s))
         path.addCurve(to: CGPoint(x: 12*s, y: 12*s), control1: CGPoint(x: 7*s, y: 15*s), control2: CGPoint(x: 12*s, y: 15*s))
         path.addCurve(to: CGPoint(x: 17*s, y: 19*s), control1: CGPoint(x: 12*s, y: 15*s), control2: CGPoint(x: 17*s, y: 15*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1779,8 +1757,6 @@ private struct CatNewsPath: Shape {
         path.addLine(to: CGPoint(x: 17*s, y: 12*s))
         path.move(to: CGPoint(x: 7*s, y: 15*s))
         path.addLine(to: CGPoint(x: 15*s, y: 15*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1800,8 +1776,6 @@ private struct CatParentingPath: Shape {
         path.addCurve(to: CGPoint(x: 9*s, y: 15*s), control1: CGPoint(x: 5*s, y: 16*s), control2: CGPoint(x: 7*s, y: 15*s))
         path.move(to: CGPoint(x: 14*s, y: 20*s))
         path.addCurve(to: CGPoint(x: 16*s, y: 18.5*s), control1: CGPoint(x: 14*s, y: 19*s), control2: CGPoint(x: 15*s, y: 18.5*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1820,8 +1794,6 @@ private struct CatTravelPath: Shape {
         // 对角线（半透明）
         path.move(to: CGPoint(x: 11*s, y: 14*s))
         path.addLine(to: CGPoint(x: 20*s, y: 4*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1844,8 +1816,6 @@ private struct CatCrosstalkPath: Shape {
         path.addLine(to: CGPoint(x: 7*s, y: 8*s))
         path.move(to: CGPoint(x: 12*s, y: 19*s))
         path.addLine(to: CGPoint(x: 17*s, y: 8*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1862,8 +1832,6 @@ private struct CatFoodPath: Shape {
         path.addLine(to: CGPoint(x: 18*s, y: 9*s))
         path.move(to: CGPoint(x: 10*s, y: 3*s))
         path.addLine(to: CGPoint(x: 15*s, y: 9*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1883,8 +1851,6 @@ private struct CatTechPath: Shape {
         path.closeSubpath()
         // 中心圆
         path.addEllipse(in: CGRect(x: 9.5*s, y: 9.5*s, width: 5*s, height: 5*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1902,8 +1868,6 @@ private struct CatDefaultPath: Shape {
         path.addRoundedRect(in: CGRect(x: 13*s, y: 5*s, width: 6*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
         // 左下格（半透明）
         path.addRoundedRect(in: CGRect(x: 5*s, y: 13*s, width: 6*s, height: 6*s), cornerSize: CGSize(width: 1.5*s, height: 1.5*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1923,8 +1887,6 @@ private struct CatPodcastPath: Shape {
         // 底部杆（半透明）
         path.move(to: CGPoint(x: 12*s, y: 17*s))
         path.addLine(to: CGPoint(x: 12*s, y: 20*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1941,8 +1903,6 @@ private struct CatElectronicPath: Shape {
         path.addLine(to: CGPoint(x: 13*s, y: 18*s))
         path.addLine(to: CGPoint(x: 15*s, y: 12*s))
         path.addLine(to: CGPoint(x: 19*s, y: 12*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1964,8 +1924,6 @@ private struct CatStarPath: Shape {
         path.addLine(to: CGPoint(x: 3.5*s, y: 10.5*s))
         path.addLine(to: CGPoint(x: 9.5*s, y: 9.5*s))
         path.closeSubpath()
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -1985,8 +1943,6 @@ private struct CatDramaPath: Shape {
         // 微笑弧线
         path.move(to: CGPoint(x: 9*s, y: 15*s))
         path.addCurve(to: CGPoint(x: 15*s, y: 15*s), control1: CGPoint(x: 10*s, y: 16*s), control2: CGPoint(x: 14*s, y: 16*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -2007,8 +1963,6 @@ private struct CatStoryPath: Shape {
         path.addLine(to: CGPoint(x: 15*s, y: 5*s))
         path.addLine(to: CGPoint(x: 12*s, y: 17*s))
         path.closeSubpath()
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -2025,8 +1979,6 @@ private struct CatOtherPath: Shape {
         path.addEllipse(in: CGRect(x: 12*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
         // 右点（半透明）
         path.addEllipse(in: CGRect(x: 18*s - dotR, y: 12*s - dotR, width: dotR*2, height: dotR*2))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }
@@ -2050,8 +2002,6 @@ private struct CatPublishPath: Shape {
         path.addLine(to: CGPoint(x: 14*s, y: 6*s))
         path.move(to: CGPoint(x: 16*s, y: 4*s))
         path.addLine(to: CGPoint(x: 18*s, y: 6*s))
-        // 灵魂锚点
-        path.addEllipse(in: CGRect(x: 20.15*s, y: 3.65*s, width: 1.7*s, height: 1.7*s))
         return path
     }
 }

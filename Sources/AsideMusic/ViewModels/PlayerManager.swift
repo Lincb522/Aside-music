@@ -291,15 +291,18 @@ class PlayerManager: ObservableObject {
         self.context = context
         self.playSource = .podcast(radioId: radioId)
         
+        // 优先使用 context 中已注入播客封面的 song
+        var songToPlay = song
         if let index = context.firstIndex(where: { $0.id == song.id }) {
             self.contextIndex = index
+            songToPlay = context[index]
         } else {
             self.context.insert(song, at: 0)
             self.contextIndex = 0
         }
         
         self.mode = .sequence
-        loadAndPlay(song: song)
+        loadAndPlay(song: songToPlay)
     }
     
     func appendContext(songs: [Song]) {
