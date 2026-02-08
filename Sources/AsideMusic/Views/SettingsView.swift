@@ -99,6 +99,8 @@ struct SettingsView: View {
 
     // MARK: - 播放设置
 
+    @State private var showUnblockSourceManage = false
+
     private var playbackSection: some View {
         SettingsSection(title: "播放") {
             VStack(spacing: 0) {
@@ -129,8 +131,29 @@ struct SettingsView: View {
                     subtitle: "灰色歌曲自动匹配其他音源",
                     isOn: $settings.unblockEnabled
                 )
+
+                Divider()
+                    .padding(.leading, 56)
+
+                SettingsNavigationRow(
+                    icon: .cloud,
+                    title: "第三方源管理",
+                    value: unblockSourceSummary
+                ) {
+                    showUnblockSourceManage = true
+                }
             }
         }
+        .fullScreenCover(isPresented: $showUnblockSourceManage) {
+            UnblockSourceManageView()
+        }
+    }
+
+    private var unblockSourceSummary: String {
+        let count = UnblockSourceManager.shared.enabledCount
+        let total = UnblockSourceManager.shared.sources.count
+        if total == 0 { return "未添加" }
+        return "\(count)/\(total) 启用"
     }
 
     private var soundQualityText: String {

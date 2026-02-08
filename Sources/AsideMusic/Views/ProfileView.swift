@@ -28,14 +28,19 @@ struct ProfileView: View {
             }
         }
         .onAppear {
-            // 只在首次出现时加载数据，避免每次切换都触发
-            guard !hasAppeared else {
-                GlobalRefreshManager.shared.markProfileDataReady()
-                return
-            }
-            hasAppeared = true
-            
             if isAppLoggedIn {
+                // 每次出现时都尝试同步最新的用户数据
+                if let profile = viewModel.userProfile, profile.userId != cachedProfile?.userId {
+                    cachedProfile = profile
+                }
+                
+                // 只在首次出现时做完整加载
+                guard !hasAppeared else {
+                    GlobalRefreshManager.shared.markProfileDataReady()
+                    return
+                }
+                hasAppeared = true
+                
                 // 延迟加载，让 tab 切换动画先完成
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     // 先从缓存获取用户数据

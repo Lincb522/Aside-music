@@ -1,5 +1,4 @@
 {
-  "originHash" : "f6d5cffbf7cd86b5a2f98a3080a626c997d19929007deb4e4d9871fe00caf19b",
   "pins" : [
     {
       "identity" : "liquidglasseffect",
@@ -15,10 +14,10 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git",
       "state" : {
-        "revision" : "af5624695f045f1092c90fd4b5ba1b33f5d30d3f",
-        "version" : "1.3.5"
+        "revision" : "6714771c5b6d1645ada526a3f287ce6d436b77e8",
+        "version" : "1.3.2"
       }
     }
   ],
-  "version" : 3
+  "version" : 2
 }

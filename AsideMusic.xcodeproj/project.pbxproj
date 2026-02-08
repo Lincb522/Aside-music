@@ -7,7 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F4DB6D6C2F34A9440079E1AF /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */; };
+		F4CDD5972F388E33001FD0A2 /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F4CDD5962F388E33001FD0A2 /* LiquidGlassEffect */; };
+		F4CDD59A2F388E64001FD0A2 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = F4CDD5992F388E64001FD0A2 /* NeteaseCloudMusicAPI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,7 +41,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F4DB6D6C2F34A9440079E1AF /* LiquidGlassEffect in Frameworks */,
+				F4CDD5972F388E33001FD0A2 /* LiquidGlassEffect in Frameworks */,
+				F4CDD59A2F388E64001FD0A2 /* NeteaseCloudMusicAPI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,7 +85,8 @@
 			);
 			name = AsideMusic;
 			packageProductDependencies = (
-				F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */,
+				F4CDD5962F388E33001FD0A2 /* LiquidGlassEffect */,
+				F4CDD5992F388E64001FD0A2 /* NeteaseCloudMusicAPI */,
 			);
 			productName = AsideMusic;
 			productReference = F4CCFD782F320B5900FC36CA /* AsideMusic.app */;
@@ -115,7 +118,8 @@
 			mainGroup = F4CCFD6F2F320B5900FC36CA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */,
+				F4CDD5952F388E33001FD0A2 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */,
+				F4CDD5982F388E64001FD0A2 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -369,21 +373,34 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */ = {
+		F4CDD5952F388E33001FD0A2 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Lincb522/LiquidGlassEffect.git";
+			repositoryURL = "https://github.com/Lincb522/LiquidGlassEffect";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.1.0;
 			};
 		};
+		F4CDD5982F388E64001FD0A2 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.5;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F4DB6D6B2F34A9440079E1AF /* LiquidGlassEffect */ = {
+		F4CDD5962F388E33001FD0A2 /* LiquidGlassEffect */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DB6D6A2F34A9440079E1AF /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */;
+			package = F4CDD5952F388E33001FD0A2 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */;
 			productName = LiquidGlassEffect;
+		};
+		F4CDD5992F388E64001FD0A2 /* NeteaseCloudMusicAPI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F4CDD5982F388E64001FD0A2 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */;
+			productName = NeteaseCloudMusicAPI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

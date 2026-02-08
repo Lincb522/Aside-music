@@ -119,9 +119,10 @@ class HomeViewModel: ObservableObject {
         // 跟踪数据加载完成状态
         var dailySongsLoaded = false
         var bannersLoaded = false
+        var userProfileLoaded = apiService.currentUserId == nil // 未登录时直接标记完成
         
         let checkAndMarkReady = { [weak self] in
-            if dailySongsLoaded && bannersLoaded {
+            if dailySongsLoaded && bannersLoaded && userProfileLoaded {
                 self?.isLoading = false
                 GlobalRefreshManager.shared.markHomeDataReady()
             }
@@ -193,12 +194,24 @@ class HomeViewModel: ObservableObject {
                 })
                 .store(in: &cancellables)
             
+            // 先尝试直接用 uid 获取用户详情
             apiService.fetchUserDetail(uid: uid)
-                .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] response in
+                .sink(receiveCompletion: { [weak self] completionResult in
+                    if case .failure(let error) = completionResult {
+                        print("⚠️ fetchUserDetail 失败: \(error)，尝试通过 loginStatus 获取")
+                        // 降级：通过 loginStatus 获取用户信息
+                        self?.fetchUserProfile {
+                            userProfileLoaded = true
+                            checkAndMarkReady()
+                        }
+                    }
+                }, receiveValue: { [weak self] response in
                     self?.userProfile = response.profile
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(response.profile, forKey: "user_profile_detail")
                     }
+                    userProfileLoaded = true
+                    checkAndMarkReady()
                 })
                 .store(in: &cancellables)
         }

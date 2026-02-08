@@ -3,9 +3,9 @@ import Combine
 
 // MARK: - 图片缓存配置
 private struct ImageCacheConfig {
-    static let maxMemoryCost = 30 * 1024 * 1024  // 30MB 内存限制
-    static let maxCount = 100                     // 最多缓存 100 张图片
-    static let maxConcurrentLoads = 4             // 最大并发加载数
+    static let maxMemoryCost = 80 * 1024 * 1024   // 80MB 内存限制
+    static let maxCount = 300                      // 最多缓存 300 张图片
+    static let maxConcurrentLoads = 8              // 最大并发加载数
 }
 
 // MARK: - 图片内存缓存
@@ -16,105 +16,46 @@ private let imageCache: NSCache<NSString, UIImage> = {
     return cache
 }()
 
-// MARK: - 图片加载并发控制
-private let imageConcurrencyQueue = DispatchQueue(label: "com.aside.imageLoader", qos: .userInitiated, attributes: .concurrent)
-private let imageSemaphore = DispatchSemaphore(value: ImageCacheConfig.maxConcurrentLoads)
+// MARK: - 共享 URLSession（带并发限制）
+private let imageSession: URLSession = {
+    let config = URLSessionConfiguration.default
+    config.httpMaximumConnectionsPerHost = ImageCacheConfig.maxConcurrentLoads
+    config.timeoutIntervalForRequest = 15
+    config.urlCache = URLCache(
+        memoryCapacity: 20 * 1024 * 1024,   // 20MB 内存
+        diskCapacity: 100 * 1024 * 1024,     // 100MB 磁盘
+        diskPath: "aside_image_cache"
+    )
+    return URLSession(configuration: config)
+}()
 
-class ImageLoader: ObservableObject {
-    @Published var image: UIImage?
-    @Published var isLoading = false
+// MARK: - 图片加载去重管理器
+private actor ImageLoadCoordinator {
+    static let shared = ImageLoadCoordinator()
     
-    private var cancellable: AnyCancellable?
-    private var currentUrl: URL?
-    private var loadingTask: DispatchWorkItem?
+    private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
     
-    deinit {
-        cancel()
-    }
-    
-    func load(url: URL) {
-        let cacheKey = url.absoluteString as NSString
-        if let cachedImage = imageCache.object(forKey: cacheKey) {
-            self.image = cachedImage
-            self.isLoading = false
-            return
+    func loadImage(url: URL) async -> UIImage? {
+        let key = url.absoluteString
+        
+        // 如果已有相同 URL 的加载任务，直接复用
+        if let existingTask = inFlightTasks[key] {
+            return await existingTask.value
         }
         
-        if url == currentUrl && (image != nil || isLoading) { return }
-        
-        cancel()
-        currentUrl = url
-        isLoading = true
-        image = nil
-        
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
+        let task = Task<UIImage?, Never> {
+            defer { inFlightTasks.removeValue(forKey: key) }
             
-            imageSemaphore.wait()
-            defer { imageSemaphore.signal() }
-            
-            if self.loadingTask?.isCancelled == true { return }
-            
-            if let cachedImage = imageCache.object(forKey: cacheKey) {
-                DispatchQueue.main.async {
-                    if self.currentUrl == url {
-                        self.image = cachedImage
-                        self.isLoading = false
-                    }
-                }
-                return
-            }
-            
-            if let data = CacheManager.shared.getImageData(forKey: url.absoluteString),
-               let cachedImage = self.downsampleImage(data: data, maxSize: 300) {
-                
-                // 计算图片内存成本
-                let cost = cachedImage.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                imageCache.setObject(cachedImage, forKey: cacheKey, cost: cost)
-                
-                DispatchQueue.main.async {
-                    if self.currentUrl == url {
-                        self.image = cachedImage
-                        self.isLoading = false
-                    }
-                }
-                return
-            }
-            
-            DispatchQueue.main.async {
-                if self.currentUrl != url { return }
-                
-                self.cancellable = URLSession.shared.dataTaskPublisher(for: url)
-                    .map { [weak self] output -> UIImage? in
-                        // 在后台线程进行图片解码和降采样
-                        return self?.downsampleImage(data: output.data, maxSize: 300)
-                    }
-                    .replaceError(with: nil)
-                    .receive(on: DispatchQueue.main)
-                    .sink { [weak self] downloadedImage in
-                        guard let self = self, self.currentUrl == url else { return }
-                        self.isLoading = false
-                        
-                        if let image = downloadedImage {
-                            self.image = image
-                            
-                            // 计算内存成本
-                            let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                            imageCache.setObject(image, forKey: cacheKey, cost: cost)
-                            
-                            // 异步保存到磁盘（使用压缩后的数据）
-                            if let data = image.jpegData(compressionQuality: 0.7) {
-                                DispatchQueue.global(qos: .background).async {
-                                    CacheManager.shared.setImageData(data, forKey: url.absoluteString)
-                                }
-                            }
-                        }
-                    }
+            do {
+                let (data, _) = try await imageSession.data(from: url)
+                return downsampleImage(data: data, maxSize: 300)
+            } catch {
+                return nil
             }
         }
         
-        loadingTask = workItem
-        imageConcurrencyQueue.async(execute: workItem)
+        inFlightTasks[key] = task
+        return await task.value
     }
     
     /// 图片降采样 - 减少内存占用
@@ -124,11 +65,117 @@ class ImageLoader: ObservableObject {
             return UIImage(data: data)
         }
         
+        // 使用固定 scale 3.0 避免在非主线程访问 UIScreen
+        let scale: CGFloat = 3.0
         let downsampleOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxSize * UIScreen.main.scale
+            kCGImageSourceThumbnailMaxPixelSize: maxSize * scale
+        ] as CFDictionary
+        
+        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
+            return UIImage(data: data)
+        }
+        
+        return UIImage(cgImage: downsampledImage)
+    }
+}
+
+
+class ImageLoader: ObservableObject {
+    @Published var image: UIImage?
+    @Published var isLoading = false
+    
+    private var loadTask: Task<Void, Never>?
+    private var currentUrl: URL?
+    
+    deinit {
+        loadTask?.cancel()
+    }
+    
+    func load(url: URL) {
+        let cacheKey = url.absoluteString as NSString
+        
+        // 1. 内存缓存命中 → 立即返回
+        if let cachedImage = imageCache.object(forKey: cacheKey) {
+            self.image = cachedImage
+            self.isLoading = false
+            return
+        }
+        
+        // 避免重复加载同一 URL
+        if url == currentUrl && (image != nil || isLoading) { return }
+        
+        cancel()
+        currentUrl = url
+        isLoading = true
+        
+        loadTask = Task { [weak self] in
+            guard let self = self else { return }
+            
+            // 2. 磁盘缓存命中
+            if let data = CacheManager.shared.getImageData(forKey: url.absoluteString) {
+                let diskImage = await Task.detached(priority: .userInitiated) {
+                    return self.downsampleImage(data: data, maxSize: 300)
+                }.value
+                
+                if Task.isCancelled { return }
+                
+                if let diskImage = diskImage {
+                    let cost = diskImage.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+                    imageCache.setObject(diskImage, forKey: cacheKey, cost: cost)
+                    
+                    await MainActor.run {
+                        guard self.currentUrl == url else { return }
+                        self.image = diskImage
+                        self.isLoading = false
+                    }
+                    return
+                }
+            }
+            
+            if Task.isCancelled { return }
+            
+            // 3. 网络加载（通过 coordinator 去重）
+            let downloadedImage = await ImageLoadCoordinator.shared.loadImage(url: url)
+            
+            if Task.isCancelled { return }
+            
+            await MainActor.run {
+                guard self.currentUrl == url else { return }
+                self.isLoading = false
+                
+                if let image = downloadedImage {
+                    self.image = image
+                    
+                    let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+                    imageCache.setObject(image, forKey: cacheKey, cost: cost)
+                    
+                    // 异步保存到磁盘
+                    Task.detached(priority: .background) {
+                        if let data = image.jpegData(compressionQuality: 0.7) {
+                            CacheManager.shared.setImageData(data, forKey: url.absoluteString)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /// 图片降采样 - 减少内存占用
+    private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
+        let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions) else {
+            return UIImage(data: data)
+        }
+        
+        let scale = UIScreen.main.scale
+        let downsampleOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxSize * scale
         ] as CFDictionary
         
         guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
@@ -139,10 +186,8 @@ class ImageLoader: ObservableObject {
     }
     
     func cancel() {
-        loadingTask?.cancel()
-        loadingTask = nil
-        cancellable?.cancel()
-        cancellable = nil
+        loadTask?.cancel()
+        loadTask = nil
         isLoading = false
     }
 }
@@ -175,15 +220,12 @@ struct CachedAsyncImage<Placeholder: View>: View {
                     loader.load(url: url)
                 }
             }
-            .onChange(of: url) { newUrl in
+            .onChange(of: url) { _, newUrl in
                 if let newUrl = newUrl {
                     loader.load(url: newUrl)
                 }
             }
-            .onDisappear {
-                // 视图消失时取消加载
-                loader.cancel()
-            }
+            // 不在 onDisappear 取消加载，避免滚动时反复重新请求
     }
     
     @ViewBuilder
@@ -206,4 +248,3 @@ extension CachedAsyncImage {
         imageCache.removeAllObjects()
     }
 }
-
