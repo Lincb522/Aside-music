@@ -614,7 +614,9 @@ struct MyPodcastsView: View {
             }
             Button("取消订阅", role: .destructive) {
                 guard let radio = radioToRemove else { return }
-                subManager.unsubscribeRadio(radio) { _ in }
+                withAnimation {
+                    subManager.unsubscribeRadio(radio) { _ in }
+                }
                 radioToRemove = nil
             }
         } message: {
@@ -732,15 +734,23 @@ struct NetEasePlaylistsView: View {
             }
             Button(isOwnPlaylist ? "删除" : "取消收藏", role: .destructive) {
                 guard let playlist = playlistToRemove else { return }
+                let playlistId = playlist.id
+                // 立即从本地列表移除，不等网络返回
+                withAnimation {
+                    viewModel.userPlaylists.removeAll { $0.id == playlistId }
+                }
+                // 清除本地缓存
+                OptimizedCacheManager.shared.setObject(viewModel.userPlaylists, forKey: "user_playlists")
                 if isOwnPlaylist {
-                    subManager.deletePlaylist(id: playlist.id) { success in
-                        if success {
+                    subManager.deletePlaylist(id: playlistId) { success in
+                        if !success {
+                            // 失败时重新拉取恢复
                             viewModel.fetchPlaylists(force: true)
                         }
                     }
                 } else {
-                    subManager.unsubscribePlaylist(id: playlist.id) { success in
-                        if success {
+                    subManager.unsubscribePlaylist(id: playlistId) { success in
+                        if !success {
                             viewModel.fetchPlaylists(force: true)
                         }
                     }
