@@ -803,7 +803,8 @@ class APIService {
 
     /// 获取用户订阅的播客列表
     func fetchDJSublist(limit: Int = 30, offset: Int = 0) -> AnyPublisher<[RadioStation], Error> {
-        return fetch("/dj/sublist?limit=\(limit)&offset=\(offset)")
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        return fetch("/dj/sublist?limit=\(limit)&offset=\(offset)&timestamp=\(ts)")
             .map { (response: DJSublistResponse) -> [RadioStation] in
                 return response.djRadios ?? []
             }
@@ -813,20 +814,23 @@ class APIService {
     /// 订阅/取消订阅播客（t=1 订阅，t=0 取消）
     func subscribeDJ(rid: Int, subscribe: Bool) -> AnyPublisher<SimpleResponse, Error> {
         let t = subscribe ? 1 : 0
-        return fetch("/dj/sub?rid=\(rid)&t=\(t)")
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        return fetch("/dj/sub?rid=\(rid)&t=\(t)&timestamp=\(ts)")
             .eraseToAnyPublisher()
     }
 
     /// 收藏/取消收藏歌单（t=1 收藏，t=2 取消）
     func subscribePlaylist(id: Int, subscribe: Bool) -> AnyPublisher<SimpleResponse, Error> {
         let t = subscribe ? 1 : 2
-        return fetch("/playlist/subscribe?t=\(t)&id=\(id)")
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        return fetch("/playlist/subscribe?t=\(t)&id=\(id)&timestamp=\(ts)")
             .eraseToAnyPublisher()
     }
 
     /// 删除用户创建的歌单
     func deletePlaylist(id: Int) -> AnyPublisher<SimpleResponse, Error> {
-        return fetch("/playlist/delete?id=\(id)")
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        return fetch("/playlist/delete?id=\(id)&timestamp=\(ts)")
             .eraseToAnyPublisher()
     }
 }

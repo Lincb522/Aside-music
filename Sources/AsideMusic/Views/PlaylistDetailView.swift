@@ -168,14 +168,6 @@ struct PlaylistDetailView: View {
                 AsideBackButton()
                 
                 Spacer()
-
-                // 收藏歌单按钮（非自己创建的歌单才显示）
-                if playlist.creator?.userId != APIService.shared.currentUserId {
-                    SubscribeButton(
-                        isSubscribed: subManager.isPlaylistSubscribed(playlist.id),
-                        action: { subManager.togglePlaylistSubscription(id: playlist.id) }
-                    )
-                }
                 
                 if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
                     Text(String(format: NSLocalizedString("songs_count_format", comment: ""), count))
@@ -217,24 +209,34 @@ struct PlaylistDetailView: View {
                 
                 Spacer().frame(height: 4)
                     
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                            PlayerManager.shared.play(song: first, in: viewModel.songs)
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.play(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
+                                Text(LocalizedStringKey("play_now"))
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(.asideIconForeground)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Theme.accent)
+                            .cornerRadius(20)
+                            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
                         }
-                    }) {
-                        HStack(spacing: 6) {
-                            AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
-                            Text(LocalizedStringKey("play_now"))
-                                .font(.system(size: 12, weight: .bold))
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+
+                        // 收藏歌单按钮（非自己创建的歌单才显示）
+                        if playlist.creator?.userId != APIService.shared.currentUserId {
+                            SubscribeButton(
+                                isSubscribed: subManager.isPlaylistSubscribed(playlist.id),
+                                action: { subManager.togglePlaylistSubscription(id: playlist.id) }
+                            )
                         }
-                        .foregroundColor(.asideIconForeground)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Theme.accent)
-                        .cornerRadius(20)
-                        .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
                     }
-                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 }
             }
         }

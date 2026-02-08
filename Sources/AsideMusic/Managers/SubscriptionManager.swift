@@ -122,7 +122,14 @@ class SubscriptionManager: ObservableObject {
                         self?.subscribedPlaylistIds.insert(id)
                     }
                 }
-            }, receiveValue: { _ in })
+            }, receiveValue: { response in
+                if response.code == 200 {
+                    // 收藏/取消收藏成功，刷新歌单列表
+                    Task { @MainActor in
+                        GlobalRefreshManager.shared.refreshLibraryPublisher.send(true)
+                    }
+                }
+            })
             .store(in: &cancellables)
     }
 
