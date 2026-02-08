@@ -246,7 +246,7 @@ struct RadioPlayerView: View {
         VStack(spacing: 8) {
             // 刻度线
             GeometryReader { geo in
-                let totalPrograms = max(viewModel.programs.count, 1)
+                let totalPrograms = viewModel.radioDetail?.programCount ?? max(viewModel.programs.count, 1)
                 let progress = totalPrograms > 1
                     ? CGFloat(currentProgramIndex) / CGFloat(totalPrograms - 1)
                     : 0.5
@@ -278,9 +278,10 @@ struct RadioPlayerView: View {
             .frame(height: 16)
             .padding(.horizontal, 40)
 
-            // 节目序号
+            // 节目序号 — 使用电台总节目数
             if !viewModel.programs.isEmpty {
-                Text("第 \(currentProgramIndex + 1) / \(viewModel.programs.count) 期")
+                let total = viewModel.radioDetail?.programCount ?? viewModel.programs.count
+                Text("第 \(currentProgramIndex + 1) / \(total) 期")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.asideTextSecondary)
             }
