@@ -118,6 +118,8 @@ struct DailyRecommendView: View {
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
+    @State private var selectedAlbumId: Int?
+    @State private var showAlbumDetail = false
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -172,6 +174,11 @@ struct DailyRecommendView: View {
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
+            }
+        }
+        .navigationDestination(isPresented: $showAlbumDetail) {
+            if let albumId = selectedAlbumId {
+                AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
             }
         }
         .onChange(of: viewModel.showStyleMenu) { _, isShown in
@@ -301,6 +308,9 @@ struct DailyRecommendView: View {
                     }, onDetailTap: { detailSong in
                         selectedSongForDetail = detailSong
                         showSongDetail = true
+                    }, onAlbumTap: { albumId in
+                        selectedAlbumId = albumId
+                        showAlbumDetail = true
                     })
                         .asButton {
                             PlayerManager.shared.play(song: song, in: viewModel.songs)

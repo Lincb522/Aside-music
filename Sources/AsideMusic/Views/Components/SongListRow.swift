@@ -8,6 +8,7 @@ struct SongListRow: View {
     let index: Int
     var onArtistTap: ((Int) -> Void)? = nil
     var onDetailTap: ((Song) -> Void)? = nil
+    var onAlbumTap: ((Int) -> Void)? = nil
     
     var isCurrent: Bool {
         player.currentSong?.id == song.id
@@ -149,6 +150,14 @@ struct SongListRow: View {
                     onArtistTap?(artistId)
                 } label: {
                     Label(LocalizedStringKey("action_artist"), systemImage: "person.circle")
+                }
+            }
+            
+            if let albumId = song.al?.id, albumId > 0 {
+                Button {
+                    onAlbumTap?(albumId)
+                } label: {
+                    Label("查看专辑", systemImage: "square.stack")
                 }
             }
             

@@ -111,6 +111,8 @@ struct PlaylistDetailView: View {
     @State private var showSongDetail = false
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
+    @State private var selectedAlbumId: Int?
+    @State private var showAlbumDetail = false
     
     @State private var scrollOffset: CGFloat = 0
     
@@ -150,6 +152,11 @@ struct PlaylistDetailView: View {
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
+            }
+        }
+        .navigationDestination(isPresented: $showAlbumDetail) {
+            if let albumId = selectedAlbumId {
+                AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
             }
         }
         .onAppear {
@@ -262,6 +269,10 @@ struct PlaylistDetailView: View {
                         onDetailTap: { detailSong in
                             selectedSongForDetail = detailSong
                             showSongDetail = true
+                        },
+                        onAlbumTap: { albumId in
+                            selectedAlbumId = albumId
+                            showAlbumDetail = true
                         }
                     )
                     .asButton {

@@ -1,10 +1,24 @@
 import SwiftUI
 import Combine
 
+// MARK: - 搜索类型
+
+enum SearchTab: String, CaseIterable {
+    case songs = "单曲"
+    case artists = "歌手"
+    case playlists = "歌单"
+    case albums = "专辑"
+    case mvs = "MV"
+}
+
 @MainActor
 class SearchViewModel: ObservableObject {
     @Published var query: String = ""
     @Published var searchResults: [Song] = []
+    @Published var artistResults: [ArtistInfo] = []
+    @Published var playlistResults: [Playlist] = []
+    @Published var albumResults: [SearchAlbum] = []
+    @Published var mvResults: [MV] = []
     @Published var suggestions: [String] = []
     @Published var searchHistory: [SearchHistory] = []
     @Published var hotSearchItems: [HotSearchItem] = []
@@ -12,6 +26,7 @@ class SearchViewModel: ObservableObject {
     @Published var hasSearched = false
     @Published var canLoadMore = true
     @Published var showSuggestions = false
+    @Published var currentTab: SearchTab = .songs
 
     private var currentPage = 0
     private var isFetchingMore = false
@@ -41,6 +56,10 @@ class SearchViewModel: ObservableObject {
     
     private func resetState() {
         self.searchResults = []
+        self.artistResults = []
+        self.playlistResults = []
+        self.albumResults = []
+        self.mvResults = []
         self.suggestions = []
         self.hasSearched = false
         self.showSuggestions = false
@@ -86,7 +105,28 @@ class SearchViewModel: ObservableObject {
         cacheManager.addSearchHistory(keyword: keyword)
         loadSearchHistory()
 
-        performNeteaseSearch(keyword: keyword, offset: 0, isLoadMore: false)
+        executeSearch(keyword: keyword, offset: 0, isLoadMore: false)
+    }
+    
+    /// 切换搜索类型时重新搜索
+    func switchTab(_ tab: SearchTab) {
+        guard tab != currentTab else { return }
+        currentTab = tab
+        guard hasSearched, !query.isEmpty else { return }
+        
+        // 如果该类型已有结果，不重复请求
+        switch tab {
+        case .songs: if !searchResults.isEmpty { return }
+        case .artists: if !artistResults.isEmpty { return }
+        case .playlists: if !playlistResults.isEmpty { return }
+        case .albums: if !albumResults.isEmpty { return }
+        case .mvs: if !mvResults.isEmpty { return }
+        }
+        
+        isLoading = true
+        currentPage = 0
+        canLoadMore = true
+        executeSearch(keyword: query, offset: 0, isLoadMore: false)
     }
     
     func loadMore() {
@@ -95,35 +135,102 @@ class SearchViewModel: ObservableObject {
         isFetchingMore = true
         let nextPage = currentPage + 1
         let offset = nextPage * 30
-        performNeteaseSearch(keyword: query, offset: offset, isLoadMore: true)
+        executeSearch(keyword: query, offset: offset, isLoadMore: true)
     }
 
-    private func performNeteaseSearch(keyword: String, offset: Int, isLoadMore: Bool) {
-        apiService.searchSongs(keyword: keyword, offset: offset)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] _ in
-                self?.isLoading = false
-                if isLoadMore { self?.isFetchingMore = false }
-            }, receiveValue: { [weak self] songs in
-                guard let self = self else { return }
-                if isLoadMore {
-                    if !songs.isEmpty {
-                        let existingIds = Set(self.searchResults.map { $0.id })
-                        let newSongs = songs.filter { !existingIds.contains($0.id) }
-                        if !newSongs.isEmpty {
-                            self.searchResults.append(contentsOf: newSongs)
-                        }
-                        self.currentPage += 1
-                        self.canLoadMore = songs.count >= 30
-                    } else {
-                        self.canLoadMore = false
-                    }
-                } else {
-                    self.searchResults = songs
-                    self.canLoadMore = !songs.isEmpty
+    private func executeSearch(keyword: String, offset: Int, isLoadMore: Bool) {
+        switch currentTab {
+        case .songs:
+            apiService.searchSongs(keyword: keyword, offset: offset)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    self?.isLoading = false
+                    if isLoadMore { self?.isFetchingMore = false }
+                }, receiveValue: { [weak self] songs in
+                    guard let self = self else { return }
+                    self.handlePagination(newItems: songs, existing: &self.searchResults, isLoadMore: isLoadMore)
+                })
+                .store(in: &cancellables)
+            
+        case .artists:
+            apiService.searchArtists(keyword: keyword, limit: 30, offset: offset)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    self?.isLoading = false
+                    if isLoadMore { self?.isFetchingMore = false }
+                }, receiveValue: { [weak self] artists in
+                    guard let self = self else { return }
+                    self.handlePagination(newItems: artists, existing: &self.artistResults, isLoadMore: isLoadMore)
+                })
+                .store(in: &cancellables)
+            
+        case .playlists:
+            apiService.searchPlaylists(keyword: keyword, limit: 30, offset: offset)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    self?.isLoading = false
+                    if isLoadMore { self?.isFetchingMore = false }
+                }, receiveValue: { [weak self] playlists in
+                    guard let self = self else { return }
+                    self.handlePagination(newItems: playlists, existing: &self.playlistResults, isLoadMore: isLoadMore)
+                })
+                .store(in: &cancellables)
+            
+        case .albums:
+            apiService.searchAlbums(keyword: keyword, limit: 30, offset: offset)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    self?.isLoading = false
+                    if isLoadMore { self?.isFetchingMore = false }
+                }, receiveValue: { [weak self] albums in
+                    guard let self = self else { return }
+                    self.handlePagination(newItems: albums, existing: &self.albumResults, isLoadMore: isLoadMore)
+                })
+                .store(in: &cancellables)
+            
+        case .mvs:
+            apiService.searchMVs(keyword: keyword, limit: 30, offset: offset)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    self?.isLoading = false
+                    if isLoadMore { self?.isFetchingMore = false }
+                }, receiveValue: { [weak self] mvs in
+                    guard let self = self else { return }
+                    self.handlePagination(newItems: mvs, existing: &self.mvResults, isLoadMore: isLoadMore)
+                })
+                .store(in: &cancellables)
+        }
+    }
+    
+    /// 通用分页处理
+    private func handlePagination<T: Identifiable>(newItems: [T], existing: inout [T], isLoadMore: Bool) where T.ID: Hashable {
+        if isLoadMore {
+            if !newItems.isEmpty {
+                let existingIds = Set(existing.map { $0.id })
+                let filtered = newItems.filter { !existingIds.contains($0.id) }
+                if !filtered.isEmpty {
+                    existing.append(contentsOf: filtered)
                 }
-            })
-            .store(in: &cancellables)
+                currentPage += 1
+                canLoadMore = newItems.count >= 30
+            } else {
+                canLoadMore = false
+            }
+        } else {
+            existing = newItems
+            canLoadMore = !newItems.isEmpty
+        }
+    }
+    
+    /// 当前 tab 是否有结果
+    var currentResultsEmpty: Bool {
+        switch currentTab {
+        case .songs: return searchResults.isEmpty
+        case .artists: return artistResults.isEmpty
+        case .playlists: return playlistResults.isEmpty
+        case .albums: return albumResults.isEmpty
+        case .mvs: return mvResults.isEmpty
+        }
     }
     
     func clearSearch() {
@@ -142,12 +249,20 @@ class SearchViewModel: ObservableObject {
     }
 }
 
+
+// MARK: - SearchView
+
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
+    @State private var selectedPlaylist: Playlist?
+    @State private var showPlaylistDetail = false
+    @State private var selectedMVId: MVIdItem?
+    @State private var selectedAlbumId: Int?
+    @State private var showAlbumDetail = false
     @FocusState private var isFocused: Bool
     
     var body: some View {
@@ -176,10 +291,23 @@ struct SearchView: View {
                 SongDetailView(song: song)
             }
         }
+        .navigationDestination(isPresented: $showPlaylistDetail) {
+            if let playlist = selectedPlaylist {
+                PlaylistDetailView(playlist: playlist, songs: nil)
+            }
+        }
+        .navigationDestination(isPresented: $showAlbumDetail) {
+            if let albumId = selectedAlbumId {
+                AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
+            }
+        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isFocused = true
             }
+        }
+        .fullScreenCover(item: $selectedMVId) { item in
+            MVPlayerView(mvId: item.id)
         }
         .toolbar(.hidden, for: .tabBar)
     }
@@ -241,18 +369,53 @@ struct SearchView: View {
         }
         .padding(.bottom, 12)
     }
+
+    // MARK: - 搜索类型 Tab 栏
+    
+    private var searchTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(SearchTab.allCases, id: \.self) { tab in
+                Button(action: {
+                    viewModel.switchTab(tab)
+                }) {
+                    VStack(spacing: 6) {
+                        Text(tab.rawValue)
+                            .font(.rounded(size: 14, weight: viewModel.currentTab == tab ? .semibold : .regular))
+                            .foregroundColor(viewModel.currentTab == tab ? .asideTextPrimary : .asideTextSecondary)
+                        
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(viewModel.currentTab == tab ? Color.asideTextPrimary : Color.clear)
+                            .frame(width: 20, height: 3)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 8)
+    }
     
     // MARK: - 搜索内容区域
     
     @ViewBuilder
     private var searchContentView: some View {
         if viewModel.hasSearched {
-            if viewModel.isLoading && viewModel.searchResults.isEmpty {
-                AsideLoadingView(text: "SEARCHING")
-            } else if viewModel.searchResults.isEmpty {
-                emptyResultsView
-            } else {
-                neteaseResultsListView
+            VStack(spacing: 0) {
+                searchTabBar
+                
+                if viewModel.isLoading && viewModel.currentResultsEmpty {
+                    Spacer()
+                    AsideLoadingView(text: "SEARCHING")
+                    Spacer()
+                } else if viewModel.currentResultsEmpty {
+                    Spacer()
+                    emptyResultsView
+                    Spacer()
+                } else {
+                    resultsListView
+                }
             }
         } else if viewModel.query.isEmpty {
             emptySearchView
@@ -269,7 +432,7 @@ struct SearchView: View {
                 .foregroundColor(.asideTextSecondary)
         }
     }
-    
+
     // MARK: - 搜索历史 & 热搜
     
     private var emptySearchView: some View {
@@ -332,7 +495,6 @@ struct SearchView: View {
                         .padding(.top, 20)
                         .padding(.bottom, 12)
                     
-                    // 标签流式布局
                     FlowLayout(spacing: 10) {
                         ForEach(Array(viewModel.hotSearchItems.prefix(20).enumerated()), id: \.offset) { index, item in
                             Button(action: {
@@ -358,12 +520,23 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - 网易云结果列表
+    // MARK: - 结果列表（根据当前 Tab 切换）
     
-    private var neteaseResultsListView: some View {
+    private var resultsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                neteaseResultsSection
+                switch viewModel.currentTab {
+                case .songs:
+                    songsResultSection
+                case .artists:
+                    artistsResultSection
+                case .playlists:
+                    playlistsResultSection
+                case .albums:
+                    albumsResultSection
+                case .mvs:
+                    mvsResultSection
+                }
             }
             .padding(.bottom, 120)
         }
@@ -371,40 +544,244 @@ struct SearchView: View {
             isFocused = false
         })
     }
-    
-    // MARK: - 网易云搜索结果
+
+    // MARK: - 单曲结果
     
     @ViewBuilder
-    private var neteaseResultsSection: some View {
-        if !viewModel.searchResults.isEmpty {
-            sectionHeader("网易云音乐", icon: .cloud)
-            
-            ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { index, song in
-                SongListRow(song: song, index: index, onArtistTap: { artistId in
-                    selectedArtistId = artistId
-                    showArtistDetail = true
-                }, onDetailTap: { detailSong in
-                    selectedSongForDetail = detailSong
-                    showSongDetail = true
-                })
-                    .asButton {
-                        PlayerManager.shared.play(song: song, in: viewModel.searchResults)
-                        isFocused = false
+    private var songsResultSection: some View {
+        ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { index, song in
+            SongListRow(song: song, index: index, onArtistTap: { artistId in
+                selectedArtistId = artistId
+                showArtistDetail = true
+            }, onDetailTap: { detailSong in
+                selectedSongForDetail = detailSong
+                showSongDetail = true
+            }, onAlbumTap: { albumId in
+                selectedAlbumId = albumId
+                showAlbumDetail = true
+            })
+                .asButton {
+                    PlayerManager.shared.play(song: song, in: viewModel.searchResults)
+                    isFocused = false
+                }
+                .onAppear {
+                    if index == viewModel.searchResults.count - 1 {
+                        viewModel.loadMore()
                     }
-                    .onAppear {
-                        if index == viewModel.searchResults.count - 1 {
-                            viewModel.loadMore()
-                        }
-                    }
-            }
-            
-            if viewModel.canLoadMore {
-                AsideLoadingView(text: "LOADING MORE")
-                    .padding(.vertical, 20)
-            }
+                }
+        }
+        
+        if viewModel.canLoadMore && !viewModel.searchResults.isEmpty {
+            AsideLoadingView(text: "LOADING MORE")
+                .padding(.vertical, 20)
         }
     }
     
+    // MARK: - 歌手结果
+    
+    @ViewBuilder
+    private var artistsResultSection: some View {
+        ForEach(Array(viewModel.artistResults.enumerated()), id: \.element.id) { index, artist in
+            Button(action: {
+                selectedArtistId = artist.id
+                showArtistDetail = true
+            }) {
+                HStack(spacing: 14) {
+                    CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
+                        Circle().fill(Color.asideCardBackground)
+                    }
+                    .frame(width: 50, height: 50)
+                    .clipShape(Circle())
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(artist.name)
+                            .font(.rounded(size: 16, weight: .medium))
+                            .foregroundColor(.asideTextPrimary)
+                            .lineLimit(1)
+                        
+                        HStack(spacing: 8) {
+                            if let albumSize = artist.albumSize, albumSize > 0 {
+                                Text("专辑: \(albumSize)")
+                                    .font(.rounded(size: 12, weight: .regular))
+                                    .foregroundColor(.asideTextSecondary)
+                            }
+                            if let musicSize = artist.musicSize, musicSize > 0 {
+                                Text("歌曲: \(musicSize)")
+                                    .font(.rounded(size: 12, weight: .regular))
+                                    .foregroundColor(.asideTextSecondary)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onAppear {
+                if index == viewModel.artistResults.count - 1 {
+                    viewModel.loadMore()
+                }
+            }
+        }
+        
+        if viewModel.canLoadMore && !viewModel.artistResults.isEmpty {
+            AsideLoadingView(text: "LOADING MORE")
+                .padding(.vertical, 20)
+        }
+    }
+
+    // MARK: - 歌单结果
+    
+    @ViewBuilder
+    private var playlistsResultSection: some View {
+        ForEach(Array(viewModel.playlistResults.enumerated()), id: \.element.id) { index, playlist in
+            Button(action: {
+                selectedPlaylist = playlist
+                showPlaylistDetail = true
+            }) {
+                HStack(spacing: 14) {
+                    CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
+                        RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    }
+                    .frame(width: 56, height: 56)
+                    .cornerRadius(10)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(playlist.name)
+                            .font(.rounded(size: 16, weight: .medium))
+                            .foregroundColor(.asideTextPrimary)
+                            .lineLimit(1)
+                        
+                        HStack(spacing: 8) {
+                            if let trackCount = playlist.trackCount, trackCount > 0 {
+                                Text("\(trackCount)首")
+                                    .font(.rounded(size: 12, weight: .regular))
+                                    .foregroundColor(.asideTextSecondary)
+                            }
+                            if let creator = playlist.creator?.nickname {
+                                Text("by \(creator)")
+                                    .font(.rounded(size: 12, weight: .regular))
+                                    .foregroundColor(.asideTextSecondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onAppear {
+                if index == viewModel.playlistResults.count - 1 {
+                    viewModel.loadMore()
+                }
+            }
+        }
+        
+        if viewModel.canLoadMore && !viewModel.playlistResults.isEmpty {
+            AsideLoadingView(text: "LOADING MORE")
+                .padding(.vertical, 20)
+        }
+    }
+    
+    // MARK: - 专辑结果
+    
+    @ViewBuilder
+    private var albumsResultSection: some View {
+        ForEach(Array(viewModel.albumResults.enumerated()), id: \.element.id) { index, album in
+            Button(action: {
+                selectedAlbumId = album.id
+                showAlbumDetail = true
+            }) {
+                HStack(spacing: 14) {
+                    CachedAsyncImage(url: album.coverUrl?.sized(200)) {
+                        RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    }
+                    .frame(width: 56, height: 56)
+                    .cornerRadius(10)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(album.name)
+                            .font(.rounded(size: 16, weight: .medium))
+                            .foregroundColor(.asideTextPrimary)
+                            .lineLimit(1)
+                        
+                        HStack(spacing: 8) {
+                            Text(album.artistName)
+                                .font(.rounded(size: 12, weight: .regular))
+                                .foregroundColor(.asideTextSecondary)
+                                .lineLimit(1)
+                            
+                            if let size = album.size, size > 0 {
+                                Text("\(size)首")
+                                    .font(.rounded(size: 12, weight: .regular))
+                                    .foregroundColor(.asideTextSecondary)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onAppear {
+                if index == viewModel.albumResults.count - 1 {
+                    viewModel.loadMore()
+                }
+            }
+        }
+        
+        if viewModel.canLoadMore && !viewModel.albumResults.isEmpty {
+            AsideLoadingView(text: "LOADING MORE")
+                .padding(.vertical, 20)
+        }
+    }
+    
+    // MARK: - MV 结果
+    
+    @ViewBuilder
+    private var mvsResultSection: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ]
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(Array(viewModel.mvResults.enumerated()), id: \.element.id) { index, mv in
+                MVGridCard(mv: mv) {
+                    selectedMVId = MVIdItem(id: mv.id)
+                    isFocused = false
+                }
+                .onAppear {
+                    if index == viewModel.mvResults.count - 1 {
+                        viewModel.loadMore()
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        
+        if viewModel.canLoadMore && !viewModel.mvResults.isEmpty {
+            AsideLoadingView(text: "LOADING MORE")
+                .padding(.vertical, 20)
+        }
+    }
+
     // MARK: - 搜索建议浮层
     
     @ViewBuilder
@@ -442,24 +819,5 @@ struct SearchView: View {
             }
             .asideBackground()
         }
-    }
-    
-    // MARK: - 分区标题
-    
-    private func sectionHeader(_ title: String, icon: AsideIcon.IconType) -> some View {
-        HStack(spacing: 8) {
-            AsideIcon(icon: icon, size: 14, color: .asideTextSecondary)
-            
-            Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.asideTextSecondary)
-            
-            Rectangle()
-                .fill(Color.asideTextSecondary.opacity(0.2))
-                .frame(height: 0.5)
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
     }
 }

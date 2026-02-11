@@ -290,10 +290,52 @@ class APIService {
             try await ncm.artistTopSong(id: id)
         }
     }
+    
+    /// 获取歌手详细描述（分段介绍）
+    func fetchArtistDesc(id: Int) -> AnyPublisher<ArtistDescResult, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.artistDesc(id: id)
+            let briefDesc = response.body["briefDesc"] as? String
+            var sections: [ArtistDescSection] = []
+            if let introArray = response.body["introduction"] as? [[String: Any]] {
+                for intro in introArray {
+                    let title = intro["ti"] as? String ?? ""
+                    let content = intro["txt"] as? String ?? ""
+                    if !content.isEmpty {
+                        sections.append(ArtistDescSection(title: title, content: content))
+                    }
+                }
+            }
+            return ArtistDescResult(briefDesc: briefDesc, sections: sections)
+        }
+    }
 
     func fetchPlaylistDetail(id: Int, cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil) -> AnyPublisher<Playlist, Error> {
         ncm.fetch(Playlist.self, keyPath: "playlist") { [ncm] in
             try await ncm.playlistDetail(id: id)
+        }
+    }
+    
+    /// 获取专辑详情（专辑信息 + 歌曲列表）
+    func fetchAlbumDetail(id: Int) -> AnyPublisher<AlbumDetailResult, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.album(id: id)
+            
+            // 解析专辑信息
+            var albumInfo: AlbumInfo?
+            if let albumDict = response.body["album"] as? [String: Any] {
+                let data = try JSONSerialization.data(withJSONObject: albumDict)
+                albumInfo = try JSONDecoder().decode(AlbumInfo.self, from: data)
+            }
+            
+            // 解析歌曲列表
+            var songs: [Song] = []
+            if let songsArray = response.body["songs"] as? [[String: Any]] {
+                let data = try JSONSerialization.data(withJSONObject: songsArray)
+                songs = try JSONDecoder().decode([Song].self, from: data)
+            }
+            
+            return AlbumDetailResult(album: albumInfo, songs: songs)
         }
     }
 

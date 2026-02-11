@@ -32,6 +32,8 @@ struct SongDetailView: View {
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
+    @State private var selectedAlbumId: Int?
+    @State private var showAlbumDetail = false
     
     struct Theme {
         static let text = Color.asideTextPrimary
@@ -66,6 +68,11 @@ struct SongDetailView: View {
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
+            }
+        }
+        .navigationDestination(isPresented: $showAlbumDetail) {
+            if let albumId = selectedAlbumId {
+                AlbumDetailView(albumId: albumId, albumName: song.al?.name, albumCoverUrl: song.coverUrl)
             }
         }
         .onAppear {
@@ -105,10 +112,22 @@ struct SongDetailView: View {
                         .lineLimit(1)
                     
                     if let album = song.album?.name {
-                        Text(album)
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.secondaryText.opacity(0.8))
-                            .lineLimit(1)
+                        Button(action: {
+                            if let albumId = song.al?.id, albumId > 0 {
+                                selectedAlbumId = albumId
+                                showAlbumDetail = true
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(album)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Theme.secondaryText.opacity(0.8))
+                                    .lineLimit(1)
+                                if let albumId = song.al?.id, albumId > 0 {
+                                    AsideIcon(icon: .chevronRight, size: 10, color: Theme.secondaryText.opacity(0.5))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -178,6 +197,9 @@ struct SongDetailView: View {
                     }, onDetailTap: { detailSong in
                         selectedSongForDetail = detailSong
                         showSongDetail = true
+                    }, onAlbumTap: { albumId in
+                        selectedAlbumId = albumId
+                        showAlbumDetail = true
                     })
                         .asButton {
                             PlayerManager.shared.play(song: relatedSong, in: viewModel.relatedSongs)

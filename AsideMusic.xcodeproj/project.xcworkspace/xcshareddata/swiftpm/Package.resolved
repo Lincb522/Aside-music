@@ -1,6 +1,15 @@
 {
-  "originHash" : "bf03b07d2c360110e010d3e8c97faf43d29d4d94bfba6a389485fbec2a0b8e99",
+  "originHash" : "b45e6c3805f9fd007958c518ccaaa17caf4c07eed8b2cfbe2fbcd7f304b676e4",
   "pins" : [
+    {
+      "identity" : "ffmpegswiftsdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lincb522/FFmpegSwiftSDK.git",
+      "state" : {
+        "revision" : "f7a7cb33ef842fc13fd16f1622fbffd90770ac37",
+        "version" : "0.2.0"
+      }
+    },
     {
       "identity" : "liquidglasseffect",
       "kind" : "remoteSourceControl",

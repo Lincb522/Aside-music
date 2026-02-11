@@ -50,6 +50,87 @@ extension APIService {
             return allMatch.compactMap { $0["keyword"] as? String }
         }
     }
+
+    // MARK: - 搜索歌单
+    
+    func searchPlaylists(keyword: String, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[Playlist], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.cloudsearch(
+                keywords: keyword,
+                type: .playlist,
+                limit: limit,
+                offset: offset
+            )
+            guard let result = response.body["result"] as? [String: Any],
+                  let playlistsArray = result["playlists"] as? [[String: Any]] else {
+                return [Playlist]()
+            }
+            let data = try JSONSerialization.data(withJSONObject: playlistsArray)
+            return try JSONDecoder().decode([Playlist].self, from: data)
+        }
+    }
+    
+    // MARK: - 搜索专辑
+    
+    func searchAlbums(keyword: String, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[SearchAlbum], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.cloudsearch(
+                keywords: keyword,
+                type: .album,
+                limit: limit,
+                offset: offset
+            )
+            guard let result = response.body["result"] as? [String: Any],
+                  let albumsArray = result["albums"] as? [[String: Any]] else {
+                return [SearchAlbum]()
+            }
+            let data = try JSONSerialization.data(withJSONObject: albumsArray)
+            return try JSONDecoder().decode([SearchAlbum].self, from: data)
+        }
+    }
+    
+    // MARK: - 搜索 MV
+    
+    func searchMVs(keyword: String, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[MV], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.cloudsearch(
+                keywords: keyword,
+                type: .mv,
+                limit: limit,
+                offset: offset
+            )
+            guard let result = response.body["result"] as? [String: Any],
+                  let mvsArray = result["mvs"] as? [[String: Any]] else {
+                return [MV]()
+            }
+            let data = try JSONSerialization.data(withJSONObject: mvsArray)
+            return try JSONDecoder().decode([MV].self, from: data)
+        }
+    }
+}
+
+// MARK: - 搜索专辑模型
+
+struct SearchAlbum: Identifiable, Codable {
+    let id: Int
+    let name: String
+    let picUrl: String?
+    let artist: Artist?
+    let artists: [Artist]?
+    let size: Int?          // 歌曲数量
+    let publishTime: Int?
+    
+    var coverUrl: URL? {
+        if let url = picUrl { return URL(string: url) }
+        return nil
+    }
+    
+    var artistName: String {
+        if let artists = artists, !artists.isEmpty {
+            return artists.map { $0.name }.joined(separator: " / ")
+        }
+        return artist?.name ?? ""
+    }
 }
 
 // MARK: - 搜索响应模型（保持兼容）

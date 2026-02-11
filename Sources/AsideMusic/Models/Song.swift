@@ -415,7 +415,20 @@ struct ArtistDetailData: Codable {
     let artist: ArtistInfo
 }
 
-struct ArtistInfo: Codable {
+// MARK: - 歌手描述
+
+struct ArtistDescSection: Identifiable {
+    let id = UUID()
+    let title: String
+    let content: String
+}
+
+struct ArtistDescResult {
+    let briefDesc: String?
+    let sections: [ArtistDescSection]
+}
+
+struct ArtistInfo: Identifiable, Codable {
     let id: Int
     let name: String
     let cover: String?
@@ -434,6 +447,46 @@ struct ArtistInfo: Codable {
 }
 
 struct ArtistTopSongsResponse: Codable {
+    let songs: [Song]
+}
+
+// MARK: - 专辑详情
+
+struct AlbumInfo: Identifiable, Codable {
+    let id: Int
+    let name: String
+    let picUrl: String?
+    let artist: Artist?
+    let artists: [Artist]?
+    let size: Int?
+    let description: String?
+    let publishTime: Int?
+    let company: String?
+    let subType: String?
+    
+    var coverUrl: URL? {
+        if let url = picUrl { return URL(string: url) }
+        return nil
+    }
+    
+    var artistName: String {
+        if let artists = artists, !artists.isEmpty {
+            return artists.map { $0.name }.joined(separator: " / ")
+        }
+        return artist?.name ?? ""
+    }
+    
+    var publishDateText: String {
+        guard let ts = publishTime else { return "" }
+        let date = Date(timeIntervalSince1970: Double(ts) / 1000)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+}
+
+struct AlbumDetailResult {
+    let album: AlbumInfo?
     let songs: [Song]
 }
 
