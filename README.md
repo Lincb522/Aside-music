@@ -43,8 +43,8 @@
 - **沉浸式歌词** - 横屏全屏 VJ 风格逐词快闪歌词
 - **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质，支持默认播放/下载音质设置
 - **解灰功能** - 自动匹配其他音源播放无版权歌曲
-- **第三方源管理** - 导入 JS 脚本音源（洛雪格式）或自定义 HTTP 音源，全平台测试与调试日志
 - **多播放源独立管理** - 普通播放、私人FM、播客电台三种播放源互不干扰，各自维护播放状态
+
 
 ### 🎬 MV 系统
 - **MV 发现页** - Hero 大图、最新上线、热门排行、独家放送
@@ -139,7 +139,7 @@ open AsideMusic.xcodeproj
 ```
 AsideMusic/
 ├── Sources/AsideMusic/
-│   ├── AsideMusicApp.swift          # 应用入口 + AppDelegate（横屏支持）
+│   ├── AsideMusicApp.swift          # 应用入口 + AppDelegate
 │   │
 │   ├── Models/                       # 数据模型
 │   │   ├── Song.swift               # 歌曲模型
@@ -153,7 +153,7 @@ AsideMusic/
 │   │   ├── ContentView.swift        # 主容器视图
 │   │   ├── HomeView.swift           # 首页
 │   │   ├── LibraryView.swift        # 音乐库（歌单/歌手/排行榜）
-│   │   ├── SearchView.swift         # 搜索页（搜索历史 + 热门搜索）
+│   │   ├── SearchView.swift         # 搜索页
 │   │   ├── ProfileView.swift        # 个人中心
 │   │   ├── FullScreenPlayerView.swift # 全屏播放器
 │   │   ├── ImmersivePlayerView.swift # 沉浸式播放器（默认横屏）
@@ -165,7 +165,7 @@ AsideMusic/
 │   │   ├── SongDetailView.swift     # 歌曲详情
 │   │   ├── TopChartsView.swift      # 排行榜
 │   │   │
-│   │   ├── MVPlayerView.swift       # MV 播放器（内嵌评论 + 横屏全屏）
+│   │   ├── MVPlayerView.swift       # MV 播放器
 │   │   ├── MVListView.swift         # MV 发现页 + 全部 MV 列表
 │   │   ├── CommentView.swift        # 评论视图
 │   │   │
@@ -207,7 +207,7 @@ AsideMusic/
 │   │       └── PlayingVisualizerView.swift # 播放动画
 │   │
 │   ├── ViewModels/                   # 视图模型
-│   │   ├── PlayerManager.swift      # 播放器管理（多播放源）
+│   │   ├── PlayerManager.swift      # 播放器管理
 │   │   ├── HomeViewModel.swift      # 首页数据
 │   │   ├── LoginViewModel.swift     # 登录逻辑
 │   │   ├── MVViewModel.swift        # MV 数据
@@ -298,7 +298,7 @@ AsideMusic/
 | **缓存策略** | 内存缓存 + 磁盘缓存 |
 | **音频播放** | [SwiftAudioEx](https://github.com/doublesymmetry/SwiftAudioEx) |
 | **远程控制** | MediaPlayer |
-| **视觉效果** | [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) |
+| **视觉效果** | [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) (自研 SDK)|
 | **依赖管理** | Swift Package Manager |
 
 ---
@@ -313,16 +313,12 @@ AsideMusic/
 
 ### 中优先级
 - [x] **MV 播放** - MV 发现、播放、横屏全屏、收藏、内嵌评论 ✅
-- [ ] **歌词翻译** - 显示翻译歌词
 - [ ] **定时关闭** - 睡眠定时器
 - [ ] **均衡器** - 音效调节 (基于 AudioKit 重构中)
-- [ ] **CarPlay 支持** - 车载播放
+- [ ] **CarPlay 支持** - 车载播放- [ ]
 
-### 低优先级
-- [ ] **社交功能** - 关注、动态
-- [ ] **直播** - 音乐直播
-- [ ] **Widget** - 桌面小组件
-- [ ] **Apple Watch** - 手表应用
+
+
 
 ---
 
