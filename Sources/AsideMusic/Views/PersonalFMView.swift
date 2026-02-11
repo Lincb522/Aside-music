@@ -298,7 +298,8 @@ struct PersonalFMView: View {
 
                     Button(action: {
                         UISelectionFeedbackGenerator().selectionChanged()
-                        if !PlayerManager.shared.isPlayingFM, let song = currentFMSong {
+                        // 如果 FM 没有在实际播放中（包括 prepareFM 预设状态），用 playFM 开始播放
+                        if !isFMPlaying, let song = currentFMSong {
                             PlayerManager.shared.playFM(song: song, in: fmSongs, autoPlay: true)
                         } else {
                             PlayerManager.shared.togglePlayPause()
@@ -421,9 +422,12 @@ struct PersonalFMView: View {
                     if let first = songs.first {
                         self.currentFMSong = first
                         if PlayerManager.shared.isPlaying && !PlayerManager.shared.isPlayingFM {
-                            // 仅展示 FM 界面，不切换播放
+                            // 正在播放非 FM 内容，仅展示 FM 界面，不切换播放
+                        } else if PlayerManager.shared.isPlayingFM {
+                            // 已经在播放 FM，不重新开始
                         } else {
-                            PlayerManager.shared.playFM(song: first, in: songs, autoPlay: false)
+                            // 没有在播放任何东西，只预设 FM 上下文，不自动播放
+                            PlayerManager.shared.prepareFM(song: first, in: songs)
                         }
                     }
                 }
@@ -436,11 +440,30 @@ struct PersonalFMView: View {
     }
 
     private func nextSong() {
-        if !PlayerManager.shared.isPlayingFM, let song = currentFMSong {
-            PlayerManager.shared.playFM(song: song, in: fmSongs, autoPlay: true)
+        // 如果当前不是 FM 播放源，先切换到 FM 模式
+        if !PlayerManager.shared.isPlayingFM {
+            // 找到当前 FM 歌曲在列表中的下一首
+            if let current = currentFMSong,
+               let currentIndex = fmSongs.firstIndex(where: { $0.id == current.id }),
+               currentIndex + 1 < fmSongs.count {
+                let next = fmSongs[currentIndex + 1]
+                PlayerManager.shared.playFM(song: next, in: fmSongs, autoPlay: true)
+            } else if let first = fmSongs.first {
+                PlayerManager.shared.playFM(song: first, in: fmSongs, autoPlay: true)
+            }
             return
         }
-        PlayerManager.shared.next()
+        
+        // 已经是 FM 播放源，直接用 playFM 播放下一首，确保 index 正确
+        if let current = currentFMSong,
+           let currentIndex = fmSongs.firstIndex(where: { $0.id == current.id }),
+           currentIndex + 1 < fmSongs.count {
+            let next = fmSongs[currentIndex + 1]
+            PlayerManager.shared.playFM(song: next, in: fmSongs, autoPlay: true)
+        } else {
+            // 兜底：用 PlayerManager 的 next
+            PlayerManager.shared.next()
+        }
     }
 
     private func trashCurrentSong() {
@@ -455,7 +478,7 @@ struct PersonalFMView: View {
                 AppLogger.error("Trash FM error: \(error)")
             }
         }
-        PlayerManager.shared.next()
+        nextSong()
     }
 
     private func emptyStateView() -> some View {

@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import Combine
 import MediaPlayer
+import FFmpegSwiftSDK
 
 @MainActor
 class PlayerManager: ObservableObject {
@@ -30,12 +31,9 @@ class PlayerManager: ObservableObject {
         }
     }
     
-    // MARK: - AVPlayer
-    private var avPlayer = AVPlayer()
-    private var playerItemObservers = Set<AnyCancellable>()
-    private var timeObserverToken: Any?
-    private var didPlayToEndObserver: NSObjectProtocol?
-
+    // MARK: - FFmpeg StreamPlayer
+    private let streamPlayer = StreamPlayer()
+    private var timeUpdateTimer: Timer?
     
     // MARK: - Published Properties
     @Published var currentSong: Song?
@@ -47,28 +45,33 @@ class PlayerManager: ObservableObject {
     @Published var mode: PlayMode = .sequence
     @Published var isTabBarHidden: Bool = false
     
+    // MARK: - 流信息（FFmpeg 提供）
+    @Published var streamInfo: StreamInfo?
+    
+    // MARK: - EQ 均衡器（FFmpeg 提供）
+    var equalizer: AudioEqualizer {
+        streamPlayer.equalizer
+    }
+    
     // MARK: - 播放源类型
     enum PlaySource: Codable, Equatable {
-        case normal          // 普通歌曲播放
-        case fm              // 私人 FM
-        case podcast(radioId: Int)  // 播客/电台
+        case normal
+        case fm
+        case podcast(radioId: Int)
     }
     
     @Published var playSource: PlaySource = .normal
     
-    /// 向后兼容：是否正在播放 FM
     var isPlayingFM: Bool {
         get { playSource == .fm }
         set { playSource = newValue ? .fm : .normal }
     }
     
-    /// 是否正在播放播客
     var isPlayingPodcast: Bool {
         if case .podcast = playSource { return true }
         return false
     }
     
-    /// 当前播客电台 ID（如果正在播放播客）
     var currentRadioId: Int? {
         if case .podcast(let radioId) = playSource { return radioId }
         return nil
@@ -76,7 +79,6 @@ class PlayerManager: ObservableObject {
     
     // MARK: - Settings
     @Published var soundQuality: SoundQuality = {
-        // 优先读取用户上次手动选择的音质，否则使用设置中的默认播放音质
         if let rawValue = UserDefaults.standard.string(forKey: "aside_sound_quality"),
            let quality = SoundQuality(rawValue: rawValue) {
             return quality
@@ -100,10 +102,14 @@ class PlayerManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var saveStateWorkItem: DispatchWorkItem?
     private let saveStateDebounceInterval: TimeInterval = AppConfig.Player.saveStateDebounceInterval
-    private var consecutiveFailures: Int = 0
-    private let maxConsecutiveFailures: Int = AppConfig.Player.maxConsecutiveFailures
-    private var retryDelay: TimeInterval = AppConfig.Player.initialRetryDelay
-    private let maxRetryDelay: TimeInterval = AppConfig.Player.maxRetryDelay
+    /// 标记是否为用户主动停止（区分 EOF 自然结束 vs 手动 stop）
+    var isUserStopping: Bool = false
+    /// 播放会话 ID，每次 loadAndPlay 递增，用于忽略旧会话的 .stopped 回调
+    var playbackSessionId: Int = 0
+    fileprivate var consecutiveFailures: Int = 0
+    fileprivate let maxConsecutiveFailures: Int = AppConfig.Player.maxConsecutiveFailures
+    fileprivate var retryDelay: TimeInterval = AppConfig.Player.initialRetryDelay
+    fileprivate let maxRetryDelay: TimeInterval = AppConfig.Player.maxRetryDelay
     
     // MARK: - Remote Command Center
     private let commandCenter = MPRemoteCommandCenter.shared()
@@ -127,19 +133,14 @@ class PlayerManager: ObservableObject {
     init() {
         setupAudioSession()
         setupRemoteCommands()
-        setupPeriodicTimeObserver()
-        setupPlayerObservers()
+        setupStreamPlayerDelegate()
+        startTimeUpdateTimer()
         fetchHistory()
         restoreState()
     }
     
     deinit {
-        if let token = timeObserverToken {
-            avPlayer.removeTimeObserver(token)
-        }
-        if let observer = didPlayToEndObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
+        timeUpdateTimer?.invalidate()
         cancellables.removeAll()
         saveStateWorkItem?.cancel()
     }
@@ -155,18 +156,24 @@ class PlayerManager: ObservableObject {
             AppLogger.error("AVAudioSession 配置失败: \(error)")
         }
         
-        // 监听媒体服务重置通知，自动恢复 audio session
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
-        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in
-            AppLogger.warning("媒体服务被重置，重建 AVPlayer 和 audio session")
-            guard self != nil else { return }
-            // 重建 audio session
+        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { _ in
+            AppLogger.warning("媒体服务被重置，重建 audio session")
             do {
                 let session = AVAudioSession.sharedInstance()
                 try session.setCategory(.playback, mode: .default, options: [])
                 try session.setActive(true)
             } catch {
                 AppLogger.error("重建 audio session 失败: \(error)")
+            }
+            // 如果正在播放，重新触发当前歌曲播放（让库重新走 AudioRenderer.start 流程）
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                if let song = self.currentSong, self.isPlaying {
+                    let time = self.currentTime
+                    AppLogger.info("媒体服务重置后重新播放: \(song.name), 从 \(String(format: "%.1f", time))s 继续")
+                    self.loadAndPlay(song: song, startTime: time)
+                }
             }
         }
     }
@@ -196,82 +203,30 @@ class PlayerManager: ObservableObject {
         }
     }
     
-    private func setupPeriodicTimeObserver() {
-        let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        timeObserverToken = avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+    /// 设置 StreamPlayer delegate（通过桥接适配器）
+    private func setupStreamPlayerDelegate() {
+        let adapter = StreamPlayerDelegateAdapter(playerManager: self)
+        self.delegateAdapter = adapter
+        streamPlayer.delegate = adapter
+    }
+    
+    /// 保持 delegate adapter 的强引用
+    private var delegateAdapter: StreamPlayerDelegateAdapter?
+    
+    /// 定时器轮询 StreamPlayer 的 currentTime
+    private func startTimeUpdateTimer() {
+        timeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self = self else { return }
-                let seconds = time.seconds
-                if seconds.isFinite && !seconds.isNaN {
-                    self.currentTime = seconds
+                guard let self = self, self.isPlaying, !self.isSeeking else { return }
+                let time = self.streamPlayer.currentTime
+                if time.isFinite && !time.isNaN {
+                    self.currentTime = time
                 }
                 self.updateNowPlayingTime()
             }
         }
     }
-    
-    private func setupPlayerObservers() {
-        avPlayer.publisher(for: \.timeControlStatus)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                guard let self = self else { return }
-                switch status {
-                case .playing:
-                    self.isPlaying = true
-                    self.isLoading = false
-                case .paused:
-                    self.isPlaying = false
-                case .waitingToPlayAtSpecifiedRate:
-                    self.isLoading = true
-                @unknown default:
-                    break
-                }
-            }
-            .store(in: &cancellables)
-        
-        didPlayToEndObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  let item = notification.object as? AVPlayerItem,
-                  item == self.avPlayer.currentItem else { return }
-            Task { @MainActor in
-                self.playerDidFinishPlaying()
-            }
-        }
-    }
-    
-    private func observePlayerItem(_ item: AVPlayerItem) {
-        playerItemObservers.removeAll()
-        
-        item.publisher(for: \.status)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                guard let self = self else { return }
-                // 确保是当前正在播放的 item，忽略被替换的旧 item 的事件
-                guard item === self.avPlayer.currentItem else { return }
-                switch status {
-                case .readyToPlay:
-                    self.isLoading = false
-                    let dur = item.duration.seconds
-                    if dur.isFinite && !dur.isNaN && dur > 0 {
-                        self.duration = dur
-                    }
-                case .failed:
-                    self.isPlaying = false
-                    self.isLoading = false
-                    let errMsg = item.error?.localizedDescription ?? "未知错误"
-                    let errCode = (item.error as NSError?)?.code ?? 0
-                    let errDomain = (item.error as NSError?)?.domain ?? ""
-                    AppLogger.error("AVPlayerItem 加载失败: \(errMsg) (code=\(errCode), domain=\(errDomain))")
-                default:
-                    break
-                }
-            }
-            .store(in: &playerItemObservers)
-    }
+
 
     // MARK: - Core Playback API
     
@@ -307,12 +262,26 @@ class PlayerManager: ObservableObject {
         loadAndPlay(song: song, autoPlay: autoPlay)
     }
     
-    /// 播客/电台模式播放
+    /// 预设 FM 上下文（不触发播放），用于进入 FM 界面时展示歌曲信息
+    func prepareFM(song: Song, in context: [Song]) {
+        self.context = context
+        self.playSource = .fm
+        self.currentSong = song
+        
+        if let index = context.firstIndex(where: { $0.id == song.id }) {
+            self.contextIndex = index
+        } else {
+            self.contextIndex = 0
+        }
+        
+        self.mode = .sequence
+        saveState()
+    }
+    
     func playPodcast(song: Song, in context: [Song], radioId: Int) {
         self.context = context
         self.playSource = .podcast(radioId: radioId)
         
-        // 优先使用 context 中已注入播客封面的 song
         var songToPlay = song
         if let index = context.firstIndex(where: { $0.id == song.id }) {
             self.contextIndex = index
@@ -427,14 +396,18 @@ class PlayerManager: ObservableObject {
         saveState()
     }
 
+
     // MARK: - Playback Controls
     
     func togglePlayPause() {
         if isPlaying {
-            avPlayer.pause()
+            streamPlayer.pause()
+            isPlaying = false
         } else {
-            avPlayer.play()
+            streamPlayer.resume()
+            isPlaying = true
         }
+        updateNowPlayingTime()
     }
     
     func next() {
@@ -493,10 +466,12 @@ class PlayerManager: ObservableObject {
     }
     
     func stopAndClear() {
-        avPlayer.pause()
-        avPlayer.replaceCurrentItem(with: nil)
+        isUserStopping = true
+        streamPlayer.stop()
         isPlaying = false
         currentSong = nil
+        streamInfo = nil
+        isUserStopping = false
         saveState()
     }
     
@@ -505,7 +480,6 @@ class PlayerManager: ObservableObject {
         
         if let current = currentSong {
             let time = currentTime
-            let wasPlaying = isPlaying
             
             Task { @MainActor in
                 APIService.shared.fetchSongUrl(
@@ -526,7 +500,14 @@ class PlayerManager: ObservableObject {
                     }, receiveValue: { [weak self] result in
                         guard let self = self, let url = URL(string: result.url) else { return }
                         self.soundQuality = quality
-                        self.startPlayback(url: url, autoPlay: wasPlaying, startTime: time)
+                        self.streamInfo = nil
+                        // 记录这是音质切换（不是切歌），seek 位置
+                        self.pendingQualitySwitchSeek = time
+                        // 用 prepareNext 预加载新音质的 URL
+                        self.streamPlayer.prepareNext(url: url.absoluteString)
+                        // prepareNext 完成后，用 switchToNext 触发切换
+                        // switchToNext 会在播放循环中检查 forceTransition 并执行
+                        self.pollAndSwitch(seekTo: time, attempts: 0)
                     })
                     .store(in: &self.cancellables)
             }
@@ -535,11 +516,59 @@ class PlayerManager: ObservableObject {
         }
     }
     
+    /// 音质切换时的 seek 位置，nil 表示不是音质切换
+    fileprivate var pendingQualitySwitchSeek: Double? = nil
+    
+    /// 轮询预加载状态，就绪后触发切换
+    private func pollAndSwitch(seekTo time: Double, attempts: Int) {
+        guard attempts < 200 else {
+            // 超时降级（200 * 0.05s = 10s）
+            AppLogger.warning("音质切换预加载超时，降级为重新播放")
+            pendingQualitySwitchSeek = nil
+            streamPlayer.cancelNextPreparation()
+            if let song = currentSong {
+                loadAndPlay(song: song, startTime: time)
+            }
+            return
+        }
+        
+        // 每次只尝试触发 switchToNext，如果预加载还没就绪会直接返回（不会重复设置标志）
+        // switchToNext 内部有 guard isNextReady 保护
+        streamPlayer.switchToNext(seekTo: time)
+        
+        // 短暂延迟后检查是否已切换
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self = self else { return }
+            if self.pendingQualitySwitchSeek == nil {
+                // 已在 delegate 回调中清除，说明切换成功
+                return
+            }
+            self.pollAndSwitch(seekTo: time, attempts: attempts + 1)
+        }
+    }
+    
     // MARK: - Seek
     
+    private var seekDebounceWorkItem: DispatchWorkItem?
+    /// seek 期间为 true，阻止定时器用旧的 streamPlayer.currentTime 覆盖进度条
+    fileprivate var isSeeking: Bool = false
+    
     func seek(to time: Double) {
-        let cmTime = CMTime(seconds: time, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        avPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        isSeeking = true
+        currentTime = time
+        updateNowPlayingTime()
+        
+        // Debounce：快速拖动时只执行最后一次 seek
+        seekDebounceWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.streamPlayer.seek(to: time)
+            // 延迟解除 seeking 状态，等 demuxer 真正 seek 完成并产生新的 PTS
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self?.isSeeking = false
+            }
+        }
+        seekDebounceWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
     }
     
     func seekForward(seconds: Double = 15) {
@@ -549,6 +578,7 @@ class PlayerManager: ObservableObject {
     func seekBackward(seconds: Double = 15) {
         seek(to: max(currentTime - seconds, 0))
     }
+
 
     // MARK: - Private Methods
     
@@ -567,19 +597,115 @@ class PlayerManager: ObservableObject {
         contextIndex = 0
     }
     
-    private func playerDidFinishPlaying() {
+    /// StreamPlayer 播放结束回调（由 delegate adapter 调用）
+    func playerDidFinishPlaying() {
+        AppLogger.info("playerDidFinishPlaying 被调用, currentTime=\(currentTime), duration=\(duration), song=\(currentSong?.name ?? "nil")")
         switch mode {
         case .loopSingle:
-            seek(to: 0)
-            avPlayer.play()
+            // 重新播放当前歌曲
+            if let song = currentSong {
+                loadAndPlay(song: song)
+            }
         case .sequence, .shuffle:
             next()
         }
     }
     
-    private func loadAndPlay(song: Song, autoPlay: Bool = true, startTime: Double = 0) {
+    /// 无缝切歌：SDK 已自动切换到下一首的 pipeline，这里只更新 UI 状态
+    /// 不调用 loadAndPlay（因为 StreamPlayer 已经在播放了）
+    fileprivate func advanceToNextTrack() {
+        // 单曲循环模式下不应该走到这里（SDK 不会 prepareNext），但保险起见
+        guard mode != .loopSingle else { return }
+        
+        consecutiveFailures = 0
+        retryDelay = 1.0
+        
+        // 从用户队列取下一首
+        if let nextSong = userQueue.first {
+            userQueue.removeFirst()
+            if let index = currentContextList.firstIndex(where: { $0.id == nextSong.id }) {
+                contextIndex = index
+            }
+            currentSong = nextSong
+            addToHistory(song: nextSong)
+            saveState()
+            updateNowPlayingInfo()
+            updateNowPlayingArtwork(for: nextSong)
+            return
+        }
+        
+        // 从 context 列表取下一首
+        let list = currentContextList
+        guard !list.isEmpty else { return }
+        
+        var nextIndex = contextIndex + 1
+        if nextIndex >= list.count {
+            nextIndex = 0
+        }
+        
+        contextIndex = nextIndex
+        let nextSong = list[nextIndex]
+        currentSong = nextSong
+        addToHistory(song: nextSong)
+        saveState()
+        updateNowPlayingInfo()
+        updateNowPlayingArtwork(for: nextSong)
+    }
+    
+    /// 预加载下一首歌曲的 URL，传给 StreamPlayer.prepareNext
+    fileprivate func prepareNextTrackURL() {
+        // 单曲循环不预加载（会重新 play）
+        guard mode != .loopSingle else { return }
+        
+        // 确定下一首歌曲
+        let nextSong: Song?
+        if let queueFirst = userQueue.first {
+            nextSong = queueFirst
+        } else {
+            let list = currentContextList
+            guard !list.isEmpty else { return }
+            var nextIndex = contextIndex + 1
+            if nextIndex >= list.count {
+                nextIndex = 0
+            }
+            nextSong = list[nextIndex]
+        }
+        
+        guard let song = nextSong else { return }
+        
+        // 优先使用本地文件
+        if let localURL = DownloadManager.shared.localFileURL(songId: song.id) {
+            AppLogger.info("预加载下一首 (本地): \(song.name)")
+            streamPlayer.prepareNext(url: localURL.absoluteString)
+            return
+        }
+        
+        // 网络获取 URL
+        Task { @MainActor in
+            APIService.shared.fetchSongUrl(
+                id: song.id,
+                level: self.soundQuality.rawValue
+            )
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    AppLogger.warning("预加载下一首 URL 获取失败: \(error)")
+                }
+            }, receiveValue: { [weak self] result in
+                guard let self = self, let url = URL(string: result.url) else { return }
+                AppLogger.info("预加载下一首 (网络): \(song.name)")
+                self.streamPlayer.prepareNext(url: url.absoluteString)
+            })
+            .store(in: &self.cancellables)
+        }
+    }
+    
+    fileprivate func loadAndPlay(song: Song, autoPlay: Bool = true, startTime: Double = 0) {
+        // 递增会话 ID，旧会话的 .stopped 回调会被忽略
+        playbackSessionId += 1
         isLoading = true
         currentSong = song
+        streamInfo = nil
         addToHistory(song: song)
         saveState()
 
@@ -636,7 +762,7 @@ class PlayerManager: ObservableObject {
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
                     
-                    // 边听边存：播放时自动下载
+                    // 边听边存
                     if SettingsManager.shared.listenAndSave,
                        !DownloadManager.shared.isDownloaded(songId: song.id) {
                         DownloadManager.shared.download(song: song, quality: self.soundQuality)
@@ -671,36 +797,47 @@ class PlayerManager: ObservableObject {
     }
     
     private func startPlayback(url: URL, autoPlay: Bool = true, startTime: Double = 0) {
-        isLoading = false
+        isLoading = true
         
-        // 切换音质时保留当前进度，仅新歌曲才重置
         if startTime <= 0 {
             self.currentTime = 0
             self.duration = 0
         }
         
-        AppLogger.network("开始播放: \(url.absoluteString)")
+        AppLogger.network("开始播放 (FFmpeg): \(url.absoluteString)")
         
-        let playerItem = AVPlayerItem(url: url)
-        playerItem.preferredForwardBufferDuration = 10
-        observePlayerItem(playerItem)
-        // 先暂停并清空当前 item，避免 replaceCurrentItem 时旧请求取消影响新请求
-        avPlayer.pause()
-        avPlayer.replaceCurrentItem(with: nil)
-        avPlayer.replaceCurrentItem(with: playerItem)
+        // 不需要手动 stop —— streamPlayer.play() 内部会先调用 stopInternal() 清理
+        // 直接调用 play 即可，避免触发多余的 .stopped 回调
         
-        if startTime > 0 {
-            let cmTime = CMTime(seconds: startTime, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-            avPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        AppLogger.info("startPlayback session=\(playbackSessionId), url=\(url.lastPathComponent)")
+        
+        // 使用 StreamPlayer 播放
+        streamPlayer.play(url: url.absoluteString)
+        
+        if !autoPlay {
+            // 如果不自动播放，立即暂停
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.streamPlayer.pause()
+                self?.isPlaying = false
+            }
         }
         
-        if autoPlay {
-            avPlayer.play()
+        // seek 到指定位置（切换音质时保留进度）
+        if startTime > 0 {
+            // 直接调用 seek，pending 模式会在播放循环启动后自动处理
+            streamPlayer.seek(to: startTime)
+            currentTime = startTime
         }
         
         updateNowPlayingInfo()
         updateNowPlayingArtwork(for: currentSong)
+        
+        // 预加载下一首（无缝切歌）
+        if autoPlay {
+            prepareNextTrackURL()
+        }
     }
+
 
     // MARK: - Now Playing Info
     
@@ -736,7 +873,6 @@ class PlayerManager: ObservableObject {
                 let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                 
                 await MainActor.run {
-                    // 确保还是同一首歌
                     guard self.currentSong?.id == song?.id else { return }
                     var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
                     info[MPMediaItemPropertyArtwork] = artwork
@@ -812,7 +948,7 @@ class PlayerManager: ObservableObject {
             return
         }
         
-        // 兼容旧版本 v4（CacheManager）
+        // 兼容旧版本
         if let state = CacheManager.shared.getObject(forKey: "player_state_v4", type: PlayerState.self) {
             self.userQueue = state.userQueue
             self.mode = state.mode
@@ -824,9 +960,7 @@ class PlayerManager: ObservableObject {
                 self.context = [song]
                 self.contextIndex = 0
             }
-            // 迁移到新缓存系统
             saveStateImmediately()
-            // 清理旧缓存
             CacheManager.shared.removeObject(forKey: "player_state_v4")
             CacheManager.shared.removeObject(forKey: "player_state_v3")
             CacheManager.shared.removeObject(forKey: "player_state_v2")
@@ -841,5 +975,128 @@ class PlayerManager: ObservableObject {
                 self?.history = songs
             })
             .store(in: &cancellables)
+    }
+}
+
+
+// MARK: - StreamPlayer Delegate 适配器
+
+/// 桥接 StreamPlayerDelegate 回调到 @MainActor PlayerManager
+/// StreamPlayer 的回调可能在后台线程，需要 dispatch 到主线程
+class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
+    private weak var playerManager: PlayerManager?
+    
+    init(playerManager: PlayerManager) {
+        self.playerManager = playerManager
+    }
+    
+    func player(_ player: StreamPlayer, didChangeState state: PlaybackState) {
+        Task { @MainActor [weak self] in
+            guard let pm = self?.playerManager else { return }
+            // 记录当前会话 ID，用于校验 .stopped 回调
+            let sessionAtCallback = pm.playbackSessionId
+            switch state {
+            case .idle:
+                pm.isPlaying = false
+                pm.isLoading = false
+            case .connecting:
+                pm.isLoading = true
+                pm.isPlaying = false
+            case .playing:
+                pm.isPlaying = true
+                pm.isLoading = false
+                // 每次进入 playing 都更新流信息（切歌后 streamInfo 会变）
+                if let info = player.streamInfo {
+                    pm.streamInfo = info
+                }
+            case .paused:
+                pm.isPlaying = false
+                pm.isLoading = false
+            case .stopped:
+                pm.isPlaying = false
+                pm.isLoading = false
+                // 忽略旧会话的 .stopped 回调（新歌已经开始播放）
+                guard sessionAtCallback == pm.playbackSessionId else { return }
+                // 非用户主动停止时处理播放结束
+                if !pm.isUserStopping && pm.currentSong != nil {
+                    // 保护：如果播放时间远小于总时长，说明不是正常结束（可能是连接中断）
+                    let playedRatio = pm.duration > 0 ? pm.currentTime / pm.duration : 0
+                    if pm.duration > 0 && playedRatio < 0.5 && pm.currentTime < 30 {
+                        AppLogger.warning("异常结束: 只播放了 \(String(format: "%.1f", pm.currentTime))s / \(String(format: "%.1f", pm.duration))s，尝试重新播放")
+                        if let song = pm.currentSong {
+                            pm.loadAndPlay(song: song)
+                        }
+                    } else {
+                        AppLogger.info("播放结束 (EOF)，自动下一首")
+                        pm.playerDidFinishPlaying()
+                    }
+                }
+            case .error(let error):
+                pm.isPlaying = false
+                pm.isLoading = false
+                AppLogger.error("FFmpeg 播放错误: \(error.description)")
+                // 自动重试或跳下一首
+                if pm.currentSong != nil {
+                    pm.consecutiveFailures += 1
+                    if pm.consecutiveFailures >= pm.maxConsecutiveFailures {
+                        pm.consecutiveFailures = 0
+                        pm.retryDelay = 1.0
+                    } else {
+                        let delay = pm.retryDelay
+                        pm.retryDelay = min(pm.retryDelay * 2, pm.maxRetryDelay)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak pm] in
+                            pm?.next()
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    func player(_ player: StreamPlayer, didEncounterError error: FFmpegError) {
+        Task { @MainActor [weak self] in
+            guard let pm = self?.playerManager else { return }
+            AppLogger.error("FFmpeg 错误: \(error.description)")
+            pm.isPlaying = false
+            pm.isLoading = false
+        }
+    }
+    
+    func player(_ player: StreamPlayer, didUpdateDuration duration: TimeInterval) {
+        Task { @MainActor [weak self] in
+            guard let pm = self?.playerManager else { return }
+            if duration.isFinite && !duration.isNaN && duration > 0 {
+                pm.duration = duration
+            }
+        }
+    }
+    
+    func playerDidTransitionToNextTrack(_ player: StreamPlayer) {
+        Task { @MainActor [weak self] in
+            guard let pm = self?.playerManager else { return }
+            
+            // 更新 streamInfo
+            if let info = player.streamInfo {
+                pm.streamInfo = info
+            }
+            
+            // 判断是音质切换还是切歌
+            if let seekTime = pm.pendingQualitySwitchSeek {
+                // 音质切换：不推进播放队列，只更新流信息和时间
+                AppLogger.info("无缝音质切换完成")
+                pm.pendingQualitySwitchSeek = nil
+                pm.currentTime = seekTime
+                pm.isSeeking = false
+                // 重新预加载下一首
+                pm.prepareNextTrackURL()
+            } else {
+                // 正常切歌
+                AppLogger.info("无缝切歌：已切换到下一首")
+                pm.currentTime = 0
+                pm.isSeeking = false
+                pm.advanceToNextTrack()
+                pm.prepareNextTrackURL()
+            }
+        }
     }
 }

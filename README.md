@@ -36,6 +36,11 @@
 - **深色/浅色模式** - 全局自适应系统主题，所有页面均已适配
 
 ### 🎵 播放功能
+- **FFmpeg 播放引擎** - 基于自研 [FFmpegSwiftSDK](https://github.com/Lincb522/FFmpegSwiftSDK) 播放引擎，替代 SwiftAudioEx
+- **Hi-Res 无损** - 支持 192kHz/24bit 母带音质，不降采样
+- **无缝切歌** - Gapless Playback，预加载下一首 pipeline，EOF 时零间隔切换
+- **无缝音质切换** - 切换音质时不中断播放，自动 seek 到当前位置
+- **10 段均衡器** - 基于 FFmpeg SwrContext 的实时 EQ 调节
 - **多种播放模式** - 顺序播放、单曲循环、随机播放
 - **播放队列管理** - 下一首播放、添加到队列
 - **私人 FM** - 个性化推荐电台
@@ -43,6 +48,7 @@
 - **沉浸式歌词** - 横屏全屏 VJ 风格逐词快闪歌词
 - **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质，支持默认播放/下载音质设置
 - **解灰功能** - 自动匹配其他音源播放无版权歌曲
+- **音纹进度条** - 带波浪动画的音纹可视化进度条
 
 
 
@@ -296,7 +302,7 @@ AsideMusic/
 | **网易云 API** | [NeteaseCloudMusicAPI-Swift](https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift) (自研 SDK) |
 | **数据持久化** | SQLite (自定义封装) |
 | **缓存策略** | 内存缓存 + 磁盘缓存 |
-| **音频播放** | [SwiftAudioEx](https://github.com/doublesymmetry/SwiftAudioEx) |
+| **音频播放** | [FFmpegSwiftSDK](https://github.com/Lincb522/FFmpegSwiftSDK) (自研，基于 FFmpeg 8.0) |
 | **远程控制** | MediaPlayer |
 | **视觉效果** | [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) (自研 SDK)|
 | **依赖管理** | Swift Package Manager |
@@ -356,13 +362,13 @@ AsideMusic/
       <sub>iOS 26 液态玻璃效果库</sub>
     </td>
     <td align="center">
-      <a href="https://github.com/doublesymmetry/SwiftAudioEx">
-        <img src="https://avatars.githubusercontent.com/u/15884486?s=200&v=4" width="64" height="64" alt="SwiftAudioEx">
+      <a href="https://github.com/Lincb522/FFmpegSwiftSDK">
+        <img src="https://avatars.githubusercontent.com/u/200893893?s=200&v=4" width="64" height="64" alt="FFmpegSwiftSDK">
         <br>
-        <strong>SwiftAudioEx</strong>
+        <strong>FFmpegSwiftSDK</strong>
       </a>
       <br>
-      <sub>iOS 音频播放引擎</sub>
+      <sub>FFmpeg 8.0 流媒体播放引擎</sub>
     </td>
   </tr>
 </table>
