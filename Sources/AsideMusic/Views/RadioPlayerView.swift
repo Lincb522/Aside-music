@@ -12,6 +12,7 @@ struct RadioPlayerView: View {
     @State private var isDialAnimating = false
     @State private var dialRotation: Double = 0
     @State private var showProgramList = false
+    @State private var pulseScale: CGFloat = 1.0
 
     init(radioId: Int) {
         self.radioId = radioId
@@ -102,7 +103,7 @@ struct RadioPlayerView: View {
         .sheet(isPresented: $showProgramList) {
             programListSheet
                 .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+                .presentationDragIndicator(.hidden)
         }
     }
 
@@ -140,6 +141,15 @@ struct RadioPlayerView: View {
 
     private var radioBody: some View {
         ZStack {
+            // 播放时的脉冲光圈
+            if isRadioPlaying {
+                Circle()
+                    .stroke(Color.asideAccentBlue.opacity(0.15), lineWidth: 2)
+                    .frame(width: 280, height: 280)
+                    .scaleEffect(pulseScale)
+                    .opacity(2.0 - Double(pulseScale))
+            }
+
             // 外圈光环
             Circle()
                 .stroke(
@@ -188,10 +198,36 @@ struct RadioPlayerView: View {
                 .frame(width: 16, height: 16)
                 .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
         }
+        .onChange(of: isRadioPlaying) { _, playing in
+            if playing {
+                startAnimations()
+            } else {
+                stopPulse()
+            }
+        }
         .onAppear {
+            // 光环始终旋转
             withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
                 dialRotation = 360
             }
+            if isRadioPlaying {
+                startAnimations()
+            }
+        }
+    }
+
+    // MARK: - 动画控制
+
+    private func startAnimations() {
+        pulseScale = 1.0
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false)) {
+            pulseScale = 1.4
+        }
+    }
+
+    private func stopPulse() {
+        withAnimation(.easeOut(duration: 0.3)) {
+            pulseScale = 1.0
         }
     }
 
@@ -362,94 +398,219 @@ struct RadioPlayerView: View {
     // MARK: - 节目列表 Sheet
 
     private var programListSheet: some View {
-        NavigationStack {
-            ZStack {
-                AsideBackground()
-                    .ignoresSafeArea()
+        VStack(spacing: 0) {
+            // 头部：封面 + 电台信息 + 当前播放
+            programListHeader
+            
+            // 分隔线
+            Rectangle()
+                .fill(Color.asideSeparator)
+                .frame(height: 0.5)
 
-                if viewModel.programs.isEmpty {
-                    VStack(spacing: 12) {
-                        AsideIcon(icon: .micSlash, size: 36, color: .asideTextSecondary)
-                        Text("暂无节目")
-                            .font(.system(size: 15, design: .rounded))
-                            .foregroundColor(.asideTextSecondary)
-                    }
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(viewModel.programs.enumerated()), id: \.element.id) { index, program in
-                                programSheetRow(program: program, index: index)
-                                    .onTapGesture {
-                                        playProgramAt(index: index)
-                                        showProgramList = false
-                                    }
-
-                                if program.id == viewModel.programs.last?.id {
-                                    Color.clear.frame(height: 1)
-                                        .onAppear { viewModel.loadMorePrograms() }
+            // 节目列表
+            if viewModel.programs.isEmpty {
+                Spacer()
+                VStack(spacing: 12) {
+                    AsideIcon(icon: .micSlash, size: 44, color: .asideTextSecondary.opacity(0.3))
+                    Text("暂无节目")
+                        .font(.rounded(size: 15, weight: .medium))
+                        .foregroundColor(.asideTextSecondary)
+                }
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(viewModel.programs.enumerated()), id: \.element.id) { index, program in
+                            programSheetRow(program: program, index: index)
+                                .onTapGesture {
+                                    playProgramAt(index: index)
+                                    showProgramList = false
                                 }
-                            }
 
-                            if viewModel.isLoadingMore {
-                                ProgressView()
-                                    .padding(.vertical, 16)
-                            }
-
-                            if !viewModel.hasMore && !viewModel.programs.isEmpty {
-                                NoMoreDataView()
+                            if program.id == viewModel.programs.last?.id {
+                                Color.clear.frame(height: 1)
+                                    .onAppear { viewModel.loadMorePrograms() }
                             }
                         }
-                        .padding(.bottom, 40)
+
+                        if viewModel.isLoadingMore {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("加载更多...")
+                                    .font(.rounded(size: 13))
+                                    .foregroundColor(.asideTextSecondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                        }
+
+                        if !viewModel.hasMore && !viewModel.programs.isEmpty {
+                            NoMoreDataView()
+                        }
                     }
+                    .padding(.top, 6)
+                    .padding(.bottom, 30)
                 }
             }
-            .navigationTitle(viewModel.radioDetail?.name ?? "节目列表")
-            .navigationBarTitleDisplayMode(.inline)
+        }
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(Color.asideCardBackground.opacity(0.55))
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    // MARK: - 节目列表头部
+
+    private var programListHeader: some View {
+        VStack(spacing: 14) {
+            // 拖拽指示条
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color.asideTextSecondary.opacity(0.25))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+
+            HStack(spacing: 14) {
+                // 电台封面
+                if let radio = viewModel.radioDetail {
+                    CachedAsyncImage(url: radio.coverUrl) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.asideTextSecondary.opacity(0.08))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.radioDetail?.name ?? "节目列表")
+                        .font(.rounded(size: 17, weight: .bold))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+
+                    // 当前播放状态
+                    if let program = currentProgram {
+                        HStack(spacing: 6) {
+                            // 迷你波形
+                            if isRadioPlaying {
+                                HStack(spacing: 1.5) {
+                                    ForEach(0..<3, id: \.self) { i in
+                                        RoundedRectangle(cornerRadius: 0.5)
+                                            .fill(Color.asideAccentBlue)
+                                            .frame(width: 2, height: isRadioPlaying ? CGFloat([5, 10, 7][i]) : 3)
+                                            .animation(
+                                                .easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.12),
+                                                value: isRadioPlaying
+                                            )
+                                    }
+                                }
+                                .frame(height: 10)
+                            }
+
+                            Text(program.name ?? "未知节目")
+                                .font(.rounded(size: 13))
+                                .foregroundColor(.asideTextSecondary)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        if let count = viewModel.radioDetail?.programCount {
+                            Text("共\(count)期节目")
+                                .font(.rounded(size: 13))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // 节目总数胶囊
+                if let count = viewModel.radioDetail?.programCount {
+                    Text("\(count)期")
+                        .font(.rounded(size: 12, weight: .medium))
+                        .foregroundColor(.asideTextSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.asideSeparator)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 14)
         }
     }
+
+    // MARK: - 节目行
 
     private func programSheetRow(program: RadioProgram, index: Int) -> some View {
         let isCurrent = index == currentProgramIndex && isOwnContent && player.currentSong?.id == program.mainSong?.id
 
         return HStack(spacing: 14) {
-            // 序号或播放指示
+            // 序号或播放波形
             ZStack {
                 if isCurrent && isRadioPlaying {
-                    AsideIcon(icon: .waveform, size: 14, color: .asideAccentBlue, lineWidth: 1.4)
-                        .frame(width: 28)
+                    // 迷你波形动画
+                    HStack(spacing: 2) {
+                        ForEach(0..<3, id: \.self) { i in
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(Color.asideAccentBlue)
+                                .frame(width: 2.5, height: isRadioPlaying ? CGFloat([6, 12, 8][i]) : 3)
+                                .animation(
+                                    .easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.1),
+                                    value: isRadioPlaying
+                                )
+                        }
+                    }
+                } else if isCurrent {
+                    AsideIcon(icon: .pause, size: 14, color: .asideAccentBlue, lineWidth: 1.6)
                 } else {
                     Text("\(index + 1)")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundColor(.asideTextSecondary)
-                        .frame(width: 28)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundColor(.asideTextSecondary.opacity(0.5))
                 }
             }
+            .frame(width: 28)
 
+            // 节目信息
             VStack(alignment: .leading, spacing: 3) {
                 Text(program.name ?? "未知节目")
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .font(.rounded(size: 15, weight: isCurrent ? .semibold : .regular))
                     .foregroundColor(isCurrent ? .asideAccentBlue : .asideTextPrimary)
                     .lineLimit(1)
 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if !program.durationText.isEmpty {
                         Text(program.durationText)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.asideTextSecondary)
+                            .font(.rounded(size: 11))
+                            .foregroundColor(.asideTextSecondary.opacity(0.7))
+                    }
+                    if let listeners = program.listenerCount, listeners > 0 {
+                        Circle()
+                            .fill(Color.asideTextSecondary.opacity(0.3))
+                            .frame(width: 3, height: 3)
+                        Text("\(formatCount(listeners))播放")
+                            .font(.rounded(size: 11))
+                            .foregroundColor(.asideTextSecondary.opacity(0.7))
                     }
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            if program.mainSong == nil {
-                Text("不可播放")
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundColor(.asideTextSecondary.opacity(0.5))
+            // 右侧：当前播放标记 或 时长胶囊
+            if isCurrent {
+                Text("播放中")
+                    .font(.rounded(size: 10, weight: .semibold))
+                    .foregroundColor(.asideAccentBlue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.asideAccentBlue.opacity(0.12))
+                    .clipShape(Capsule())
             }
         }
-        .padding(.horizontal, 20)
         .padding(.vertical, 12)
+        .padding(.horizontal, 24)
         .contentShape(Rectangle())
     }
 

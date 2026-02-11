@@ -33,7 +33,7 @@ final class HistoryRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 获取播放历史失败: \(error)")
+            AppLogger.error("获取播放历史失败: \(error)")
             return []
         }
     }
@@ -67,7 +67,7 @@ final class HistoryRepository {
                 }
             }
         } catch {
-            print("❌ 清理播放历史失败: \(error)")
+            AppLogger.error("清理播放历史失败: \(error)")
         }
     }
     
@@ -77,7 +77,7 @@ final class HistoryRepository {
             try context.delete(model: PlayHistory.self)
             try context.save()
         } catch {
-            print("❌ 清空播放历史失败: \(error)")
+            AppLogger.error("清空播放历史失败: \(error)")
         }
     }
     
@@ -109,7 +109,7 @@ final class HistoryRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 获取搜索历史失败: \(error)")
+            AppLogger.error("获取搜索历史失败: \(error)")
             return []
         }
     }
@@ -121,7 +121,7 @@ final class HistoryRepository {
             try context.delete(model: SearchHistory.self, where: predicate)
             try context.save()
         } catch {
-            print("❌ 删除搜索记录失败: \(error)")
+            AppLogger.error("删除搜索记录失败: \(error)")
         }
     }
     
@@ -139,7 +139,7 @@ final class HistoryRepository {
                 }
             }
         } catch {
-            print("❌ 清理搜索历史失败: \(error)")
+            AppLogger.error("清理搜索历史失败: \(error)")
         }
     }
     
@@ -149,7 +149,7 @@ final class HistoryRepository {
             try context.delete(model: SearchHistory.self)
             try context.save()
         } catch {
-            print("❌ 清空搜索历史失败: \(error)")
+            AppLogger.error("清空搜索历史失败: \(error)")
         }
     }
     

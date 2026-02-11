@@ -9,7 +9,7 @@ final class SettingsManager: ObservableObject {
     // MARK: - 外观设置
     
     /// 是否启用液态玻璃效果
-    @AppStorage("liquidGlassEnabled") var liquidGlassEnabled: Bool = true {
+    @AppStorage("liquidGlassEnabled") var liquidGlassEnabled: Bool = false {
         didSet {
             objectWillChange.send()
         }
@@ -67,14 +67,25 @@ final class SettingsManager: ObservableObject {
     
     // MARK: - 播放设置
     
-    /// 音质设置
+    /// 音质设置（旧，保留兼容）
     @AppStorage("soundQuality") var soundQuality: String = "standard"
+    
+    /// 默认播放音质
+    @AppStorage("defaultPlaybackQuality") var defaultPlaybackQuality: String = "standard" {
+        didSet {
+            objectWillChange.send()
+        }
+    }
+    
+    /// 默认下载音质
+    @AppStorage("defaultDownloadQuality") var defaultDownloadQuality: String = "standard" {
+        didSet {
+            objectWillChange.send()
+        }
+    }
     
     /// 自动播放下一首
     @AppStorage("autoPlayNext") var autoPlayNext: Bool = true
-    
-    /// 启用解灰（灰色歌曲自动匹配其他音源）
-    @AppStorage("unblockEnabled") var unblockEnabled: Bool = true
     
     // MARK: - 缓存设置
     
@@ -85,6 +96,20 @@ final class SettingsManager: ObservableObject {
     
     /// 触感反馈
     @AppStorage("hapticFeedback") var hapticFeedback: Bool = true
+    
+    /// 解灰功能开关（使用第三方音源解锁灰色歌曲）
+    @AppStorage("unblockEnabled") var unblockEnabled: Bool = false {
+        didSet {
+            objectWillChange.send()
+        }
+    }
+    
+    /// 边听边存（播放时自动下载保存）
+    @AppStorage("listenAndSave") var listenAndSave: Bool = false {
+        didSet {
+            objectWillChange.send()
+        }
+    }
     
     private init() {
         // 启动时应用一次主题

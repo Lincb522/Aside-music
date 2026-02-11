@@ -2,31 +2,19 @@ import SwiftUI
 import SwiftData
 import LiquidGlassEffect
 
+// MARK: - AppDelegate（控制设备方向）
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        return OrientationManager.shared.allowedOrientations
+    }
+}
+
 @main
 struct AsideMusicApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var styleManager = StyleManager.shared
     @ObservedObject private var settings = SettingsManager.shared
-    
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            CachedSong.self,
-            CachedPlaylist.self,
-            CachedArtist.self,
-            PlayHistory.self,
-            SearchHistory.self,
-            CachedLyrics.self
-        ])
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false
-        )
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
     
     init() {
         LiquidGlassEngine.shared.performanceMode = .balanced
@@ -65,7 +53,7 @@ struct AsideMusicApp: App {
                         await OptimizedCacheManager.shared.cleanupExpiredData()
                     }
                 }
-                .environment(\.modelContext, sharedModelContainer.mainContext)
+                .modelContainer(DatabaseManager.shared.container)
         }
     }
 }

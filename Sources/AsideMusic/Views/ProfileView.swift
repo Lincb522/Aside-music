@@ -8,6 +8,7 @@ struct ProfileView: View {
     
     @State private var showLoginView = false
     @State private var showSettingsView = false
+    @State private var showDownloadManage = false
     
     // 缓存用户数据，避免频繁访问 viewModel
     @State private var cachedProfile: UserProfile?
@@ -96,6 +97,11 @@ struct ProfileView: View {
         .fullScreenCover(isPresented: $showSettingsView) {
             SettingsView()
         }
+        .fullScreenCover(isPresented: $showDownloadManage) {
+            NavigationStack {
+                DownloadManageView()
+            }
+        }
     }
     
     // MARK: - 已登录内容
@@ -175,7 +181,7 @@ struct ProfileView: View {
                 ActionCard(
                     icon: .settings,
                     title: NSLocalizedString("profile_settings", comment: ""),
-                    subtitle: cacheSize,
+                    subtitle: "Settings",
                     action: { showSettingsView = true }
                 )
                 .frame(width: 140)
@@ -257,14 +263,15 @@ struct ProfileView: View {
                 ActionCard(
                     icon: .download,
                     title: NSLocalizedString("profile_downloads", comment: ""),
-                    subtitle: "Offline Music"
+                    subtitle: "Offline Music",
+                    action: { showDownloadManage = true }
                 )
                 .frame(width: 140)
                 
                 ActionCard(
                     icon: .settings,
                     title: NSLocalizedString("profile_settings", comment: ""),
-                    subtitle: cacheSize,
+                    subtitle: "Settings",
                     action: { showSettingsView = true }
                 )
                 .frame(width: 140)
@@ -285,7 +292,6 @@ struct ProfileView: View {
     @State private var showSettingsActionSheet = false
     @State private var cacheSize: String = "..."
     @State private var lastCacheSizeUpdate: Date?
-    @State private var cancellables = Set<AnyCancellable>()
     
     /// 只在需要时更新缓存大小（避免频繁计算）
     private func updateCacheSizeIfNeeded() {
@@ -296,12 +302,10 @@ struct ProfileView: View {
         }
         
         // 在低优先级后台线程计算
-        DispatchQueue.global(qos: .utility).async {
+        Task { @MainActor in
             let size = OptimizedCacheManager.shared.getCacheSize()
-            DispatchQueue.main.async {
-                self.cacheSize = size
-                self.lastCacheSizeUpdate = Date()
-            }
+            self.cacheSize = size
+            self.lastCacheSizeUpdate = Date()
         }
     }
 
@@ -313,28 +317,24 @@ struct ProfileView: View {
                 primaryButtonTitle: NSLocalizedString("alert_logout_confirm", comment: ""),
                 secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
             ) {
-                APIService.shared.logout()
-                    .sink(receiveCompletion: { completion in
-                        // 无论成功失败都退出登录
-                        if case .failure = completion {
-                            // API 调用失败，手动清理本地状态
-                            APIService.shared.currentCookie = nil
-                            APIService.shared.currentUserId = nil
-                            UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
-                            UserDefaults.standard.removeObject(forKey: "aside_music_uid")
-                            UserDefaults.standard.set(false, forKey: "isLoggedIn")
-                            NotificationCenter.default.post(name: .didLogout, object: nil)
-                            Task { @MainActor in
-                                OptimizedCacheManager.shared.clearAll()
-                            }
-                        }
-                        isAppLoggedIn = false
-                        AlertManager.shared.dismiss()
-                    }, receiveValue: { _ in
-                        isAppLoggedIn = false
-                        AlertManager.shared.dismiss()
-                    })
-                    .store(in: &cancellables)
+                Task { @MainActor in
+                    // 调用 logout API，无论成功失败都清理本地状态
+                    do {
+                        _ = try await APIService.shared.logout()
+                            .async()
+                    } catch {
+                        // API 调用失败，手动清理本地状态
+                        UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
+                        UserDefaults.standard.removeObject(forKey: "aside_music_uid")
+                        UserDefaults.standard.set(false, forKey: "isLoggedIn")
+                        APIService.shared.currentCookie = nil
+                        OptimizedCacheManager.shared.clearAll()
+                    }
+                    isAppLoggedIn = false
+                    cachedProfile = nil
+                    hasAppeared = false
+                    AlertManager.shared.dismiss()
+                }
             }
         }) {
             Text(LocalizedStringKey("action_logout"))
@@ -348,16 +348,6 @@ struct ProfileView: View {
                 )
         }
         .padding(.top, 20)
-    }
-    
-    private func performLogout() {
-        APIService.shared.logout()
-            .sink(receiveCompletion: { completion in
-                isAppLoggedIn = false
-            }, receiveValue: { _ in
-                isAppLoggedIn = false
-            })
-            .store(in: &cancellables)
     }
 }
 

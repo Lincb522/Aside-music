@@ -14,6 +14,8 @@ DerivedData/
 .trae/
 .vscode/
 .idea/
+.kiro/
+*.code-workspace
 
 # Build artifacts
 *.ipa

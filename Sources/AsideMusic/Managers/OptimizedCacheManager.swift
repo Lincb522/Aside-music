@@ -33,8 +33,8 @@ final class OptimizedCacheManager: ObservableObject {
     @Published var isUserDataReady = false
     
     // MARK: - 缓存配置
-    private let memoryCacheLimit = 30 * 1024 * 1024 // 30MB (降低)
-    private let cacheValidityDuration: TimeInterval = 24 * 60 * 60 // 24小时
+    private let memoryCacheLimit = AppConfig.Cache.memoryLimit
+    private let cacheValidityDuration: TimeInterval = AppConfig.Cache.defaultTTL
     private let dailyCacheKey = "daily_cache_timestamp"
     private let lastSyncKey = "last_sync_timestamp"
     
@@ -51,7 +51,7 @@ final class OptimizedCacheManager: ObservableObject {
     
     private init() {
         memoryCache.totalCostLimit = memoryCacheLimit
-        memoryCache.countLimit = 200 // 降低到 200 个对象
+        memoryCache.countLimit = 200
         
         // 监听内存警告
         NotificationCenter.default.addObserver(
@@ -59,7 +59,9 @@ final class OptimizedCacheManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMemoryWarning()
+            Task { @MainActor in
+                self?.handleMemoryWarning()
+            }
         }
     }
     
@@ -77,17 +79,17 @@ final class OptimizedCacheManager: ObservableObject {
     
     func markDailySongsReady() {
         isDailySongsReady = true
-        print("✅ 每日推荐数据就绪")
+        AppLogger.success("每日推荐数据就绪")
     }
     
     func markPlaylistsReady() {
         isPlaylistsReady = true
-        print("✅ 歌单数据就绪")
+        AppLogger.success("歌单数据就绪")
     }
     
     func markUserDataReady() {
         isUserDataReady = true
-        print("✅ 用户数据就绪")
+        AppLogger.success("用户数据就绪")
     }
     
     // MARK: - 预加载系统
@@ -99,7 +101,7 @@ final class OptimizedCacheManager: ObservableObject {
         preloadProgress = 0
         preloadStage = .loadingFromDB
         
-        print("🚀 开始预加载核心数据...")
+        AppLogger.info("开始预加载核心数据...")
         
         // 1. 从数据库加载缓存的歌曲到内存 (20%)
         await preloadSongsToMemory()
@@ -123,12 +125,12 @@ final class OptimizedCacheManager: ObservableObject {
         preloadStage = .complete
         isPreloading = false
         
-        print("✅ 核心数据预加载完成")
+        AppLogger.success("核心数据预加载完成")
     }
     
     /// 快速预加载 - 仅加载最关键的数据用于首屏显示
     func quickPreload() async {
-        print("⚡ 快速预加载开始...")
+        AppLogger.info("快速预加载开始...")
         
         // 只加载首屏需要的数据
         let keysToWarmup = [
@@ -153,7 +155,7 @@ final class OptimizedCacheManager: ObservableObject {
             isPlaylistsReady = true
         }
         
-        print("⚡ 快速预加载完成")
+        AppLogger.success("快速预加载完成")
     }
     
     /// 预加载歌曲到内存
@@ -166,7 +168,7 @@ final class OptimizedCacheManager: ObservableObject {
             memoryCache.setObject(song as AnyObject, forKey: cacheKey)
         }
         
-        print("  📀 预加载了 \(recentSongs.count) 首歌曲到内存")
+        AppLogger.debug("预加载了 \(recentSongs.count) 首歌曲到内存")
     }
     
     /// 预加载歌单到内存
@@ -178,7 +180,7 @@ final class OptimizedCacheManager: ObservableObject {
             memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
         }
         
-        print("  📋 预加载了 \(recentPlaylists.count) 个歌单到内存")
+        AppLogger.debug("预加载了 \(recentPlaylists.count) 个歌单到内存")
     }
     
     /// 预热磁盘缓存
@@ -201,7 +203,7 @@ final class OptimizedCacheManager: ObservableObject {
             }
         }
         
-        print("  🔥 磁盘缓存预热完成")
+        AppLogger.debug("磁盘缓存预热完成")
     }
     
     /// 加载用户偏好
@@ -212,14 +214,14 @@ final class OptimizedCacheManager: ObservableObject {
         // 加载播放历史
         _ = historyRepo.getPlayHistory(limit: 50)
         
-        print("  👤 用户偏好数据加载完成")
+        AppLogger.debug("用户偏好数据加载完成")
     }
     
     // MARK: - 后台同步
     
     /// 后台同步数据到数据库
     func syncToDatabase() async {
-        print("🔄 开始后台同步数据到数据库...")
+        AppLogger.info("开始后台同步数据到数据库...")
         
         // 同步每日推荐歌曲
         if let songs = diskCache.getObject(forKey: "daily_songs", type: [Song].self) {
@@ -249,7 +251,7 @@ final class OptimizedCacheManager: ObservableObject {
         // 记录同步时间
         UserDefaults.standard.set(Date(), forKey: lastSyncKey)
         
-        print("✅ 后台同步完成")
+        AppLogger.success("后台同步完成")
     }
     
     /// 检查是否需要同步
@@ -320,7 +322,7 @@ final class OptimizedCacheManager: ObservableObject {
             UserDefaults.standard.set(Date(), forKey: timestampKey)
             return freshData
         } catch {
-            print("❌ 获取数据失败: \(error)")
+            AppLogger.error("获取数据失败: \(error)")
             // 返回过期的缓存数据（如果有）
             return diskCache.getObject(forKey: key, type: type)
         }
@@ -525,7 +527,7 @@ final class OptimizedCacheManager: ObservableObject {
     
     /// 处理内存警告
     private func handleMemoryWarning() {
-        print("⚠️ 收到内存警告，清理内存缓存...")
+        AppLogger.warning("收到内存警告，清理内存缓存...")
         
         // 清理所有内存缓存
         memoryCache.removeAllObjects()
@@ -538,7 +540,7 @@ final class OptimizedCacheManager: ObservableObject {
             LiquidGlassEngine.shared.releaseAllCaches()
         }
         
-        print("✅ 内存缓存已清理")
+        AppLogger.success("内存缓存已清理")
     }
     
     /// 清理过期数据

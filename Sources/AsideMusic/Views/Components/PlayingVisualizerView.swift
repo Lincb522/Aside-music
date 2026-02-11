@@ -29,7 +29,7 @@ struct PlayingVisualizerView: View {
                 animFlag = true
             }
         }
-        .onChange(of: isAnimating) { animating in
+        .onChange(of: isAnimating) { _, animating in
             animFlag = animating
         }
     }

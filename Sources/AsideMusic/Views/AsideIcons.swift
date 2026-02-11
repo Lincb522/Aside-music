@@ -56,6 +56,12 @@ struct AsideIcon: View {
         case musicNote
         case save
         
+        // 播放器专用下载图标
+        case playerDownload
+        
+        // 评论图标
+        case comment
+        
         case history
         case playCircle
         case warning
@@ -125,7 +131,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
+        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
             return false
         default:
             return true
@@ -206,6 +212,8 @@ struct AsideIcon: View {
         case .haptic:       return AnyShape(HapticPath())
         case .info:         return AnyShape(InfoPath())
         case .save:         return AnyShape(SavePath())
+        case .playerDownload: return AnyShape(PlayerDownloadPath())
+        case .comment:        return AnyShape(CommentPath())
         case .history:      return AnyShape(HistoryPath())
         case .playCircle:   return AnyShape(PlayCirclePath())
         case .warning:      return AnyShape(WarningPath())
@@ -572,7 +580,7 @@ private struct LikePath: Shape {
 
 private struct LikedPath: Shape {
     func path(in rect: CGRect) -> Path {
-        var path = Path()
+        let path = Path()
         return path
     }
 }
@@ -685,6 +693,65 @@ private struct DownloadPath: Shape {
         path.addCurve(to: CGPoint(x: 8*s, y: 20*s), control1: CGPoint(x: 5*s, y: 18.7*s), control2: CGPoint(x: 6.3*s, y: 20*s))
         path.addLine(to: CGPoint(x: 16*s, y: 20*s))
         path.addCurve(to: CGPoint(x: 19*s, y: 17*s), control1: CGPoint(x: 17.7*s, y: 20*s), control2: CGPoint(x: 19*s, y: 18.7*s))
+        
+        return path
+    }
+}
+
+// 播放器专用下载图标：向下箭头 + 底部托盘，纯线条无背景无圆圈
+private struct PlayerDownloadPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 向下箭头竖线
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        
+        // 箭头两翼
+        path.move(to: CGPoint(x: 8*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 11*s))
+        
+        // 底部托盘（U 形）
+        path.move(to: CGPoint(x: 5*s, y: 15*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 18*s))
+        path.addCurve(to: CGPoint(x: 8*s, y: 21*s), control1: CGPoint(x: 5*s, y: 19.7*s), control2: CGPoint(x: 6.3*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 21*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 18*s), control1: CGPoint(x: 17.7*s, y: 21*s), control2: CGPoint(x: 19*s, y: 19.7*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 15*s))
+        
+        return path
+    }
+}
+
+// 评论图标：气泡 + 三条横线
+private struct CommentPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 气泡外框
+        path.move(to: CGPoint(x: 12*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 17*s))
+        path.addCurve(to: CGPoint(x: 3*s, y: 14*s), control1: CGPoint(x: 4.3*s, y: 17*s), control2: CGPoint(x: 3*s, y: 15.7*s))
+        path.addLine(to: CGPoint(x: 3*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 6*s, y: 4*s), control1: CGPoint(x: 3*s, y: 5.3*s), control2: CGPoint(x: 4.3*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 7*s), control1: CGPoint(x: 19.7*s, y: 4*s), control2: CGPoint(x: 21*s, y: 5.3*s))
+        path.addLine(to: CGPoint(x: 21*s, y: 14*s))
+        path.addCurve(to: CGPoint(x: 18*s, y: 17*s), control1: CGPoint(x: 21*s, y: 15.7*s), control2: CGPoint(x: 19.7*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 17*s))
+        path.closeSubpath()
+        
+        // 三条横线
+        path.move(to: CGPoint(x: 8*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 8*s))
+        path.move(to: CGPoint(x: 8*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 11*s))
+        path.move(to: CGPoint(x: 8*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 13*s, y: 14*s))
         
         return path
     }
@@ -1401,67 +1468,116 @@ private struct SkipForwardPath: Shape {
     }
 }
 
-// 后退15秒 — 逆时针弧 + "15"
+// 后退15秒 — 逆时针开口弧 + 左上箭头 + 居中 "15"
 private struct Rewind15Path: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        
-        // 逆时针弧线
-        path.addArc(center: CGPoint(x: 12*s, y: 13*s), radius: 7*s, startAngle: .degrees(-60), endAngle: .degrees(220), clockwise: false)
-        
-        // 逆时针箭头
-        path.move(to: CGPoint(x: 5.5*s, y: 7*s))
-        path.addLine(to: CGPoint(x: 8.5*s, y: 7*s))
-        path.move(to: CGPoint(x: 5.5*s, y: 7*s))
-        path.addLine(to: CGPoint(x: 5.5*s, y: 10*s))
-        
-        // "1"
-        path.move(to: CGPoint(x: 9.5*s, y: 11*s))
-        path.addLine(to: CGPoint(x: 10.5*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 10.5*s, y: 16*s))
-        
-        // "5"
-        path.move(to: CGPoint(x: 15*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 13*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 12.5*s, y: 12.5*s))
-        path.addCurve(to: CGPoint(x: 14*s, y: 12*s), control1: CGPoint(x: 13*s, y: 12*s), control2: CGPoint(x: 13.5*s, y: 12*s))
-        path.addCurve(to: CGPoint(x: 15*s, y: 14*s), control1: CGPoint(x: 15*s, y: 12.5*s), control2: CGPoint(x: 15.5*s, y: 13.5*s))
-        path.addCurve(to: CGPoint(x: 12.5*s, y: 16*s), control1: CGPoint(x: 14.5*s, y: 15.5*s), control2: CGPoint(x: 13.5*s, y: 16*s))
-        
+        let cx = 12 * s
+        let cy = 12.5 * s
+        let r = 8.5 * s
+
+        // 逆时针开口弧（从顶部偏左到顶部偏右，留出缺口）
+        path.addArc(center: CGPoint(x: cx, y: cy), radius: r,
+                     startAngle: .degrees(-70), endAngle: .degrees(250), clockwise: false)
+
+        // 箭头（弧线起点处，指向逆时针方向）
+        let arrowTip = CGPoint(
+            x: cx + r * CGFloat(cos(Double.pi * (-70) / 180)),
+            y: cy + r * CGFloat(sin(Double.pi * (-70) / 180))
+        )
+        path.move(to: CGPoint(x: arrowTip.x - 3.5 * s, y: arrowTip.y - 0.5 * s))
+        path.addLine(to: arrowTip)
+        path.addLine(to: CGPoint(x: arrowTip.x + 0.5 * s, y: arrowTip.y - 3.5 * s))
+
+        // "1" — 居中偏左，简洁竖线带短衬线
+        let numY = 10.5 * s
+        let numH = 6 * s
+        path.move(to: CGPoint(x: 9 * s, y: numY + 1 * s))
+        path.addLine(to: CGPoint(x: 10.2 * s, y: numY))
+        path.addLine(to: CGPoint(x: 10.2 * s, y: numY + numH))
+        // 底部短横线
+        path.move(to: CGPoint(x: 8.8 * s, y: numY + numH))
+        path.addLine(to: CGPoint(x: 11.6 * s, y: numY + numH))
+
+        // "5" — 居中偏右，圆润的 S 形
+        let fx: CGFloat = 13 * s
+        path.move(to: CGPoint(x: fx + 3.2 * s, y: numY))
+        path.addLine(to: CGPoint(x: fx, y: numY))
+        path.addLine(to: CGPoint(x: fx - 0.3 * s, y: numY + 2.6 * s))
+        // 5 的圆弧肚子
+        path.addCurve(
+            to: CGPoint(x: fx + 1.6 * s, y: numY + 2.2 * s),
+            control1: CGPoint(x: fx + 0.5 * s, y: numY + 2.2 * s),
+            control2: CGPoint(x: fx + 1 * s, y: numY + 2.2 * s)
+        )
+        path.addCurve(
+            to: CGPoint(x: fx + 3 * s, y: numY + 4.2 * s),
+            control1: CGPoint(x: fx + 2.8 * s, y: numY + 2.4 * s),
+            control2: CGPoint(x: fx + 3.4 * s, y: numY + 3.2 * s)
+        )
+        path.addCurve(
+            to: CGPoint(x: fx - 0.2 * s, y: numY + numH),
+            control1: CGPoint(x: fx + 2.6 * s, y: numY + 5.4 * s),
+            control2: CGPoint(x: fx + 1.2 * s, y: numY + numH)
+        )
+
         return path
     }
 }
 
-// 前进15秒 — 顺时针弧 + "15"
+// 前进15秒 — 顺时针开口弧 + 右上箭头 + 居中 "15"
 private struct Forward15Path: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        
-        // 顺时针弧线
-        path.addArc(center: CGPoint(x: 12*s, y: 13*s), radius: 7*s, startAngle: .degrees(-120), endAngle: .degrees(-40), clockwise: true)
-        path.addArc(center: CGPoint(x: 12*s, y: 13*s), radius: 7*s, startAngle: .degrees(-40), endAngle: .degrees(220), clockwise: true)
-        
-        // 顺时针箭头
-        path.move(to: CGPoint(x: 18.5*s, y: 7*s))
-        path.addLine(to: CGPoint(x: 15.5*s, y: 7*s))
-        path.move(to: CGPoint(x: 18.5*s, y: 7*s))
-        path.addLine(to: CGPoint(x: 18.5*s, y: 10*s))
-        
-        // "1"
-        path.move(to: CGPoint(x: 9.5*s, y: 11*s))
-        path.addLine(to: CGPoint(x: 10.5*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 10.5*s, y: 16*s))
-        
-        // "5"
-        path.move(to: CGPoint(x: 15*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 13*s, y: 10*s))
-        path.addLine(to: CGPoint(x: 12.5*s, y: 12.5*s))
-        path.addCurve(to: CGPoint(x: 14*s, y: 12*s), control1: CGPoint(x: 13*s, y: 12*s), control2: CGPoint(x: 13.5*s, y: 12*s))
-        path.addCurve(to: CGPoint(x: 15*s, y: 14*s), control1: CGPoint(x: 15*s, y: 12.5*s), control2: CGPoint(x: 15.5*s, y: 13.5*s))
-        path.addCurve(to: CGPoint(x: 12.5*s, y: 16*s), control1: CGPoint(x: 14.5*s, y: 15.5*s), control2: CGPoint(x: 13.5*s, y: 16*s))
-        
+        let cx = 12 * s
+        let cy = 12.5 * s
+        let r = 8.5 * s
+
+        // 顺时针开口弧（从顶部偏右到顶部偏左，留出缺口）
+        path.addArc(center: CGPoint(x: cx, y: cy), radius: r,
+                     startAngle: .degrees(-110), endAngle: .degrees(250), clockwise: true)
+
+        // 箭头（弧线起点处，指向顺时针方向）
+        let arrowTip = CGPoint(
+            x: cx + r * CGFloat(cos(Double.pi * (-110) / 180)),
+            y: cy + r * CGFloat(sin(Double.pi * (-110) / 180))
+        )
+        path.move(to: CGPoint(x: arrowTip.x + 3.5 * s, y: arrowTip.y - 0.5 * s))
+        path.addLine(to: arrowTip)
+        path.addLine(to: CGPoint(x: arrowTip.x - 0.5 * s, y: arrowTip.y - 3.5 * s))
+
+        // "1" — 居中偏左
+        let numY = 10.5 * s
+        let numH = 6 * s
+        path.move(to: CGPoint(x: 9 * s, y: numY + 1 * s))
+        path.addLine(to: CGPoint(x: 10.2 * s, y: numY))
+        path.addLine(to: CGPoint(x: 10.2 * s, y: numY + numH))
+        path.move(to: CGPoint(x: 8.8 * s, y: numY + numH))
+        path.addLine(to: CGPoint(x: 11.6 * s, y: numY + numH))
+
+        // "5" — 居中偏右
+        let fx: CGFloat = 13 * s
+        path.move(to: CGPoint(x: fx + 3.2 * s, y: numY))
+        path.addLine(to: CGPoint(x: fx, y: numY))
+        path.addLine(to: CGPoint(x: fx - 0.3 * s, y: numY + 2.6 * s))
+        path.addCurve(
+            to: CGPoint(x: fx + 1.6 * s, y: numY + 2.2 * s),
+            control1: CGPoint(x: fx + 0.5 * s, y: numY + 2.2 * s),
+            control2: CGPoint(x: fx + 1 * s, y: numY + 2.2 * s)
+        )
+        path.addCurve(
+            to: CGPoint(x: fx + 3 * s, y: numY + 4.2 * s),
+            control1: CGPoint(x: fx + 2.8 * s, y: numY + 2.4 * s),
+            control2: CGPoint(x: fx + 3.4 * s, y: numY + 3.2 * s)
+        )
+        path.addCurve(
+            to: CGPoint(x: fx - 0.2 * s, y: numY + numH),
+            control1: CGPoint(x: fx + 2.6 * s, y: numY + 5.4 * s),
+            control2: CGPoint(x: fx + 1.2 * s, y: numY + numH)
+        )
+
         return path
     }
 }

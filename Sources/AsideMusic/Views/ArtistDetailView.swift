@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 class ArtistDetailViewModel: ObservableObject {
     @Published var artist: ArtistInfo?
     @Published var songs: [Song] = []
@@ -19,7 +20,7 @@ class ArtistDetailViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("Error loading artist data: \(error)")
+                    AppLogger.error("Error loading artist data: \(error)")
                 }
                 self?.isLoading = false
             }, receiveValue: { [weak self] (artist, songs) in

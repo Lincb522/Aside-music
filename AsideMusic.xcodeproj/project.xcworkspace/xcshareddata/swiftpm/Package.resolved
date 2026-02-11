@@ -1,10 +1,10 @@
 {
-  "originHash" : "f6d5cffbf7cd86b5a2f98a3080a626c997d19929007deb4e4d9871fe00caf19b",
+  "originHash" : "bf03b07d2c360110e010d3e8c97faf43d29d4d94bfba6a389485fbec2a0b8e99",
   "pins" : [
     {
       "identity" : "liquidglasseffect",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Lincb522/LiquidGlassEffect.git",
+      "location" : "https://github.com/Lincb522/LiquidGlassEffect",
       "state" : {
         "revision" : "9d7b23be661cb519b355cdc26c7f12816b1b2f9e",
         "version" : "2.1.0"

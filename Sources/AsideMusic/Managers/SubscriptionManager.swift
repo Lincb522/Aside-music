@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 
 /// 全局收藏管理器 — 管理歌单收藏和播客订阅
+@MainActor
 class SubscriptionManager: ObservableObject {
     static let shared = SubscriptionManager()
 
@@ -35,7 +36,7 @@ class SubscriptionManager: ObservableObject {
             .sink(receiveCompletion: { [weak self] completion in
                 self?.isLoadingRadios = false
                 if case .failure(let error) = completion {
-                    print("获取订阅播客失败: \(error)")
+                    AppLogger.error("获取订阅播客失败: \(error)")
                 }
             }, receiveValue: { [weak self] radios in
                 self?.subscribedRadios = radios
@@ -144,7 +145,7 @@ class SubscriptionManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { result in
                 if case .failure(let error) = result {
-                    print("删除歌单失败: \(error)")
+                    AppLogger.error("删除歌单失败: \(error)")
                     completion(false)
                 }
             }, receiveValue: { response in
@@ -166,7 +167,7 @@ class SubscriptionManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] result in
                 if case .failure(let error) = result {
-                    print("取消收藏歌单失败: \(error)")
+                    AppLogger.error("取消收藏歌单失败: \(error)")
                     self?.subscribedPlaylistIds.insert(id)
                     completion(false)
                 }
@@ -191,7 +192,7 @@ class SubscriptionManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] result in
                 if case .failure(let error) = result {
-                    print("取消订阅播客失败: \(error)")
+                    AppLogger.error("取消订阅播客失败: \(error)")
                     // 回滚
                     self?.subscribedRadioIds.insert(radio.id)
                     self?.subscribedRadios.insert(radio, at: 0)

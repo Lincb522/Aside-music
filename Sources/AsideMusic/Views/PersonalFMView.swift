@@ -9,7 +9,8 @@ struct PersonalFMView: View {
     @State private var currentFMSong: Song?
     @State private var isLoading = false
     @State private var showControls = true
-    @State private var cancellables = Set<AnyCancellable>()
+    @State private var fmLoadTask: Task<Void, Never>?
+    @State private var trashTask: Task<Void, Never>?
 
     private struct Theme {
         static let background = Color.clear
@@ -80,7 +81,7 @@ struct PersonalFMView: View {
             .onAppear {
                 generateAmplitudes()
             }
-            .onChange(of: duration) { _ in
+            .onChange(of: duration) {
                 generateAmplitudes()
             }
         }
@@ -359,7 +360,7 @@ struct PersonalFMView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear { setupFM() }
         .onDisappear { teardownFM() }
-        .onChange(of: player.currentSong?.id) { _ in syncPlayerState() }
+        .onChange(of: player.currentSong?.id) { syncPlayerState() }
     }
 
     // MARK: - Logic
@@ -370,9 +371,9 @@ struct PersonalFMView: View {
         if PlayerManager.shared.isPlayingFM && !PlayerManager.shared.context.isEmpty {
             self.fmSongs = PlayerManager.shared.context
             self.currentFMSong = PlayerManager.shared.currentSong
-            print("Personal FM: Resuming existing FM session")
+            AppLogger.debug("Personal FM: Resuming existing FM session")
         } else {
-            print("Personal FM: Starting fresh session")
+            AppLogger.debug("Personal FM: Starting fresh session")
             loadFMData()
         }
     }
@@ -405,35 +406,33 @@ struct PersonalFMView: View {
             isLoading = true
         }
 
-        APIService.shared.fetchPersonalFM()
-            .sink(receiveCompletion: { completion in
-                DispatchQueue.main.async {
-                    if !append { self.isLoading = false }
-                    if case .failure(let error) = completion {
-                        print("FM Load Error: \(error)")
+        fmLoadTask?.cancel()
+        fmLoadTask = Task {
+            do {
+                let songs = try await APIService.shared.fetchPersonalFM().async()
+                guard !Task.isCancelled else { return }
+                if append {
+                    self.fmSongs.append(contentsOf: songs)
+                    if PlayerManager.shared.isPlayingFM {
+                        PlayerManager.shared.appendContext(songs: songs)
                     }
-                }
-            }, receiveValue: { songs in
-                DispatchQueue.main.async {
-                    if append {
-                        self.fmSongs.append(contentsOf: songs)
-                        if PlayerManager.shared.isPlayingFM {
-                            PlayerManager.shared.appendContext(songs: songs)
-                        }
-                    } else {
-                        self.fmSongs = songs
-                        if let first = songs.first {
-                            self.currentFMSong = first
-                            if PlayerManager.shared.isPlaying && !PlayerManager.shared.isPlayingFM {
-                                // 仅展示 FM 界面，不切换播放
-                            } else {
-                                PlayerManager.shared.playFM(song: first, in: songs, autoPlay: false)
-                            }
+                } else {
+                    self.fmSongs = songs
+                    if let first = songs.first {
+                        self.currentFMSong = first
+                        if PlayerManager.shared.isPlaying && !PlayerManager.shared.isPlayingFM {
+                            // 仅展示 FM 界面，不切换播放
+                        } else {
+                            PlayerManager.shared.playFM(song: first, in: songs, autoPlay: false)
                         }
                     }
                 }
-            })
-            .store(in: &cancellables)
+            } catch {
+                guard !Task.isCancelled else { return }
+                AppLogger.error("FM Load Error: \(error)")
+            }
+            if !append { self.isLoading = false }
+        }
     }
 
     private func nextSong() {
@@ -449,9 +448,13 @@ struct PersonalFMView: View {
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         // 只有 FM 播放源时才读取真实播放时间
         let currentTime = isOwnFMContent ? Int(PlayerManager.shared.currentTime) : 0
-        APIService.shared.trashFM(id: song.id, time: currentTime)
-            .sink(receiveCompletion: { _ in }, receiveValue: { _ in })
-            .store(in: &cancellables)
+        trashTask = Task {
+            do {
+                _ = try await APIService.shared.trashFM(id: song.id, time: currentTime).async()
+            } catch {
+                AppLogger.error("Trash FM error: \(error)")
+            }
+        }
         PlayerManager.shared.next()
     }
 

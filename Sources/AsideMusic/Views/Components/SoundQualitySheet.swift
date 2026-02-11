@@ -5,7 +5,7 @@ struct SoundQualitySheet: View {
     let onSelect: (SoundQuality) -> Void
     @Environment(\.dismiss) private var dismiss
     
-    private let qualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none && $0 != .higher }
+    private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none && $0 != .higher }
     
     var body: some View {
         ZStack {
@@ -30,13 +30,18 @@ struct SoundQualitySheet: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        ForEach(Array(qualities.enumerated()), id: \.element) { index, quality in
+                        ForEach(Array(neteaseQualities.enumerated()), id: \.element) { index, quality in
                             Button(action: { onSelect(quality) }) {
-                                qualityRow(quality)
+                                qualityRow(
+                                    name: quality.displayName,
+                                    subtitle: quality.subtitle,
+                                    badge: quality.badgeText,
+                                    isSelected: currentQuality == quality
+                                )
                             }
                             .buttonStyle(.plain)
                             
-                            if index < qualities.count - 1 {
+                            if index < neteaseQualities.count - 1 {
                                 Divider().padding(.leading, 56)
                             }
                         }
@@ -53,23 +58,23 @@ struct SoundQualitySheet: View {
         }
     }
     
-    private func qualityRow(_ quality: SoundQuality) -> some View {
+    private func qualityRow(name: String, subtitle: String, badge: String?, isSelected: Bool) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(currentQuality == quality ? Color.asideIconBackground : Color.asideIconBackground.opacity(0.08))
+                    .fill(isSelected ? Color.asideIconBackground : Color.asideIconBackground.opacity(0.08))
                     .frame(width: 32, height: 32)
                 
-                AsideIcon(icon: .soundQuality, size: 16, color: currentQuality == quality ? .asideIconForeground : .asideTextPrimary)
+                AsideIcon(icon: .soundQuality, size: 16, color: isSelected ? .asideIconForeground : .asideTextPrimary)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(quality.displayName)
+                    Text(name)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
                     
-                    if let badge = quality.badgeText {
+                    if let badge = badge {
                         Text(badge)
                             .font(.system(size: 9, weight: .bold, design: .rounded))
                             .foregroundColor(.asideIconForeground)
@@ -80,14 +85,14 @@ struct SoundQualitySheet: View {
                     }
                 }
                 
-                Text(quality.subtitle)
+                Text(subtitle)
                     .font(.system(size: 12, weight: .regular, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
             
             Spacer()
             
-            if currentQuality == quality {
+            if isSelected {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.asideTextPrimary)

@@ -209,9 +209,9 @@ class PodcastSearchViewModel: ObservableObject {
     private let limit = 30
 
     init() {
-        // 防抖搜索：输入停止 0.5 秒后触发
+        // 防抖搜索
         $searchText
-            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] text in
                 guard let self = self else { return }

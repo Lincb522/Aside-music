@@ -9,26 +9,13 @@ public struct ContentView: View {
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
     @State private var showRadioPlayer = false
-    @State private var radioPlayerRadioId: Int = 0
+    @State private var radioPlayerRadioId: Int? = nil
     @StateObject private var alertManager = AlertManager.shared
     @Namespace private var animation
 
     public init() {
+        // TabBar 外观配置已在 AsideMusicApp.init() 中统一设置
         UITabBar.appearance().isHidden = true
-        UITabBar.appearance().backgroundColor = .clear
-        UITabBar.appearance().backgroundImage = UIImage()
-        UITabBar.appearance().shadowImage = UIImage()
-
-        // 设置 TabBar appearance 为完全透明
-        let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithTransparentBackground()
-        tabBarAppearance.backgroundColor = .clear
-        tabBarAppearance.shadowColor = .clear
-        tabBarAppearance.shadowImage = UIImage()
-        tabBarAppearance.backgroundImage = UIImage()
-        tabBarAppearance.backgroundEffect = nil
-        UITabBar.appearance().standardAppearance = tabBarAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
     }
 
     public var body: some View {
@@ -81,7 +68,7 @@ public struct ContentView: View {
                 currentTab = .library
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
-                if let radioId = notification.object as? Int {
+                if let radioId = notification.object as? Int, radioId > 0 {
                     radioPlayerRadioId = radioId
                     showRadioPlayer = true
                 }
@@ -93,7 +80,9 @@ public struct ContentView: View {
                 FullScreenPlayerView()
             }
             .fullScreenCover(isPresented: $showRadioPlayer) {
-                RadioPlayerView(radioId: radioPlayerRadioId)
+                if let radioId = radioPlayerRadioId {
+                    RadioPlayerView(radioId: radioId)
+                }
             }
 
             if showWelcome {
@@ -120,7 +109,7 @@ public struct ContentView: View {
                 .zIndex(999)
             }
         }
-        .background(SwipeBackInjector())
+        // SwipeBackInjector 已在 AsideMusicApp 层注入
     }
 }
 

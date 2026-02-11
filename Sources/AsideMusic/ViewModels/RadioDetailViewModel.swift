@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 /// 电台详情 ViewModel，管理电台信息和节目列表的加载
+@MainActor
 class RadioDetailViewModel: ObservableObject {
     @Published var radioDetail: RadioStation?
     @Published var programs: [RadioProgram] = []
@@ -70,7 +71,7 @@ class RadioDetailViewModel: ObservableObject {
             .sink(receiveCompletion: { [weak self] completion in
                 self?.isLoadingMore = false
                 if case .failure(let error) = completion {
-                    print("[RadioDetailVM] 加载更多失败: \(error)")
+                    AppLogger.error("[RadioDetailVM] 加载更多失败: \(error)")
                 }
             }, receiveValue: { [weak self] progs in
                 guard let self = self else { return }

@@ -32,10 +32,12 @@ struct MiniPlayerSection: View {
                         .font(.rounded(size: 12, weight: .bold))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)
-                    Text(song.artistName)
-                        .font(.rounded(size: 10, weight: .medium))
-                        .foregroundColor(.asideTextSecondary)
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(song.artistName)
+                            .font(.rounded(size: 10, weight: .medium))
+                            .foregroundColor(.asideTextSecondary)
+                            .lineLimit(1)
+                    }
                 }
                 
                 Spacer()

@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 
+@MainActor
 class StyleManager: ObservableObject {
     static let shared = StyleManager()
     
@@ -50,7 +51,7 @@ class StyleManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: stylePersistenceKey),
            let style = try? JSONDecoder().decode(APIService.StyleTag.self, from: data) {
             currentStyle = style
-            print("DEBUG: StyleManager - Restored style: \(style.finalName)")
+            AppLogger.debug("StyleManager - Restored style: \(style.finalName)")
         }
     }
     
@@ -63,17 +64,17 @@ class StyleManager: ObservableObject {
                 guard let self = self else { return Empty().eraseToAnyPublisher() }
                 
                 if !styles.isEmpty {
-                    print("DEBUG: StyleManager - Found \(styles.count) preference styles")
+                    AppLogger.debug("StyleManager - Found \(styles.count) preference styles")
                     return Just(styles).setFailureType(to: Error.self).eraseToAnyPublisher()
                 } else {
-                    print("DEBUG: StyleManager - Preference empty, fallback to full list")
+                    AppLogger.debug("StyleManager - Preference empty, fallback to full list")
         // 偏好为空，回退到完整列表
                     return self.api.fetchStyleList()
                 }
             }
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("DEBUG: StyleManager - Load Error: \(error)")
+                    AppLogger.error("StyleManager - Load Error: \(error)")
                     self?.isLoadingStyles = false
                 }
             }, receiveValue: { [weak self] styles in

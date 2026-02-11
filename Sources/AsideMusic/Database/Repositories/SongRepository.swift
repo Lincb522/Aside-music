@@ -22,7 +22,7 @@ final class SongRepository {
             let results = try context.fetch(descriptor)
             return results.first
         } catch {
-            print("❌ 获取歌曲失败: \(error)")
+            AppLogger.error("获取歌曲失败: \(error)")
             return nil
         }
     }
@@ -35,7 +35,7 @@ final class SongRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 批量获取歌曲失败: \(error)")
+            AppLogger.error("批量获取歌曲失败: \(error)")
             return []
         }
     }
@@ -51,7 +51,7 @@ final class SongRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 获取最近播放失败: \(error)")
+            AppLogger.error("获取最近播放失败: \(error)")
             return []
         }
     }
@@ -67,7 +67,7 @@ final class SongRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 获取最常播放失败: \(error)")
+            AppLogger.error("获取最常播放失败: \(error)")
             return []
         }
     }
@@ -136,7 +136,7 @@ final class SongRepository {
             try context.delete(model: CachedSong.self)
             try context.save()
         } catch {
-            print("❌ 清空歌曲缓存失败: \(error)")
+            AppLogger.error("清空歌曲缓存失败: \(error)")
         }
     }
     

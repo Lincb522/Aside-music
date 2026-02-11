@@ -1,18 +1,18 @@
 import SwiftUI
 import LiquidGlassEffect
 
-// Shared Back Button Component
+// MARK: - 返回按钮组件
 struct AsideBackButton: View {
     enum Style {
-        case back // < Back
-        case dismiss // X or Down Arrow
+        case back   // < 返回
+        case dismiss // 下拉关闭
     }
-    
+
     var style: Style = .back
     var isDarkBackground: Bool = false
-    
+
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         Button(action: {
             dismiss()
@@ -21,7 +21,7 @@ struct AsideBackButton: View {
                 Circle()
                     .fill(isDarkBackground ? Color.white.opacity(0.2) : Color.asideSeparator)
                     .frame(width: 40, height: 40)
-                
+
                 AsideIcon(
                     icon: style == .back ? .back : .chevronRight,
                     size: 20,
@@ -35,127 +35,124 @@ struct AsideBackButton: View {
     }
 }
 
-// MARK: - Liquid Glass Background with Metal Shader
+// MARK: - 弥散背景组件
 struct AsideBackground: View {
     @Environment(\.colorScheme) private var colorScheme
-    
+
     var body: some View {
         ZStack {
-            // Layer 1: Base color - 确保覆盖整个屏幕包括安全区域
-            (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
+            // 第一层：纯色底
+            (colorScheme == .dark ? Color(hex: "0A0A0C") : Color(hex: "F5F5F7"))
                 .ignoresSafeArea()
-            
-            // Layer 2: Diffused color blobs
+
+            // 第二层：弥散光斑
             GeometryReader { geo in
-                Canvas { context, size in
+                let w = geo.size.width
+                let h = geo.size.height
+
+                ZStack {
                     if colorScheme == .dark {
-                        // 深色模式 - 低饱和度暗色光斑
-                        let purple = Color(hex: "2A1A3A")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: -size.width * 0.3,
-                                y: -size.height * 0.15,
-                                width: size.width * 1.0,
-                                height: size.height * 0.6
-                            )),
-                            with: .color(purple.opacity(0.6))
+                        // ── 深色模式：中性深灰蓝，无紫色 ──
+
+                        // 左上 — 深灰蓝
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "131720").opacity(0.7),
+                                Color(hex: "131720").opacity(0)
+                            ],
+                            center: .init(x: 0.15, y: 0.08),
+                            startRadius: 0,
+                            endRadius: w * 0.75
                         )
-                        
-                        let blue = Color(hex: "0D1B2A")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: size.width * 0.4,
-                                y: -size.height * 0.1,
-                                width: size.width * 0.8,
-                                height: size.height * 0.5
-                            )),
-                            with: .color(blue.opacity(0.5))
+
+                        // 右上 — 深青灰
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "0F1A1E").opacity(0.5),
+                                Color(hex: "0F1A1E").opacity(0)
+                            ],
+                            center: .init(x: 0.85, y: 0.1),
+                            startRadius: 0,
+                            endRadius: w * 0.6
                         )
-                        
-                        let warm = Color(hex: "1A1210")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: -size.width * 0.1,
-                                y: size.height * 0.5,
-                                width: size.width * 1.2,
-                                height: size.height * 0.6
-                            )),
-                            with: .color(warm.opacity(0.5))
+
+                        // 中下 — 深暖灰收底
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "14120F").opacity(0.5),
+                                Color(hex: "14120F").opacity(0)
+                            ],
+                            center: .init(x: 0.5, y: 0.7),
+                            startRadius: 0,
+                            endRadius: w * 0.7
                         )
+
                     } else {
-                        // 浅色模式 - 原有的柔和光斑
-                        let pink = Color(hex: "E8D0E8")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: -size.width * 0.3,
-                                y: -size.height * 0.15,
-                                width: size.width * 1.0,
-                                height: size.height * 0.6
-                            )),
-                            with: .color(pink.opacity(0.5))
+                        // ── 浅色模式：暖灰米色，无紫色 ──
+
+                        // 左上 — 淡暖灰
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "E8E4E0").opacity(0.5),
+                                Color(hex: "E8E4E0").opacity(0)
+                            ],
+                            center: .init(x: 0.1, y: 0.05),
+                            startRadius: 0,
+                            endRadius: w * 0.7
                         )
-                        
-                        let blue = Color(hex: "D0E4F5")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: size.width * 0.4,
-                                y: -size.height * 0.1,
-                                width: size.width * 0.8,
-                                height: size.height * 0.5
-                            )),
-                            with: .color(blue.opacity(0.45))
+
+                        // 右上 — 极淡蓝灰
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "DEE4EC").opacity(0.4),
+                                Color(hex: "DEE4EC").opacity(0)
+                            ],
+                            center: .init(x: 0.85, y: 0.0),
+                            startRadius: 0,
+                            endRadius: w * 0.6
                         )
-                        
-                        let warm = Color(hex: "F8E4D0")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: -size.width * 0.1,
-                                y: size.height * 0.5,
-                                width: size.width * 1.2,
-                                height: size.height * 0.6
-                            )),
-                            with: .color(warm.opacity(0.4))
-                        )
-                        
-                        let green = Color(hex: "D5EBE0")
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: -size.width * 0.2,
-                                y: size.height * 0.3,
-                                width: size.width * 0.7,
-                                height: size.height * 0.5
-                            )),
-                            with: .color(green.opacity(0.35))
+
+                        // 中下 — 奶油米色收底
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "F0ECE6").opacity(0.4),
+                                Color(hex: "F0ECE6").opacity(0)
+                            ],
+                            center: .init(x: 0.5, y: 0.6),
+                            startRadius: 0,
+                            endRadius: w * 0.7
                         )
                     }
                 }
-                .blur(radius: 80)
+                .frame(width: w, height: h)
+                .blur(radius: 70)
             }
             .ignoresSafeArea()
-            
-            // Layer 3: Frosted glass overlay
-            LiquidGlassOverlay()
+
+            // 第三层：极淡毛玻璃统一色调
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(colorScheme == .dark ? 0.15 : 0.2)
                 .ignoresSafeArea()
         }
     }
 }
 
-// MARK: - Liquid Glass Overlay
+// MARK: - Liquid Glass 叠加层
 struct LiquidGlassOverlay: View {
     var body: some View {
-        // 只保留轻微的毛玻璃模糊效果，去除所有白色叠加
         Rectangle()
             .fill(.ultraThinMaterial)
             .opacity(0.3)
     }
 }
 
-// MARK: - Liquid Glass Card (Metal-powered)
+// MARK: - Liquid Glass 卡片（Metal 渲染）
 struct AsideLiquidGlassCard<Content: View>: View {
     let cornerRadius: CGFloat
     let useMetal: Bool
     let content: Content
-    
+
     init(
         cornerRadius: CGFloat = 20,
         useMetal: Bool = true,
@@ -165,17 +162,14 @@ struct AsideLiquidGlassCard<Content: View>: View {
         self.useMetal = useMetal
         self.content = content()
     }
-    
+
     var body: some View {
         content
             .background(
                 Group {
                     if useMetal {
-                        // Metal shader version (使用 LiquidGlassEffect 库)
-                        // 背景组件使用较低帧率，静态场景会自动冻结
                         LiquidGlassMetalView(cornerRadius: cornerRadius, backgroundCaptureFrameRate: 20)
                     } else {
-                        // SwiftUI fallback
                         SwiftUIGlassBackground(cornerRadius: cornerRadius)
                     }
                 }
@@ -185,18 +179,18 @@ struct AsideLiquidGlassCard<Content: View>: View {
     }
 }
 
-// MARK: - SwiftUI Fallback Glass
+// MARK: - SwiftUI 毛玻璃回退方案
 struct SwiftUIGlassBackground: View {
     let cornerRadius: CGFloat
-    
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.ultraThinMaterial)
-            
+
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(Color.white.opacity(0.4))
-            
+
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(
                     LinearGradient(
@@ -211,7 +205,7 @@ struct SwiftUIGlassBackground: View {
                     ),
                     lineWidth: 1
                 )
-            
+
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(
                     RadialGradient(
@@ -228,7 +222,7 @@ struct SwiftUIGlassBackground: View {
     }
 }
 
-// MARK: - View Modifiers
+// MARK: - View 修饰器
 extension View {
     func asideBackground() -> some View {
         self.background(AsideBackground())

@@ -19,6 +19,7 @@ struct LyricLine: Identifiable, Equatable {
     var words: [LyricWord] = []
 }
 
+@MainActor
 class LyricViewModel: ObservableObject {
     @Published var lyrics: [LyricLine] = []
     @Published var isLoading = false
@@ -41,7 +42,7 @@ class LyricViewModel: ObservableObject {
         APIService.shared.fetchLyric(id: songId)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("Failed to fetch lyrics: \(error)")
+                    AppLogger.error("Failed to fetch lyrics: \(error)")
                     self?.isLoading = false
                 }
             }, receiveValue: { [weak self] response in
@@ -250,7 +251,9 @@ struct FlowLayout: Layout {
     
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
-        return rows.last?.maxY ?? .zero
+        let maxWidth = rows.map(\.maxX).max() ?? 0
+        let totalHeight = rows.last.map { $0.y + $0.height } ?? 0
+        return CGSize(width: maxWidth, height: totalHeight)
     }
     
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
@@ -266,7 +269,7 @@ struct FlowLayout: Layout {
         var y: CGFloat
         var height: CGFloat
         var items: [Item]
-        var maxY: CGSize { CGSize(width: 0, height: y + height) }
+        var maxX: CGFloat = 0
     }
     
     struct Item {
@@ -287,8 +290,8 @@ struct FlowLayout: Layout {
             let viewSize = view.sizeThatFits(.unspecified)
             
             if currentX + viewSize.width > maxWidth && !currentItems.isEmpty {
-                rows.append(Row(y: currentRowY, height: currentRowHeight, items: currentItems))
-                currentRowY += currentRowHeight
+                rows.append(Row(y: currentRowY, height: currentRowHeight, items: currentItems, maxX: currentX - spacing))
+                currentRowY += currentRowHeight + spacing
                 currentX = 0
                 currentRowHeight = 0
                 currentItems = []
@@ -300,7 +303,7 @@ struct FlowLayout: Layout {
         }
         
         if !currentItems.isEmpty {
-            rows.append(Row(y: currentRowY, height: currentRowHeight, items: currentItems))
+            rows.append(Row(y: currentRowY, height: currentRowHeight, items: currentItems, maxX: currentX - spacing))
         }
         
         return rows
@@ -462,7 +465,7 @@ struct LyricsView: View {
                             resetScrollTimer()
                         }
                     )
-                    .onChange(of: viewModel.currentLineIndex) { newIndex in
+                    .onChange(of: viewModel.currentLineIndex) { _, newIndex in
                         if !isUserScrolling {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                                 proxy.scrollTo(newIndex, anchor: .center)
@@ -492,10 +495,10 @@ struct LyricsView: View {
         .onAppear {
             viewModel.fetchLyrics(for: song.id)
         }
-        .onChange(of: song.id) { newId in
+        .onChange(of: song.id) { _, newId in
             viewModel.fetchLyrics(for: newId)
         }
-        .onChange(of: player.currentTime) { time in
+        .onChange(of: player.currentTime) { _, time in
             viewModel.updateCurrentTime(time)
         }
     }

@@ -15,6 +15,7 @@ struct HomeView: View {
         case dailyRecommend
         case playlist(Playlist)
         case artist(Int)
+        case mvDiscover
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -22,6 +23,7 @@ struct HomeView: View {
             case .dailyRecommend: hasher.combine("daily")
             case .playlist(let p): hasher.combine("p_\(p.id)")
             case .artist(let id): hasher.combine("a_\(id)")
+            case .mvDiscover: hasher.combine("mv")
             }
         }
 
@@ -31,6 +33,7 @@ struct HomeView: View {
             case (.dailyRecommend, .dailyRecommend): return true
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
             case (.artist(let l), .artist(let r)): return l == r
+            case (.mvDiscover, .mvDiscover): return true
             default: return false
             }
         }
@@ -63,6 +66,9 @@ struct HomeView: View {
                                 recommendedPlaylistsSection
                             }
 
+                            // MV 入口
+                            mvEntrySection
+
                             Color.clear.frame(height: 120)
                         }
                     }
@@ -88,6 +94,8 @@ struct HomeView: View {
                     PlaylistDetailView(playlist: playlist)
                 case .artist(let id):
                     ArtistDetailView(artistId: id)
+                case .mvDiscover:
+                    MVDiscoverView()
                 }
             }
             .fullScreenCover(isPresented: $showPersonalFM) {
@@ -144,7 +152,8 @@ struct HomeView: View {
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
 
-                Button(action: {}) {
+                // TODO: 通知功能待实现
+                NavigationLink(value: HomeDestination.search) {
                     ZStack(alignment: .topTrailing) {
                         AsideIcon(icon: .bell, size: 26, color: Theme.text)
                             .frame(width: 48, height: 48)
@@ -153,11 +162,6 @@ struct HomeView: View {
                                     .fill(Color.asideCardBackground)
                                     .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
                             )
-
-                        Circle()
-                            .fill(Color.asideAccentRed)
-                            .frame(width: 10, height: 10)
-                            .offset(x: -2, y: 2)
                     }
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -295,35 +299,6 @@ struct HomeView: View {
         }
     }
 
-    private var recentlyPlayedSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: NSLocalizedString("jump_back_in", comment: ""), subtitle: NSLocalizedString("recently_played_subtitle", comment: ""))
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHGrid(rows: [GridItem(.fixed(60)), GridItem(.fixed(60)), GridItem(.fixed(60))], spacing: 16) {
-                    ForEach(viewModel.recentSongs.prefix(12)) { song in
-                        MiniSongRow(song: song) {
-                            PlayerManager.shared.play(song: song, in: Array(viewModel.recentSongs.prefix(12)))
-                        }
-                        .frame(width: 300)
-                    }
-                }
-                .padding(.horizontal, 24)
-            }
-        }
-    }
-
-    private var myPlaylistsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 20)
-            }
-        }
-    }
-
     private var greetingMessage: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
@@ -331,6 +306,44 @@ struct HomeView: View {
         case 12..<17: return "good_afternoon"
         default: return "good_evening"
         }
+    }
+
+    // MARK: - MV 入口
+
+    private var mvEntrySection: some View {
+        Button(action: {
+            navigationPath.append(HomeDestination.mvDiscover)
+        }) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.asideAccentRed.opacity(0.1))
+                        .frame(width: 52, height: 52)
+                    AsideIcon(icon: .playCircleFill, size: 24, color: .asideAccentRed)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MV 专区")
+                        .font(.rounded(size: 17, weight: .bold))
+                        .foregroundColor(.asideTextPrimary)
+                    Text("看最新最热的音乐视频")
+                        .font(.rounded(size: 13))
+                        .foregroundColor(.asideTextSecondary)
+                }
+
+                Spacer()
+
+                AsideIcon(icon: .chevronRight, size: 16, color: .asideTextSecondary)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.asideCardBackground)
+                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+            )
+            .padding(.horizontal, 24)
+        }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }
 }
 
@@ -549,14 +562,12 @@ struct MiniSongRow: View {
 
                 Spacer()
 
-                Button(action: {}) {
-                    AsideIcon(icon: .play, size: 14, color: Theme.accent)
-                        .padding(8)
-                        .background(
-                            Circle()
-                                .fill(Color.asideMilk)
-                        )
-                }
+                AsideIcon(icon: .play, size: 14, color: Theme.accent)
+                    .padding(8)
+                    .background(
+                        Circle()
+                            .fill(Color.asideMilk)
+                    )
             }
             .padding(8)
             .background(

@@ -3,6 +3,7 @@ import Combine
 
 // MARK: - ViewModel
 
+@MainActor
 class DailyRecommendViewModel: ObservableObject {
     @Published var songs: [Song] = []
     @Published var isLoading = false
@@ -25,7 +26,7 @@ class DailyRecommendViewModel: ObservableObject {
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] style in
-                print("DEBUG: DailyRecommendViewModel - Style changed to: \(style?.finalName ?? "Default")")
+                AppLogger.debug("DailyRecommendViewModel - Style changed to: \(style?.finalName ?? "Default")")
                 self?.refreshContent()
             }
             .store(in: &cancellables)
@@ -60,16 +61,16 @@ class DailyRecommendViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        print("DEBUG: Loading songs for style: \(style.finalName) (ID: \(style.finalId))")
+        AppLogger.debug("Loading songs for style: \(style.finalName) (ID: \(style.finalId))")
         api.fetchStyleSongs(tagId: style.finalId)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("DEBUG: Style Songs Error: \(error)")
+                    AppLogger.error("Style Songs Error: \(error)")
                     self?.errorMessage = "Songs Error: \(error.localizedDescription)"
                     self?.isLoading = false
                 }
             }, receiveValue: { [weak self] songs in
-                print("DEBUG: Received \(songs.count) songs for style \(style.finalName)")
+                AppLogger.debug("Received \(songs.count) songs for style \(style.finalName)")
                 self?.songs = songs
                 self?.isLoading = false
             })
@@ -81,25 +82,25 @@ class DailyRecommendViewModel: ObservableObject {
     func loadHistoryDates() {
         isLoadingHistory = true
         noHistoryMessage = nil
-        print("DEBUG: Loading history recommend dates...")
+        AppLogger.debug("Loading history recommend dates...")
         api.fetchHistoryRecommendDates()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 self?.isLoadingHistory = false
                 if case .failure(let error) = completion {
-                    print("DEBUG: History dates load error: \(error)")
+                    AppLogger.error("History dates load error: \(error)")
                     self?.noHistoryMessage = "加载失败，请稍后重试"
                 }
             }, receiveValue: { [weak self] dates in
-                print("DEBUG: Received history dates: \(dates)")
+                AppLogger.debug("Received history dates: \(dates)")
                 self?.historyDates = dates
                 self?.isLoadingHistory = false
                 if !dates.isEmpty {
-                    print("DEBUG: Setting showHistorySheet = true")
+                    AppLogger.debug("Setting showHistorySheet = true")
                     self?.showHistorySheet = true
-                    print("DEBUG: showHistorySheet is now: \(self?.showHistorySheet ?? false)")
+                    AppLogger.debug("showHistorySheet is now: \(self?.showHistorySheet ?? false)")
                 } else {
-                    print("DEBUG: History dates is empty")
+                    AppLogger.debug("History dates is empty")
                     self?.noHistoryMessage = "暂无历史推荐记录，明天再来看看吧"
                 }
             })
@@ -173,7 +174,7 @@ struct DailyRecommendView: View {
                 SongDetailView(song: song)
             }
         }
-        .onChange(of: viewModel.showStyleMenu) { isShown in
+        .onChange(of: viewModel.showStyleMenu) { _, isShown in
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 PlayerManager.shared.isTabBarHidden = isShown
             }
@@ -188,9 +189,6 @@ struct DailyRecommendView: View {
                 Spacer()
                 VStack {
                     AsideLoadingView(text: "LOADING...")
-                    Text("Current Style: \(styleManager.currentStyleName)")
-                        .font(.caption)
-                        .foregroundColor(.asideTextSecondary)
                 }
                 Spacer()
             } else if let error = viewModel.errorMessage {
@@ -348,7 +346,7 @@ struct DailyHistoryView: View {
     @State private var selectedDate: String?
     @State private var songs: [Song] = []
     @State private var isLoading = false
-    @State private var cancellables = Set<AnyCancellable>()
+    @State private var loadTask: Task<Void, Never>?
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -374,7 +372,7 @@ struct DailyHistoryView: View {
             }
         }
         .onAppear {
-            print("DEBUG: DailyHistoryView appeared with \(dates.count) dates: \(dates)")
+            AppLogger.debug("DailyHistoryView appeared with \(dates.count) dates: \(dates)")
             if let first = dates.first {
                 loadSongs(for: first)
             }
@@ -517,21 +515,21 @@ struct DailyHistoryView: View {
         selectedDate = date
         isLoading = true
         songs = []
+        loadTask?.cancel()
 
-        print("DEBUG: Loading history songs for date: \(date)")
-        APIService.shared.fetchHistoryRecommendSongs(date: date)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { completion in
-                isLoading = false
-                if case .failure(let error) = completion {
-                    print("DEBUG: History songs load error: \(error)")
-                }
-            }, receiveValue: { loadedSongs in
-                print("DEBUG: Received \(loadedSongs.count) history songs")
-                self.songs = loadedSongs
-                isLoading = false
-            })
-            .store(in: &cancellables)
+        AppLogger.debug("Loading history songs for date: \(date)")
+        loadTask = Task {
+            do {
+                let loadedSongs = try await APIService.shared.fetchHistoryRecommendSongs(date: date).async()
+                guard !Task.isCancelled else { return }
+                AppLogger.debug("Received \(loadedSongs.count) history songs")
+                songs = loadedSongs
+            } catch {
+                guard !Task.isCancelled else { return }
+                AppLogger.error("History songs load error: \(error)")
+            }
+            isLoading = false
+        }
     }
 
     private func formatDateShort(_ dateString: String) -> String {

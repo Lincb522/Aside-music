@@ -64,7 +64,7 @@ class GlobalRefreshManager: ObservableObject {
         
         // 检查是否需要刷新每日数据
         if checkDailyRefreshNeeded() {
-            print("📅 检测到新的一天，触发每日刷新")
+            AppLogger.debug("检测到新的一天，触发每日刷新")
             triggerDailyRefresh()
         }
     }
@@ -85,11 +85,11 @@ class GlobalRefreshManager: ObservableObject {
         let isLoggedIn = UserDefaults.standard.bool(forKey: "isLoggedIn")
         
         guard isLoggedIn else {
-            print("⏭️ 用户未登录，跳过启动刷新")
+            AppLogger.debug("用户未登录，跳过启动刷新")
             return
         }
         
-        print("🚀 App 启动，开始数据加载...")
+        AppLogger.debug("App 启动，开始数据加载...")
         
         Task { @MainActor in
             isPreloading = true
@@ -123,7 +123,7 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 登录成功后调用 - 优化版
     func triggerLoginRefresh() {
-        print("🔐 登录成功，触发全量数据刷新...")
+        AppLogger.debug("登录成功，触发全量数据刷新...")
         
         // 重置状态
         resetDataReadyState()
@@ -168,7 +168,7 @@ class GlobalRefreshManager: ObservableObject {
         
         while !isHomeDataReady {
             if Date().timeIntervalSince(startTime) > timeout {
-                print("⚠️ 等待核心数据超时")
+                AppLogger.warning("等待核心数据超时")
                 break
             }
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
@@ -178,11 +178,11 @@ class GlobalRefreshManager: ObservableObject {
     /// 每日刷新（新的一天）
     func triggerDailyRefresh() {
         guard canRefresh() else {
-            print("⏳ 刷新冷却中，跳过")
+            AppLogger.debug("刷新冷却中，跳过")
             return
         }
         
-        print("📅 触发每日数据刷新...")
+        AppLogger.debug("触发每日数据刷新...")
         lastRefreshTime = Date()
         
         refreshHomePublisher.send(true)
@@ -194,11 +194,11 @@ class GlobalRefreshManager: ObservableObject {
     /// 手动刷新（下拉刷新）
     func triggerManualRefresh(section: RefreshSection) {
         guard canRefresh() else {
-            print("⏳ 刷新冷却中，跳过")
+            AppLogger.debug("刷新冷却中，跳过")
             return
         }
         
-        print("🔄 手动刷新: \(section)")
+        AppLogger.debug("手动刷新: \(section)")
         lastRefreshTime = Date()
         
         switch section {
@@ -221,7 +221,7 @@ class GlobalRefreshManager: ObservableObject {
         guard !isHomeDataReady else { return }
         isHomeDataReady = true
         OptimizedCacheManager.shared.markDailySongsReady()
-        print("✅ Home 数据加载完成")
+        AppLogger.success("Home 数据加载完成")
         
         // 核心数据就绪回调
         DispatchQueue.main.async {
@@ -236,7 +236,7 @@ class GlobalRefreshManager: ObservableObject {
         guard !isLibraryDataReady else { return }
         isLibraryDataReady = true
         OptimizedCacheManager.shared.markPlaylistsReady()
-        print("✅ Library 数据加载完成")
+        AppLogger.success("Library 数据加载完成")
         checkAllDataReady()
     }
     
@@ -244,14 +244,14 @@ class GlobalRefreshManager: ObservableObject {
         guard !isProfileDataReady else { return }
         isProfileDataReady = true
         OptimizedCacheManager.shared.markUserDataReady()
-        print("✅ Profile 数据加载完成")
+        AppLogger.success("Profile 数据加载完成")
         checkAllDataReady()
     }
     
     private func checkAllDataReady() {
         // 所有数据就绪
         if isHomeDataReady && isLibraryDataReady && isProfileDataReady {
-            print("🎉 所有数据预加载完成")
+            AppLogger.success("所有数据预加载完成")
             
             // 取消之前的延迟任务
             dataReadyWorkItem?.cancel()
@@ -310,7 +310,7 @@ class GlobalRefreshManager: ObservableObject {
     func markDailyRefreshCompleted() {
         UserDefaults.standard.set(Date(), forKey: lastDailyRefreshKey)
         OptimizedCacheManager.shared.markDailyDataRefreshed()
-        print("📅 每日刷新标记完成")
+        AppLogger.debug("每日刷新标记完成")
     }
     
     private func resetDailyRefreshTimer() {

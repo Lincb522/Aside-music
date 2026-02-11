@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 class LikeManager: ObservableObject {
     static let shared = LikeManager()
     
@@ -28,7 +29,7 @@ class LikeManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
                 if case .failure(let error) = completion {
-                    print("Fetch liked songs failed: \(error)")
+                    AppLogger.error("Fetch liked songs failed: \(error)")
                 }
             }, receiveValue: { [weak self] ids in
                 self?.likedSongIds = Set(ids)
@@ -42,7 +43,7 @@ class LikeManager: ObservableObject {
     
     func toggleLike(songId: Int) {
         guard apiService.isLoggedIn else {
-            print("User not logged in")
+            AppLogger.debug("User not logged in")
             return
         }
         
@@ -59,7 +60,7 @@ class LikeManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("Toggle like failed: \(error)")
+                    AppLogger.error("Toggle like failed: \(error)")
                     // 失败时回滚状态
                     if targetState {
                         self?.likedSongIds.remove(songId)

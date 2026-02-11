@@ -2,13 +2,13 @@ import Foundation
 
 enum SoundQuality: String, CaseIterable, Codable {
     case standard = "standard" // 标准
-    case higher = "higher"     // 较高 (between exhigh and lossless)
+    case higher = "higher"     // 较高
     case exhigh = "exhigh"     // 极高
     case lossless = "lossless" // 无损
     case hires = "hires"       // Hi-Res
-    case jyeffect = "jyeffect" // 高清臻音 (Spatial)
-    case sky = "sky"           // 沉浸环绕声 (Surround)
-    case jymaster = "jymaster" // 超清母带 (Master)
+    case jyeffect = "jyeffect" // 高清臻音
+    case sky = "sky"           // 沉浸环绕声
+    case jymaster = "jymaster" // 超清母带
     case none = "none"
     
     var displayName: String {

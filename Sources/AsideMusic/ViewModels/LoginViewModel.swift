@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import CoreImage.CIFilterBuiltins
 
+@MainActor
 class LoginViewModel: ObservableObject {
     @Published var qrCodeImage: UIImage?
     @Published var qrStatusMessage: String = NSLocalizedString("qr_loading", comment: "Loading QR Code")
@@ -142,9 +143,9 @@ class LoginViewModel: ObservableObject {
     func sendCaptcha() {
         guard !phoneNumber.isEmpty else { return }
         apiService.sendCaptcha(phone: phoneNumber)
-            .sink(receiveCompletion: { completion in
+            .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    self.loginErrorMessage = error.localizedDescription
+                    self?.loginErrorMessage = error.localizedDescription
                 }
             }, receiveValue: { [weak self] _ in
                 self?.isCaptchaSent = true
@@ -156,9 +157,9 @@ class LoginViewModel: ObservableObject {
     func loginWithPhone() {
         guard !phoneNumber.isEmpty, !captchaCode.isEmpty else { return }
         apiService.loginCellphone(phone: phoneNumber, captcha: captchaCode)
-            .sink(receiveCompletion: { completion in
+            .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    self.loginErrorMessage = error.localizedDescription
+                    self?.loginErrorMessage = error.localizedDescription
                 }
             }, receiveValue: { [weak self] response in
                 if response.code == 200, let cookie = response.cookie {
@@ -182,6 +183,7 @@ class LoginViewModel: ObservableObject {
     }
     
     deinit {
-        stopQRPolling()
+        timer?.cancel()
+        timer = nil
     }
 }

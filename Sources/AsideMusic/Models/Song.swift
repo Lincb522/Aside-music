@@ -516,30 +516,6 @@ struct SongUrlData: Codable {
     let url: String?
 }
 
-// MARK: - Unblock Response Models
-
-/// 解灰接口响应 (/song/url/match)
-struct UnblockResponse: Codable {
-    let code: Int
-    let data: String?      // 解锁后的URL
-    let proxyUrl: String?  // 代理URL（酷我等需要）
-    let msg: String?
-}
-
-/// NCM Get 接口响应 (/song/url/ncmget)
-struct NcmGetResponse: Codable {
-    let code: Int
-    let message: String?
-    let data: NcmGetData?
-}
-
-struct NcmGetData: Codable {
-    let id: String?
-    let br: String?
-    let url: String?
-    let proxyUrl: String?
-}
-
 // MARK: - Playlist Square Models
 
 struct PlaylistCatlistResponse: Codable {

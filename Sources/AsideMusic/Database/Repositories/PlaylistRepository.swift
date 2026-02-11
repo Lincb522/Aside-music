@@ -21,7 +21,7 @@ final class PlaylistRepository {
             let results = try context.fetch(descriptor)
             return results.first
         } catch {
-            print("❌ 获取歌单失败: \(error)")
+            AppLogger.error("获取歌单失败: \(error)")
             return nil
         }
     }
@@ -37,7 +37,7 @@ final class PlaylistRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 获取用户歌单失败: \(error)")
+            AppLogger.error("获取用户歌单失败: \(error)")
             return []
         }
     }
@@ -53,7 +53,7 @@ final class PlaylistRepository {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("❌ 获取最近访问歌单失败: \(error)")
+            AppLogger.error("获取最近访问歌单失败: \(error)")
             return []
         }
     }
@@ -124,7 +124,7 @@ final class PlaylistRepository {
             try context.delete(model: CachedPlaylist.self)
             try context.save()
         } catch {
-            print("❌ 清空歌单缓存失败: \(error)")
+            AppLogger.error("清空歌单缓存失败: \(error)")
         }
     }
     

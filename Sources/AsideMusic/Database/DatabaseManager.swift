@@ -21,7 +21,8 @@ final class DatabaseManager {
                 CachedArtist.self,
                 PlayHistory.self,
                 SearchHistory.self,
-                CachedLyrics.self
+                CachedLyrics.self,
+                DownloadedSong.self
             ])
             
             let config = ModelConfiguration(
@@ -34,9 +35,46 @@ final class DatabaseManager {
             context = container.mainContext
             context.autosaveEnabled = true
             
-            print("✅ SwiftData 初始化成功")
+            AppLogger.success("SwiftData 初始化成功")
         } catch {
-            fatalError("❌ SwiftData 初始化失败: \(error)")
+            // 数据库损坏时尝试删除后重建，避免 Release 崩溃
+            AppLogger.error("SwiftData 初始化失败: \(error)，尝试重建数据库")
+            
+            // 删除损坏的数据库文件
+            let fileManager = FileManager.default
+            if let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                let dbPath = appSupport.appendingPathComponent("default.store")
+                try? fileManager.removeItem(at: dbPath)
+                // 同时删除 WAL 和 SHM 文件
+                try? fileManager.removeItem(at: dbPath.appendingPathExtension("wal"))
+                try? fileManager.removeItem(at: dbPath.appendingPathExtension("shm"))
+            }
+            
+            do {
+                let schema = Schema([
+                    CachedSong.self, CachedPlaylist.self, CachedArtist.self,
+                    PlayHistory.self, SearchHistory.self, CachedLyrics.self,
+                    DownloadedSong.self
+                ])
+                let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, allowsSave: true)
+                container = try ModelContainer(for: schema, configurations: [config])
+                context = container.mainContext
+                context.autosaveEnabled = true
+                AppLogger.success("SwiftData 重建成功")
+            } catch {
+                // 最后兜底：使用内存数据库，确保 App 不崩溃
+                AppLogger.error("SwiftData 重建失败: \(error)，降级为内存数据库")
+                let schema = Schema([
+                    CachedSong.self, CachedPlaylist.self, CachedArtist.self,
+                    PlayHistory.self, SearchHistory.self, CachedLyrics.self,
+                    DownloadedSong.self
+                ])
+                let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, allowsSave: true)
+                // swiftlint:disable:next force_try
+                container = try! ModelContainer(for: schema, configurations: [memConfig])
+                context = container.mainContext
+                context.autosaveEnabled = true
+            }
         }
     }
     
@@ -46,7 +84,7 @@ final class DatabaseManager {
         do {
             try context.save()
         } catch {
-            print("❌ SwiftData 保存失败: \(error)")
+            AppLogger.error("SwiftData 保存失败: \(error)")
         }
     }
     
@@ -83,9 +121,9 @@ final class DatabaseManager {
             try context.delete(model: SearchHistory.self)
             try context.delete(model: CachedLyrics.self)
             try context.save()
-            print("✅ 数据库已清空")
+            AppLogger.success("数据库已清空")
         } catch {
-            print("❌ 清空数据库失败: \(error)")
+            AppLogger.error("清空数据库失败: \(error)")
         }
     }
     
@@ -108,9 +146,9 @@ final class DatabaseManager {
             try context.delete(model: CachedArtist.self, where: artistPredicate)
             
             try context.save()
-            print("✅ 已清理 \(days) 天前的过期数据")
+            AppLogger.success("已清理 \(days) 天前的过期数据")
         } catch {
-            print("❌ 清理过期数据失败: \(error)")
+            AppLogger.error("清理过期数据失败: \(error)")
         }
     }
 }

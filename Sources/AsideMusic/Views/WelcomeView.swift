@@ -11,7 +11,6 @@ struct WelcomeView: View {
     @State private var logoOpacity: Double = 0
     @State private var showUserGreeting = false
     @State private var userProfile: UserProfile?
-    @State private var cancellables = Set<AnyCancellable>()
     
     // 缓存的头像 URL（预加载）
     @State private var cachedAvatarImage: UIImage?
@@ -147,15 +146,9 @@ struct WelcomeView: View {
     
     /// 获取用户信息
     private func fetchUserProfile() {
-        APIService.shared.fetchLoginStatus()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { completion in
-                if case .failure = completion {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.dismissWelcome()
-                    }
-                }
-            }, receiveValue: { status in
+        Task { @MainActor in
+            do {
+                let status = try await APIService.shared.fetchLoginStatus().async()
                 if let profile = status.data.profile {
                     self.userProfile = profile
                     
@@ -166,12 +159,14 @@ struct WelcomeView: View {
                         self.showGreetingAndDismiss()
                     }
                 } else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.dismissWelcome()
-                    }
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    self.dismissWelcome()
                 }
-            })
-            .store(in: &cancellables)
+            } catch {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                self.dismissWelcome()
+            }
+        }
     }
     
     /// 预加载头像图片

@@ -3,6 +3,7 @@ import Combine
 
 // MARK: - ViewModel
 
+@MainActor
 class LibraryViewModel: ObservableObject {
     @Published var navigationPath = NavigationPath()
 
@@ -87,27 +88,32 @@ class LibraryViewModel: ObservableObject {
 
     @Published var isLoadingCharts: Bool = false
     @Published var isLoading = false // 保留用于兼容，但不再使用
-    private var searchDebounceTimer: AnyCancellable?
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
 
     init() {
         // 订阅 GlobalRefreshManager 的刷新事件
-        Task { @MainActor in
-            GlobalRefreshManager.shared.refreshLibraryPublisher
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] force in
-                    self?.fetchPlaylists(force: force)
-                }
-                .store(in: &self.cancellables)
-        }
+        GlobalRefreshManager.shared.refreshLibraryPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] force in
+                self?.fetchPlaylists(force: force)
+            }
+            .store(in: &cancellables)
+        
+        // 监听退出登录，清除用户歌单数据
+        NotificationCenter.default.publisher(for: .didLogout)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleLogout()
+            }
+            .store(in: &cancellables)
 
         fetchPlaylists()
 
         $artistSearchText
             .dropFirst()
-            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .sink { [weak self] text in
                 if !text.isEmpty {
                     self?.searchArtists(keyword: text)
@@ -119,48 +125,48 @@ class LibraryViewModel: ObservableObject {
     }
 
     // MARK: - My Library
+    
+    /// 退出登录时清除用户相关数据
+    private func handleLogout() {
+        AppLogger.info("LibraryViewModel: 收到退出登录通知，清除数据")
+        userPlaylists = []
+        squarePlaylists = []
+        topArtists = []
+        topLists = []
+    }
 
     func fetchPlaylists(force: Bool = false) {
         // 使用优化的缓存管理器加载缓存
         if userPlaylists.isEmpty {
-            Task { @MainActor in
-                if let cachedUser = OptimizedCacheManager.shared.getObject(forKey: "user_playlists", type: [Playlist].self) {
-                    self.userPlaylists = cachedUser
-                }
+            if let cachedUser = OptimizedCacheManager.shared.getObject(forKey: "user_playlists", type: [Playlist].self) {
+                self.userPlaylists = cachedUser
             }
         }
 
         if !force && !userPlaylists.isEmpty {
-            Task { @MainActor in
-                GlobalRefreshManager.shared.markLibraryDataReady()
-            }
+            GlobalRefreshManager.shared.markLibraryDataReady()
             return
         }
 
         // 尝试获取用户歌单（需要登录）
         // 如果没有登录，直接标记完成
         guard apiService.currentUserId != nil else {
-            Task { @MainActor in
-                GlobalRefreshManager.shared.markLibraryDataReady()
-            }
+            GlobalRefreshManager.shared.markLibraryDataReady()
             return
         }
 
         apiService.fetchLoginStatus()
-            .sink(receiveCompletion: { completion in
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
                 if case .failure = completion {
-                    Task { @MainActor in
-                        GlobalRefreshManager.shared.markLibraryDataReady()
-                    }
+                    GlobalRefreshManager.shared.markLibraryDataReady()
                 }
             }, receiveValue: { [weak self] response in
                 if let profile = response.data.profile {
                     self?.apiService.currentUserId = profile.userId
                     self?.loadUserPlaylists(uid: profile.userId)
                 } else {
-                    Task { @MainActor in
-                        GlobalRefreshManager.shared.markLibraryDataReady()
-                    }
+                    GlobalRefreshManager.shared.markLibraryDataReady()
                 }
             })
             .store(in: &cancellables)
@@ -168,22 +174,21 @@ class LibraryViewModel: ObservableObject {
 
     private func loadUserPlaylists(uid: Int) {
         apiService.fetchUserPlaylists(uid: uid)
-            .sink(receiveCompletion: { completion in
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("Library Playlist Error: \(error)")
+                    AppLogger.error("歌单获取失败: \(error)")
                 }
-                Task { @MainActor in
-                    GlobalRefreshManager.shared.markLibraryDataReady()
-                }
+                GlobalRefreshManager.shared.markLibraryDataReady()
             }, receiveValue: { [weak self] playlists in
-                self?.userPlaylists = playlists
+                // 过滤掉系统临时歌单（如 test_audit_tmp）
+                let filtered = playlists.filter { !$0.name.hasPrefix("test_audit") && $0.name != "test_audit_tmp" }
+                self?.userPlaylists = filtered
                 // 初始化歌单收藏状态
                 SubscriptionManager.shared.updatePlaylistSubscriptions(from: playlists, userId: uid)
                 // 使用优化的缓存管理器
-                Task { @MainActor in
-                    OptimizedCacheManager.shared.setObject(playlists, forKey: "user_playlists")
-                    OptimizedCacheManager.shared.cachePlaylists(playlists)
-                }
+                OptimizedCacheManager.shared.setObject(playlists, forKey: "user_playlists")
+                OptimizedCacheManager.shared.cachePlaylists(playlists)
             })
             .store(in: &cancellables)
     }
@@ -192,7 +197,7 @@ class LibraryViewModel: ObservableObject {
 
     func fetchSquareData() {
         if playlistCategories.isEmpty {
-            if let cachedCats = CacheManager.shared.getObject(forKey: "playlist_categories", type: [PlaylistCategory].self) {
+            if let cachedCats = OptimizedCacheManager.shared.getObject(forKey: "playlist_categories", type: [PlaylistCategory].self) {
                 self.playlistCategories = cachedCats
             }
 
@@ -202,7 +207,7 @@ class LibraryViewModel: ObservableObject {
                         var allTags = [PlaylistCategory(name: NSLocalizedString("filter_all", comment: ""), id: -1, category: -1, hot: true)]
                         allTags.append(contentsOf: tags)
                         self?.playlistCategories = allTags
-                        CacheManager.shared.setObject(allTags, forKey: "playlist_categories")
+                        OptimizedCacheManager.shared.setObject(allTags, forKey: "playlist_categories")
                     })
                     .store(in: &cancellables)
             }
@@ -221,7 +226,7 @@ class LibraryViewModel: ObservableObject {
             squarePlaylists = []
 
             let cacheKey = "square_playlists_\(cat)"
-            if let cached = CacheManager.shared.getObject(forKey: cacheKey, type: [Playlist].self) {
+            if let cached = OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: [Playlist].self) {
                 self.squarePlaylists = cached
                 self.isLoadingSquare = false
                 self.squareOffset = cached.count
@@ -244,7 +249,7 @@ class LibraryViewModel: ObservableObject {
 
                 if reset {
                     self.squarePlaylists = playlists
-                    CacheManager.shared.setObject(playlists, forKey: "square_playlists_\(cat)")
+                    OptimizedCacheManager.shared.setObject(playlists, forKey: "square_playlists_\(cat)")
                 } else {
                     // 去重：过滤掉已存在的歌单
                     let existingIds = Set(self.squarePlaylists.map { $0.id })
@@ -278,7 +283,7 @@ class LibraryViewModel: ObservableObject {
 
         if topArtists.isEmpty && artistOffset == 0 {
             let cacheKey = "artists_\(artistArea)_\(artistType)_\(artistInitial)_0"
-            if let cached = CacheManager.shared.getObject(forKey: cacheKey, type: [ArtistInfo].self) {
+            if let cached = OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: [ArtistInfo].self) {
                 self.topArtists = cached
                 if !cached.isEmpty {
                     self.isLoadingArtists = false
@@ -307,7 +312,7 @@ class LibraryViewModel: ObservableObject {
                 if offset == 0 {
                     self.topArtists = artists
                     let cacheKey = "artists_\(self.artistArea)_\(self.artistType)_\(self.artistInitial)_0"
-                    CacheManager.shared.setObject(artists, forKey: cacheKey)
+                    OptimizedCacheManager.shared.setObject(artists, forKey: cacheKey)
                 } else {
                     // 去重：过滤掉已存在的艺术家
                     let existingIds = Set(self.topArtists.map { $0.id })
@@ -342,7 +347,7 @@ class LibraryViewModel: ObservableObject {
     func fetchTopLists() {
         if !topLists.isEmpty { return }
 
-        if let cached = CacheManager.shared.getObject(forKey: "top_charts_lists", type: [TopList].self) {
+        if let cached = OptimizedCacheManager.shared.getObject(forKey: "top_charts_lists", type: [TopList].self) {
             self.topLists = cached
         }
 
@@ -355,7 +360,7 @@ class LibraryViewModel: ObservableObject {
                 self?.isLoadingCharts = false
             }, receiveValue: { [weak self] lists in
                 self?.topLists = lists
-                CacheManager.shared.setObject(lists, forKey: "top_charts_lists")
+                OptimizedCacheManager.shared.setObject(lists, forKey: "top_charts_lists")
             })
             .store(in: &cancellables)
     }

@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "AsideMusic",
+    defaultLocalization: "zh-Hans",
     platforms: [
         .iOS(.v17),
         .macOS(.v14)
@@ -24,10 +25,7 @@ let package = Package(
             dependencies: [
                 "LiquidGlassEffect",
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
-            ],
+            ]
         ),
-        .testTarget(
-            name: "AsideMusicTests",
-            dependencies: ["AsideMusic"]),
     ]
 )

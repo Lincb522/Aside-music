@@ -123,6 +123,7 @@ struct TopRadioListView: View {
 
 // MARK: - ViewModel
 
+@MainActor
 class TopRadioListViewModel: ObservableObject {
     @Published var radios: [RadioStation] = []
     @Published var isLoading = false

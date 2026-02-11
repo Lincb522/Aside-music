@@ -1,10 +1,12 @@
 import Foundation
 import Combine
 
+@MainActor
 class PodcastViewModel: ObservableObject {
     @Published var personalizedRadios: [RadioStation] = []
     @Published var categories: [RadioCategory] = []
     @Published var recommendRadios: [RadioStation] = []
+    @Published var broadcastChannels: [BroadcastChannel] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -21,13 +23,16 @@ class PodcastViewModel: ObservableObject {
             .catch { _ in Just([RadioCategory]()) }
         let recommendPublisher = apiService.fetchDJRecommend()
             .catch { _ in Just([RadioStation]()) }
+        let broadcastPublisher = apiService.fetchBroadcastChannels(limit: 6)
+            .catch { _ in Just([BroadcastChannel]()) }
 
-        Publishers.Zip3(personalizePublisher, categoriesPublisher, recommendPublisher)
+        Publishers.Zip4(personalizePublisher, categoriesPublisher, recommendPublisher, broadcastPublisher)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] personalized, cats, recommend in
+            .sink { [weak self] personalized, cats, recommend, broadcasts in
                 self?.personalizedRadios = personalized
                 self?.categories = cats
                 self?.recommendRadios = recommend
+                self?.broadcastChannels = broadcasts
                 self?.isLoading = false
             }
             .store(in: &cancellables)

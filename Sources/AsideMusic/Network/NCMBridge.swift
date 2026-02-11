@@ -132,3 +132,42 @@ extension NCMClient {
         }
     }
 }
+
+
+// MARK: - Publisher → async/await 桥接
+
+extension Publisher {
+    /// 将 Combine Publisher 转换为 async/await 调用
+    /// 等待第一个值或抛出错误
+    func async() async throws -> Output {
+        try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            var didResume = false
+            
+            cancellable = self.first()
+                .sink(
+                    receiveCompletion: { completion in
+                        guard !didResume else { return }
+                        switch completion {
+                        case .finished:
+                            // 如果没有值就完成了，视为错误
+                            if !didResume {
+                                didResume = true
+                                continuation.resume(throwing: NCMBridgeError.invalidResponse)
+                            }
+                        case .failure(let error):
+                            didResume = true
+                            continuation.resume(throwing: error)
+                        }
+                        cancellable?.cancel()
+                    },
+                    receiveValue: { value in
+                        guard !didResume else { return }
+                        didResume = true
+                        continuation.resume(returning: value)
+                        cancellable?.cancel()
+                    }
+                )
+        }
+    }
+}

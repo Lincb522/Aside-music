@@ -3,6 +3,7 @@ import SwiftUI
 struct FullScreenPlayerView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject var player = PlayerManager.shared
+    @ObservedObject var downloadManager = DownloadManager.shared
 
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
@@ -11,6 +12,7 @@ struct FullScreenPlayerView: View {
     @State private var showQualitySheet = false
     @State private var showLyrics = false
     @State private var showImmersivePlayer = false
+    @State private var showComments = false
 
     @AppStorage("showTranslation") var showTranslation: Bool = true
     @AppStorage("enableKaraoke") var enableKaraoke: Bool = true
@@ -146,19 +148,36 @@ struct FullScreenPlayerView: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showQualitySheet) {
-            SoundQualitySheet(currentQuality: player.soundQuality) { quality in
-                player.switchQuality(quality)
-                showQualitySheet = false
-            }
+            SoundQualitySheet(
+                currentQuality: player.soundQuality,
+                onSelect: { quality in
+                    player.switchQuality(quality)
+                    showQualitySheet = false
+                }
+            )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
         .confirmationDialog("更多操作", isPresented: $showActionSheet, titleVisibility: .visible) {
             Button("沉浸模式") { showImmersivePlayer = true }
+            Button("查看评论") { showComments = true }
             Button("取消", role: .cancel) { }
         }
         .fullScreenCover(isPresented: $showImmersivePlayer) {
             ImmersivePlayerView()
+        }
+        .sheet(isPresented: $showComments) {
+            if let song = player.currentSong {
+                CommentView(
+                    resourceId: song.id,
+                    resourceType: .song,
+                    songName: song.name,
+                    artistName: song.artistName,
+                    coverUrl: song.coverUrl
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+            }
         }
     }
 
@@ -238,11 +257,9 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             Button(action: {
-                if !player.isCurrentSongUnblocked {
-                    showQualitySheet = true
-                }
+                showQualitySheet = true
             }) {
-                Text(player.isCurrentSongUnblocked ? (player.currentSongSource ?? "来源") : player.soundQuality.buttonText)
+                Text(player.soundQuality.buttonText)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(contentColor)
                     .padding(.horizontal, 6)
@@ -354,7 +371,7 @@ struct FullScreenPlayerView: View {
             .onAppear {
                 generateAmplitudes()
             }
-            .onChange(of: duration) { _ in
+            .onChange(of: duration) {
                 generateAmplitudes()
             }
         }
@@ -430,6 +447,42 @@ struct FullScreenPlayerView: View {
                     AsideIcon(icon: .list, size: 22, color: secondaryContentColor)
                 }
                 .frame(width: 44)
+            }
+
+            // 下载按钮 & 评论按钮
+            if let song = player.currentSong {
+                HStack(spacing: 0) {
+                    // 评论按钮
+                    Button {
+                        showComments = true
+                    } label: {
+                        AsideIcon(
+                            icon: .comment,
+                            size: 22,
+                            color: secondaryContentColor,
+                            lineWidth: 1.4
+                        )
+                    }
+                    .frame(width: 44)
+                    
+                    Spacer()
+                    
+                    // 下载按钮
+                    Button {
+                        if !downloadManager.isDownloaded(songId: song.id) {
+                            downloadManager.download(song: song, quality: player.soundQuality)
+                        }
+                    } label: {
+                        AsideIcon(
+                            icon: .playerDownload,
+                            size: 22,
+                            color: downloadManager.isDownloaded(songId: song.id) ? .asideTextSecondary : secondaryContentColor,
+                            lineWidth: 1.4
+                        )
+                    }
+                    .disabled(downloadManager.isDownloaded(songId: song.id))
+                    .frame(width: 44)
+                }
             }
         }
     }

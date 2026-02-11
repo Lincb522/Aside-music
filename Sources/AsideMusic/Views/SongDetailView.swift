@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 class SongDetailViewModel: ObservableObject {
     @Published var relatedSongs: [Song] = []
     @Published var isLoading = true
@@ -12,7 +13,7 @@ class SongDetailViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("Error loading related songs: \(error)")
+                    AppLogger.error("Error loading related songs: \(error)")
                 }
                 self?.isLoading = false
             }, receiveValue: { [weak self] songs in

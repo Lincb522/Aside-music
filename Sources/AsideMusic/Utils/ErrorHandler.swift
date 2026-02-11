@@ -133,13 +133,11 @@ class ErrorHandler {
     
     /// 记录错误日志
     private func logError(_ error: AppError, context: String) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        print("[\(timestamp)] ❌ [\(context)] \(error.shortDescription): \(error.errorDescription ?? "Unknown")")
+        AppLogger.error("[\(context)] \(error.shortDescription): \(error.errorDescription ?? "Unknown")")
         
         #if DEBUG
-        // 在 Debug 模式下打印更多信息
         if case .unknown(let underlying) = error {
-            print("  └─ Underlying: \(underlying)")
+            AppLogger.debug("  └─ Underlying: \(underlying)")
         }
         #endif
     }

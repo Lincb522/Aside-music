@@ -4,6 +4,7 @@ struct PodcastView: View {
     @StateObject private var viewModel = PodcastViewModel()
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen: Int = 0
+    @State private var selectedBroadcastChannel: BroadcastChannel?
 
     enum PodcastDestination: Hashable {
         case category(RadioCategory)
@@ -11,6 +12,7 @@ struct PodcastView: View {
         case search
         case topList(String, TopRadioListView.ListType)
         case categoryBrowse
+        case broadcastList
 
         static func == (lhs: PodcastDestination, rhs: PodcastDestination) -> Bool {
             switch (lhs, rhs) {
@@ -19,6 +21,7 @@ struct PodcastView: View {
             case (.search, .search): return true
             case (.topList(let a, _), .topList(let b, _)): return a == b
             case (.categoryBrowse, .categoryBrowse): return true
+            case (.broadcastList, .broadcastList): return true
             default: return false
             }
         }
@@ -30,6 +33,7 @@ struct PodcastView: View {
             case .search: hasher.combine("search")
             case .topList(let title, _): hasher.combine("topList"); hasher.combine(title)
             case .categoryBrowse: hasher.combine("categoryBrowse")
+            case .broadcastList: hasher.combine("broadcastList")
             }
         }
     }
@@ -60,6 +64,11 @@ struct PodcastView: View {
                             if !viewModel.recommendRadios.isEmpty {
                                 recommendSection
                             }
+
+                            // 广播电台（地区 FM）
+                            if !viewModel.broadcastChannels.isEmpty {
+                                broadcastSection
+                            }
                         }
                         .padding(.bottom, 120)
                     }
@@ -81,6 +90,8 @@ struct PodcastView: View {
                     TopRadioListView(title: title, listType: listType)
                 case .categoryBrowse:
                     RadioCategoryBrowseView()
+                case .broadcastList:
+                    BroadcastListView()
                 }
             }
         }
@@ -93,6 +104,9 @@ struct PodcastView: View {
             radioIdToOpen = 0
         }) {
             RadioPlayerView(radioId: radioIdToOpen)
+        }
+        .fullScreenCover(item: $selectedBroadcastChannel) { channel in
+            BroadcastPlayerView(channel: channel)
         }
         .onChange(of: radioIdToOpen) { _, newId in
             if newId > 0 {
@@ -324,5 +338,96 @@ struct PodcastView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
+    }
+
+    // MARK: - 广播电台
+
+    private var broadcastSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("广播电台")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
+
+                Spacer()
+
+                NavigationLink(value: PodcastDestination.broadcastList) {
+                    HStack(spacing: 4) {
+                        Text("更多")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary, lineWidth: 1.2)
+                    }
+                    .foregroundColor(.asideTextSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 24)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.broadcastChannels) { channel in
+                        broadcastCard(channel: channel)
+                            .onTapGesture {
+                                selectedBroadcastChannel = channel
+                            }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    private func broadcastCard(channel: BroadcastChannel) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // 封面
+            ZStack {
+                if let url = channel.coverImageUrl {
+                    CachedAsyncImage(url: url) {
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.asideCardBackground)
+                    }
+                    .aspectRatio(1, contentMode: .fill)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.asideCardBackground)
+                        .aspectRatio(1, contentMode: .fill)
+                        .overlay(
+                            AsideIcon(icon: .radio, size: 30, color: .asideTextSecondary, lineWidth: 1.4)
+                        )
+                }
+
+                // FM 标识
+                VStack {
+                    HStack {
+                        Text("FM")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.asideAccentBlue.opacity(0.8))
+                            .clipShape(Capsule())
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(8)
+            }
+            .frame(width: 120, height: 120)
+
+            // 名称
+            Text(channel.displayName)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .lineLimit(2)
+
+            if let program = channel.displayProgram, !program.isEmpty {
+                Text(program)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(.asideTextSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(width: 120)
     }
 }

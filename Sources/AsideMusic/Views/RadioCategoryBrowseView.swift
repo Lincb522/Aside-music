@@ -147,6 +147,7 @@ struct RadioCategoryBrowseView: View {
 
 // MARK: - ViewModel
 
+@MainActor
 class RadioCategoryBrowseViewModel: ObservableObject {
     @Published var categories: [RadioCategory] = []
     @Published var selectedCategory: RadioCategory?

@@ -76,26 +76,21 @@ final class DataSyncCoordinator: ObservableObject {
         isSyncing = true
         syncError = nil
         
-        print("🔄 开始同步所有核心数据...")
+        AppLogger.debug("开始同步所有核心数据...")
         
-        do {
-            // 并行获取所有数据
-            async let dailySongs = syncDailySongs()
-            async let playlists = syncRecommendPlaylists()
-            async let userPlaylists = syncUserPlaylists()
-            
-            // 等待所有任务完成
-            _ = await (dailySongs, playlists, userPlaylists)
-            
-            // 更新同步时间
-            lastSyncTime = Date()
-            UserDefaults.standard.set(lastSyncTime, forKey: syncIntervalKey)
-            
-            print("✅ 核心数据同步完成")
-        } catch {
-            syncError = error
-            print("❌ 数据同步失败: \(error)")
-        }
+        // 并行获取所有数据
+        async let dailySongs = syncDailySongs()
+        async let playlists = syncRecommendPlaylists()
+        async let userPlaylists = syncUserPlaylists()
+        
+        // 等待所有任务完成
+        _ = await (dailySongs, playlists, userPlaylists)
+        
+        // 更新同步时间
+        lastSyncTime = Date()
+        UserDefaults.standard.set(lastSyncTime, forKey: syncIntervalKey)
+        
+        AppLogger.success("核心数据同步完成")
         
         isSyncing = false
     }

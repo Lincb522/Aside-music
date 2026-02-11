@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 
 struct TopChartsView: View {
     @State private var topLists: [TopList] = []
@@ -84,18 +83,14 @@ struct TopChartsView: View {
     }
     
     private func loadData() {
-        APIService.shared.fetchTopLists()
-            .sink(receiveCompletion: { completion in
-                if case .failure(let error) = completion {
-                    self.errorMessage = error.localizedDescription
-                    self.isLoading = false
-                }
-            }, receiveValue: { lists in
-                self.topLists = lists
-                self.isLoading = false
-            })
-            .store(in: &cancellables)
+        Task {
+            do {
+                let lists = try await APIService.shared.fetchTopLists().async()
+                topLists = lists
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isLoading = false
+        }
     }
-    
-    @State private var cancellables = Set<AnyCancellable>()
 }

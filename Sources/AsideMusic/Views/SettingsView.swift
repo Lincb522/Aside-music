@@ -13,34 +13,37 @@ struct SettingsView: View {
     @State private var cacheSize: String = "计算中..."
 
     var body: some View {
-        ZStack {
-            AsideBackground()
-                .ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                AsideBackground()
+                    .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    headerSection
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        headerSection
+                            .padding(.top, DeviceLayout.headerTopPadding)
 
-                    appearanceSection
+                        appearanceSection
 
-                    playbackSection
+                        playbackSection
 
-                    cacheSection
+                        cacheSection
 
-                    otherSection
+                        otherSection
 
-                    aboutSection
+                        aboutSection
 
-                    Spacer(minLength: 100)
+                        Spacer(minLength: 100)
+                    }
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
             }
+            .navigationBarHidden(true)
+            .onAppear {
+                updateCacheSize()
+            }
+            .preferredColorScheme(settings.preferredColorScheme)
         }
-        .onAppear {
-            updateCacheSize()
-        }
-        .preferredColorScheme(settings.preferredColorScheme)
     }
 
     // MARK: - Header
@@ -99,17 +102,29 @@ struct SettingsView: View {
 
     // MARK: - 播放设置
 
-    @State private var showUnblockSourceManage = false
+    @State private var showPlaybackQualitySheet = false
+    @State private var showDownloadQualitySheet = false
 
     private var playbackSection: some View {
         SettingsSection(title: "播放") {
             VStack(spacing: 0) {
                 SettingsNavigationRow(
                     icon: .soundQuality,
-                    title: "音质",
-                    value: soundQualityText
+                    title: "默认播放音质",
+                    value: defaultPlaybackQualityText
                 ) {
-                    // TODO: 音质选择
+                    showPlaybackQualitySheet = true
+                }
+
+                Divider()
+                    .padding(.leading, 56)
+
+                SettingsNavigationRow(
+                    icon: .download,
+                    title: "默认下载音质",
+                    value: defaultDownloadQualityText
+                ) {
+                    showDownloadQualitySheet = true
                 }
 
                 Divider()
@@ -126,68 +141,118 @@ struct SettingsView: View {
                     .padding(.leading, 56)
 
                 SettingsToggleRow(
-                    icon: .unlock,
+                    icon: .musicNote,
                     title: "解灰",
-                    subtitle: "灰色歌曲自动匹配其他音源",
+                    subtitle: "自动从第三方源获取灰色歌曲播放链接",
                     isOn: $settings.unblockEnabled
                 )
+                .onChange(of: settings.unblockEnabled) { _, newValue in
+                    APIService.shared.setUnblockEnabled(newValue)
+                }
 
                 Divider()
                     .padding(.leading, 56)
 
-                SettingsNavigationRow(
-                    icon: .cloud,
-                    title: "第三方源管理",
-                    value: unblockSourceSummary
-                ) {
-                    showUnblockSourceManage = true
-                }
+                SettingsToggleRow(
+                    icon: .download,
+                    title: "边听边存",
+                    subtitle: "播放歌曲时自动下载保存到本地",
+                    isOn: $settings.listenAndSave
+                )
             }
         }
-        .fullScreenCover(isPresented: $showUnblockSourceManage) {
-            UnblockSourceManageView()
+        .sheet(isPresented: $showPlaybackQualitySheet) {
+            SoundQualitySheet(
+                currentQuality: SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard,
+                onSelect: { quality in
+                    settings.defaultPlaybackQuality = quality.rawValue
+                    showPlaybackQualitySheet = false
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showDownloadQualitySheet) {
+            SoundQualitySheet(
+                currentQuality: SoundQuality(rawValue: settings.defaultDownloadQuality) ?? .standard,
+                onSelect: { quality in
+                    settings.defaultDownloadQuality = quality.rawValue
+                    showDownloadQualitySheet = false
+                }
+            )
+            .presentationDetents([.medium, .large])
         }
     }
 
-    private var unblockSourceSummary: String {
-        let count = UnblockSourceManager.shared.enabledCount
-        let total = UnblockSourceManager.shared.sources.count
-        if total == 0 { return "未添加" }
-        return "\(count)/\(total) 启用"
+    private var defaultPlaybackQualityText: String {
+        (SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard).displayName
     }
 
-    private var soundQualityText: String {
-        switch settings.soundQuality {
-        case "low": return "流畅"
-        case "standard": return "标准"
-        case "high": return "高品质"
-        case "lossless": return "无损"
-        default: return "标准"
-        }
+    private var defaultDownloadQualityText: String {
+        (SoundQuality(rawValue: settings.defaultDownloadQuality) ?? .standard).displayName
     }
 
-    // MARK: - 缓存设置
+    // MARK: - 存储管理
 
     private var cacheSection: some View {
-        SettingsSection(title: "缓存") {
-            VStack(spacing: 0) {
-                SettingsInfoRow(
-                    icon: .storage,
-                    title: "缓存大小",
-                    value: cacheSize
-                )
-
-                Divider()
-                    .padding(.leading, 56)
-
-                SettingsButtonRow(
-                    icon: .trash,
-                    title: "清除缓存",
-                    titleColor: .red
-                ) {
-                    clearCache()
+        SettingsSection(title: "存储") {
+            NavigationLink(destination: StorageManageView()) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.asideIconBackground)
+                            .frame(width: 32, height: 32)
+                        AsideIcon(icon: .storage, size: 16, color: .asideIconForeground)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("存储管理")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                        Text("管理缓存、下载和用户数据")
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Text(cacheSize)
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                    
+                    AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - 下载管理
+
+    private var downloadSection: some View {
+        SettingsSection(title: "下载") {
+            NavigationLink(destination: DownloadManageView()) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.asideIconBackground)
+                            .frame(width: 32, height: 32)
+                        AsideIcon(icon: .download, size: 16, color: .asideIconForeground)
+                    }
+                    
+                    Text("下载管理")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                    
+                    Spacer()
+                    
+                    AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -228,23 +293,39 @@ struct SettingsView: View {
 
     private func updateCacheSize() {
         Task { @MainActor in
-            cacheSize = OptimizedCacheManager.shared.getCacheSize()
+            // 计算总存储占用
+            let fm = FileManager.default
+            var total: Int64 = 0
+            
+            // 磁盘缓存
+            let cacheDir = fm.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("AsideMusicCache")
+            if let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) {
+                for f in files {
+                    total += Int64((try? f.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
+                }
+            }
+            
+            // 数据库
+            if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                let dbPath = appSupport.appendingPathComponent("default.store").path
+                for ext in ["", ".wal", ".shm"] {
+                    let p = ext.isEmpty ? dbPath : dbPath + ext
+                    if let attrs = try? fm.attributesOfItem(atPath: p), let s = attrs[.size] as? Int64 { total += s }
+                }
+            }
+            
+            // 下载
+            total += DownloadManager.shared.totalDownloadSize()
+            
+            cacheSize = ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
         }
     }
 
     private func clearCache() {
-        AlertManager.shared.show(
-            title: "清除缓存",
-            message: "确定要清除所有缓存吗？这不会影响您的账号数据。",
-            primaryButtonTitle: "清除",
-            secondaryButtonTitle: "取消"
-        ) {
-            Task { @MainActor in
-                OptimizedCacheManager.shared.clearAll()
-                updateCacheSize()
-                AlertManager.shared.dismiss()
-            }
-        }
+        // 已迁移到 StorageManageView
+        OptimizedCacheManager.shared.clearAll()
+        updateCacheSize()
     }
 }
 

@@ -17,9 +17,9 @@ class CacheManager {
         return cacheDirectory
     }
     
-    private let memoryLimit = 50 * 1024 * 1024
-    private let diskLimit = 300 * 1024 * 1024
-    private let defaultExpiration: TimeInterval = 60 * 60 * 24 * 7
+    private let memoryLimit = AppConfig.Cache.memoryLimit
+    private let diskLimit = AppConfig.Cache.diskLimit
+    private let defaultExpiration: TimeInterval = AppConfig.Cache.defaultTTL
     
     init() {
         memoryCache.totalCostLimit = memoryLimit
@@ -165,7 +165,7 @@ class CacheManager {
             ]
             try FileManager.default.setAttributes(attributes, ofItemAtPath: fileURL.path)
         } catch {
-            print("Disk Cache Save Error: \(error)")
+            AppLogger.error("磁盘缓存写入失败: \(error)")
         }
     }
     

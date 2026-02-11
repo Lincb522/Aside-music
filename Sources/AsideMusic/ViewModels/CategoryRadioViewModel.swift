@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 /// 分类电台列表 ViewModel，支持分页加载和去重
+@MainActor
 class CategoryRadioViewModel: ObservableObject {
     @Published var radios: [RadioStation] = []
     @Published var isLoading = false
@@ -30,7 +31,7 @@ class CategoryRadioViewModel: ObservableObject {
             .sink(receiveCompletion: { [weak self] completion in
                 self?.isLoading = false
                 if case .failure(let error) = completion {
-                    print("[CategoryRadioVM] 加载失败: \(error)")
+                    AppLogger.error("[CategoryRadioVM] 加载失败: \(error)")
                 }
             }, receiveValue: { [weak self] result in
                 guard let self = self else { return }
@@ -51,7 +52,7 @@ class CategoryRadioViewModel: ObservableObject {
             .sink(receiveCompletion: { [weak self] completion in
                 self?.isLoadingMore = false
                 if case .failure(let error) = completion {
-                    print("[CategoryRadioVM] 加载更多失败: \(error)")
+                    AppLogger.error("[CategoryRadioVM] 加载更多失败: \(error)")
                 }
             }, receiveValue: { [weak self] result in
                 guard let self = self else { return }

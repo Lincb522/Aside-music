@@ -35,6 +35,7 @@ class PlayerManager: ObservableObject {
     private var playerItemObservers = Set<AnyCancellable>()
     private var timeObserverToken: Any?
     private var didPlayToEndObserver: NSObjectProtocol?
+
     
     // MARK: - Published Properties
     @Published var currentSong: Song?
@@ -45,8 +46,6 @@ class PlayerManager: ObservableObject {
     @Published var showFullScreenPlayer = false
     @Published var mode: PlayMode = .sequence
     @Published var isTabBarHidden: Bool = false
-    @Published var isCurrentSongUnblocked: Bool = false
-    @Published var currentSongSource: String? = nil
     
     // MARK: - 播放源类型
     enum PlaySource: Codable, Equatable {
@@ -77,11 +76,13 @@ class PlayerManager: ObservableObject {
     
     // MARK: - Settings
     @Published var soundQuality: SoundQuality = {
+        // 优先读取用户上次手动选择的音质，否则使用设置中的默认播放音质
         if let rawValue = UserDefaults.standard.string(forKey: "aside_sound_quality"),
            let quality = SoundQuality(rawValue: rawValue) {
             return quality
         }
-        return .exhigh
+        let defaultRaw = UserDefaults.standard.string(forKey: "defaultPlaybackQuality") ?? "standard"
+        return SoundQuality(rawValue: defaultRaw) ?? .standard
     }() {
         didSet {
             UserDefaults.standard.set(soundQuality.rawValue, forKey: "aside_sound_quality")
@@ -98,11 +99,11 @@ class PlayerManager: ObservableObject {
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
     private var saveStateWorkItem: DispatchWorkItem?
-    private let saveStateDebounceInterval: TimeInterval = 2.0
+    private let saveStateDebounceInterval: TimeInterval = AppConfig.Player.saveStateDebounceInterval
     private var consecutiveFailures: Int = 0
-    private let maxConsecutiveFailures: Int = 3
-    private var retryDelay: TimeInterval = 1.0
-    private let maxRetryDelay: TimeInterval = 10.0
+    private let maxConsecutiveFailures: Int = AppConfig.Player.maxConsecutiveFailures
+    private var retryDelay: TimeInterval = AppConfig.Player.initialRetryDelay
+    private let maxRetryDelay: TimeInterval = AppConfig.Player.maxRetryDelay
     
     // MARK: - Remote Command Center
     private let commandCenter = MPRemoteCommandCenter.shared()
@@ -151,7 +152,22 @@ class PlayerManager: ObservableObject {
             try session.setCategory(.playback, mode: .default, options: [])
             try session.setActive(true)
         } catch {
-            print("[PlayerManager] AVAudioSession 配置失败: \(error)")
+            AppLogger.error("AVAudioSession 配置失败: \(error)")
+        }
+        
+        // 监听媒体服务重置通知，自动恢复 audio session
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
+        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in
+            AppLogger.warning("媒体服务被重置，重建 AVPlayer 和 audio session")
+            guard self != nil else { return }
+            // 重建 audio session
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .default, options: [])
+                try session.setActive(true)
+            } catch {
+                AppLogger.error("重建 audio session 失败: \(error)")
+            }
         }
     }
     
@@ -234,6 +250,8 @@ class PlayerManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
                 guard let self = self else { return }
+                // 确保是当前正在播放的 item，忽略被替换的旧 item 的事件
+                guard item === self.avPlayer.currentItem else { return }
                 switch status {
                 case .readyToPlay:
                     self.isLoading = false
@@ -244,7 +262,10 @@ class PlayerManager: ObservableObject {
                 case .failed:
                     self.isPlaying = false
                     self.isLoading = false
-                    print("❌ AVPlayerItem 加载失败: \(item.error?.localizedDescription ?? "未知错误")")
+                    let errMsg = item.error?.localizedDescription ?? "未知错误"
+                    let errCode = (item.error as NSError?)?.code ?? 0
+                    let errDomain = (item.error as NSError?)?.domain ?? ""
+                    AppLogger.error("AVPlayerItem 加载失败: \(errMsg) (code=\(errCode), domain=\(errDomain))")
                 default:
                     break
                 }
@@ -487,13 +508,14 @@ class PlayerManager: ObservableObject {
             let wasPlaying = isPlaying
             
             Task { @MainActor in
-                let enableUnblock = SettingsManager.shared.unblockEnabled
-                
-                APIService.shared.fetchSongUrl(id: current.id, level: quality.rawValue, enableUnblock: enableUnblock)
+                APIService.shared.fetchSongUrl(
+                    id: current.id,
+                    level: quality.rawValue
+                )
                     .receive(on: DispatchQueue.main)
                     .sink(receiveCompletion: { completion in
                         if case .failure(let error) = completion {
-                            print("切换音质失败: \(error)")
+                            AppLogger.error("切换音质失败: \(error)")
                             AlertManager.shared.show(
                                 title: "切换失败",
                                 message: "无法获取该音质的音频，请稍后重试",
@@ -504,8 +526,6 @@ class PlayerManager: ObservableObject {
                     }, receiveValue: { [weak self] result in
                         guard let self = self, let url = URL(string: result.url) else { return }
                         self.soundQuality = quality
-                        self.isCurrentSongUnblocked = result.isUnblocked
-                        self.currentSongSource = result.source
                         self.startPlayback(url: url, autoPlay: wasPlaying, startTime: time)
                     })
                     .store(in: &self.cancellables)
@@ -562,50 +582,50 @@ class PlayerManager: ObservableObject {
         currentSong = song
         addToHistory(song: song)
         saveState()
-        
+
+        // 优先使用本地已下载文件
+        if let localURL = DownloadManager.shared.localFileURL(songId: song.id) {
+            AppLogger.info("使用本地下载文件播放: \(song.name)")
+            self.consecutiveFailures = 0
+            self.retryDelay = 1.0
+            self.startPlayback(url: localURL, autoPlay: autoPlay, startTime: startTime)
+            return
+        }
+
         Task { @MainActor in
-            let enableUnblock = SettingsManager.shared.unblockEnabled
-            
-            APIService.shared.fetchSongUrl(id: song.id, level: self.soundQuality.rawValue, enableUnblock: enableUnblock)
+            APIService.shared.fetchSongUrl(
+                id: song.id,
+                level: self.soundQuality.rawValue
+            )
+                .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completion in
                     guard let self = self else { return }
-                    
                     if case .failure(let error) = completion {
-                        print("Failed to get song url: \(error)")
+                        AppLogger.error("获取播放 URL 失败: \(error)")
                         self.isLoading = false
-                        
-                        let isUnavailable = error is APIService.PlaybackError && 
+
+                        let isUnavailable = error is APIService.PlaybackError &&
                             (error as! APIService.PlaybackError) == .unavailable
-                        
+
                         self.consecutiveFailures += 1
-                        
+
                         if self.consecutiveFailures >= self.maxConsecutiveFailures {
-                            print("⚠️ 连续失败 \(self.consecutiveFailures) 次，停止自动播放下一首")
-                            if isUnavailable {
-                                AlertManager.shared.show(
-                                    title: "无法播放",
-                                    message: "连续多首歌曲暂无版权，可在设置中开启「解灰」功能",
-                                    primaryButtonTitle: "确定",
-                                    primaryAction: {}
-                                )
-                            } else {
-                                AlertManager.shared.show(
-                                    title: "播放失败",
-                                    message: "连续多首歌曲无法播放，请检查网络连接",
-                                    primaryButtonTitle: "确定",
-                                    primaryAction: {}
-                                )
-                            }
+                            AlertManager.shared.show(
+                                title: isUnavailable ? "无法播放" : "播放失败",
+                                message: isUnavailable
+                                    ? "连续多首歌曲暂无版权"
+                                    : "连续多首歌曲无法播放，请检查网络连接",
+                                primaryButtonTitle: "确定",
+                                primaryAction: {}
+                            )
                             self.consecutiveFailures = 0
                             self.retryDelay = 1.0
                             return
                         }
-                        
+
                         if autoPlay {
-                            print("尝试播放下一首 (失败次数: \(self.consecutiveFailures)/\(self.maxConsecutiveFailures), 延迟: \(self.retryDelay)秒)")
                             let currentDelay = self.retryDelay
                             self.retryDelay = min(self.retryDelay * 2, self.maxRetryDelay)
-                            
                             DispatchQueue.main.asyncAfter(deadline: .now() + currentDelay) { [weak self] in
                                 self?.autoNext()
                             }
@@ -613,11 +633,15 @@ class PlayerManager: ObservableObject {
                     }
                 }, receiveValue: { [weak self] result in
                     guard let self = self, let url = URL(string: result.url) else { return }
-                    
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
-                    self.isCurrentSongUnblocked = result.isUnblocked
-                    self.currentSongSource = result.source
+                    
+                    // 边听边存：播放时自动下载
+                    if SettingsManager.shared.listenAndSave,
+                       !DownloadManager.shared.isDownloaded(songId: song.id) {
+                        DownloadManager.shared.download(song: song, quality: self.soundQuality)
+                    }
+                    
                     self.startPlayback(url: url, autoPlay: autoPlay, startTime: startTime)
                 })
                 .store(in: &self.cancellables)
@@ -655,8 +679,14 @@ class PlayerManager: ObservableObject {
             self.duration = 0
         }
         
+        AppLogger.network("开始播放: \(url.absoluteString)")
+        
         let playerItem = AVPlayerItem(url: url)
+        playerItem.preferredForwardBufferDuration = 10
         observePlayerItem(playerItem)
+        // 先暂停并清空当前 item，避免 replaceCurrentItem 时旧请求取消影响新请求
+        avPlayer.pause()
+        avPlayer.replaceCurrentItem(with: nil)
         avPlayer.replaceCurrentItem(with: playerItem)
         
         if startTime > 0 {
@@ -713,7 +743,7 @@ class PlayerManager: ObservableObject {
                     MPNowPlayingInfoCenter.default().nowPlayingInfo = info
                 }
             } catch {
-                print("[PlayerManager] 封面图下载失败: \(error)")
+                AppLogger.warning("封面图下载失败: \(error)")
             }
         }
     }
@@ -721,7 +751,7 @@ class PlayerManager: ObservableObject {
     private func addToHistory(song: Song) {
         history.removeAll { $0.id == song.id }
         history.insert(song, at: 0)
-        if history.count > 50 {
+        if history.count > AppConfig.Player.maxHistoryCount {
             history.removeLast()
         }
     }
@@ -748,7 +778,7 @@ class PlayerManager: ObservableObject {
                 history: self.history,
                 playSource: self.playSource
             )
-            CacheManager.shared.setObject(state, forKey: "player_state_v4")
+            OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
         }
         
         saveStateWorkItem = workItem
@@ -764,10 +794,25 @@ class PlayerManager: ObservableObject {
             history: history,
             playSource: playSource
         )
-        CacheManager.shared.setObject(state, forKey: "player_state_v4")
+        OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
     }
     
     private func restoreState() {
+        if let state = OptimizedCacheManager.shared.getObject(forKey: AppConfig.StorageKeys.playerState, type: PlayerState.self) {
+            self.userQueue = state.userQueue
+            self.mode = state.mode
+            self.history = state.history
+            self.playSource = state.playSource ?? .normal
+            
+            if let song = state.currentSong {
+                self.currentSong = song
+                self.context = [song]
+                self.contextIndex = 0
+            }
+            return
+        }
+        
+        // 兼容旧版本 v4（CacheManager）
         if let state = CacheManager.shared.getObject(forKey: "player_state_v4", type: PlayerState.self) {
             self.userQueue = state.userQueue
             self.mode = state.mode
@@ -779,46 +824,14 @@ class PlayerManager: ObservableObject {
                 self.context = [song]
                 self.contextIndex = 0
             }
+            // 迁移到新缓存系统
+            saveStateImmediately()
+            // 清理旧缓存
+            CacheManager.shared.removeObject(forKey: "player_state_v4")
+            CacheManager.shared.removeObject(forKey: "player_state_v3")
+            CacheManager.shared.removeObject(forKey: "player_state_v2")
             return
         }
-        
-        // 兼容旧版本 v3
-        if let state = CacheManager.shared.getObject(forKey: "player_state_v3", type: PlayerState.self) {
-            self.userQueue = state.userQueue
-            self.mode = state.mode
-            self.history = state.history
-            self.playSource = state.playSource ?? .normal
-            
-            if let song = state.currentSong {
-                self.currentSong = song
-                self.context = [song]
-                self.contextIndex = 0
-            }
-            saveStateImmediately()
-            return
-        }
-        
-        if let oldState = CacheManager.shared.getObject(forKey: "player_state_v2", type: OldPlayerState.self) {
-            self.userQueue = oldState.userQueue
-            self.mode = oldState.mode
-            self.history = oldState.history
-            
-            if let song = oldState.currentSong {
-                self.currentSong = song
-                self.context = [song]
-                self.contextIndex = 0
-            }
-            saveStateImmediately()
-        }
-    }
-    
-    private struct OldPlayerState: Codable {
-        let currentSong: Song?
-        let context: [Song]
-        let contextIndex: Int
-        let userQueue: [Song]
-        let mode: PlayMode
-        let history: [Song]
     }
     
     func fetchHistory() {

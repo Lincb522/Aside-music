@@ -35,8 +35,16 @@ class HomeViewModel: ObservableObject {
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] style in
-                print("DEBUG: HomeViewModel - Style changed to: \(style?.finalName ?? "Default")")
+                AppLogger.debug("HomeViewModel - 风格切换为: \(style?.finalName ?? "Default")")
                 self?.fetchDailySongsOrStyle(force: true, completion: {})
+            }
+            .store(in: &cancellables)
+        
+        // 监听退出登录，清除数据并刷新
+        NotificationCenter.default.publisher(for: .didLogout)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleLogout()
             }
             .store(in: &cancellables)
         
@@ -97,7 +105,7 @@ class HomeViewModel: ObservableObject {
             }
             .sink(receiveCompletion: { [weak self] completionResult in
                 if case .failure(let error) = completionResult {
-                    print("User Profile Fetch Error: \(error)")
+                    AppLogger.error("用户资料获取失败: \(error)")
                     if self?.apiService.currentUserId != nil {
                         completion()
                     } else {
@@ -148,7 +156,7 @@ class HomeViewModel: ObservableObject {
             apiService.fetchRecommendPlaylists()
                 .sink(receiveCompletion: { completion in
                     if case .failure(let error) = completion {
-                        print("Recommend Playlist Error: \(error)")
+                        AppLogger.error("推荐歌单获取失败: \(error)")
                     }
                 }, receiveValue: { [weak self] playlists in
                     self?.recommendPlaylists = playlists
@@ -198,7 +206,7 @@ class HomeViewModel: ObservableObject {
             apiService.fetchUserDetail(uid: uid)
                 .sink(receiveCompletion: { [weak self] completionResult in
                     if case .failure(let error) = completionResult {
-                        print("⚠️ fetchUserDetail 失败: \(error)，尝试通过 loginStatus 获取")
+                        AppLogger.warning("fetchUserDetail 失败: \(error)，尝试通过 loginStatus 获取")
                         // 降级：通过 loginStatus 获取用户信息
                         self?.fetchUserProfile {
                             userProfileLoaded = true
@@ -226,11 +234,11 @@ class HomeViewModel: ObservableObject {
         }
         
         if let style = styleManager.currentStyle {
-            print("HomeViewModel: Fetching songs for style: \(style.finalName)")
+            AppLogger.debug("HomeViewModel: 获取风格歌曲: \(style.finalName)")
             apiService.fetchStyleSongs(tagId: style.finalId)
                 .sink(receiveCompletion: { result in
                     if case .failure(let error) = result {
-                        print("Style Songs Error: \(error)")
+                        AppLogger.error("风格歌曲获取失败: \(error)")
                     }
                     completion()
                 }, receiveValue: { [weak self] songs in
@@ -242,11 +250,11 @@ class HomeViewModel: ObservableObject {
                 })
                 .store(in: &cancellables)
         } else {
-            print("HomeViewModel: Fetching standard daily songs")
+            AppLogger.debug("HomeViewModel: 获取标准每日推荐")
             apiService.fetchDailySongs()
                 .sink(receiveCompletion: { result in
                     if case .failure(let error) = result {
-                        print("Daily Songs Fetch Error: \(error)")
+                        AppLogger.error("每日推荐获取失败: \(error)")
                     }
                     completion()
                 }, receiveValue: { [weak self] songs in
@@ -266,11 +274,34 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Actions
     
+    /// 退出登录时清除用户相关数据
+    private func handleLogout() {
+        AppLogger.info("HomeViewModel: 收到退出登录通知，清除数据")
+        userProfile = nil
+        recentSongs = []
+        dailySongs = []
+        recommendPlaylists = []
+        popularSongs = []
+        banners = []
+        hotSearch = NSLocalizedString("search_bar_placeholder", comment: "")
+        
+        // 清空所有缓存，防止 loadCache 恢复旧数据
+        OptimizedCacheManager.shared.clearAll()
+        
+        // 重置数据就绪状态，确保后续加载能正确标记
+        GlobalRefreshManager.shared.isHomeDataReady = false
+        GlobalRefreshManager.shared.isLibraryDataReady = false
+        GlobalRefreshManager.shared.isProfileDataReady = false
+        
+        // 重新获取公开数据（不需要登录的）
+        fetchData(forceDaily: true)
+    }
+    
     func playPersonalFM() {
         apiService.fetchPersonalFM()
             .sink(receiveCompletion: { completion in
                 if case .failure(let error) = completion {
-                    print("FM Error: \(error)")
+                    AppLogger.error("FM 获取失败: \(error)")
                 }
             }, receiveValue: { songs in
                 if let first = songs.first {

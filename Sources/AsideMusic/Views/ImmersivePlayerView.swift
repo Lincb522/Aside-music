@@ -67,16 +67,20 @@ struct ImmersivePlayerView: View {
         .persistentSystemOverlays(.hidden)
         .onAppear {
             player.isTabBarHidden = true
+            // 进入横屏沉浸模式
+            OrientationManager.shared.enterLandscape()
             if let song = player.currentSong {
                 lyricVM.fetchLyrics(for: song.id)
             }
         }
         .onDisappear {
             player.isTabBarHidden = false
+            // 退出时恢复竖屏
+            OrientationManager.shared.exitLandscape()
             hideControlsTimer?.invalidate()
             wordTimer?.invalidate()
         }
-        .onChange(of: player.currentSong?.id) { newId in
+        .onChange(of: player.currentSong?.id) { _, newId in
             if let id = newId {
                 lyricVM.fetchLyrics(for: id)
                 currentLineId = -1
@@ -84,10 +88,10 @@ struct ImmersivePlayerView: View {
                 visibleCount = 0
             }
         }
-        .onChange(of: player.currentTime) { time in
+        .onChange(of: player.currentTime) { _, time in
             lyricVM.updateCurrentTime(time)
         }
-        .onChange(of: lyricVM.currentLineIndex) { newIndex in
+        .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
             if newIndex != currentLineId {
                 currentLineId = newIndex
                 triggerWordFlash(for: newIndex)

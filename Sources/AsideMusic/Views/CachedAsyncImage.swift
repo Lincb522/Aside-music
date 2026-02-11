@@ -170,7 +170,8 @@ class ImageLoader: ObservableObject {
             return UIImage(data: data)
         }
         
-        let scale = UIScreen.main.scale
+        // 使用固定 scale 3.0 避免在非主线程访问 UIScreen
+        let scale: CGFloat = 3.0
         let downsampleOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,

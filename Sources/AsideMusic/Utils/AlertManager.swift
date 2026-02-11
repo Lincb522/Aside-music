@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 class AlertManager: ObservableObject {
     static let shared = AlertManager()
     
@@ -22,16 +23,14 @@ class AlertManager: ObservableObject {
         primaryAction: @escaping () -> Void,
         secondaryAction: (() -> Void)? = nil
     ) {
-        DispatchQueue.main.async {
-            self.title = title
-            self.message = message
-            self.primaryButtonTitle = primaryButtonTitle
-            self.secondaryButtonTitle = secondaryButtonTitle
-            self.primaryAction = primaryAction
-            self.secondaryAction = secondaryAction
-            withAnimation(.spring()) {
-                self.isPresented = true
-            }
+        self.title = title
+        self.message = message
+        self.primaryButtonTitle = primaryButtonTitle
+        self.secondaryButtonTitle = secondaryButtonTitle
+        self.primaryAction = primaryAction
+        self.secondaryAction = secondaryAction
+        withAnimation(.spring()) {
+            self.isPresented = true
         }
     }
     

@@ -54,9 +54,7 @@ class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
             attachedNavControllers.add(navigationController)
             gestureMap.setObject(panGesture, forKey: navigationController)
             
-            #if DEBUG
-            print("SwipeBackController: Attached to NavigationController (\(attachedNavControllers.count) total)")
-            #endif
+            AppLogger.debug("SwipeBackController: Attached to NavigationController (\(attachedNavControllers.count) total)")
         }
     }
     

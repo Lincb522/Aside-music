@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 
 // MARK: - ViewModel
+@MainActor
 class PlaylistDetailViewModel: ObservableObject {
     @Published var songs: [Song] = []
     @Published var playlistDetail: Playlist?
@@ -57,7 +58,7 @@ class PlaylistDetailViewModel: ObservableObject {
                 }
                 self.isLoadingMore = false
                 if case .failure(let error) = completion {
-                    print("[PlaylistDetail] Failed to load tracks: \(error.localizedDescription)")
+                    AppLogger.error("[PlaylistDetail] Failed to load tracks: \(error.localizedDescription)")
                 }
             }, receiveValue: { [weak self] fetchedSongs in
                 guard let self = self else { return }

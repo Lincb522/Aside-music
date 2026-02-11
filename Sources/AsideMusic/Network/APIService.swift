@@ -18,6 +18,9 @@ class APIService {
     // MARK: - NCMClient 实例
     /// 网易云音乐 API 客户端（后端代理模式）
     let ncm: NCMClient
+    
+    /// 解灰管理器
+    private let _unblockManager = UnblockManager()
 
     private let cookieKey = "aside_music_cookie"
     private let userIdKey = "aside_music_uid"
@@ -55,14 +58,7 @@ class APIService {
     }
 
     init() {
-        let serverUrl: String
-        if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"] {
-            serverUrl = envURL
-        } else if let plistURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String {
-            serverUrl = plistURL
-        } else {
-            serverUrl = "http://114.66.31.109:3000"
-        }
+        let serverUrl = SecureConfig.apiBaseURL
 
         let savedCookie = UserDefaults.standard.string(forKey: "aside_music_cookie")
 
@@ -79,31 +75,18 @@ class APIService {
             UserDefaults.standard.set(true, forKey: "isLoggedIn")
         }
 
-        // 配置自动解灰：利用库内置的 autoUnblock 机制
-        // songUrlV1 会自动检测不可用歌曲（无 URL、试听限制、VIP 歌曲）并通过第三方源匹配
-        setupAutoUnblock()
-        // 标记 APIService 已就绪，后续 UnblockSourceManager 音源变更可安全同步
-        Task { @MainActor in
-            UnblockSourceManager.shared.markAPIServiceReady()
-        }
+        // 配置解灰：通过后端代理解灰（/song/url/match）
+        _unblockManager.register(ServerUnblockSource(serverUrl: serverUrl, mode: .match))
+        ncm.unblockManager = _unblockManager
+        
+        // 根据用户设置决定是否启用自动解灰
+        let unblockEnabled = UserDefaults.standard.bool(forKey: "unblockEnabled")
+        ncm.autoUnblock = unblockEnabled
     }
-
-    /// 配置 NCMClient 的自动解灰
-    /// 将 UnblockSourceManager 管理的音源注入到 NCMClient
-    func setupAutoUnblock() {
-        // 通过 UserDefaults 直接读取，避免跨 actor 访问 SettingsManager
-        let enabled: Bool
-        if UserDefaults.standard.object(forKey: "unblockEnabled") == nil {
-            enabled = true // 默认开启
-        } else {
-            enabled = UserDefaults.standard.bool(forKey: "unblockEnabled")
-        }
+    
+    /// 动态切换解灰开关
+    func setUnblockEnabled(_ enabled: Bool) {
         ncm.autoUnblock = enabled
-        if enabled {
-            ncm.unblockManager = UnblockSourceManager.shared.currentUnblockManager
-        } else {
-            ncm.unblockManager = nil
-        }
     }
 
     // MARK: - 登出
@@ -117,12 +100,17 @@ class APIService {
             )
         }
         .handleEvents(receiveOutput: { [weak self] _ in
-            self?.currentCookie = nil
-            self?.currentUserId = nil
+            // 先清除 UserDefaults，防止 didSet 中的逻辑干扰
             UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
             UserDefaults.standard.removeObject(forKey: "aside_music_uid")
             UserDefaults.standard.set(false, forKey: "isLoggedIn")
-            NotificationCenter.default.post(name: .didLogout, object: nil)
+            
+            // 直接设置内部状态，避免通过 didSet 重复发送通知
+            // currentCookie 的 setter 会触发 currentUserId = nil，
+            // currentUserId 的 didSet 会发送 .didLogout 通知
+            self?.currentCookie = nil
+            // currentUserId 此时已经被 currentCookie setter 设为 nil，无需再设置
+            
             Task { @MainActor in
                 OptimizedCacheManager.shared.clearAll()
             }
@@ -358,13 +346,13 @@ class APIService {
             }
             let songs = fmSongs.map { $0.toSong() }
             if songs.isEmpty {
-                print("Personal FM: No songs found in response")
+                AppLogger.debug("Personal FM: 响应中没有歌曲")
             }
             return songs
         }
         .handleEvents(receiveCompletion: { completion in
             if case .failure(let error) = completion {
-                print("Personal FM Fetch Failed: \(error)")
+                AppLogger.error("Personal FM 获取失败: \(error)")
             }
         })
         .eraseToAnyPublisher()
@@ -403,105 +391,26 @@ class APIService {
     /// 歌曲URL结果
     struct SongUrlResult {
         let url: String
-        let isUnblocked: Bool  // 是否来自第三方源（解灰）
-        let source: String?    // 来源平台名称
-
-        static func detectSource(from url: String) -> String {
-            let lowered = url.lowercased()
-            if lowered.contains("kuwo") { return "酷我音乐" }
-            if lowered.contains("kugou") { return "酷狗音乐" }
-            if lowered.contains("qq.com") || lowered.contains("qqmusic") { return "QQ音乐" }
-            if lowered.contains("migu") { return "咪咕音乐" }
-            if lowered.contains("bilibili") { return "哔哩哔哩" }
-            if lowered.contains("youtube") || lowered.contains("ytimg") { return "YouTube" }
-            if lowered.contains("pyncmd") || lowered.contains("163") { return "网易云" }
-            return "第三方源"
-        }
     }
 
-    /// 获取歌曲播放URL（支持解灰）
-    /// 利用库内置的 autoUnblock 机制：songUrlV1 会自动检测不可用歌曲并通过第三方源替换
-    /// 如果 autoUnblock 也未能匹配，再手动走 UnblockManager 兜底
-    func fetchSongUrl(id: Int, level: String = "exhigh", enableUnblock: Bool = true) -> AnyPublisher<SongUrlResult, Error> {
+    /// 获取歌曲播放URL（网易云 API）
+    func fetchSongUrl(id: Int, level: String = "exhigh") -> AnyPublisher<SongUrlResult, Error> {
         let qualityLevel = NeteaseCloudMusicAPI.SoundQualityType(rawValue: level) ?? .exhigh
 
-        // 同步解灰开关到 NCMClient
-        ncm.autoUnblock = enableUnblock
-        if enableUnblock {
-            ncm.unblockManager = UnblockSourceManager.shared.currentUnblockManager
-        }
-
-        // songUrlV1 内部已集成 autoUnblock：
-        // 无 VIP / 未登录 / 无版权 → 自动检测 needsUnblock → 调用 unblockManager.match
-        let fetch = ncm.publisher { [ncm] in
+        return ncm.publisher { [ncm] in
             let response = try await ncm.songUrlV1(ids: [id], level: qualityLevel)
             guard let dataArray = response.body["data"] as? [[String: Any]],
                   let first = dataArray.first,
                   let url = first["url"] as? String, !url.isEmpty else {
                 throw PlaybackError.unavailable
             }
-            // 检测是否经过自动解灰
-            let isUnblocked = first["_unblocked"] as? Bool ?? false
-            let source = (first["_unblockedFrom"] as? String)
-                ?? (isUnblocked ? SongUrlResult.detectSource(from: url) : nil)
-            return SongUrlResult(url: url, isUnblocked: isUnblocked, source: source)
-        }
-        .eraseToAnyPublisher()
-
-        if !enableUnblock {
-            return fetch
-        }
-
-        // autoUnblock 未能匹配时（URL 仍为空），手动走 UnblockManager 兜底
-        return fetch
-            .catch { [weak self] _ -> AnyPublisher<SongUrlResult, Error> in
-                guard let self = self else {
-                    return Fail(error: PlaybackError.unavailable).eraseToAnyPublisher()
-                }
-                return self.fetchUnblockedSongUrl(id: id, quality: level)
-            }
-            .eraseToAnyPublisher()
-    }
-
-    /// 解灰接口 - 通过 UnblockSourceManager 管理的音源匹配
-    /// 按优先级尝试所有已注册音源（用户自定义源 → 默认后端源）
-    private func fetchUnblockedSongUrl(id: Int, quality: String = "320") -> AnyPublisher<SongUrlResult, Error> {
-        let manager = UnblockSourceManager.shared.currentUnblockManager
-        return ncm.publisher { [ncm] in
-
-            // 先获取歌曲详情（歌名、歌手传给音源提高匹配率）
-            var title: String?
-            var artist: String?
-            if let detailResp = try? await ncm.songDetail(ids: [id]),
-               let songs = detailResp.body["songs"] as? [[String: Any]],
-               let song = songs.first {
-                title = song["name"] as? String
-                let artists = (song["ar"] as? [[String: Any]] ?? [])
-                    .compactMap { $0["name"] as? String }
-                    .joined(separator: " / ")
-                if !artists.isEmpty { artist = artists }
-            }
-
-            // 使用 UnblockManager 按优先级匹配
-            guard let result = await manager.match(
-                id: id,
-                title: title,
-                artist: artist,
-                quality: quality
-            ), !result.url.isEmpty else {
-                throw PlaybackError.unavailable
-            }
-
-            let source = result.platform.isEmpty
-                ? SongUrlResult.detectSource(from: result.url)
-                : result.platform
-            return SongUrlResult(url: result.url, isUnblocked: true, source: source)
+            return SongUrlResult(url: url)
         }
         .eraseToAnyPublisher()
     }
 
-    /// 直接 POST 到 Node 后端指定路由（用于解灰等后端自定义接口）
-    private static func postToBackend(serverUrl: String, route: String, params: [String: Any]) async throws -> [String: Any] {
+    /// 直接 POST 到 Node 后端指定路由
+    static func postToBackend(serverUrl: String, route: String, params: [String: Any]) async throws -> [String: Any] {
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         guard let url = URL(string: base + route) else { throw PlaybackError.networkError }
         var request = URLRequest(url: url)
@@ -720,7 +629,7 @@ class APIService {
             let response = try await ncm.historyRecommendSongs()
             let dataDict = response.body["data"] as? [String: Any]
             let dates = dataDict?["dates"] as? [String] ?? []
-            print("DEBUG: History API Response - code: \(response.body["code"] ?? -1), dates: \(dates.count)")
+            AppLogger.debug("History API 响应 - code: \(response.body["code"] ?? -1), dates: \(dates.count)")
             return dates
         }
     }
@@ -739,12 +648,12 @@ class APIService {
             let response = try await ncm.historyRecommendSongsDetail(date: date)
             guard let dataDict = response.body["data"] as? [String: Any],
                   let songsArray = dataDict["songs"] as? [[String: Any]] else {
-                print("DEBUG: History Songs API Response - no songs")
+                AppLogger.debug("History Songs API 响应 - 无歌曲")
                 return [Song]()
             }
             let songsData = try JSONSerialization.data(withJSONObject: songsArray)
             let songs = try JSONDecoder().decode([Song].self, from: songsData)
-            print("DEBUG: History Songs API Response - songs count: \(songs.count)")
+            AppLogger.debug("History Songs API 响应 - 歌曲数: \(songs.count)")
             return songs
         }
     }
@@ -857,7 +766,7 @@ class APIService {
             }
             let data = try JSONSerialization.data(withJSONObject: catsArray)
             let cats = try JSONDecoder().decode([RadioCategory].self, from: data)
-            print("📻 电台分类数量: \(cats.count), 名称: \(cats.map { $0.name })")
+            AppLogger.debug("电台分类数量: \(cats.count)")
             return cats
         }
     }
@@ -893,7 +802,7 @@ class APIService {
             let hasMore = response.body["hasMore"] as? Bool ?? (radiosArray.count >= limit)
             let data = try JSONSerialization.data(withJSONObject: radiosArray)
             let radios = try JSONDecoder().decode([RadioStation].self, from: data)
-            print("📻 分类热门电台: cateId=\(cateId), offset=\(offset), 返回\(radios.count)条, hasMore=\(hasMore)")
+            AppLogger.debug("分类热门电台: cateId=\(cateId), offset=\(offset), 返回\(radios.count)条, hasMore=\(hasMore)")
             return (radios: radios, hasMore: hasMore)
         }
     }
@@ -927,6 +836,72 @@ class APIService {
             }
             let data = try JSONSerialization.data(withJSONObject: radiosArray)
             return try JSONDecoder().decode([RadioStation].self, from: data)
+        }
+    }
+
+    // MARK: - 广播电台接口（地区 FM 广播）
+
+    /// 获取广播电台频道列表
+    func fetchBroadcastChannels(categoryId: String = "0", regionId: String = "0", limit: Int = 20, offset: Int = 0) -> AnyPublisher<[BroadcastChannel], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.broadcastChannelList(
+                categoryId: categoryId, regionId: regionId,
+                limit: limit, offset: offset
+            )
+            AppLogger.debug("广播频道列表响应 keys: \(response.body.keys)")
+            
+            // 尝试多种数据路径
+            let listArray: [[String: Any]]
+            if let dataDict = response.body["data"] as? [String: Any],
+               let list = dataDict["list"] as? [[String: Any]] {
+                listArray = list
+            } else if let list = response.body["list"] as? [[String: Any]] {
+                listArray = list
+            } else if let dataArray = response.body["data"] as? [[String: Any]] {
+                listArray = dataArray
+            } else {
+                AppLogger.debug("广播频道列表: 无法解析数据, body: \(response.body)")
+                return [BroadcastChannel]()
+            }
+            
+            AppLogger.debug("广播频道列表: 获取到 \(listArray.count) 个频道")
+            if let first = listArray.first {
+                AppLogger.debug("广播频道示例 keys: \(first.keys)")
+            }
+            
+            let data = try JSONSerialization.data(withJSONObject: listArray)
+            return try JSONDecoder().decode([BroadcastChannel].self, from: data)
+        }
+    }
+
+    /// 获取广播电台地区和分类信息
+    func fetchBroadcastCategoryRegion() -> AnyPublisher<(categories: [BroadcastCategory], regions: [BroadcastRegion]), Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.broadcastCategoryRegionGet()
+            let dataDict = response.body["data"] as? [String: Any] ?? response.body
+
+            var categories: [BroadcastCategory] = []
+            var regions: [BroadcastRegion] = []
+
+            if let catsArray = dataDict["categoryList"] as? [[String: Any]] ?? dataDict["categories"] as? [[String: Any]] {
+                let data = try JSONSerialization.data(withJSONObject: catsArray)
+                categories = try JSONDecoder().decode([BroadcastCategory].self, from: data)
+            }
+            if let regionsArray = dataDict["regionList"] as? [[String: Any]] ?? dataDict["regions"] as? [[String: Any]] {
+                let data = try JSONSerialization.data(withJSONObject: regionsArray)
+                regions = try JSONDecoder().decode([BroadcastRegion].self, from: data)
+            }
+            return (categories: categories, regions: regions)
+        }
+    }
+
+    /// 获取广播频道当前播放信息（含流地址）
+    func fetchBroadcastChannelInfo(id: String) -> AnyPublisher<[String: Any], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.broadcastChannelCurrentinfo(id: id)
+            AppLogger.debug("广播频道信息响应 keys: \(response.body.keys)")
+            AppLogger.debug("广播频道信息响应 body: \(response.body)")
+            return response.body["data"] as? [String: Any] ?? response.body
         }
     }
 
@@ -971,6 +946,69 @@ class APIService {
     func deletePlaylist(id: Int) -> AnyPublisher<SimpleResponse, Error> {
         ncm.publisher { [ncm] in
             let response = try await ncm.playlistDelete(ids: [id])
+            return SimpleResponse(
+                code: response.body["code"] as? Int ?? 200,
+                message: nil
+            )
+        }
+    }
+
+    // MARK: - 评论接口
+
+    /// 获取评论列表（新版接口，支持排序和分页）
+    func fetchComments(type: CommentType, id: Int, pageNo: Int = 1, pageSize: Int = 20, sortType: Int = 99, cursor: String = "") -> AnyPublisher<CommentNewData, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.commentNew(
+                type: type, id: id,
+                pageNo: pageNo, pageSize: pageSize,
+                sortType: sortType, cursor: cursor
+            )
+            guard let dataDict = response.body["data"] as? [String: Any] else {
+                return CommentNewData(totalCount: 0, hasMore: false, cursor: "", comments: [], sortType: sortType)
+            }
+            let data = try JSONSerialization.data(withJSONObject: dataDict)
+            return try JSONDecoder().decode(CommentNewData.self, from: data)
+        }
+    }
+
+    /// 获取热门评论
+    func fetchHotComments(type: CommentType, id: Int, limit: Int = 20, offset: Int = 0) -> AnyPublisher<[Comment], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.commentHot(type: type, id: id, limit: limit, offset: offset)
+            guard let arr = response.body["hotComments"] as? [[String: Any]] else {
+                return [Comment]()
+            }
+            let data = try JSONSerialization.data(withJSONObject: arr)
+            return try JSONDecoder().decode([Comment].self, from: data)
+        }
+    }
+
+    /// 评论点赞/取消点赞
+    func likeComment(type: CommentType, id: Int, commentId: Int, like: Bool) -> AnyPublisher<SimpleResponse, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.commentLike(type: type, id: id, commentId: commentId, like: like)
+            return SimpleResponse(
+                code: response.body["code"] as? Int ?? 200,
+                message: nil
+            )
+        }
+    }
+
+    /// 发表评论
+    func postComment(type: CommentType, id: Int, content: String) -> AnyPublisher<SimpleResponse, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.comment(action: .add, type: type, id: id, content: content)
+            return SimpleResponse(
+                code: response.body["code"] as? Int ?? 200,
+                message: nil
+            )
+        }
+    }
+
+    /// 回复评论
+    func replyComment(type: CommentType, id: Int, content: String, commentId: Int) -> AnyPublisher<SimpleResponse, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.comment(action: .reply, type: type, id: id, content: content, commentId: commentId)
             return SimpleResponse(
                 code: response.body["code"] as? Int ?? 200,
                 message: nil
