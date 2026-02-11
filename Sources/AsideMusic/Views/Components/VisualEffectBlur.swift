@@ -47,7 +47,9 @@ struct AsideLiquidCard<Content: View>: View {
         content
             .background {
                 if useMetal {
-                    LiquidGlassMetalView(cornerRadius: cornerRadius)
+                    // 使用新的 .liquidGlass 修饰器
+                    Color.clear
+                        .liquidGlass(config: .regular, cornerRadius: cornerRadius)
                 } else {
                     LiquidGlassBlur(cornerRadius: cornerRadius)
                 }
@@ -58,14 +60,17 @@ struct AsideLiquidCard<Content: View>: View {
 
 // MARK: - View Extensions
 extension View {
+    /// 毛玻璃背景（非 Metal）
     func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
         self.background(LiquidGlassBlur(cornerRadius: cornerRadius))
     }
     
+    /// Metal 液态玻璃背景（使用新 API）
     func liquidGlassMetal(cornerRadius: CGFloat = 20) -> some View {
-        self.background(LiquidGlassMetalView(cornerRadius: cornerRadius))
+        self.liquidGlass(config: .regular, cornerRadius: cornerRadius)
     }
     
+    /// 液态玻璃样式（支持 Metal/非 Metal 切换）
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = true) -> some View {
         AsideLiquidCard(cornerRadius: cornerRadius, useMetal: useMetal) {
             self

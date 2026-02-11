@@ -27,12 +27,10 @@ struct UserPlaylistRow: View {
         }
         .padding()
         .background {
-            ZStack {
-                // 列表项使用较低帧率
-                LiquidGlassMetalView(cornerRadius: 16, backgroundCaptureFrameRate: 20)
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground.opacity(0.4))
-            }
+            // 使用 .liquidGlass 修饰器
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.asideCardBackground.opacity(0.4))
+                .liquidGlass(config: .regular, cornerRadius: 16, backgroundCaptureFrameRate: 20)
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.1), radius: 12, x: 0, y: 6)

@@ -146,10 +146,12 @@ class MVPlayerViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
                 if case .failure(let error) = completion {
+                    print("[MVPlayer] ❌ detail 获取失败: \(error)")
                     self?.isLoading = false
                     self?.errorMessage = error.localizedDescription
                 }
             } receiveValue: { [weak self] detail in
+                print("[MVPlayer] ✅ detail 获取成功: name=\(detail.name ?? "nil"), artist=\(detail.displayArtistName)")
                 self?.detail = detail
                 self?.isLoading = false
                 self?.fetchSimiMVs()

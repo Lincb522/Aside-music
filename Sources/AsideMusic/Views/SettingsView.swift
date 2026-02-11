@@ -9,8 +9,11 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var systemColorScheme
     @ObservedObject private var settings = SettingsManager.shared
     @State private var cacheSize: String = "计算中..."
+    // 用于强制刷新视图的标识符
+    @State private var viewRefreshID = UUID()
 
     var body: some View {
         NavigationStack {
@@ -43,7 +46,23 @@ struct SettingsView: View {
                 updateCacheSize()
             }
             .preferredColorScheme(settings.preferredColorScheme)
+            // 监听主题变化，强制刷新视图
+            .onChange(of: settings.themeMode) { _, _ in
+                // 延迟一帧后刷新，确保 UIKit 层面的样式已应用
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    viewRefreshID = UUID()
+                }
+            }
+            // 监听系统颜色方案变化（自动模式时需要）
+            .onChange(of: systemColorScheme) { _, _ in
+                if settings.themeMode == "system" {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        viewRefreshID = UUID()
+                    }
+                }
+            }
         }
+        .id(viewRefreshID)
     }
 
     // MARK: - Header

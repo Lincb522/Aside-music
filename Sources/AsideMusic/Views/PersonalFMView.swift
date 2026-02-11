@@ -143,7 +143,7 @@ struct PersonalFMView: View {
                                 RoundedRectangle(cornerRadius: 32)
                                     .fill(Theme.cardBackground)
                                     .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
-                                    .background(LiquidGlassMetalView(cornerRadius: 32, backgroundCaptureFrameRate: 20))
+                                    .liquidGlass(config: .regular, cornerRadius: 32, backgroundCaptureFrameRate: 20)
 
                                 CachedAsyncImage(url: song.coverUrl) {
                                     Color.gray.opacity(0.05).overlay(

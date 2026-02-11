@@ -114,7 +114,32 @@ struct MVDetail: Codable {
     let duration: Int?
     let desc: String?
     let publishTime: String?
-    let brs: [String: Int]?  // 可用分辨率
+    let brs: [String: Int]?  // 可用分辨率（可能是字典或数组，用自定义解码兼容）
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, artistName, artistId, artists, cover
+        case playCount, subCount, shareCount, commentCount
+        case duration, desc, publishTime, brs
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        artistName = try container.decodeIfPresent(String.self, forKey: .artistName)
+        artistId = try container.decodeIfPresent(Int.self, forKey: .artistId)
+        artists = try container.decodeIfPresent([MVArtist].self, forKey: .artists)
+        cover = try container.decodeIfPresent(String.self, forKey: .cover)
+        playCount = try container.decodeIfPresent(Int.self, forKey: .playCount)
+        subCount = try container.decodeIfPresent(Int.self, forKey: .subCount)
+        shareCount = try container.decodeIfPresent(Int.self, forKey: .shareCount)
+        commentCount = try container.decodeIfPresent(Int.self, forKey: .commentCount)
+        duration = try container.decodeIfPresent(Int.self, forKey: .duration)
+        desc = try container.decodeIfPresent(String.self, forKey: .desc)
+        publishTime = try container.decodeIfPresent(String.self, forKey: .publishTime)
+        // brs 可能是 {"1080": 1, "720": 1} 或 [{"size":xxx,"br":1080}]，兼容处理
+        brs = try? container.decodeIfPresent([String: Int].self, forKey: .brs)
+    }
 
     var coverUrl: String? { cover }
 

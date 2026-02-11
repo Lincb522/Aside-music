@@ -56,6 +56,9 @@ struct MVPlayerView: View {
                 isPlaying = true
             }
         }
+        .onChange(of: viewModel.detail?.name) { _, name in
+            print("[MVPlayer View] detail.name 变化: \(name ?? "nil")")
+        }
         .statusBar(hidden: isFullscreen)
         .sheet(isPresented: $showSimiSheet) {
             simiSheet

@@ -270,20 +270,16 @@ struct UnifiedFloatingBar: View {
             ))
         }
         .background {
-            ZStack {
-                // 根据设置选择液态玻璃或原生毛玻璃
-                if settings.liquidGlassEnabled {
-                    // 使用较低的背景捕获帧率，静态场景会自动冻结
-                    LiquidGlassMetalView(cornerRadius: 20, backgroundCaptureFrameRate: 30)
-                    
-                    // 半透明叠加层
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color.asideCardBackground.opacity(0.4))
-                } else {
-                    // 原生毛玻璃效果
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                }
+            // 根据设置选择液态玻璃或原生毛玻璃
+            if settings.liquidGlassEnabled {
+                // 使用 .liquidGlass 修饰器
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.asideCardBackground.opacity(0.4))
+                    .liquidGlass(config: .regular, cornerRadius: 20, backgroundCaptureFrameRate: 30)
+            } else {
+                // 原生毛玻璃效果
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

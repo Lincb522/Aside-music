@@ -362,17 +362,23 @@ struct StorageManageView: View {
     // MARK: - 清理操作
     private func clearSongCache() {
         CacheManager.shared.clearAll()
-        calculateSizes()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            calculateSizes()
+        }
     }
     
     private func clearDatabase() {
         DatabaseManager.shared.clearAllData()
-        calculateSizes()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            calculateSizes()
+        }
     }
     
     private func clearDownloads() {
         downloadManager.deleteAll()
-        calculateSizes()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            calculateSizes()
+        }
     }
     
     private func clearImageCache() {
@@ -385,14 +391,15 @@ struct StorageManageView: View {
             let path = cacheDir.appendingPathComponent(dir)
             try? fm.removeItem(at: path)
         }
-        calculateSizes()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            calculateSizes()
+        }
     }
     
     private func clearAll() {
         OptimizedCacheManager.shared.clearAll()
         downloadManager.deleteAll()
         clearImageCache()
-        calculateSizes()
     }
     
     // MARK: - 格式化
