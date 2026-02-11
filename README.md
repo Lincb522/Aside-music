@@ -31,6 +31,7 @@
 ### 🎨 视觉设计
 - **Liquid Glass 效果** - iOS 26 风格的液态玻璃视觉效果
 - **Aura 图标系统** - 自研的浮动线条图标，1.6px 描边，64+ 自定义图标，零 SF Symbols 依赖
+- **弥散背景** - 自研 AsideBackground 组件，中性色调弥散光斑，深色/浅色自适应
 - **流畅动画** - 全局弹性动画与手势交互
 - **深色/浅色模式** - 全局自适应系统主题，所有页面均已适配
 
@@ -39,10 +40,25 @@
 - **播放队列管理** - 下一首播放、添加到队列
 - **私人 FM** - 个性化推荐电台
 - **歌词显示** - 逐行滚动歌词
-- **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质
+- **沉浸式歌词** - 横屏全屏 VJ 风格逐词快闪歌词
+- **音质选择** - 标准/HQ/SQ/Hi-Res 多种音质，支持默认播放/下载音质设置
 - **解灰功能** - 自动匹配其他音源播放无版权歌曲
 - **第三方源管理** - 导入 JS 脚本音源（洛雪格式）或自定义 HTTP 音源，全平台测试与调试日志
 - **多播放源独立管理** - 普通播放、私人FM、播客电台三种播放源互不干扰，各自维护播放状态
+
+### 🎬 MV 系统
+- **MV 发现页** - Hero 大图、最新上线、热门排行、独家放送
+- **MV 播放器** - 视频播放 + 信息展示 + 内嵌评论 + 相关推荐
+- **横屏全屏** - 视频支持横屏放大/缩小切换
+- **MV 收藏** - 收藏/取消收藏 MV，查看已收藏列表
+- **全部 MV 浏览** - 分页加载，双列网格展示
+
+### 💬 评论系统
+- **歌曲评论** - 查看热门评论与全部评论
+- **MV 评论** - 内嵌在 MV 播放界面，无需弹窗
+- **评论互动** - 点赞、回复评论
+- **发表评论** - 底部输入栏发送评论
+- **排序切换** - 推荐/最新/最热排序
 
 ### 📻 播客电台
 - **电台分类浏览** - 按分类标签筛选电台，支持无限滚动加载
@@ -57,18 +73,21 @@
 - **每日推荐** - 每日 30 首个性化推荐
 - **歌单管理** - 查看、播放用户歌单
 - **歌单广场** - 按分类浏览热门歌单，无限滚动加载
-- **搜索** - 歌曲、歌手、歌单、专辑搜索
+- **搜索** - 歌曲、歌手、歌单、专辑搜索，搜索历史 + 热门搜索
 - **排行榜** - 各类音乐榜单
 - **歌手库** - 按地区/类型/首字母筛选歌手，支持搜索
 - **歌手详情** - 歌手信息与热门歌曲
 - **播放历史** - 最近播放记录
+- **歌曲下载** - 离线缓存歌曲，下载管理
 
 ### 🔧 系统功能
 - **后台播放** - 支持后台持续播放
 - **锁屏控制** - 锁屏界面播放控制
 - **控制中心** - 系统控制中心集成
+- **横屏支持** - MV 全屏横屏播放、沉浸式歌词横屏显示
 - **智能缓存** - 图片与数据缓存优化
 - **本地数据库** - SQLite 持久化存储
+- **存储管理** - 查看缓存占用，一键清理
 
 ---
 
@@ -120,22 +139,24 @@ open AsideMusic.xcodeproj
 ```
 AsideMusic/
 ├── Sources/AsideMusic/
-│   ├── AsideMusicApp.swift          # 应用入口
+│   ├── AsideMusicApp.swift          # 应用入口 + AppDelegate（横屏支持）
 │   │
 │   ├── Models/                       # 数据模型
 │   │   ├── Song.swift               # 歌曲模型
 │   │   ├── SoundQuality.swift       # 音质枚举
-│   │   └── RadioModels.swift        # 电台/播客模型
+│   │   ├── RadioModels.swift        # 电台/播客模型
+│   │   ├── BroadcastModels.swift    # 广播模型
+│   │   ├── MVModels.swift           # MV 模型
+│   │   └── CommentModels.swift      # 评论模型
 │   │
 │   ├── Views/                        # 视图层
 │   │   ├── ContentView.swift        # 主容器视图
 │   │   ├── HomeView.swift           # 首页
 │   │   ├── LibraryView.swift        # 音乐库（歌单/歌手/排行榜）
-│   │   ├── SearchView.swift         # 搜索页
+│   │   ├── SearchView.swift         # 搜索页（搜索历史 + 热门搜索）
 │   │   ├── ProfileView.swift        # 个人中心
 │   │   ├── FullScreenPlayerView.swift # 全屏播放器
-│   │   ├── ImmersivePlayerView.swift # 沉浸式播放器
-│   │   ├── MiniPlayerView.swift     # 迷你播放器
+│   │   ├── ImmersivePlayerView.swift # 沉浸式播放器（默认横屏）
 │   │   ├── UnifiedFloatingBar.swift # 统一浮动栏（MiniPlayer + TabBar）
 │   │   ├── PersonalFMView.swift     # 私人FM
 │   │   ├── DailyRecommendView.swift # 每日推荐
@@ -144,6 +165,10 @@ AsideMusic/
 │   │   ├── SongDetailView.swift     # 歌曲详情
 │   │   ├── TopChartsView.swift      # 排行榜
 │   │   │
+│   │   ├── MVPlayerView.swift       # MV 播放器（内嵌评论 + 横屏全屏）
+│   │   ├── MVListView.swift         # MV 发现页 + 全部 MV 列表
+│   │   ├── CommentView.swift        # 评论视图
+│   │   │
 │   │   ├── PodcastView.swift        # 播客首页
 │   │   ├── PodcastSearchView.swift  # 播客搜索
 │   │   ├── RadioDetailView.swift    # 电台详情
@@ -151,9 +176,12 @@ AsideMusic/
 │   │   ├── RadioCategoryBrowseView.swift # 电台分类浏览
 │   │   ├── CategoryRadioView.swift  # 分类电台列表
 │   │   ├── TopRadioListView.swift   # 热门电台排行
+│   │   ├── BroadcastListView.swift  # 广播列表
+│   │   ├── BroadcastPlayerView.swift # 广播播放器
 │   │   │
 │   │   ├── SettingsView.swift       # 设置页
-│   │   ├── UnblockSourceManageView.swift # 第三方源管理
+│   │   ├── DownloadManageView.swift # 下载管理
+│   │   ├── StorageManageView.swift  # 存储管理
 │   │   ├── LoginView.swift          # 登录页
 │   │   ├── LoginComponents.swift    # 登录组件
 │   │   ├── WelcomeView.swift        # 欢迎页
@@ -167,9 +195,10 @@ AsideMusic/
 │   │       ├── SongListRow.swift    # 歌曲列表行
 │   │       ├── LyricsView.swift     # 歌词视图
 │   │       ├── LikeButton.swift     # 喜欢按钮
+│   │       ├── SubscribeButton.swift # 订阅按钮
 │   │       ├── NoMoreDataView.swift # "没有更多了"提示
 │   │       ├── AsideAlert.swift     # 自定义弹窗
-│   │       ├── AsideBackground.swift # 背景组件
+│   │       ├── AsideBackground.swift # 弥散背景组件
 │   │       ├── AsideLoadingView.swift # 加载动画
 │   │       ├── SoundQualitySheet.swift # 音质选择
 │   │       ├── StyleSelectionSheet.swift # 风格选择
@@ -181,6 +210,8 @@ AsideMusic/
 │   │   ├── PlayerManager.swift      # 播放器管理（多播放源）
 │   │   ├── HomeViewModel.swift      # 首页数据
 │   │   ├── LoginViewModel.swift     # 登录逻辑
+│   │   ├── MVViewModel.swift        # MV 数据
+│   │   ├── CommentViewModel.swift   # 评论数据
 │   │   ├── PodcastViewModel.swift   # 播客数据
 │   │   ├── CategoryRadioViewModel.swift # 分类电台数据
 │   │   └── RadioDetailViewModel.swift # 电台详情数据
@@ -188,6 +219,7 @@ AsideMusic/
 │   ├── Network/                      # 网络层
 │   │   ├── APIService.swift         # API 服务
 │   │   ├── APIService+Search.swift  # 搜索扩展
+│   │   ├── APIService+MV.swift      # MV 接口扩展
 │   │   └── NCMBridge.swift          # NCM SDK 桥接层
 │   │
 │   ├── Database/                     # 数据库层
@@ -197,9 +229,11 @@ AsideMusic/
 │   │
 │   ├── Managers/                     # 管理器
 │   │   ├── SettingsManager.swift    # 设置管理
+│   │   ├── DownloadManager.swift    # 下载管理
+│   │   ├── OrientationManager.swift # 横屏方向管理
 │   │   ├── CacheManager.swift       # 缓存管理
 │   │   ├── OptimizedCacheManager.swift # 优化缓存管理
-│   │   ├── UnblockSourceManager.swift # 第三方音源管理
+│   │   ├── SubscriptionManager.swift # 订阅管理
 │   │   ├── LikeManager.swift        # 喜欢管理
 │   │   ├── StyleManager.swift       # 样式管理
 │   │   ├── AsideAnimation.swift     # 动画管理
@@ -211,7 +245,9 @@ AsideMusic/
 │   │   ├── AlertManager.swift       # 弹窗管理
 │   │   ├── AppConfig.swift          # 应用配置
 │   │   ├── DeviceLayout.swift       # 设备布局
-│   │   └── ErrorHandler.swift       # 错误处理
+│   │   ├── ErrorHandler.swift       # 错误处理
+│   │   ├── Logger.swift             # 日志工具
+│   │   └── SecureConfig.swift       # 安全配置
 │   │
 │   └── Resources/                    # 资源文件
 │       ├── Assets.xcassets/         # 图片资源
@@ -270,13 +306,13 @@ AsideMusic/
 ## 🚧 待开发功能
 
 ### 高优先级
-- [ ] **歌曲下载** - 离线缓存歌曲
+- [x] **歌曲下载** - 离线缓存歌曲 ✅
 - [ ] **播放列表编辑** - 创建、编辑、删除歌单
-- [ ] **评论系统** - 查看歌曲评论
+- [x] **评论系统** - 查看歌曲/MV 评论、点赞、回复 ✅
 - [ ] **分享功能** - 分享歌曲/歌单
 
 ### 中优先级
-- [ ] **MV 播放** - 音乐视频播放
+- [x] **MV 播放** - MV 发现、播放、横屏全屏、收藏、内嵌评论 ✅
 - [ ] **歌词翻译** - 显示翻译歌词
 - [ ] **定时关闭** - 睡眠定时器
 - [ ] **均衡器** - 音效调节 (基于 AudioKit 重构中)
