@@ -141,24 +141,32 @@ class MVPlayerViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        // 并行获取详情和播放链接
-        let detailPub = api.fetchMVDetail(id: mvId)
-        let urlPub = api.fetchMVUrl(id: mvId, resolution: 1080)
-
-        Publishers.Zip(detailPub, urlPub)
+        // 独立获取详情（不受 URL 失败影响）
+        api.fetchMVDetail(id: mvId)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
-                self?.isLoading = false
                 if case .failure(let error) = completion {
+                    self?.isLoading = false
                     self?.errorMessage = error.localizedDescription
-                    self?.tryLowerResolution()
                 }
-            } receiveValue: { [weak self] detail, url in
+            } receiveValue: { [weak self] detail in
                 self?.detail = detail
-                self?.videoUrl = url
+                self?.isLoading = false
                 self?.fetchSimiMVs()
                 self?.fetchDetailInfo()
                 self?.fetchRelatedVideos()
+            }
+            .store(in: &cancellables)
+
+        // 独立获取播放链接，失败自动降级分辨率
+        api.fetchMVUrl(id: mvId, resolution: 1080)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                if case .failure = completion {
+                    self?.tryLowerResolution()
+                }
+            } receiveValue: { [weak self] url in
+                self?.videoUrl = url
             }
             .store(in: &cancellables)
     }
@@ -208,15 +216,6 @@ class MVPlayerViewModel: ObservableObject {
                 self?.errorMessage = nil
             }
             .store(in: &cancellables)
-
-        if detail == nil {
-            api.fetchMVDetail(id: mvId)
-                .receive(on: DispatchQueue.main)
-                .sink { _ in } receiveValue: { [weak self] detail in
-                    self?.detail = detail
-                }
-                .store(in: &cancellables)
-        }
     }
 
     private func fetchSimiMVs() {

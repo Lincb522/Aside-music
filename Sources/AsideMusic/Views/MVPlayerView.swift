@@ -132,14 +132,8 @@ struct MVPlayerView: View {
                 // 下方信息 + 评论区域
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // MV 信息
+                        // MV 信息 + 收藏
                         infoSection
-
-                        // 互动按钮
-                        actionRow
-
-                        // 统计
-                        statsRow
 
                         // 相关推荐预览
                         if !viewModel.simiMVs.isEmpty || !viewModel.relatedMVs.isEmpty {
@@ -257,122 +251,59 @@ struct MVPlayerView: View {
         .padding(.horizontal, 24)
     }
 
-    // MARK: - MV 信息
+    // MARK: - MV 信息 + 收藏
 
     private var infoSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let detail = viewModel.detail {
-                Text(detail.name ?? "未知MV")
-                    .font(.rounded(size: 22, weight: .bold))
-                    .foregroundColor(.asideTextPrimary)
-                    .lineLimit(2)
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                if let detail = viewModel.detail {
+                    Text(detail.name ?? "未知MV")
+                        .font(.rounded(size: 22, weight: .bold))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(2)
 
-                Text(detail.displayArtistName)
-                    .font(.rounded(size: 15))
-                    .foregroundColor(.asideTextSecondary)
-            } else {
-                // 骨架占位
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.asideTextSecondary.opacity(0.08))
-                    .frame(height: 22)
-                    .frame(maxWidth: 200)
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.asideTextSecondary.opacity(0.06))
-                    .frame(height: 16)
-                    .frame(maxWidth: 120)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 24)
-    }
+                    HStack(spacing: 10) {
+                        Text(detail.displayArtistName)
+                            .font(.rounded(size: 14))
+                            .foregroundColor(.asideTextSecondary)
 
-    // MARK: - 互动按钮行
-
-    private var actionRow: some View {
-        HStack(spacing: 0) {
-            // 收藏
-            mvActionButton(
-                icon: viewModel.isSubscribed ? .liked : .like,
-                text: viewModel.isSubscribed ? "已收藏" : "收藏",
-                highlighted: viewModel.isSubscribed
-            ) {
-                viewModel.toggleSubscribe()
-            }
-
-            Spacer()
-
-            // 点赞
-            if let info = viewModel.detailInfo, let count = info.likedCount, count > 0 {
-                mvActionButton(icon: .like, text: formatCount(count)) {}
-            }
-
-            Spacer()
-
-            // 评论（显示数量，评论区已内嵌在下方）
-            let commentCount = commentVM.totalCount > 0 ? commentVM.totalCount : (viewModel.detailInfo?.commentCount ?? viewModel.detail?.commentCount ?? 0)
-            mvActionButton(icon: .comment, text: commentCount > 0 ? formatCount(commentCount) : "评论") {}
-
-            Spacer()
-
-            // 相关推荐
-            let totalRecs = viewModel.simiMVs.count + viewModel.relatedMVs.count
-            if totalRecs > 0 {
-                mvActionButton(icon: .list, text: "推荐") {
-                    showSimiSheet = true
+                        if let count = detail.playCount {
+                            Text("·")
+                                .foregroundColor(.asideTextSecondary.opacity(0.4))
+                            Text(formatCount(count) + "播放")
+                                .font(.rounded(size: 12))
+                                .foregroundColor(.asideTextSecondary.opacity(0.6))
+                        }
+                    }
+                } else {
+                    // 骨架占位
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.asideTextSecondary.opacity(0.08))
+                        .frame(height: 22)
+                        .frame(maxWidth: 200)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.asideTextSecondary.opacity(0.06))
+                        .frame(height: 16)
+                        .frame(maxWidth: 120)
                 }
             }
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideCardBackground)
-                .shadow(color: .black.opacity(0.03), radius: 6, x: 0, y: 2)
-        )
-        .padding(.horizontal, 24)
-    }
 
-    private func mvActionButton(icon: AsideIcon.IconType, text: String, highlighted: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                AsideIcon(
-                    icon: icon,
-                    size: 22,
-                    color: highlighted ? .asideAccentRed : .asideTextPrimary
-                )
-                Text(text)
-                    .font(.rounded(size: 11))
-                    .foregroundColor(.asideTextSecondary)
-            }
-            .frame(minWidth: 56)
-        }
-        .buttonStyle(AsideBouncingButtonStyle())
-    }
-
-    // MARK: - 统计信息
-
-    private var statsRow: some View {
-        HStack(spacing: 16) {
-            if let count = viewModel.detail?.playCount {
-                statChip(icon: .play, text: formatCount(count) + "播放")
-            }
-            if let time = viewModel.detail?.publishTime, !time.isEmpty {
-                statChip(icon: .clock, text: time)
-            }
-            if let detail = viewModel.detail, !detail.durationText.isEmpty {
-                statChip(icon: .musicNote, text: detail.durationText)
-            }
             Spacer()
+
+            // 收藏按钮
+            Button {
+                viewModel.toggleSubscribe()
+            } label: {
+                AsideIcon(
+                    icon: viewModel.isSubscribed ? .liked : .like,
+                    size: 22,
+                    color: viewModel.isSubscribed ? .asideAccentRed : .asideTextSecondary
+                )
+                .frame(width: 40, height: 40)
+            }
+            .buttonStyle(AsideBouncingButtonStyle())
         }
         .padding(.horizontal, 24)
-    }
-
-    private func statChip(icon: AsideIcon.IconType, text: String) -> some View {
-        HStack(spacing: 5) {
-            AsideIcon(icon: icon, size: 12, color: .asideTextSecondary.opacity(0.5))
-            Text(text)
-                .font(.rounded(size: 12))
-                .foregroundColor(.asideTextSecondary)
-        }
     }
 
     // MARK: - 相关推荐预览
