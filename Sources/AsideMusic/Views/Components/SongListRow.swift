@@ -1,6 +1,10 @@
 import SwiftUI
+import Combine
 
 struct SongListRow: View {
+    /// 用于长按菜单异步操作的生命周期管理
+    private static var menuCancellables = Set<AnyCancellable>()
+    
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var settings = SettingsManager.shared
     @ObservedObject var downloadManager = DownloadManager.shared
@@ -165,6 +169,26 @@ struct SongListRow: View {
                 onDetailTap?(song)
             } label: {
                 Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
+            }
+            
+            Divider()
+            
+            // 复制播放链接（获取真实 URL → 后端生成短码 → 复制短链接）
+            Button {
+                APIService.shared.fetchSongUrl(id: song.id, level: "jymaster")
+                    .flatMap { result -> AnyPublisher<String, Error> in
+                        guard !result.url.isEmpty else {
+                            return Fail(error: URLError(.badServerResponse)).eraseToAnyPublisher()
+                        }
+                        return APIService.shortenPlayUrl(result.url)
+                    }
+                    .receive(on: DispatchQueue.main)
+                    .sink(receiveCompletion: { _ in }, receiveValue: { shortLink in
+                        UIPasteboard.general.string = shortLink
+                    })
+                    .store(in: &SongListRow.menuCancellables)
+            } label: {
+                Label("复制播放链接", systemImage: "link")
             }
         }
     }

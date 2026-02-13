@@ -141,11 +141,11 @@ struct SongDetailView: View {
                     }
                 }) {
                     HStack(spacing: 6) {
-                        AsideIcon(icon: .play, size: 12, color: .white)
+                        AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
                         Text(LocalizedStringKey("action_play"))
                             .font(.system(size: 12, weight: .bold))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.asideIconForeground)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(Theme.accent)
@@ -158,9 +158,9 @@ struct SongDetailView: View {
                 }) {
                     AsideIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
-                        .background(Color.white)
+                        .background(Color.asideCardBackground)
                         .clipShape(Circle())
-                        .shadow(radius: 2)
+                        .shadow(color: .black.opacity(0.08), radius: 2)
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
                 
@@ -169,9 +169,9 @@ struct SongDetailView: View {
                 }) {
                     AsideIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
-                        .background(Color.white)
+                        .background(Color.asideCardBackground)
                         .clipShape(Circle())
-                        .shadow(radius: 2)
+                        .shadow(color: .black.opacity(0.08), radius: 2)
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }

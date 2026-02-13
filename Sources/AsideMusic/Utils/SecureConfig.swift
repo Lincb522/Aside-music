@@ -22,6 +22,6 @@ enum SecureConfig {
         }
         // 兜底默认值
         AppLogger.warning("API_BASE_URL 未配置，使用默认值")
-        return "http://114.66.31.109:3000"
+        return "https://ncm.zijiu522.cn"
     }
 }

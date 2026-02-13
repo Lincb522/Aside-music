@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/FFmpegSwiftSDK.git",
       "state" : {
-        "revision" : "9a3646ba4fa934150c895310b97110970265a0e9",
-        "version" : "0.10.0"
+        "revision" : "4c1dc98e4be80611cdd9b819620d4d7353ef21be",
+        "version" : "0.12.0"
       }
     },
     {

@@ -48,6 +48,7 @@ struct AlbumDetailView: View {
     @State private var showSongDetail = false
     @State private var selectedAlbumId: Int?
     @State private var showAlbumDetail = false
+    @State private var showAlbumDesc = false
     
     private struct Theme {
         static let text = Color.asideTextPrimary
@@ -87,6 +88,11 @@ struct AlbumDetailView: View {
         }
         .onAppear {
             viewModel.fetchAlbum(id: albumId)
+        }
+        .sheet(isPresented: $showAlbumDesc) {
+            if let album = viewModel.albumInfo {
+                AlbumDescSheet(album: album)
+            }
         }
     }
     
@@ -205,13 +211,31 @@ struct AlbumDetailView: View {
             } else {
                 // 专辑简介（如果有）
                 if let desc = viewModel.albumInfo?.description, !desc.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(desc)
-                            .font(.rounded(size: 13))
-                            .foregroundColor(Theme.secondaryText)
-                            .lineLimit(3)
-                            .lineSpacing(4)
+                    Button(action: { showAlbumDesc = true }) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("专辑简介")
+                                    .font(.rounded(size: 15, weight: .semibold))
+                                    .foregroundColor(Theme.text)
+                                Spacer()
+                                AsideIcon(icon: .chevronRight, size: 12, color: Theme.secondaryText)
+                            }
+                            
+                            Text(desc)
+                                .font(.rounded(size: 13, weight: .regular))
+                                .foregroundColor(Theme.secondaryText)
+                                .lineLimit(3)
+                                .lineSpacing(4)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.asideCardBackground)
+                        )
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                 }
@@ -242,5 +266,106 @@ struct AlbumDetailView: View {
                 Color.clear.frame(height: 100)
             }
         }
+    }
+}
+
+
+// MARK: - 专辑简介 Sheet
+
+struct AlbumDescSheet: View {
+    let album: AlbumInfo
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 拖拽指示条
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color.asideTextSecondary.opacity(0.25))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+            
+            // 头部：专辑封面 + 名字
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: album.coverUrl?.sized(200)) {
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 48, height: 48)
+                .cornerRadius(10)
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(album.name)
+                        .font(.rounded(size: 20, weight: .bold))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 6) {
+                        Text(album.artistName)
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.asideTextSecondary)
+                        
+                        if !album.publishDateText.isEmpty {
+                            Text("·")
+                                .foregroundColor(.asideTextSecondary.opacity(0.5))
+                            Text(album.publishDateText)
+                                .font(.rounded(size: 12))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                Button(action: { dismiss() }) {
+                    AsideIcon(icon: .close, size: 20, color: .asideTextSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.asideSeparator)
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+            
+            Rectangle()
+                .fill(Color.asideSeparator)
+                .frame(height: 0.5)
+            
+            // 内容
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let desc = album.description, !desc.isEmpty {
+                        Text(desc)
+                            .font(.rounded(size: 15, weight: .regular))
+                            .foregroundColor(.asideTextPrimary)
+                            .lineSpacing(6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color.asideCardBackground)
+                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                            )
+                    } else {
+                        VStack(spacing: 14) {
+                            AsideIcon(icon: .info, size: 36, color: .asideTextSecondary.opacity(0.3))
+                            Text("暂无专辑简介")
+                                .font(.rounded(size: 15))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 40)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 40)
+            }
+        }
+        .background {
+            AsideBackground()
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.hidden)
     }
 }

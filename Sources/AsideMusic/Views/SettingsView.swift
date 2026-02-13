@@ -204,18 +204,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                Divider()
-                    .padding(.leading, 56)
-
-                SettingsToggleRow(
-                    icon: .soundQuality,
-                    title: "响度标准化",
-                    subtitle: "自动统一不同歌曲的音量 (EBU R128)",
-                    isOn: Binding(
-                        get: { PlayerManager.shared.audioEffects.isLoudnormEnabled },
-                        set: { PlayerManager.shared.audioEffects.setLoudnormEnabled($0) }
-                    )
-                )
+                
             }
         }
         .sheet(isPresented: $showPlaybackQualitySheet) {

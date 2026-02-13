@@ -377,9 +377,16 @@ class APIService {
                 albumInfo = try JSONDecoder().decode(AlbumInfo.self, from: data)
             }
             
-            // 解析歌曲列表
+            // 解析歌曲列表，并用专辑封面回填缺失的 picUrl
             var songs: [Song] = []
-            if let songsArray = response.body["songs"] as? [[String: Any]] {
+            if var songsArray = response.body["songs"] as? [[String: Any]] {
+                let albumPicUrl = (response.body["album"] as? [String: Any])?["picUrl"] as? String
+                for i in songsArray.indices {
+                    if var al = songsArray[i]["al"] as? [String: Any], al["picUrl"] == nil || (al["picUrl"] as? String)?.isEmpty == true {
+                        al["picUrl"] = albumPicUrl
+                        songsArray[i]["al"] = al
+                    }
+                }
                 let data = try JSONSerialization.data(withJSONObject: songsArray)
                 songs = try JSONDecoder().decode([Song].self, from: data)
             }
@@ -566,6 +573,32 @@ class APIService {
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
         let (data, _) = try await URLSession.shared.data(for: request)
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+    }
+
+    /// 将真实播放 URL 提交给后端，换取短链接
+    static func shortenPlayUrl(_ playUrl: String) -> AnyPublisher<String, Error> {
+        Future<String, Error> { promise in
+            Task {
+                do {
+                    let base = SecureConfig.apiBaseURL.hasSuffix("/")
+                        ? String(SecureConfig.apiBaseURL.dropLast())
+                        : SecureConfig.apiBaseURL
+                    let body = try await postToBackend(
+                        serverUrl: SecureConfig.apiBaseURL,
+                        route: "/play/shorten",
+                        params: ["url": playUrl]
+                    )
+                    if let data = body["data"] as? [String: Any],
+                       let code = data["code"] as? String {
+                        promise(.success("\(base)/play/\(code)"))
+                    } else {
+                        promise(.failure(URLError(.badServerResponse)))
+                    }
+                } catch {
+                    promise(.failure(error))
+                }
+            }
+        }.eraseToAnyPublisher()
     }
 
     func fetchSongDetails(ids: [Int]) -> AnyPublisher<[Song], Error> {

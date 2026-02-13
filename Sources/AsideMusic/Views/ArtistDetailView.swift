@@ -160,11 +160,11 @@ struct ArtistDetailView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            AsideIcon(icon: .play, size: 12, color: .white)
+                            AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
                             Text(LocalizedStringKey("artist_popular_songs"))
                                 .font(.system(size: 12, weight: .bold))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.asideIconForeground)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(Theme.accent)
@@ -337,9 +337,7 @@ struct ArtistBioSheet: View {
             }
         }
         .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .overlay(Color.asideCardBackground.opacity(0.55))
+            AsideBackground()
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)

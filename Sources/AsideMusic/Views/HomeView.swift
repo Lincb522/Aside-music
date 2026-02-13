@@ -8,7 +8,7 @@ extension URL: @retroactive Identifiable {
 // MARK: - Home View
 struct HomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
-    @State private var searchText = ""
+    @ObservedObject private var playerManager = PlayerManager.shared
     @State private var showPersonalFM = false
     @State private var navigationPath = NavigationPath()
     @State private var bannerCancellables = Set<AnyCancellable>()
@@ -58,25 +58,32 @@ struct HomeView: View {
                     AsideLoadingView(text: "LOADING HOME")
                 } else {
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 20) {
+                        VStack(spacing: 24) {
+                            // 顶部栏
                             headerSection
 
+                            // Banner 轮播
                             if !viewModel.banners.isEmpty {
                                 bannerSection
-                            } else if !viewModel.popularSongs.isEmpty {
-                                heroSection
                             }
 
+                            // 每日推荐
                             if !viewModel.dailySongs.isEmpty {
                                 dailyRecommendationsSection
                             }
 
+                            // 推荐歌单
                             if !viewModel.recommendPlaylists.isEmpty {
                                 recommendedPlaylistsSection
                             }
 
-                            // MV 入口
-                            mvEntrySection
+                            // 热门新歌 Top 5
+                            if !viewModel.popularSongs.isEmpty {
+                                hotNewSongsSection
+                            }
+
+                            // 底部双卡片入口
+                            bottomEntryCards
 
                             Color.clear.frame(height: 120)
                         }
@@ -118,122 +125,118 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - 顶部栏
 
     private var headerSection: some View {
-        VStack(spacing: 20) {
-            HStack {
-                HStack(spacing: 12) {
-                    if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
-                        CachedAsyncImage(url: url) {
-                            Circle().fill(Color.gray.opacity(0.05))
-                        }
-                        .aspectRatio(contentMode: .fill)
+        HStack {
+            HStack(spacing: 12) {
+                if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
+                    CachedAsyncImage(url: url) {
+                        Circle().fill(Color.gray.opacity(0.05))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.gray.opacity(0.1), lineWidth: 1))
+                } else {
+                    Circle()
+                        .fill(Color.gray.opacity(0.05))
                         .frame(width: 44, height: 44)
-                        .clipShape(Circle())
+                        .overlay(
+                            AsideIcon(icon: .profile, size: 20, color: .asideTextSecondary)
+                        )
                         .overlay(Circle().stroke(Color.gray.opacity(0.1), lineWidth: 1))
-                    } else {
-                        Circle()
-                            .fill(Color.gray.opacity(0.05))
-                            .frame(width: 44, height: 44)
-                            .overlay(
-                                AsideIcon(icon: .profile, size: 20, color: Theme.secondaryText)
-                            )
-                            .overlay(Circle().stroke(Color.gray.opacity(0.1), lineWidth: 1))
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(LocalizedStringKey(greetingMessage))
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(Theme.secondaryText)
-                        Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(Theme.text)
-                    }
                 }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(LocalizedStringKey(greetingMessage))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                    Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                }
+            }
+
+            Spacer()
+
+            Button(action: { showPersonalFM = true }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.asideCardBackground)
+                        .frame(width: 44, height: 44)
+                    AsideIcon(icon: .fm, size: 22, color: .asideTextPrimary)
+                }
+            }
+            .buttonStyle(AsideBouncingButtonStyle())
+
+            NavigationLink(value: HomeDestination.search) {
+                ZStack {
+                    Circle()
+                        .fill(Color.asideCardBackground)
+                        .frame(width: 44, height: 44)
+                    AsideIcon(icon: .search, size: 20, color: .asideTextPrimary)
+                }
+            }
+            .buttonStyle(AsideBouncingButtonStyle())
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, DeviceLayout.headerTopPadding)
+    }
+
+    // MARK: - 搜索栏（保留，作为热搜展示入口）
+
+    private var searchBarSection: some View {
+        Button(action: {
+            navigationPath.append(HomeDestination.search)
+        }) {
+            HStack {
+                AsideIcon(icon: .search, size: 20, color: .asideTextSecondary)
+
+                Text(viewModel.hotSearch.isEmpty ? NSLocalizedString("search_placeholder", comment: "") : viewModel.hotSearch)
+                    .foregroundColor(.asideTextSecondary.opacity(0.6))
+                    .font(.rounded(size: 15))
+                    .lineLimit(1)
 
                 Spacer()
-
-                Button(action: { showPersonalFM = true }) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.asideCardBackground)
-                            .frame(width: 48, height: 48)
-                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-
-                        AsideIcon(icon: .fm, size: 24, color: Theme.accent)
-                    }
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
-
-                // TODO: 通知功能待实现
-                NavigationLink(value: HomeDestination.search) {
-                    ZStack(alignment: .topTrailing) {
-                        AsideIcon(icon: .bell, size: 26, color: Theme.text)
-                            .frame(width: 48, height: 48)
-                            .background(
-                                Circle()
-                                    .fill(Color.asideCardBackground)
-                                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-                            )
-                    }
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideCardBackground)
+            )
             .padding(.horizontal, 24)
-            .padding(.top, DeviceLayout.headerTopPadding)
-
-            Button(action: {
-                navigationPath.append(HomeDestination.search)
-            }) {
-                HStack {
-                    AsideIcon(icon: .search, size: 22, color: Theme.secondaryText)
-
-                    Text(viewModel.hotSearch.isEmpty ? NSLocalizedString("search_placeholder", comment: "") : viewModel.hotSearch)
-                        .foregroundColor(Theme.secondaryText.opacity(0.7))
-                        .font(.rounded(size: 16))
-                        .lineLimit(1)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.asideCardBackground)
-                        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
-                )
-                .padding(.horizontal, 24)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }
+
+    // MARK: - Banner 轮播
 
     private var bannerSection: some View {
         TabView {
             ForEach(viewModel.banners) { banner in
                 Button(action: { handleBannerTap(banner) }) {
                     CachedAsyncImage(url: banner.imageUrl) {
-                        Color.gray.opacity(0.1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.asideSeparator)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 130)
-                    .cornerRadius(16)
+                    .frame(height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .padding(.horizontal, 24)
-                    .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 5)
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .automatic))
-        .frame(height: 150)
+        .frame(height: 140)
     }
-    
+
     private func handleBannerTap(_ banner: Banner) {
         switch banner.targetType {
         case 1:
-            // 单曲：直接播放
             APIService.shared.fetchSongDetails(ids: [banner.targetId])
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { _ in }, receiveValue: { songs in
@@ -243,55 +246,31 @@ struct HomeView: View {
                 })
                 .store(in: &bannerCancellables)
         case 10:
-            // 专辑
             navigationPath.append(HomeDestination.album(banner.targetId))
         case 1000:
-            // 歌单
             let playlist = Playlist(id: banner.targetId, name: banner.typeTitle ?? "歌单", coverImgUrl: banner.pic, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil)
             navigationPath.append(HomeDestination.playlist(playlist))
         case 1004:
-            // MV
             navigationPath.append(HomeDestination.mvDiscover)
         default:
-            // 外链或其他：app 内 WebView 打开
             if let urlStr = banner.url, let url = URL(string: urlStr) {
                 bannerWebURL = url
             }
         }
     }
 
-    private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(LocalizedStringKey("new_releases"))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(Theme.text)
-                .padding(.horizontal, 24)
-
-            TabView {
-                ForEach(viewModel.popularSongs.prefix(5)) { song in
-                    Button(action: { PlayerManager.shared.play(song: song, in: Array(viewModel.popularSongs.prefix(5))) }) {
-                        HeroCard(song: song)
-                    }
-                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
-                    .padding(.horizontal, 24)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 260)
-        }
-    }
+    // MARK: - 每日推荐
 
     private var dailyRecommendationsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(LocalizedStringKey("made_for_you"))
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.text)
-
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
                     Text(LocalizedStringKey("fresh_tunes_daily"))
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
                 }
 
                 Spacer()
@@ -300,28 +279,29 @@ struct HomeView: View {
                     navigationPath.append(HomeDestination.dailyRecommend)
                 }) {
                     Text(LocalizedStringKey("view_all"))
-                        .font(.rounded(size: 14, weight: .semibold))
-                        .foregroundColor(Theme.accent)
+                        .font(.rounded(size: 13, weight: .semibold))
+                        .foregroundColor(.asideTextSecondary)
                 }
             }
             .padding(.horizontal, 24)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 20) {
+                HStack(spacing: 16) {
                     ForEach(viewModel.dailySongs) { song in
                         SongCard(song: song) {
-                            PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
+                            playerManager.play(song: song, in: viewModel.dailySongs)
                         }
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 20)
             }
         }
     }
 
+    // MARK: - 推荐歌单
+
     private var recommendedPlaylistsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             SectionHeader(
                 title: NSLocalizedString("playlists_love", comment: ""),
                 subtitle: NSLocalizedString("based_on_taste", comment: ""),
@@ -331,7 +311,7 @@ struct HomeView: View {
             )
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 20) {
+                HStack(spacing: 16) {
                     ForEach(viewModel.recommendPlaylists) { playlist in
                         Button(action: {
                             navigationPath.append(HomeDestination.playlist(playlist))
@@ -341,10 +321,110 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 20)
             }
         }
     }
+
+    // MARK: - 热门新歌 Top 5
+
+    private var hotNewSongsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(LocalizedStringKey("new_releases"))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.popularSongs.prefix(5).enumerated()), id: \.element.id) { index, song in
+                    Button(action: {
+                        playerManager.play(song: song, in: viewModel.popularSongs)
+                    }) {
+                        HStack(spacing: 14) {
+                            // 排名序号
+                            Text("\(index + 1)")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(index < 3 ? .asideTextPrimary : .asideTextSecondary)
+                                .frame(width: 28)
+
+                            // 封面
+                            CachedAsyncImage(url: song.coverUrl) {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.asideSeparator)
+                            }
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(song.name)
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.asideTextPrimary)
+                                    .lineLimit(1)
+                                Text(song.artistName)
+                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .foregroundColor(.asideTextSecondary)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer()
+
+                            if playerManager.currentSong?.id == song.id {
+                                PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .asideTextPrimary)
+                                    .frame(width: 20)
+                            } else {
+                                AsideIcon(icon: .play, size: 14, color: .asideTextSecondary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.asideSeparator)
+                                    .clipShape(Circle())
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.asideCardBackground)
+            )
+            .padding(.horizontal, 24)
+        }
+    }
+
+    // MARK: - MV 入口
+
+    private var bottomEntryCards: some View {
+        Button(action: {
+            navigationPath.append(HomeDestination.mvDiscover)
+        }) {
+            HStack(spacing: 14) {
+                AsideIcon(icon: .playCircleFill, size: 24, color: .asideTextPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MV 专区")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                    Text("看最新最热的音乐视频")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                }
+                Spacer()
+                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
+            }
+            .padding(16)
+            .background(Color.asideCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+        .padding(.horizontal, 24)
+    }
+
+    // MARK: - 工具
 
     private var greetingMessage: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -354,66 +434,27 @@ struct HomeView: View {
         default: return "good_evening"
         }
     }
-
-    // MARK: - MV 入口
-
-    private var mvEntrySection: some View {
-        Button(action: {
-            navigationPath.append(HomeDestination.mvDiscover)
-        }) {
-            HStack(spacing: 16) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.asideAccentRed.opacity(0.1))
-                        .frame(width: 52, height: 52)
-                    AsideIcon(icon: .playCircleFill, size: 24, color: .asideAccentRed)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("MV 专区")
-                        .font(.rounded(size: 17, weight: .bold))
-                        .foregroundColor(.asideTextPrimary)
-                    Text("看最新最热的音乐视频")
-                        .font(.rounded(size: 13))
-                        .foregroundColor(.asideTextSecondary)
-                }
-
-                Spacer()
-
-                AsideIcon(icon: .chevronRight, size: 16, color: .asideTextSecondary)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
-            )
-            .padding(.horizontal, 24)
-        }
-        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
-    }
 }
 
-// MARK: - Components
+
+// MARK: - 子组件
 
 struct SectionHeader: View {
     let title: String
     let subtitle: String?
     var action: (() -> Void)? = nil
 
-    typealias Theme = PlaylistDetailView.Theme
-
     var body: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundColor(Theme.text)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
 
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
                 }
             }
 
@@ -422,8 +463,8 @@ struct SectionHeader: View {
             if let action = action {
                 Button(action: action) {
                     Text(LocalizedStringKey("view_all"))
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.accent)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
                 }
             }
         }
@@ -431,14 +472,149 @@ struct SectionHeader: View {
     }
 }
 
+struct SongCard: View {
+    let song: Song
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 10) {
+                CachedAsyncImage(url: song.coverUrl) {
+                    Color.asideSeparator
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 140, height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.name)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+
+                    Text(song.artistName)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(width: 140)
+        }
+        .buttonStyle(AsideBouncingButtonStyle())
+    }
+}
+
+struct PlaylistVerticalCard: View {
+    let playlist: Playlist
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
+                    Color.asideSeparator
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 140, height: 140)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+
+                HStack(spacing: 4) {
+                    AsideIcon(icon: .play, size: 8, color: .white)
+                    Text(formatCount(playlist.playCount))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .padding(8)
+            }
+            .frame(width: 140, height: 140)
+
+            Text(playlist.name)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: 140, alignment: .leading)
+                .frame(height: 36, alignment: .top)
+        }
+    }
+
+    private func formatCount(_ count: Int?) -> String {
+        guard let count = count else { return "0" }
+        let locale = Locale.current
+        if locale.language.languageCode?.identifier == "zh" {
+            if count >= 100000000 {
+                return String(format: NSLocalizedString("count_hundred_million", comment: ""), Double(count) / 100000000)
+            } else if count >= 10000 {
+                return String(format: NSLocalizedString("count_ten_thousand", comment: ""), Double(count) / 10000)
+            }
+        } else {
+            if count >= 1000000000 {
+                return String(format: "%.1fB", Double(count) / 1000000000)
+            } else if count >= 1000000 {
+                return String(format: "%.1fM", Double(count) / 1000000)
+            } else if count >= 1000 {
+                return String(format: "%.1fK", Double(count) / 1000)
+            }
+        }
+        return "\(count)"
+    }
+}
+
+struct MiniSongRow: View {
+    let song: Song
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                CachedAsyncImage(url: song.coverUrl) {
+                    Color.asideSeparator
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.name)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+
+                    Text(song.artistName)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                AsideIcon(icon: .play, size: 14, color: .asideTextPrimary)
+                    .padding(8)
+                    .background(Circle().fill(Color.asideMilk))
+            }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideCardBackground)
+            )
+        }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+    }
+}
+
 struct HeroCard: View {
     let song: Song
-    typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             CachedAsyncImage(url: song.coverUrl) {
-                Color.white.opacity(0.3)
+                Color.asideSeparator
             }
             .aspectRatio(contentMode: .fill)
             .frame(height: 260)
@@ -479,150 +655,6 @@ struct HeroCard: View {
             .padding(24)
         }
         .cornerRadius(32)
-        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
-    }
-}
-
-struct SongCard: View {
-    let song: Song
-    let onTap: () -> Void
-    typealias Theme = PlaylistDetailView.Theme
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                CachedAsyncImage(url: song.coverUrl) {
-                    Color.white.opacity(0.5)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 150, height: 150)
-                .cornerRadius(24)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(song.name)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                        .lineLimit(1)
-
-                    Text(song.artistName)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(Theme.secondaryText)
-                        .lineLimit(1)
-                }
-            }
-            .frame(width: 150)
-        }
-        .buttonStyle(AsideBouncingButtonStyle())
-    }
-}
-
-struct PlaylistVerticalCard: View {
-    let playlist: Playlist
-    typealias Theme = PlaylistDetailView.Theme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ZStack(alignment: .bottomTrailing) {
-                CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
-                    Color.white.opacity(0.5)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 140, height: 140)
-                .clipped()
-                .cornerRadius(24)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-
-                HStack(spacing: 4) {
-                    AsideIcon(icon: .play, size: 10, color: .white)
-                    Text(formatCount(playlist.playCount))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-                .padding(10)
-            }
-            .frame(width: 140, height: 140)
-
-            Text(playlist.name)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(Theme.text)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(width: 140, alignment: .leading)
-                .frame(height: 40, alignment: .top)
-        }
-    }
-
-    private func formatCount(_ count: Int?) -> String {
-        guard let count = count else { return "0" }
-        let locale = Locale.current
-        if locale.language.languageCode?.identifier == "zh" {
-            if count >= 100000000 {
-                return String(format: NSLocalizedString("count_hundred_million", comment: ""), Double(count) / 100000000)
-            } else if count >= 10000 {
-                return String(format: NSLocalizedString("count_ten_thousand", comment: ""), Double(count) / 10000)
-            }
-        } else {
-            if count >= 1000000000 {
-                return String(format: "%.1fB", Double(count) / 1000000000)
-            } else if count >= 1000000 {
-                return String(format: "%.1fM", Double(count) / 1000000)
-            } else if count >= 1000 {
-                return String(format: "%.1fK", Double(count) / 1000)
-            }
-        }
-        return "\(count)"
-    }
-}
-
-struct MiniSongRow: View {
-    let song: Song
-    let onTap: () -> Void
-    typealias Theme = PlaylistDetailView.Theme
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                CachedAsyncImage(url: song.coverUrl) {
-                    Color.white.opacity(0.5)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 56, height: 56)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(song.name)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                        .lineLimit(1)
-
-                    Text(song.artistName)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(Theme.secondaryText)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                AsideIcon(icon: .play, size: 14, color: Theme.accent)
-                    .padding(8)
-                    .background(
-                        Circle()
-                            .fill(Color.asideMilk)
-                    )
-            }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
-            )
-        }
-        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+        .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
     }
 }

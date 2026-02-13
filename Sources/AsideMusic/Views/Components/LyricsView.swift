@@ -21,6 +21,8 @@ struct LyricLine: Identifiable, Equatable {
 
 @MainActor
 class LyricViewModel: ObservableObject {
+    static let shared = LyricViewModel()
+    
     @Published var lyrics: [LyricLine] = []
     @Published var isLoading = false
     @Published var currentLineIndex: Int = 0
@@ -28,10 +30,16 @@ class LyricViewModel: ObservableObject {
     
     @Published var currentLineProgress: Double = 0.0
     
+    /// 当前已加载歌词的歌曲 ID（防止重复请求）
+    private(set) var currentSongId: Int?
+    
     private var cancellables = Set<AnyCancellable>()
     private var translations: [TimeInterval: String] = [:]
     
     func fetchLyrics(for songId: Int) {
+        // 如果已经加载了同一首歌的歌词，跳过
+        guard songId != currentSongId else { return }
+        currentSongId = songId
         isLoading = true
         lyrics = []
         hasLyrics = false
@@ -406,7 +414,7 @@ struct LyricsView: View {
     let song: Song
     var onBackgroundTap: (() -> Void)?
     @ObservedObject var player = PlayerManager.shared
-    @StateObject private var viewModel = LyricViewModel()
+    @ObservedObject private var viewModel = LyricViewModel.shared
     
     @State private var isUserScrolling = false
     @State private var userScrollTimer: Timer?
@@ -492,15 +500,7 @@ struct LyricsView: View {
                 
             }
         }
-        .onAppear {
-            viewModel.fetchLyrics(for: song.id)
-        }
-        .onChange(of: song.id) { _, newId in
-            viewModel.fetchLyrics(for: newId)
-        }
-        .onChange(of: player.currentTime) { _, time in
-            viewModel.updateCurrentTime(time)
-        }
+        // 歌词获取和时间同步由 PlayerManager 全局驱动，这里不再需要
     }
     
     private func resetScrollTimer() {

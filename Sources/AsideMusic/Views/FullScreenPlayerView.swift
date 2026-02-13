@@ -9,11 +9,10 @@ struct FullScreenPlayerView: View {
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
     @State private var showPlaylist = false
-    @State private var showActionSheet = false
     @State private var showQualitySheet = false
     @State private var showLyrics = false
-    @State private var showImmersivePlayer = false
     @State private var showComments = false
+    @State private var showEQSettings = false
 
     @AppStorage("showTranslation") var showTranslation: Bool = true
     @AppStorage("enableKaraoke") var enableKaraoke: Bool = true
@@ -165,13 +164,12 @@ struct FullScreenPlayerView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .confirmationDialog("更多操作", isPresented: $showActionSheet, titleVisibility: .visible) {
-            Button("沉浸模式") { showImmersivePlayer = true }
-            Button("查看评论") { showComments = true }
-            Button("取消", role: .cancel) { }
-        }
-        .fullScreenCover(isPresented: $showImmersivePlayer) {
-            ImmersivePlayerView()
+        .sheet(isPresented: $showEQSettings) {
+            NavigationStack {
+                EQSettingsView()
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showComments) {
             if let song = player.currentSong {
@@ -220,9 +218,9 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             Button(action: {
-                showActionSheet = true
+                showEQSettings = true
             }) {
-                AsideIcon(icon: .more, size: 20, color: contentColor)
+                AsideIcon(icon: .equalizer, size: 20, color: contentColor)
             }
             .buttonStyle(AsideBouncingButtonStyle())
             .frame(width: 44, height: 44)
@@ -348,7 +346,16 @@ struct FullScreenPlayerView: View {
         let barSpacing: CGFloat = 2
         let minHeight: CGFloat = 3
 
-        @State private var amplitudes: [CGFloat] = []
+        /// 真实波形数据（从 WaveformGenerator 获取）
+        @State private var realAmplitudes: [CGFloat]?
+        /// 随机波形（加载前的占位）
+        @State private var fallbackAmplitudes: [CGFloat] = []
+        /// 当前歌曲 URL（用于检测切歌）
+        @State private var loadedSongId: Int?
+
+        private var amplitudes: [CGFloat] {
+            realAmplitudes ?? fallbackAmplitudes
+        }
 
         var body: some View {
             TimelineView(.animation(minimumInterval: 0.12, paused: !isAnimating)) { timeline in
@@ -391,13 +398,20 @@ struct FullScreenPlayerView: View {
                     )
                 }
             }
-            .onAppear { generateAmplitudes() }
-            .onChange(of: duration) { generateAmplitudes() }
+            .onAppear { generateFallback(); loadRealWaveform() }
+            .onChange(of: duration) { generateFallback(); loadRealWaveform() }
+            .onChange(of: PlayerManager.shared.currentSong?.id) { _, _ in
+                realAmplitudes = nil
+                loadedSongId = nil
+                generateFallback()
+                loadRealWaveform()
+            }
         }
 
         private func barHeight(index: Int, isPlayed: Bool, base: CGFloat, phase: Double, maxH: CGFloat) -> CGFloat {
             var factor: CGFloat = 1.0
-            if isPlayed {
+            if isPlayed && realAmplitudes == nil {
+                // 只有占位波形才做呼吸动画，真实波形保持静态
                 let wave = sin(Double(index) * 0.6 + phase)
                 factor = 1.0 + CGFloat(wave) * 0.25
             }
@@ -405,12 +419,49 @@ struct FullScreenPlayerView: View {
             return minHeight + amp * (maxH - minHeight)
         }
 
-        private func generateAmplitudes() {
-            amplitudes = (0..<barCount).map { index in
+        private func generateFallback() {
+            fallbackAmplitudes = (0..<barCount).map { index in
                 let n = Double(index) / Double(barCount - 1)
                 let envelope = sin(n * .pi)
                 let random = Double.random(in: 0.25...1.0)
                 return CGFloat(envelope * random)
+            }
+        }
+
+        /// 从 WaveformGenerator 加载真实波形
+        private func loadRealWaveform() {
+            guard let songId = PlayerManager.shared.currentSong?.id,
+                  songId != loadedSongId else { return }
+
+            // 优先使用本地文件
+            let url: String?
+            if let localURL = DownloadManager.shared.localFileURL(songId: songId) {
+                url = localURL.absoluteString
+            } else {
+                // 网络流暂不支持波形生成（需要完整解码），保持占位波形
+                url = nil
+            }
+
+            guard let fileURL = url else { return }
+
+            loadedSongId = songId
+            Task {
+                do {
+                    let samples = try await PlayerManager.shared.waveformGenerator.generate(
+                        url: fileURL, samplesCount: barCount
+                    )
+                    let amps = samples.map { CGFloat(max($0.positive, -$0.negative)) }
+                    // 归一化
+                    let maxVal = amps.max() ?? 1.0
+                    let normalized = maxVal > 0 ? amps.map { $0 / maxVal } : amps
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            realAmplitudes = normalized
+                        }
+                    }
+                } catch {
+                    // 波形生成失败，保持占位
+                }
             }
         }
     }
@@ -465,7 +516,7 @@ struct FullScreenPlayerView: View {
                 .frame(width: 44)
             }
 
-            // 下载按钮 & 评论按钮
+            // 下载按钮 & 评论按钮 & 沉浸模式
             if let song = player.currentSong {
                 HStack(spacing: 0) {
                     // 评论按钮

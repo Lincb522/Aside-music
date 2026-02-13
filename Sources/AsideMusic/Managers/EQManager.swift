@@ -483,6 +483,14 @@ class EQManager: ObservableObject {
         let customPresets: [EQPreset]
     }
     
+    /// 音效旋钮状态（独立于 EQ）
+    private struct AudioEffectsState: Codable {
+        let bassGain: Float
+        let trebleGain: Float
+        let surroundLevel: Float
+        let reverbLevel: Float
+    }
+    
     private func saveState() {
         let state = EQState(
             isEnabled: isEnabled,
@@ -493,7 +501,31 @@ class EQManager: ObservableObject {
         OptimizedCacheManager.shared.setObject(state, forKey: "eq_state_v4")
     }
     
+    /// 保存音效旋钮状态（低音/高音/环绕/混响，独立于 EQ）
+    func saveAudioEffectsState() {
+        let effects = PlayerManager.shared.audioEffects
+        let state = AudioEffectsState(
+            bassGain: effects.bassGain,
+            trebleGain: effects.trebleGain,
+            surroundLevel: effects.surroundLevel,
+            reverbLevel: effects.reverbLevel
+        )
+        OptimizedCacheManager.shared.setObject(state, forKey: "audio_effects_state")
+    }
+    
+    private func restoreAudioEffectsState() {
+        guard let state = OptimizedCacheManager.shared.getObject(forKey: "audio_effects_state", type: AudioEffectsState.self) else { return }
+        let effects = PlayerManager.shared.audioEffects
+        if state.bassGain != 0 { effects.setBassGain(state.bassGain) }
+        if state.trebleGain != 0 { effects.setTrebleGain(state.trebleGain) }
+        if state.surroundLevel > 0 { effects.setSurroundLevel(state.surroundLevel) }
+        if state.reverbLevel > 0 { effects.setReverbLevel(state.reverbLevel) }
+    }
+    
     private func restoreState() {
+        // 恢复音效旋钮（独立于 EQ，始终恢复）
+        restoreAudioEffectsState()
+        
         // v4（移除 18 段后的新格式）
         if let state = OptimizedCacheManager.shared.getObject(forKey: "eq_state_v4", type: EQState.self) {
             self.customPresets = state.customPresets

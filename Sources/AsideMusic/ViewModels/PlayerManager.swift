@@ -58,6 +58,22 @@ class PlayerManager: ObservableObject {
         streamPlayer.audioEffects
     }
     
+    // MARK: - 波形生成器
+    var waveformGenerator: WaveformGenerator {
+        streamPlayer.waveformGenerator
+    }
+    
+    // MARK: - 变调控制
+    @Published var pitchSemitones: Float = 0
+    
+    func setPitch(_ semitones: Float) {
+        let clamped = min(max(semitones, -12), 12)
+        pitchSemitones = clamped
+        audioEffects.setPitch(clamped)
+        // 持久化
+        UserDefaults.standard.set(clamped, forKey: "aside_pitch_semitones")
+    }
+    
     // MARK: - 播放源类型
     enum PlaySource: Codable, Equatable {
         case normal
@@ -158,6 +174,12 @@ class PlayerManager: ObservableObject {
         startTimeUpdateTimer()
         fetchHistory()
         restoreState()
+        // 恢复变调设置
+        let savedPitch = UserDefaults.standard.float(forKey: "aside_pitch_semitones")
+        if savedPitch != 0 {
+            pitchSemitones = savedPitch
+            audioEffects.setPitch(savedPitch)
+        }
     }
     
     deinit {
@@ -267,6 +289,9 @@ class PlayerManager: ObservableObject {
                     }
                 }
                 self.updateNowPlayingTime()
+                
+                // 全局歌词同步
+                LyricViewModel.shared.updateCurrentTime(self.currentTime)
             }
         }
     }
@@ -711,6 +736,7 @@ class PlayerManager: ObservableObject {
                 contextIndex = index
             }
             currentSong = nextSong
+            LyricViewModel.shared.fetchLyrics(for: nextSong.id)
             addToHistory(song: nextSong)
             saveState()
             updateNowPlayingInfo()
@@ -730,6 +756,7 @@ class PlayerManager: ObservableObject {
         contextIndex = nextIndex
         let nextSong = list[nextIndex]
         currentSong = nextSong
+        LyricViewModel.shared.fetchLyrics(for: nextSong.id)
         addToHistory(song: nextSong)
         saveState()
         updateNowPlayingInfo()
@@ -794,6 +821,9 @@ class PlayerManager: ObservableObject {
         streamInfo = nil
         addToHistory(song: song)
         saveState()
+        
+        // 全局歌词获取
+        LyricViewModel.shared.fetchLyrics(for: song.id)
         
         // 上报听歌记录到网易云（异步，不阻塞播放）
         scrobbleToCloud(song: song)

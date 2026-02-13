@@ -97,6 +97,12 @@ struct AsideIcon: View {
         case moon
         case halfCircle
         
+        // 均衡器图标
+        case equalizer
+        
+        // 沉浸式播放器图标
+        case immersive
+        
         // 电台分类图标
         case catMusic       // 音乐
         case catLife         // 生活
@@ -146,7 +152,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
             return false
         default:
             return true
@@ -284,6 +290,8 @@ struct AsideIcon: View {
         case .sun:          return AnyShape(SunPath())
         case .moon:         return AnyShape(MoonPath())
         case .halfCircle:   return AnyShape(HalfCirclePath())
+        case .equalizer:    return AnyShape(EqualizerPath())
+        case .immersive:    return AnyShape(ImmersivePath())
         }
     }
 }
@@ -2400,6 +2408,65 @@ private struct HalfCirclePath: Shape {
         // 右半填充竖线（视觉分割）
         path.move(to: CGPoint(x: 12*s, y: 4*s))
         path.addLine(to: CGPoint(x: 12*s, y: 20*s))
+        return path
+    }
+}
+
+// 均衡器图标：三条垂直滑轨 + 圆形滑块，经典 EQ 调节器造型
+private struct EqualizerPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 左轨道（滑块偏上）
+        path.move(to: CGPoint(x: 7*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 20*s))
+        path.addEllipse(in: CGRect(x: 5.2*s, y: 7.2*s, width: 3.6*s, height: 3.6*s))
+        
+        // 中轨道（滑块偏下）
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 20*s))
+        path.addEllipse(in: CGRect(x: 10.2*s, y: 13.2*s, width: 3.6*s, height: 3.6*s))
+        
+        // 右轨道（滑块居中偏上）
+        path.move(to: CGPoint(x: 17*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 20*s))
+        path.addEllipse(in: CGRect(x: 15.2*s, y: 9.2*s, width: 3.6*s, height: 3.6*s))
+        
+        return path
+    }
+}
+
+// 沉浸式播放器图标：星球 + 倾斜轨道环，呼应"星尘宇宙"概念
+private struct ImmersivePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        let cx = 12 * s
+        let cy = 12 * s
+        
+        // 中心星球（圆形）
+        path.addEllipse(in: CGRect(x: cx - 4*s, y: cy - 4*s, width: 8*s, height: 8*s))
+        
+        // 倾斜轨道环（椭圆弧，模拟 3D 透视）
+        // 用两段弧线绘制一个倾斜的椭圆环
+        // 上半弧（从星球前方经过）
+        path.move(to: CGPoint(x: 2.5*s, y: 10*s))
+        path.addCurve(
+            to: CGPoint(x: 21.5*s, y: 10*s),
+            control1: CGPoint(x: 5*s, y: 4*s),
+            control2: CGPoint(x: 19*s, y: 4*s)
+        )
+        // 下半弧（从星球后方经过）
+        path.addCurve(
+            to: CGPoint(x: 2.5*s, y: 10*s),
+            control1: CGPoint(x: 19*s, y: 16*s),
+            control2: CGPoint(x: 5*s, y: 16*s)
+        )
+        
+        // 轨道上的小卫星点
+        path.addEllipse(in: CGRect(x: 20*s, y: 9*s, width: 2.5*s, height: 2.5*s))
+        
         return path
     }
 }
