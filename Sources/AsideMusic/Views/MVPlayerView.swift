@@ -1,9 +1,99 @@
 // MVPlayerView.swift
 // MV 播放器 — 上方视频 + 下方信息 + 内嵌评论，遵循 Aside 设计系统
+// 视频播放使用 FFmpeg StreamPlayer（与音频播放统一引擎）
 
 import SwiftUI
-import AVKit
+import AVFoundation
 import NeteaseCloudMusicAPI
+import FFmpegSwiftSDK
+
+// MARK: - FFmpeg 视频渲染层 UIKit 包装
+
+/// 将 StreamPlayer 的 AVSampleBufferDisplayLayer 嵌入 SwiftUI
+/// 使用自定义 UIView 子类确保 layer frame 在布局变化时正确更新
+struct FFmpegVideoView: UIViewRepresentable {
+    let displayLayer: AVSampleBufferDisplayLayer
+
+    func makeUIView(context: Context) -> VideoContainerView {
+        let view = VideoContainerView(displayLayer: displayLayer)
+        return view
+    }
+
+    func updateUIView(_ uiView: VideoContainerView, context: Context) {
+        // 确保 layer 引用是最新的（虽然通常不会变）
+        uiView.updateDisplayLayer(displayLayer)
+    }
+}
+
+/// 自定义容器视图，在 layoutSubviews 中更新 displayLayer 的 frame
+/// 解决 SwiftUI 初始布局时 bounds 为 zero 导致视频不显示的问题
+final class VideoContainerView: UIView {
+    private var displayLayer: AVSampleBufferDisplayLayer?
+    /// 定时器：监控 displayLayer 状态，自动恢复错误
+    private var statusCheckTimer: Timer?
+    
+    init(displayLayer: AVSampleBufferDisplayLayer) {
+        self.displayLayer = displayLayer
+        super.init(frame: .zero)
+        backgroundColor = .clear
+        displayLayer.videoGravity = .resizeAspect
+        displayLayer.backgroundColor = UIColor.clear.cgColor
+        layer.addSublayer(displayLayer)
+        startStatusMonitor()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        statusCheckTimer?.invalidate()
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // 每次布局变化时更新 displayLayer 的 frame
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer?.frame = bounds
+        CATransaction.commit()
+    }
+    
+    func updateDisplayLayer(_ newLayer: AVSampleBufferDisplayLayer) {
+        guard newLayer !== displayLayer else { return }
+        displayLayer?.removeFromSuperlayer()
+        displayLayer = newLayer
+        newLayer.videoGravity = .resizeAspect
+        newLayer.backgroundColor = UIColor.clear.cgColor
+        layer.addSublayer(newLayer)
+        setNeedsLayout()
+    }
+    
+    /// 启动状态监控，自动处理 displayLayer 错误状态
+    private func startStatusMonitor() {
+        statusCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self, let layer = self.displayLayer else { return }
+            DispatchQueue.main.async {
+                // 检查是否需要 flush 才能恢复解码
+                if layer.status == .failed || layer.requiresFlushToResumeDecoding {
+                    print("[VideoContainerView] ⚠️ displayLayer 需要 flush，正在恢复...")
+                    layer.flush()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - MV 播放器包装器
+
+/// 包装 StreamPlayer 为 ObservableObject，确保 SwiftUI 正确管理生命周期
+final class MVStreamPlayerWrapper: ObservableObject {
+    let player = StreamPlayer()
+    
+    deinit {
+        player.stop()
+    }
+}
 
 struct MVPlayerView: View {
     let mvId: Int
@@ -13,10 +103,23 @@ struct MVPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
 
-    @State private var avPlayer: AVPlayer?
+    /// MV 专用 FFmpeg 播放器（独立于音乐播放器）
+    @StateObject private var mvPlayerWrapper = MVStreamPlayerWrapper()
+    /// 便捷访问底层 StreamPlayer
+    private var mvPlayer: StreamPlayer { mvPlayerWrapper.player }
+    
     @State private var isPlaying = true
     @State private var showSimiSheet = false
     @State private var isFullscreen = false
+    
+    // 自定义播放器控件状态
+    @State private var showControls = true
+    @State private var controlsTimer: Timer?
+    @State private var mvCurrentTime: TimeInterval = 0
+    @State private var mvDuration: TimeInterval = 0
+    @State private var isSeeking = false
+    @State private var seekValue: Double = 0
+    @State private var timeUpdateTimer: Timer?
 
     init(mvId: Int) {
         self.mvId = mvId
@@ -39,21 +142,25 @@ struct MVPlayerView: View {
             if player.isPlaying { player.togglePlayPause() }
             viewModel.fetchData()
             commentVM.loadComments()
+            startMVTimeUpdater()
+            scheduleControlsHide()
         }
         .onDisappear {
-            avPlayer?.pause()
-            avPlayer = nil
+            timeUpdateTimer?.invalidate()
+            controlsTimer?.invalidate()
+            mvPlayer.stop()
             player.isTabBarHidden = false
-            // 确保退出时恢复竖屏
             if isFullscreen {
                 OrientationManager.shared.exitLandscape()
             }
         }
         .onChange(of: viewModel.videoUrl) { _, url in
-            if let url, let videoURL = URL(string: url) {
-                avPlayer = AVPlayer(url: videoURL)
-                avPlayer?.play()
+            if let url, let _ = URL(string: url) {
+                print("[MVPlayer] 🎬 开始播放视频: \(url)")
+                mvPlayer.play(url: url)
                 isPlaying = true
+            } else {
+                print("[MVPlayer] ⚠️ 视频 URL 无效: \(url ?? "nil")")
             }
         }
         .onChange(of: viewModel.detail?.name) { _, name in
@@ -73,48 +180,12 @@ struct MVPlayerView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if let avPlayer {
-                VideoPlayer(player: avPlayer)
-                    .ignoresSafeArea()
-                    .onTapGesture { togglePlayback() }
-            }
+            FFmpegVideoView(displayLayer: mvPlayer.videoDisplayLayer)
+                .ignoresSafeArea()
 
-            // 播放/暂停（暂停时显示）
-            if avPlayer != nil && !isPlaying {
-                Button(action: togglePlayback) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 64, height: 64)
-                        AsideIcon(icon: .play, size: 28, color: .white)
-                            .offset(x: 2)
-                    }
-                }
-                .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
-                .transition(.opacity)
-            }
-
-            // 顶部：缩小按钮
-            VStack {
-                HStack {
-                    Button(action: exitFullscreen) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black.opacity(0.4))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "arrow.down.right.and.arrow.up.left")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(AsideBouncingButtonStyle())
-                    .padding(.leading, 20)
-                    .padding(.top, 12)
-
-                    Spacer()
-                }
-                Spacer()
-            }
+            // 自定义控件覆盖层
+            videoControlsOverlay(fullscreen: true)
+                .ignoresSafeArea()
         }
     }
 
@@ -186,11 +257,14 @@ struct MVPlayerView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.black)
 
-            if let avPlayer {
-                VideoPlayer(player: avPlayer)
+            if viewModel.videoUrl != nil {
+                FFmpegVideoView(displayLayer: mvPlayer.videoDisplayLayer)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .onTapGesture { togglePlayback() }
-            } else if let error = viewModel.errorMessage, viewModel.videoUrl == nil {
+
+                // 自定义控件覆盖层
+                videoControlsOverlay(fullscreen: false)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else if let error = viewModel.errorMessage {
                 // 错误状态
                 VStack(spacing: 14) {
                     AsideIcon(icon: .warning, size: 32, color: .white.opacity(0.4))
@@ -208,44 +282,7 @@ struct MVPlayerView: View {
                         .clipShape(Capsule())
                 }
             } else {
-                // 占位
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-            }
-
-            // 播放/暂停按钮（视频暂停时显示）
-            if avPlayer != nil && !isPlaying {
-                Button(action: togglePlayback) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 56, height: 56)
-                        AsideIcon(icon: .play, size: 24, color: .white)
-                            .offset(x: 2)
-                    }
-                }
-                .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
-                .transition(.opacity)
-            }
-
-            // 右下角全屏按钮
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: enterFullscreen) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black.opacity(0.4))
-                                .frame(width: 34, height: 34)
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(AsideBouncingButtonStyle())
-                    .padding(10)
-                }
+                AsideLoadingView()
             }
         }
         .aspectRatio(16/9, contentMode: .fit)
@@ -276,6 +313,19 @@ struct MVPlayerView: View {
                             Text(formatCount(count) + "播放")
                                 .font(.rounded(size: 12))
                                 .foregroundColor(.asideTextSecondary.opacity(0.6))
+                        }
+                        
+                        // VideoToolbox 硬件加速标签
+                        if mvPlayer.isVideoHardwareAccelerated {
+                            Text("HW")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundColor(.green)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .stroke(Color.green.opacity(0.5), lineWidth: 0.8)
+                                )
                         }
                     }
                 } else {
@@ -390,7 +440,7 @@ struct MVPlayerView: View {
     private var loadingOverlay: some View {
         ZStack {
             Color.asideBackground.opacity(0.6).ignoresSafeArea()
-            AsideLoadingView(text: "加载MV中...")
+            AsideLoadingView(text: "LOADING MV")
         }
     }
 
@@ -672,7 +722,196 @@ struct MVPlayerView: View {
         .background(.ultraThinMaterial)
     }
 
+    // MARK: - 自定义播放器控件覆盖层
+
+    private func videoControlsOverlay(fullscreen: Bool) -> some View {
+        ZStack {
+            // 点击区域：切换控件显隐
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { toggleControlsVisibility() }
+
+            if showControls || !isPlaying {
+                // 半透明渐变遮罩
+                VStack(spacing: 0) {
+                    // 顶部渐变
+                    LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: fullscreen ? 80 : 50)
+                    Spacer()
+                    // 底部渐变
+                    LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: fullscreen ? 100 : 70)
+                }
+                .allowsHitTesting(false)
+
+                // 中央播放/暂停
+                Button(action: { togglePlayback(); scheduleControlsHide() }) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .frame(width: fullscreen ? 64 : 52, height: fullscreen ? 64 : 52)
+                        AsideIcon(
+                            icon: isPlaying ? .pause : .play,
+                            size: fullscreen ? 26 : 22,
+                            color: .white
+                        )
+                        .offset(x: isPlaying ? 0 : 2)
+                    }
+                }
+                .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
+
+                // 顶部栏
+                VStack {
+                    HStack {
+                        if fullscreen {
+                            Button(action: exitFullscreen) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.15))
+                                        .frame(width: 38, height: 38)
+                                    AsideIcon(icon: .shrinkScreen, size: 15, color: .white)
+                                }
+                            }
+                            .buttonStyle(AsideBouncingButtonStyle())
+
+                            if let name = viewModel.detail?.name {
+                                Text(name)
+                                    .font(.rounded(size: 15, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .padding(.leading, 6)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, fullscreen ? 20 : 12)
+                    .padding(.top, fullscreen ? 12 : 8)
+                    Spacer()
+                }
+
+                // 底部控件栏
+                VStack {
+                    Spacer()
+                    VStack(spacing: fullscreen ? 10 : 6) {
+                        // 进度条
+                        progressBar(fullscreen: fullscreen)
+
+                        // 时间 + 全屏按钮
+                        HStack(spacing: 8) {
+                            Text(formatTime(isSeeking ? seekValue : mvCurrentTime))
+                                .font(.system(size: fullscreen ? 12 : 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.9))
+
+                            Text("/")
+                                .font(.system(size: fullscreen ? 11 : 9, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.4))
+
+                            Text(formatTime(mvDuration))
+                                .font(.system(size: fullscreen ? 12 : 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.5))
+
+                            Spacer()
+
+                            Button(action: { fullscreen ? exitFullscreen() : enterFullscreen() }) {
+                                AsideIcon(
+                                    icon: fullscreen ? .shrinkScreen : .expandScreen,
+                                    size: fullscreen ? 16 : 14,
+                                    color: .white.opacity(0.9)
+                                )
+                                .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(AsideBouncingButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, fullscreen ? 20 : 12)
+                    .padding(.bottom, fullscreen ? 16 : 8)
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showControls)
+    }
+
+    // MARK: - 进度条
+
+    private func progressBar(fullscreen: Bool) -> some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let barHeight: CGFloat = fullscreen ? 4 : 3
+            let progress = mvDuration > 0 ? (isSeeking ? seekValue : mvCurrentTime) / mvDuration : 0
+            let thumbSize: CGFloat = isSeeking ? (fullscreen ? 16 : 14) : (fullscreen ? 10 : 8)
+
+            ZStack(alignment: .leading) {
+                // 轨道背景
+                Capsule()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(height: barHeight)
+
+                // 已播放进度
+                Capsule()
+                    .fill(Color.asideAccent)
+                    .frame(width: max(0, width * CGFloat(progress)), height: barHeight)
+
+                // 拖拽拇指
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: thumbSize, height: thumbSize)
+                    .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                    .offset(x: max(0, min(width * CGFloat(progress) - thumbSize / 2, width - thumbSize)))
+            }
+            .frame(height: max(barHeight, thumbSize))
+            .contentShape(Rectangle().inset(by: -12))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        isSeeking = true
+                        let ratio = max(0, min(value.location.x / width, 1))
+                        seekValue = Double(ratio) * mvDuration
+                        scheduleControlsHide()
+                    }
+                    .onEnded { value in
+                        let ratio = max(0, min(value.location.x / width, 1))
+                        let target = Double(ratio) * mvDuration
+                        mvPlayer.seek(to: target)
+                        mvCurrentTime = target
+                        isSeeking = false
+                        scheduleControlsHide()
+                    }
+            )
+        }
+        .frame(height: fullscreen ? 16 : 14)
+    }
+
     // MARK: - 辅助方法
+
+    /// 定时轮询 mvPlayer 的播放时间
+    private func startMVTimeUpdater() {
+        timeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
+            DispatchQueue.main.async {
+                guard !isSeeking else { return }
+                let t = mvPlayer.currentTime
+                if t.isFinite && !t.isNaN { mvCurrentTime = t }
+                if let d = mvPlayer.streamInfo?.duration, d > 0 { mvDuration = d }
+            }
+        }
+    }
+
+    /// 控件自动隐藏（3秒后）
+    private func scheduleControlsHide() {
+        controlsTimer?.invalidate()
+        guard isPlaying else { return }
+        controlsTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+            DispatchQueue.main.async {
+                withAnimation { showControls = false }
+            }
+        }
+    }
+
+    private func toggleControlsVisibility() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showControls.toggle()
+        }
+        if showControls { scheduleControlsHide() }
+    }
 
     private func enterFullscreen() {
         withAnimation(.easeInOut(duration: 0.3)) {
@@ -689,17 +928,24 @@ struct MVPlayerView: View {
     }
 
     private func togglePlayback() {
-        if let avPlayer {
-            if isPlaying { avPlayer.pause() } else { avPlayer.play() }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlaying.toggle()
-            }
+        if isPlaying {
+            mvPlayer.pause()
+        } else {
+            mvPlayer.resume()
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isPlaying.toggle()
+        }
+        if isPlaying {
+            scheduleControlsHide()
+        } else {
+            controlsTimer?.invalidate()
+            showControls = true
         }
     }
 
     private func switchToMV(_ newId: Int) {
-        avPlayer?.pause()
-        avPlayer = nil
+        mvPlayer.stop()
         viewModel.simiMVs = []
         viewModel.relatedMVs = []
         viewModel.detail = nil
@@ -715,6 +961,14 @@ struct MVPlayerView: View {
             return String(format: "%.1f万", Double(count) / 10_000)
         }
         return "\(count)"
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite && !seconds.isNaN else { return "0:00" }
+        let total = Int(max(0, seconds))
+        let m = total / 60
+        let s = total % 60
+        return String(format: "%d:%02d", m, s)
     }
 
     // MARK: - 相似推荐 Sheet

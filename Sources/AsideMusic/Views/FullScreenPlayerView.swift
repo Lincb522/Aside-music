@@ -151,8 +151,14 @@ struct FullScreenPlayerView: View {
         .sheet(isPresented: $showQualitySheet) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
-                onSelect: { quality in
+                currentKugouQuality: player.kugouQuality,
+                isUnblocked: player.isCurrentSongUnblocked,
+                onSelectNetease: { quality in
                     player.switchQuality(quality)
+                    showQualitySheet = false
+                },
+                onSelectKugou: { quality in
+                    player.switchKugouQuality(quality)
                     showQualitySheet = false
                 }
             )
@@ -304,7 +310,7 @@ struct FullScreenPlayerView: View {
                 ),
                 duration: player.duration,
                 color: contentColor,
-                isDragging: isDraggingSlider,
+                isAnimating: player.isPlaying,
                 onSeek: { time in
                     isDraggingSlider = true
                     dragTimeValue = time
@@ -334,7 +340,7 @@ struct FullScreenPlayerView: View {
         @Binding var currentTime: Double
         let duration: Double
         var color: Color = .asideTextPrimary
-        var isDragging: Bool = false
+        var isAnimating: Bool = true
         let onSeek: (Double) -> Void
         let onCommit: (Double) -> Void
 
@@ -345,41 +351,31 @@ struct FullScreenPlayerView: View {
         @State private var amplitudes: [CGFloat] = []
 
         var body: some View {
-            TimelineView(.animation(minimumInterval: 0.12)) { timeline in
+            TimelineView(.animation(minimumInterval: 0.12, paused: !isAnimating)) { timeline in
                 GeometryReader { geometry in
                     let totalWidth = geometry.size.width
                     let barWidth = (totalWidth - (CGFloat(barCount - 1) * barSpacing)) / CGFloat(barCount)
                     let progress = duration > 0 ? currentTime / duration : 0
-                    let phase = timeline.date.timeIntervalSinceReferenceDate * 1.8
+                    let phase = isAnimating ? timeline.date.timeIntervalSinceReferenceDate * 1.8 : 0
 
-                    ZStack(alignment: .leading) {
-                        HStack(alignment: .center, spacing: barSpacing) {
-                            ForEach(0..<barCount, id: \.self) { index in
-                                let barProgress = Double(index) / Double(barCount - 1)
-                                let isPlayed = barProgress <= progress
-                                let baseAmplitude = index < amplitudes.count ? amplitudes[index] : 0.5
+                    HStack(alignment: .center, spacing: barSpacing) {
+                        ForEach(0..<barCount, id: \.self) { index in
+                            let barProgress = Double(index) / Double(barCount - 1)
+                            let isPlayed = barProgress <= progress
+                            let baseAmplitude = index < amplitudes.count ? amplitudes[index] : 0.5
 
-                                let height = barHeight(
-                                    index: index,
-                                    isPlayed: isPlayed,
-                                    base: baseAmplitude,
-                                    phase: phase,
-                                    maxH: geometry.size.height
-                                )
+                            let height = barHeight(
+                                index: index,
+                                isPlayed: isPlayed,
+                                base: baseAmplitude,
+                                phase: phase,
+                                maxH: geometry.size.height
+                            )
 
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(isPlayed ? color : color.opacity(0.2))
-                                    .frame(width: max(2, barWidth), height: height)
-                            }
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(isPlayed ? color : color.opacity(0.2))
+                                .frame(width: max(2, barWidth), height: height)
                         }
-
-                        // 播放位置圆点
-                        Circle()
-                            .fill(color)
-                            .frame(width: isDragging ? 10 : 6, height: isDragging ? 10 : 6)
-                            .shadow(color: color.opacity(0.4), radius: isDragging ? 4 : 2)
-                            .position(x: progress * totalWidth, y: geometry.size.height / 2)
-                            .animation(.easeOut(duration: 0.15), value: isDragging)
                     }
                     .contentShape(Rectangle())
                     .gesture(
@@ -518,7 +514,7 @@ struct FullScreenPlayerView: View {
         return String(format: "%d:%02d", min, sec)
     }
 
-    /// 格式化流信息文本（如 "FLAC / 192kHz / 24bit"）
+    /// 格式化流信息文本（如 "Hi-Res · FLAC / 192kHz / 24bit"）
     private func streamInfoText(_ info: StreamInfo) -> String {
         var parts: [String] = []
         if let codec = info.audioCodec {
@@ -527,7 +523,6 @@ struct FullScreenPlayerView: View {
         if let sr = info.sampleRate {
             if sr >= 1000 {
                 let khz = Double(sr) / 1000.0
-                // 整数就不显示小数点
                 if khz == khz.rounded() {
                     parts.append("\(Int(khz))kHz")
                 } else {

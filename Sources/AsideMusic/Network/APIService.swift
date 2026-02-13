@@ -28,9 +28,9 @@ class APIService {
     @Published var currentUserId: Int? {
         didSet {
             if let uid = currentUserId {
-                UserDefaults.standard.set(uid, forKey: userIdKey)
+                KeychainHelper.save(key: userIdKey, intValue: uid)
             } else {
-                UserDefaults.standard.removeObject(forKey: userIdKey)
+                KeychainHelper.delete(key: userIdKey)
             }
             if currentUserId != nil {
                 NotificationCenter.default.post(name: .didLogin, object: nil)
@@ -41,9 +41,13 @@ class APIService {
     }
 
     var currentCookie: String? {
-        get { UserDefaults.standard.string(forKey: cookieKey) }
+        get { KeychainHelper.loadString(key: cookieKey) }
         set {
-            UserDefaults.standard.set(newValue, forKey: cookieKey)
+            if let value = newValue {
+                KeychainHelper.save(key: cookieKey, value: value)
+            } else {
+                KeychainHelper.delete(key: cookieKey)
+            }
             if let cookie = newValue {
                 ncm.setCookie(cookie)
             }
@@ -60,28 +64,73 @@ class APIService {
     init() {
         let serverUrl = SecureConfig.apiBaseURL
 
-        let savedCookie = UserDefaults.standard.string(forKey: "aside_music_cookie")
+        // 从 UserDefaults 迁移到 Keychain（一次性迁移）
+        Self.migrateToKeychainIfNeeded()
+
+        let savedCookie = KeychainHelper.loadString(key: cookieKey)
+        let savedUid = KeychainHelper.loadInt(key: userIdKey)
+        
+        #if DEBUG
+        print("[APIService] init - cookie: \(savedCookie != nil ? "有(\(savedCookie!.prefix(30))...)" : "无"), uid: \(savedUid?.description ?? "无")")
+        #endif
 
         self.ncm = NCMClient(
             cookie: savedCookie,
             serverUrl: serverUrl
         )
 
-        let uid = UserDefaults.standard.integer(forKey: userIdKey)
-        self.currentUserId = uid == 0 ? nil : uid
+        // 直接赋值给底层存储，避免触发 didSet（didSet 中会重新写 Keychain）
+        self.currentUserId = savedUid
         
-        // 同步 isLoggedIn 标志：如果 cookie 和 uid 都存在，标记为已登录
-        if savedCookie != nil && uid != 0 {
+        // 同步 isLoggedIn 标志
+        if savedCookie != nil && savedUid != nil {
             UserDefaults.standard.set(true, forKey: "isLoggedIn")
+            #if DEBUG
+            print("[APIService] ✅ 已登录，同步 isLoggedIn = true")
+            #endif
+        } else {
+            UserDefaults.standard.set(false, forKey: "isLoggedIn")
+            #if DEBUG
+            print("[APIService] ❌ 未登录，同步 isLoggedIn = false")
+            #endif
         }
 
-        // 配置解灰：通过后端代理解灰（/song/url/match）
-        _unblockManager.register(ServerUnblockSource(serverUrl: serverUrl, mode: .match))
+        // 配置解灰：保留 SDK 层 UnblockManager（备用），主要解灰逻辑在 fetchSongUrl 中 app 层处理
+        _unblockManager.register(SearchUnblockSource(serverUrl: "http://114.66.31.109:4000"))
         ncm.unblockManager = _unblockManager
         
-        // 根据用户设置决定是否启用自动解灰
-        let unblockEnabled = UserDefaults.standard.bool(forKey: "unblockEnabled")
-        ncm.autoUnblock = unblockEnabled
+        // 关闭 SDK 自动解灰（解灰逻辑已移到 app 层 fetchSongUrl）
+        ncm.autoUnblock = false
+    }
+    
+    /// 迁移：将 UserDefaults 中的 cookie/uid 迁移到 Keychain
+    /// 如果 Keychain 为空且 UserDefaults 有值，始终尝试迁移
+    private static func migrateToKeychainIfNeeded() {
+        // 迁移 cookie：如果 Keychain 没有但 UserDefaults 有，就迁移
+        if KeychainHelper.loadString(key: "aside_music_cookie") == nil,
+           let oldCookie = UserDefaults.standard.string(forKey: "aside_music_cookie") {
+            #if DEBUG
+            print("[APIService] 迁移 cookie 到 Keychain")
+            #endif
+            KeychainHelper.save(key: "aside_music_cookie", value: oldCookie)
+            if KeychainHelper.loadString(key: "aside_music_cookie") != nil {
+                UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
+            }
+        }
+        
+        // 迁移 uid：如果 Keychain 没有但 UserDefaults 有，就迁移
+        if KeychainHelper.loadInt(key: "aside_music_uid") == nil {
+            let oldUid = UserDefaults.standard.integer(forKey: "aside_music_uid")
+            if oldUid != 0 {
+                #if DEBUG
+                print("[APIService] 迁移 uid=\(oldUid) 到 Keychain")
+                #endif
+                KeychainHelper.save(key: "aside_music_uid", intValue: oldUid)
+                if KeychainHelper.loadInt(key: "aside_music_uid") != nil {
+                    UserDefaults.standard.removeObject(forKey: "aside_music_uid")
+                }
+            }
+        }
     }
     
     /// 动态切换解灰开关
@@ -100,9 +149,9 @@ class APIService {
             )
         }
         .handleEvents(receiveOutput: { [weak self] _ in
-            // 先清除 UserDefaults，防止 didSet 中的逻辑干扰
-            UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
-            UserDefaults.standard.removeObject(forKey: "aside_music_uid")
+            // 清除 Keychain 中的凭证
+            KeychainHelper.delete(key: "aside_music_cookie")
+            KeychainHelper.delete(key: "aside_music_uid")
             UserDefaults.standard.set(false, forKey: "isLoggedIn")
             
             // 直接设置内部状态，避免通过 didSet 重复发送通知
@@ -433,22 +482,75 @@ class APIService {
     /// 歌曲URL结果
     struct SongUrlResult {
         let url: String
+        /// 是否来自解灰源（酷狗）
+        let isUnblocked: Bool
     }
 
-    /// 获取歌曲播放URL（网易云 API）
-    func fetchSongUrl(id: Int, level: String = "exhigh") -> AnyPublisher<SongUrlResult, Error> {
+    /// 搜索解灰源（app 层直接调用，不走 SDK 解灰流程）
+    private let searchUnblockSource = SearchUnblockSource(serverUrl: "http://114.66.31.109:4000")
+    
+    /// 获取歌曲播放URL
+    /// 优先走网易云官方，不可用时 app 层直接调搜索解灰源（:4000）
+    func fetchSongUrl(id: Int, level: String = "exhigh", kugouQuality: String = "320") -> AnyPublisher<SongUrlResult, Error> {
         let qualityLevel = NeteaseCloudMusicAPI.SoundQualityType(rawValue: level) ?? .exhigh
 
         return ncm.publisher { [ncm] in
             let response = try await ncm.songUrlV1(ids: [id], level: qualityLevel)
-            guard let dataArray = response.body["data"] as? [[String: Any]],
-                  let first = dataArray.first,
-                  let url = first["url"] as? String, !url.isEmpty else {
-                throw PlaybackError.unavailable
+            if let dataArray = response.body["data"] as? [[String: Any]],
+               let first = dataArray.first,
+               let url = first["url"] as? String, !url.isEmpty {
+                return SongUrlResult(url: url, isUnblocked: false)
             }
-            return SongUrlResult(url: url)
+            // 官方不可用，返回空标记
+            return SongUrlResult(url: "", isUnblocked: false)
+        }
+        .flatMap { [weak self] result -> AnyPublisher<SongUrlResult, Error> in
+            if !result.url.isEmpty {
+                return Just(result).setFailureType(to: Error.self).eraseToAnyPublisher()
+            }
+            // 官方不可用，走搜索解灰源（直接用酷狗音质）
+            guard let self = self else {
+                return Fail(error: PlaybackError.unavailable).eraseToAnyPublisher()
+            }
+            return self.fetchSongUrlFromSearch(id: id, kugouQuality: kugouQuality)
         }
         .eraseToAnyPublisher()
+    }
+    
+    /// 通过搜索解灰源获取播放 URL（先拿歌曲详情再搜索）
+    private func fetchSongUrlFromSearch(id: Int, kugouQuality: String) -> AnyPublisher<SongUrlResult, Error> {
+        // 先获取歌曲详情（歌名、歌手），再用关键词搜索
+        return fetchSongDetails(ids: [id])
+            .flatMap { [weak self] songs -> AnyPublisher<SongUrlResult, Error> in
+                guard let self = self else {
+                    return Fail(error: PlaybackError.unavailable).eraseToAnyPublisher()
+                }
+                let song = songs.first
+                let title = song?.name
+                let artist = song?.artistName
+                
+                return Future<SongUrlResult, Error> { promise in
+                    Task {
+                        do {
+                            let result = try await self.searchUnblockSource.match(
+                                id: id, title: title, artist: artist, quality: kugouQuality
+                            )
+                            if !result.url.isEmpty {
+                                AppLogger.info("搜索解灰成功: \(title ?? "") - \(artist ?? "")")
+                                promise(.success(SongUrlResult(url: result.url, isUnblocked: true)))
+                            } else {
+                                AppLogger.warning("搜索解灰无结果: \(title ?? "")")
+                                promise(.failure(PlaybackError.unavailable))
+                            }
+                        } catch {
+                            AppLogger.error("搜索解灰失败: \(error)")
+                            promise(.failure(PlaybackError.unavailable))
+                        }
+                    }
+                }
+                .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 
     /// 直接 POST 到 Node 后端指定路由
@@ -488,6 +590,21 @@ class APIService {
                 }
             }
             return songs
+        }
+    }
+
+    // MARK: - 听歌打卡（上报播放记录到网易云）
+    
+    /// 上报听歌记录，让网易云服务端记录最近播放
+    /// - Parameters:
+    ///   - id: 歌曲 ID
+    ///   - sourceid: 来源 ID（歌单 ID），无来源传 0
+    ///   - time: 播放时长（秒）
+    func scrobble(id: Int, sourceid: Int = 0, time: Int = 0) -> AnyPublisher<SimpleResponse, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.scrobble(id: id, sourceid: sourceid, time: time)
+            let code = response.body["code"] as? Int ?? 200
+            return SimpleResponse(code: code, message: nil)
         }
     }
 

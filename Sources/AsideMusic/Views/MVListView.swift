@@ -247,7 +247,7 @@ struct MVDiscoverView: View {
         }
         .overlay {
             if viewModel.isLoading && viewModel.latestMVs.isEmpty {
-                AsideLoadingView(text: "加载MV中...")
+                AsideLoadingView(text: "LOADING MV")
             }
         }
     }
@@ -574,7 +574,7 @@ struct MVFullListView: View {
         }
         .overlay {
             if viewModel.isLoading && viewModel.mvs.isEmpty {
-                AsideLoadingView(text: "加载中...")
+                AsideLoadingView(text: "LOADING")
             }
         }
         .fullScreenCover(item: $selectedMV) { item in
@@ -621,7 +621,7 @@ struct MVSublistSheet: View {
 
             if viewModel.isLoading && viewModel.items.isEmpty {
                 Spacer()
-                AsideLoadingView(text: "加载中...")
+                AsideLoadingView(text: "LOADING")
                 Spacer()
             } else if viewModel.items.isEmpty {
                 Spacer()

@@ -2,10 +2,14 @@ import SwiftUI
 
 struct SoundQualitySheet: View {
     let currentQuality: SoundQuality
-    let onSelect: (SoundQuality) -> Void
+    let currentKugouQuality: KugouQuality
+    let isUnblocked: Bool
+    let onSelectNetease: (SoundQuality) -> Void
+    let onSelectKugou: (KugouQuality) -> Void
     @Environment(\.dismiss) private var dismiss
     
     private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none && $0 != .higher }
+    private let kugouQualities: [KugouQuality] = KugouQuality.allCases
     
     var body: some View {
         ZStack {
@@ -17,6 +21,17 @@ struct SoundQualitySheet: View {
                     Text("音质选择")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
+                    
+                    if isUnblocked {
+                        Text("酷狗源")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideIconForeground)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.asideIconBackground)
+                            .cornerRadius(4)
+                    }
+                    
                     Spacer()
                     Button(action: { dismiss() }) {
                         AsideIcon(icon: .close, size: 14, color: .asideTextSecondary)
@@ -27,22 +42,42 @@ struct SoundQualitySheet: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
-                
+
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        ForEach(Array(neteaseQualities.enumerated()), id: \.element) { index, quality in
-                            Button(action: { onSelect(quality) }) {
-                                qualityRow(
-                                    name: quality.displayName,
-                                    subtitle: quality.subtitle,
-                                    badge: quality.badgeText,
-                                    isSelected: currentQuality == quality
-                                )
+                        if isUnblocked {
+                            // 解灰歌曲：显示酷狗音质
+                            ForEach(Array(kugouQualities.enumerated()), id: \.element) { index, quality in
+                                Button(action: { onSelectKugou(quality) }) {
+                                    qualityRow(
+                                        name: quality.displayName,
+                                        subtitle: quality.subtitle,
+                                        badge: quality.badgeText,
+                                        isSelected: currentKugouQuality == quality
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                
+                                if index < kugouQualities.count - 1 {
+                                    Divider().padding(.leading, 56)
+                                }
                             }
-                            .buttonStyle(.plain)
-                            
-                            if index < neteaseQualities.count - 1 {
-                                Divider().padding(.leading, 56)
+                        } else {
+                            // 正常歌曲：显示网易云音质
+                            ForEach(Array(neteaseQualities.enumerated()), id: \.element) { index, quality in
+                                Button(action: { onSelectNetease(quality) }) {
+                                    qualityRow(
+                                        name: quality.displayName,
+                                        subtitle: quality.subtitle,
+                                        badge: quality.badgeText,
+                                        isSelected: currentQuality == quality
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                
+                                if index < neteaseQualities.count - 1 {
+                                    Divider().padding(.leading, 56)
+                                }
                             }
                         }
                     }
@@ -93,9 +128,7 @@ struct SoundQualitySheet: View {
             Spacer()
             
             if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.asideTextPrimary)
+                AsideIcon(icon: .checkmark, size: 14, color: .asideTextPrimary)
             }
         }
         .padding(.horizontal, 16)

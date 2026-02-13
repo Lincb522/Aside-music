@@ -2,20 +2,27 @@ import SwiftUI
 import Combine
 
 struct ProfileView: View {
-    // 直接使用单例，避免 @ObservedObject 的额外开销
     private var viewModel: HomeViewModel { HomeViewModel.shared }
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
     
     @State private var showLoginView = false
     @State private var showSettingsView = false
     @State private var showDownloadManage = false
-    
-    // 缓存用户数据，避免频繁访问 viewModel
+    @State private var showStorageManage = false
+    @State private var showCloudDisk = false
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
     
-    private let primaryColor = Color.asideTextPrimary
-    private let secondaryColor = Color.asideTextSecondary
+    // 用户详情数据（等级、听歌数、注册天数）
+    @State private var userLevel: Int?
+    @State private var listenSongs: Int?
+    @State private var createDays: Int?
+    
+    // 最近播放
+    @State private var recentSongs: [Song] = []
+    
+    @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var downloadManager = DownloadManager.shared
     
     var body: some View {
         ZStack {
@@ -30,29 +37,19 @@ struct ProfileView: View {
         }
         .onAppear {
             if isAppLoggedIn {
-                // 每次出现时都尝试同步最新的用户数据
                 if let profile = viewModel.userProfile, profile.userId != cachedProfile?.userId {
                     cachedProfile = profile
                 }
-                
-                // 只在首次出现时做完整加载
                 guard !hasAppeared else {
                     GlobalRefreshManager.shared.markProfileDataReady()
                     return
                 }
                 hasAppeared = true
-                
-                // 延迟加载，让 tab 切换动画先完成
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // 先从缓存获取用户数据
                     cachedProfile = viewModel.userProfile
-                    
-                    // 延迟更新缓存大小，避免阻塞
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        updateCacheSizeIfNeeded()
-                    }
-                    
                     GlobalRefreshManager.shared.markProfileDataReady()
+                    fetchUserExtra()
+                    fetchRecentSongs()
                 }
             } else {
                 GlobalRefreshManager.shared.markProfileDataReady()
@@ -60,36 +57,16 @@ struct ProfileView: View {
         }
         .onReceive(GlobalRefreshManager.shared.refreshProfilePublisher) { _ in
             if isAppLoggedIn {
-                // 刷新时更新缓存的用户数据
                 cachedProfile = viewModel.userProfile
-                updateCacheSizeIfNeeded()
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 GlobalRefreshManager.shared.markProfileDataReady()
             }
         }
         .onReceive(viewModel.$userProfile) { profile in
-            // 当 viewModel 的 userProfile 更新时，同步到本地缓存
             if profile != nil {
                 cachedProfile = profile
             }
-        }
-        .actionSheet(isPresented: $showSettingsActionSheet) {
-            ActionSheet(
-                title: Text(LocalizedStringKey("profile_settings")),
-                message: Text("Cache Size: \(cacheSize)"),
-                buttons: [
-                    .destructive(Text("Clear Cache")) {
-                        Task { @MainActor in
-                            OptimizedCacheManager.shared.clearAll()
-                            // 清除后重置缓存大小显示
-                            cacheSize = "..."
-                            lastCacheSizeUpdate = nil
-                        }
-                    },
-                    .cancel()
-                ]
-            )
         }
         .fullScreenCover(isPresented: $showLoginView) {
             LoginView()
@@ -102,214 +79,249 @@ struct ProfileView: View {
                 DownloadManageView()
             }
         }
-    }
-    
-    // MARK: - 已登录内容
-    
-    private var loggedInContent: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                headerStatsSection
-                    .padding(.top, DeviceLayout.headerTopPadding + 80)
-                    .padding(.bottom, 32)
-                
-                actionGridSection
-                
-                logoutSection
-                
-                Spacer(minLength: 120)
+        .fullScreenCover(isPresented: $showStorageManage) {
+            NavigationStack {
+                StorageManageView()
             }
         }
-    }
-    
-    // MARK: - 未登录内容
-    
-    private var notLoggedInContent: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            
-            VStack(spacing: 24) {
-                Circle()
-                    .fill(Color.asideCardBackground)
-                    .frame(width: 120, height: 120)
-                    .overlay(
-                        AsideIcon(icon: .profile, size: 50, color: .asideTextPrimary.opacity(0.3))
-                    )
-                    .overlay(Circle().stroke(Color.white, lineWidth: 4))
-                    .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
-                
-                VStack(spacing: 8) {
-                    Text("未登录")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(primaryColor)
-                    
-                    Text("登录后享受完整功能")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(secondaryColor)
-                }
-                
-                Button(action: { showLoginView = true }) {
-                    HStack(spacing: 10) {
-                        AsideIcon(icon: .profile, size: 18, color: .asideIconForeground)
-                        Text("登录账号")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 40)
-                    .padding(.vertical, 16)
-                    .background(Color.asideIconBackground)
-                    .cornerRadius(28)
-                    .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 8)
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
-                .padding(.top, 16)
+        .fullScreenCover(isPresented: $showCloudDisk) {
+            NavigationStack {
+                CloudDiskView()
             }
-            
-            Spacer()
-            
-            // 底部功能卡片（未登录也可用）
-            notLoggedInActionSection
-                .padding(.bottom, 120)
-        }
-    }
-    
-    // MARK: - 未登录功能区
-    
-    private var notLoggedInActionSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 20) {
-                ActionCard(
-                    icon: .settings,
-                    title: NSLocalizedString("profile_settings", comment: ""),
-                    subtitle: "Settings",
-                    action: { showSettingsView = true }
-                )
-                .frame(width: 140)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 20)
-        }
-        .onAppear {
-            // 延迟更新缓存大小
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                updateCacheSizeIfNeeded()
-            }
-        }
-    }
-    
-    // MARK: - Sections
-    
-    private var headerStatsSection: some View {
-        VStack(spacing: 24) {
-            // 使用缓存的 profile 数据
-            if let avatarUrl = cachedProfile?.avatarUrl ?? viewModel.userProfile?.avatarUrl, 
-               let url = URL(string: avatarUrl) {
-                CachedAsyncImage(url: url) {
-                    Color.gray.opacity(0.1)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 120, height: 120)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white, lineWidth: 4))
-                .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
-            } else {
-                Circle()
-                    .fill(Color.asideCardBackground.opacity(0.5))
-                    .frame(width: 120, height: 120)
-                    .overlay(
-                        AsideIcon(icon: .profile, size: 50, color: .asideTextPrimary.opacity(0.5))
-                    )
-                    .overlay(Circle().stroke(Color.white, lineWidth: 4))
-                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-            }
-            
-            // 使用缓存的 profile 数据
-            let profile = cachedProfile ?? viewModel.userProfile
-            VStack(spacing: 8) {
-                Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(primaryColor)
-                
-                Text(String(format: NSLocalizedString("user_id_format", comment: ""), profile?.userId ?? 0))
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(secondaryColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.asideCardBackground.opacity(0.6))
-                    .cornerRadius(20)
-                
-                if let signature = profile?.signature, !signature.isEmpty {
-                    Text(signature)
-                        .font(.system(size: 14, weight: .regular, design: .rounded))
-                        .foregroundColor(secondaryColor.opacity(0.8))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, 40)
-                }
-            }
-            
-            HStack(spacing: 40) {
-                StatItemLarge(count: profile?.eventCount ?? 0, label: NSLocalizedString("profile_dynamic", comment: ""))
-                StatItemLarge(count: profile?.follows ?? 0, label: NSLocalizedString("profile_following", comment: ""))
-                StatItemLarge(count: profile?.followeds ?? 0, label: NSLocalizedString("profile_followers", comment: ""))
-            }
-            .padding(.top, 10)
-        }
-    }
-    
-    private var actionGridSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 20) {
-                ActionCard(
-                    icon: .download,
-                    title: NSLocalizedString("profile_downloads", comment: ""),
-                    subtitle: "Offline Music",
-                    action: { showDownloadManage = true }
-                )
-                .frame(width: 140)
-                
-                ActionCard(
-                    icon: .settings,
-                    title: NSLocalizedString("profile_settings", comment: ""),
-                    subtitle: "Settings",
-                    action: { showSettingsView = true }
-                )
-                .frame(width: 140)
-                
-                ActionCard(
-                    icon: .cloud,
-                    title: NSLocalizedString("profile_cloud_disk", comment: "Cloud Disk"),
-                    subtitle: "Personal Cloud"
-                )
-                .frame(width: 140)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 20)
-        }
-    }
-    
-    @State private var showLogoutAlert = false
-    @State private var showSettingsActionSheet = false
-    @State private var cacheSize: String = "..."
-    @State private var lastCacheSizeUpdate: Date?
-    
-    /// 只在需要时更新缓存大小（避免频繁计算）
-    private func updateCacheSizeIfNeeded() {
-        // 如果最近 30 秒内已更新，跳过
-        if let lastUpdate = lastCacheSizeUpdate,
-           Date().timeIntervalSince(lastUpdate) < 30 {
-            return
-        }
-        
-        // 在低优先级后台线程计算
-        Task { @MainActor in
-            let size = OptimizedCacheManager.shared.getCacheSize()
-            self.cacheSize = size
-            self.lastCacheSizeUpdate = Date()
         }
     }
 
-    private var logoutSection: some View {
+    // MARK: - 已登录
+    
+    private var loggedInContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                // 用户卡片
+                profileCard
+                    .padding(.horizontal, 20)
+                
+                // 听歌数据概览
+                listeningStatsSection
+                    .padding(.horizontal, 20)
+                
+                // 最近播放
+                if !recentSongs.isEmpty {
+                    recentlyPlayedSection
+                }
+                
+                // 快捷操作
+                quickActions
+                    .padding(.horizontal, 20)
+                
+                // 退出登录
+                logoutButton
+                
+                Color.clear.frame(height: 100)
+            }
+            .padding(.top, DeviceLayout.headerTopPadding + 100)
+        }
+    }
+    
+    // MARK: - 用户卡片
+    
+    private var profileCard: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+        
+        return HStack(spacing: 16) {
+            // 头像
+            if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
+                CachedAsyncImage(url: url) {
+                    Color.asideSeparator
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.asideSeparator)
+                    .frame(width: 72, height: 72)
+                    .overlay(
+                        AsideIcon(icon: .profile, size: 30, color: .asideTextSecondary.opacity(0.5))
+                    )
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    // 等级徽章
+                    if let level = userLevel {
+                        Text("Lv.\(level)")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.asideIconForeground)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.asideIconBackground)
+                            .clipShape(Capsule())
+                    }
+                }
+                
+                if let signature = profile?.signature, !signature.isEmpty {
+                    Text(signature)
+                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                        .lineLimit(1)
+                } else {
+                    Text("编辑个性签名")
+                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                        .foregroundColor(.asideTextSecondary.opacity(0.5))
+                }
+                
+                // 注册天数
+                if let days = createDays {
+                    Text("已陪伴你 \(days) 天")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary.opacity(0.6))
+                }
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .background(Color.asideCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+    
+    // MARK: - 听歌数据概览
+    
+    private var listeningStatsSection: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+        
+        return HStack(spacing: 12) {
+            StatCard(
+                value: formatNumber(listenSongs ?? 0),
+                label: "累计听歌",
+                icon: .headphones
+            )
+            
+            StatCard(
+                value: "\(profile?.follows ?? 0)",
+                label: NSLocalizedString("profile_following", comment: ""),
+                icon: .personCircle
+            )
+            
+            StatCard(
+                value: "\(profile?.followeds ?? 0)",
+                label: NSLocalizedString("profile_followers", comment: ""),
+                icon: .liked
+            )
+            
+            StatCard(
+                value: "\(profile?.eventCount ?? 0)",
+                label: NSLocalizedString("profile_dynamic", comment: ""),
+                icon: .send
+            )
+        }
+    }
+    
+    // MARK: - 最近播放
+    
+    private var recentlyPlayedSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("最近播放")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
+                
+                Spacer()
+                
+                Text("\(recentSongs.count) 首")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.asideTextSecondary)
+            }
+            .padding(.horizontal, 24)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(recentSongs.prefix(15)) { song in
+                        Button(action: {
+                            playerManager.play(song: song, in: recentSongs)
+                        }) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedAsyncImage(url: song.coverUrl) {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(Color.asideSeparator)
+                                }
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 110, height: 110)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(song.name)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.asideTextPrimary)
+                                        .lineLimit(1)
+                                    
+                                    Text(song.artistName)
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .foregroundColor(.asideTextSecondary)
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 110, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    // MARK: - 快捷操作
+    
+    private var quickActions: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12)
+        ]
+        
+        return LazyVGrid(columns: columns, spacing: 12) {
+            QuickActionCard(
+                icon: .download,
+                title: NSLocalizedString("profile_downloads", comment: ""),
+                subtitle: "\(downloadManager.downloadedSongIds.count) 首"
+            ) {
+                showDownloadManage = true
+            }
+            
+            QuickActionCard(
+                icon: .storage,
+                title: "缓存管理",
+                subtitle: "管理本地缓存"
+            ) {
+                showStorageManage = true
+            }
+            
+            QuickActionCard(
+                icon: .cloud,
+                title: NSLocalizedString("profile_cloud_disk", comment: "Cloud Disk"),
+                subtitle: "云端存储"
+            ) {
+                showCloudDisk = true
+            }
+            
+            QuickActionCard(
+                icon: .settings,
+                title: NSLocalizedString("profile_settings", comment: ""),
+                subtitle: "偏好与账号"
+            ) {
+                showSettingsView = true
+            }
+        }
+    }
+    
+    // MARK: - 退出登录
+    
+    private var logoutButton: some View {
         Button(action: {
             AlertManager.shared.show(
                 title: NSLocalizedString("alert_logout_title", comment: ""),
@@ -318,58 +330,158 @@ struct ProfileView: View {
                 secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
             ) {
                 Task { @MainActor in
-                    // 调用 logout API，无论成功失败都清理本地状态
                     do {
-                        _ = try await APIService.shared.logout()
-                            .async()
+                        _ = try await APIService.shared.logout().async()
                     } catch {
-                        // API 调用失败，手动清理本地状态
-                        UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
-                        UserDefaults.standard.removeObject(forKey: "aside_music_uid")
-                        UserDefaults.standard.set(false, forKey: "isLoggedIn")
                         APIService.shared.currentCookie = nil
                         OptimizedCacheManager.shared.clearAll()
                     }
                     isAppLoggedIn = false
                     cachedProfile = nil
                     hasAppeared = false
+                    userLevel = nil
+                    listenSongs = nil
+                    createDays = nil
+                    recentSongs = []
                     AlertManager.shared.dismiss()
                 }
             }
         }) {
             Text(LocalizedStringKey("action_logout"))
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.asideTextPrimary.opacity(0.6))
-                .padding(.horizontal, 30)
-                .padding(.vertical, 12)
-                .background(
-                    Capsule()
-                        .stroke(Color.asideSeparator, lineWidth: 1)
-                )
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(.asideTextSecondary.opacity(0.6))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
         }
-        .padding(.top, 20)
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - 未登录
+    
+    private var notLoggedInContent: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            
+            VStack(spacing: 28) {
+                ZStack {
+                    Circle()
+                        .fill(Color.asideCardBackground)
+                        .frame(width: 100, height: 100)
+                    
+                    AsideIcon(icon: .profile, size: 40, color: .asideTextSecondary.opacity(0.3))
+                }
+                
+                VStack(spacing: 10) {
+                    Text("未登录")
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                    
+                    Text("登录后享受完整功能")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                }
+                
+                Button(action: { showLoginView = true }) {
+                    Text("登录账号")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideIconForeground)
+                        .frame(width: 200)
+                        .padding(.vertical, 15)
+                        .background(Color.asideIconBackground)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+            }
+            
+            Spacer()
+            
+            VStack(spacing: 0) {
+                ProfileMenuItem(
+                    icon: .settings,
+                    title: NSLocalizedString("profile_settings", comment: ""),
+                    trailing: .chevron
+                ) {
+                    showSettingsView = true
+                }
+            }
+            .background(Color.asideCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 140)
+        }
+    }
+    
+    // MARK: - 数据获取
+    
+    private func fetchUserExtra() {
+        guard let uid = APIService.shared.currentUserId else { return }
+        APIService.shared.fetchUserDetail(uid: uid)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { [self] response in
+                userLevel = response.level
+                listenSongs = response.listenSongs
+                createDays = response.createDays
+            })
+            .store(in: &ProfileCancellableStore.shared.cancellables)
+    }
+    
+    // MARK: - 工具方法
+    
+    private func fetchRecentSongs() {
+        APIService.shared.fetchRecentSongs()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { songs in
+                self.recentSongs = songs
+            })
+            .store(in: &ProfileCancellableStore.shared.cancellables)
+    }
+    
+    private func formatNumber(_ value: Int) -> String {
+        if value >= 10000 {
+            return String(format: "%.1fw", Double(value) / 10000)
+        }
+        return "\(value)"
     }
 }
 
-// MARK: - Components
+// MARK: - Cancellable 存储（避免 struct 中持有 Set<AnyCancellable>）
 
-struct StatItemLarge: View {
-    let count: Int
+private class ProfileCancellableStore {
+    static let shared = ProfileCancellableStore()
+    var cancellables = Set<AnyCancellable>()
+}
+
+// MARK: - 统计卡片
+
+struct StatCard: View {
+    let value: String
     let label: String
+    let icon: AsideIcon.IconType
     
     var body: some View {
-        VStack(spacing: 4) {
-            Text("\(count)")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+        VStack(spacing: 6) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(.asideTextPrimary)
+            
             Text(label)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
+                .lineLimit(1)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(Color.asideCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
-struct ActionCard: View {
+// MARK: - 快捷操作卡片
+
+struct QuickActionCard: View {
     let icon: AsideIcon.IconType
     let title: String
     let subtitle: String
@@ -377,31 +489,73 @@ struct ActionCard: View {
     
     var body: some View {
         Button(action: { action?() }) {
-            VStack(alignment: .leading, spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideIconBackground)
-                        .frame(width: 44, height: 44)
-                    AsideIcon(icon: icon, size: 18, color: .asideIconForeground)
+            VStack(alignment: .leading, spacing: 12) {
+                AsideIcon(icon: icon, size: 22, color: .asideTextPrimary)
+                
+                Spacer(minLength: 0)
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                        .lineLimit(1)
                 }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .frame(height: 100)
+            .background(Color.asideCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+    }
+}
+
+// MARK: - 菜单项组件
+
+struct ProfileMenuItem: View {
+    let icon: AsideIcon.IconType
+    let title: String
+    var trailing: TrailingType = .chevron
+    var action: (() -> Void)? = nil
+    
+    enum TrailingType {
+        case chevron
+        case text(String)
+    }
+    
+    var body: some View {
+        Button(action: { action?() }) {
+            HStack(spacing: 14) {
+                AsideIcon(icon: icon, size: 20, color: .asideTextPrimary)
+                    .frame(width: 28, height: 28)
+                
+                Text(title)
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
                 
                 Spacer()
                 
-                Text(title)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(.asideTextPrimary)
-                
-                Text(subtitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.asideTextSecondary)
+                switch trailing {
+                case .chevron:
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+                case .text(let value):
+                    Text(value)
+                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 140)
-            .padding(16)
-            .background(Color.asideCardBackground)
-            .cornerRadius(20)
-            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 15)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(AsideBouncingButtonStyle(scale: 0.96))
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }
 }

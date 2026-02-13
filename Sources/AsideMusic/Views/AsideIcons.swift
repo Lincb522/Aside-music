@@ -34,6 +34,7 @@ struct AsideIcon: View {
         case download
         case cloud
         case chevronRight
+        case chevronLeft
         case magnifyingGlass
         case xmark
         case fullscreen
@@ -81,6 +82,20 @@ struct AsideIcon: View {
         case xmarkCircle
         case playCircleFill
         case gridSquare
+        
+        // 补齐替换 SF Symbols 的图标
+        case checkmark
+        case shrinkScreen
+        case expandScreen
+        case headphones
+        case heartSlash
+        case personCircle
+        case album
+        case infoCircle
+        case arrowDownCircle
+        case sun
+        case moon
+        case halfCircle
         
         // 电台分类图标
         case catMusic       // 音乐
@@ -131,7 +146,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
             return false
         default:
             return true
@@ -188,6 +203,7 @@ struct AsideIcon: View {
         case .download:     return AnyShape(DownloadPath())
         case .cloud:        return AnyShape(CloudPath())
         case .chevronRight: return AnyShape(ChevronRightPath())
+        case .chevronLeft:  return AnyShape(ChevronLeftPath())
         case .magnifyingGlass: return AnyShape(MagnifyingGlassPath())
         case .xmark:        return AnyShape(XmarkPath())
         case .repeatMode:   return AnyShape(RepeatPath())
@@ -256,6 +272,18 @@ struct AsideIcon: View {
         case .catStory:     return AnyShape(CatStoryPath())
         case .catOther:     return AnyShape(CatOtherPath())
         case .catPublish:   return AnyShape(CatPublishPath())
+        case .checkmark:    return AnyShape(CheckmarkPath())
+        case .shrinkScreen: return AnyShape(ShrinkScreenPath())
+        case .expandScreen: return AnyShape(ExpandScreenPath())
+        case .headphones:   return AnyShape(HeadphonesPath())
+        case .heartSlash:   return AnyShape(HeartSlashPath())
+        case .personCircle: return AnyShape(PersonCirclePath())
+        case .album:        return AnyShape(AlbumPath())
+        case .infoCircle:   return AnyShape(InfoCirclePath())
+        case .arrowDownCircle: return AnyShape(ArrowDownCirclePath())
+        case .sun:          return AnyShape(SunPath())
+        case .moon:         return AnyShape(MoonPath())
+        case .halfCircle:   return AnyShape(HalfCirclePath())
         }
     }
 }
@@ -1008,6 +1036,19 @@ private struct ChevronRightPath: Shape {
         path.move(to: CGPoint(x: 10*s, y: 8*s))
         path.addLine(to: CGPoint(x: 14*s, y: 12*s))
         path.addLine(to: CGPoint(x: 10*s, y: 16*s))
+        
+        return path
+    }
+}
+
+private struct ChevronLeftPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        path.move(to: CGPoint(x: 14*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 16*s))
         
         return path
     }
@@ -2118,6 +2159,247 @@ private struct CatPublishPath: Shape {
         path.addLine(to: CGPoint(x: 14*s, y: 6*s))
         path.move(to: CGPoint(x: 16*s, y: 4*s))
         path.addLine(to: CGPoint(x: 18*s, y: 6*s))
+        return path
+    }
+}
+
+// MARK: - 补齐 SF Symbols 替换图标
+
+// 对勾 ✓
+private struct CheckmarkPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        path.move(to: CGPoint(x: 5*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 7*s))
+        return path
+    }
+}
+
+// 缩小屏幕（退出全屏）— 四角向内箭头
+private struct ShrinkScreenPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 左上角向内
+        path.move(to: CGPoint(x: 4*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 10*s))
+        path.move(to: CGPoint(x: 10*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 10*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 10*s))
+        // 右下角向内
+        path.move(to: CGPoint(x: 20*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 14*s))
+        path.move(to: CGPoint(x: 14*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 14*s))
+        return path
+    }
+}
+
+// 放大屏幕（进入全屏）— 四角向外箭头
+private struct ExpandScreenPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 左上角向外
+        path.move(to: CGPoint(x: 10*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 4*s))
+        path.move(to: CGPoint(x: 4*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 8*s, y: 4*s))
+        // 右下角向外
+        path.move(to: CGPoint(x: 14*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 20*s))
+        path.move(to: CGPoint(x: 20*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 20*s))
+        return path
+    }
+}
+
+// 耳机
+private struct HeadphonesPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 头带弧线
+        path.move(to: CGPoint(x: 5*s, y: 13*s))
+        path.addCurve(to: CGPoint(x: 19*s, y: 13*s),
+                      control1: CGPoint(x: 5*s, y: 5*s),
+                      control2: CGPoint(x: 19*s, y: 5*s))
+        // 左耳罩
+        let leftEar = CGRect(x: 3*s, y: 13*s, width: 4*s, height: 6*s)
+        path.addRoundedRect(in: leftEar, cornerSize: CGSize(width: 2*s, height: 2*s))
+        // 右耳罩
+        let rightEar = CGRect(x: 17*s, y: 13*s, width: 4*s, height: 6*s)
+        path.addRoundedRect(in: rightEar, cornerSize: CGSize(width: 2*s, height: 2*s))
+        return path
+    }
+}
+
+// 取消喜欢（心形 + 斜线）
+private struct HeartSlashPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 心形轮廓
+        path.move(to: CGPoint(x: 12*s, y: 19*s))
+        path.addCurve(to: CGPoint(x: 3*s, y: 8*s),
+                      control1: CGPoint(x: 6*s, y: 15*s),
+                      control2: CGPoint(x: 3*s, y: 11*s))
+        path.addCurve(to: CGPoint(x: 7.5*s, y: 4*s),
+                      control1: CGPoint(x: 3*s, y: 6*s),
+                      control2: CGPoint(x: 5*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 6.5*s),
+                      control1: CGPoint(x: 9.5*s, y: 4*s),
+                      control2: CGPoint(x: 11*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 16.5*s, y: 4*s),
+                      control1: CGPoint(x: 13*s, y: 5*s),
+                      control2: CGPoint(x: 14.5*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 8*s),
+                      control1: CGPoint(x: 19*s, y: 4*s),
+                      control2: CGPoint(x: 21*s, y: 6*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 19*s),
+                      control1: CGPoint(x: 21*s, y: 11*s),
+                      control2: CGPoint(x: 18*s, y: 15*s))
+        // 斜线
+        path.move(to: CGPoint(x: 4*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 20*s))
+        return path
+    }
+}
+
+// 人物 + 圆圈
+private struct PersonCirclePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        // 头部
+        path.addEllipse(in: CGRect(x: 9.5*s, y: 6*s, width: 5*s, height: 5*s))
+        // 身体弧线
+        path.move(to: CGPoint(x: 7*s, y: 18*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 13.5*s),
+                      control1: CGPoint(x: 7*s, y: 15.5*s),
+                      control2: CGPoint(x: 9*s, y: 13.5*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 18*s),
+                      control1: CGPoint(x: 15*s, y: 13.5*s),
+                      control2: CGPoint(x: 17*s, y: 15.5*s))
+        return path
+    }
+}
+
+// 专辑（堆叠方块）
+private struct AlbumPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 主方块
+        let main = CGRect(x: 4*s, y: 8*s, width: 16*s, height: 13*s)
+        path.addRoundedRect(in: main, cornerSize: CGSize(width: 2.5*s, height: 2.5*s))
+        // 中层
+        path.move(to: CGPoint(x: 6*s, y: 5.5*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 5.5*s))
+        // 顶层
+        path.move(to: CGPoint(x: 8*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 3*s))
+        return path
+    }
+}
+
+// 信息圆圈 (i)
+private struct InfoCirclePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        // i 的点
+        path.addEllipse(in: CGRect(x: 11*s, y: 7*s, width: 2*s, height: 2*s))
+        // i 的竖线
+        path.move(to: CGPoint(x: 12*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 17*s))
+        return path
+    }
+}
+
+// 向下箭头 + 圆圈（下载）
+private struct ArrowDownCirclePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        // 向下箭头竖线
+        path.move(to: CGPoint(x: 12*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 15*s))
+        // 箭头两翼
+        path.move(to: CGPoint(x: 9*s, y: 13*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 13*s))
+        return path
+    }
+}
+
+// 太阳（浅色模式）
+private struct SunPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 中心圆
+        path.addEllipse(in: CGRect(x: 8*s, y: 8*s, width: 8*s, height: 8*s))
+        // 光线（上下左右 + 四角）
+        let rays: [(CGPoint, CGPoint)] = [
+            (CGPoint(x: 12*s, y: 2*s), CGPoint(x: 12*s, y: 5*s)),
+            (CGPoint(x: 12*s, y: 19*s), CGPoint(x: 12*s, y: 22*s)),
+            (CGPoint(x: 2*s, y: 12*s), CGPoint(x: 5*s, y: 12*s)),
+            (CGPoint(x: 19*s, y: 12*s), CGPoint(x: 22*s, y: 12*s)),
+            (CGPoint(x: 4.9*s, y: 4.9*s), CGPoint(x: 7*s, y: 7*s)),
+            (CGPoint(x: 17*s, y: 17*s), CGPoint(x: 19.1*s, y: 19.1*s)),
+            (CGPoint(x: 19.1*s, y: 4.9*s), CGPoint(x: 17*s, y: 7*s)),
+            (CGPoint(x: 7*s, y: 17*s), CGPoint(x: 4.9*s, y: 19.1*s)),
+        ]
+        for (from, to) in rays {
+            path.move(to: from)
+            path.addLine(to: to)
+        }
+        return path
+    }
+}
+
+// 月亮（深色模式）
+private struct MoonPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        // 月牙：大弧 + 内凹弧
+        path.move(to: CGPoint(x: 16*s, y: 4*s))
+        path.addCurve(to: CGPoint(x: 16*s, y: 20*s),
+                      control1: CGPoint(x: 8*s, y: 4*s),
+                      control2: CGPoint(x: 8*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 16*s, y: 4*s),
+                      control1: CGPoint(x: 22*s, y: 20*s),
+                      control2: CGPoint(x: 22*s, y: 4*s))
+        return path
+    }
+}
+
+// 半圆（自动模式）
+private struct HalfCirclePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        let center = CGPoint(x: 12*s, y: 12*s)
+        let radius = 8*s
+        // 完整圆
+        path.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius,
+                                    width: radius * 2, height: radius * 2))
+        // 右半填充竖线（视觉分割）
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 20*s))
         return path
     }
 }

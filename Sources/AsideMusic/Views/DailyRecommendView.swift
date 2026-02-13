@@ -372,7 +372,7 @@ struct DailyHistoryView: View {
 
                 if isLoading {
                     Spacer()
-                    AsideLoadingView(text: "加载中...")
+                    AsideLoadingView(text: "LOADING")
                     Spacer()
                 } else if songs.isEmpty {
                     emptyState

@@ -20,7 +20,7 @@ struct RadioDetailView: View {
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.radioDetail == nil {
-                AsideLoadingView(text: "加载中...")
+                AsideLoadingView(text: "LOADING")
             } else if let error = viewModel.errorMessage, viewModel.radioDetail == nil {
                 errorView(error)
             } else {
@@ -92,12 +92,18 @@ struct RadioDetailView: View {
 
                 HStack(spacing: 16) {
                     if let dj = radio.dj?.nickname {
-                        Label(dj, systemImage: "person.fill")
+                        HStack(spacing: 4) {
+                            AsideIcon(icon: .profile, size: 13, color: .asideTextSecondary)
+                            Text(dj)
+                        }
                             .font(.system(size: 13, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
                     if let count = radio.programCount {
-                        Label("\(count)期", systemImage: "mic.fill")
+                        HStack(spacing: 4) {
+                            AsideIcon(icon: .podcast, size: 13, color: .asideTextSecondary)
+                            Text("\(count)期")
+                        }
                             .font(.system(size: 13, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }

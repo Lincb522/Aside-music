@@ -370,9 +370,15 @@ class LibraryViewModel: ObservableObject {
 
 struct LibraryView: View {
     @StateObject private var viewModel = LibraryViewModel()
-    @Namespace private var animation
 
     typealias Theme = PlaylistDetailView.Theme
+    
+    /// 当前标签索引（用于滑动手势）
+    @State private var tabIndex: Int = 0
+    /// 拖拽偏移量
+    @State private var dragOffset: CGFloat = 0
+
+    private let allTabs = LibraryViewModel.LibraryTab.allCases
 
     var body: some View {
         NavigationStack(path: $viewModel.navigationPath) {
@@ -383,21 +389,44 @@ struct LibraryView: View {
                 VStack(spacing: 0) {
                     headerView
 
-                    TabView(selection: $viewModel.currentTab) {
-                        MyPlaylistsContainerView(viewModel: viewModel)
-                            .tag(LibraryViewModel.LibraryTab.my)
-
-                        PlaylistSquareView(viewModel: viewModel)
-                            .tag(LibraryViewModel.LibraryTab.square)
-
-                        ArtistLibraryView(viewModel: viewModel)
-                            .tag(LibraryViewModel.LibraryTab.artists)
-
-                        ChartsLibraryView(viewModel: viewModel)
-                            .tag(LibraryViewModel.LibraryTab.charts)
+                    // 用 GeometryReader + offset 替代 page-style TabView
+                    GeometryReader { geo in
+                        let width = geo.size.width
+                        HStack(spacing: 0) {
+                            MyPlaylistsContainerView(viewModel: viewModel)
+                                .frame(width: width)
+                            PlaylistSquareView(viewModel: viewModel)
+                                .frame(width: width)
+                            ArtistLibraryView(viewModel: viewModel)
+                                .frame(width: width)
+                            ChartsLibraryView(viewModel: viewModel)
+                                .frame(width: width)
+                        }
+                        .offset(x: -CGFloat(tabIndex) * width + dragOffset)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: tabIndex)
+                        .gesture(
+                            DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                                .onChanged { value in
+                                    // 只响应水平方向为主的拖拽
+                                    if abs(value.translation.width) > abs(value.translation.height) {
+                                        dragOffset = value.translation.width
+                                    }
+                                }
+                                .onEnded { value in
+                                    let threshold: CGFloat = width * 0.2
+                                    var newIndex = tabIndex
+                                    if value.translation.width < -threshold || value.predictedEndTranslation.width < -width * 0.4 {
+                                        newIndex = min(tabIndex + 1, allTabs.count - 1)
+                                    } else if value.translation.width > threshold || value.predictedEndTranslation.width > width * 0.4 {
+                                        newIndex = max(tabIndex - 1, 0)
+                                    }
+                                    dragOffset = 0
+                                    tabIndex = newIndex
+                                    viewModel.currentTab = allTabs[newIndex]
+                                }
+                        )
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .background(Color.clear)
+                    .clipped()
                 }
                 .ignoresSafeArea(edges: .bottom)
             }
@@ -416,11 +445,13 @@ struct LibraryView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
-                withAnimation {
-                    viewModel.currentTab = .square
-                }
+                switchToTab(.square)
             }
             .onChange(of: viewModel.currentTab) { _, newTab in
+                // 外部改变 currentTab 时同步 tabIndex
+                if let idx = allTabs.firstIndex(of: newTab), idx != tabIndex {
+                    tabIndex = idx
+                }
                 if newTab == .square {
                     viewModel.fetchSquareData()
                 } else if newTab == .artists {
@@ -430,6 +461,12 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+    
+    private func switchToTab(_ tab: LibraryViewModel.LibraryTab) {
+        guard let idx = allTabs.firstIndex(of: tab) else { return }
+        tabIndex = idx
+        viewModel.currentTab = tab
     }
 
     private var headerView: some View {
@@ -443,32 +480,26 @@ struct LibraryView: View {
             .padding(.horizontal, 24)
             .padding(.top, DeviceLayout.headerTopPadding)
 
+            // 标签栏 — 用下划线位置偏移替代 matchedGeometryEffect
             HStack(spacing: 0) {
-                ForEach(LibraryViewModel.LibraryTab.allCases, id: \.self) { tab in
+                ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
                     Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            viewModel.currentTab = tab
-                        }
+                        switchToTab(tab)
                     }) {
                         VStack(spacing: 6) {
                             Text(tab.localizedKey)
-                                .font(.system(size: 16, weight: viewModel.currentTab == tab ? .bold : .medium, design: .rounded))
-                                .foregroundColor(viewModel.currentTab == tab ? Theme.text : Theme.secondaryText)
+                                .font(.system(size: 16, weight: tabIndex == index ? .bold : .medium, design: .rounded))
+                                .foregroundColor(tabIndex == index ? Theme.text : Theme.secondaryText)
+                                .animation(.none, value: tabIndex)
 
-                            if viewModel.currentTab == tab {
-                                Capsule()
-                                    .fill(Theme.text)
-                                    .frame(height: 3)
-                                    .matchedGeometryEffect(id: "TabIndicator", in: animation)
-                            } else {
-                                Capsule()
-                                    .fill(Color.clear)
-                                    .frame(height: 3)
-                            }
+                            Capsule()
+                                .fill(tabIndex == index ? Theme.text : Color.clear)
+                                .frame(height: 3)
                         }
                         .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 16)
@@ -487,7 +518,6 @@ struct LibraryView: View {
 struct MyPlaylistsContainerView: View {
     @ObservedObject var viewModel: LibraryViewModel
     @State private var selectedSubTab: Int = 0
-    @Namespace private var subTabAnimation
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
@@ -500,12 +530,15 @@ struct MyPlaylistsContainerView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
 
-            if selectedSubTab == 0 {
+            // 用 ZStack + opacity 替代 transition，避免真机上文本消失
+            ZStack {
                 NetEasePlaylistsView(viewModel: viewModel)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            } else {
+                    .opacity(selectedSubTab == 0 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 0)
+                
                 MyPodcastsView()
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .opacity(selectedSubTab == 1 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 1)
             }
         }
         .background(Color.clear)
@@ -513,7 +546,7 @@ struct MyPlaylistsContainerView: View {
 
     private func subTabButton(title: String, index: Int) -> some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 selectedSubTab = index
             }
         }) {
@@ -521,21 +554,16 @@ struct MyPlaylistsContainerView: View {
                 Text(title)
                     .font(.system(size: 15, weight: selectedSubTab == index ? .bold : .medium, design: .rounded))
                     .foregroundColor(selectedSubTab == index ? Theme.text : Theme.secondaryText)
+                    .animation(.none, value: selectedSubTab)
 
-                if selectedSubTab == index {
-                    Capsule()
-                        .fill(Theme.text)
-                        .frame(width: 20, height: 3)
-                        .matchedGeometryEffect(id: "SubTabInd", in: subTabAnimation)
-                } else {
-                    Capsule()
-                        .fill(Color.clear)
-                        .frame(width: 20, height: 3)
-                }
+                Capsule()
+                    .fill(selectedSubTab == index ? Theme.text : Color.clear)
+                    .frame(width: 20, height: 3)
             }
             .padding(.trailing, 24)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(AsideBouncingButtonStyle())
+        .buttonStyle(.plain)
     }
 }
 

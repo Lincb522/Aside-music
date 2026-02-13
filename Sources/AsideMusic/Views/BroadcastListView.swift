@@ -19,7 +19,7 @@ struct BroadcastListView: View {
 
                 if viewModel.isLoading && viewModel.channels.isEmpty {
                     Spacer()
-                    AsideLoadingView(text: "加载中...")
+                    AsideLoadingView(text: "LOADING")
                     Spacer()
                 } else if viewModel.channels.isEmpty {
                     Spacer()

@@ -237,12 +237,18 @@ struct ArtistBioSheet: View {
                     
                     HStack(spacing: 12) {
                         if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
-                            Label("\(albumSize) 专辑", systemImage: "square.stack")
+                            HStack(spacing: 4) {
+                                AsideIcon(icon: .album, size: 12, color: .asideTextSecondary)
+                                Text("\(albumSize) 专辑")
+                            }
                                 .font(.rounded(size: 12))
                                 .foregroundColor(.asideTextSecondary)
                         }
                         if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
-                            Label("\(musicSize) 歌曲", systemImage: "music.note")
+                            HStack(spacing: 4) {
+                                AsideIcon(icon: .musicNote, size: 12, color: .asideTextSecondary)
+                                Text("\(musicSize) 歌曲")
+                            }
                                 .font(.rounded(size: 12))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -269,7 +275,7 @@ struct ArtistBioSheet: View {
             // 内容区域
             if viewModel.isLoadingDesc {
                 Spacer()
-                AsideLoadingView(text: "加载中...")
+                AsideLoadingView(text: "LOADING")
                 Spacer()
             } else if let desc = viewModel.descResult {
                 ScrollView(showsIndicators: false) {

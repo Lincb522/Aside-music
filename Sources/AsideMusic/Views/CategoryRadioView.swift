@@ -17,7 +17,7 @@ struct CategoryRadioView: View {
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.radios.isEmpty {
-                AsideLoadingView(text: "加载中...")
+                AsideLoadingView(text: "LOADING")
             } else if viewModel.radios.isEmpty {
                 // 空状态
                 VStack(spacing: 12) {

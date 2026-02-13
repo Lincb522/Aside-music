@@ -22,7 +22,7 @@ struct PodcastSearchView: View {
                     hotRadiosSection
                 } else if viewModel.isSearching && viewModel.results.isEmpty {
                     Spacer()
-                    AsideLoadingView(text: "搜索中...")
+                    AsideLoadingView(text: "SEARCHING")
                     Spacer()
                 } else if !viewModel.searchText.isEmpty && viewModel.results.isEmpty && !viewModel.isSearching {
                     Spacer()

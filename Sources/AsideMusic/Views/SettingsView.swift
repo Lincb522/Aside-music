@@ -178,25 +178,69 @@ struct SettingsView: View {
                     subtitle: "播放歌曲时自动下载保存到本地",
                     isOn: $settings.listenAndSave
                 )
+
+                Divider()
+                    .padding(.leading, 56)
+
+                NavigationLink(destination: EQSettingsView()) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.asideIconBackground)
+                                .frame(width: 32, height: 32)
+                            AsideIcon(icon: .waveform, size: 16, color: .asideIconForeground)
+                        }
+                        Text("均衡器")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                        Spacer()
+                        Text(EQManager.shared.isEnabled ? (EQManager.shared.currentPreset?.name ?? "自定义") : "关闭")
+                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .padding(.leading, 56)
+
+                SettingsToggleRow(
+                    icon: .soundQuality,
+                    title: "响度标准化",
+                    subtitle: "自动统一不同歌曲的音量 (EBU R128)",
+                    isOn: Binding(
+                        get: { PlayerManager.shared.audioEffects.isLoudnormEnabled },
+                        set: { PlayerManager.shared.audioEffects.setLoudnormEnabled($0) }
+                    )
+                )
             }
         }
         .sheet(isPresented: $showPlaybackQualitySheet) {
             SoundQualitySheet(
                 currentQuality: SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard,
-                onSelect: { quality in
+                currentKugouQuality: .high,
+                isUnblocked: false,
+                onSelectNetease: { quality in
                     settings.defaultPlaybackQuality = quality.rawValue
                     showPlaybackQualitySheet = false
-                }
+                },
+                onSelectKugou: { _ in }
             )
             .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showDownloadQualitySheet) {
             SoundQualitySheet(
                 currentQuality: SoundQuality(rawValue: settings.defaultDownloadQuality) ?? .standard,
-                onSelect: { quality in
+                currentKugouQuality: .high,
+                isUnblocked: false,
+                onSelectNetease: { quality in
                     settings.defaultDownloadQuality = quality.rawValue
                     showDownloadQualitySheet = false
-                }
+                },
+                onSelectKugou: { _ in }
             )
             .presentationDetents([.medium, .large])
         }
@@ -523,10 +567,10 @@ struct SettingsThemeRow: View {
     let title: String
     @Binding var selection: String
 
-    private let options: [(key: String, label: String, systemImage: String)] = [
-        ("system", "自动", "circle.lefthalf.filled"),
-        ("light", "浅色", "sun.max.fill"),
-        ("dark", "深色", "moon.fill")
+    private let options: [(key: String, label: String, iconType: AsideIcon.IconType)] = [
+        ("system", "自动", .halfCircle),
+        ("light", "浅色", .sun),
+        ("dark", "深色", .moon)
     ]
 
     var body: some View {
@@ -555,8 +599,7 @@ struct SettingsThemeRow: View {
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: option.systemImage)
-                                .font(.system(size: 12, weight: .medium))
+                            AsideIcon(icon: option.iconType, size: 12, color: selection == option.key ? .asideIconForeground : .asideTextSecondary)
                             Text(option.label)
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                         }

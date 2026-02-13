@@ -26,7 +26,7 @@ struct TopRadioListView: View {
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.radios.isEmpty {
-                AsideLoadingView(text: "加载中...")
+                AsideLoadingView(text: "LOADING")
             } else if viewModel.radios.isEmpty && !viewModel.isLoading {
                 VStack(spacing: 12) {
                     AsideIcon(icon: .micSlash, size: 40, color: .asideTextSecondary)

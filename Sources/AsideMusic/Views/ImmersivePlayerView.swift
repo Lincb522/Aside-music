@@ -345,9 +345,7 @@ struct ImmersivePlayerView: View {
         VStack {
             HStack {
                 Button(action: { dismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white.opacity(0.8))
+                    AsideIcon(icon: .close, size: 16, color: .white.opacity(0.8))
                         .frame(width: 36, height: 36)
                         .background(Color.white.opacity(0.1))
                         .clipShape(Circle())
@@ -415,24 +413,18 @@ struct ImmersivePlayerView: View {
                 
                 HStack(spacing: 48) {
                     Button(action: { player.previous() }) {
-                        Image(systemName: "backward.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white.opacity(0.8))
+                        AsideIcon(icon: .previous, size: 22, color: .white.opacity(0.8))
                     }
                     
                     Button(action: { player.togglePlayPause() }) {
-                        Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.white)
+                        AsideIcon(icon: player.isPlaying ? .pause : .play, size: 28, color: .white)
                             .frame(width: 52, height: 52)
                             .background(Color.white.opacity(0.12))
                             .clipShape(Circle())
                     }
                     
                     Button(action: { player.next() }) {
-                        Image(systemName: "forward.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white.opacity(0.8))
+                        AsideIcon(icon: .next, size: 22, color: .white.opacity(0.8))
                     }
                 }
             }

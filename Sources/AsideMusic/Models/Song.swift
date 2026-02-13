@@ -260,6 +260,7 @@ struct Banner: Identifiable, Codable {
     let targetType: Int
     let titleColor: String?
     let typeTitle: String?
+    let url: String?
     
     var imageUrl: URL? { URL(string: pic) }
 }

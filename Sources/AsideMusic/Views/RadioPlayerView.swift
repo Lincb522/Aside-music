@@ -34,7 +34,7 @@ struct RadioPlayerView: View {
 
                     Spacer()
 
-                    AsideLoadingView(text: "加载电台中...")
+                    AsideLoadingView(text: "TUNING RADIO")
 
                     Spacer()
                 }
@@ -253,12 +253,18 @@ struct RadioPlayerView: View {
                 // 时长和播放量
                 HStack(spacing: 12) {
                     if !program.durationText.isEmpty {
-                        Label(program.durationText, systemImage: "clock")
+                        HStack(spacing: 4) {
+                            AsideIcon(icon: .clock, size: 12, color: .asideTextSecondary)
+                            Text(program.durationText)
+                        }
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
                     if let listeners = program.listenerCount, listeners > 0 {
-                        Label(formatCount(listeners), systemImage: "headphones")
+                        HStack(spacing: 4) {
+                            AsideIcon(icon: .headphones, size: 12, color: .asideTextSecondary)
+                            Text(formatCount(listeners))
+                        }
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }

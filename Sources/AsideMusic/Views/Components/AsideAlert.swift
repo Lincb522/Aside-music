@@ -63,7 +63,7 @@ struct AsideAlertView: View {
                     }) {
                         Text(primaryButtonTitle)
                             .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .foregroundColor(.asideIconForeground)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(Color.asideIconBackground)

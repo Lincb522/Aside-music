@@ -23,6 +23,11 @@ extension Color {
         Color(light: Color(hex: "E8E8ED"), dark: Color(hex: "000000"))
     }
     
+    /// 主强调色（与 asideIconBackground 一致，用于 EQ 等交互组件）
+    static var asideAccent: Color {
+        Color(light: .black, dark: .white)
+    }
+    
     static let asideAccentYellow = Color(hex: "FFCC00")
     static let asideAccentBlue = Color(hex: "007AFF")
     static let asideAccentGreen = Color(hex: "34C759")

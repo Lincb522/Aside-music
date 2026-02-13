@@ -20,7 +20,7 @@ struct RadioCategoryBrowseView: View {
                 // 内容区
                 if viewModel.isLoading && viewModel.radios.isEmpty {
                     Spacer()
-                    AsideLoadingView(text: "加载中...")
+                    AsideLoadingView(text: "LOADING")
                     Spacer()
                 } else if viewModel.radios.isEmpty && !viewModel.isLoading {
                     Spacer()

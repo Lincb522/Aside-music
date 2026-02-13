@@ -44,7 +44,7 @@ struct PodcastView: View {
                 AsideBackground()
 
                 if viewModel.isLoading && viewModel.personalizedRadios.isEmpty {
-                    AsideLoadingView(text: "加载中...")
+                    AsideLoadingView(text: "LOADING")
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 28) {

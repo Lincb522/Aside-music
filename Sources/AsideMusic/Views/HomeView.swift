@@ -1,12 +1,18 @@
 import SwiftUI
 import Combine
 
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
 // MARK: - Home View
 struct HomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @State private var searchText = ""
     @State private var showPersonalFM = false
     @State private var navigationPath = NavigationPath()
+    @State private var bannerCancellables = Set<AnyCancellable>()
+    @State private var bannerWebURL: URL?
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -15,6 +21,7 @@ struct HomeView: View {
         case dailyRecommend
         case playlist(Playlist)
         case artist(Int)
+        case album(Int)
         case mvDiscover
 
         func hash(into hasher: inout Hasher) {
@@ -23,6 +30,7 @@ struct HomeView: View {
             case .dailyRecommend: hasher.combine("daily")
             case .playlist(let p): hasher.combine("p_\(p.id)")
             case .artist(let id): hasher.combine("a_\(id)")
+            case .album(let id): hasher.combine("al_\(id)")
             case .mvDiscover: hasher.combine("mv")
             }
         }
@@ -33,6 +41,7 @@ struct HomeView: View {
             case (.dailyRecommend, .dailyRecommend): return true
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
             case (.artist(let l), .artist(let r)): return l == r
+            case (.album(let l), .album(let r)): return l == r
             case (.mvDiscover, .mvDiscover): return true
             default: return false
             }
@@ -94,12 +103,17 @@ struct HomeView: View {
                     PlaylistDetailView(playlist: playlist)
                 case .artist(let id):
                     ArtistDetailView(artistId: id)
+                case .album(let id):
+                    AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
                 case .mvDiscover:
                     MVDiscoverView()
                 }
             }
             .fullScreenCover(isPresented: $showPersonalFM) {
                 PersonalFMView()
+            }
+            .fullScreenCover(item: $bannerWebURL) { url in
+                AsideWebView(url: url, title: nil)
             }
         }
     }
@@ -199,18 +213,51 @@ struct HomeView: View {
     private var bannerSection: some View {
         TabView {
             ForEach(viewModel.banners) { banner in
-                CachedAsyncImage(url: banner.imageUrl) {
-                    Color.gray.opacity(0.1)
+                Button(action: { handleBannerTap(banner) }) {
+                    CachedAsyncImage(url: banner.imageUrl) {
+                        Color.gray.opacity(0.1)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(height: 130)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 24)
+                    .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 5)
                 }
-                .aspectRatio(contentMode: .fill)
-                .frame(height: 130)
-                .cornerRadius(16)
-                .padding(.horizontal, 24)
-                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 5)
+                .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .automatic))
         .frame(height: 150)
+    }
+    
+    private func handleBannerTap(_ banner: Banner) {
+        switch banner.targetType {
+        case 1:
+            // 单曲：直接播放
+            APIService.shared.fetchSongDetails(ids: [banner.targetId])
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { _ in }, receiveValue: { songs in
+                    if let song = songs.first {
+                        PlayerManager.shared.playSingle(song: song)
+                    }
+                })
+                .store(in: &bannerCancellables)
+        case 10:
+            // 专辑
+            navigationPath.append(HomeDestination.album(banner.targetId))
+        case 1000:
+            // 歌单
+            let playlist = Playlist(id: banner.targetId, name: banner.typeTitle ?? "歌单", coverImgUrl: banner.pic, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil)
+            navigationPath.append(HomeDestination.playlist(playlist))
+        case 1004:
+            // MV
+            navigationPath.append(HomeDestination.mvDiscover)
+        default:
+            // 外链或其他：app 内 WebView 打开
+            if let urlStr = banner.url, let url = URL(string: urlStr) {
+                bannerWebURL = url
+            }
+        }
     }
 
     private var heroSection: some View {

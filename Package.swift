@@ -19,7 +19,7 @@ let package = Package(
         // NeteaseCloudMusicAPI - 网易云音乐 API 封装库（362+ 接口）
         .package(url: "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git", from: "1.0.0"),
         // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
-        .package(url: "https://github.com/Lincb522/FFmpegSwiftSDK.git", from: "0.9.1"),
+        .package(url: "https://github.com/Lincb522/FFmpegSwiftSDK.git", from: "0.9.5"),
     ],
     targets: [
         .target(

@@ -53,6 +53,11 @@ class PlayerManager: ObservableObject {
         streamPlayer.equalizer
     }
     
+    // MARK: - 音频效果（FFmpeg avfilter）
+    var audioEffects: AudioEffects {
+        streamPlayer.audioEffects
+    }
+    
     // MARK: - 播放源类型
     enum PlaySource: Codable, Equatable {
         case normal
@@ -90,6 +95,22 @@ class PlayerManager: ObservableObject {
             UserDefaults.standard.set(soundQuality.rawValue, forKey: "aside_sound_quality")
         }
     }
+    
+    /// 酷狗音质（解灰歌曲独立体系）
+    @Published var kugouQuality: KugouQuality = {
+        if let rawValue = UserDefaults.standard.string(forKey: "aside_kugou_quality"),
+           let quality = KugouQuality(rawValue: rawValue) {
+            return quality
+        }
+        return .high
+    }() {
+        didSet {
+            UserDefaults.standard.set(kugouQuality.rawValue, forKey: "aside_kugou_quality")
+        }
+    }
+    
+    /// 当前播放的歌是否来自解灰源
+    @Published private(set) var isCurrentSongUnblocked: Bool = false
     
     // MARK: - Queue System
     @Published private(set) var context: [Song] = []
@@ -217,10 +238,33 @@ class PlayerManager: ObservableObject {
     private func startTimeUpdateTimer() {
         timeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self = self, self.isPlaying, !self.isSeeking else { return }
+                guard let self = self, self.isPlaying, !self.isLoading else { return }
+                
+                if self.isSeeking {
+                    // seek 中：检查 streamPlayer 是否已到达目标位置
+                    if let target = self.seekTargetTime {
+                        let sdkTime = self.streamPlayer.currentTime
+                        if sdkTime.isFinite && !sdkTime.isNaN && sdkTime >= target - 1.0 {
+                            // SDK 已到达目标附近，解除 seeking
+                            self.isSeeking = false
+                            self.seekTargetTime = nil
+                            self.currentTime = sdkTime
+                        }
+                        // 否则保持 currentTime 不变（停在用户拖到的位置）
+                    }
+                    return
+                }
+                
                 let time = self.streamPlayer.currentTime
                 if time.isFinite && !time.isNaN {
-                    self.currentTime = time
+                    // 防止刚开始播放时进度条跳前：
+                    // 如果当前显示接近 0 但 SDK 报告了一个较大的值，忽略它
+                    let jump = time - self.currentTime
+                    if self.currentTime < 1.0 && jump > 2.0 {
+                        // 刚开始播放，SDK 的时间不可信（解码缓冲超前），跳过
+                    } else {
+                        self.currentTime = time
+                    }
                 }
                 self.updateNowPlayingTime()
             }
@@ -484,7 +528,8 @@ class PlayerManager: ObservableObject {
             Task { @MainActor in
                 APIService.shared.fetchSongUrl(
                     id: current.id,
-                    level: quality.rawValue
+                    level: quality.rawValue,
+                    kugouQuality: self.kugouQuality.rawValue
                 )
                     .receive(on: DispatchQueue.main)
                     .sink(receiveCompletion: { completion in
@@ -500,6 +545,7 @@ class PlayerManager: ObservableObject {
                     }, receiveValue: { [weak self] result in
                         guard let self = self, let url = URL(string: result.url) else { return }
                         self.soundQuality = quality
+                        self.isCurrentSongUnblocked = result.isUnblocked
                         self.streamInfo = nil
                         // 记录这是音质切换（不是切歌），seek 位置
                         self.pendingQualitySwitchSeek = time
@@ -513,6 +559,45 @@ class PlayerManager: ObservableObject {
             }
         } else {
             soundQuality = quality
+        }
+    }
+    
+    /// 切换酷狗音质（解灰歌曲专用）
+    func switchKugouQuality(_ quality: KugouQuality) {
+        guard kugouQuality != quality else { return }
+        
+        if let current = currentSong, isCurrentSongUnblocked {
+            let time = currentTime
+            
+            Task { @MainActor in
+                APIService.shared.fetchSongUrl(
+                    id: current.id,
+                    level: self.soundQuality.rawValue,
+                    kugouQuality: quality.rawValue
+                )
+                    .receive(on: DispatchQueue.main)
+                    .sink(receiveCompletion: { completion in
+                        if case .failure(let error) = completion {
+                            AppLogger.error("切换酷狗音质失败: \(error)")
+                            AlertManager.shared.show(
+                                title: "切换失败",
+                                message: "无法获取该音质的音频，请稍后重试",
+                                primaryButtonTitle: "确定",
+                                primaryAction: {}
+                            )
+                        }
+                    }, receiveValue: { [weak self] result in
+                        guard let self = self, let url = URL(string: result.url) else { return }
+                        self.kugouQuality = quality
+                        self.streamInfo = nil
+                        self.pendingQualitySwitchSeek = time
+                        self.streamPlayer.prepareNext(url: url.absoluteString)
+                        self.pollAndSwitch(seekTo: time, attempts: 0)
+                    })
+                    .store(in: &self.cancellables)
+            }
+        } else {
+            kugouQuality = quality
         }
     }
     
@@ -552,9 +637,12 @@ class PlayerManager: ObservableObject {
     private var seekDebounceWorkItem: DispatchWorkItem?
     /// seek 期间为 true，阻止定时器用旧的 streamPlayer.currentTime 覆盖进度条
     fileprivate var isSeeking: Bool = false
+    /// seek 目标时间，用于定时器判断 streamPlayer 是否已到达目标
+    private var seekTargetTime: Double? = nil
     
     func seek(to time: Double) {
         isSeeking = true
+        seekTargetTime = time
         currentTime = time
         updateNowPlayingTime()
         
@@ -562,10 +650,6 @@ class PlayerManager: ObservableObject {
         seekDebounceWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.streamPlayer.seek(to: time)
-            // 延迟解除 seeking 状态，等 demuxer 真正 seek 完成并产生新的 PTS
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self?.isSeeking = false
-            }
         }
         seekDebounceWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
@@ -684,7 +768,8 @@ class PlayerManager: ObservableObject {
         Task { @MainActor in
             APIService.shared.fetchSongUrl(
                 id: song.id,
-                level: self.soundQuality.rawValue
+                level: self.soundQuality.rawValue,
+                kugouQuality: self.kugouQuality.rawValue
             )
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
@@ -705,9 +790,13 @@ class PlayerManager: ObservableObject {
         playbackSessionId += 1
         isLoading = true
         currentSong = song
+        isCurrentSongUnblocked = false
         streamInfo = nil
         addToHistory(song: song)
         saveState()
+        
+        // 上报听歌记录到网易云（异步，不阻塞播放）
+        scrobbleToCloud(song: song)
 
         // 优先使用本地已下载文件
         if let localURL = DownloadManager.shared.localFileURL(songId: song.id) {
@@ -721,7 +810,8 @@ class PlayerManager: ObservableObject {
         Task { @MainActor in
             APIService.shared.fetchSongUrl(
                 id: song.id,
-                level: self.soundQuality.rawValue
+                level: self.soundQuality.rawValue,
+                kugouQuality: self.kugouQuality.rawValue
             )
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completion in
@@ -761,6 +851,7 @@ class PlayerManager: ObservableObject {
                     guard let self = self, let url = URL(string: result.url) else { return }
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
+                    self.isCurrentSongUnblocked = result.isUnblocked
                     
                     // 边听边存
                     if SettingsManager.shared.listenAndSave,
@@ -892,6 +983,25 @@ class PlayerManager: ObservableObject {
         }
     }
     
+    /// 上报听歌记录到网易云服务端（最近播放、累计听歌数等）
+    private func scrobbleToCloud(song: Song) {
+        guard isAppLoggedIn else { return }
+        APIService.shared.scrobble(id: song.id, sourceid: 0, time: 0)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    AppLogger.warning("听歌打卡失败: \(error.localizedDescription)")
+                }
+            }, receiveValue: { _ in
+                AppLogger.info("听歌打卡成功: \(song.name)")
+            })
+            .store(in: &self.cancellables)
+    }
+    
+    private var isAppLoggedIn: Bool {
+        UserDefaults.standard.bool(forKey: "isLoggedIn")
+    }
+    
     // MARK: - Persistence
     
     struct PlayerState: Codable {
@@ -900,19 +1010,34 @@ class PlayerManager: ObservableObject {
         let mode: PlayMode
         let history: [Song]
         let playSource: PlaySource?
+        // v2: 完整播放队列持久化
+        let context: [Song]?
+        let contextIndex: Int?
+        let shuffledContext: [Song]?
     }
+    
+    /// 持久化时的最大 context 大小（防止序列化过大）
+    private let maxPersistContextSize = 200
     
     private func saveState() {
         saveStateWorkItem?.cancel()
         
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
+            // 截断 context 以防过大
+            let trimmedContext = Array(self.context.prefix(self.maxPersistContextSize))
+            let trimmedShuffled = Array(self.shuffledContext.prefix(self.maxPersistContextSize))
+            let safeIndex = min(self.contextIndex, trimmedContext.count - 1)
+            
             let state = PlayerState(
                 currentSong: self.currentSong,
                 userQueue: self.userQueue,
                 mode: self.mode,
                 history: self.history,
-                playSource: self.playSource
+                playSource: self.playSource,
+                context: trimmedContext,
+                contextIndex: safeIndex,
+                shuffledContext: trimmedShuffled
             )
             OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
         }
@@ -923,12 +1048,19 @@ class PlayerManager: ObservableObject {
     
     func saveStateImmediately() {
         saveStateWorkItem?.cancel()
+        let trimmedContext = Array(context.prefix(maxPersistContextSize))
+        let trimmedShuffled = Array(shuffledContext.prefix(maxPersistContextSize))
+        let safeIndex = min(contextIndex, trimmedContext.count - 1)
+        
         let state = PlayerState(
             currentSong: currentSong,
             userQueue: userQueue,
             mode: mode,
             history: history,
-            playSource: playSource
+            playSource: playSource,
+            context: trimmedContext,
+            contextIndex: safeIndex,
+            shuffledContext: trimmedShuffled
         )
         OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
     }
@@ -942,8 +1074,19 @@ class PlayerManager: ObservableObject {
             
             if let song = state.currentSong {
                 self.currentSong = song
-                self.context = [song]
-                self.contextIndex = 0
+                
+                // 恢复完整播放队列（v2）
+                if let savedContext = state.context, !savedContext.isEmpty {
+                    self.context = savedContext
+                    self.contextIndex = state.contextIndex ?? 0
+                    if let savedShuffled = state.shuffledContext, !savedShuffled.isEmpty {
+                        self.shuffledContext = savedShuffled
+                    }
+                } else {
+                    // 兼容旧版：只有 currentSong，没有完整 context
+                    self.context = [song]
+                    self.contextIndex = 0
+                }
             }
             return
         }
