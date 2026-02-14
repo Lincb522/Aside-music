@@ -131,7 +131,11 @@ struct LoginView: View {
         VStack(spacing: 24) {
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.asideCardBackground)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color.asideGlassOverlay)
+                    )
                     .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
                 
                 if let qrImage = viewModel.qrCodeImage {

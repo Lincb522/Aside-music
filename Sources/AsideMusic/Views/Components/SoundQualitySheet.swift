@@ -81,11 +81,7 @@ struct SoundQualitySheet: View {
                             }
                         }
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.asideCardBackground)
-                            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    )
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .padding(.horizontal, 20)
                 }

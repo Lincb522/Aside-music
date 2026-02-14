@@ -20,6 +20,8 @@ struct CommentView: View {
         self.coverUrl = coverUrl
     }
     
+    @State private var showEmojiPicker = false
+    
     var body: some View {
         ZStack {
             AsideBackground()
@@ -32,11 +34,40 @@ struct CommentView: View {
                 // 评论内容
                 commentContent
                 
+                // 表情选择器
+                if showEmojiPicker {
+                    NeteaseEmojiPicker { emoji in
+                        vm.commentText += emoji
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                
                 // 底部输入栏
                 inputBar
             }
+            
+            // 错误提示 Toast
+            if let error = vm.errorMessage {
+                VStack {
+                    Spacer()
+                    Text(error)
+                        .font(.rounded(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.red.opacity(0.9)))
+                        .padding(.bottom, 100)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        withAnimation { vm.errorMessage = nil }
+                    }
+                }
+            }
         }
         .onAppear { vm.loadComments() }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showEmojiPicker)
     }
     
     // MARK: - 顶部导航栏
@@ -207,11 +238,7 @@ struct CommentView: View {
                 }
             }
             .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
@@ -254,11 +281,7 @@ struct CommentView: View {
                 }
             }
             .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
@@ -319,11 +342,7 @@ struct CommentView: View {
             }
         }
         .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideCardBackground)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
-        )
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shimmer()
     }
@@ -385,7 +404,25 @@ struct CommentView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
+                // 表情按钮
+                Button {
+                    withAnimation { showEmojiPicker.toggle() }
+                    isInputFocused = false
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(showEmojiPicker ? Color.asideIconBackground : Color.asideTextPrimary.opacity(0.06))
+                            .frame(width: 36, height: 36)
+                        AsideIcon(
+                            icon: .emoji,
+                            size: 18,
+                            color: showEmojiPicker ? .asideIconForeground : .asideTextSecondary
+                        )
+                    }
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+                
                 // 输入框
                 HStack(spacing: 8) {
                     TextField(
@@ -394,6 +431,11 @@ struct CommentView: View {
                     )
                     .font(.rounded(size: 15))
                     .focused($isInputFocused)
+                    .onTapGesture {
+                        if showEmojiPicker {
+                            withAnimation { showEmojiPicker = false }
+                        }
+                    }
                     
                     if !vm.commentText.isEmpty {
                         Button {
@@ -418,6 +460,7 @@ struct CommentView: View {
                 Button {
                     vm.sendComment()
                     isInputFocused = false
+                    withAnimation { showEmojiPicker = false }
                 } label: {
                     ZStack {
                         Circle()

@@ -12,8 +12,11 @@ import FFmpegSwiftSDK
 struct EQSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var eqManager = EQManager.shared
+    @StateObject private var labManager = AudioLabManager.shared
     @State private var showSaveSheet = false
     @State private var customPresetName = ""
+    @State private var showSmartAnalyzingToast = false
+    @State private var showSmartAppliedToast = false
     
     // 音效旋钮值（0~1 范围）
     @State private var bassValue: CGFloat = 0.5
@@ -47,6 +50,11 @@ struct EQSettingsView: View {
                         toggleCard
 
                         if eqManager.isEnabled {
+                            // 智能分析按钮（仅在智能音效开启时显示）
+                            if labManager.isSmartEffectsEnabled {
+                                smartAnalyzeButton
+                            }
+                            
                             // 音效旋钮区
                             knobSection
 
@@ -73,12 +81,52 @@ struct EQSettingsView: View {
                     .padding(.horizontal, 20)
                 }
             }
+            
+            // Toast 提示
+            if showSmartAnalyzingToast || showSmartAppliedToast {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        if showSmartAnalyzingToast {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                            Text("正在分析...")
+                                .font(.rounded(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                        } else {
+                            AsideIcon(icon: .checkmark, size: 16, color: .white)
+                            Text("已应用智能音效")
+                                .font(.rounded(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(Color.asideAccent)
+                    .clipShape(Capsule())
+                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+                    .padding(.bottom, 100)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(100)
+            }
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showSaveSheet) {
             savePresetSheet
         }
         .onAppear { syncKnobsFromGains() }
+        .onChange(of: eqManager.isEnabled) { enabled in
+            // 当均衡器关闭时，同步 UI 旋钮到重置状态
+            if !enabled {
+                syncKnobsFromGains()
+            }
+        }
+        .onChange(of: eqManager.currentPreset?.id) { _ in
+            // 当预设变化时，同步旋钮（环绕预设会自动设置环绕参数）
+            syncKnobsFromGains()
+        }
     }
 
     // MARK: - 顶部导航
@@ -133,10 +181,86 @@ struct EQSettingsView: View {
                 .tint(.asideAccent)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideCardBackground)
-        )
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+    }
+    
+    // MARK: - 智能分析按钮
+    
+    private var smartAnalyzeButton: some View {
+        Button(action: {
+            // 触觉反馈
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+            
+            // 显示分析中提示
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                showSmartAnalyzingToast = true
+            }
+            
+            // 执行分析
+            Task {
+                await labManager.forceReanalyze()
+                
+                // 隐藏分析中提示，显示完成提示
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showSmartAnalyzingToast = false
+                    }
+                    
+                    // 同步旋钮
+                    syncKnobsFromGains()
+                    
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        showSmartAppliedToast = true
+                    }
+                    
+                    // 2秒后隐藏
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showSmartAppliedToast = false
+                        }
+                    }
+                }
+            }
+        }) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.asideAccent.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    AsideIcon(icon: .sparkle, size: 18, color: .asideAccent)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("智能分析")
+                        .font(.rounded(size: 15, weight: .semibold))
+                        .foregroundColor(.asideTextPrimary)
+                    Text("分析当前歌曲，自动优化音效")
+                        .font(.rounded(size: 12))
+                        .foregroundColor(.asideTextSecondary)
+                }
+                
+                Spacer()
+                
+                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.asideGlassOverlay)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.asideAccent.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(PlayerManager.shared.currentSong == nil)
+        .opacity(PlayerManager.shared.currentSong == nil ? 0.5 : 1)
     }
 
     // MARK: - 音效旋钮区
@@ -168,10 +292,7 @@ struct EQSettingsView: View {
             }
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideCardBackground)
-        )
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
     }
 
     private func knobItem(label: String, value: Binding<CGFloat>, onChange: @escaping (CGFloat) -> Void) -> some View {
@@ -289,10 +410,7 @@ struct EQSettingsView: View {
             }
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideCardBackground)
-        )
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
     }
 
     private var pitchDisplayText: String {
@@ -337,10 +455,7 @@ struct EQSettingsView: View {
             frequencyLabels
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideCardBackground)
-        )
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
     }
 
     // 频谱曲线填充（渐变）

@@ -103,6 +103,9 @@ struct AsideIcon: View {
         // 沉浸式播放器图标
         case immersive
         
+        // 播放器主题图标（四宫格 + 画笔）
+        case playerTheme
+        
         // 电台分类图标
         case catMusic       // 音乐
         case catLife         // 生活
@@ -129,6 +132,9 @@ struct AsideIcon: View {
         case catStory        // 故事
         case catOther        // 其他
         case catPublish      // 文学出版
+        
+        // 表情图标
+        case emoji
     }
     
     let icon: IconType
@@ -152,7 +158,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji:
             return false
         default:
             return true
@@ -292,6 +298,8 @@ struct AsideIcon: View {
         case .halfCircle:   return AnyShape(HalfCirclePath())
         case .equalizer:    return AnyShape(EqualizerPath())
         case .immersive:    return AnyShape(ImmersivePath())
+        case .playerTheme:  return AnyShape(PlayerThemePath())
+        case .emoji:        return AnyShape(EmojiPath())
         }
     }
 }
@@ -2466,6 +2474,72 @@ private struct ImmersivePath: Shape {
         
         // 轨道上的小卫星点
         path.addEllipse(in: CGRect(x: 20*s, y: 9*s, width: 2.5*s, height: 2.5*s))
+        
+        return path
+    }
+}
+
+
+// 播放器主题图标：四宫格布局 + 右下角画笔点缀，表达「主题/外观切换」
+private struct PlayerThemePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 左上方块（圆角）
+        path.addRoundedRect(
+            in: CGRect(x: 4*s, y: 4*s, width: 7*s, height: 7*s),
+            cornerSize: CGSize(width: 2*s, height: 2*s)
+        )
+        
+        // 右上方块（圆角）
+        path.addRoundedRect(
+            in: CGRect(x: 13*s, y: 4*s, width: 7*s, height: 7*s),
+            cornerSize: CGSize(width: 2*s, height: 2*s)
+        )
+        
+        // 左下方块（圆角）
+        path.addRoundedRect(
+            in: CGRect(x: 4*s, y: 13*s, width: 7*s, height: 7*s),
+            cornerSize: CGSize(width: 2*s, height: 2*s)
+        )
+        
+        // 右下：画笔/调色笔造型（斜向）
+        // 笔身
+        path.move(to: CGPoint(x: 14*s, y: 19*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 14*s))
+        // 笔尖
+        path.move(to: CGPoint(x: 19*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 20.5*s, y: 15.5*s))
+        path.addLine(to: CGPoint(x: 15.5*s, y: 20.5*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 19*s))
+        
+        return path
+    }
+}
+
+// 表情图标：笑脸
+private struct EmojiPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        let center = CGPoint(x: 12*s, y: 12*s)
+        
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        
+        // 左眼
+        path.addEllipse(in: CGRect(x: 7.5*s, y: 8.5*s, width: 2.5*s, height: 2.5*s))
+        
+        // 右眼
+        path.addEllipse(in: CGRect(x: 14*s, y: 8.5*s, width: 2.5*s, height: 2.5*s))
+        
+        // 微笑弧线
+        path.move(to: CGPoint(x: 7.5*s, y: 14.5*s))
+        path.addQuadCurve(
+            to: CGPoint(x: 16.5*s, y: 14.5*s),
+            control: CGPoint(x: 12*s, y: 19*s)
+        )
         
         return path
     }

@@ -8,19 +8,32 @@ struct DeviceLayout {
             .first?.windows.first?.safeAreaInsets.top ?? 0
     }
     
-    /// 动态计算顶部 Padding
-    /// 基于实际安全区域高度智能适配：
-    /// - 刘海屏 (safeTop ≈ 47-59): 安全区域已经足够，只需要很小的额外间距
-    /// - 非刘海屏 (safeTop ≈ 20): 需要更多间距以保持视觉平衡
-    static var headerTopPadding: CGFloat {
-        let safeTop = safeAreaTop
-        
-        // 刘海屏设备 safeAreaTop 通常 >= 47
-        // 非刘海屏设备 safeAreaTop 通常 ≈ 20 (状态栏高度)
-        if safeTop >= 47 {
-            return 8  // 刘海屏设备：只需微小间距
-        } else {
-            return 50 // 非刘海屏设备 (如 SE)：保持视觉平衡
-        }
+    /// 获取当前设备的底部安全区域高度
+    static var safeAreaBottom: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.safeAreaInsets.bottom ?? 0
     }
+    
+    /// 是否为刘海屏设备
+    static var hasNotch: Bool { safeAreaTop >= 47 }
+    
+    /// 动态计算顶部 Padding
+    static var headerTopPadding: CGFloat {
+        hasNotch ? 8 : 50
+    }
+    
+    /// 播放器底部 Padding（考虑安全区域）
+    static var playerBottomPadding: CGFloat {
+        hasNotch ? 40 : 20
+    }
+    
+    /// 播放器封面最大尺寸（屏幕宽度 - 两侧间距）
+    static var playerArtworkMaxSize: CGFloat {
+        let screenWidth = UIScreen.main.bounds.width
+        return min(screenWidth - 64, 360)
+    }
+    
+    /// 播放器水平内边距
+    static let playerHorizontalPadding: CGFloat = 32
 }

@@ -555,8 +555,9 @@ struct MVPlayerView: View {
                             .padding(.vertical, 4)
                             .background(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color.asideCardBackground)
-                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
@@ -596,8 +597,9 @@ struct MVPlayerView: View {
                             .padding(.vertical, 4)
                             .background(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color.asideCardBackground)
-                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }

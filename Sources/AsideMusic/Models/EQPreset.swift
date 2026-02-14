@@ -46,8 +46,14 @@ struct EQPreset: Identifiable, Codable, Equatable {
     let isCustom: Bool
     /// 预设类型
     let presetType: EQPresetType
+    /// 环绕强度（0~1），仅环绕类预设有效
+    let surroundLevel: Float
+    /// 混响强度（0~1），仅环绕类预设有效
+    let reverbLevel: Float
+    /// 立体声宽度（0~2），1.0 = 原始
+    let stereoWidth: Float
     
-    init(id: String, name: String, category: EQPresetCategory, description: String, gains: [Float], isCustom: Bool = false, presetType: EQPresetType = .standard10) {
+    init(id: String, name: String, category: EQPresetCategory, description: String, gains: [Float], isCustom: Bool = false, presetType: EQPresetType = .standard10, surroundLevel: Float = 0, reverbLevel: Float = 0, stereoWidth: Float = 1.0) {
         self.id = id
         self.name = name
         self.category = category
@@ -55,9 +61,12 @@ struct EQPreset: Identifiable, Codable, Equatable {
         self.presetType = presetType
         self.gains = gains.count == 10 ? gains : Array(repeating: 0, count: 10)
         self.isCustom = isCustom
+        self.surroundLevel = surroundLevel
+        self.reverbLevel = reverbLevel
+        self.stereoWidth = stereoWidth
     }
     
-    /// 应用预设到均衡器
+    /// 应用预设到均衡器和音效
     func apply(to equalizer: AudioEqualizer) {
         guard presetType == .standard10 else { return }
         for (index, band) in EQBand.allCases.enumerated() {
@@ -65,6 +74,14 @@ struct EQPreset: Identifiable, Codable, Equatable {
                 equalizer.setGain(gains[index], for: band)
             }
         }
+    }
+    
+    /// 应用环绕音效参数（仅环绕类预设）
+    func applySurroundEffects(to effects: AudioEffects) {
+        guard category == .surround else { return }
+        effects.setSurroundLevel(surroundLevel)
+        effects.setReverbLevel(reverbLevel)
+        effects.setStereoWidth(stereoWidth)
     }
     
     static func == (lhs: EQPreset, rhs: EQPreset) -> Bool {

@@ -11,6 +11,8 @@ struct MV: Codable, Identifiable, Hashable {
     let artistName: String?
     let artistId: Int?
     let cover: String?
+    let imgurl: String?       // 歌手 MV 接口返回的封面字段
+    let imgurl16v9: String?   // 歌手 MV 接口返回的 16:9 封面
     let playCount: Int?
     let duration: Int?
     let desc: String?
@@ -25,6 +27,7 @@ struct MV: Codable, Identifiable, Hashable {
         case artistName, artistId
         case artists, briefDesc
         case playCount
+        case imgurl, imgurl16v9
     }
 
     init(from decoder: Decoder) throws {
@@ -32,6 +35,8 @@ struct MV: Codable, Identifiable, Hashable {
         self.id = try container.decode(Int.self, forKey: .id)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.cover = try container.decodeIfPresent(String.self, forKey: .cover)
+        self.imgurl = try container.decodeIfPresent(String.self, forKey: .imgurl)
+        self.imgurl16v9 = try container.decodeIfPresent(String.self, forKey: .imgurl16v9)
         self.duration = try container.decodeIfPresent(Int.self, forKey: .duration)
         self.desc = try container.decodeIfPresent(String.self, forKey: .desc)
         self.publishTime = try container.decodeIfPresent(String.self, forKey: .publishTime)
@@ -57,8 +62,9 @@ struct MV: Codable, Identifiable, Hashable {
         }
     }
 
+    /// 封面 URL — 优先 imgurl16v9 > imgurl > cover（兼容不同接口返回格式）
     var coverUrl: String? {
-        cover
+        imgurl16v9 ?? imgurl ?? cover
     }
 
     /// 格式化播放量

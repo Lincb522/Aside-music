@@ -17,7 +17,17 @@ class EQManager: ObservableObject {
     @Published var isEnabled: Bool = false {
         didSet {
             if !isEnabled {
+                // 重置 EQ 10 段增益
                 PlayerManager.shared.equalizer.reset()
+                // 重置音效（低音/高音/环绕/混响）
+                PlayerManager.shared.audioEffects.setBassGain(0)
+                PlayerManager.shared.audioEffects.setTrebleGain(0)
+                PlayerManager.shared.audioEffects.setSurroundLevel(0)
+                PlayerManager.shared.audioEffects.setReverbLevel(0)
+                // 重置变调
+                PlayerManager.shared.setPitch(0)
+                // 保存音效状态
+                saveAudioEffectsState()
             } else {
                 if let preset = currentPreset {
                     preset.apply(to: PlayerManager.shared.equalizer)
@@ -177,109 +187,142 @@ class EQManager: ObservableObject {
         // ═══════════════════════════════════════
         // 环绕音效预设
         // ═══════════════════════════════════════
-        // 环绕音效通过 EQ 曲线模拟空间感：
-        // - 提升高频 (8-16kHz) 增加空气感和空间延展
-        // - 轻微凹陷中频 (500Hz-2kHz) 制造距离感
-        // - 低频控制影响空间大小感知
-        // - 参考 Dolby Atmos Music、Sony 360 Reality Audio 的频响特征
+        // 环绕音效通过 EQ 曲线 + 真实环绕/混响/立体声宽度参数实现：
+        // - surroundLevel: 立体声分离度增强（extrastereo）
+        // - reverbLevel: 混响效果（aecho）
+        // - stereoWidth: 立体声宽度（stereotools）
+        // - EQ 曲线辅助模拟空间感
         
-        // 3D 环绕：低频体感 + 中频深凹制造距离 + 高频空气感
+        // 3D 环绕：强环绕 + 中等混响 + 宽声场
         EQPreset(
             id: "surround_3d",
             name: "3D 环绕",
             category: .surround,
             description: "全方位 3D 空间感，模拟 Dolby Atmos 频响",
-            gains: [4.5, 3.5, 1.5, -2.5, -4.0, -3.5, 1.0, 5.0, 7.0, 6.5]
+            gains: [4.5, 3.5, 1.5, -2.5, -4.0, -3.5, 1.0, 5.0, 7.0, 6.5],
+            surroundLevel: 0.7,
+            reverbLevel: 0.35,
+            stereoWidth: 1.6
         ),
         
-        // 影院环绕：强劲低音炮 + 大空间混响衰减 + 反射声
+        // 影院环绕：最强环绕 + 强混响 + 最宽声场
         EQPreset(
             id: "surround_cinema",
             name: "影院环绕",
             category: .surround,
             description: "模拟 THX 影院音响系统的包围感",
-            gains: [7.0, 6.5, 4.0, -1.0, -3.5, -2.5, 1.5, 4.5, 5.5, 4.5]
+            gains: [7.0, 6.5, 4.0, -1.0, -3.5, -2.5, 1.5, 4.5, 5.5, 4.5],
+            surroundLevel: 0.85,
+            reverbLevel: 0.5,
+            stereoWidth: 1.8
         ),
         
-        // 音乐厅：温暖低频 + 自然衰减 + 柔和空气感
+        // 音乐厅：中等环绕 + 自然混响 + 适度宽度
         EQPreset(
             id: "surround_concert_hall",
             name: "音乐厅",
             category: .surround,
             description: "模拟古典音乐厅的自然混响空间",
-            gains: [2.5, 3.0, 2.5, 0.5, -1.5, -1.0, 1.0, 2.5, 4.0, 4.5]
+            gains: [2.5, 3.0, 2.5, 0.5, -1.5, -1.0, 1.0, 2.5, 4.0, 4.5],
+            surroundLevel: 0.45,
+            reverbLevel: 0.55,
+            stereoWidth: 1.4
         ),
         
-        // 体育场：开阔声场，中频距离衰减
+        // 体育场：强环绕 + 弱混响 + 超宽声场
         EQPreset(
             id: "surround_stadium",
             name: "体育场",
             category: .surround,
             description: "大型露天场馆的开阔声场",
-            gains: [-1.5, 1.0, 2.5, -1.0, -3.5, -2.5, 1.5, 5.0, 3.0, 1.0]
+            gains: [-1.5, 1.0, 2.5, -1.0, -3.5, -2.5, 1.5, 5.0, 3.0, 1.0],
+            surroundLevel: 0.75,
+            reverbLevel: 0.25,
+            stereoWidth: 2.0
         ),
         
-        // 教堂：石墙低频共鸣 + 长混响 + 空间延展
+        // 教堂：中等环绕 + 最强混响 + 宽声场
         EQPreset(
             id: "surround_church",
             name: "教堂",
             category: .surround,
             description: "大教堂的庄严长混响空间",
-            gains: [5.0, 4.5, 3.0, 1.0, -2.5, -3.5, -1.0, 2.5, 4.5, 5.0]
+            gains: [5.0, 4.5, 3.0, 1.0, -2.5, -3.5, -1.0, 2.5, 4.5, 5.0],
+            surroundLevel: 0.5,
+            reverbLevel: 0.7,
+            stereoWidth: 1.5
         ),
         
-        // 录音棚：精确监听，轻微高频提升
+        // 录音棚：轻微环绕 + 极弱混响 + 精确宽度
         EQPreset(
             id: "surround_studio",
             name: "录音棚",
             category: .surround,
             description: "专业录音棚的精确监听空间",
-            gains: [1.0, 1.0, 0, 0, -1.0, 0, 1.0, 2.0, 2.5, 2.0]
+            gains: [1.0, 1.0, 0, 0, -1.0, 0, 1.0, 2.0, 2.5, 2.0],
+            surroundLevel: 0.15,
+            reverbLevel: 0.1,
+            stereoWidth: 1.1
         ),
         
-        // 宽声场：中频深凹 + 两端大幅提升
+        // 宽声场：强环绕 + 弱混响 + 最宽声场
         EQPreset(
             id: "surround_wide",
             name: "宽声场",
             category: .surround,
             description: "最大化立体声宽度和分离度",
-            gains: [4.0, 3.0, 1.0, -2.5, -5.0, -4.0, 0.5, 4.0, 6.0, 5.5]
+            gains: [4.0, 3.0, 1.0, -2.5, -5.0, -4.0, 0.5, 4.0, 6.0, 5.5],
+            surroundLevel: 0.9,
+            reverbLevel: 0.15,
+            stereoWidth: 2.0
         ),
         
-        // 环绕低音：极强低频包围 + 空间感
+        // 环绕低音：中等环绕 + 中等混响 + 宽声场
         EQPreset(
             id: "surround_bass",
             name: "环绕低音",
             category: .surround,
             description: "低频包围感 + 空间环绕",
-            gains: [8.5, 8.0, 5.5, 1.0, -3.0, -2.5, 0.5, 3.0, 4.5, 3.5]
+            gains: [8.5, 8.0, 5.5, 1.0, -3.0, -2.5, 0.5, 3.0, 4.5, 3.5],
+            surroundLevel: 0.6,
+            reverbLevel: 0.4,
+            stereoWidth: 1.5
         ),
         
-        // 虚拟 5.1：声道分离 + 环绕声道模拟
+        // 虚拟 5.1：强环绕 + 中等混响 + 宽声场
         EQPreset(
             id: "surround_51",
             name: "虚拟 5.1",
             category: .surround,
             description: "模拟 5.1 声道环绕系统",
-            gains: [5.5, 5.0, 2.5, -1.5, -3.5, -2.0, 1.0, 4.5, 6.5, 5.0]
+            gains: [5.5, 5.0, 2.5, -1.5, -3.5, -2.0, 1.0, 4.5, 6.5, 5.0],
+            surroundLevel: 0.75,
+            reverbLevel: 0.35,
+            stereoWidth: 1.7
         ),
         
-        // 虚拟 7.1：更深声道分离 + 更强环绕
+        // 虚拟 7.1：最强环绕 + 中等混响 + 最宽声场
         EQPreset(
             id: "surround_71",
             name: "虚拟 7.1",
             category: .surround,
             description: "模拟 7.1 声道的精细空间定位",
-            gains: [6.5, 5.0, 1.5, -2.5, -5.0, -3.5, 1.5, 5.5, 7.5, 6.5]
+            gains: [6.5, 5.0, 1.5, -2.5, -5.0, -3.5, 1.5, 5.5, 7.5, 6.5],
+            surroundLevel: 0.95,
+            reverbLevel: 0.4,
+            stereoWidth: 1.9
         ),
         
-        // 沉浸人声：人声清晰居中 + 乐器环绕包围
+        // 沉浸人声：中等环绕 + 轻混响 + 适度宽度
         EQPreset(
             id: "surround_vocal",
             name: "沉浸人声",
             category: .surround,
             description: "人声居中清晰，乐器环绕包围",
-            gains: [4.5, 3.5, 1.0, -2.5, -1.5, 3.0, 4.5, 3.0, 5.0, 4.5]
+            gains: [4.5, 3.5, 1.0, -2.5, -1.5, 3.0, 4.5, 3.0, 5.0, 4.5],
+            surroundLevel: 0.5,
+            reverbLevel: 0.25,
+            stereoWidth: 1.4
         ),
         
         // ═══════════════════════════════════════
@@ -424,6 +467,11 @@ class EQManager: ObservableObject {
         currentPreset = preset
         if !isEnabled {
             isEnabled = true
+        }
+        // 如果是环绕类预设，自动应用环绕音效参数
+        if preset.category == .surround {
+            preset.applySurroundEffects(to: PlayerManager.shared.audioEffects)
+            saveAudioEffectsState()
         }
     }
     

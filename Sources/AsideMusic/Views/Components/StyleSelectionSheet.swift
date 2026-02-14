@@ -69,7 +69,11 @@ struct StyleSelectionMorphView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.asideCardBackground)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.asideSheetOverlay)
+                    )
                     .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
                     .matchedGeometryEffect(id: "filter_bg", in: namespace)
             )

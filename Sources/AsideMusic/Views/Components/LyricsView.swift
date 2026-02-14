@@ -484,6 +484,14 @@ struct LyricsView: View {
                         isUserScrolling = false
                         onBackgroundTap?()
                     }
+                    .onAppear {
+                        // 视图出现时立即滚动到当前行
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
+                            }
+                        }
+                    }
                 }
                 .mask(
                     LinearGradient(
@@ -500,7 +508,12 @@ struct LyricsView: View {
                 
             }
         }
-        // 歌词获取和时间同步由 PlayerManager 全局驱动，这里不再需要
+        .onAppear {
+            // 确保歌词已加载（如果还没加载的话）
+            if viewModel.currentSongId != song.id {
+                viewModel.fetchLyrics(for: song.id)
+            }
+        }
     }
     
     private func resetScrollTimer() {

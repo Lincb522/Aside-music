@@ -202,10 +202,7 @@ struct HomeView: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
             .padding(.horizontal, 24)
             .contentShape(Rectangle())
         }
@@ -388,10 +385,7 @@ struct HomeView: View {
                     .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.asideCardBackground)
-            )
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
             .padding(.horizontal, 24)
         }
     }
@@ -416,7 +410,9 @@ struct HomeView: View {
                 AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
             }
             .padding(16)
-            .background(Color.asideCardBackground)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+            )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -599,10 +595,7 @@ struct MiniSongRow: View {
                     .background(Circle().fill(Color.asideMilk))
             }
             .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }

@@ -361,8 +361,8 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.asideCardBackground)
-                .cornerRadius(16)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
             }
             .padding(.horizontal, 24)
@@ -506,8 +506,8 @@ struct SearchView: View {
                                     .foregroundColor(.asideTextPrimary)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
-                                    .background(Color.asideCardBackground)
-                                    .cornerRadius(16)
+                                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
                                     .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
                             }
                             .buttonStyle(PlainButtonStyle())

@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */; };
 		F48E9C482F3B4F590060F4D4 /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C472F3B4F590060F4D4 /* LiquidGlassEffect */; };
-		F4B555642F3DE3BE00E5C072 /* FFmpegSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = F4B555632F3DE3BE00E5C072 /* FFmpegSwiftSDK */; };
+		F4CAFB0A2F404CE300219241 /* FFmpegSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = F4CAFB092F404CE300219241 /* FFmpegSwiftSDK */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,7 +43,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F48E9C482F3B4F590060F4D4 /* LiquidGlassEffect in Frameworks */,
-				F4B555642F3DE3BE00E5C072 /* FFmpegSwiftSDK in Frameworks */,
+				F4CAFB0A2F404CE300219241 /* FFmpegSwiftSDK in Frameworks */,
 				F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -89,7 +89,7 @@
 			packageProductDependencies = (
 				F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */,
 				F48E9C472F3B4F590060F4D4 /* LiquidGlassEffect */,
-				F4B555632F3DE3BE00E5C072 /* FFmpegSwiftSDK */,
+				F4CAFB092F404CE300219241 /* FFmpegSwiftSDK */,
 			);
 			productName = AsideMusic;
 			productReference = F4CCFD782F320B5900FC36CA /* AsideMusic.app */;
@@ -123,7 +123,7 @@
 			packageReferences = (
 				F48E9C432F3B4F060060F4D4 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
 				F48E9C462F3B4F590060F4D4 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */,
-				F4B555622F3DE3BE00E5C072 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */,
+				F4CAFB082F404CE300219241 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -393,12 +393,12 @@
 				minimumVersion = 2.1.0;
 			};
 		};
-		F4B555622F3DE3BE00E5C072 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */ = {
+		F4CAFB082F404CE300219241 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Lincb522/FFmpegSwiftSDK.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.9.7;
+				minimumVersion = 1.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -414,9 +414,9 @@
 			package = F48E9C462F3B4F590060F4D4 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */;
 			productName = LiquidGlassEffect;
 		};
-		F4B555632F3DE3BE00E5C072 /* FFmpegSwiftSDK */ = {
+		F4CAFB092F404CE300219241 /* FFmpegSwiftSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4B555622F3DE3BE00E5C072 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */;
+			package = F4CAFB082F404CE300219241 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */;
 			productName = FFmpegSwiftSDK;
 		};
 /* End XCSwiftPackageProductDependency section */

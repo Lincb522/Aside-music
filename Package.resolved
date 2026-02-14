@@ -1,5 +1,4 @@
 {
-  "originHash" : "05cb6e26e9596c83a5d8e54b4b532fd71ec55e06e0cfe34450cc8f49b4ef433f",
   "pins" : [
     {
       "identity" : "ffmpegswiftsdk",
@@ -13,7 +12,7 @@
     {
       "identity" : "liquidglasseffect",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Lincb522/LiquidGlassEffect",
+      "location" : "https://github.com/Lincb522/LiquidGlassEffect.git",
       "state" : {
         "revision" : "9d7b23be661cb519b355cdc26c7f12816b1b2f9e",
         "version" : "2.1.0"
@@ -29,5 +28,5 @@
       }
     }
   ],
-  "version" : 3
+  "version" : 2
 }

@@ -63,6 +63,11 @@ class PlayerManager: ObservableObject {
         streamPlayer.waveformGenerator
     }
     
+    // MARK: - 频谱分析器
+    var spectrumAnalyzer: SpectrumAnalyzer {
+        streamPlayer.spectrumAnalyzer
+    }
+    
     // MARK: - 变调控制
     @Published var pitchSemitones: Float = 0
     
@@ -143,10 +148,18 @@ class PlayerManager: ObservableObject {
     var isUserStopping: Bool = false
     /// 播放会话 ID，每次 loadAndPlay 递增，用于忽略旧会话的 .stopped 回调
     var playbackSessionId: Int = 0
+    
+    /// 当前播放的音频 URL（用于音频分析等功能）
+    @Published private(set) var currentPlayingURL: String?
     fileprivate var consecutiveFailures: Int = 0
     fileprivate let maxConsecutiveFailures: Int = AppConfig.Player.maxConsecutiveFailures
     fileprivate var retryDelay: TimeInterval = AppConfig.Player.initialRetryDelay
     fileprivate let maxRetryDelay: TimeInterval = AppConfig.Player.maxRetryDelay
+    
+    /// 预加载的下一首歌曲信息（等待当前歌曲真正结束后再更新 UI）
+    fileprivate var pendingNextSong: Song? = nil
+    /// 标记 SDK 已切换到下一首的 pipeline（但 UI 还没更新）
+    fileprivate var hasPendingTrackTransition: Bool = false
     
     // MARK: - Remote Command Center
     private let commandCenter = MPRemoteCommandCenter.shared()
@@ -285,6 +298,18 @@ class PlayerManager: ObservableObject {
                     if self.currentTime < 1.0 && jump > 2.0 {
                         // 刚开始播放，SDK 的时间不可信（解码缓冲超前），跳过
                     } else {
+                        // 检查是否有待切换的下一首
+                        if self.hasPendingTrackTransition {
+                            // SDK 已经在播放下一首了，此时 streamPlayer.currentTime 是下一首的时间
+                            // 当下一首的时间 > 0.3 秒时，说明当前歌曲已经结束，可以切换 UI
+                            if time > 0.3 {
+                                AppLogger.info("检测到下一首已开始播放 (\(String(format: "%.2f", time))s)，切换 UI")
+                                self.applyPendingTrackTransition()
+                                return
+                            }
+                            // 下一首刚开始，继续等待
+                            return
+                        }
                         self.currentTime = time
                     }
                 }
@@ -729,38 +754,89 @@ class PlayerManager: ObservableObject {
         consecutiveFailures = 0
         retryDelay = 1.0
         
+        // 确定下一首歌曲
+        var nextSong: Song?
+        
         // 从用户队列取下一首
-        if let nextSong = userQueue.first {
+        if let queueFirst = userQueue.first {
             userQueue.removeFirst()
-            if let index = currentContextList.firstIndex(where: { $0.id == nextSong.id }) {
+            nextSong = queueFirst
+            if let index = currentContextList.firstIndex(where: { $0.id == queueFirst.id }) {
                 contextIndex = index
             }
-            currentSong = nextSong
-            LyricViewModel.shared.fetchLyrics(for: nextSong.id)
-            addToHistory(song: nextSong)
-            saveState()
-            updateNowPlayingInfo()
-            updateNowPlayingArtwork(for: nextSong)
-            return
+        } else {
+            // 从 context 列表取下一首
+            let list = currentContextList
+            guard !list.isEmpty else { return }
+            
+            var nextIndex = contextIndex + 1
+            if nextIndex >= list.count {
+                nextIndex = 0
+            }
+            
+            contextIndex = nextIndex
+            nextSong = list[nextIndex]
         }
         
-        // 从 context 列表取下一首
-        let list = currentContextList
-        guard !list.isEmpty else { return }
+        guard let song = nextSong else { return }
         
-        var nextIndex = contextIndex + 1
-        if nextIndex >= list.count {
-            nextIndex = 0
-        }
-        
-        contextIndex = nextIndex
-        let nextSong = list[nextIndex]
-        currentSong = nextSong
-        LyricViewModel.shared.fetchLyrics(for: nextSong.id)
-        addToHistory(song: nextSong)
+        // 立即更新 UI（SDK 已经在播放下一首了）
+        currentSong = song
+        LyricViewModel.shared.fetchLyrics(for: song.id)
+        addToHistory(song: song)
         saveState()
         updateNowPlayingInfo()
-        updateNowPlayingArtwork(for: nextSong)
+        updateNowPlayingArtwork(for: song)
+    }
+    
+    /// 准备下一首歌曲信息（不更新 UI，等待当前歌曲真正结束）
+    fileprivate func preparePendingNextTrack() {
+        // 单曲循环模式下不预加载
+        guard mode != .loopSingle else { return }
+        
+        // 确定下一首歌曲
+        if let queueFirst = userQueue.first {
+            pendingNextSong = queueFirst
+        } else {
+            let list = currentContextList
+            guard !list.isEmpty else { return }
+            
+            var nextIndex = contextIndex + 1
+            if nextIndex >= list.count {
+                nextIndex = 0
+            }
+            pendingNextSong = list[nextIndex]
+        }
+    }
+    
+    /// 当前歌曲真正结束后，应用待切换的下一首
+    fileprivate func applyPendingTrackTransition() {
+        guard hasPendingTrackTransition, let song = pendingNextSong else { return }
+        
+        hasPendingTrackTransition = false
+        pendingNextSong = nil
+        consecutiveFailures = 0
+        retryDelay = 1.0
+        
+        // 更新队列索引
+        if userQueue.first?.id == song.id {
+            userQueue.removeFirst()
+        }
+        if let index = currentContextList.firstIndex(where: { $0.id == song.id }) {
+            contextIndex = index
+        }
+        
+        // 更新 UI
+        currentSong = song
+        currentTime = 0
+        LyricViewModel.shared.fetchLyrics(for: song.id)
+        addToHistory(song: song)
+        saveState()
+        updateNowPlayingInfo()
+        updateNowPlayingArtwork(for: song)
+        
+        // 预加载下一首
+        prepareNextTrackURL()
     }
     
     /// 预加载下一首歌曲的 URL，传给 StreamPlayer.prepareNext
@@ -815,6 +891,10 @@ class PlayerManager: ObservableObject {
     fileprivate func loadAndPlay(song: Song, autoPlay: Bool = true, startTime: Double = 0) {
         // 递增会话 ID，旧会话的 .stopped 回调会被忽略
         playbackSessionId += 1
+        // 清除待切换状态（用户手动切歌）
+        hasPendingTrackTransition = false
+        pendingNextSong = nil
+        
         isLoading = true
         currentSong = song
         isCurrentSongUnblocked = false
@@ -924,6 +1004,9 @@ class PlayerManager: ObservableObject {
             self.currentTime = 0
             self.duration = 0
         }
+        
+        // 保存当前播放 URL（用于音频分析等功能）
+        self.currentPlayingURL = url.absoluteString
         
         AppLogger.network("开始播放 (FFmpeg): \(url.absoluteString)")
         
@@ -1182,6 +1265,11 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
                 if let info = player.streamInfo {
                     pm.streamInfo = info
                 }
+                // 重新应用变调设置（新的播放 pipeline 需要重新设置）
+                if pm.pitchSemitones != 0 {
+                    pm.audioEffects.setPitch(pm.pitchSemitones)
+                    AppLogger.info("播放状态变为 playing，重新应用变调: \(pm.pitchSemitones) 半音")
+                }
             case .paused:
                 pm.isPlaying = false
                 pm.isLoading = false
@@ -1263,12 +1351,13 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
                 // 重新预加载下一首
                 pm.prepareNextTrackURL()
             } else {
-                // 正常切歌
-                AppLogger.info("无缝切歌：已切换到下一首")
-                pm.currentTime = 0
-                pm.isSeeking = false
-                pm.advanceToNextTrack()
-                pm.prepareNextTrackURL()
+                // 正常切歌：SDK 已切换到下一首的 pipeline
+                // 但不立即更新 UI，等当前歌曲进度到达末尾再切换
+                AppLogger.info("无缝切歌：SDK 已准备好下一首，等待当前歌曲结束")
+                pm.preparePendingNextTrack()
+                pm.hasPendingTrackTransition = true
+                // 重置进度（SDK 已经在播放下一首了，但 UI 还显示当前歌曲）
+                // 不在这里重置 currentTime，让定时器继续更新直到歌曲结束
             }
         }
     }

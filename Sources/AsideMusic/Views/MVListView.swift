@@ -123,11 +123,7 @@ struct MVRowCard: View {
                 Spacer(minLength: 0)
             }
             .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.03), radius: 6, x: 0, y: 2)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }
@@ -349,9 +345,12 @@ struct MVDiscoverView: View {
                 Text(title)
                     .font(.rounded(size: 14, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                 Text(subtitle)
                     .font(.rounded(size: 11))
                     .foregroundColor(.asideTextSecondary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
@@ -359,11 +358,9 @@ struct MVDiscoverView: View {
             AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary.opacity(0.5))
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideCardBackground)
-                .shadow(color: .black.opacity(0.03), radius: 6, x: 0, y: 2)
-        )
+        .frame(height: 64)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
     }
 
     // MARK: - 横向滚动区块
@@ -705,7 +702,7 @@ struct MVSublistSheet: View {
                     Text(item.title ?? "未知MV")
                         .font(.rounded(size: 15, weight: .medium))
                         .foregroundColor(.asideTextPrimary)
-                        .lineLimit(2)
+                        .lineLimit(1)
 
                     if let artist = item.artistName {
                         Text(artist)
@@ -720,18 +717,16 @@ struct MVSublistSheet: View {
                             Text(item.playCountText)
                                 .font(.rounded(size: 11))
                                 .foregroundColor(.asideTextSecondary.opacity(0.5))
+                                .lineLimit(1)
                         }
                     }
                 }
 
                 Spacer(minLength: 0)
             }
+            .frame(height: 88)
             .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.03), radius: 6, x: 0, y: 2)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }

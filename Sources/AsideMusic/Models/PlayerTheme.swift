@@ -1,0 +1,38 @@
+import Foundation
+
+/// 播放器主题枚举
+enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
+    case classic     // 经典 - 大封面居中
+    case vinyl       // 黑胶唱片 - 旋转唱片效果
+    case lyricFocus  // 歌词 - 歌词瀑布流 + 打字机风格
+    case card        // 卡片 - 圆形封面 + 白色卡片 + 渐变背景
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .classic:    return "经典"
+        case .vinyl:      return "黑胶"
+        case .lyricFocus: return "歌词"
+        case .card:       return "卡片"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .classic:    return "square.fill"
+        case .vinyl:      return "record.circle"
+        case .lyricFocus: return "text.quote"
+        case .card:       return "rectangle.portrait.fill"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .classic:    return "大封面居中，经典播放器布局"
+        case .vinyl:      return "黑胶唱片旋转效果，复古氛围"
+        case .lyricFocus: return "歌词瀑布流，打字机风格，逐字高亮"
+        case .card:       return "圆形封面卡片，渐变背景"
+        }
+    }
+}

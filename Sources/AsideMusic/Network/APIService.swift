@@ -359,6 +359,39 @@ class APIService {
         }
     }
 
+    /// 获取歌手专辑列表
+    func fetchArtistAlbums(id: Int, limit: Int = 30, offset: Int = 0) -> AnyPublisher<[AlbumInfo], Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.artistAlbum(id: id, limit: limit, offset: offset)
+            guard let albumsArray = response.body["hotAlbums"] as? [[String: Any]] else {
+                return [AlbumInfo]()
+            }
+            let data = try JSONSerialization.data(withJSONObject: albumsArray)
+            return try JSONDecoder().decode([AlbumInfo].self, from: data)
+        }
+    }
+
+    /// 获取歌手粉丝数量
+    func fetchArtistFollowCount(id: Int) -> AnyPublisher<Int, Error> {
+        ncm.publisher { [ncm] in
+            let response = try await ncm.artistFollowCount(id: id)
+            if let data = response.body["data"] as? [String: Any],
+               let count = data["fansCnt"] as? Int {
+                return count
+            }
+            return 0
+        }
+    }
+
+    /// 收藏/取消收藏歌手
+    func artistSub(id: Int, subscribe: Bool) -> AnyPublisher<Bool, Error> {
+        ncm.publisher { [ncm] in
+            let action: SubAction = subscribe ? .sub : .unsub
+            let response = try await ncm.artistSub(id: id, action: action)
+            return response.body["code"] as? Int == 200
+        }
+    }
+
     func fetchPlaylistDetail(id: Int, cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil) -> AnyPublisher<Playlist, Error> {
         ncm.fetch(Playlist.self, keyPath: "playlist") { [ncm] in
             try await ncm.playlistDetail(id: id)

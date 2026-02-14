@@ -38,7 +38,17 @@ extension Color {
     }
     
     static var asideCardBackground: Color {
-        Color(light: .white, dark: Color(hex: "2C2C2E"))
+        Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5))
+    }
+    
+    /// 毛玻璃卡片叠加色（浅色白色半透明，深色浅灰半透明）
+    static var asideGlassOverlay: Color {
+        Color(light: Color.white.opacity(0.55), dark: Color(hex: "3A3A3C").opacity(0.4))
+    }
+    
+    /// Sheet 面板背景叠加色
+    static var asideSheetOverlay: Color {
+        Color(light: Color.white.opacity(0.45), dark: Color(hex: "2C2C2E").opacity(0.45))
     }
     
     static var asideSeparator: Color {
@@ -100,6 +110,39 @@ extension Color {
             green: Double(g) / 255,
             blue:  Double(b) / 255,
             opacity: Double(a) / 255
+        )
+    }
+}
+
+// MARK: - 毛玻璃卡片背景
+
+/// 毛玻璃卡片背景 — .ultraThinMaterial + 颜色叠加
+/// 浅色：白色磨砂半透明；深色：浅灰色磨砂半透明
+struct AsideGlassCardBackground: View {
+    var cornerRadius: CGFloat = 16
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(colorScheme == .dark
+                          ? Color.white.opacity(0.06)
+                          : Color.white.opacity(0.55))
+            )
+    }
+}
+
+// MARK: - View 扩展：毛玻璃卡片修饰器
+
+extension View {
+    /// 给视图添加毛玻璃卡片背景（替代纯色 asideCardBackground）
+    func asideGlassCard(cornerRadius: CGFloat = 16) -> some View {
+        self.background(
+            AsideGlassCardBackground(cornerRadius: cornerRadius)
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
     }
 }

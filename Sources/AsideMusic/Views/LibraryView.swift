@@ -915,11 +915,7 @@ struct ArtistLibraryView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
-            )
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
             .padding(.top, 8)
@@ -1110,11 +1106,7 @@ struct LibraryPlaylistRow: View {
             AsideIcon(icon: .chevronRight, size: 14, color: Theme.secondaryText)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.asideCardBackground)
-        )
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 }

@@ -204,6 +204,31 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
+                Divider()
+                    .padding(.leading, 56)
+
+                NavigationLink(destination: AudioLabView()) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.asideAccent.opacity(0.15))
+                                .frame(width: 32, height: 32)
+                            AsideIcon(icon: .sparkle, size: 16, color: .asideAccent)
+                        }
+                        Text("音频实验室")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                        Spacer()
+                        Text(AudioLabManager.shared.isSmartEffectsEnabled ? "智能" : "关闭")
+                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+
                 
             }
         }
@@ -401,8 +426,12 @@ struct SettingsSection<Content: View>: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.asideGlassOverlay)
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .allowsHitTesting(false)
 
                 content

@@ -117,11 +117,7 @@ struct StorageManageView: View {
             }
         }
         .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.asideCardBackground)
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        )
+        .asideGlassCard(cornerRadius: 20)
     }
     
     private var storageRing: some View {
@@ -204,11 +200,7 @@ struct StorageManageView: View {
                 action: { showClearImageAlert = true }
             )
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideCardBackground)
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        )
+        .asideGlassCard(cornerRadius: 16)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
     
@@ -274,11 +266,7 @@ struct StorageManageView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground)
-                    .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-            )
+            .asideGlassCard(cornerRadius: 16)
         }
         .buttonStyle(.plain)
     }
