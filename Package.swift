@@ -28,6 +28,9 @@ let package = Package(
                 "LiquidGlassEffect",
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
                 "FFmpegSwiftSDK",
+            ],
+            resources: [
+                .process("Resources/SanJiPoMoTi-2.ttf"),
             ]
         ),
     ]

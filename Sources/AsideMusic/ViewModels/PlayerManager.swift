@@ -68,6 +68,11 @@ class PlayerManager: ObservableObject {
         streamPlayer.spectrumAnalyzer
     }
     
+    // MARK: - 音频修复引擎
+    var audioRepair: AudioRepairEngine {
+        streamPlayer.audioRepair
+    }
+    
     // MARK: - 变调控制
     @Published var pitchSemitones: Float = 0
     

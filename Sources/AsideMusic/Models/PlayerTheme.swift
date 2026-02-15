@@ -6,6 +6,8 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case vinyl       // 黑胶唱片 - 旋转唱片效果
     case lyricFocus  // 歌词 - 歌词瀑布流 + 打字机风格
     case card        // 卡片 - 圆形封面 + 白色卡片 + 渐变背景
+    case neumorphic        // 新拟物 - 柔和阴影立体感
+    case poster            // 海报 - 全屏封面海报风格
     
     var id: String { rawValue }
     
@@ -15,6 +17,8 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .vinyl:      return "黑胶"
         case .lyricFocus: return "歌词"
         case .card:       return "卡片"
+        case .neumorphic: return "新拟物"
+        case .poster:     return "海报"
         }
     }
     
@@ -24,6 +28,8 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .vinyl:      return "record.circle"
         case .lyricFocus: return "text.quote"
         case .card:       return "rectangle.portrait.fill"
+        case .neumorphic: return "circle.circle"
+        case .poster:     return "photo.fill"
         }
     }
     
@@ -33,6 +39,8 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .vinyl:      return "黑胶唱片旋转效果，复古氛围"
         case .lyricFocus: return "歌词瀑布流，打字机风格，逐字高亮"
         case .card:       return "圆形封面卡片，渐变背景"
+        case .neumorphic: return "新拟物化设计，柔和阴影立体感"
+        case .poster:     return "全屏封面海报，沉浸式视觉体验"
         }
     }
 }

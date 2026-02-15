@@ -225,18 +225,21 @@ class LyricViewModel: ObservableObject {
 struct KaraokeWordView: View {
     let word: LyricWord
     let currentTime: TimeInterval
+    var font: Font = .rounded(size: 26, weight: .bold)
+    var activeColor: Color = .asideTextPrimary
+    var inactiveColor: Color = .gray.opacity(0.3)
     
     var body: some View {
         let progress = calculateProgress()
         
         Text(word.text)
-            .font(.rounded(size: 26, weight: .bold))
-            .foregroundColor(.gray.opacity(0.3))
+            .font(font)
+            .foregroundColor(inactiveColor)
             .overlay(
                 GeometryReader { geo in
                     Text(word.text)
-                        .font(.rounded(size: 26, weight: .bold))
-                        .foregroundColor(.asideTextPrimary)
+                        .font(font)
+                        .foregroundColor(activeColor)
                         .frame(width: geo.size.width * progress, alignment: .leading)
                         .clipped()
                         .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.9, blendDuration: 0.1), value: progress)
@@ -326,58 +329,160 @@ struct KaraokeLineView: View {
     let showTranslation: Bool
     let enableKaraoke: Bool
     
+    @Environment(\.colorScheme) private var colorScheme
+    
+    // 大字报主题判断
+    private var isPoster: Bool {
+        PlayerThemeManager.shared.currentTheme == .poster
+    }
+    
+    // 当前行字体 — 大字报用等宽粗体
+    private var currentLineFont: Font {
+        isPoster
+            ? .system(size: 18, weight: .black, design: .monospaced)
+            : .rounded(size: 26, weight: .bold)
+    }
+    
+    // 非当前行字体 — 大字报用等宽中号
+    private var normalLineFont: Font {
+        isPoster
+            ? .system(size: 14, weight: .bold, design: .monospaced)
+            : .rounded(size: 16, weight: .medium)
+    }
+    
+    // 翻译字体 — 大字报用等宽斜体
+    private func translationFont(isCurrent: Bool) -> Font {
+        isPoster
+            ? .system(size: isCurrent ? 13 : 11, weight: .medium, design: .monospaced).italic()
+            : .rounded(size: isCurrent ? 15 : 13, weight: .regular)
+    }
+    
+    // 大字报当前行颜色
+    private var posterActiveColor: Color {
+        Color(hex: "FF0000")
+    }
+    
     var body: some View {
-        VStack(spacing: 6) {
-            if isCurrent {
-                if enableKaraoke && !line.words.isEmpty {
-                    if #available(iOS 16.0, macOS 13.0, *) {
-                        FlowLayout(spacing: 0) {
-                            ForEach(line.words) { word in
-                                KaraokeWordView(word: word, currentTime: currentTime)
-                            }
-                        }
-                        .scaleEffect(1.05)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
-                        .transition(.opacity)
-                    } else {
-                         constructYRCText()
-                            .multilineTextAlignment(.center)
-                            .scaleEffect(1.05)
-                    }
-                } else {
-                    
-                    if enableKaraoke {
-                        constructFallbackText()
-                            .multilineTextAlignment(.center)
-                            .scaleEffect(1.05)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
-                    } else {
-                        Text(line.text)
-                            .font(.rounded(size: 26, weight: .bold))
-                            .foregroundColor(.asideTextPrimary)
-                            .multilineTextAlignment(.center)
-                            .scaleEffect(1.05)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
-                    }
-                }
+        VStack(spacing: isPoster ? 4 : 6) {
+            if isPoster {
+                // 大字报歌词 — 黑条从左滑入
+                posterLyricContent
             } else {
-                Text(line.text)
-                    .font(.rounded(size: 16, weight: .medium))
-                    .foregroundColor(.gray.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .blur(radius: 0.5)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
+                // 默认歌词样式
+                defaultLyricContent
             }
             
+            // 翻译
             if showTranslation, let trans = line.translation, !trans.isEmpty {
-                Text(trans)
-                    .font(.rounded(size: isCurrent ? 15 : 13, weight: .regular)) // Reduced
-                    .foregroundColor(isCurrent ? .asideTextPrimary.opacity(0.8) : .gray.opacity(0.5))
-                    .multilineTextAlignment(.center)
-                    .blur(radius: isCurrent ? 0 : 0.3)
+                if isPoster {
+                    let transColor: Color = isCurrent
+                        ? (colorScheme == .dark ? .black.opacity(0.7) : .white.opacity(0.7))
+                        : .asideTextPrimary.opacity(0.12)
+                    Text(trans)
+                        .font(translationFont(isCurrent: isCurrent))
+                        .foregroundColor(transColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, isCurrent ? 8 : 0)
+                        .padding(.vertical, isCurrent ? 2 : 0)
+                        .background(isCurrent ? Color(hex: "FF0000").opacity(0.8) : .clear)
+                } else {
+                    Text(trans)
+                        .font(translationFont(isCurrent: isCurrent))
+                        .foregroundColor(isCurrent ? .asideTextPrimary.opacity(0.8) : .gray.opacity(0.5))
+                        .multilineTextAlignment(.center)
+                        .blur(radius: isCurrent ? 0 : 0.3)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
+                        .transition(.opacity)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 大字报歌词样式
+    @ViewBuilder
+    private var posterLyricContent: some View {
+        if isCurrent && !line.text.trimmingCharacters(in: .whitespaces).isEmpty {
+            // 当前行 — 黑条贴左边缘，和屏幕左边连成一体
+            HStack(spacing: 0) {
+                currentPosterLine
+                    .padding(.leading, 32)
+                    .padding(.trailing, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.asideTextPrimary)
+                    .fixedSize(horizontal: true, vertical: false)
+                
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, -32)
+            .transition(.asymmetric(
+                insertion: .move(edge: .leading),
+                removal: .opacity
+            ))
+            .id("poster_\(line.time)")
+        } else {
+            // 非当前行
+            Text(line.text)
+                .font(normalLineFont)
+                .foregroundColor(.asideTextPrimary.opacity(0.15))
+                .tracking(1)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+    
+    /// 大字报当前行内容 — 纯文字，不逐字
+    @ViewBuilder
+    private var currentPosterLine: some View {
+        // 大字报当前行：背景是 fg（深色=白，浅色=黑），文字需要反色
+        let invertedFg: Color = colorScheme == .dark ? .black : .white
+        
+        Text(line.text)
+            .font(currentLineFont)
+            .foregroundColor(invertedFg)
+            .tracking(-1)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    // MARK: - 默认歌词样式
+    @ViewBuilder
+    private var defaultLyricContent: some View {
+        if isCurrent {
+            if enableKaraoke && !line.words.isEmpty {
+                if #available(iOS 16.0, macOS 13.0, *) {
+                    FlowLayout(spacing: 0) {
+                        ForEach(line.words) { word in
+                            KaraokeWordView(word: word, currentTime: currentTime, font: currentLineFont)
+                        }
+                    }
+                    .scaleEffect(1.05)
                     .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
                     .transition(.opacity)
+                } else {
+                    constructYRCText()
+                        .multilineTextAlignment(.center)
+                        .scaleEffect(1.05)
+                }
+            } else if enableKaraoke {
+                constructFallbackText()
+                    .multilineTextAlignment(.center)
+                    .scaleEffect(1.05)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
+            } else {
+                Text(line.text)
+                    .font(currentLineFont)
+                    .foregroundColor(.asideTextPrimary)
+                    .multilineTextAlignment(.center)
+                    .scaleEffect(1.05)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
             }
+        } else {
+            Text(line.text)
+                .font(normalLineFont)
+                .foregroundColor(.gray.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .blur(radius: 0.5)
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
         }
     }
     
@@ -388,7 +493,7 @@ struct KaraokeLineView: View {
             let isSinging = currentTime >= word.startTime && currentTime < (word.startTime + word.duration)
             let color: Color = (isSung || isSinging) ? .asideTextPrimary : .gray.opacity(0.3)
             combined = combined + Text(word.text)
-                .font(.rounded(size: 26, weight: .bold))
+                .font(currentLineFont)
                 .foregroundColor(color)
         }
         return combined
@@ -403,11 +508,12 @@ struct KaraokeLineView: View {
             let isActive = index <= threshold && progress > 0
             let color: Color = isActive ? .asideTextPrimary : .gray.opacity(0.3)
             combined = combined + Text(String(char))
-                .font(.rounded(size: 26, weight: .bold))
+                .font(currentLineFont)
                 .foregroundColor(color)
         }
         return combined
     }
+    
 }
 
 struct LyricsView: View {
@@ -426,7 +532,7 @@ struct LyricsView: View {
         VStack {
             if viewModel.isLoading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .asideTextPrimary))
             } else if !viewModel.hasLyrics {
                 Text("No Lyrics Available")
                     .font(.rounded(size: 18, weight: .medium))
@@ -456,6 +562,7 @@ struct LyricsView: View {
                                     )
                                     .frame(maxWidth: .infinity)
                                     .padding(.horizontal, 32)
+                                    .animation(.easeInOut(duration: 0.3), value: viewModel.currentLineIndex)
                                     .id(index)
                                 }
                                 .buttonStyle(PlainButtonStyle())
@@ -485,12 +592,9 @@ struct LyricsView: View {
                         onBackgroundTap?()
                     }
                     .onAppear {
-                        // 视图出现时立即滚动到当前行
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
-                            }
-                        }
+                        // 视图出现时立即无动画跳转到当前行，做到无缝定位
+                        isUserScrolling = false
+                        proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
                     }
                 }
                 .mask(

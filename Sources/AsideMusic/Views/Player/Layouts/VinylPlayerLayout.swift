@@ -201,10 +201,15 @@ extension VinylPlayerLayout {
 extension VinylPlayerLayout {
 
     func vinylDisc(size: CGFloat) -> some View {
-        ZStack {
+        // 深色模式下唱片阴影更明显，浅色模式下柔和
+        let shadowOpacity = colorScheme == .dark ? 0.5 : 0.08
+        let edgeHighlight = colorScheme == .dark ? 0.12 : 0.15
+        let grooveHighlight = colorScheme == .dark ? 0.08 : 0.06
+
+        return ZStack {
             // 唱片柔和阴影
             Circle()
-                .fill(Color.black.opacity(0.08))
+                .fill(Color.black.opacity(shadowOpacity))
                 .frame(width: size * 0.85, height: size * 0.25)
                 .blur(radius: 25)
                 .offset(y: size * 0.5)
@@ -243,18 +248,18 @@ extension VinylPlayerLayout {
                 .frame(width: size * 0.96, height: size * 0.96)
                 .overlay(vinylGrooves(size: size * 0.96))
 
-            // 唱片边缘高光（旋转的光泽效果）
+            // 唱片边缘高光（旋转的光泽效果）— 深色模式下更亮
             Circle()
                 .stroke(
                     AngularGradient(
                         colors: [
-                            .white.opacity(0.15),
+                            .white.opacity(edgeHighlight),
                             .clear,
-                            .white.opacity(0.08),
+                            .white.opacity(grooveHighlight),
                             .clear,
-                            .white.opacity(0.12),
+                            .white.opacity(edgeHighlight * 0.8),
                             .clear,
-                            .white.opacity(0.1),
+                            .white.opacity(grooveHighlight * 1.2),
                             .clear
                         ],
                         center: .center
@@ -292,7 +297,7 @@ extension VinylPlayerLayout {
                                 lineWidth: 3
                             )
                     )
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.3), radius: 4, x: 0, y: 2)
             } else {
                 Circle()
                     .fill(
@@ -306,9 +311,8 @@ extension VinylPlayerLayout {
                     .frame(width: size * 0.40, height: size * 0.40)
             }
 
-            // 中心轴孔（更精致）
+            // 中心轴孔
             ZStack {
-                // 轴孔外环
                 Circle()
                     .fill(
                         RadialGradient(
@@ -319,7 +323,6 @@ extension VinylPlayerLayout {
                         )
                     )
                     .frame(width: 16, height: 16)
-                // 金属质感边缘
                 Circle()
                     .stroke(
                         LinearGradient(
@@ -330,11 +333,9 @@ extension VinylPlayerLayout {
                         lineWidth: 1
                     )
                     .frame(width: 16, height: 16)
-                // 中心孔
                 Circle()
                     .fill(Color(hex: "111111"))
                     .frame(width: 6, height: 6)
-                // 高光点
                 Circle()
                     .fill(Color.white.opacity(0.15))
                     .frame(width: 2, height: 2)
@@ -437,31 +438,34 @@ extension VinylPlayerLayout {
 
     func tonearm(discSize: CGFloat) -> some View {
         let armLength = discSize * 0.5
-        // 底座位置：唱片右上方
         let pivotX = discSize * 0.35
         let pivotY = -discSize * 0.35
+        // 深色模式下唱臂更亮
+        let armLight = colorScheme == .dark ? Color(hex: "D0D0D0") : Color(hex: "E0E0E0")
+        let armMid = colorScheme == .dark ? Color(hex: "A0A0A0") : Color(hex: "C0C0C0")
+        let baseFill1 = colorScheme == .dark ? Color(hex: "D5D5D5") : Color(hex: "F0F0F0")
+        let baseFill2 = colorScheme == .dark ? Color(hex: "B0B0B0") : Color(hex: "D5D5D5")
+        let baseDot = colorScheme == .dark ? Color(hex: "999999") : Color(hex: "BBBBBB")
+        let armShadow = colorScheme == .dark ? 0.3 : 0.1
 
         return ZStack {
-            // 唱臂整体（以底座为旋转轴心）
             VStack(spacing: 0) {
-                // 主臂杆
                 RoundedRectangle(cornerRadius: 2)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "E0E0E0"), Color(hex: "C0C0C0"), Color(hex: "E0E0E0")],
+                            colors: [armLight, armMid, armLight],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
                     .frame(width: 4.5, height: armLength)
-                    .shadow(color: .black.opacity(0.1), radius: 3, x: 1, y: 1)
+                    .shadow(color: .black.opacity(armShadow), radius: 3, x: 1, y: 1)
 
-                // 唱头
                 VStack(spacing: 0) {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(
                             LinearGradient(
-                                colors: [Color(hex: "F0F0F0"), Color(hex: "D0D0D0")],
+                                colors: [baseFill1, baseFill2],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -475,29 +479,25 @@ extension VinylPlayerLayout {
                         )
                 }
             }
-            // 臂杆从底座向下延伸
             .offset(y: armLength / 2 + 8)
-            // 以顶部（底座位置）为轴心旋转
             .rotationEffect(.degrees(tonearmAngle), anchor: .top)
             .offset(x: pivotX, y: pivotY)
 
-            // 底座圆盘（在唱臂旋转轴心上方，始终不动）
             ZStack {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color(hex: "F0F0F0"), Color(hex: "D5D5D5")],
+                            colors: [baseFill1, baseFill2],
                             center: .center,
                             startRadius: 0,
                             endRadius: 20
                         )
                     )
                     .frame(width: 40, height: 40)
-                    .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 2)
+                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.4 : 0.12), radius: 5, x: 0, y: 2)
 
-                // 底座中心点
                 Circle()
-                    .fill(Color(hex: "BBBBBB"))
+                    .fill(baseDot)
                     .frame(width: 8, height: 8)
             }
             .offset(x: pivotX, y: pivotY)
@@ -616,6 +616,7 @@ extension VinylPlayerLayout {
                 .background(
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color.asideIconBackground)
+                        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 8, y: 4)
                 )
             }
             .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
@@ -626,7 +627,7 @@ extension VinylPlayerLayout {
                     .frame(width: 50, height: 50)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(contentColor.opacity(0.06))
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : contentColor.opacity(0.06))
                     )
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -637,7 +638,7 @@ extension VinylPlayerLayout {
                     .frame(width: 50, height: 50)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(contentColor.opacity(0.06))
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : contentColor.opacity(0.06))
                     )
             }
             .buttonStyle(AsideBouncingButtonStyle())

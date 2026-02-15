@@ -53,10 +53,10 @@ struct AudioLabView: View {
                 VStack {
                     Spacer()
                     HStack(spacing: 8) {
-                        AsideIcon(icon: .checkmark, size: 16, color: .white)
+                        AsideIcon(icon: .checkmark, size: 16, color: .asideIconForeground)
                         Text("已应用智能音效")
                             .font(.rounded(size: 14, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(.asideIconForeground)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)

@@ -50,5 +50,9 @@
     </dict>
     <key>API_BASE_URL</key>
     <string>$(API_BASE_URL)</string>
+    <key>UIAppFonts</key>
+    <array>
+        <string>SanJiPoMoTi-2.ttf</string>
+    </array>
 </dict>
 </plist>

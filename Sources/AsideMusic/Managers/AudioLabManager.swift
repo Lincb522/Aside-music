@@ -7,6 +7,7 @@
 import Foundation
 import Combine
 import FFmpegSwiftSDK
+import NeteaseCloudMusicAPI
 
 /// 音频分析结果（基于 SDK 的 AudioAnalyzer 完整分析）
 struct AudioAnalysisResult {
@@ -82,6 +83,63 @@ struct RecommendedEffects {
     let loudnormEnabled: Bool // 是否启用响度标准化
     /// 智能生成的 10 段 EQ 增益
     let eqGains: [Float]     // 31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz
+    
+    // ═══════════════════════════════════════
+    // 新增滤镜参数（v1.1.9）
+    // ═══════════════════════════════════════
+    
+    // 音频修复
+    let fftDenoiseEnabled: Bool      // FFT 降噪
+    let fftDenoiseAmount: Float      // 降噪量 (0~100)
+    let declickEnabled: Bool         // 去脉冲噪声
+    let declipEnabled: Bool          // 去削波失真
+    
+    // 动态处理
+    let dynaudnormEnabled: Bool      // 动态标准化（实时友好）
+    let speechnormEnabled: Bool      // 语音标准化
+    let compandEnabled: Bool         // 压缩/扩展
+    
+    // 空间音效
+    let bs2bEnabled: Bool            // Bauer 立体声转双耳（耳机优化）
+    let crossfeedEnabled: Bool       // 耳机交叉馈送
+    let crossfeedStrength: Float     // 交叉馈送强度 (0~1)
+    let haasEnabled: Bool            // Haas 效果（空间感）
+    let haasDelay: Float             // Haas 延迟 (0~40ms)
+    let virtualbassEnabled: Bool     // 虚拟低音
+    let virtualbassCutoff: Float     // 虚拟低音截止频率
+    let virtualbassStrength: Float   // 虚拟低音强度
+    
+    // 音色处理
+    let exciterEnabled: Bool         // 激励器（高频泛音）
+    let exciterAmount: Float         // 激励量 (dB)
+    let exciterFreq: Float           // 激励起始频率
+    let softclipEnabled: Bool        // 软削波（温暖失真）
+    let softclipType: Int            // 软削波类型 (0~7)
+    let dialogueEnhanceEnabled: Bool // 对话增强
+    
+    /// 默认值（所有新滤镜关闭）
+    static func defaultNewFilters(
+        bassGain: Float, trebleGain: Float,
+        surroundLevel: Float, reverbLevel: Float,
+        stereoWidth: Float, loudnormEnabled: Bool,
+        eqGains: [Float]
+    ) -> RecommendedEffects {
+        return RecommendedEffects(
+            bassGain: bassGain, trebleGain: trebleGain,
+            surroundLevel: surroundLevel, reverbLevel: reverbLevel,
+            stereoWidth: stereoWidth, loudnormEnabled: loudnormEnabled,
+            eqGains: eqGains,
+            fftDenoiseEnabled: false, fftDenoiseAmount: 10,
+            declickEnabled: false, declipEnabled: false,
+            dynaudnormEnabled: false, speechnormEnabled: false, compandEnabled: false,
+            bs2bEnabled: false, crossfeedEnabled: false, crossfeedStrength: 0.3,
+            haasEnabled: false, haasDelay: 20,
+            virtualbassEnabled: false, virtualbassCutoff: 250, virtualbassStrength: 3.0,
+            exciterEnabled: false, exciterAmount: 3.0, exciterFreq: 7500,
+            softclipEnabled: false, softclipType: 0,
+            dialogueEnhanceEnabled: false
+        )
+    }
 }
 
 @MainActor
@@ -166,7 +224,7 @@ class AudioLabManager: ObservableObject {
     
     // MARK: - 音频分析（使用 SDK 的 AudioAnalyzer）
     
-    /// 分析当前播放的歌曲
+    /// 分析当前播放的歌曲（只分析，不自动应用）
     func analyzeCurrentSong() async {
         guard let song = PlayerManager.shared.currentSong else { return }
         guard !isAnalyzing else { return }
@@ -175,9 +233,6 @@ class AudioLabManager: ObservableObject {
         if let cached = analysisCache[song.id] {
             currentAnalysis = cached
             lastAnalyzedSongId = song.id
-            if isSmartEffectsEnabled {
-                applyRecommendedSettings(cached)
-            }
             AppLogger.info("使用缓存的分析结果: \(song.name)")
             return
         }
@@ -188,9 +243,9 @@ class AudioLabManager: ObservableObject {
         do {
             let analysis: AudioAnalysisResult
             
-            if analysisMode == .file, let url = PlayerManager.shared.currentPlayingURL {
-                // 使用 AudioAnalyzer.analyzeFile 进行完整分析（更准确）
-                analysis = try await analyzeFromFile(url: url)
+            if analysisMode == .file {
+                // 文件分析模式：下载歌曲源文件进行分析
+                analysis = try await analyzeByDownloading(song: song)
             } else {
                 // 回退到实时频谱分析（快速但不太准确）
                 let spectrumData = try await collectSpectrumData()
@@ -212,14 +267,9 @@ class AudioLabManager: ObservableObject {
                 }
             }
             
-            // 更新结果
+            // 更新结果（不自动应用，等用户手动点击）
             currentAnalysis = analysis
             lastAnalyzedSongId = song.id
-            
-            // 自动应用推荐设置
-            if isSmartEffectsEnabled {
-                applyRecommendedSettings(analysis)
-            }
             
             analysisProgress = 1.0
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -230,6 +280,105 @@ class AudioLabManager: ObservableObject {
         }
         
         isAnalyzing = false
+    }
+    
+    // MARK: - 下载并分析
+    
+    /// 下载歌曲源文件进行分析，分析完成后自动删除临时文件
+    private func analyzeByDownloading(song: Song) async throws -> AudioAnalysisResult {
+        AppLogger.info("开始下载歌曲进行分析: \(song.name)")
+        
+        // 1. 获取歌曲 URL
+        let songUrl = try await fetchSongUrlAsync(songId: song.id)
+        guard let url = URL(string: songUrl) else {
+            throw AnalysisError.invalidUrl
+        }
+        
+        analysisProgress = 0.1
+        
+        // 2. 下载到临时目录
+        let tempFileURL = try await downloadToTemp(url: url, songId: song.id)
+        
+        analysisProgress = 0.4
+        
+        // 3. 分析文件
+        defer {
+            // 分析完成后自动删除临时文件
+            cleanupTempFile(tempFileURL)
+        }
+        
+        let analysis = try await analyzeFromFile(url: tempFileURL.path)
+        
+        return analysis
+    }
+    
+    /// 异步获取歌曲 URL
+    private func fetchSongUrlAsync(songId: Int) async throws -> String {
+        return try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = APIService.shared.fetchSongUrl(id: songId, level: "exhigh")
+                .sink(receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        continuation.resume(throwing: error)
+                    }
+                    cancellable?.cancel()
+                }, receiveValue: { result in
+                    if result.url.isEmpty {
+                        continuation.resume(throwing: AnalysisError.urlNotAvailable)
+                    } else {
+                        continuation.resume(returning: result.url)
+                    }
+                })
+        }
+    }
+    
+    /// 下载文件到临时目录
+    private func downloadToTemp(url: URL, songId: Int) async throws -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileURL = tempDir.appendingPathComponent("analysis_\(songId)_\(UUID().uuidString).tmp")
+        
+        AppLogger.info("下载音频文件到临时目录: \(tempFileURL.lastPathComponent)")
+        
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw AnalysisError.downloadFailed
+        }
+        
+        try data.write(to: tempFileURL)
+        
+        let fileSize = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+        AppLogger.info("音频文件下载完成: \(fileSize)")
+        
+        return tempFileURL
+    }
+    
+    /// 清理临时文件
+    private func cleanupTempFile(_ url: URL) {
+        do {
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+                AppLogger.info("已删除分析临时文件: \(url.lastPathComponent)")
+            }
+        } catch {
+            AppLogger.warning("删除临时文件失败: \(error.localizedDescription)")
+        }
+    }
+    
+    /// 分析错误类型
+    enum AnalysisError: LocalizedError {
+        case invalidUrl
+        case urlNotAvailable
+        case downloadFailed
+        
+        var errorDescription: String? {
+            switch self {
+            case .invalidUrl: return "无效的歌曲 URL"
+            case .urlNotAvailable: return "无法获取歌曲播放地址"
+            case .downloadFailed: return "下载音频文件失败"
+            }
+        }
     }
     
     /// 强制重新分析（忽略缓存）
@@ -254,19 +403,20 @@ class AudioLabManager: ObservableObject {
             maxDuration: 60,
             onProgress: { [weak self] progress in
                 Task { @MainActor in
-                    self?.analysisProgress = progress * 0.8  // 保留 20% 给后处理
+                    // 分析阶段占 0.4~0.9 的进度（下载已占 0~0.4）
+                    self?.analysisProgress = 0.4 + progress * 0.45
                 }
             }
         )
         
-        analysisProgress = 0.85
+        analysisProgress = 0.9
         
         // 转换 SDK 结果为我们的格式
         let genre = inferGenreFromSDKResult(sdkResult)
         let timbre = convertTimbreAnalysis(sdkResult.timbre)
         let quality = convertQualityAssessment(sdkResult)
         
-        analysisProgress = 0.9
+        analysisProgress = 0.92
         
         // 生成推荐设置
         let recommendedEffects = generateRecommendedEffectsFromSDK(
@@ -482,8 +632,8 @@ class AudioLabManager: ObservableObject {
         let balance = 1.0 - abs(freq.lowEnergyRatio - freq.highEnergyRatio)
         var stereoWidth: Float = 1.0 + balance * 0.4
         
-        // 响度标准化：如果响度差异大，启用
-        let loudnormEnabled = loudness.integratedLUFS < -18 || loudness.integratedLUFS > -10
+        // 响度标准化：禁用（可能导致音质问题）
+        let loudnormEnabled = false
         
         // 根据风格微调
         switch genre {
@@ -515,6 +665,50 @@ class AudioLabManager: ObservableObject {
             break
         }
         
+        // ═══════════════════════════════════════
+        // 新增滤镜智能推荐（v1.1.9）
+        // 暂时全部禁用，避免滤镜图重建导致没声音
+        // ═══════════════════════════════════════
+        
+        // 音频修复：全部禁用
+        let declipEnabled = false
+        let fftDenoiseEnabled = false
+        let fftDenoiseAmount: Float = 10.0
+        
+        // 动态标准化：禁用
+        let dynaudnormEnabled = false
+        
+        // 语音标准化：禁用
+        let speechnormEnabled = false
+        
+        // 耳机优化：禁用（BS2B 可能导致问题）
+        let bs2bEnabled = false
+        
+        // 交叉馈送：禁用
+        let crossfeedEnabled = false
+        let crossfeedStrength: Float = 0.3
+        
+        // Haas 效果：禁用
+        let haasEnabled = false
+        let haasDelay: Float = 20.0
+        
+        // 虚拟低音：禁用
+        let virtualbassEnabled = false
+        let virtualbassCutoff: Float = 250.0
+        let virtualbassStrength: Float = 3.0
+        
+        // 激励器：禁用
+        let exciterEnabled = false
+        let exciterAmount: Float = 3.0
+        let exciterFreq: Float = 7500.0
+        
+        // 软削波：禁用
+        let softclipEnabled = false
+        let softclipType = 0
+        
+        // 对话增强：禁用
+        let dialogueEnhanceEnabled = false
+        
         return RecommendedEffects(
             bassGain: clampGain(bassGain),
             trebleGain: clampGain(trebleGain),
@@ -522,7 +716,28 @@ class AudioLabManager: ObservableObject {
             reverbLevel: max(0, min(1, reverbLevel)),
             stereoWidth: max(0.5, min(2, stereoWidth)),
             loudnormEnabled: loudnormEnabled,
-            eqGains: eqGains
+            eqGains: eqGains,
+            fftDenoiseEnabled: fftDenoiseEnabled,
+            fftDenoiseAmount: fftDenoiseAmount,
+            declickEnabled: false,  // 仅手动启用（黑胶场景）
+            declipEnabled: declipEnabled,
+            dynaudnormEnabled: dynaudnormEnabled,
+            speechnormEnabled: speechnormEnabled,
+            compandEnabled: false,  // 高级功能，仅手动启用
+            bs2bEnabled: bs2bEnabled,
+            crossfeedEnabled: crossfeedEnabled,
+            crossfeedStrength: crossfeedStrength,
+            haasEnabled: haasEnabled,
+            haasDelay: haasDelay,
+            virtualbassEnabled: virtualbassEnabled,
+            virtualbassCutoff: virtualbassCutoff,
+            virtualbassStrength: virtualbassStrength,
+            exciterEnabled: exciterEnabled,
+            exciterAmount: exciterAmount,
+            exciterFreq: exciterFreq,
+            softclipEnabled: softclipEnabled,
+            softclipType: softclipType,
+            dialogueEnhanceEnabled: dialogueEnhanceEnabled
         )
     }
 
@@ -848,7 +1063,7 @@ class AudioLabManager: ObservableObject {
             break
         }
         
-        return RecommendedEffects(
+        return RecommendedEffects.defaultNewFilters(
             bassGain: clampGain(bassGain),
             trebleGain: clampGain(trebleGain),
             surroundLevel: max(0, min(1, surroundLevel)),
@@ -871,7 +1086,7 @@ class AudioLabManager: ObservableObject {
         let effects = PlayerManager.shared.audioEffects
         let recommended = analysis.recommendedEffects
         
-        // 应用音效参数
+        // 应用基础音效参数
         effects.setBassGain(recommended.bassGain)
         effects.setTrebleGain(recommended.trebleGain)
         effects.setSurroundLevel(recommended.surroundLevel)
@@ -911,6 +1126,17 @@ class AudioLabManager: ObservableObject {
         AppLogger.info("智能音效已应用（\(modeText)）: \(analysis.suggestedGenre.rawValue) 风格")
     }
     
+    // MARK: - 音频修复引擎配置
+    
+    /// 根据分析结果和推荐音效智能配置修复引擎
+    ///
+    /// 修复引擎处理两类问题：
+    /// 1. 歌曲本身的音频瑕疵（削波、爆音、直流偏移等）
+    /// 2. 智能适配 EQ/音效后可能引入的问题（过度增益导致削波、响度标准化引入量化噪声等）
+    private func configureRepairEngine(analysis: AudioAnalysisResult, recommendedEffects: RecommendedEffects) {
+        // 修复引擎和新滤镜暂时禁用
+    }
+    
     /// 手动应用当前分析结果
     func applyCurrentAnalysis() {
         guard let analysis = currentAnalysis else { return }
@@ -928,7 +1154,7 @@ class AudioLabManager: ObservableObject {
     
     /// 重置 EQ 和音效参数到默认值
     func resetEQToDefault() {
-        // 重置音效参数
+        // 重置基础音效参数
         let effects = PlayerManager.shared.audioEffects
         effects.setBassGain(0)
         effects.setTrebleGain(0)
@@ -941,7 +1167,7 @@ class AudioLabManager: ObservableObject {
         EQManager.shared.applyFlat()
         EQManager.shared.saveAudioEffectsState()
         
-        AppLogger.info("智能音效已关闭，EQ 已重置为默认值")
+        AppLogger.info("智能音效已关闭，EQ 和所有滤镜已重置为默认值")
     }
     
     // MARK: - 持久化

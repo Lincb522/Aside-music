@@ -20,6 +20,10 @@ struct FullScreenPlayerView: View {
                 MinimalPlayerLayout()
             case .card:
                 CardPlayerLayout()
+            case .neumorphic:
+                NeumorphicPlayerLayout()
+            case .poster:
+                PosterPlayerLayout()
             }
         }
         .onAppear {

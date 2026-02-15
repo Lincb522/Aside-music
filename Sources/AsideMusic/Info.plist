@@ -57,5 +57,9 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>SanJiPoMoTi-2.ttf</string>
+	</array>
 </dict>
 </plist>

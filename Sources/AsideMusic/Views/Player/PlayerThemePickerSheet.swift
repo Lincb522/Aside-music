@@ -7,7 +7,7 @@ struct PlayerThemePickerSheet: View {
     let themeManager = PlayerThemeManager.shared
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             // 拖拽指示器
             Capsule()
                 .fill(Color.asideTextSecondary.opacity(0.3))
@@ -18,21 +18,25 @@ struct PlayerThemePickerSheet: View {
             Text("播放器主题")
                 .font(.rounded(size: 20, weight: .bold))
                 .foregroundColor(.asideTextPrimary)
+                .padding(.bottom, 4)
 
-            // 主题卡片网格
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 14),
-                GridItem(.flexible(), spacing: 14)
-            ], spacing: 14) {
-                ForEach(PlayerTheme.allCases) { theme in
-                    themeCard(theme)
+            // 主题卡片网格 - 使用 ScrollView 确保内容可滚动
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ], spacing: 14) {
+                    ForEach(PlayerTheme.allCases) { theme in
+                        themeCard(theme)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
             }
-            .padding(.horizontal, 20)
-
-            Spacer()
         }
         .background(sheetBackground.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.hidden)
     }
 
     /// 面板背景 — 使用通用弥散背景
@@ -100,6 +104,10 @@ struct PlayerThemePickerSheet: View {
             lyricFocusPreview
         case .card:
             cardPreview
+        case .neumorphic:
+            neumorphicPreview
+        case .poster:
+            posterPreview
         }
     }
 
@@ -263,6 +271,114 @@ struct PlayerThemePickerSheet: View {
                         Capsule().fill(Color.gray.opacity(0.2)).frame(width: 30, height: 2)
                     }
                 )
+        }
+    }
+
+    // MARK: - 新拟物预览
+    private var neumorphicPreview: some View {
+        let bgColor = colorScheme == .dark ? Color(hex: "2D2D30") : Color(hex: "E8E8EC")
+        
+        return ZStack {
+            bgColor
+            
+            VStack(spacing: 10) {
+                // 凸起的圆形封面
+                Circle()
+                    .fill(bgColor)
+                    .frame(width: 50, height: 50)
+                    .shadow(color: colorScheme == .dark ? .black.opacity(0.5) : .black.opacity(0.15), radius: 6, x: 4, y: 4)
+                    .shadow(color: colorScheme == .dark ? .white.opacity(0.05) : .white.opacity(0.7), radius: 6, x: -4, y: -4)
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                    )
+                
+                // 凹陷的进度条
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(bgColor)
+                    .frame(width: 70, height: 6)
+                    .shadow(color: colorScheme == .dark ? .black.opacity(0.5) : .black.opacity(0.15), radius: 2, x: 2, y: 2)
+                    .shadow(color: colorScheme == .dark ? .white.opacity(0.05) : .white.opacity(0.7), radius: 2, x: -2, y: -2)
+                    .overlay(
+                        HStack {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.2))
+                                .frame(width: 30, height: 4)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 1)
+                    )
+                
+                // 凸起的播放按钮
+                Circle()
+                    .fill(bgColor)
+                    .frame(width: 24, height: 24)
+                    .shadow(color: colorScheme == .dark ? .black.opacity(0.5) : .black.opacity(0.15), radius: 3, x: 2, y: 2)
+                    .shadow(color: colorScheme == .dark ? .white.opacity(0.05) : .white.opacity(0.7), radius: 3, x: -2, y: -2)
+                    .overlay(
+                        AsideIcon(icon: .play, size: 10, color: colorScheme == .dark ? .white.opacity(0.6) : .black.opacity(0.5))
+                    )
+            }
+        }
+    }
+    
+    // MARK: - 大字报预览
+    private var posterPreview: some View {
+        let bgClr: Color = colorScheme == .dark ? .black : .white
+        let fgClr: Color = colorScheme == .dark ? .white : .black
+        let redClr = Color(hex: "FF0000")
+        
+        return ZStack {
+            bgClr
+            
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer()
+                
+                // 巨型文字
+                Text("大")
+                    .font(.system(size: 48, weight: .black))
+                    .foregroundColor(fgClr)
+                    .tracking(-2)
+                
+                Text("字报")
+                    .font(.system(size: 28, weight: .black))
+                    .foregroundColor(fgClr)
+                    .tracking(-1)
+                
+                // 红色粗线
+                Rectangle()
+                    .fill(redClr)
+                    .frame(height: 3)
+                    .padding(.vertical, 4)
+                
+                // 模拟控制格子
+                HStack(spacing: 0) {
+                    ForEach(0..<4, id: \.self) { i in
+                        Rectangle()
+                            .fill(bgClr)
+                            .frame(height: 14)
+                            .overlay(
+                                Circle()
+                                    .fill(i == 1 ? redClr : fgClr.opacity(0.4))
+                                    .frame(width: 6, height: 6)
+                            )
+                        if i < 3 {
+                            Rectangle().fill(fgClr).frame(width: 1, height: 14)
+                        }
+                    }
+                }
+                .overlay(Rectangle().stroke(fgClr, lineWidth: 1))
+                
+                Spacer().frame(height: 6)
+            }
+            .padding(.horizontal, 10)
         }
     }
 }
