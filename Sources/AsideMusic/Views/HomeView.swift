@@ -1,11 +1,8 @@
 import SwiftUI
 import Combine
 
-extension URL: @retroactive Identifiable {
-    public var id: String { absoluteString }
-}
-
 // MARK: - Home View
+
 struct HomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared

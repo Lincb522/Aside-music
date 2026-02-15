@@ -13,7 +13,7 @@ final class DataSyncCoordinator: ObservableObject {
     @Published var syncError: Error?
     
     // MARK: - 配置
-    private let syncIntervalKey = "last_full_sync_time"
+    private let syncIntervalKey = AppConfig.StorageKeys.lastFullSync
     private let minSyncInterval: TimeInterval = 300 // 5分钟最小同步间隔
     
     private var cancellables = Set<AnyCancellable>()
@@ -100,6 +100,7 @@ final class DataSyncCoordinator: ObservableObject {
     private func syncDailySongs() async -> [Song] {
         return await withCheckedContinuation { continuation in
             apiService.fetchDailySongs()
+                .first()
                 .sink(
                     receiveCompletion: { completion in
                         if case .failure = completion {
@@ -121,6 +122,7 @@ final class DataSyncCoordinator: ObservableObject {
     private func syncRecommendPlaylists() async -> [Playlist] {
         return await withCheckedContinuation { continuation in
             apiService.fetchRecommendPlaylists()
+                .first()
                 .sink(
                     receiveCompletion: { completion in
                         if case .failure = completion {
@@ -146,6 +148,7 @@ final class DataSyncCoordinator: ObservableObject {
         
         return await withCheckedContinuation { continuation in
             apiService.fetchUserPlaylists(uid: uid)
+                .first()
                 .sink(
                     receiveCompletion: { completion in
                         if case .failure = completion {
@@ -180,6 +183,7 @@ final class DataSyncCoordinator: ObservableObject {
         // 从网络获取
         return await withCheckedContinuation { continuation in
             apiService.fetchPlaylistTracks(id: playlistId)
+                .first()
                 .sink(
                     receiveCompletion: { completion in
                         if case .failure = completion {

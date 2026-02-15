@@ -1173,13 +1173,13 @@ class AudioLabManager: ObservableObject {
     // MARK: - 持久化
     
     private func saveState() {
-        UserDefaults.standard.set(isSmartEffectsEnabled, forKey: "audio_lab_smart_effects_enabled")
-        UserDefaults.standard.set(analysisMode.rawValue, forKey: "audio_lab_analysis_mode")
+        UserDefaults.standard.set(isSmartEffectsEnabled, forKey: AppConfig.StorageKeys.audioLabSmartEffects)
+        UserDefaults.standard.set(analysisMode.rawValue, forKey: AppConfig.StorageKeys.audioLabAnalysisMode)
     }
     
     private func restoreState() {
-        isSmartEffectsEnabled = UserDefaults.standard.bool(forKey: "audio_lab_smart_effects_enabled")
-        if let modeRaw = UserDefaults.standard.string(forKey: "audio_lab_analysis_mode"),
+        isSmartEffectsEnabled = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.audioLabSmartEffects)
+        if let modeRaw = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.audioLabAnalysisMode),
            let mode = AnalysisMode(rawValue: modeRaw) {
             analysisMode = mode
         }

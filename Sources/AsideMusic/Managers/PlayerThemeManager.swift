@@ -7,12 +7,12 @@ final class PlayerThemeManager {
     
     var currentTheme: PlayerTheme {
         didSet {
-            UserDefaults.standard.set(currentTheme.rawValue, forKey: "playerTheme")
+            UserDefaults.standard.set(currentTheme.rawValue, forKey: AppConfig.StorageKeys.playerTheme)
         }
     }
     
     private init() {
-        let saved = UserDefaults.standard.string(forKey: "playerTheme") ?? ""
+        let saved = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playerTheme) ?? ""
         self.currentTheme = PlayerTheme(rawValue: saved) ?? .classic
     }
     

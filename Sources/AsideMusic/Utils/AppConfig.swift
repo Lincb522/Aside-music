@@ -61,10 +61,18 @@ enum AppConfig {
         static let cookie = "aside_music_cookie"
         static let userId = "aside_music_uid"
         static let soundQuality = "aside_sound_quality"
+        static let kugouQuality = "aside_kugou_quality"
         static let playerState = "player_state_v3"
+        static let playerTheme = "playerTheme"
         static let lastDailyRefresh = "last_daily_refresh_date"
+        static let lastFullSync = "last_full_sync_time"
         static let isLoggedIn = "isLoggedIn"
+        static let pitchSemitones = "aside_pitch_semitones"
+        static let defaultPlaybackQuality = "defaultPlaybackQuality"
+        static let audioLabSmartEffects = "audio_lab_smart_effects_enabled"
+        static let audioLabAnalysisMode = "audio_lab_analysis_mode"
     }
+
     
     // MARK: - 缓存键前缀
     enum CacheKeys {

@@ -81,7 +81,7 @@ class PlayerManager: ObservableObject {
         pitchSemitones = clamped
         audioEffects.setPitch(clamped)
         // 持久化
-        UserDefaults.standard.set(clamped, forKey: "aside_pitch_semitones")
+        UserDefaults.standard.set(clamped, forKey: AppConfig.StorageKeys.pitchSemitones)
     }
     
     // MARK: - 播放源类型
@@ -110,28 +110,28 @@ class PlayerManager: ObservableObject {
     
     // MARK: - Settings
     @Published var soundQuality: SoundQuality = {
-        if let rawValue = UserDefaults.standard.string(forKey: "aside_sound_quality"),
+        if let rawValue = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.soundQuality),
            let quality = SoundQuality(rawValue: rawValue) {
             return quality
         }
-        let defaultRaw = UserDefaults.standard.string(forKey: "defaultPlaybackQuality") ?? "standard"
+        let defaultRaw = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.defaultPlaybackQuality) ?? "standard"
         return SoundQuality(rawValue: defaultRaw) ?? .standard
     }() {
         didSet {
-            UserDefaults.standard.set(soundQuality.rawValue, forKey: "aside_sound_quality")
+            UserDefaults.standard.set(soundQuality.rawValue, forKey: AppConfig.StorageKeys.soundQuality)
         }
     }
     
     /// 酷狗音质（解灰歌曲独立体系）
     @Published var kugouQuality: KugouQuality = {
-        if let rawValue = UserDefaults.standard.string(forKey: "aside_kugou_quality"),
+        if let rawValue = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.kugouQuality),
            let quality = KugouQuality(rawValue: rawValue) {
             return quality
         }
         return .high
     }() {
         didSet {
-            UserDefaults.standard.set(kugouQuality.rawValue, forKey: "aside_kugou_quality")
+            UserDefaults.standard.set(kugouQuality.rawValue, forKey: AppConfig.StorageKeys.kugouQuality)
         }
     }
     
@@ -1117,7 +1117,7 @@ class PlayerManager: ObservableObject {
     }
     
     private var isAppLoggedIn: Bool {
-        UserDefaults.standard.bool(forKey: "isLoggedIn")
+        UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
     }
     
     // MARK: - Persistence

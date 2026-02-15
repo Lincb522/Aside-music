@@ -115,7 +115,7 @@ class LoginViewModel: ObservableObject {
                                     LikeManager.shared.refreshLikes()
                                     self.isLoggedIn = true
                                     // 同步到 AppStorage，让 ContentView/ProfileView 感知登录状态
-                                    UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                                    UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
                                     self.stopQRPolling()
                                     NotificationCenter.default.post(name: .didLogin, object: nil)
                                     Task { @MainActor in
@@ -170,7 +170,7 @@ class LoginViewModel: ObservableObject {
                     }
                     self?.isLoggedIn = true
                     // 同步到 AppStorage，让 ContentView/ProfileView 感知登录状态
-                    UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                    UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
                     NotificationCenter.default.post(name: .didLogin, object: nil)
                     Task { @MainActor in
                         GlobalRefreshManager.shared.triggerLoginRefresh()

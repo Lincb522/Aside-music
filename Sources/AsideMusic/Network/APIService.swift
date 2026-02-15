@@ -84,12 +84,12 @@ class APIService {
         
         // 同步 isLoggedIn 标志
         if savedCookie != nil && savedUid != nil {
-            UserDefaults.standard.set(true, forKey: "isLoggedIn")
+            UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
             #if DEBUG
             print("[APIService] ✅ 已登录，同步 isLoggedIn = true")
             #endif
         } else {
-            UserDefaults.standard.set(false, forKey: "isLoggedIn")
+            UserDefaults.standard.set(false, forKey: AppConfig.StorageKeys.isLoggedIn)
             #if DEBUG
             print("[APIService] ❌ 未登录，同步 isLoggedIn = false")
             #endif
@@ -108,26 +108,26 @@ class APIService {
     private static func migrateToKeychainIfNeeded() {
         // 迁移 cookie：如果 Keychain 没有但 UserDefaults 有，就迁移
         if KeychainHelper.loadString(key: "aside_music_cookie") == nil,
-           let oldCookie = UserDefaults.standard.string(forKey: "aside_music_cookie") {
+           let oldCookie = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.cookie) {
             #if DEBUG
             print("[APIService] 迁移 cookie 到 Keychain")
             #endif
             KeychainHelper.save(key: "aside_music_cookie", value: oldCookie)
             if KeychainHelper.loadString(key: "aside_music_cookie") != nil {
-                UserDefaults.standard.removeObject(forKey: "aside_music_cookie")
+                UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.cookie)
             }
         }
         
         // 迁移 uid：如果 Keychain 没有但 UserDefaults 有，就迁移
         if KeychainHelper.loadInt(key: "aside_music_uid") == nil {
-            let oldUid = UserDefaults.standard.integer(forKey: "aside_music_uid")
+            let oldUid = UserDefaults.standard.integer(forKey: AppConfig.StorageKeys.userId)
             if oldUid != 0 {
                 #if DEBUG
                 print("[APIService] 迁移 uid=\(oldUid) 到 Keychain")
                 #endif
                 KeychainHelper.save(key: "aside_music_uid", intValue: oldUid)
                 if KeychainHelper.loadInt(key: "aside_music_uid") != nil {
-                    UserDefaults.standard.removeObject(forKey: "aside_music_uid")
+                    UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.userId)
                 }
             }
         }
@@ -152,7 +152,7 @@ class APIService {
             // 清除 Keychain 中的凭证
             KeychainHelper.delete(key: "aside_music_cookie")
             KeychainHelper.delete(key: "aside_music_uid")
-            UserDefaults.standard.set(false, forKey: "isLoggedIn")
+            UserDefaults.standard.set(false, forKey: AppConfig.StorageKeys.isLoggedIn)
             
             // 直接设置内部状态，避免通过 didSet 重复发送通知
             // currentCookie 的 setter 会触发 currentUserId = nil，

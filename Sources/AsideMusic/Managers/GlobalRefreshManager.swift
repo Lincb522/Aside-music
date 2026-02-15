@@ -59,7 +59,7 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 应用进入前台时检查是否需要刷新
     private func handleAppWillEnterForeground() {
-        let isLoggedIn = UserDefaults.standard.bool(forKey: "isLoggedIn")
+        let isLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
         guard isLoggedIn else { return }
         
         // 检查是否需要刷新每日数据
@@ -82,7 +82,7 @@ class GlobalRefreshManager: ObservableObject {
     
     /// App 启动时调用
     func triggerAppLaunchRefresh() {
-        let isLoggedIn = UserDefaults.standard.bool(forKey: "isLoggedIn")
+        let isLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
         
         guard isLoggedIn else {
             AppLogger.debug("用户未登录，跳过启动刷新")
