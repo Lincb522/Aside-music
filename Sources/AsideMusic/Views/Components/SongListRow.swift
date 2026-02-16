@@ -1,9 +1,6 @@
 import SwiftUI
-import Combine
 
 struct SongListRow: View {
-    /// 用于长按菜单异步操作的生命周期管理
-    private static var menuCancellables = Set<AnyCancellable>()
     
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var settings = SettingsManager.shared
@@ -13,6 +10,8 @@ struct SongListRow: View {
     var onArtistTap: ((Int) -> Void)? = nil
     var onDetailTap: ((Song) -> Void)? = nil
     var onAlbumTap: ((Int) -> Void)? = nil
+    
+    @State private var showAddToPlaylist = false
     
     var isCurrent: Bool {
         player.currentSong?.id == song.id
@@ -95,10 +94,25 @@ struct SongListRow: View {
                         }
                     }
                     
-                    Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
-                        .font(.system(size: 13))
-                        .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.3) : Theme.secondaryText)
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        // QQ 音乐来源标识
+                        if song.isQQMusic {
+                            Text("QQ")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.green.opacity(0.8))
+                                )
+                        }
+                        
+                        Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
+                            .font(.system(size: 13))
+                            .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.3) : Theme.secondaryText)
+                            .lineLimit(1)
+                    }
                 }
             }
             
@@ -147,6 +161,13 @@ struct SongListRow: View {
                 }
             }
             
+            // 添加到本地歌单
+            Button {
+                showAddToPlaylist = true
+            } label: {
+                Label("添加到歌单", systemImage: "text.badge.plus")
+            }
+            
             Divider()
             
             if let artistId = song.ar?.first?.id {
@@ -175,21 +196,24 @@ struct SongListRow: View {
             
             // 复制播放链接（获取真实 URL → 后端生成短码 → 复制短链接）
             Button {
-                APIService.shared.fetchSongUrl(id: song.id, level: "jymaster")
-                    .flatMap { result -> AnyPublisher<String, Error> in
-                        guard !result.url.isEmpty else {
-                            return Fail(error: URLError(.badServerResponse)).eraseToAnyPublisher()
+                Task {
+                    do {
+                        let result = try await APIService.shared.fetchSongUrl(id: song.id, level: "jymaster").async()
+                        guard !result.url.isEmpty else { return }
+                        let shortLink = try await APIService.shortenPlayUrl(result.url).async()
+                        await MainActor.run {
+                            UIPasteboard.general.string = shortLink
                         }
-                        return APIService.shortenPlayUrl(result.url)
+                    } catch {
+                        AppLogger.error("复制播放链接失败: \(error)")
                     }
-                    .receive(on: DispatchQueue.main)
-                    .sink(receiveCompletion: { _ in }, receiveValue: { shortLink in
-                        UIPasteboard.general.string = shortLink
-                    })
-                    .store(in: &SongListRow.menuCancellables)
+                }
             } label: {
                 Label("复制播放链接", systemImage: "link")
             }
+        }
+        .sheet(isPresented: $showAddToPlaylist) {
+            AddToPlaylistSheet(song: song)
         }
     }
 }

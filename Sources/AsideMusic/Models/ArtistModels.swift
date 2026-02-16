@@ -1,77 +1,66 @@
 import Foundation
 
-// MARK: - 艺术家 & 专辑相关模型
+// MARK: - Artist Detail Models
 
 struct ArtistInfo: Identifiable, Codable {
     let id: Int
     let name: String
-    let cover: String?
     let picUrl: String?
     let img1v1Url: String?
-    let briefDesc: String?
-    let albumSize: Int?
     let musicSize: Int?
+    let albumSize: Int?
+    let mvSize: Int?
+    let briefDesc: String?
+    let alias: [String]?
+    let followed: Bool?
+    let accountId: Int?
     
     var coverUrl: URL? {
-        if let url = cover { return URL(string: url) }
-        if let url = picUrl { return URL(string: url) }
-        if let url = img1v1Url { return URL(string: url) }
+        if let urlStr = img1v1Url ?? picUrl {
+            return URL(string: urlStr)
+        }
         return nil
     }
 }
 
 struct ArtistDetailResponse: Codable {
-    let data: ArtistDetailData
+    let code: Int
+    let data: ArtistDetailData?
 }
 
 struct ArtistDetailData: Codable {
-    let artist: ArtistInfo
+    let artist: ArtistInfo?
 }
 
-struct ArtistDescSection: Identifiable {
-    let id = UUID()
-    let title: String
-    let content: String
+struct ArtistSongsResponse: Codable {
+    let code: Int
+    let songs: [Song]?
+    let total: Int?
+    let more: Bool?
 }
 
-struct ArtistDescResult {
-    let briefDesc: String?
-    let sections: [ArtistDescSection]
+struct ArtistAlbumsResponse: Codable {
+    let code: Int
+    let hotAlbums: [AlbumInfo]?
+    let more: Bool?
 }
-
-struct ArtistTopSongsResponse: Codable {
-    let songs: [Song]
-}
-
-struct TopArtistsResponse: Codable {
-    let artists: [ArtistInfo]
-}
-
-struct SearchArtistResponse: Codable {
-    let result: SearchArtistResult
-}
-
-struct SearchArtistResult: Codable {
-    let artists: [ArtistInfo]?
-    let artistCount: Int?
-}
-
-// MARK: - 专辑详情
 
 struct AlbumInfo: Identifiable, Codable {
     let id: Int
     let name: String
     let picUrl: String?
-    let artist: Artist?
-    let artists: [Artist]?
-    let size: Int?
-    let description: String?
     let publishTime: Int?
+    let size: Int?
+    let artist: ArtistInfo?
+    let artists: [Artist]?
+    let description: String?
     let company: String?
     let subType: String?
     
     var coverUrl: URL? {
-        if let url = picUrl { return URL(string: url) }
+        if let urlStr = picUrl {
+            return URL(string: urlStr)
+        }
         return nil
     }
     
@@ -91,7 +80,29 @@ struct AlbumInfo: Identifiable, Codable {
     }
 }
 
+struct AlbumDetailResponse: Codable {
+    let code: Int
+    let album: AlbumInfo?
+    let songs: [Song]?
+}
+
+// MARK: - Artist Description
+
+struct ArtistDescSection: Identifiable {
+    let id = UUID()
+    let title: String
+    let content: String
+}
+
+struct ArtistDescResult {
+    let briefDesc: String?
+    let sections: [ArtistDescSection]
+}
+
+// MARK: - Album Detail Result
+
 struct AlbumDetailResult {
     let album: AlbumInfo?
     let songs: [Song]
 }
+

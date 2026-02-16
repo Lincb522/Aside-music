@@ -27,7 +27,6 @@ class GlobalRefreshManager: ObservableObject {
     var onCoreDataReady: (() -> Void)?
     
     // MARK: - 配置
-    private let lastDailyRefreshKey = "last_daily_refresh_date"
     private let lastFullRefreshKey = "last_full_refresh_timestamp"
     private let refreshCooldown: TimeInterval = 30 // 30秒内不重复刷新
     
@@ -298,7 +297,7 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 检查是否需要刷新每日数据
     func checkDailyRefreshNeeded() -> Bool {
-        guard let lastDate = UserDefaults.standard.object(forKey: lastDailyRefreshKey) as? Date else {
+        guard let lastDate = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.lastDailyRefresh) as? Date else {
             return true
         }
         
@@ -308,13 +307,13 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 标记每日刷新完成
     func markDailyRefreshCompleted() {
-        UserDefaults.standard.set(Date(), forKey: lastDailyRefreshKey)
+        UserDefaults.standard.set(Date(), forKey: AppConfig.StorageKeys.lastDailyRefresh)
         OptimizedCacheManager.shared.markDailyDataRefreshed()
         AppLogger.debug("每日刷新标记完成")
     }
     
     private func resetDailyRefreshTimer() {
-        UserDefaults.standard.removeObject(forKey: lastDailyRefreshKey)
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.lastDailyRefresh)
     }
     
     // MARK: - 缓存状态
@@ -326,7 +325,7 @@ class GlobalRefreshManager: ObservableObject {
             songsCount: stats.cachedSongs,
             playlistsCount: stats.cachedPlaylists,
             totalSize: stats.totalSize,
-            lastDailyRefresh: UserDefaults.standard.object(forKey: lastDailyRefreshKey) as? Date,
+            lastDailyRefresh: UserDefaults.standard.object(forKey: AppConfig.StorageKeys.lastDailyRefresh) as? Date,
             needsDailyRefresh: checkDailyRefreshNeeded()
         )
     }

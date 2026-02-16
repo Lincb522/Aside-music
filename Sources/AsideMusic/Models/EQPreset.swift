@@ -66,6 +66,23 @@ struct EQPreset: Identifiable, Codable, Equatable {
         self.stereoWidth = stereoWidth
     }
     
+    // MARK: - 自定义 Decodable（JSON 中可省略有默认值的字段）
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        category = try container.decode(EQPresetCategory.self, forKey: .category)
+        description = try container.decode(String.self, forKey: .description)
+        let rawGains = try container.decode([Float].self, forKey: .gains)
+        gains = rawGains.count == 10 ? rawGains : Array(repeating: 0, count: 10)
+        isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? false
+        presetType = try container.decodeIfPresent(EQPresetType.self, forKey: .presetType) ?? .standard10
+        surroundLevel = try container.decodeIfPresent(Float.self, forKey: .surroundLevel) ?? 0
+        reverbLevel = try container.decodeIfPresent(Float.self, forKey: .reverbLevel) ?? 0
+        stereoWidth = try container.decodeIfPresent(Float.self, forKey: .stereoWidth) ?? 1.0
+    }
+    
     /// 应用预设到均衡器和音效
     func apply(to equalizer: AudioEqualizer) {
         guard presetType == .standard10 else { return }

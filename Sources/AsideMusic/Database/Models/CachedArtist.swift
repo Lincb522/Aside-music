@@ -43,17 +43,19 @@ final class CachedArtist {
         )
     }
     
-    /// 转换为 ArtistInfo 模型
     func toArtistInfo() -> ArtistInfo {
         return ArtistInfo(
             id: id,
             name: name,
-            cover: coverUrl,
             picUrl: coverUrl,
             img1v1Url: coverUrl,
-            briefDesc: briefDesc,
+            musicSize: musicSize,
             albumSize: albumSize,
-            musicSize: musicSize
+            mvSize: nil,
+            briefDesc: briefDesc,
+            alias: nil,
+            followed: nil,
+            accountId: nil
         )
     }
     

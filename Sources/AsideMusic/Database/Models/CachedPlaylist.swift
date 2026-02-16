@@ -99,9 +99,9 @@ final class CachedPlaylist {
     
     /// 转换为 Playlist 模型
     func toPlaylist() -> Playlist {
-        var creator: Creator? = nil
+        var creator: PlaylistCreator? = nil
         if let creatorName = creatorName {
-            creator = Creator(userId: nil, nickname: creatorName, avatarUrl: nil)
+            creator = PlaylistCreator(userId: 0, nickname: creatorName, avatarUrl: nil)
         }
         
         return Playlist(

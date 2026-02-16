@@ -12,6 +12,10 @@ class SubscriptionManager: ObservableObject {
     @Published var subscribedRadioIds: Set<Int> = []
     /// 已收藏的歌单 ID 集合
     @Published var subscribedPlaylistIds: Set<Int> = []
+    /// 最近手动收藏的歌单 ID（防止服务端延迟导致状态被覆盖）
+    private var recentlySubscribedIds: Set<Int> = []
+    /// 最近手动取消收藏的歌单 ID
+    private var recentlyUnsubscribedIds: Set<Int> = []
 
     @Published var isLoadingRadios = false
 
@@ -95,7 +99,17 @@ class SubscriptionManager: ObservableObject {
         guard let uid = userId else { return }
         // 不是自己创建的歌单 = 收藏的歌单
         let subscribed = playlists.filter { $0.creator?.userId != uid }
-        subscribedPlaylistIds = Set(subscribed.map { $0.id })
+        var ids = Set(subscribed.map { $0.id })
+        // 合并最近手动收藏的（服务端可能有延迟还没返回）
+        ids.formUnion(recentlySubscribedIds)
+        // 移除最近手动取消收藏的
+        ids.subtract(recentlyUnsubscribedIds)
+        subscribedPlaylistIds = ids
+        
+        // 如果服务端已经确认了手动操作的结果，清除待确认记录
+        let serverIds = Set(subscribed.map { $0.id })
+        recentlySubscribedIds = recentlySubscribedIds.filter { !serverIds.contains($0) }
+        recentlyUnsubscribedIds = recentlyUnsubscribedIds.filter { serverIds.contains($0) }
     }
 
     /// 收藏/取消收藏歌单
@@ -108,24 +122,43 @@ class SubscriptionManager: ObservableObject {
         // 乐观更新
         if targetState {
             subscribedPlaylistIds.insert(id)
+            recentlySubscribedIds.insert(id)
+            recentlyUnsubscribedIds.remove(id)
         } else {
             subscribedPlaylistIds.remove(id)
+            recentlyUnsubscribedIds.insert(id)
+            recentlySubscribedIds.remove(id)
         }
 
-        apiService.subscribePlaylist(id: id, subscribe: targetState)
+        performSubscribePlaylist(id: id, subscribe: targetState, retriesLeft: 2)
+    }
+    
+    /// 执行收藏请求，失败时自动重试
+    private func performSubscribePlaylist(id: Int, subscribe: Bool, retriesLeft: Int) {
+        apiService.subscribePlaylist(id: id, subscribe: subscribe)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                if case .failure = completion {
-                    // 回滚
-                    if targetState {
-                        self?.subscribedPlaylistIds.remove(id)
+                if case .failure(let error) = completion {
+                    if retriesLeft > 0 {
+                        AppLogger.warning("[Subscribe] 收藏请求失败，\(retriesLeft) 次重试剩余: \(error.localizedDescription)")
+                        // 延迟 1 秒重试
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            self?.performSubscribePlaylist(id: id, subscribe: subscribe, retriesLeft: retriesLeft - 1)
+                        }
                     } else {
-                        self?.subscribedPlaylistIds.insert(id)
+                        // 重试耗尽，回滚
+                        AppLogger.error("[Subscribe] 收藏请求最终失败: \(error.localizedDescription)")
+                        if subscribe {
+                            self?.subscribedPlaylistIds.remove(id)
+                            self?.recentlySubscribedIds.remove(id)
+                        } else {
+                            self?.subscribedPlaylistIds.insert(id)
+                            self?.recentlyUnsubscribedIds.remove(id)
+                        }
                     }
                 }
             }, receiveValue: { response in
                 if response.code == 200 {
-                    // 收藏/取消收藏成功，刷新歌单列表
                     Task { @MainActor in
                         GlobalRefreshManager.shared.refreshLibraryPublisher.send(true)
                     }
@@ -162,6 +195,8 @@ class SubscriptionManager: ObservableObject {
         }
 
         subscribedPlaylistIds.remove(id)
+        recentlyUnsubscribedIds.insert(id)
+        recentlySubscribedIds.remove(id)
 
         apiService.subscribePlaylist(id: id, subscribe: false)
             .receive(on: DispatchQueue.main)
@@ -169,10 +204,17 @@ class SubscriptionManager: ObservableObject {
                 if case .failure(let error) = result {
                     AppLogger.error("取消收藏歌单失败: \(error)")
                     self?.subscribedPlaylistIds.insert(id)
+                    self?.recentlyUnsubscribedIds.remove(id)
                     completion(false)
                 }
             }, receiveValue: { response in
-                completion(response.code == 200)
+                let success = response.code == 200
+                if success {
+                    Task { @MainActor in
+                        GlobalRefreshManager.shared.refreshLibraryPublisher.send(true)
+                    }
+                }
+                completion(success)
             })
             .store(in: &cancellables)
     }
@@ -212,6 +254,8 @@ class SubscriptionManager: ObservableObject {
             subscribedRadios = []
             subscribedRadioIds = []
             subscribedPlaylistIds = []
+            recentlySubscribedIds = []
+            recentlyUnsubscribedIds = []
         }
     }
 }

@@ -9,7 +9,8 @@
 /* Begin PBXBuildFile section */
 		F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */; };
 		F48E9C482F3B4F590060F4D4 /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C472F3B4F590060F4D4 /* LiquidGlassEffect */; };
-		F4CAFB0A2F404CE300219241 /* FFmpegSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = F4CAFB092F404CE300219241 /* FFmpegSwiftSDK */; };
+		F4DE904E2F42439900F27065 /* QQMusicKit in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE904D2F42439900F27065 /* QQMusicKit */; };
+		F4DE905F2F42E31F00F27065 /* FFmpegSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,7 +44,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F48E9C482F3B4F590060F4D4 /* LiquidGlassEffect in Frameworks */,
-				F4CAFB0A2F404CE300219241 /* FFmpegSwiftSDK in Frameworks */,
+				F4DE904E2F42439900F27065 /* QQMusicKit in Frameworks */,
+				F4DE905F2F42E31F00F27065 /* FFmpegSwiftSDK in Frameworks */,
 				F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -89,7 +91,8 @@
 			packageProductDependencies = (
 				F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */,
 				F48E9C472F3B4F590060F4D4 /* LiquidGlassEffect */,
-				F4CAFB092F404CE300219241 /* FFmpegSwiftSDK */,
+				F4DE904D2F42439900F27065 /* QQMusicKit */,
+				F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */,
 			);
 			productName = AsideMusic;
 			productReference = F4CCFD782F320B5900FC36CA /* AsideMusic.app */;
@@ -123,7 +126,8 @@
 			packageReferences = (
 				F48E9C432F3B4F060060F4D4 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
 				F48E9C462F3B4F590060F4D4 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */,
-				F4CAFB082F404CE300219241 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */,
+				F4DE904C2F42439900F27065 /* XCRemoteSwiftPackageReference "MusicKit" */,
+				F4DE905D2F42E31F00F27065 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -393,12 +397,20 @@
 				minimumVersion = 2.1.0;
 			};
 		};
-		F4CAFB082F404CE300219241 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */ = {
+		F4DE904C2F42439900F27065 /* XCRemoteSwiftPackageReference "MusicKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Lincb522/MusicKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		F4DE905D2F42E31F00F27065 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Lincb522/FFmpegSwiftSDK.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.0;
+				minimumVersion = 1.1.12;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -414,9 +426,14 @@
 			package = F48E9C462F3B4F590060F4D4 /* XCRemoteSwiftPackageReference "LiquidGlassEffect" */;
 			productName = LiquidGlassEffect;
 		};
-		F4CAFB092F404CE300219241 /* FFmpegSwiftSDK */ = {
+		F4DE904D2F42439900F27065 /* QQMusicKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4CAFB082F404CE300219241 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */;
+			package = F4DE904C2F42439900F27065 /* XCRemoteSwiftPackageReference "MusicKit" */;
+			productName = QQMusicKit;
+		};
+		F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F4DE905D2F42E31F00F27065 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */;
 			productName = FFmpegSwiftSDK;
 		};
 /* End XCSwiftPackageProductDependency section */

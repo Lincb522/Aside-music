@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoPager: Compact Mobile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --device-body: #ebe7de;
+            --screen-bg: #1a1a1a;
+            --screen-text: #fca311;
+            --btn-red: #d94e36;
+            --btn-red-shadow: #b03a25;
+            --shadow-dark: rgba(0, 0, 0, 0.15);
+            --paper-white: #fffcf5;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overscroll-behavior: none;
+            font-family: 'VT323', monospace;
+            overflow: hidden; 
+        }
+
+        .main-stage {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .top-fade-mask {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100px;
+            background: linear-gradient(to bottom, var(--bg-color) 10%, transparent);
+            z-index: 20; pointer-events: none;
+        }
+
+        /* --- 纸条通用样式 --- */
+        .receipt-entry {
+            background-color: var(--paper-white);
+            padding: 0 20px; 
+            font-family: 'Courier Prime', monospace;
+            color: #333;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-bottom: 2px dashed #dcdcdc;
+            flex-shrink: 0;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            width: 260px; 
+        }
+
+        .receipt-entry.visible {
+            padding-top: 15px;
+            padding-bottom: 15px;
+            opacity: 1;
+        }
+
+        .receipt-entry:last-child {
+            padding-bottom: 15px; 
+            border-bottom: none; 
+        }
+
+        .entry-header { display: flex; justify-content: space-between; font-size: 10px; color: #999; margin-bottom: 8px; }
+        .entry-content { font-size: 15px; font-weight: bold; line-height: 1.6; word-wrap: break-word; word-break: break-all; text-transform: uppercase; text-align: justify; }
+
+        /* --- 轨道 1: 主输出 --- */
+        .paper-feed-container {
+            position: absolute;
+            bottom: calc(50% + 150px); 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 260px;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            z-index: 5; pointer-events: none;
+            transition: bottom 0.3s ease, transform 0.3s ease;
+        }
+        .paper-feed-container .receipt-entry:first-child {
+            border-radius: 5px 5px 0 0;
+            background-image: radial-gradient(circle at top, transparent 4px, var(--paper-white) 4.5px);
+            background-size: 10px 10px;
+            background-repeat: repeat-x;
+            background-position: top;
+            margin-top: 20px;
+        }
+        .paper-feed-container .receipt-entry:first-child.visible { padding-top: 25px; }
+
+        /* 侧边轨道 & 背景 (电脑端显示，手机端将隐藏) */
+        .stream-container-right {
+            position: absolute; bottom: -50px; right: 40px; width: 240px;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            z-index: 2; transform: rotate(-2deg); opacity: 0.9;
+        }
+        .stream-container-left {
+            position: absolute; bottom: -50px; left: 40px; width: 240px;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            z-index: 2; transform: rotate(2deg); opacity: 0.8;
+        }
+        .chaos-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none; overflow: hidden; 
+        }
+        .receipt-entry.chaos-mode {
+            position: absolute; z-index: 0; opacity: 0; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-bottom: none; border-radius: 5px; 
+            filter: blur(0.5px); pointer-events: none; 
+            transition: opacity 1s ease;
+        }
+
+        /* --- 机器主体 --- */
+        .device-body {
+            position: relative;
+            background-color: var(--device-body);
+            border-radius: 30px;
+            padding: 30px;
+            width: 380px;
+            padding-bottom: 40px; 
+            box-shadow: 
+                0 20px 40px var(--shadow-dark),
+                inset 0 -5px 10px rgba(0,0,0,0.05);
+            z-index: 10; 
+            transition: all 0.3s ease;
+        }
+        .brand-area { text-align: center; margin-bottom: 15px; color: #8a867d; }
+        .brand-name { font-family: 'Courier Prime', monospace; font-weight: bold; letter-spacing: 3px; font-size: 12px; color: #555; }
+        .brand-name span { color: var(--btn-red); }
+        .brand-sub { font-size: 9px; letter-spacing: 1px; margin-top: 3px; opacity: 0.6; }
+        
+        .screen {
+            background-color: var(--screen-bg);
+            border-radius: 15px;
+            height: 120px;
+            padding: 20px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            margin-bottom: 25px;
+            position: relative;
+            display: flex; align-items: center;
+        }
+        #msg-input {
+            width: 100%; height: 100%; background: transparent; border: none; outline: none;
+            color: var(--screen-text); font-family: 'VT323', monospace; font-size: 28px;
+            text-transform: uppercase; text-shadow: 0 0 5px rgba(252, 163, 17, 0.5); caret-color: var(--screen-text);
+        }
+        #msg-input::placeholder { color: #664105; font-size: 24px; opacity: 0.5; }
+        
+        .controls { display: flex; justify-content: space-between; align-items: center; }
+        .left-decor { 
+            background: #dcd8ce; padding: 5px; border-radius: 20px; display: flex; gap: 10px; 
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); 
+        }
+        .indicator-dot { width: 25px; height: 25px; background-color: var(--btn-red); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: 0.2s; }
+        .indicator-dot.active { background-color: #ff3333; box-shadow: 0 0 15px #ff3333; }
+        
+        .heart-btn { 
+            width: 25px; height: 25px; background-color: #fff; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 14px; font-weight: bold; color: var(--btn-red); 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; user-select: none;
+        }
+        .heart-btn:active { transform: scale(0.9); background-color: #f9f9f9; }
+
+        .print-btn {
+            width: 80px; height: 80px; background-color: var(--btn-red); border-radius: 50%; border: none; color: white;
+            font-family: 'Courier Prime', monospace; font-weight: bold; font-size: 14px; letter-spacing: 1px; cursor: pointer;
+            box-shadow: 0 6px 0 var(--btn-red-shadow), 0 10px 15px rgba(0,0,0,0.3); transition: all 0.1s;
+        }
+        .print-btn:active { top: 6px; box-shadow: 0 0 0 var(--btn-red-shadow), 0 4px 5px rgba(0,0,0,0.3); transform: translateY(6px); }
+
+        /* --- 移动端适配 (Mobile Style) --- */
+        @media screen and (max-width: 600px) {
+            /* 1. 机器主体调整：进一步缩小并紧凑化 */
+            .device-body {
+                width: 85vw; /* 宽度占比减小 */
+                max-width: 310px; /* 最大宽度从 350 减小到 310 */
+                padding: 15px; /* 内边距减小 */
+                border-radius: 20px;
+                transform: translateY(25vh);
+            }
+
+            /* 屏幕区域也相应缩小一点 */
+            .screen { height: 80px; padding: 12px; margin-bottom: 15px; }
+            #msg-input { font-size: 20px; }
+            #msg-input::placeholder { font-size: 18px; }
+
+            /* 2. 纸张轨道调整 */
+            .paper-feed-container {
+                /* 因为机器主体变矮了，需要微调出纸口位置，让它贴合机器顶部 */
+                bottom: calc(50% + 95px); 
+                width: 78vw; /* 纸张相对宽度稍微增加一点 */
+                max-width: 230px; /* 保持纸张最大宽度不变，对比之下就显大了 */
+                transform: translateX(-50%) translateY(25vh);
+            }
+            
+            .receipt-entry { width: 100%; }
+
+            /* 3. 隐藏所有杂乱元素 */
+            .stream-container-left, 
+            .stream-container-right,
+            .chaos-bg { 
+                display: none !important; 
+            }
+
+            .top-fade-mask { height: 50px; }
+            .print-btn { width: 60px; height: 60px; font-size: 12px; }
+            .left-decor { gap: 5px; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="main-stage">
+        <div class="top-fade-mask"></div>
+        <div class="chaos-bg" id="chaosBg"></div>
+        <div class="stream-container-left" id="streamLeft"></div>
+        <div class="stream-container-right" id="streamRight"></div>
+        
+        <div class="paper-feed-container" id="paperFeed"></div>
+
+        <div class="device-body">
+            <div class="brand-area">
+                <div class="brand-name">MOTO<span>PAGER</span></div>
+                <div class="brand-sub">— DIGITAL NOTE PRINTER —</div>
+            </div>
+
+            <div class="screen">
+                <input type="text" id="msg-input" placeholder="输入内容..." autocomplete="off" maxlength="500" autofocus>
+            </div>
+
+            <div class="controls">
+                <div class="left-decor">
+                    <div class="indicator-dot" id="led"></div>
+                    <div class="heart-btn" onclick="location.reload()" title="Reset">×</div>
+                    <div class="heart-btn" onclick="exportTxt()" title="Export">↑</div>
+                </div>
+                <button class="print-btn" id="printBtn">PRINT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('msg-input');
+        const printBtn = document.getElementById('printBtn');
+        const led = document.getElementById('led');
+        
+        const feedMain = document.getElementById('paperFeed');
+        const feedRight = document.getElementById('streamRight');
+        const feedLeft = document.getElementById('streamLeft');
+        const chaosBg = document.getElementById('chaosBg');
+
+        let isComposing = false;
+        let historyData = [];
+
+        function generateID() { return Math.random().toString(36).substr(2, 6).toUpperCase(); }
+        function getTime() {
+            const now = new Date();
+            return `${now.getMonth()+1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        function checkPipelineOverflow() {
+            const isMobile = window.innerWidth < 600;
+
+            if (isMobile) {
+                moveOverflowToDelete(feedMain, -400); 
+            } else {
+                moveOverflowItem(feedMain, feedRight, 0);
+                moveOverflowItem(feedRight, feedLeft, 0);
+                moveOverflowToChaos(feedLeft, 0);
+            }
+        }
+
+        function moveOverflowToDelete(sourceContainer, offsetThreshold) {
+            if (sourceContainer.children.length === 0) return;
+            const oldestItem = sourceContainer.firstElementChild;
+            const rect = oldestItem.getBoundingClientRect();
+            if (rect.bottom < offsetThreshold) {
+                sourceContainer.removeChild(oldestItem);
+            }
+        }
+
+        function moveOverflowItem(sourceContainer, targetContainer, offsetThreshold) {
+            if (sourceContainer.children.length === 0) return;
+            const oldestItem = sourceContainer.firstElementChild;
+            const rect = oldestItem.getBoundingClientRect();
+
+            if (rect.bottom < offsetThreshold) {
+                const newItem = oldestItem.cloneNode(true);
+                sourceContainer.removeChild(oldestItem);
+                newItem.style.maxHeight = oldestItem.style.maxHeight;
+                newItem.style.opacity = '0';
+                newItem.style.transform = 'translateY(50px)';
+                newItem.classList.remove('visible'); 
+                targetContainer.appendChild(newItem);
+                void newItem.offsetWidth;
+                newItem.classList.add('visible');
+                newItem.style.opacity = '0.9';
+                newItem.style.transform = 'translateY(0)';
+            }
+        }
+
+        function moveOverflowToChaos(sourceContainer, offsetThreshold = 0) {
+            if (sourceContainer.children.length === 0) return;
+            const oldestItem = sourceContainer.firstElementChild;
+            const rect = oldestItem.getBoundingClientRect();
+
+            if (rect.bottom < offsetThreshold) {
+                const chaosItem = oldestItem.cloneNode(true);
+                sourceContainer.removeChild(oldestItem);
+                chaosItem.classList.add('chaos-mode');
+                chaosItem.classList.remove('visible'); 
+                
+                const randomTop = Math.random() * 90;
+                const randomLeft = Math.random() * 90 + 5;
+                const randomRot = Math.random() * 60 - 30;
+                
+                chaosItem.style.top = randomTop + '%';
+                chaosItem.style.left = randomLeft + '%';
+                chaosItem.style.transform = `rotate(${randomRot}deg) scale(0.85)`;
+                
+                chaosBg.appendChild(chaosItem);
+                void chaosItem.offsetWidth;
+                chaosItem.style.opacity = '0.6'; 
+                
+                if (chaosBg.children.length > 20) {
+                    chaosBg.removeChild(chaosBg.firstElementChild);
+                }
+            }
+        }
+
+        function printMessage() {
+            const text = input.value.trim();
+            if (!text) {
+                input.placeholder = "EMPTY!";
+                setTimeout(() => input.placeholder = "输入内容...", 800);
+                return;
+            }
+
+            const currentId = generateID();
+            const currentTime = getTime();
+            historyData.push({ id: currentId, time: currentTime, content: text });
+
+            const entry = document.createElement('div');
+            entry.className = 'receipt-entry';
+            entry.innerHTML = `
+                <div class="entry-header">
+                    <span>ID: ${currentId}</span>
+                    <span>${currentTime}</span>
+                </div>
+                <div class="entry-content">${text}</div>
+            `;
+
+            feedMain.appendChild(entry);
+            const finalHeight = entry.scrollHeight + 50;
+            void entry.offsetWidth; 
+            entry.style.maxHeight = finalHeight + "px";
+            entry.classList.add('visible');
+            entry.style.transform = 'translateY(0)';
+
+            led.classList.add('active');
+            setTimeout(() => led.classList.remove('active'), 200);
+
+            input.value = '';
+            input.focus();
+
+            setTimeout(checkPipelineOverflow, 100);
+            setTimeout(checkPipelineOverflow, 600);
+        }
+
+        function exportTxt() {
+            if (historyData.length === 0) {
+                alert("没有内容可以导出！");
+                return;
+            }
+            let txtContent = "MOTO PAGER - CHAT LOGS\n======================\n\n";
+            historyData.forEach((item) => {
+                txtContent += `[${item.time}] ID: ${item.id}\n${item.content}\n----------------------\n`;
+            });
+            const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const date = new Date();
+            link.download = `MotoPager_${date.getMonth()+1}-${date.getDate()}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        printBtn.addEventListener('click', printMessage);
+
+        input.addEventListener('compositionstart', () => isComposing = true);
+        input.addEventListener('compositionend', () => isComposing = false);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (isComposing) return;
+                printMessage();
+            }
+        });
+
+        window.addEventListener('resize', checkPipelineOverflow);
+
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"f90d51e013e64b06826a0b1fe1063acf","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>

@@ -43,7 +43,8 @@ final class VideoContainerView: UIView {
     }
     
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        // 此 View 仅支持代码初始化，不支持 Storyboard/XIB
+        return nil
     }
     
     deinit {
@@ -76,7 +77,7 @@ final class VideoContainerView: UIView {
             DispatchQueue.main.async {
                 // 检查是否需要 flush 才能恢复解码
                 if layer.status == .failed || layer.requiresFlushToResumeDecoding {
-                    print("[VideoContainerView] ⚠️ displayLayer 需要 flush，正在恢复...")
+                    AppLogger.warning("[VideoContainerView] displayLayer 需要 flush，正在恢复...")
                     layer.flush()
                 }
             }
@@ -156,15 +157,15 @@ struct MVPlayerView: View {
         }
         .onChange(of: viewModel.videoUrl) { _, url in
             if let url, let _ = URL(string: url) {
-                print("[MVPlayer] 🎬 开始播放视频: \(url)")
+                AppLogger.info("[MVPlayer] 开始播放视频: \(url)")
                 mvPlayer.play(url: url)
                 isPlaying = true
             } else {
-                print("[MVPlayer] ⚠️ 视频 URL 无效: \(url ?? "nil")")
+                AppLogger.warning("[MVPlayer] 视频 URL 无效: \(url ?? "nil")")
             }
         }
         .onChange(of: viewModel.detail?.name) { _, name in
-            print("[MVPlayer View] detail.name 变化: \(name ?? "nil")")
+            AppLogger.debug("[MVPlayer View] detail.name 变化: \(name ?? "nil")")
         }
         .statusBar(hidden: isFullscreen)
         .sheet(isPresented: $showSimiSheet) {
@@ -184,7 +185,7 @@ struct MVPlayerView: View {
                 .ignoresSafeArea()
 
             // 自定义控件覆盖层
-            videoControlsOverlay(fullscreen: true)
+            mvVideoControlsOverlay(fullscreen: true)
                 .ignoresSafeArea()
         }
     }
@@ -215,14 +216,20 @@ struct MVPlayerView: View {
                         }
 
                         // 内嵌评论区
-                        embeddedCommentSection
+                        MVEmbeddedCommentSection(
+                            commentVM: commentVM,
+                            isInputFocused: $isInputFocused
+                        )
                     }
                     .padding(.top, 20)
                     .padding(.bottom, 80)
                 }
 
                 // 底部评论输入栏
-                commentInputBar
+                MVCommentInputBar(
+                    commentVM: commentVM,
+                    isInputFocused: $isInputFocused
+                )
             }
 
             // 加载 / 错误覆盖
@@ -238,7 +245,7 @@ struct MVPlayerView: View {
         HStack {
             AsideBackButton(style: .dismiss)
             Spacer()
-            Text("MV")
+            Text(String(localized: "mv_title"))
                 .font(.rounded(size: 18, weight: .bold))
                 .foregroundColor(.asideTextPrimary)
             Spacer()
@@ -262,7 +269,7 @@ struct MVPlayerView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                 // 自定义控件覆盖层
-                videoControlsOverlay(fullscreen: false)
+                mvVideoControlsOverlay(fullscreen: false)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else if let error = viewModel.errorMessage {
                 // 错误状态
@@ -273,7 +280,7 @@ struct MVPlayerView: View {
                         .foregroundColor(.white.opacity(0.5))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
-                    Button("重试") { viewModel.fetchData() }
+                    Button(String(localized: "mv_retry")) { viewModel.fetchData() }
                         .font(.rounded(size: 14, weight: .medium))
                         .foregroundColor(.black)
                         .padding(.horizontal, 24)
@@ -297,7 +304,7 @@ struct MVPlayerView: View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 if let detail = viewModel.detail {
-                    Text(detail.name ?? "未知MV")
+                    Text(detail.name ?? String(localized: "mv_unknown"))
                         .font(.rounded(size: 22, weight: .bold))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(2)
@@ -310,7 +317,7 @@ struct MVPlayerView: View {
                         if let count = detail.playCount {
                             Text("·")
                                 .foregroundColor(.asideTextSecondary.opacity(0.4))
-                            Text(formatCount(count) + "播放")
+                            Text(formatCount(count) + String(localized: "mv_play_count"))
                                 .font(.rounded(size: 12))
                                 .foregroundColor(.asideTextSecondary.opacity(0.6))
                         }
@@ -364,7 +371,7 @@ struct MVPlayerView: View {
     private var relatedPreview: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("相关推荐")
+                Text(String(localized: "mv_related"))
                     .font(.rounded(size: 18, weight: .bold))
                     .foregroundColor(.asideTextPrimary)
                 Spacer()
@@ -372,7 +379,7 @@ struct MVPlayerView: View {
                 if total > 3 {
                     Button(action: { showSimiSheet = true }) {
                         HStack(spacing: 4) {
-                            Text("更多")
+                            Text(String(localized: "mv_more"))
                                 .font(.rounded(size: 14, weight: .medium))
                                 .foregroundColor(.asideTextSecondary)
                             AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
@@ -416,7 +423,7 @@ struct MVPlayerView: View {
                                     }
                                 }
 
-                                Text(mv.name ?? "未知MV")
+                                Text(mv.name ?? String(localized: "mv_unknown"))
                                     .font(.rounded(size: 13, weight: .medium))
                                     .foregroundColor(.asideTextPrimary)
                                     .lineLimit(1)
@@ -444,443 +451,35 @@ struct MVPlayerView: View {
         }
     }
 
-    // MARK: - 内嵌评论区
 
-    private var embeddedCommentSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // 评论区标题
-            HStack(alignment: .bottom) {
-                HStack(spacing: 6) {
-                    Text("评论")
-                        .font(.rounded(size: 22, weight: .bold))
-                        .foregroundColor(.asideTextPrimary)
-                    if commentVM.totalCount > 0 {
-                        Text("\(commentVM.totalCount)")
-                            .font(.rounded(size: 14, weight: .medium))
-                            .foregroundColor(.asideTextSecondary)
-                    }
-                }
-                Spacer()
+    // MARK: - 自定义播放器控件覆盖层（桥接到独立组件）
+
+    private func mvVideoControlsOverlay(fullscreen: Bool) -> some View {
+        MVVideoControlsOverlay(
+            fullscreen: fullscreen,
+            showControls: showControls,
+            isPlaying: isPlaying,
+            isSeeking: isSeeking,
+            seekValue: seekValue,
+            mvCurrentTime: mvCurrentTime,
+            mvDuration: mvDuration,
+            mvName: viewModel.detail?.name,
+            mvPlayer: mvPlayer,
+            onTogglePlayback: togglePlayback,
+            onToggleControlsVisibility: toggleControlsVisibility,
+            onScheduleControlsHide: scheduleControlsHide,
+            onEnterFullscreen: enterFullscreen,
+            onExitFullscreen: exitFullscreen,
+            onSeekChanged: { value in
+                isSeeking = true
+                seekValue = value
+            },
+            onSeekEnded: { value in
+                mvPlayer.seek(to: value)
+                mvCurrentTime = value
+                isSeeking = false
             }
-            .padding(.horizontal, 24)
-
-            // 排序标签
-            HStack(spacing: 8) {
-                ForEach(CommentSortType.allCases, id: \.rawValue) { type in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            commentVM.changeSortType(type)
-                        }
-                    } label: {
-                        Text(type.title)
-                            .font(.rounded(size: 13, weight: commentVM.sortType == type ? .semibold : .medium))
-                            .foregroundColor(commentVM.sortType == type ? .asideIconForeground : .asideTextSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                Capsule()
-                                    .fill(commentVM.sortType == type ? Color.asideIconBackground : Color.asideTextPrimary.opacity(0.05))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-
-            if commentVM.isLoading {
-                // 骨架屏
-                VStack(spacing: 14) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        HStack(alignment: .top, spacing: 12) {
-                            Circle()
-                                .fill(Color.asideTextPrimary.opacity(0.06))
-                                .frame(width: 36, height: 36)
-                            VStack(alignment: .leading, spacing: 8) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.asideTextPrimary.opacity(0.06))
-                                    .frame(width: 80, height: 12)
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.asideTextPrimary.opacity(0.04))
-                                    .frame(height: 14)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                    }
-                }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 24)
-            } else if commentVM.comments.isEmpty && commentVM.hotComments.isEmpty {
-                // 空状态
-                VStack(spacing: 12) {
-                    AsideIcon(icon: .comment, size: 32, color: .asideTextSecondary.opacity(0.25))
-                    Text("暂无评论")
-                        .font(.rounded(size: 15))
-                        .foregroundColor(.asideTextSecondary)
-                    Text("来发表第一条评论吧")
-                        .font(.rounded(size: 13))
-                        .foregroundColor(.asideTextSecondary.opacity(0.6))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
-            } else {
-                VStack(spacing: 14) {
-                    // 热门评论
-                    if !commentVM.hotComments.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 6) {
-                                AsideIcon(icon: .sparkle, size: 14, color: .asideOrange)
-                                Text("热门评论")
-                                    .font(.rounded(size: 14, weight: .semibold))
-                                    .foregroundColor(.asideTextPrimary)
-                            }
-                            .padding(.leading, 4)
-
-                            VStack(spacing: 0) {
-                                ForEach(Array(commentVM.hotComments.enumerated()), id: \.element.id) { index, comment in
-                                    CommentRow(
-                                        comment: comment,
-                                        isHot: true,
-                                        onLike: { commentVM.toggleLike(comment: comment, isHot: true) },
-                                        onReply: {
-                                            commentVM.replyTarget = comment
-                                            isInputFocused = true
-                                        }
-                                    )
-                                    if index < commentVM.hotComments.count - 1 {
-                                        Divider().padding(.leading, 52)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
-                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        }
-                    }
-
-                    // 全部评论
-                    if !commentVM.comments.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 6) {
-                                Text("全部评论")
-                                    .font(.rounded(size: 14, weight: .semibold))
-                                    .foregroundColor(.asideTextPrimary)
-                                if commentVM.totalCount > 0 {
-                                    Text("\(commentVM.totalCount)")
-                                        .font(.rounded(size: 12, weight: .medium))
-                                        .foregroundColor(.asideTextSecondary)
-                                }
-                            }
-                            .padding(.leading, 4)
-
-                            VStack(spacing: 0) {
-                                ForEach(Array(commentVM.comments.enumerated()), id: \.element.id) { index, comment in
-                                    CommentRow(
-                                        comment: comment,
-                                        isHot: false,
-                                        onLike: { commentVM.toggleLike(comment: comment, isHot: false) },
-                                        onReply: {
-                                            commentVM.replyTarget = comment
-                                            isInputFocused = true
-                                        }
-                                    )
-                                    if index < commentVM.comments.count - 1 {
-                                        Divider().padding(.leading, 52)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
-                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        }
-                    }
-
-                    // 加载更多
-                    if commentVM.hasMore {
-                        Button {
-                            commentVM.loadMore()
-                        } label: {
-                            HStack(spacing: 8) {
-                                if commentVM.isLoadingMore {
-                                    ProgressView().scaleEffect(0.8)
-                                } else {
-                                    Text("加载更多评论")
-                                        .font(.rounded(size: 14, weight: .medium))
-                                }
-                            }
-                            .foregroundColor(.asideTextSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color.asideTextPrimary.opacity(0.04))
-                            )
-                        }
-                        .disabled(commentVM.isLoadingMore)
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 24)
-            }
-        }
-    }
-
-    // MARK: - 底部评论输入栏
-
-    private var commentInputBar: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color.asideSeparator)
-                .frame(height: 0.5)
-
-            // 回复提示
-            if let reply = commentVM.replyTarget {
-                HStack(spacing: 8) {
-                    Text("回复")
-                        .font(.rounded(size: 12))
-                        .foregroundColor(.asideTextSecondary)
-                    Text("@\(reply.user.nickname)")
-                        .font(.rounded(size: 12, weight: .medium))
-                        .foregroundColor(.asideTextPrimary)
-                    Spacer()
-                    Button {
-                        withAnimation { commentVM.replyTarget = nil }
-                    } label: {
-                        AsideIcon(icon: .xmark, size: 10, color: .asideTextSecondary)
-                            .padding(6)
-                            .background(Circle().fill(Color.asideTextPrimary.opacity(0.06)))
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            HStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    TextField(
-                        commentVM.replyTarget != nil ? "回复 @\(commentVM.replyTarget!.user.nickname)..." : "写评论...",
-                        text: $commentVM.commentText
-                    )
-                    .font(.rounded(size: 15))
-                    .focused($isInputFocused)
-
-                    if !commentVM.commentText.isEmpty {
-                        Button {
-                            commentVM.commentText = ""
-                        } label: {
-                            AsideIcon(icon: .xmark, size: 10, color: .asideTextSecondary)
-                                .padding(4)
-                                .background(Circle().fill(Color.asideTextPrimary.opacity(0.08)))
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(Color.asideTextPrimary.opacity(0.05))
-                )
-
-                let canSend = !commentVM.commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !commentVM.isSending
-                Button {
-                    commentVM.sendComment()
-                    isInputFocused = false
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(canSend ? Color.asideIconBackground : Color.asideTextPrimary.opacity(0.06))
-                            .frame(width: 36, height: 36)
-                        if commentVM.isSending {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                                .tint(.asideIconForeground)
-                        } else {
-                            AsideIcon(
-                                icon: .send,
-                                size: 16,
-                                color: canSend ? .asideIconForeground : .asideTextSecondary.opacity(0.4)
-                            )
-                        }
-                    }
-                }
-                .disabled(!canSend)
-                .buttonStyle(AsideBouncingButtonStyle())
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .padding(.bottom, 4)
-        }
-        .background(.ultraThinMaterial)
-    }
-
-    // MARK: - 自定义播放器控件覆盖层
-
-    private func videoControlsOverlay(fullscreen: Bool) -> some View {
-        ZStack {
-            // 点击区域：切换控件显隐
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture { toggleControlsVisibility() }
-
-            if showControls || !isPlaying {
-                // 半透明渐变遮罩
-                VStack(spacing: 0) {
-                    // 顶部渐变
-                    LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom)
-                        .frame(height: fullscreen ? 80 : 50)
-                    Spacer()
-                    // 底部渐变
-                    LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
-                        .frame(height: fullscreen ? 100 : 70)
-                }
-                .allowsHitTesting(false)
-
-                // 中央播放/暂停
-                Button(action: { togglePlayback(); scheduleControlsHide() }) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: fullscreen ? 64 : 52, height: fullscreen ? 64 : 52)
-                        AsideIcon(
-                            icon: isPlaying ? .pause : .play,
-                            size: fullscreen ? 26 : 22,
-                            color: .white
-                        )
-                        .offset(x: isPlaying ? 0 : 2)
-                    }
-                }
-                .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
-
-                // 顶部栏
-                VStack {
-                    HStack {
-                        if fullscreen {
-                            Button(action: exitFullscreen) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.white.opacity(0.15))
-                                        .frame(width: 38, height: 38)
-                                    AsideIcon(icon: .shrinkScreen, size: 15, color: .white)
-                                }
-                            }
-                            .buttonStyle(AsideBouncingButtonStyle())
-
-                            if let name = viewModel.detail?.name {
-                                Text(name)
-                                    .font(.rounded(size: 15, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .padding(.leading, 6)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, fullscreen ? 20 : 12)
-                    .padding(.top, fullscreen ? 12 : 8)
-                    Spacer()
-                }
-
-                // 底部控件栏
-                VStack {
-                    Spacer()
-                    VStack(spacing: fullscreen ? 10 : 6) {
-                        // 进度条
-                        progressBar(fullscreen: fullscreen)
-
-                        // 时间 + 全屏按钮
-                        HStack(spacing: 8) {
-                            Text(formatTime(isSeeking ? seekValue : mvCurrentTime))
-                                .font(.system(size: fullscreen ? 12 : 10, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.9))
-
-                            Text("/")
-                                .font(.system(size: fullscreen ? 11 : 9, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.4))
-
-                            Text(formatTime(mvDuration))
-                                .font(.system(size: fullscreen ? 12 : 10, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.5))
-
-                            Spacer()
-
-                            Button(action: { fullscreen ? exitFullscreen() : enterFullscreen() }) {
-                                AsideIcon(
-                                    icon: fullscreen ? .shrinkScreen : .expandScreen,
-                                    size: fullscreen ? 16 : 14,
-                                    color: .white.opacity(0.9)
-                                )
-                                .frame(width: 32, height: 32)
-                            }
-                            .buttonStyle(AsideBouncingButtonStyle())
-                        }
-                    }
-                    .padding(.horizontal, fullscreen ? 20 : 12)
-                    .padding(.bottom, fullscreen ? 16 : 8)
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.25), value: showControls)
-    }
-
-    // MARK: - 进度条
-
-    private func progressBar(fullscreen: Bool) -> some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let barHeight: CGFloat = fullscreen ? 4 : 3
-            let progress = mvDuration > 0 ? (isSeeking ? seekValue : mvCurrentTime) / mvDuration : 0
-            let thumbSize: CGFloat = isSeeking ? (fullscreen ? 16 : 14) : (fullscreen ? 10 : 8)
-
-            ZStack(alignment: .leading) {
-                // 轨道背景
-                Capsule()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(height: barHeight)
-
-                // 已播放进度
-                Capsule()
-                    .fill(Color.asideAccent)
-                    .frame(width: max(0, width * CGFloat(progress)), height: barHeight)
-
-                // 拖拽拇指
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: thumbSize, height: thumbSize)
-                    .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-                    .offset(x: max(0, min(width * CGFloat(progress) - thumbSize / 2, width - thumbSize)))
-            }
-            .frame(height: max(barHeight, thumbSize))
-            .contentShape(Rectangle().inset(by: -12))
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        isSeeking = true
-                        let ratio = max(0, min(value.location.x / width, 1))
-                        seekValue = Double(ratio) * mvDuration
-                        scheduleControlsHide()
-                    }
-                    .onEnded { value in
-                        let ratio = max(0, min(value.location.x / width, 1))
-                        let target = Double(ratio) * mvDuration
-                        mvPlayer.seek(to: target)
-                        mvCurrentTime = target
-                        isSeeking = false
-                        scheduleControlsHide()
-                    }
-            )
-        }
-        .frame(height: fullscreen ? 16 : 14)
+        )
     }
 
     // MARK: - 辅助方法
@@ -965,14 +564,6 @@ struct MVPlayerView: View {
         return "\(count)"
     }
 
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite && !seconds.isNaN else { return "0:00" }
-        let total = Int(max(0, seconds))
-        let m = total / 60
-        let s = total % 60
-        return String(format: "%d:%02d", m, s)
-    }
-
     // MARK: - 相似推荐 Sheet
 
     private var simiSheet: some View {
@@ -983,7 +574,7 @@ struct MVPlayerView: View {
                 .padding(.top, 10)
 
             HStack {
-                Text("相关推荐")
+                Text(String(localized: "mv_related"))
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundColor(.asideTextPrimary)
                 Spacer()
@@ -1003,7 +594,7 @@ struct MVPlayerView: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 10) {
                     if !viewModel.simiMVs.isEmpty {
-                        simiSectionLabel("相似MV")
+                        simiSectionLabel(String(localized: "mv_similar"))
                         ForEach(viewModel.simiMVs) { mv in
                             MVRowCard(mv: mv) {
                                 showSimiSheet = false
@@ -1013,7 +604,7 @@ struct MVPlayerView: View {
                     }
 
                     if !viewModel.relatedMVs.isEmpty {
-                        simiSectionLabel("相关视频")
+                        simiSectionLabel(String(localized: "mv_related_videos"))
                         ForEach(viewModel.relatedMVs) { mv in
                             MVRowCard(mv: mv) {
                                 showSimiSheet = false

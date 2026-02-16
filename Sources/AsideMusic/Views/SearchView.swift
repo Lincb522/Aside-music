@@ -1,254 +1,4 @@
 import SwiftUI
-import Combine
-
-// MARK: - 搜索类型
-
-enum SearchTab: String, CaseIterable {
-    case songs = "单曲"
-    case artists = "歌手"
-    case playlists = "歌单"
-    case albums = "专辑"
-    case mvs = "MV"
-}
-
-@MainActor
-class SearchViewModel: ObservableObject {
-    @Published var query: String = ""
-    @Published var searchResults: [Song] = []
-    @Published var artistResults: [ArtistInfo] = []
-    @Published var playlistResults: [Playlist] = []
-    @Published var albumResults: [SearchAlbum] = []
-    @Published var mvResults: [MV] = []
-    @Published var suggestions: [String] = []
-    @Published var searchHistory: [SearchHistory] = []
-    @Published var hotSearchItems: [HotSearchItem] = []
-    @Published var isLoading = false
-    @Published var hasSearched = false
-    @Published var canLoadMore = true
-    @Published var showSuggestions = false
-    @Published var currentTab: SearchTab = .songs
-
-    private var currentPage = 0
-    private var isFetchingMore = false
-    private var cancellables = Set<AnyCancellable>()
-    private let apiService = APIService.shared
-    private let cacheManager = OptimizedCacheManager.shared
-    
-    init() {
-        loadSearchHistory()
-        loadHotSearch()
-        
-        $query
-            .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: RunLoop.main)
-            .removeDuplicates()
-            .sink { [weak self] keyword in
-                guard let self = self else { return }
-                if !keyword.isEmpty {
-                    if !self.hasSearched {
-                        self.fetchSuggestions(keyword: keyword)
-                    }
-                } else {
-                    self.resetState()
-                }
-            }
-            .store(in: &cancellables)
-    }
-    
-    private func resetState() {
-        self.searchResults = []
-        self.artistResults = []
-        self.playlistResults = []
-        self.albumResults = []
-        self.mvResults = []
-        self.suggestions = []
-        self.hasSearched = false
-        self.showSuggestions = false
-        self.currentPage = 0
-        self.canLoadMore = true
-    }
-    
-    func loadSearchHistory() {
-        searchHistory = cacheManager.getSearchHistory(limit: 20)
-    }
-    
-    func loadHotSearch() {
-        apiService.fetchHotSearch()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] items in
-                self?.hotSearchItems = items
-            })
-            .store(in: &cancellables)
-    }
-    
-    func fetchSuggestions(keyword: String) {
-        self.showSuggestions = true
-        apiService.fetchSearchSuggestions(keyword: keyword)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] suggestions in
-                self?.suggestions = suggestions
-            })
-            .store(in: &cancellables)
-    }
-    
-    func performSearch(keyword: String) {
-        isLoading = true
-        hasSearched = true
-        showSuggestions = false
-        suggestions = []
-        currentPage = 0
-        canLoadMore = true
-        
-        if query != keyword {
-            query = keyword
-        }
-        
-        // 保存搜索历史
-        cacheManager.addSearchHistory(keyword: keyword)
-        loadSearchHistory()
-
-        executeSearch(keyword: keyword, offset: 0, isLoadMore: false)
-    }
-    
-    /// 切换搜索类型时重新搜索
-    func switchTab(_ tab: SearchTab) {
-        guard tab != currentTab else { return }
-        currentTab = tab
-        guard hasSearched, !query.isEmpty else { return }
-        
-        // 如果该类型已有结果，不重复请求
-        switch tab {
-        case .songs: if !searchResults.isEmpty { return }
-        case .artists: if !artistResults.isEmpty { return }
-        case .playlists: if !playlistResults.isEmpty { return }
-        case .albums: if !albumResults.isEmpty { return }
-        case .mvs: if !mvResults.isEmpty { return }
-        }
-        
-        isLoading = true
-        currentPage = 0
-        canLoadMore = true
-        executeSearch(keyword: query, offset: 0, isLoadMore: false)
-    }
-    
-    func loadMore() {
-        guard !isFetchingMore && canLoadMore && !query.isEmpty else { return }
-        
-        isFetchingMore = true
-        let nextPage = currentPage + 1
-        let offset = nextPage * 30
-        executeSearch(keyword: query, offset: offset, isLoadMore: true)
-    }
-
-    private func executeSearch(keyword: String, offset: Int, isLoadMore: Bool) {
-        switch currentTab {
-        case .songs:
-            apiService.searchSongs(keyword: keyword, offset: offset)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] _ in
-                    self?.isLoading = false
-                    if isLoadMore { self?.isFetchingMore = false }
-                }, receiveValue: { [weak self] songs in
-                    guard let self = self else { return }
-                    self.handlePagination(newItems: songs, existing: &self.searchResults, isLoadMore: isLoadMore)
-                })
-                .store(in: &cancellables)
-            
-        case .artists:
-            apiService.searchArtists(keyword: keyword, limit: 30, offset: offset)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] _ in
-                    self?.isLoading = false
-                    if isLoadMore { self?.isFetchingMore = false }
-                }, receiveValue: { [weak self] artists in
-                    guard let self = self else { return }
-                    self.handlePagination(newItems: artists, existing: &self.artistResults, isLoadMore: isLoadMore)
-                })
-                .store(in: &cancellables)
-            
-        case .playlists:
-            apiService.searchPlaylists(keyword: keyword, limit: 30, offset: offset)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] _ in
-                    self?.isLoading = false
-                    if isLoadMore { self?.isFetchingMore = false }
-                }, receiveValue: { [weak self] playlists in
-                    guard let self = self else { return }
-                    self.handlePagination(newItems: playlists, existing: &self.playlistResults, isLoadMore: isLoadMore)
-                })
-                .store(in: &cancellables)
-            
-        case .albums:
-            apiService.searchAlbums(keyword: keyword, limit: 30, offset: offset)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] _ in
-                    self?.isLoading = false
-                    if isLoadMore { self?.isFetchingMore = false }
-                }, receiveValue: { [weak self] albums in
-                    guard let self = self else { return }
-                    self.handlePagination(newItems: albums, existing: &self.albumResults, isLoadMore: isLoadMore)
-                })
-                .store(in: &cancellables)
-            
-        case .mvs:
-            apiService.searchMVs(keyword: keyword, limit: 30, offset: offset)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] _ in
-                    self?.isLoading = false
-                    if isLoadMore { self?.isFetchingMore = false }
-                }, receiveValue: { [weak self] mvs in
-                    guard let self = self else { return }
-                    self.handlePagination(newItems: mvs, existing: &self.mvResults, isLoadMore: isLoadMore)
-                })
-                .store(in: &cancellables)
-        }
-    }
-    
-    /// 通用分页处理
-    private func handlePagination<T: Identifiable>(newItems: [T], existing: inout [T], isLoadMore: Bool) where T.ID: Hashable {
-        if isLoadMore {
-            if !newItems.isEmpty {
-                let existingIds = Set(existing.map { $0.id })
-                let filtered = newItems.filter { !existingIds.contains($0.id) }
-                if !filtered.isEmpty {
-                    existing.append(contentsOf: filtered)
-                }
-                currentPage += 1
-                canLoadMore = newItems.count >= 30
-            } else {
-                canLoadMore = false
-            }
-        } else {
-            existing = newItems
-            canLoadMore = !newItems.isEmpty
-        }
-    }
-    
-    /// 当前 tab 是否有结果
-    var currentResultsEmpty: Bool {
-        switch currentTab {
-        case .songs: return searchResults.isEmpty
-        case .artists: return artistResults.isEmpty
-        case .playlists: return playlistResults.isEmpty
-        case .albums: return albumResults.isEmpty
-        case .mvs: return mvResults.isEmpty
-        }
-    }
-    
-    func clearSearch() {
-        query = ""
-        resetState()
-    }
-    
-    func deleteHistoryItem(keyword: String) {
-        cacheManager.deleteSearchHistory(keyword: keyword)
-        loadSearchHistory()
-    }
-    
-    func clearAllHistory() {
-        cacheManager.clearSearchHistory()
-        loadSearchHistory()
-    }
-}
-
 
 // MARK: - SearchView
 
@@ -396,7 +146,7 @@ struct SearchView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
     }
-    
+
     // MARK: - 搜索内容区域
     
     @ViewBuilder
@@ -414,7 +164,12 @@ struct SearchView: View {
                     emptyResultsView
                     Spacer()
                 } else {
-                    resultsListView
+                    // 展开单平台 or 双列模式
+                    if let expanded = viewModel.expandedSource {
+                        expandedResultsView(source: expanded)
+                    } else {
+                        dualPlatformResultsView
+                    }
                 }
             }
         } else if viewModel.query.isEmpty {
@@ -422,6 +177,480 @@ struct SearchView: View {
         }
     }
     
+    // MARK: - 双平台并列结果
+    
+    private var dualPlatformResultsView: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                switch viewModel.currentTab {
+                case .songs:
+                    dualSongsSections
+                case .artists:
+                    dualArtistsSections
+                case .playlists:
+                    dualPlaylistsSections
+                case .albums:
+                    dualAlbumsSections
+                case .mvs:
+                    // MV 只有网易云
+                    platformSection(title: "网易云音乐", source: .netease) {
+                        mvsResultList(mvs: viewModel.neteaseMVResults)
+                    }
+                }
+            }
+            .padding(.bottom, 120)
+        }
+        .simultaneousGesture(DragGesture().onChanged { _ in
+            isFocused = false
+        })
+    }
+    
+    // MARK: - 双平台单曲
+    
+    private var dualSongsSections: some View {
+        VStack(spacing: 20) {
+            // 网易云
+            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseResults.count) {
+                ForEach(Array(viewModel.neteaseResults.prefix(5).enumerated()), id: \.element.id) { index, song in
+                    SongListRow(song: song, index: index, onArtistTap: { artistId in
+                        selectedArtistId = artistId
+                        showArtistDetail = true
+                    }, onDetailTap: { detailSong in
+                        selectedSongForDetail = detailSong
+                        showSongDetail = true
+                    }, onAlbumTap: { albumId in
+                        selectedAlbumId = albumId
+                        showAlbumDetail = true
+                    })
+                    .asButton {
+                        PlayerManager.shared.play(song: song, in: viewModel.neteaseResults)
+                        isFocused = false
+                    }
+                }
+            }
+            
+            // QQ 音乐
+            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqResults.count) {
+                ForEach(Array(viewModel.qqResults.prefix(5).enumerated()), id: \.element.id) { index, song in
+                    SongListRow(song: song, index: index, onArtistTap: { _ in }, onDetailTap: { detailSong in
+                        selectedSongForDetail = detailSong
+                        showSongDetail = true
+                    }, onAlbumTap: { _ in })
+                    .asButton {
+                        PlayerManager.shared.play(song: song, in: viewModel.qqResults)
+                        isFocused = false
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - 双平台歌手
+    
+    private var dualArtistsSections: some View {
+        VStack(spacing: 20) {
+            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseArtistResults.count) {
+                ForEach(viewModel.neteaseArtistResults.prefix(5)) { artist in
+                    artistRow(artist: artist)
+                }
+            }
+            
+            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqArtistResults.count) {
+                ForEach(viewModel.qqArtistResults.prefix(5)) { artist in
+                    artistRow(artist: artist)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 双平台歌单
+    
+    private var dualPlaylistsSections: some View {
+        VStack(spacing: 20) {
+            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteasePlaylistResults.count) {
+                ForEach(viewModel.neteasePlaylistResults.prefix(5)) { playlist in
+                    playlistRow(playlist: playlist)
+                }
+            }
+            
+            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqPlaylistResults.count) {
+                ForEach(viewModel.qqPlaylistResults.prefix(5)) { playlist in
+                    playlistRow(playlist: playlist)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 双平台专辑
+    
+    private var dualAlbumsSections: some View {
+        VStack(spacing: 20) {
+            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseAlbumResults.count) {
+                ForEach(viewModel.neteaseAlbumResults.prefix(5)) { album in
+                    albumRow(album: album)
+                }
+            }
+            
+            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqAlbumResults.count) {
+                ForEach(viewModel.qqAlbumResults.prefix(5)) { album in
+                    albumRow(album: album)
+                }
+            }
+        }
+    }
+
+    // MARK: - 平台 Section 容器
+    
+    private func platformSection<Content: View>(
+        title: String,
+        source: MusicSource,
+        isLoading: Bool = false,
+        count: Int = 0,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 平台标题栏
+            HStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(.asideTextSecondary)
+                
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                }
+                
+                Spacer()
+                
+                if count > 5 {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            viewModel.expandedSource = source
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Text("查看全部")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                            AsideIcon(icon: .chevronRight, size: 10, color: .asideTextSecondary)
+                        }
+                        .foregroundColor(.asideTextSecondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
+            
+            if isLoading && count == 0 {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Spacer()
+                }
+                .padding(.vertical, 20)
+            } else if count == 0 {
+                Text("暂无结果")
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundColor(.asideTextSecondary.opacity(0.6))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+            } else {
+                content()
+            }
+        }
+    }
+    
+    // MARK: - 展开单平台全屏列表
+    
+    private func expandedResultsView(source: MusicSource) -> some View {
+        VStack(spacing: 0) {
+            // 返回双列模式按钮
+            HStack {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        viewModel.expandedSource = nil
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        AsideIcon(icon: .chevronLeft, size: 14, color: .asideTextPrimary)
+                        Text(source == .netease ? "网易云音乐" : "QQ音乐")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
+            
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    switch viewModel.currentTab {
+                    case .songs:
+                        expandedSongsList(source: source)
+                    case .artists:
+                        expandedArtistsList(source: source)
+                    case .playlists:
+                        expandedPlaylistsList(source: source)
+                    case .albums:
+                        expandedAlbumsList(source: source)
+                    case .mvs:
+                        expandedMVsList
+                    }
+                }
+                .padding(.bottom, 120)
+            }
+            .simultaneousGesture(DragGesture().onChanged { _ in
+                isFocused = false
+            })
+        }
+    }
+    
+    // MARK: - 展开歌曲列表
+    
+    private func expandedSongsList(source: MusicSource) -> some View {
+        let songs = source == .netease ? viewModel.neteaseResults : viewModel.qqResults
+        return ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            SongListRow(song: song, index: index, onArtistTap: { artistId in
+                selectedArtistId = artistId
+                showArtistDetail = true
+            }, onDetailTap: { detailSong in
+                selectedSongForDetail = detailSong
+                showSongDetail = true
+            }, onAlbumTap: { albumId in
+                selectedAlbumId = albumId
+                showAlbumDetail = true
+            })
+            .asButton {
+                PlayerManager.shared.play(song: song, in: songs)
+                isFocused = false
+            }
+            .onAppear {
+                if index == songs.count - 3 {
+                    viewModel.loadMore(source: source)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 展开歌手列表
+    
+    private func expandedArtistsList(source: MusicSource) -> some View {
+        let artists = source == .netease ? viewModel.neteaseArtistResults : viewModel.qqArtistResults
+        return ForEach(Array(artists.enumerated()), id: \.element.id) { index, artist in
+            artistRow(artist: artist)
+                .onAppear {
+                    if index == artists.count - 3 {
+                        viewModel.loadMore(source: source)
+                    }
+                }
+        }
+    }
+    
+    // MARK: - 展开歌单列表
+    
+    private func expandedPlaylistsList(source: MusicSource) -> some View {
+        let playlists = source == .netease ? viewModel.neteasePlaylistResults : viewModel.qqPlaylistResults
+        return ForEach(Array(playlists.enumerated()), id: \.element.id) { index, playlist in
+            playlistRow(playlist: playlist)
+                .onAppear {
+                    if index == playlists.count - 3 {
+                        viewModel.loadMore(source: source)
+                    }
+                }
+        }
+    }
+    
+    // MARK: - 展开专辑列表
+    
+    private func expandedAlbumsList(source: MusicSource) -> some View {
+        let albums = source == .netease ? viewModel.neteaseAlbumResults : viewModel.qqAlbumResults
+        return ForEach(Array(albums.enumerated()), id: \.element.id) { index, album in
+            albumRow(album: album)
+                .onAppear {
+                    if index == albums.count - 3 {
+                        viewModel.loadMore(source: source)
+                    }
+                }
+        }
+    }
+    
+    // MARK: - 展开 MV 列表（仅网易云）
+    
+    private var expandedMVsList: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ]
+        return LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(Array(viewModel.neteaseMVResults.enumerated()), id: \.element.id) { index, mv in
+                MVGridCard(mv: mv) {
+                    selectedMVId = MVIdItem(id: mv.id)
+                    isFocused = false
+                }
+                .onAppear {
+                    if index == viewModel.neteaseMVResults.count - 3 {
+                        viewModel.loadMore(source: .netease)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+    }
+
+    // MARK: - 通用行组件
+    
+    private func artistRow(artist: ArtistInfo) -> some View {
+        Button(action: {
+            selectedArtistId = artist.id
+            showArtistDetail = true
+        }) {
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
+                    Circle().fill(Color.asideCardBackground)
+                }
+                .frame(width: 50, height: 50)
+                .clipShape(Circle())
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(artist.name)
+                        .font(.rounded(size: 16, weight: .medium))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 8) {
+                        if let albumSize = artist.albumSize, albumSize > 0 {
+                            Text("专辑: \(albumSize)")
+                                .font(.rounded(size: 12, weight: .regular))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                        if let musicSize = artist.musicSize, musicSize > 0 {
+                            Text("歌曲: \(musicSize)")
+                                .font(.rounded(size: 12, weight: .regular))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func playlistRow(playlist: Playlist) -> some View {
+        Button(action: {
+            selectedPlaylist = playlist
+            showPlaylistDetail = true
+        }) {
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                }
+                .frame(width: 56, height: 56)
+                .cornerRadius(10)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(playlist.name)
+                        .font(.rounded(size: 16, weight: .medium))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 8) {
+                        if let trackCount = playlist.trackCount, trackCount > 0 {
+                            Text("\(trackCount)首")
+                                .font(.rounded(size: 12, weight: .regular))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                        if let creator = playlist.creator?.nickname {
+                            Text("by \(creator)")
+                                .font(.rounded(size: 12, weight: .regular))
+                                .foregroundColor(.asideTextSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func albumRow(album: SearchAlbum) -> some View {
+        Button(action: {
+            selectedAlbumId = album.id
+            showAlbumDetail = true
+        }) {
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: album.coverUrl?.sized(200)) {
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                }
+                .frame(width: 56, height: 56)
+                .cornerRadius(10)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(album.name)
+                        .font(.rounded(size: 16, weight: .medium))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 8) {
+                        Text(album.artistName)
+                            .font(.rounded(size: 12, weight: .regular))
+                            .foregroundColor(.asideTextSecondary)
+                            .lineLimit(1)
+                        
+                        if let size = album.size, size > 0 {
+                            Text("\(size)首")
+                                .font(.rounded(size: 12, weight: .regular))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func mvsResultList(mvs: [MV]) -> some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ]
+        return LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(mvs.prefix(4)) { mv in
+                MVGridCard(mv: mv) {
+                    selectedMVId = MVIdItem(id: mv.id)
+                    isFocused = false
+                }
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 4)
+    }
+
     // MARK: - 空结果提示
     
     private var emptyResultsView: some View {
@@ -517,268 +746,6 @@ struct SearchView: View {
                 }
             }
             .padding(.bottom, 120)
-        }
-    }
-    
-    // MARK: - 结果列表（根据当前 Tab 切换）
-    
-    private var resultsListView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                switch viewModel.currentTab {
-                case .songs:
-                    songsResultSection
-                case .artists:
-                    artistsResultSection
-                case .playlists:
-                    playlistsResultSection
-                case .albums:
-                    albumsResultSection
-                case .mvs:
-                    mvsResultSection
-                }
-            }
-            .padding(.bottom, 120)
-        }
-        .simultaneousGesture(DragGesture().onChanged { _ in
-            isFocused = false
-        })
-    }
-
-    // MARK: - 单曲结果
-    
-    @ViewBuilder
-    private var songsResultSection: some View {
-        ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { index, song in
-            SongListRow(song: song, index: index, onArtistTap: { artistId in
-                selectedArtistId = artistId
-                showArtistDetail = true
-            }, onDetailTap: { detailSong in
-                selectedSongForDetail = detailSong
-                showSongDetail = true
-            }, onAlbumTap: { albumId in
-                selectedAlbumId = albumId
-                showAlbumDetail = true
-            })
-                .asButton {
-                    PlayerManager.shared.play(song: song, in: viewModel.searchResults)
-                    isFocused = false
-                }
-                .onAppear {
-                    if index == viewModel.searchResults.count - 1 {
-                        viewModel.loadMore()
-                    }
-                }
-        }
-        
-        if viewModel.canLoadMore && !viewModel.searchResults.isEmpty {
-            AsideLoadingView(text: "LOADING MORE")
-                .padding(.vertical, 20)
-        }
-    }
-    
-    // MARK: - 歌手结果
-    
-    @ViewBuilder
-    private var artistsResultSection: some View {
-        ForEach(Array(viewModel.artistResults.enumerated()), id: \.element.id) { index, artist in
-            Button(action: {
-                selectedArtistId = artist.id
-                showArtistDetail = true
-            }) {
-                HStack(spacing: 14) {
-                    CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                        Circle().fill(Color.asideCardBackground)
-                    }
-                    .frame(width: 50, height: 50)
-                    .clipShape(Circle())
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(artist.name)
-                            .font(.rounded(size: 16, weight: .medium))
-                            .foregroundColor(.asideTextPrimary)
-                            .lineLimit(1)
-                        
-                        HStack(spacing: 8) {
-                            if let albumSize = artist.albumSize, albumSize > 0 {
-                                Text("专辑: \(albumSize)")
-                                    .font(.rounded(size: 12, weight: .regular))
-                                    .foregroundColor(.asideTextSecondary)
-                            }
-                            if let musicSize = artist.musicSize, musicSize > 0 {
-                                Text("歌曲: \(musicSize)")
-                                    .font(.rounded(size: 12, weight: .regular))
-                                    .foregroundColor(.asideTextSecondary)
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
-            .onAppear {
-                if index == viewModel.artistResults.count - 1 {
-                    viewModel.loadMore()
-                }
-            }
-        }
-        
-        if viewModel.canLoadMore && !viewModel.artistResults.isEmpty {
-            AsideLoadingView(text: "LOADING MORE")
-                .padding(.vertical, 20)
-        }
-    }
-
-    // MARK: - 歌单结果
-    
-    @ViewBuilder
-    private var playlistsResultSection: some View {
-        ForEach(Array(viewModel.playlistResults.enumerated()), id: \.element.id) { index, playlist in
-            Button(action: {
-                selectedPlaylist = playlist
-                showPlaylistDetail = true
-            }) {
-                HStack(spacing: 14) {
-                    CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
-                    }
-                    .frame(width: 56, height: 56)
-                    .cornerRadius(10)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(playlist.name)
-                            .font(.rounded(size: 16, weight: .medium))
-                            .foregroundColor(.asideTextPrimary)
-                            .lineLimit(1)
-                        
-                        HStack(spacing: 8) {
-                            if let trackCount = playlist.trackCount, trackCount > 0 {
-                                Text("\(trackCount)首")
-                                    .font(.rounded(size: 12, weight: .regular))
-                                    .foregroundColor(.asideTextSecondary)
-                            }
-                            if let creator = playlist.creator?.nickname {
-                                Text("by \(creator)")
-                                    .font(.rounded(size: 12, weight: .regular))
-                                    .foregroundColor(.asideTextSecondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
-            .onAppear {
-                if index == viewModel.playlistResults.count - 1 {
-                    viewModel.loadMore()
-                }
-            }
-        }
-        
-        if viewModel.canLoadMore && !viewModel.playlistResults.isEmpty {
-            AsideLoadingView(text: "LOADING MORE")
-                .padding(.vertical, 20)
-        }
-    }
-    
-    // MARK: - 专辑结果
-    
-    @ViewBuilder
-    private var albumsResultSection: some View {
-        ForEach(Array(viewModel.albumResults.enumerated()), id: \.element.id) { index, album in
-            Button(action: {
-                selectedAlbumId = album.id
-                showAlbumDetail = true
-            }) {
-                HStack(spacing: 14) {
-                    CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
-                    }
-                    .frame(width: 56, height: 56)
-                    .cornerRadius(10)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(album.name)
-                            .font(.rounded(size: 16, weight: .medium))
-                            .foregroundColor(.asideTextPrimary)
-                            .lineLimit(1)
-                        
-                        HStack(spacing: 8) {
-                            Text(album.artistName)
-                                .font(.rounded(size: 12, weight: .regular))
-                                .foregroundColor(.asideTextSecondary)
-                                .lineLimit(1)
-                            
-                            if let size = album.size, size > 0 {
-                                Text("\(size)首")
-                                    .font(.rounded(size: 12, weight: .regular))
-                                    .foregroundColor(.asideTextSecondary)
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
-            .onAppear {
-                if index == viewModel.albumResults.count - 1 {
-                    viewModel.loadMore()
-                }
-            }
-        }
-        
-        if viewModel.canLoadMore && !viewModel.albumResults.isEmpty {
-            AsideLoadingView(text: "LOADING MORE")
-                .padding(.vertical, 20)
-        }
-    }
-    
-    // MARK: - MV 结果
-    
-    @ViewBuilder
-    private var mvsResultSection: some View {
-        let columns = [
-            GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14)
-        ]
-        LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(Array(viewModel.mvResults.enumerated()), id: \.element.id) { index, mv in
-                MVGridCard(mv: mv) {
-                    selectedMVId = MVIdItem(id: mv.id)
-                    isFocused = false
-                }
-                .onAppear {
-                    if index == viewModel.mvResults.count - 1 {
-                        viewModel.loadMore()
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-        
-        if viewModel.canLoadMore && !viewModel.mvResults.isEmpty {
-            AsideLoadingView(text: "LOADING MORE")
-                .padding(.vertical, 20)
         }
     }
 

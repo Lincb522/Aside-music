@@ -227,7 +227,7 @@ struct NeteaseEmojiPicker: View {
     VStack {
         Spacer()
         NeteaseEmojiPicker { emoji in
-            print("选择了: \(emoji)")
+            AppLogger.debug("选择了: \(emoji)")
         }
     }
     .background(Color.asideBackground)

@@ -348,7 +348,10 @@ struct ClassicPlayerLayout: View {
             HStack(spacing: 0) {
                 Button(action: { player.switchMode() }) {
                     AsideIcon(icon: player.mode.asideIcon, size: 22, color: secondaryContentColor)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(AsideBouncingButtonStyle())
                 .frame(width: 44)
 
                 Spacer()
@@ -389,7 +392,10 @@ struct ClassicPlayerLayout: View {
 
                 Button(action: { showPlaylist = true }) {
                     AsideIcon(icon: .list, size: 22, color: secondaryContentColor)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(AsideBouncingButtonStyle())
                 .frame(width: 44)
             }
 
@@ -398,7 +404,10 @@ struct ClassicPlayerLayout: View {
                 HStack(spacing: 0) {
                     Button { showComments = true } label: {
                         AsideIcon(icon: .comment, size: 22, color: secondaryContentColor, lineWidth: 1.4)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(AsideBouncingButtonStyle())
                     .frame(width: 44)
 
                     Spacer()
@@ -414,7 +423,10 @@ struct ClassicPlayerLayout: View {
                             color: downloadManager.isDownloaded(songId: song.id) ? .asideTextSecondary : secondaryContentColor,
                             lineWidth: 1.4
                         )
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(AsideBouncingButtonStyle())
                     .disabled(downloadManager.isDownloaded(songId: song.id))
                     .frame(width: 44)
                 }

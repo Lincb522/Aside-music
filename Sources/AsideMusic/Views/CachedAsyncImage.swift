@@ -3,9 +3,9 @@ import Combine
 
 // MARK: - 图片缓存配置
 private struct ImageCacheConfig {
-    static let maxMemoryCost = 80 * 1024 * 1024   // 80MB 内存限制
-    static let maxCount = 300                      // 最多缓存 300 张图片
-    static let maxConcurrentLoads = 8              // 最大并发加载数
+    static let maxMemoryCost = 50 * 1024 * 1024   // 50MB 内存限制（降低以防 OOM）
+    static let maxCount = 150                      // 最多缓存 150 张图片
+    static let maxConcurrentLoads = 6              // 最大并发加载数
 }
 
 // MARK: - 图片内存缓存
@@ -22,7 +22,7 @@ private let imageSession: URLSession = {
     config.httpMaximumConnectionsPerHost = ImageCacheConfig.maxConcurrentLoads
     config.timeoutIntervalForRequest = 15
     config.urlCache = URLCache(
-        memoryCapacity: 20 * 1024 * 1024,   // 20MB 内存
+        memoryCapacity: 10 * 1024 * 1024,   // 10MB 内存（降低以减少内存压力）
         diskCapacity: 100 * 1024 * 1024,     // 100MB 磁盘
         diskPath: "aside_image_cache"
     )
@@ -48,7 +48,7 @@ private actor ImageLoadCoordinator {
             
             do {
                 let (data, _) = try await imageSession.data(from: url)
-                return downsampleImage(data: data, maxSize: 300)
+                return downsampleImage(data: data, maxSize: 200)
             } catch {
                 return nil
             }
@@ -65,8 +65,8 @@ private actor ImageLoadCoordinator {
             return UIImage(data: data)
         }
         
-        // 使用固定 scale 3.0 避免在非主线程访问 UIScreen
-        let scale: CGFloat = 3.0
+        // 使用 scale 2.0 平衡清晰度和内存占用（3.0 导致单张图 ~1.5MB）
+        let scale: CGFloat = 2.0
         let downsampleOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
@@ -117,7 +117,7 @@ class ImageLoader: ObservableObject {
             // 2. 磁盘缓存命中
             if let data = CacheManager.shared.getImageData(forKey: url.absoluteString) {
                 let diskImage = await Task.detached(priority: .userInitiated) {
-                    return self.downsampleImage(data: data, maxSize: 300)
+                    return self.downsampleImage(data: data, maxSize: 200)
                 }.value
                 
                 if Task.isCancelled { return }
@@ -170,8 +170,8 @@ class ImageLoader: ObservableObject {
             return UIImage(data: data)
         }
         
-        // 使用固定 scale 3.0 避免在非主线程访问 UIScreen
-        let scale: CGFloat = 3.0
+        // 使用 scale 2.0 平衡清晰度和内存占用（3.0 导致单张图 ~1.5MB）
+        let scale: CGFloat = 2.0
         let downsampleOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
@@ -190,6 +190,12 @@ class ImageLoader: ObservableObject {
         loadTask?.cancel()
         loadTask = nil
         isLoading = false
+    }
+    
+    /// 仅在还在加载中时取消（已加载完成的图片保留）
+    func cancelIfLoading() {
+        guard isLoading else { return }
+        cancel()
     }
 }
 
@@ -217,6 +223,7 @@ struct CachedAsyncImage<Placeholder: View>: View {
     var body: some View {
         content
             .onAppear {
+                ImageMemoryWarningObserver.shared.registerIfNeeded()
                 if let url = url {
                     loader.load(url: url)
                 }
@@ -226,7 +233,10 @@ struct CachedAsyncImage<Placeholder: View>: View {
                     loader.load(url: newUrl)
                 }
             }
-            // 不在 onDisappear 取消加载，避免滚动时反复重新请求
+            .onDisappear {
+                // 视图离屏时取消正在进行的加载（已加载完成的不受影响）
+                loader.cancelIfLoading()
+            }
     }
     
     @ViewBuilder
@@ -247,5 +257,23 @@ extension CachedAsyncImage {
     /// 清理图片内存缓存
     static func clearMemoryCache() {
         imageCache.removeAllObjects()
+    }
+}
+
+// MARK: - 内存警告监听器（App 级别注册一次）
+final class ImageMemoryWarningObserver {
+    static let shared = ImageMemoryWarningObserver()
+    private var registered = false
+    
+    func registerIfNeeded() {
+        guard !registered else { return }
+        registered = true
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil, queue: .main
+        ) { _ in
+            imageCache.removeAllObjects()
+            imageSession.configuration.urlCache?.removeAllCachedResponses()
+        }
     }
 }

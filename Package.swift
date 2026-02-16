@@ -20,6 +20,8 @@ let package = Package(
         .package(url: "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git", from: "1.0.0"),
         // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
         .package(url: "https://github.com/Lincb522/FFmpegSwiftSDK.git", from: "0.12.2"),
+        // QQMusicKit - QQ 音乐 API 封装库（本地包）
+        .package(path: "../QQMusicKit/QQMusicKit"),
     ],
     targets: [
         .target(
@@ -28,9 +30,14 @@ let package = Package(
                 "LiquidGlassEffect",
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
                 "FFmpegSwiftSDK",
+                "QQMusicKit",
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi-2.ttf"),
+                .process("Resources/HYPixel11pxU-2.ttf"),
+                .process("Resources/eq_presets.json"),
+                .process("Resources/en.lproj"),
+                .process("Resources/zh-Hans.lproj"),
             ]
         ),
     ]

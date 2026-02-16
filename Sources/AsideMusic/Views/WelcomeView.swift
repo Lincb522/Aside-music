@@ -153,7 +153,7 @@ struct WelcomeView: View {
                     self.userProfile = profile
                     
                     let avatarUrl = profile.avatarUrl
-                    if !avatarUrl.isEmpty, let url = URL(string: avatarUrl) {
+                    if let avatarUrl = avatarUrl, !avatarUrl.isEmpty, let url = URL(string: avatarUrl) {
                         self.preloadAvatar(url: url)
                     } else {
                         self.showGreetingAndDismiss()

@@ -22,7 +22,8 @@ final class DatabaseManager {
                 PlayHistory.self,
                 SearchHistory.self,
                 CachedLyrics.self,
-                DownloadedSong.self
+                DownloadedSong.self,
+                LocalPlaylist.self
             ])
             
             let config = ModelConfiguration(
@@ -54,7 +55,7 @@ final class DatabaseManager {
                 let schema = Schema([
                     CachedSong.self, CachedPlaylist.self, CachedArtist.self,
                     PlayHistory.self, SearchHistory.self, CachedLyrics.self,
-                    DownloadedSong.self
+                    DownloadedSong.self, LocalPlaylist.self
                 ])
                 let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, allowsSave: true)
                 container = try ModelContainer(for: schema, configurations: [config])
@@ -67,11 +68,29 @@ final class DatabaseManager {
                 let schema = Schema([
                     CachedSong.self, CachedPlaylist.self, CachedArtist.self,
                     PlayHistory.self, SearchHistory.self, CachedLyrics.self,
-                    DownloadedSong.self
+                    DownloadedSong.self, LocalPlaylist.self
                 ])
                 let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, allowsSave: true)
-                // swiftlint:disable:next force_try
-                container = try! ModelContainer(for: schema, configurations: [memConfig])
+                // 内存数据库初始化失败的可能性极低，但仍做安全处理
+                do {
+                    container = try ModelContainer(for: schema, configurations: [memConfig])
+                } catch {
+                    // 极端情况：内存数据库也失败，创建最小化容器
+                    AppLogger.error("内存数据库初始化失败: \(error)")
+                    do {
+                        container = try ModelContainer(for: CachedSong.self)
+                    } catch {
+                        // 终极兜底：纯内存最小化容器
+                        AppLogger.error("最小化容器也失败: \(error)，使用纯内存最小化容器")
+                        let minimalConfig = ModelConfiguration(isStoredInMemoryOnly: true)
+                        // 此处如果仍然失败，说明系统级问题，无法恢复
+                        // 使用 preconditionFailure 替代 try! 以提供更清晰的错误信息
+                        guard let minimalContainer = try? ModelContainer(for: CachedSong.self, configurations: minimalConfig) else {
+                            preconditionFailure("SwiftData 完全不可用，应用无法继续运行")
+                        }
+                        container = minimalContainer
+                    }
+                }
                 context = container.mainContext
                 context.autosaveEnabled = true
             }

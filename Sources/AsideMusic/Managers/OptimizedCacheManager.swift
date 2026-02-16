@@ -35,8 +35,6 @@ final class OptimizedCacheManager: ObservableObject {
     // MARK: - 缓存配置
     private let memoryCacheLimit = AppConfig.Cache.memoryLimit
     private let cacheValidityDuration: TimeInterval = AppConfig.Cache.defaultTTL
-    private let dailyCacheKey = "daily_cache_timestamp"
-    private let lastSyncKey = "last_sync_timestamp"
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -249,14 +247,14 @@ final class OptimizedCacheManager: ObservableObject {
         }
         
         // 记录同步时间
-        UserDefaults.standard.set(Date(), forKey: lastSyncKey)
+        UserDefaults.standard.set(Date(), forKey: AppConfig.StorageKeys.lastSyncTimestamp)
         
         AppLogger.success("后台同步完成")
     }
     
     /// 检查是否需要同步
     func shouldSync() -> Bool {
-        guard let lastSync = UserDefaults.standard.object(forKey: lastSyncKey) as? Date else {
+        guard let lastSync = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.lastSyncTimestamp) as? Date else {
             return true
         }
         // 每小时同步一次
@@ -267,7 +265,7 @@ final class OptimizedCacheManager: ObservableObject {
     
     /// 检查是否需要刷新每日数据
     func shouldRefreshDailyData() -> Bool {
-        guard let lastUpdate = UserDefaults.standard.object(forKey: dailyCacheKey) as? Date else {
+        guard let lastUpdate = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.dailyCacheTimestamp) as? Date else {
             return true
         }
         
@@ -287,7 +285,7 @@ final class OptimizedCacheManager: ObservableObject {
     
     /// 标记每日数据已刷新
     func markDailyDataRefreshed() {
-        UserDefaults.standard.set(Date(), forKey: dailyCacheKey)
+        UserDefaults.standard.set(Date(), forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
     }
     
     /// 智能获取数据（优先缓存，必要时刷新）
@@ -304,7 +302,7 @@ final class OptimizedCacheManager: ObservableObject {
         }
         
         // 2. 检查磁盘缓存（带时间戳）
-        let timestampKey = "\(key)_timestamp"
+        let timestampKey = AppConfig.StorageKeys.timestampKey(for: key)
         if let diskCached = diskCache.getObject(forKey: key, type: type),
            let timestamp = UserDefaults.standard.object(forKey: timestampKey) as? Date,
            Date().timeIntervalSince(timestamp) < maxAge {
@@ -553,7 +551,7 @@ final class OptimizedCacheManager: ObservableObject {
         memoryCache.removeAllObjects()
         DatabaseManager.shared.clearAllData()
         diskCache.clearAll()
-        UserDefaults.standard.removeObject(forKey: dailyCacheKey)
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
     }
     
     /// 获取缓存大小

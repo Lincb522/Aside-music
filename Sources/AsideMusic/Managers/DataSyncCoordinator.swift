@@ -40,7 +40,7 @@ final class DataSyncCoordinator: ObservableObject {
     ) -> AnyPublisher<T, Never> {
         // 1. 先尝试从缓存获取
         if let cached = cache.getObject(forKey: key, type: T.self) {
-            let timestampKey = "\(key)_timestamp"
+            let timestampKey = AppConfig.StorageKeys.timestampKey(for: key)
             if let timestamp = UserDefaults.standard.object(forKey: timestampKey) as? Date,
                Date().timeIntervalSince(timestamp) < maxAge {
                 // 缓存有效，直接返回
@@ -54,7 +54,7 @@ final class DataSyncCoordinator: ObservableObject {
                 // 更新缓存
                 Task { @MainActor in
                     self?.cache.setObject(data, forKey: key)
-                    UserDefaults.standard.set(Date(), forKey: "\(key)_timestamp")
+                    UserDefaults.standard.set(Date(), forKey: AppConfig.StorageKeys.timestampKey(for: key))
                 }
             })
             .catch { [weak self] error -> AnyPublisher<T, Never> in
@@ -107,10 +107,10 @@ final class DataSyncCoordinator: ObservableObject {
                             continuation.resume(returning: [])
                         }
                     },
-                    receiveValue: { songs in
+                    receiveValue: { [weak self] songs in
                         Task { @MainActor in
-                            self.cache.setObject(songs, forKey: "daily_songs")
-                            self.cache.cacheSongs(songs)
+                            self?.cache.setObject(songs, forKey: "daily_songs")
+                            self?.cache.cacheSongs(songs)
                         }
                         continuation.resume(returning: songs)
                     }
@@ -129,10 +129,10 @@ final class DataSyncCoordinator: ObservableObject {
                             continuation.resume(returning: [])
                         }
                     },
-                    receiveValue: { playlists in
+                    receiveValue: { [weak self] playlists in
                         Task { @MainActor in
-                            self.cache.setObject(playlists, forKey: "recommend_playlists")
-                            self.cache.cachePlaylists(playlists)
+                            self?.cache.setObject(playlists, forKey: "recommend_playlists")
+                            self?.cache.cachePlaylists(playlists)
                         }
                         continuation.resume(returning: playlists)
                     }
@@ -155,10 +155,10 @@ final class DataSyncCoordinator: ObservableObject {
                             continuation.resume(returning: [])
                         }
                     },
-                    receiveValue: { playlists in
+                    receiveValue: { [weak self] playlists in
                         Task { @MainActor in
-                            self.cache.setObject(playlists, forKey: "user_playlists")
-                            self.cache.cachePlaylists(playlists)
+                            self?.cache.setObject(playlists, forKey: "user_playlists")
+                            self?.cache.cachePlaylists(playlists)
                         }
                         continuation.resume(returning: playlists)
                     }
@@ -190,9 +190,9 @@ final class DataSyncCoordinator: ObservableObject {
                             continuation.resume(returning: [])
                         }
                     },
-                    receiveValue: { songs in
+                    receiveValue: { [weak self] songs in
                         Task { @MainActor in
-                            self.cache.updatePlaylistTracks(playlistId: playlistId, songs: songs)
+                            self?.cache.updatePlaylistTracks(playlistId: playlistId, songs: songs)
                         }
                         continuation.resume(returning: songs)
                     }

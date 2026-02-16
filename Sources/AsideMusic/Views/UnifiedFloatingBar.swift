@@ -61,12 +61,14 @@ struct MiniPlayerSection: View {
                                 }
                             }
                         }
+                        .contentShape(Circle())
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                     
                     Button(action: { showPlaylist.toggle() }) {
                         AsideIcon(icon: .list, size: 16, color: .asideTextPrimary)
                             .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                     
@@ -80,27 +82,34 @@ struct MiniPlayerSection: View {
                                 .frame(width: 24, height: 24)
                                 .background(Color.gray.opacity(0.1))
                                 .clipShape(Circle())
+                                .contentShape(Circle())
                         }
                         .buttonStyle(AsideBouncingButtonStyle())
                         .transition(.scale.combined(with: .opacity))
                     }
                 }
+                // 防止按钮区域被 onTapGesture 吞掉
+                .zIndex(1)
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, 8)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    switch player.playSource {
-                    case .fm:
-                        NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-                    case .podcast(let radioId):
-                        NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
-                    case .normal:
-                        NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+            .background {
+                // 用背景区域接收点击，避免 contentShape + onTapGesture 覆盖子按钮
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            switch player.playSource {
+                            case .fm:
+                                NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+                            case .podcast(let radioId):
+                                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+                            case .normal:
+                                NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+                            }
+                        }
                     }
-                }
             }
             
             ProgressBarView()
@@ -215,23 +224,15 @@ private struct AsideTabItemView: View {
     let isSelected: Bool
     let action: () -> Void
     
-    @State private var isPressed = false
-    
     var body: some View {
         Button(action: {
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
-            
-            isPressed = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isPressed = false
-            }
             action()
         }) {
             VStack(spacing: 2) {
                 AsideIcon(icon: icon, size: 20, color: isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4))
-                    .scaleEffect(isPressed ? 0.8 : (isSelected ? 1.05 : 0.95))
-                    .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
+                    .scaleEffect(isSelected ? 1.05 : 0.95)
                 
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
@@ -239,7 +240,7 @@ private struct AsideTabItemView: View {
             }
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AsideBouncingButtonStyle())
     }
 }
 
@@ -288,7 +289,7 @@ struct UnifiedFloatingBar: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentTab)
         .animation(.easeInOut(duration: 0.3), value: settings.liquidGlassEnabled)
         .gesture(
-            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+            DragGesture(minimumDistance: 50, coordinateSpace: .local)
                 .onEnded { value in
                     guard abs(value.translation.width) > abs(value.translation.height) else { return }
                     

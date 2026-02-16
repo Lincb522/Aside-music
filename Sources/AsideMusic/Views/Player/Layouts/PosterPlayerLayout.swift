@@ -46,6 +46,7 @@ struct PosterPlayerLayout: View {
                     VStack(spacing: 0) {
                         lyricsTopBar
                             .padding(.top, DeviceLayout.headerTopPadding)
+                            .zIndex(1)
                         
                         lyricsBody
                             .frame(maxHeight: .infinity)
@@ -53,27 +54,23 @@ struct PosterPlayerLayout: View {
                         progressLine(width: geo.size.width)
                     }
                     .transition(.opacity)
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.15)) { showLyrics = false }
-                    }
                 } else {
                     // 大字报主体
                     VStack(spacing: 0) {
                         posterTopBar
                             .padding(.top, DeviceLayout.headerTopPadding)
+                            .zIndex(1)
                         
                         bigTitleArea(geo: geo)
                             .frame(maxHeight: .infinity)
                         
                         controlStrip
+                            .zIndex(1)
                         
                         progressLine(width: geo.size.width)
                             .padding(.bottom, DeviceLayout.playerBottomPadding)
                     }
                     .transition(.opacity)
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
-                    }
                 }
                 
                 if showMoreMenu {
@@ -135,6 +132,7 @@ extension PosterPlayerLayout {
                         AsideIcon(icon: .chevronRight, size: 18, color: fg)
                             .rotationEffect(.degrees(90))
                     )
+                    .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
@@ -148,7 +146,9 @@ extension PosterPlayerLayout {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(fg)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
             
             if let info = player.streamInfo {
                 Text(streamInfoText(info))
@@ -169,6 +169,7 @@ extension PosterPlayerLayout {
                     .overlay(
                         AsideIcon(icon: .more, size: 18, color: fg)
                     )
+                    .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
@@ -188,8 +189,12 @@ extension PosterPlayerLayout {
         
         return VStack(alignment: .leading, spacing: 0) {
             Spacer()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
+                }
             
-            // 巨型歌名 — 自适应字号撑满宽度
+            // 巨型歌名 — 自适应字号撑满宽度（点击切换歌词）
             Text(songName)
                 .font(.system(size: 72, weight: .black, design: .default))
                 .foregroundColor(fg)
@@ -198,6 +203,10 @@ extension PosterPlayerLayout {
                 .minimumScaleFactor(0.3)
                 .lineLimit(5)
                 .frame(maxWidth: availW, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
+                }
             
             // 分隔粗线
             Rectangle()
@@ -206,12 +215,16 @@ extension PosterPlayerLayout {
                 .frame(maxWidth: availW)
                 .padding(.vertical, 16)
             
-            // 歌手名 — 大号但次于歌名
+            // 歌手名 — 点击切换歌词
             Text(artistName.uppercased())
                 .font(.system(size: 24, weight: .bold, design: .monospaced))
                 .foregroundColor(muted)
                 .tracking(6)
                 .lineLimit(1)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
+                }
             
             // 播放/暂停 — 嵌在文字区域内，用文字表达
             HStack(spacing: 16) {
@@ -219,6 +232,7 @@ extension PosterPlayerLayout {
                     if player.isLoading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: fg))
+                            .frame(width: 44, height: 40)
                     } else {
                         Text(player.isPlaying ? "PAUSE" : "PLAY")
                             .font(.system(size: 14, weight: .black, design: .monospaced))
@@ -226,6 +240,7 @@ extension PosterPlayerLayout {
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
                             .background(accent)
+                            .contentShape(Rectangle())
                     }
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -242,6 +257,10 @@ extension PosterPlayerLayout {
             .padding(.top, 20)
             
             Spacer()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
+                }
         }
         .padding(.horizontal, 16)
     }
@@ -257,6 +276,8 @@ extension PosterPlayerLayout {
             controlCell {
                 Button(action: { player.switchMode() }) {
                     AsideIcon(icon: player.mode.asideIcon, size: 18, color: fg)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }
@@ -267,6 +288,8 @@ extension PosterPlayerLayout {
             controlCell {
                 Button(action: { player.previous() }) {
                     AsideIcon(icon: .previous, size: 22, color: fg)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }
@@ -286,6 +309,8 @@ extension PosterPlayerLayout {
             controlCell {
                 Button(action: { player.next() }) {
                     AsideIcon(icon: .next, size: 22, color: fg)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }
@@ -296,6 +321,8 @@ extension PosterPlayerLayout {
             controlCell {
                 Button(action: { showComments = true }) {
                     AsideIcon(icon: .comment, size: 18, color: fg, lineWidth: 1.5)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }
@@ -315,6 +342,8 @@ extension PosterPlayerLayout {
                             color: downloadManager.isDownloaded(songId: song.id) ? accent : fg,
                             lineWidth: 1.5
                         )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                     }
                     .disabled(downloadManager.isDownloaded(songId: song.id))
                     .buttonStyle(AsideBouncingButtonStyle())
@@ -327,6 +356,8 @@ extension PosterPlayerLayout {
             controlCell {
                 Button(action: { showPlaylist = true }) {
                     AsideIcon(icon: .list, size: 18, color: fg)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }

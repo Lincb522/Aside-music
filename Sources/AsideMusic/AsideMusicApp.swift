@@ -19,6 +19,9 @@ struct AsideMusicApp: App {
     init() {
         LiquidGlassEngine.shared.performanceMode = .balanced
         
+        // 预初始化 EQManager，避免在 view body 中首次访问时触发 @Published 变更
+        _ = EQManager.shared
+        
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithTransparentBackground()
         tabBarAppearance.backgroundColor = .clear
@@ -51,6 +54,21 @@ struct AsideMusicApp: App {
                     
                     Task { @MainActor in
                         await OptimizedCacheManager.shared.cleanupExpiredData()
+                    }
+                    
+                    // 检测 QQ 音乐登录状态（登录有效期约 3 天）
+                    Task {
+                        do {
+                            let status = try await APIService.shared.qqClient.authStatus()
+                            await MainActor.run {
+                                UserDefaults.standard.set(status.loggedIn, forKey: AppConfig.StorageKeys.qqMusicLoggedIn)
+                                if !status.loggedIn {
+                                    AppLogger.warning("[QQMusic] 登录已过期")
+                                }
+                            }
+                        } catch {
+                            AppLogger.warning("[QQMusic] 登录状态检测失败: \(error.localizedDescription)")
+                        }
                     }
                 }
                 .modelContainer(DatabaseManager.shared.container)

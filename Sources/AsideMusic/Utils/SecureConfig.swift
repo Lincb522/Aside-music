@@ -24,4 +24,18 @@ enum SecureConfig {
         AppLogger.warning("API_BASE_URL 未配置，使用默认值")
         return "https://ncm.zijiu522.cn"
     }
+    
+    /// QQ 音乐 API 服务器地址
+    static var qqMusicBaseURL: String {
+        if let envURL = ProcessInfo.processInfo.environment["QQ_MUSIC_BASE_URL"],
+           !envURL.isEmpty {
+            return envURL
+        }
+        if let plistURL = Bundle.main.object(forInfoDictionaryKey: "QQ_MUSIC_BASE_URL") as? String,
+           !plistURL.isEmpty,
+           !plistURL.hasPrefix("$(") {
+            return plistURL
+        }
+        return "http://114.66.31.109:8000"
+    }
 }

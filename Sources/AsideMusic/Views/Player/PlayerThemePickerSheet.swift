@@ -26,7 +26,7 @@ struct PlayerThemePickerSheet: View {
                     GridItem(.flexible(), spacing: 14),
                     GridItem(.flexible(), spacing: 14)
                 ], spacing: 14) {
-                    ForEach(PlayerTheme.allCases) { theme in
+                    ForEach(PlayerTheme.allCases, id: \.self) { theme in
                         themeCard(theme)
                     }
                 }
@@ -108,6 +108,8 @@ struct PlayerThemePickerSheet: View {
             neumorphicPreview
         case .poster:
             posterPreview
+        case .motoPager:
+            motoPagerPreview
         }
     }
 
@@ -379,6 +381,53 @@ struct PlayerThemePickerSheet: View {
                 Spacer().frame(height: 6)
             }
             .padding(.horizontal, 10)
+        }
+    }
+    
+    // MARK: - 寻呼机预览
+    private var motoPagerPreview: some View {
+        let bgColor = colorScheme == .dark ? Color(hex: "1C1C1E") : Color(hex: "F5F0E8")
+        let textColor = colorScheme == .dark ? Color.white.opacity(0.8) : Color(hex: "333333")
+        
+        return ZStack {
+            bgColor
+            
+            VStack(alignment: .leading, spacing: 3) {
+                Spacer()
+                
+                // 模拟小票打印文字
+                ForEach(0..<3, id: \.self) { i in
+                    Capsule()
+                        .fill(textColor.opacity(i == 1 ? 0.6 : 0.2))
+                        .frame(width: CGFloat([55, 70, 40][i]), height: i == 1 ? 4 : 2.5)
+                }
+                
+                Spacer().frame(height: 6)
+                
+                // 锯齿边缘
+                HStack(spacing: 2) {
+                    ForEach(0..<12, id: \.self) { _ in
+                        Triangle()
+                            .fill(textColor.opacity(0.15))
+                            .frame(width: 6, height: 4)
+                    }
+                }
+                
+                Spacer().frame(height: 4)
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+}
+
+/// 三角形 Shape（用于小票锯齿边缘）
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: rect.midX, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            p.closeSubpath()
         }
     }
 }

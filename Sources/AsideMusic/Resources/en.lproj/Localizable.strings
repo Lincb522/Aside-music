@@ -151,3 +151,79 @@
 "alert_logout_message" = "Are you sure you want to log out?";
 "alert_logout_confirm" = "Log Out";
 "alert_cancel" = "Cancel";
+
+/* Settings */
+"settings_title" = "Settings";
+"settings_appearance" = "Appearance";
+"settings_theme_mode" = "Theme Mode";
+"settings_liquid_glass" = "Liquid Glass Effect";
+"settings_liquid_glass_desc" = "iOS 26 style advanced visual effects";
+"settings_playback" = "Playback";
+"settings_playback_quality" = "Default Playback Quality";
+"settings_download_quality" = "Default Download Quality";
+"settings_auto_play_next" = "Auto Play Next";
+"settings_unblock" = "Unblock";
+"settings_unblock_desc" = "Auto-fetch playback links from third-party sources for greyed-out songs";
+"settings_cache_play" = "Cache While Playing";
+"settings_cache_play_desc" = "Auto-download songs to local storage while playing";
+"settings_equalizer" = "Equalizer";
+"settings_audio_lab" = "Audio Lab";
+"settings_smart" = "Smart";
+"settings_off" = "Off";
+"settings_storage" = "Storage";
+"settings_storage_manage" = "Storage Management";
+"settings_storage_manage_desc" = "Manage cache, downloads and user data";
+"settings_download_manage" = "Download Management";
+"settings_other" = "Other";
+"settings_haptic" = "Haptic Feedback";
+"settings_haptic_desc" = "Vibration feedback on interactions";
+"settings_about" = "About";
+"settings_version" = "Version";
+"settings_theme_auto" = "Auto";
+"settings_theme_light" = "Light";
+"settings_theme_dark" = "Dark";
+
+/* Library */
+"lib_netease_playlists" = "NetEase Playlists";
+"lib_my_podcasts" = "My Podcasts";
+"lib_loading" = "Loading...";
+"lib_no_podcasts" = "No subscribed podcasts yet";
+"lib_discover_podcasts" = "Discover podcasts you'll love";
+"lib_unsubscribe" = "Unsubscribe";
+"lib_confirm_unsubscribe" = "Unsubscribe from \"%@\"?";
+"lib_delete_playlist" = "Delete Playlist";
+"lib_confirm_delete" = "Delete \"%@\"? This cannot be undone.";
+"lib_confirm_uncollect" = "Remove \"%@\" from collection?";
+
+/* Profile */
+"profile_not_logged_in" = "Not Logged In";
+"profile_login_hint" = "Log in to enjoy full features";
+"profile_login_button" = "Log In";
+"profile_edit_signature" = "Edit signature";
+"profile_days_with_you" = "With you for %d days";
+"profile_total_songs" = "Total Songs Played";
+"profile_cache_manage" = "Cache Management";
+"profile_cache_manage_desc" = "Manage local cache";
+"profile_cloud_storage" = "Cloud Storage";
+
+/* MV Player */
+"mv_title" = "MV";
+"mv_related" = "Related";
+"mv_more" = "More";
+"mv_retry" = "Retry";
+"mv_unknown" = "Unknown MV";
+"mv_play_count" = "plays";
+"mv_similar" = "Similar MVs";
+"mv_related_videos" = "Related Videos";
+"mv_count" = "%d items";
+
+/* Comments */
+"comment_title" = "Comments";
+"comment_hot" = "Hot Comments";
+"comment_all" = "All Comments";
+"comment_empty" = "No comments yet";
+"comment_be_first" = "Be the first to comment";
+"comment_load_more" = "Load more comments";
+"comment_reply" = "Reply";
+"comment_placeholder" = "Write a comment...";
+"comment_reply_placeholder" = "Reply to @%@...";

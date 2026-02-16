@@ -28,6 +28,7 @@ class LibraryViewModel: ObservableObject {
         case artist(Int)
         case artistInfo(ArtistInfo)
         case radioDetail(Int)
+        case localPlaylist(String)
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -35,6 +36,7 @@ class LibraryViewModel: ObservableObject {
             case .artist(let id): hasher.combine("a_\(id)")
             case .artistInfo(let a): hasher.combine("a_\(a.id)")
             case .radioDetail(let id): hasher.combine("r_\(id)")
+            case .localPlaylist(let id): hasher.combine("lp_\(id)")
             }
         }
 
@@ -44,6 +46,7 @@ class LibraryViewModel: ObservableObject {
             case (.artist(let l), .artist(let r)): return l == r
             case (.artistInfo(let l), .artistInfo(let r)): return l.id == r.id
             case (.radioDetail(let l), .radioDetail(let r)): return l == r
+            case (.localPlaylist(let l), .localPlaylist(let r)): return l == r
             default: return false
             }
         }
@@ -148,10 +151,17 @@ class LibraryViewModel: ObservableObject {
             return
         }
 
-        // 尝试获取用户歌单（需要登录）
-        // 如果没有登录，直接标记完成
-        guard apiService.currentUserId != nil else {
+        guard let uid = apiService.currentUserId else {
             GlobalRefreshManager.shared.markLibraryDataReady()
+            return
+        }
+
+        // force 刷新时直接加载歌单，不需要重新验证登录状态
+        if force {
+            // 服务端数据可能有短暂延迟，等待 0.5 秒再请求
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.loadUserPlaylists(uid: uid)
+            }
             return
         }
 

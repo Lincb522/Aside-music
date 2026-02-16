@@ -151,3 +151,79 @@
 "alert_logout_message" = "确定要退出登录吗？";
 "alert_logout_confirm" = "退出";
 "alert_cancel" = "取消";
+
+/* Settings */
+"settings_title" = "设置";
+"settings_appearance" = "外观";
+"settings_theme_mode" = "主题模式";
+"settings_liquid_glass" = "液态玻璃效果";
+"settings_liquid_glass_desc" = "iOS 26 风格的高级视觉效果";
+"settings_playback" = "播放";
+"settings_playback_quality" = "默认播放音质";
+"settings_download_quality" = "默认下载音质";
+"settings_auto_play_next" = "自动播放下一首";
+"settings_unblock" = "解灰";
+"settings_unblock_desc" = "自动从第三方源获取灰色歌曲播放链接";
+"settings_cache_play" = "边听边存";
+"settings_cache_play_desc" = "播放歌曲时自动下载保存到本地";
+"settings_equalizer" = "均衡器";
+"settings_audio_lab" = "音频实验室";
+"settings_smart" = "智能";
+"settings_off" = "关闭";
+"settings_storage" = "存储";
+"settings_storage_manage" = "存储管理";
+"settings_storage_manage_desc" = "管理缓存、下载和用户数据";
+"settings_download_manage" = "下载管理";
+"settings_other" = "其他";
+"settings_haptic" = "触感反馈";
+"settings_haptic_desc" = "操作时的震动反馈";
+"settings_about" = "关于";
+"settings_version" = "版本";
+"settings_theme_auto" = "自动";
+"settings_theme_light" = "浅色";
+"settings_theme_dark" = "深色";
+
+/* Library */
+"lib_netease_playlists" = "网易云歌单";
+"lib_my_podcasts" = "我的播客";
+"lib_loading" = "加载中...";
+"lib_no_podcasts" = "还没有订阅播客";
+"lib_discover_podcasts" = "去播客页面发现感兴趣的内容";
+"lib_unsubscribe" = "取消订阅";
+"lib_confirm_unsubscribe" = "确定取消订阅「%@」？";
+"lib_delete_playlist" = "删除歌单";
+"lib_confirm_delete" = "确定删除「%@」？此操作不可恢复。";
+"lib_confirm_uncollect" = "确定取消收藏「%@」？";
+
+/* Profile */
+"profile_not_logged_in" = "未登录";
+"profile_login_hint" = "登录后享受完整功能";
+"profile_login_button" = "登录账号";
+"profile_edit_signature" = "编辑个性签名";
+"profile_days_with_you" = "已陪伴你 %d 天";
+"profile_total_songs" = "累计听歌";
+"profile_cache_manage" = "缓存管理";
+"profile_cache_manage_desc" = "管理本地缓存";
+"profile_cloud_storage" = "云端存储";
+
+/* MV Player */
+"mv_title" = "MV";
+"mv_related" = "相关推荐";
+"mv_more" = "更多";
+"mv_retry" = "重试";
+"mv_unknown" = "未知MV";
+"mv_play_count" = "播放";
+"mv_similar" = "相似MV";
+"mv_related_videos" = "相关视频";
+"mv_count" = "%d个";
+
+/* Comments */
+"comment_title" = "评论";
+"comment_hot" = "热门评论";
+"comment_all" = "全部评论";
+"comment_empty" = "暂无评论";
+"comment_be_first" = "来发表第一条评论吧";
+"comment_load_more" = "加载更多评论";
+"comment_reply" = "回复";
+"comment_placeholder" = "写评论...";
+"comment_reply_placeholder" = "回复 @%@...";

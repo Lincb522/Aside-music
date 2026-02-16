@@ -1,4 +1,5 @@
 import SwiftUI
+import ImageIO
 
 /// "The Stack" - 纯粹的卡片堆叠式播放器
 /// 强调物理质感、层级关系与卡片交互
@@ -134,7 +135,9 @@ extension CardPlayerLayout {
                     .frame(width: 40, height: 40)
                     .background(Color(UIColor.systemBackground).opacity(0.5))
                     .clipShape(Circle())
+                    .contentShape(Circle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
             
             Spacer()
             
@@ -158,7 +161,9 @@ extension CardPlayerLayout {
                     .frame(width: 40, height: 40)
                     .background(Color(UIColor.systemBackground).opacity(0.5))
                     .clipShape(Circle())
+                    .contentShape(Circle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
         }
         .padding(.horizontal, 24)
     }
@@ -374,14 +379,18 @@ extension CardPlayerLayout {
             Button(action: { player.switchMode() }) {
                 AsideIcon(icon: player.mode.asideIcon, size: 20, color: .secondary)
                     .frame(width: 50, height: 60)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
             
             Spacer()
             
             Button(action: { player.previous() }) {
                 AsideIcon(icon: .previous, size: 24, color: .primary)
                     .frame(width: 60, height: 60)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
             
             Spacer()
             
@@ -403,14 +412,18 @@ extension CardPlayerLayout {
             Button(action: { player.next() }) {
                 AsideIcon(icon: .next, size: 24, color: .primary)
                     .frame(width: 60, height: 60)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
             
             Spacer()
             
             Button(action: { showPlaylist = true }) {
                 AsideIcon(icon: .list, size: 20, color: .secondary)
                     .frame(width: 50, height: 60)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(AsideBouncingButtonStyle())
         }
         .padding(.horizontal, 16)
         .padding(.top, 24) // Extra padding for overlap
@@ -429,7 +442,8 @@ extension CardPlayerLayout {
         Task {
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
-                guard let image = UIImage(data: data) else { return }
+                // 降采样到 50pt 即可提取颜色，避免全尺寸图片占用大量内存
+                guard let image = Self.downsampleForColor(data: data, maxSize: 50) else { return }
                 let colors = image.extractColors()
                 await MainActor.run {
                     withAnimation(.easeOut(duration: 0.5)) {
@@ -439,6 +453,24 @@ extension CardPlayerLayout {
                 }
             } catch {}
         }
+    }
+    
+    /// 颜色提取专用降采样（不需要高分辨率）
+    private static func downsampleForColor(data: Data, maxSize: CGFloat) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else {
+            return UIImage(data: data)
+        }
+        let downsampleOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxSize
+        ] as CFDictionary
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, downsampleOptions) else {
+            return UIImage(data: data)
+        }
+        return UIImage(cgImage: cgImage)
     }
     
     func formatTime(_ seconds: Double) -> String {

@@ -23,14 +23,29 @@ struct Song: Identifiable, Codable {
     /// 播客节目封面（非 API 字段，手动注入）
     var podcastCoverUrl: String?
     
+    // MARK: - QQ 音乐扩展字段
+    /// 音乐来源平台
+    var source: MusicSource?
+    /// QQ 音乐歌曲 mid（用于获取播放 URL）
+    var qqMid: String?
+    /// QQ 音乐专辑 mid
+    var qqAlbumMid: String?
+    
     enum CodingKeys: String, CodingKey {
         case id, name, ar, al, dt, fee, mv
         case h, m, l, sq, hr, alia, privilege
+        case source, qqMid, qqAlbumMid
     }
     
     // MARK: - 辅助属性
     var artists: [Artist] { ar ?? [] }
     var album: Album? { al }
+    
+    /// 实际音乐来源（默认网易云）
+    var musicSource: MusicSource { source ?? .netease }
+    
+    /// 是否为 QQ 音乐歌曲
+    var isQQMusic: Bool { musicSource == .qqmusic }
     
     var artistName: String {
         (ar ?? []).map { $0.name }.joined(separator: ", ")
@@ -202,3 +217,60 @@ extension URL {
         return URL(string: absoluteString + "\(separator)param=\(size)y\(size)") ?? self
     }
 }
+
+// MARK: - Personalized New Song
+
+struct PersonalizedNewSongResult: Codable {
+    let id: Int
+    let name: String
+    let song: SongDetail
+}
+
+// MARK: - Recent Song
+
+struct RecentSongItem: Codable {
+    let data: Song
+    let playTime: Int?
+}
+
+// MARK: - FM Song
+
+struct FMSong: Codable {
+    let id: Int
+    let name: String?
+    let album: Album?
+    let al: Album?
+    let artists: [Artist]?
+    let ar: [Artist]?
+    let duration: Int?
+    let dt: Int?
+    let fee: Int?
+    let mvid: Int?
+    
+    let h: SongQuality?
+    let m: SongQuality?
+    let l: SongQuality?
+    let sq: SongQuality?
+    let hr: SongQuality?
+    let privilege: Privilege?
+    
+    func toSong() -> Song {
+        return Song(
+            id: id,
+            name: name ?? "Unknown Song",
+            ar: ar ?? artists,
+            al: al ?? album,
+            dt: dt ?? duration,
+            fee: fee,
+            mv: mvid ?? 0,
+            h: h,
+            m: m,
+            l: l,
+            sq: sq,
+            hr: hr,
+            alia: nil,
+            privilege: privilege
+        )
+    }
+}
+

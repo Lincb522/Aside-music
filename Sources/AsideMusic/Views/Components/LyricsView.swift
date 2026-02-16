@@ -75,6 +75,43 @@ class LyricViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
+    /// 获取 QQ 音乐歌词
+    func fetchQQLyrics(mid: String, songId: Int) {
+        // 用 songId 做去重标识
+        guard songId != currentSongId else { return }
+        currentSongId = songId
+        isLoading = true
+        lyrics = []
+        hasLyrics = false
+        currentLineIndex = 0
+        currentLineProgress = 0.0
+        translations = [:]
+        
+        APIService.shared.fetchQQLyric(mid: mid)
+            .sink(receiveCompletion: { [weak self] completion in
+                if case .failure(let error) = completion {
+                    AppLogger.error("[QQMusic] 获取歌词失败: \(error)")
+                    self?.isLoading = false
+                }
+            }, receiveValue: { [weak self] response in
+                guard let self = self else { return }
+                
+                if let trans = response.trans {
+                    self.parseTranslations(trans)
+                }
+                
+                if let lrc = response.lyric {
+                    self.parseLyrics(lrc)
+                    self.hasLyrics = !self.lyrics.isEmpty
+                } else {
+                    self.hasLyrics = false
+                }
+                
+                self.isLoading = false
+            })
+            .store(in: &cancellables)
+    }
+    
     private func parseTranslations(_ text: String) {
         let lines = text.components(separatedBy: .newlines)
         for line in lines {

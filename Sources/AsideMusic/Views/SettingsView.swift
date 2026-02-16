@@ -31,6 +31,8 @@ struct SettingsView: View {
                         playbackSection
 
                         cacheSection
+                        
+                        qqMusicSection
 
                         otherSection
 
@@ -83,7 +85,7 @@ struct SettingsView: View {
 
             Spacer()
 
-            Text("设置")
+            Text(String(localized: "settings_title"))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.asideTextPrimary)
 
@@ -98,11 +100,11 @@ struct SettingsView: View {
     // MARK: - 外观设置
 
     private var appearanceSection: some View {
-        SettingsSection(title: "外观") {
+        SettingsSection(title: String(localized: "settings_appearance")) {
             VStack(spacing: 0) {
                 SettingsThemeRow(
                     icon: .sparkle,
-                    title: "主题模式",
+                    title: String(localized: "settings_theme_mode"),
                     selection: $settings.themeMode
                 )
 
@@ -111,8 +113,8 @@ struct SettingsView: View {
 
                 SettingsToggleRow(
                     icon: .sparkle,
-                    title: "液态玻璃效果",
-                    subtitle: "iOS 26 风格的高级视觉效果",
+                    title: String(localized: "settings_liquid_glass"),
+                    subtitle: String(localized: "settings_liquid_glass_desc"),
                     isOn: $settings.liquidGlassEnabled
                 )
             }
@@ -125,11 +127,11 @@ struct SettingsView: View {
     @State private var showDownloadQualitySheet = false
 
     private var playbackSection: some View {
-        SettingsSection(title: "播放") {
+        SettingsSection(title: String(localized: "settings_playback")) {
             VStack(spacing: 0) {
                 SettingsNavigationRow(
                     icon: .soundQuality,
-                    title: "默认播放音质",
+                    title: String(localized: "settings_playback_quality"),
                     value: defaultPlaybackQualityText
                 ) {
                     showPlaybackQualitySheet = true
@@ -140,7 +142,7 @@ struct SettingsView: View {
 
                 SettingsNavigationRow(
                     icon: .download,
-                    title: "默认下载音质",
+                    title: String(localized: "settings_download_quality"),
                     value: defaultDownloadQualityText
                 ) {
                     showDownloadQualitySheet = true
@@ -151,7 +153,7 @@ struct SettingsView: View {
 
                 SettingsToggleRow(
                     icon: .play,
-                    title: "自动播放下一首",
+                    title: String(localized: "settings_auto_play_next"),
                     subtitle: nil,
                     isOn: $settings.autoPlayNext
                 )
@@ -161,8 +163,8 @@ struct SettingsView: View {
 
                 SettingsToggleRow(
                     icon: .musicNote,
-                    title: "解灰",
-                    subtitle: "自动从第三方源获取灰色歌曲播放链接",
+                    title: String(localized: "settings_unblock"),
+                    subtitle: String(localized: "settings_unblock_desc"),
                     isOn: $settings.unblockEnabled
                 )
                 .onChange(of: settings.unblockEnabled) { _, newValue in
@@ -174,8 +176,8 @@ struct SettingsView: View {
 
                 SettingsToggleRow(
                     icon: .download,
-                    title: "边听边存",
-                    subtitle: "播放歌曲时自动下载保存到本地",
+                    title: String(localized: "settings_cache_play"),
+                    subtitle: String(localized: "settings_cache_play_desc"),
                     isOn: $settings.listenAndSave
                 )
 
@@ -190,11 +192,11 @@ struct SettingsView: View {
                                 .frame(width: 32, height: 32)
                             AsideIcon(icon: .waveform, size: 16, color: .asideIconForeground)
                         }
-                        Text("均衡器")
+                        Text(String(localized: "settings_equalizer"))
                             .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextPrimary)
                         Spacer()
-                        Text(EQManager.shared.isEnabled ? (EQManager.shared.currentPreset?.name ?? "自定义") : "关闭")
+                        Text(EQManager.shared.isEnabled ? (EQManager.shared.currentPreset?.name ?? String(localized: "settings_off")) : String(localized: "settings_off"))
                             .font(.system(size: 15, weight: .regular, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                         AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
@@ -215,11 +217,11 @@ struct SettingsView: View {
                                 .frame(width: 32, height: 32)
                             AsideIcon(icon: .sparkle, size: 16, color: .asideAccent)
                         }
-                        Text("音频实验室")
+                        Text(String(localized: "settings_audio_lab"))
                             .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextPrimary)
                         Spacer()
-                        Text(AudioLabManager.shared.isSmartEffectsEnabled ? "智能" : "关闭")
+                        Text(AudioLabManager.shared.isSmartEffectsEnabled ? String(localized: "settings_smart") : String(localized: "settings_off"))
                             .font(.system(size: 15, weight: .regular, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                         AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
@@ -271,7 +273,7 @@ struct SettingsView: View {
     // MARK: - 存储管理
 
     private var cacheSection: some View {
-        SettingsSection(title: "存储") {
+        SettingsSection(title: String(localized: "settings_storage")) {
             NavigationLink(destination: StorageManageView()) {
                 HStack(spacing: 14) {
                     ZStack {
@@ -282,10 +284,10 @@ struct SettingsView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("存储管理")
+                        Text(String(localized: "settings_storage_manage"))
                             .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextPrimary)
-                        Text("管理缓存、下载和用户数据")
+                        Text(String(localized: "settings_storage_manage_desc"))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -308,7 +310,7 @@ struct SettingsView: View {
     // MARK: - 下载管理
 
     private var downloadSection: some View {
-        SettingsSection(title: "下载") {
+        SettingsSection(title: String(localized: "settings_download_manage")) {
             NavigationLink(destination: DownloadManageView()) {
                 HStack(spacing: 14) {
                     ZStack {
@@ -318,7 +320,7 @@ struct SettingsView: View {
                         AsideIcon(icon: .download, size: 16, color: .asideIconForeground)
                     }
                     
-                    Text("下载管理")
+                    Text(String(localized: "settings_download_manage"))
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
                     
@@ -333,14 +335,73 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - QQ 音乐设置
+    
+    @State private var showQQAccount = false
+    @State private var isQQLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.qqMusicLoggedIn)
+    
+    private var qqMusicSection: some View {
+        SettingsSection(title: "QQ音乐") {
+            VStack(spacing: 0) {
+                Button(action: { showQQAccount = true }) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.asideIconBackground)
+                                .frame(width: 32, height: 32)
+                            AsideIcon(icon: .profile, size: 16, color: .asideIconForeground)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("QQ音乐账号")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .foregroundColor(.asideTextPrimary)
+                            Text(isQQLoggedIn ? "已登录" : "未登录，点击管理")
+                                .font(.system(size: 12, design: .rounded))
+                                .foregroundColor(isQQLoggedIn ? .green : .asideTextSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .fullScreenCover(isPresented: $showQQAccount) {
+            NavigationStack {
+                QQAccountView()
+            }
+        }
+        .onAppear {
+            Task {
+                do {
+                    let status = try await APIService.shared.qqClient.authStatus()
+                    await MainActor.run {
+                        isQQLoggedIn = status.loggedIn
+                        UserDefaults.standard.set(status.loggedIn, forKey: AppConfig.StorageKeys.qqMusicLoggedIn)
+                    }
+                } catch {}
+            }
+        }
+        .onChange(of: showQQAccount) { _, showing in
+            if !showing {
+                isQQLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.qqMusicLoggedIn)
+            }
+        }
+    }
+
     // MARK: - 其他设置
 
     private var otherSection: some View {
-        SettingsSection(title: "其他") {
+        SettingsSection(title: String(localized: "settings_other")) {
             SettingsToggleRow(
                 icon: .haptic,
-                title: "触感反馈",
-                subtitle: "操作时的震动反馈",
+                title: String(localized: "settings_haptic"),
+                subtitle: String(localized: "settings_haptic_desc"),
                 isOn: $settings.hapticFeedback
             )
         }
@@ -349,11 +410,11 @@ struct SettingsView: View {
     // MARK: - 关于
 
     private var aboutSection: some View {
-        SettingsSection(title: "关于") {
+        SettingsSection(title: String(localized: "settings_about")) {
             VStack(spacing: 0) {
                 SettingsInfoRow(
                     icon: .info,
-                    title: "版本",
+                    title: String(localized: "settings_version"),
                     value: appVersion
                 )
             }
@@ -586,9 +647,9 @@ struct SettingsThemeRow: View {
     @Binding var selection: String
 
     private let options: [(key: String, label: String, iconType: AsideIcon.IconType)] = [
-        ("system", "自动", .halfCircle),
-        ("light", "浅色", .sun),
-        ("dark", "深色", .moon)
+        ("system", String(localized: "settings_theme_auto"), .halfCircle),
+        ("light", String(localized: "settings_theme_light"), .sun),
+        ("dark", String(localized: "settings_theme_dark"), .moon)
     ]
 
     var body: some View {

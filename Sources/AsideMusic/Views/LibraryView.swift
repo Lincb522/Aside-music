@@ -76,6 +76,8 @@ struct LibraryView: View {
                     ArtistDetailView(artistId: artist.id)
                 case .radioDetail(let id):
                     RadioDetailView(radioId: id)
+                case .localPlaylist(let id):
+                    LocalPlaylistDetailView(playlistId: id)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
@@ -157,22 +159,26 @@ struct MyPlaylistsContainerView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                subTabButton(title: "网易云歌单", index: 0)
-                subTabButton(title: "我的播客", index: 1)
+                subTabButton(title: String(localized: "lib_netease_playlists"), index: 0)
+                subTabButton(title: "本地歌单", index: 1)
+                subTabButton(title: String(localized: "lib_my_podcasts"), index: 2)
                 Spacer()
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
 
-            // 用 ZStack + opacity 替代 transition，避免真机上文本消失
             ZStack {
                 NetEasePlaylistsView(viewModel: viewModel)
                     .opacity(selectedSubTab == 0 ? 1 : 0)
                     .allowsHitTesting(selectedSubTab == 0)
                 
-                MyPodcastsView()
+                LocalPlaylistsView(viewModel: viewModel)
                     .opacity(selectedSubTab == 1 ? 1 : 0)
                     .allowsHitTesting(selectedSubTab == 1)
+                
+                MyPodcastsView()
+                    .opacity(selectedSubTab == 2 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 2)
             }
         }
         .background(Color.clear)
@@ -198,6 +204,167 @@ struct MyPlaylistsContainerView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 本地歌单列表
+
+struct LocalPlaylistsView: View {
+    @ObservedObject var viewModel: LibraryViewModel
+    @ObservedObject private var manager = LocalPlaylistManager.shared
+    @State private var showCreateAlert = false
+    @State private var newPlaylistName = ""
+    @State private var playlistToDelete: LocalPlaylist?
+    @State private var showDeleteAlert = false
+    typealias Theme = PlaylistDetailView.Theme
+    
+    var body: some View {
+        Group {
+            if manager.playlists.isEmpty {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
+                        Text("还没有本地歌单")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                        
+                        Button(action: { showCreateAlert = true }) {
+                            HStack(spacing: 6) {
+                                AsideIcon(icon: .add, size: 14, color: .asideIconForeground)
+                                Text("新建歌单")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .foregroundColor(.asideIconForeground)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Color.asideIconBackground)
+                            .cornerRadius(20)
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle())
+                    }
+                    .padding(.top, 50)
+                }
+            } else {
+                List {
+                    // 新建歌单按钮
+                    Button(action: { showCreateAlert = true }) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.asideIconBackground)
+                                    .frame(width: 60, height: 60)
+                                AsideIcon(icon: .add, size: 22, color: .asideIconForeground)
+                            }
+                            Text("新建歌单")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(Theme.text)
+                            Spacer()
+                        }
+                        .padding(16)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
+                    
+                    ForEach(manager.playlists, id: \.id) { playlist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
+                            LocalPlaylistRow(playlist: playlist)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                playlistToDelete = playlist
+                                showDeleteAlert = true
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
+                    }
+                    
+                    Color.clear.frame(height: 120)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .alert("新建歌单", isPresented: $showCreateAlert) {
+            TextField("歌单名称", text: $newPlaylistName)
+            Button("取消", role: .cancel) { newPlaylistName = "" }
+            Button("创建") {
+                guard !newPlaylistName.isEmpty else { return }
+                manager.createPlaylist(name: newPlaylistName)
+                newPlaylistName = ""
+            }
+        }
+        .alert("删除歌单", isPresented: $showDeleteAlert) {
+            Button("取消", role: .cancel) { playlistToDelete = nil }
+            Button("删除", role: .destructive) {
+                if let p = playlistToDelete {
+                    withAnimation { manager.deletePlaylist(p) }
+                }
+                playlistToDelete = nil
+            }
+        } message: {
+            if let p = playlistToDelete {
+                Text("确定删除「\(p.name)」？此操作不可恢复。")
+            }
+        }
+    }
+}
+
+struct LocalPlaylistRow: View {
+    let playlist: LocalPlaylist
+    typealias Theme = PlaylistDetailView.Theme
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            Group {
+                if let url = playlist.displayCoverUrl {
+                    CachedAsyncImage(url: url.sized(200)) {
+                        localCoverPlaceholder
+                    }
+                    .aspectRatio(contentMode: .fill)
+                } else {
+                    localCoverPlaceholder
+                }
+            }
+            .frame(width: 60, height: 60)
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.1), radius: 6, x: 0, y: 3)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(playlist.name)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+                
+                Text("\(playlist.trackCount) 首")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(Theme.secondaryText)
+            }
+            
+            Spacer()
+            
+            AsideIcon(icon: .chevronRight, size: 14, color: Theme.secondaryText)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+    
+    private var localCoverPlaceholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.asideCardBackground)
+            AsideIcon(icon: .musicNoteList, size: 24, color: .asideTextSecondary.opacity(0.3))
+        }
     }
 }
 

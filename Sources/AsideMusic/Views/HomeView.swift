@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 
 // MARK: - Home View
 
@@ -8,7 +7,6 @@ struct HomeView: View {
     @ObservedObject private var playerManager = PlayerManager.shared
     @State private var showPersonalFM = false
     @State private var navigationPath = NavigationPath()
-    @State private var bannerCancellables = Set<AnyCancellable>()
     @State private var bannerWebURL: URL?
 
     typealias Theme = PlaylistDetailView.Theme
@@ -231,14 +229,18 @@ struct HomeView: View {
     private func handleBannerTap(_ banner: Banner) {
         switch banner.targetType {
         case 1:
-            APIService.shared.fetchSongDetails(ids: [banner.targetId])
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { _ in }, receiveValue: { songs in
+            Task {
+                do {
+                    let songs = try await APIService.shared.fetchSongDetails(ids: [banner.targetId]).async()
                     if let song = songs.first {
-                        PlayerManager.shared.playSingle(song: song)
+                        await MainActor.run {
+                            PlayerManager.shared.playSingle(song: song)
+                        }
                     }
-                })
-                .store(in: &bannerCancellables)
+                } catch {
+                    AppLogger.error("Banner 歌曲加载失败: \(error)")
+                }
+            }
         case 10:
             navigationPath.append(HomeDestination.album(banner.targetId))
         case 1000:

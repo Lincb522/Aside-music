@@ -24,6 +24,8 @@ struct FullScreenPlayerView: View {
                 NeumorphicPlayerLayout()
             case .poster:
                 PosterPlayerLayout()
+            case .motoPager:
+                MotoPagerLayout()
             }
         }
         .onAppear {

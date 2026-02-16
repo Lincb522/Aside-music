@@ -22,7 +22,6 @@ class StyleManager: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private let api = APIService.shared
-    private let stylePersistenceKey = "selected_style_preference"
     
     private init() {
         restoreStyle()
@@ -40,15 +39,15 @@ class StyleManager: ObservableObject {
     private func saveCurrentStyle() {
         if let style = currentStyle {
             if let data = try? JSONEncoder().encode(style) {
-                UserDefaults.standard.set(data, forKey: stylePersistenceKey)
+                UserDefaults.standard.set(data, forKey: AppConfig.StorageKeys.selectedStylePreference)
             }
         } else {
-            UserDefaults.standard.removeObject(forKey: stylePersistenceKey)
+            UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.selectedStylePreference)
         }
     }
     
     private func restoreStyle() {
-        if let data = UserDefaults.standard.data(forKey: stylePersistenceKey),
+        if let data = UserDefaults.standard.data(forKey: AppConfig.StorageKeys.selectedStylePreference),
            let style = try? JSONDecoder().decode(APIService.StyleTag.self, from: data) {
             currentStyle = style
             AppLogger.debug("StyleManager - Restored style: \(style.finalName)")

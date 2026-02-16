@@ -71,6 +71,24 @@ enum AppConfig {
         static let defaultPlaybackQuality = "defaultPlaybackQuality"
         static let audioLabSmartEffects = "audio_lab_smart_effects_enabled"
         static let audioLabAnalysisMode = "audio_lab_analysis_mode"
+        
+        // 缓存同步相关
+        static let dailyCacheTimestamp = "daily_cache_timestamp"
+        static let lastSyncTimestamp = "last_sync_timestamp"
+        static let syncInterval = "sync_interval_timestamp"
+        
+        // 风格偏好
+        static let selectedStylePreference = "selected_style_preference"
+        
+        // QQ 音乐相关
+        static let qqMusicBaseURL = "qq_music_base_url"
+        static let qqMusicEnabled = "qq_music_enabled"
+        static let qqMusicLoggedIn = "qq_music_logged_in"
+        
+        /// 生成带时间戳的缓存键
+        static func timestampKey(for key: String) -> String {
+            return "\(key)_timestamp"
+        }
     }
 
     

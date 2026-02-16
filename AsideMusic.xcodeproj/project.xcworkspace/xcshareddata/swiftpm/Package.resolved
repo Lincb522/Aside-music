@@ -1,13 +1,13 @@
 {
-  "originHash" : "05cb6e26e9596c83a5d8e54b4b532fd71ec55e06e0cfe34450cc8f49b4ef433f",
+  "originHash" : "fe48f6e68377030cb76abe15601508716538f7d1e0d54bbeed9ed5d36af31a9e",
   "pins" : [
     {
       "identity" : "ffmpegswiftsdk",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/FFmpegSwiftSDK.git",
       "state" : {
-        "revision" : "70a5b4fcddb316bfb140eed1705c5bf2cd60c220",
-        "version" : "1.1.9"
+        "revision" : "ca29cd81f5e65ea3d040234cff16c3b32d79580f",
+        "version" : "1.1.12"
       }
     },
     {
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "9d7b23be661cb519b355cdc26c7f12816b1b2f9e",
         "version" : "2.1.0"
+      }
+    },
+    {
+      "identity" : "musickit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lincb522/MusicKit.git",
+      "state" : {
+        "revision" : "5eb244f378889db8ea920fad6898623fa1b92444",
+        "version" : "1.0.0"
       }
     },
     {
