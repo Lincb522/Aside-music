@@ -9,9 +9,9 @@ struct MotoPagerLayout: View {
     @ObservedObject var lyricVM = LyricViewModel.shared
     
     // MARK: - Colors & Constants
-    // 动态配色 - 适配深色/浅色模式
+    // 动态配色 - 适配深色/浅色模式（木桌背景）
     private var bgColor: Color {
-        colorScheme == .dark ? Color(hex: "1a1c20") : Color(hex: "f0f2f5")
+        colorScheme == .dark ? Color(hex: "1e1a15") : Color(hex: "d4c4a8")
     }
     private var deviceBodyColor: Color {
         colorScheme == .dark ? Color(hex: "2a2824") : Color(hex: "f5f0eb")
@@ -87,8 +87,9 @@ struct MotoPagerLayout: View {
 
     var body: some View {
         ZStack {
-            // 1. 全局背景
+            // 1. 全局背景 + 复古网格纹理
             bgColor.ignoresSafeArea()
+            retroGridBackground.ignoresSafeArea()
             
             // 2. 主布局：缝隙 + 机器（固定在底部）
             VStack(spacing: 0) {
@@ -200,9 +201,12 @@ struct MotoPagerLayout: View {
         .sheet(isPresented: $showQualitySheet) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality, currentKugouQuality: player.kugouQuality,
+                currentQQQuality: player.qqMusicQuality,
                 isUnblocked: player.isCurrentSongUnblocked,
+                isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
-                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false }
+                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false },
+                onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false }
             ).presentationDetents([.medium]).presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showEQSettings) {
@@ -463,7 +467,7 @@ extension MotoPagerLayout {
                     
                     // 音质
                     Button(action: { showQualitySheet = true }) {
-                        Text(player.soundQuality.buttonText)
+                        Text(player.qualityButtonText)
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                             .foregroundColor(brandSubColor)
                             .lineLimit(1)
@@ -571,8 +575,8 @@ extension MotoPagerLayout {
                         .foregroundColor(paperMetaColor)
                 }
                 
-                // 歌词文字
-                Text(typingText.isEmpty ? " " : typingText)
+                // 歌词文字 — 待机时不显示，飞出瞬间显示完整歌词
+                Text(isEjecting ? pendingEjectText : " ")
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
                     .foregroundColor(paperTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -736,6 +740,134 @@ extension MotoPagerLayout {
             .padding(.horizontal, 30)
             
             Spacer()
+        }
+    }
+}
+
+// MARK: - Retro Grid Background
+extension MotoPagerLayout {
+    /// 木桌纹理背景 — 用 Canvas 绘制木纹条纹 + 年轮节疤
+    private var retroGridBackground: some View {
+        Canvas { context, size in
+            let isDark = colorScheme == .dark
+            
+            // 基础木纹色
+            let baseColor = isDark ? Color(hex: "1e1a15") : Color(hex: "d4c4a8")
+            // 填充底色
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(baseColor))
+            
+            // ── 木纹条纹（水平方向，模拟木板纹理）──
+            let grainCount = Int(size.height / 3)
+            for i in 0..<grainCount {
+                let y = CGFloat(i) * 3
+                // 用简单的数学函数模拟木纹的不规则弯曲
+                let seed = CGFloat(i)
+                let wave1 = sin(seed * 0.3) * 8
+                let wave2 = sin(seed * 0.7 + 2) * 4
+                let opacity = isDark
+                    ? (0.03 + abs(sin(seed * 0.15)) * 0.06)
+                    : (0.04 + abs(sin(seed * 0.15)) * 0.08)
+                
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: y + wave1))
+                // 分段画弯曲的线
+                let segments = 8
+                let segWidth = size.width / CGFloat(segments)
+                for s in 1...segments {
+                    let sx = CGFloat(s) * segWidth
+                    let sy = y + sin(seed * 0.3 + CGFloat(s) * 0.5) * 8 + wave2 * sin(CGFloat(s) * 0.3)
+                    path.addLine(to: CGPoint(x: sx, y: sy))
+                }
+                
+                let lineColor = isDark
+                    ? Color(hex: "3a2e1e").opacity(opacity)
+                    : Color(hex: "8b7355").opacity(opacity)
+                context.stroke(path, with: .color(lineColor), lineWidth: 0.8)
+            }
+            
+            // ── 深色木纹带（每隔一段距离画一条较宽的深色带）──
+            let bandCount = Int(size.height / 40)
+            for i in 0..<bandCount {
+                let y = CGFloat(i) * 40 + 15
+                let bandOpacity = isDark ? 0.08 : 0.06
+                let bandHeight: CGFloat = CGFloat(2 + Int(abs(sin(CGFloat(i) * 1.7)) * 4))
+                
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: y))
+                let segments = 12
+                let segWidth = size.width / CGFloat(segments)
+                for s in 0...segments {
+                    let sx = CGFloat(s) * segWidth
+                    let sy = y + sin(CGFloat(i) * 0.8 + CGFloat(s) * 0.4) * 3
+                    if s == 0 {
+                        path.move(to: CGPoint(x: sx, y: sy))
+                    } else {
+                        path.addLine(to: CGPoint(x: sx, y: sy))
+                    }
+                }
+                // 闭合成带状
+                for s in stride(from: segments, through: 0, by: -1) {
+                    let sx = CGFloat(s) * segWidth
+                    let sy = y + bandHeight + sin(CGFloat(i) * 0.8 + CGFloat(s) * 0.4 + 0.5) * 2
+                    path.addLine(to: CGPoint(x: sx, y: sy))
+                }
+                path.closeSubpath()
+                
+                let bandColor = isDark
+                    ? Color(hex: "2a1f10").opacity(bandOpacity)
+                    : Color(hex: "6b5535").opacity(bandOpacity)
+                context.fill(path, with: .color(bandColor))
+            }
+            
+            // ── 年轮节疤（几个椭圆形的木节）──
+            let knots: [(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
+                (0.15, 0.25, 35, 20),
+                (0.75, 0.45, 28, 18),
+                (0.4, 0.7, 32, 22),
+                (0.85, 0.15, 24, 16),
+            ]
+            
+            for knot in knots {
+                let cx = size.width * knot.x
+                let cy = size.height * knot.y
+                let knotOpacity = isDark ? 0.1 : 0.08
+                
+                // 外圈
+                let outerRect = CGRect(x: cx - knot.w/2, y: cy - knot.h/2, width: knot.w, height: knot.h)
+                context.stroke(
+                    Path(ellipseIn: outerRect),
+                    with: .color(isDark ? Color(hex: "3a2a15").opacity(knotOpacity) : Color(hex: "7a6040").opacity(knotOpacity)),
+                    lineWidth: 1.5
+                )
+                // 内圈
+                let innerRect = CGRect(x: cx - knot.w/4, y: cy - knot.h/4, width: knot.w/2, height: knot.h/2)
+                context.fill(
+                    Path(ellipseIn: innerRect),
+                    with: .color(isDark ? Color(hex: "2a1e0e").opacity(knotOpacity * 0.7) : Color(hex: "6a5030").opacity(knotOpacity * 0.7))
+                )
+            }
+            
+            // ── 微妙的整体噪点质感（用小点模拟）──
+            let noiseOpacity = isDark ? 0.015 : 0.02
+            let step: CGFloat = 12
+            let cols = Int(size.width / step)
+            let rows = Int(size.height / step)
+            for col in 0..<cols {
+                for row in 0..<rows {
+                    // 伪随机散布
+                    let hash = (col * 7 + row * 13 + col * row * 3) % 17
+                    if hash < 5 {
+                        let x = CGFloat(col) * step + CGFloat(hash)
+                        let y = CGFloat(row) * step + CGFloat((hash * 3) % 11)
+                        let dotSize: CGFloat = CGFloat(1 + hash % 2)
+                        let rect = CGRect(x: x, y: y, width: dotSize, height: dotSize)
+                        let dotColor = isDark
+                            ? Color.white.opacity(noiseOpacity)
+                            : Color.black.opacity(noiseOpacity)
+                        context.fill(Path(ellipseIn: rect), with: .color(dotColor))
+                    }
+                }
+            }
         }
     }
 }

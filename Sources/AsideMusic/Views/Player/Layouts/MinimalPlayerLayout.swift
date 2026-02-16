@@ -97,9 +97,12 @@ struct MinimalPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentKugouQuality: player.kugouQuality,
+                currentQQQuality: player.qqMusicQuality,
                 isUnblocked: player.isCurrentSongUnblocked,
+                isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
-                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false }
+                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false },
+                onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false }
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
@@ -346,7 +349,7 @@ extension MinimalPlayerLayout {
                     .lineLimit(1)
 
                 Button(action: { showQualitySheet = true }) {
-                    Text(player.soundQuality.buttonText)
+                    Text(player.qualityButtonText)
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundColor(mutedColor)
                         .padding(.horizontal, 6)
@@ -488,7 +491,11 @@ extension MinimalPlayerLayout {
 
                     Button {
                         if !downloadManager.isDownloaded(songId: song.id) {
-                            downloadManager.download(song: song, quality: player.soundQuality)
+                            if song.isQQMusic {
+                                downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
+                            } else {
+                                downloadManager.download(song: song, quality: player.soundQuality)
+                            }
                         }
                     } label: {
                         AsideIcon(

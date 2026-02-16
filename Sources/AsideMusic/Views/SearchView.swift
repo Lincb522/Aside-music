@@ -15,6 +15,11 @@ struct SearchView: View {
     @State private var showAlbumDetail = false
     @FocusState private var isFocused: Bool
     
+    // QQ 音乐详情导航
+    @State private var qqDetailType: QQDetailType?
+    @State private var showQQDetail = false
+    @State private var selectedQQMV: QQMVVidItem?
+    
     var body: some View {
         ZStack {
             AsideBackground()
@@ -51,6 +56,11 @@ struct SearchView: View {
                 AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
             }
         }
+        .navigationDestination(isPresented: $showQQDetail) {
+            if let detail = qqDetailType {
+                QQMusicDetailView(detailType: detail)
+            }
+        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isFocused = true
@@ -58,6 +68,9 @@ struct SearchView: View {
         }
         .fullScreenCover(item: $selectedMVId) { item in
             MVPlayerView(mvId: item.id)
+        }
+        .fullScreenCover(item: $selectedQQMV) { item in
+            QQMVPlayerView(vid: item.vid)
         }
         .toolbar(.hidden, for: .tabBar)
     }
@@ -192,9 +205,13 @@ struct SearchView: View {
                 case .albums:
                     dualAlbumsSections
                 case .mvs:
-                    // MV 只有网易云
-                    platformSection(title: "网易云音乐", source: .netease) {
+                    // 网易云 MV
+                    platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseMVResults.count) {
                         mvsResultList(mvs: viewModel.neteaseMVResults)
+                    }
+                    // QQ 音乐 MV
+                    platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqMVResults.count) {
+                        qqMVsResultList(mvs: viewModel.qqMVResults)
                     }
                 }
             }
@@ -398,7 +415,11 @@ struct SearchView: View {
                     case .albums:
                         expandedAlbumsList(source: source)
                     case .mvs:
-                        expandedMVsList
+                        if source == .netease {
+                            expandedMVsList
+                        } else {
+                            expandedQQMVsList
+                        }
                     }
                 }
                 .padding(.bottom, 120)
@@ -506,8 +527,13 @@ struct SearchView: View {
     
     private func artistRow(artist: ArtistInfo) -> some View {
         Button(action: {
-            selectedArtistId = artist.id
-            showArtistDetail = true
+            if artist.isQQMusic, let mid = artist.qqMid {
+                qqDetailType = .artist(mid: mid, name: artist.name, coverUrl: artist.coverUrl?.absoluteString)
+                showQQDetail = true
+            } else {
+                selectedArtistId = artist.id
+                showArtistDetail = true
+            }
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
@@ -549,8 +575,13 @@ struct SearchView: View {
     
     private func playlistRow(playlist: Playlist) -> some View {
         Button(action: {
-            selectedPlaylist = playlist
-            showPlaylistDetail = true
+            if playlist.isQQMusic {
+                qqDetailType = .playlist(id: playlist.id, name: playlist.name, coverUrl: playlist.coverUrl?.absoluteString, creatorName: playlist.creator?.nickname)
+                showQQDetail = true
+            } else {
+                selectedPlaylist = playlist
+                showPlaylistDetail = true
+            }
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
@@ -593,8 +624,13 @@ struct SearchView: View {
     
     private func albumRow(album: SearchAlbum) -> some View {
         Button(action: {
-            selectedAlbumId = album.id
-            showAlbumDetail = true
+            if album.isQQMusic, let mid = album.qqMid {
+                qqDetailType = .album(mid: mid, name: album.name, coverUrl: album.coverUrl?.absoluteString, artistName: album.artistName)
+                showQQDetail = true
+            } else {
+                selectedAlbumId = album.id
+                showAlbumDetail = true
+            }
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
@@ -649,6 +685,107 @@ struct SearchView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 4)
+    }
+    
+    // MARK: - QQ MV 结果列表
+    
+    private func qqMVsResultList(mvs: [QQMV]) -> some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ]
+        return LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(mvs.prefix(4)) { mv in
+                qqMVGridCard(mv: mv)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 4)
+    }
+    
+    // MARK: - QQ MV 网格卡片
+    
+    private func qqMVGridCard(mv: QQMV) -> some View {
+        Button(action: {
+            selectedQQMV = QQMVVidItem(vid: mv.vid)
+            isFocused = false
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack(alignment: .bottomTrailing) {
+                    if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
+                        CachedAsyncImage(url: url) {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.asideTextSecondary.opacity(0.06))
+                        }
+                        .aspectRatio(16/9, contentMode: .fill)
+                        .frame(height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.asideTextSecondary.opacity(0.06))
+                            .frame(height: 100)
+                            .aspectRatio(16/9, contentMode: .fit)
+                    }
+                    
+                    if !mv.durationText.isEmpty {
+                        Text(mv.durationText)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .padding(8)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(mv.name)
+                        .font(.rounded(size: 14, weight: .semibold))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Text(mv.singerName ?? "未知歌手")
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.asideTextSecondary)
+                            .lineLimit(1)
+                        
+                        if !mv.playCountText.isEmpty {
+                            Circle()
+                                .fill(Color.asideTextSecondary.opacity(0.3))
+                                .frame(width: 3, height: 3)
+                            Text(mv.playCountText + "播放")
+                                .font(.rounded(size: 11))
+                                .foregroundColor(.asideTextSecondary.opacity(0.6))
+                        }
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+        }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+    }
+    
+    // MARK: - 展开 QQ MV 列表
+    
+    private var expandedQQMVsList: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ]
+        return LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(Array(viewModel.qqMVResults.enumerated()), id: \.element.id) { index, mv in
+                qqMVGridCard(mv: mv)
+                    .onAppear {
+                        if index == viewModel.qqMVResults.count - 3 {
+                            viewModel.loadMore(source: .qqmusic)
+                        }
+                    }
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
     }
 
     // MARK: - 空结果提示

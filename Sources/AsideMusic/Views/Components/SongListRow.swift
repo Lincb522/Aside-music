@@ -95,7 +95,7 @@ struct SongListRow: View {
                     }
                     
                     HStack(spacing: 4) {
-                        // QQ 音乐来源标识
+                        // QQ 音乐来源标识 + 音质标识
                         if song.isQQMusic {
                             Text("QQ")
                                 .font(.system(size: 8, weight: .bold))
@@ -106,6 +106,18 @@ struct SongListRow: View {
                                     RoundedRectangle(cornerRadius: 3)
                                         .fill(Color.green.opacity(0.8))
                                 )
+                            
+                            if let badge = song.qqMaxQuality?.badgeText {
+                                Text(badge)
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundColor(Theme.accent)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .stroke(Theme.accent, lineWidth: 0.5)
+                                    )
+                            }
                         }
                         
                         Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
@@ -155,7 +167,11 @@ struct SongListRow: View {
                 }
             } else {
                 Button {
-                    downloadManager.download(song: song, quality: player.soundQuality)
+                    if song.isQQMusic {
+                        downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
+                    } else {
+                        downloadManager.download(song: song, quality: player.soundQuality)
+                    }
                 } label: {
                     Label("下载", systemImage: "arrow.down.circle")
                 }

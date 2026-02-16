@@ -1,5 +1,5 @@
 {
-  "originHash" : "fe48f6e68377030cb76abe15601508716538f7d1e0d54bbeed9ed5d36af31a9e",
+  "originHash" : "5a0b00870a284f1f482a3e7cc2ddd35f9c6907246054a4a6c743989c1f8977b7",
   "pins" : [
     {
       "identity" : "ffmpegswiftsdk",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git",
       "state" : {
-        "revision" : "394ae90f98a23c6d802ccc7a252b5d74b328ec42",
-        "version" : "1.3.6"
+        "revision" : "4ad4d53a3075d3f6dbce832cd780f270f54a4362",
+        "version" : "1.3.7"
       }
     }
   ],

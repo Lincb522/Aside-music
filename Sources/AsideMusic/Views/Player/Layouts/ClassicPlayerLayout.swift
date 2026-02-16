@@ -116,13 +116,19 @@ struct ClassicPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentKugouQuality: player.kugouQuality,
+                currentQQQuality: player.qqMusicQuality,
                 isUnblocked: player.isCurrentSongUnblocked,
+                isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { quality in
                     player.switchQuality(quality)
                     showQualitySheet = false
                 },
                 onSelectKugou: { quality in
                     player.switchKugouQuality(quality)
+                    showQualitySheet = false
+                },
+                onSelectQQ: { quality in
+                    player.switchQQMusicQuality(quality)
                     showQualitySheet = false
                 }
             )
@@ -250,7 +256,7 @@ struct ClassicPlayerLayout: View {
             Spacer()
 
             Button(action: { showQualitySheet = true }) {
-                Text(player.soundQuality.buttonText)
+                Text(player.qualityButtonText)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(contentColor)
                     .padding(.horizontal, 6)
@@ -414,7 +420,11 @@ struct ClassicPlayerLayout: View {
 
                     Button {
                         if !downloadManager.isDownloaded(songId: song.id) {
-                            downloadManager.download(song: song, quality: player.soundQuality)
+                            if song.isQQMusic {
+                                downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
+                            } else {
+                                downloadManager.download(song: song, quality: player.soundQuality)
+                            }
                         }
                     } label: {
                         AsideIcon(

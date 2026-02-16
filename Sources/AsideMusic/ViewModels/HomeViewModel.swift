@@ -152,7 +152,7 @@ class HomeViewModel: ObservableObject {
             })
             .store(in: &cancellables)
             
-        if forceDaily || recommendPlaylists.isEmpty {
+        if forceDaily || recommendPlaylists.isEmpty || apiService.currentUserId != nil {
             apiService.fetchRecommendPlaylists()
                 .sink(receiveCompletion: { completion in
                     if case .failure(let error) = completion {

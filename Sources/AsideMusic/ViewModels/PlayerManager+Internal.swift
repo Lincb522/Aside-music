@@ -160,7 +160,7 @@ extension PlayerManager {
         // 网络获取 URL
         if song.isQQMusic, let mid = song.qqMid {
             // QQ 音乐歌曲预加载
-            let fileType = APIService.mapToQQFileType(self.soundQuality)
+            let fileType = self.qqMusicQuality.fileType
             Task { @MainActor in
                 APIService.shared.fetchQQSongUrl(mid: mid, fileType: fileType)
                     .receive(on: DispatchQueue.main)
@@ -366,7 +366,7 @@ extension PlayerManager {
     
     /// 加载并播放 QQ 音乐歌曲
     private func loadAndPlayQQSong(mid: String, song: Song, autoPlay: Bool, startTime: Double) {
-        let fileType = APIService.mapToQQFileType(soundQuality)
+        let fileType = qqMusicQuality.fileType
         Task { @MainActor in
             APIService.shared.fetchQQSongUrl(mid: mid, fileType: fileType)
                 .receive(on: DispatchQueue.main)
@@ -402,6 +402,12 @@ extension PlayerManager {
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
                     self.isCurrentSongUnblocked = false
+                    
+                    // 边听边存（QQ 音乐）
+                    if SettingsManager.shared.listenAndSave,
+                       !DownloadManager.shared.isDownloaded(songId: song.id) {
+                        DownloadManager.shared.downloadQQ(song: song, quality: self.qqMusicQuality)
+                    }
                     
                     AppLogger.info("[QQMusic] 开始播放: \(song.name)")
                     self.startPlayback(url: url, autoPlay: autoPlay, startTime: startTime)

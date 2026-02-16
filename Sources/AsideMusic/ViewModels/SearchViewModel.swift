@@ -28,6 +28,7 @@ class SearchViewModel: ObservableObject {
     @Published var qqArtistResults: [ArtistInfo] = []
     @Published var qqPlaylistResults: [Playlist] = []
     @Published var qqAlbumResults: [SearchAlbum] = []
+    @Published var qqMVResults: [QQMV] = []
     @Published var isQQLoading = false
     
     // MARK: - 通用状态
@@ -94,6 +95,7 @@ class SearchViewModel: ObservableObject {
         qqArtistResults = []
         qqPlaylistResults = []
         qqAlbumResults = []
+        qqMVResults = []
         suggestions = []
         hasSearched = false
         showSuggestions = false
@@ -319,10 +321,16 @@ class SearchViewModel: ObservableObject {
                 .store(in: &cancellables)
             
         case .mvs:
-            // QQ 音乐 MV 搜索暂不支持
-            isQQLoading = false
-            if isLoadMore { isFetchingMoreQQ = false }
-            qqCanLoadMore = false
+            apiService.searchQQMVs(keyword: keyword, page: page, num: 30)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    self?.isQQLoading = false
+                    if isLoadMore { self?.isFetchingMoreQQ = false }
+                }, receiveValue: { [weak self] mvs in
+                    guard let self = self else { return }
+                    self.handleQQPagination(newItems: mvs, existing: &self.qqMVResults, isLoadMore: isLoadMore)
+                })
+                .store(in: &cancellables)
         }
     }
 
@@ -384,7 +392,7 @@ class SearchViewModel: ObservableObject {
         case .artists: return !qqArtistResults.isEmpty
         case .playlists: return !qqPlaylistResults.isEmpty
         case .albums: return !qqAlbumResults.isEmpty
-        case .mvs: return false // QQ 暂不支持 MV 搜索
+        case .mvs: return !qqMVResults.isEmpty
         }
     }
     
@@ -394,7 +402,7 @@ class SearchViewModel: ObservableObject {
         case .artists: return neteaseArtistResults.isEmpty && qqArtistResults.isEmpty
         case .playlists: return neteasePlaylistResults.isEmpty && qqPlaylistResults.isEmpty
         case .albums: return neteaseAlbumResults.isEmpty && qqAlbumResults.isEmpty
-        case .mvs: return neteaseMVResults.isEmpty
+        case .mvs: return neteaseMVResults.isEmpty && qqMVResults.isEmpty
         }
     }
     

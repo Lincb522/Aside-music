@@ -7,6 +7,8 @@ struct ArtistInfo: Identifiable, Codable {
     let name: String
     let picUrl: String?
     let img1v1Url: String?
+    let cover: String?       // 新版 artistDetail 接口返回的封面字段
+    let avatar: String?      // 新版 artistDetail 接口返回的头像字段
     let musicSize: Int?
     let albumSize: Int?
     let mvSize: Int?
@@ -15,12 +17,18 @@ struct ArtistInfo: Identifiable, Codable {
     let followed: Bool?
     let accountId: Int?
     
+    // MARK: - 跨平台扩展字段
+    var source: MusicSource?
+    var qqMid: String?
+    
     var coverUrl: URL? {
-        if let urlStr = img1v1Url ?? picUrl {
+        if let urlStr = cover ?? avatar ?? img1v1Url ?? picUrl {
             return URL(string: urlStr)
         }
         return nil
     }
+    
+    var isQQMusic: Bool { source == .qqmusic }
 }
 
 struct ArtistDetailResponse: Codable {

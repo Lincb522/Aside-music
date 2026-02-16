@@ -334,8 +334,10 @@ class APIService {
     }
 
     func fetchArtistDetail(id: Int) -> AnyPublisher<ArtistInfo, Error> {
-        ncm.fetch(ArtistInfo.self, keyPath: "data.artist") { [ncm] in
-            try await ncm.artistDetail(id: id)
+        // 使用 artists 接口（/api/v1/artist/{id}），返回 picUrl/img1v1Url 字段
+        // artistDetail 接口（/api/artist/head/info/get）返回 cover/avatar 字段名不同
+        ncm.fetch(ArtistInfo.self, keyPath: "artist") { [ncm] in
+            try await ncm.artists(id: id)
         }
     }
 

@@ -49,6 +49,8 @@ final class CachedArtist {
             name: name,
             picUrl: coverUrl,
             img1v1Url: coverUrl,
+            cover: nil,
+            avatar: nil,
             musicSize: musicSize,
             albumSize: albumSize,
             mvSize: nil,

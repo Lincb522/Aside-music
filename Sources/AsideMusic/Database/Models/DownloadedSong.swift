@@ -26,6 +26,14 @@ final class DownloadedSong {
     /// 创建时间（加入队列时间）
     var createdAt: Date
     
+    // MARK: - QQ 音乐扩展字段
+    /// QQ 音乐歌曲 mid（用于获取播放 URL）
+    var qqMid: String?
+    /// 是否为 QQ 音乐歌曲
+    var isQQMusic: Bool
+    /// QQ 音乐音质（仅 QQ 音乐歌曲使用）
+    var qqQualityRaw: String?
+    
     enum Status: String {
         case waiting = "waiting"
         case downloading = "downloading"
@@ -43,6 +51,15 @@ final class DownloadedSong {
         set { qualityRaw = newValue.rawValue }
     }
     
+    /// QQ 音乐音质
+    var qqQuality: QQMusicQuality? {
+        get {
+            guard let raw = qqQualityRaw else { return nil }
+            return QQMusicQuality(rawValue: raw)
+        }
+        set { qqQualityRaw = newValue?.rawValue }
+    }
+    
     init(
         id: Int,
         name: String,
@@ -50,7 +67,10 @@ final class DownloadedSong {
         albumName: String? = nil,
         coverUrl: String? = nil,
         duration: Int? = nil,
-        quality: SoundQuality = .exhigh
+        quality: SoundQuality = .exhigh,
+        qqMid: String? = nil,
+        isQQMusic: Bool = false,
+        qqQuality: QQMusicQuality? = nil
     ) {
         self.id = id
         self.name = name
@@ -65,9 +85,12 @@ final class DownloadedSong {
         self.fileSize = 0
         self.downloadedAt = nil
         self.createdAt = Date()
+        self.qqMid = qqMid
+        self.isQQMusic = isQQMusic
+        self.qqQualityRaw = qqQuality?.rawValue
     }
     
-    /// 从 Song 模型创建
+    /// 从 Song 模型创建（网易云）
     convenience init(from song: Song, quality: SoundQuality = .exhigh) {
         self.init(
             id: song.id,
@@ -76,7 +99,24 @@ final class DownloadedSong {
             albumName: song.al?.name,
             coverUrl: song.coverUrl?.absoluteString,
             duration: song.dt,
-            quality: quality
+            quality: quality,
+            qqMid: song.qqMid,
+            isQQMusic: song.isQQMusic
+        )
+    }
+    
+    /// 从 Song 模型创建（QQ 音乐）
+    convenience init(from song: Song, qqQuality: QQMusicQuality) {
+        self.init(
+            id: song.id,
+            name: song.name,
+            artistName: song.artistName,
+            albumName: song.al?.name,
+            coverUrl: song.coverUrl?.absoluteString,
+            duration: song.dt,
+            qqMid: song.qqMid,
+            isQQMusic: true,
+            qqQuality: qqQuality
         )
     }
     
@@ -92,7 +132,9 @@ final class DownloadedSong {
             mv: nil,
             h: nil, m: nil, l: nil, sq: nil, hr: nil,
             alia: nil,
-            privilege: nil
+            privilege: nil,
+            source: isQQMusic ? .qqmusic : nil,
+            qqMid: qqMid
         )
     }
     

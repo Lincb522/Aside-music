@@ -101,10 +101,16 @@ extension APIService {
             )
             guard let result = response.body["result"] as? [String: Any],
                   let mvsArray = result["mvs"] as? [[String: Any]] else {
+                AppLogger.warning("[MV搜索] 无结果或格式异常: keys=\((response.body["result"] as? [String: Any])?.keys.joined(separator: ",") ?? "nil")")
                 return [MV]()
             }
             let data = try JSONSerialization.data(withJSONObject: mvsArray)
-            return try JSONDecoder().decode([MV].self, from: data)
+            do {
+                return try JSONDecoder().decode([MV].self, from: data)
+            } catch {
+                AppLogger.error("[MV搜索] 解码失败: \(error)")
+                return [MV]()
+            }
         }
     }
 }
@@ -120,6 +126,10 @@ struct SearchAlbum: Identifiable, Codable {
     let size: Int?          // 歌曲数量
     let publishTime: Int?
     
+    // MARK: - 跨平台扩展字段
+    var source: MusicSource?
+    var qqMid: String?
+    
     var coverUrl: URL? {
         if let url = picUrl { return URL(string: url) }
         return nil
@@ -131,6 +141,8 @@ struct SearchAlbum: Identifiable, Codable {
         }
         return artist?.name ?? ""
     }
+    
+    var isQQMusic: Bool { source == .qqmusic }
 }
 
 // MARK: - 搜索响应模型（保持兼容）

@@ -17,6 +17,8 @@ struct LocalPlaylistDetailView: View {
     @State private var showRenameAlert = false
     @State private var renameText = ""
     @State private var showDeleteAlert = false
+    @State private var exportFileURL: URL?
+    @State private var showExportShare = false
     
     private var playlist: LocalPlaylist? {
         manager.playlists.first { $0.id == playlistId }
@@ -75,6 +77,51 @@ struct LocalPlaylistDetailView: View {
                 Text("确定删除「\(p.name)」？此操作不可恢复。")
             }
         }
+        .sheet(isPresented: $showExportShare) {
+            if let url = exportFileURL {
+                ShareSheet(items: [url])
+            }
+        }
+    }
+    
+    // MARK: - 导出
+    
+    private func exportPlaylist(_ p: LocalPlaylist) {
+        let songs = p.songs
+        let exportData: [[String: Any]] = songs.map { song in
+            var dict: [String: Any] = [
+                "id": song.id,
+                "name": song.name,
+                "artist": song.artistName,
+            ]
+            if let coverUrl = song.coverUrl?.absoluteString {
+                dict["cover"] = coverUrl
+            }
+            if let dt = song.dt {
+                dict["duration"] = dt
+            }
+            if let source = song.source?.rawValue {
+                dict["source"] = source
+            }
+            return dict
+        }
+        
+        let export: [String: Any] = [
+            "name": p.name,
+            "description": p.desc ?? "",
+            "exportDate": ISO8601DateFormatter().string(from: Date()),
+            "trackCount": songs.count,
+            "songs": exportData
+        ]
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: export, options: [.prettyPrinted, .sortedKeys]) else { return }
+        
+        let fileName = "\(p.name).json"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        try? jsonData.write(to: tempURL)
+        
+        exportFileURL = tempURL
+        showExportShare = true
     }
 
     // MARK: - Header
@@ -168,6 +215,15 @@ struct LocalPlaylistDetailView: View {
                             }
                             .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                             
+                            // 导出歌单
+                            Button(action: { exportPlaylist(p) }) {
+                                AsideIcon(icon: .download, size: 14, color: Theme.secondaryText)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.asideCardBackground)
+                                    .cornerRadius(16)
+                            }
+                            .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+                            
                             // 删除歌单
                             Button(action: {
                                 showDeleteAlert = true
@@ -247,4 +303,16 @@ struct LocalPlaylistDetailView: View {
             Color.clear.frame(height: 100)
         }
     }
+}
+
+// MARK: - 系统分享面板
+
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

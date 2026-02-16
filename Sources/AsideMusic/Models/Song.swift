@@ -30,11 +30,13 @@ struct Song: Identifiable, Codable {
     var qqMid: String?
     /// QQ 音乐专辑 mid
     var qqAlbumMid: String?
+    /// QQ 音乐最高可用音质（从搜索结果 file 字段解析）
+    var qqMaxQuality: QQMusicQuality?
     
     enum CodingKeys: String, CodingKey {
         case id, name, ar, al, dt, fee, mv
         case h, m, l, sq, hr, alia, privilege
-        case source, qqMid, qqAlbumMid
+        case source, qqMid, qqAlbumMid, qqMaxQuality
     }
     
     // MARK: - 辅助属性
@@ -90,6 +92,9 @@ struct Song: Identifiable, Codable {
     }
     
     var qualityBadge: String? {
+        if isQQMusic {
+            return qqMaxQuality?.badgeText
+        }
         return maxQuality.badgeText
     }
     

@@ -75,7 +75,11 @@ struct PlayerControlsBar: View {
                     
                     Button {
                         if !downloadManager.isDownloaded(songId: song.id) {
-                            downloadManager.download(song: song, quality: player.soundQuality)
+                            if song.isQQMusic {
+                                downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
+                            } else {
+                                downloadManager.download(song: song, quality: player.soundQuality)
+                            }
                         }
                     } label: {
                         AsideIcon(

@@ -80,9 +80,12 @@ struct CardPlayerLayout: View {
         .sheet(isPresented: $showQualitySheet) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality, currentKugouQuality: player.kugouQuality,
+                currentQQQuality: player.qqMusicQuality,
                 isUnblocked: player.isCurrentSongUnblocked,
+                isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
-                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false }
+                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false },
+                onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false }
             ).presentationDetents([.medium]).presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showEQSettings) {
@@ -142,7 +145,7 @@ extension CardPlayerLayout {
             Spacer()
             
             Button(action: { showQualitySheet = true }) {
-                Text(player.soundQuality.buttonText)
+                Text(player.qualityButtonText)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.primary)
                     .padding(.horizontal, 10)

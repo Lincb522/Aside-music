@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UniformTypeIdentifiers
 
 // MARK: - Main View
 struct LibraryView: View {
@@ -216,6 +217,10 @@ struct LocalPlaylistsView: View {
     @State private var newPlaylistName = ""
     @State private var playlistToDelete: LocalPlaylist?
     @State private var showDeleteAlert = false
+    @State private var showFileImporter = false
+    @State private var isImporting = false
+    @State private var importError: String?
+    @State private var showImportError = false
     typealias Theme = PlaylistDetailView.Theme
     
     var body: some View {
@@ -238,6 +243,20 @@ struct LocalPlaylistsView: View {
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
                             .background(Color.asideIconBackground)
+                            .cornerRadius(20)
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle())
+                        
+                        Button(action: { showFileImporter = true }) {
+                            HStack(spacing: 6) {
+                                AsideIcon(icon: .download, size: 14, color: Theme.secondaryText)
+                                Text("导入歌单")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .foregroundColor(Theme.secondaryText)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Color.asideCardBackground)
                             .cornerRadius(20)
                         }
                         .buttonStyle(AsideBouncingButtonStyle())
@@ -265,6 +284,38 @@ struct LocalPlaylistsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
+                    
+                    // 导入歌单按钮
+                    Button(action: { showFileImporter = true }) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.asideCardBackground)
+                                    .frame(width: 60, height: 60)
+                                AsideIcon(icon: .download, size: 22, color: Theme.secondaryText)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("导入歌单")
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundColor(Theme.text)
+                                Text("从 JSON 文件导入")
+                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .foregroundColor(Theme.secondaryText)
+                            }
+                            Spacer()
+                            if isImporting {
+                                ProgressView()
+                            }
+                        }
+                        .padding(16)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle())
+                    .disabled(isImporting)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
@@ -315,6 +366,84 @@ struct LocalPlaylistsView: View {
             if let p = playlistToDelete {
                 Text("确定删除「\(p.name)」？此操作不可恢复。")
             }
+        }
+        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                importPlaylistFromFile(url: url)
+            case .failure(let error):
+                importError = error.localizedDescription
+                showImportError = true
+            }
+        }
+        .alert("导入失败", isPresented: $showImportError) {
+            Button("确定", role: .cancel) {}
+        } message: {
+            Text(importError ?? "未知错误")
+        }
+    }
+    
+    // MARK: - 导入逻辑
+    
+    private func importPlaylistFromFile(url: URL) {
+        isImporting = true
+        
+        // 获取文件访问权限
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        
+        do {
+            let parsed = try LocalPlaylistManager.parseExportFile(url: url)
+            let ids = parsed.songIds
+            let name = parsed.name
+            
+            if ids.isEmpty {
+                importError = "歌单中没有有效的歌曲"
+                showImportError = true
+                isImporting = false
+                return
+            }
+            
+            // 分批获取歌曲详情（每批 50 首）
+            Task {
+                var allSongs: [Song] = []
+                let batchSize = 50
+                for i in stride(from: 0, to: ids.count, by: batchSize) {
+                    let batch = Array(ids[i..<min(i + batchSize, ids.count)])
+                    do {
+                        let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                            var cancellable: AnyCancellable?
+                            cancellable = APIService.shared.fetchSongDetails(ids: batch)
+                                .sink(receiveCompletion: { completion in
+                                    if case .failure(let error) = completion {
+                                        continuation.resume(throwing: error)
+                                    }
+                                    cancellable?.cancel()
+                                }, receiveValue: { songs in
+                                    continuation.resume(returning: songs)
+                                })
+                        }
+                        allSongs.append(contentsOf: songs)
+                    } catch {
+                        AppLogger.error("导入歌单批次获取失败: \(error)")
+                    }
+                }
+                
+                await MainActor.run {
+                    if allSongs.isEmpty {
+                        importError = "无法获取歌曲信息"
+                        showImportError = true
+                    } else {
+                        manager.importPlaylist(name: name, songs: allSongs)
+                    }
+                    isImporting = false
+                }
+            }
+        } catch {
+            importError = error.localizedDescription
+            showImportError = true
+            isImporting = false
         }
     }
 }

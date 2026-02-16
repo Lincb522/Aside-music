@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SwiftData
+import QQMusicKit
 
 /// 音乐下载管理器
 @MainActor
@@ -59,12 +60,17 @@ final class DownloadManager: NSObject, ObservableObject {
             return
         }
         
-        let targetQuality = quality ?? SoundQuality(rawValue: SettingsManager.shared.defaultDownloadQuality) ?? .standard
-        
-        // 保存到数据库
+        // 保存到数据库（区分 QQ 音乐和网易云）
         let context = DatabaseManager.shared.context
-        let downloaded = DownloadedSong(from: song, quality: targetQuality)
-        context.insert(downloaded)
+        if song.isQQMusic {
+            let qqQuality = PlayerManager.shared.qqMusicQuality
+            let downloaded = DownloadedSong(from: song, qqQuality: qqQuality)
+            context.insert(downloaded)
+        } else {
+            let targetQuality = quality ?? SoundQuality(rawValue: SettingsManager.shared.defaultDownloadQuality) ?? .standard
+            let downloaded = DownloadedSong(from: song, quality: targetQuality)
+            context.insert(downloaded)
+        }
         try? context.save()
         
         // 加入队列
@@ -72,6 +78,27 @@ final class DownloadManager: NSObject, ObservableObject {
         AppLogger.info("歌曲加入下载队列: \(song.name)")
         
         // 尝试启动下载
+        processQueue()
+    }
+    
+    /// 下载 QQ 音乐歌曲（指定 QQ 音质）
+    func downloadQQ(song: Song, quality: QQMusicQuality) {
+        let songId = song.id
+        
+        guard !downloadedSongIds.contains(songId),
+              downloadingTasks[songId] == nil,
+              !waitingQueue.contains(songId) else {
+            AppLogger.debug("歌曲 \(songId) 已下载或正在下载中")
+            return
+        }
+        
+        let context = DatabaseManager.shared.context
+        let downloaded = DownloadedSong(from: song, qqQuality: quality)
+        context.insert(downloaded)
+        try? context.save()
+        
+        waitingQueue.append(songId)
+        AppLogger.info("[QQMusic] 歌曲加入下载队列: \(song.name)")
         processQueue()
     }
     
@@ -196,13 +223,46 @@ final class DownloadManager: NSObject, ObservableObject {
         // 更新数据库状态
         updateDBStatus(songId: songId, status: .downloading)
         
-        // 获取歌曲 URL
+        // 查询数据库获取歌曲信息
+        let record = getDownloadRecord(songId: songId)
+        
+        if record?.isQQMusic == true, let mid = record?.qqMid {
+            // QQ 音乐歌曲：使用 QQ 音乐 API 获取 URL
+            startQQDownload(songId: songId, mid: mid, record: record)
+        } else {
+            // 网易云歌曲：使用网易云 API 获取 URL
+            startNeteaseDownload(songId: songId)
+        }
+    }
+    
+    /// 开始网易云歌曲下载
+    private func startNeteaseDownload(songId: Int) {
         let quality = getQuality(songId: songId)
         apiService.fetchSongUrl(id: songId, level: quality.rawValue)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
                     AppLogger.error("获取歌曲URL失败: \(error)")
+                    self?.handleDownloadFailed(songId: songId)
+                }
+            }, receiveValue: { [weak self] result in
+                guard let self = self, let url = URL(string: result.url) else {
+                    self?.handleDownloadFailed(songId: songId)
+                    return
+                }
+                self.downloadFile(songId: songId, from: url)
+            })
+            .store(in: &cancellables)
+    }
+    
+    /// 开始 QQ 音乐歌曲下载
+    private func startQQDownload(songId: Int, mid: String, record: DownloadedSong?) {
+        let fileType = record?.qqQuality?.fileType ?? QQMusicKit.SongFileType.mp3_320
+        apiService.fetchQQSongUrl(mid: mid, fileType: fileType)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
+                if case .failure(let error) = completion {
+                    AppLogger.error("[QQMusic] 获取下载URL失败: \(error)")
                     self?.handleDownloadFailed(songId: songId)
                 }
             }, receiveValue: { [weak self] result in
@@ -315,6 +375,15 @@ final class DownloadManager: NSObject, ObservableObject {
         )
         descriptor.fetchLimit = 1
         return (try? context.fetch(descriptor).first)?.quality ?? .exhigh
+    }
+    
+    private func getDownloadRecord(songId: Int) -> DownloadedSong? {
+        let context = DatabaseManager.shared.context
+        var descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.id == songId }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
     
     private func deleteFromDB(songId: Int) {

@@ -84,6 +84,7 @@ enum AppConfig {
         static let qqMusicBaseURL = "qq_music_base_url"
         static let qqMusicEnabled = "qq_music_enabled"
         static let qqMusicLoggedIn = "qq_music_logged_in"
+        static let qqMusicQuality = "aside_qq_music_quality"
         
         /// 生成带时间戳的缓存键
         static func timestampKey(for key: String) -> String {

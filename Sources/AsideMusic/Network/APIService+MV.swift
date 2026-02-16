@@ -29,9 +29,12 @@ extension APIService {
             let response = try await ncm.mvUrl(id: id, r: resolution)
             guard let dataDict = response.body["data"] as? [String: Any],
                   let url = dataDict["url"] as? String, !url.isEmpty else {
+                AppLogger.warning("[MV] URL 为空: id=\(id), r=\(resolution), data=\(response.body["data"] ?? "nil")")
                 throw PlaybackError.unavailable
             }
-            return url
+            // 确保使用 HTTPS
+            let secureUrl = url.hasPrefix("http://") ? url.replacingOccurrences(of: "http://", with: "https://") : url
+            return secureUrl
         }
     }
 

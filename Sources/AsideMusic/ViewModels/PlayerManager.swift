@@ -148,6 +148,19 @@ class PlayerManager: ObservableObject {
         }
     }
     
+    /// QQ 音乐音质（QQ 音乐独立体系）
+    @Published var qqMusicQuality: QQMusicQuality = {
+        if let rawValue = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.qqMusicQuality),
+           let quality = QQMusicQuality(rawValue: rawValue) {
+            return quality
+        }
+        return .mp3_320
+    }() {
+        didSet {
+            UserDefaults.standard.set(qqMusicQuality.rawValue, forKey: AppConfig.StorageKeys.qqMusicQuality)
+        }
+    }
+    
     /// 当前播放的歌是否来自解灰源
     @Published var isCurrentSongUnblocked: Bool = false
     
@@ -214,6 +227,17 @@ class PlayerManager: ObservableObject {
     var upcomingSongs: [Song] {
         let contextRemaining = currentContextList.dropFirst(contextIndex + 1)
         return userQueue + contextRemaining
+    }
+    
+    /// 当前音质按钮显示文字（根据歌曲来源区分）
+    var qualityButtonText: String {
+        if currentSong?.isQQMusic == true {
+            return qqMusicQuality.badgeText ?? "标准"
+        }
+        if isCurrentSongUnblocked {
+            return kugouQuality.badgeText ?? "标准"
+        }
+        return soundQuality.buttonText
     }
     
     // MARK: - Init

@@ -167,6 +167,41 @@ extension PlayerManager {
         }
     }
     
+    /// 切换 QQ 音乐音质
+    func switchQQMusicQuality(_ quality: QQMusicQuality) {
+        guard qqMusicQuality != quality else { return }
+        
+        if let current = currentSong, current.isQQMusic, let mid = current.qqMid {
+            let time = currentTime
+            
+            Task { @MainActor in
+                APIService.shared.fetchQQSongUrl(mid: mid, fileType: quality.fileType)
+                    .receive(on: DispatchQueue.main)
+                    .sink(receiveCompletion: { completion in
+                        if case .failure(let error) = completion {
+                            AppLogger.error("[QQMusic] 切换音质失败: \(error)")
+                            AlertManager.shared.show(
+                                title: "切换失败",
+                                message: "无法获取该音质的音频，请稍后重试",
+                                primaryButtonTitle: "确定",
+                                primaryAction: {}
+                            )
+                        }
+                    }, receiveValue: { [weak self] result in
+                        guard let self = self, let url = URL(string: result.url) else { return }
+                        self.qqMusicQuality = quality
+                        self.streamInfo = nil
+                        self.pendingQualitySwitchSeek = time
+                        self.streamPlayer.prepareNext(url: url.absoluteString)
+                        self.pollAndSwitch(seekTo: time, attempts: 0)
+                    })
+                    .store(in: &self.cancellables)
+            }
+        } else {
+            qqMusicQuality = quality
+        }
+    }
+    
     /// 轮询预加载状态，就绪后触发切换
     func pollAndSwitch(seekTo time: Double, attempts: Int) {
         guard attempts < 200 else {

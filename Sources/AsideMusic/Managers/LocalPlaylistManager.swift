@@ -69,4 +69,35 @@ class LocalPlaylistManager: ObservableObject {
             ?? createPlaylist(name: "下载")
         addSong(song, to: downloaded)
     }
+    
+    // MARK: - 导入
+    
+    /// 从导出的 JSON 文件导入歌单
+    /// - Returns: (歌单名, 需要获取详情的歌曲ID列表)
+    static func parseExportFile(url: URL) throws -> (name: String, songIds: [Int]) {
+        let data = try Data(contentsOf: url)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "LocalPlaylist", code: -1, userInfo: [NSLocalizedDescriptionKey: "无效的歌单文件"])
+        }
+        let name = json["name"] as? String ?? "导入歌单"
+        guard let songs = json["songs"] as? [[String: Any]] else {
+            throw NSError(domain: "LocalPlaylist", code: -2, userInfo: [NSLocalizedDescriptionKey: "歌单中没有歌曲"])
+        }
+        let ids = songs.compactMap { $0["id"] as? Int }
+        return (name, ids)
+    }
+    
+    /// 创建歌单并填入歌曲
+    @discardableResult
+    func importPlaylist(name: String, songs: [Song]) -> LocalPlaylist {
+        let playlist = createPlaylist(name: name)
+        var current = playlist.songs
+        for song in songs where !current.contains(where: { $0.id == song.id }) {
+            current.append(song)
+        }
+        playlist.songs = current
+        try? context.save()
+        reload()
+        return playlist
+    }
 }

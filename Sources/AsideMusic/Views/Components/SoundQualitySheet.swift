@@ -3,13 +3,17 @@ import SwiftUI
 struct SoundQualitySheet: View {
     let currentQuality: SoundQuality
     let currentKugouQuality: KugouQuality
+    let currentQQQuality: QQMusicQuality
     let isUnblocked: Bool
+    let isQQMusic: Bool
     let onSelectNetease: (SoundQuality) -> Void
     let onSelectKugou: (KugouQuality) -> Void
+    let onSelectQQ: (QQMusicQuality) -> Void
     @Environment(\.dismiss) private var dismiss
     
     private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none && $0 != .higher }
     private let kugouQualities: [KugouQuality] = KugouQuality.allCases
+    private let qqQualities: [QQMusicQuality] = QQMusicQuality.allCases
     
     var body: some View {
         ZStack {
@@ -24,6 +28,14 @@ struct SoundQualitySheet: View {
                     
                     if isUnblocked {
                         Text("酷狗源")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideIconForeground)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.asideIconBackground)
+                            .cornerRadius(4)
+                    } else if isQQMusic {
+                        Text("QQ音乐")
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.asideIconForeground)
                             .padding(.horizontal, 6)
@@ -45,7 +57,24 @@ struct SoundQualitySheet: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        if isUnblocked {
+                        if isQQMusic {
+                            // QQ 音乐歌曲：显示 QQ 音乐音质
+                            ForEach(Array(qqQualities.enumerated()), id: \.element) { index, quality in
+                                Button(action: { onSelectQQ(quality) }) {
+                                    qualityRow(
+                                        name: quality.displayName,
+                                        subtitle: quality.subtitle,
+                                        badge: quality.badgeText,
+                                        isSelected: currentQQQuality == quality
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                
+                                if index < qqQualities.count - 1 {
+                                    Divider().padding(.leading, 56)
+                                }
+                            }
+                        } else if isUnblocked {
                             // 解灰歌曲：显示酷狗音质
                             ForEach(Array(kugouQualities.enumerated()), id: \.element) { index, quality in
                                 Button(action: { onSelectKugou(quality) }) {

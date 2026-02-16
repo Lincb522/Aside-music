@@ -238,12 +238,15 @@ struct SettingsView: View {
             SoundQualitySheet(
                 currentQuality: SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard,
                 currentKugouQuality: .high,
+                currentQQQuality: .mp3_320,
                 isUnblocked: false,
+                isQQMusic: false,
                 onSelectNetease: { quality in
                     settings.defaultPlaybackQuality = quality.rawValue
                     showPlaybackQualitySheet = false
                 },
-                onSelectKugou: { _ in }
+                onSelectKugou: { _ in },
+                onSelectQQ: { _ in }
             )
             .presentationDetents([.medium, .large])
         }
@@ -251,12 +254,15 @@ struct SettingsView: View {
             SoundQualitySheet(
                 currentQuality: SoundQuality(rawValue: settings.defaultDownloadQuality) ?? .standard,
                 currentKugouQuality: .high,
+                currentQQQuality: .mp3_320,
                 isUnblocked: false,
+                isQQMusic: false,
                 onSelectNetease: { quality in
                     settings.defaultDownloadQuality = quality.rawValue
                     showDownloadQualitySheet = false
                 },
-                onSelectKugou: { _ in }
+                onSelectKugou: { _ in },
+                onSelectQQ: { _ in }
             )
             .presentationDetents([.medium, .large])
         }

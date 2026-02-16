@@ -10,6 +10,11 @@ struct MVIdItem: Identifiable {
     let id: Int
 }
 
+struct QQMVVidItem: Identifiable {
+    let vid: String
+    var id: String { vid }
+}
+
 // MARK: - MV 网格卡片
 
 struct MVGridCard: View {

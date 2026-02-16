@@ -138,9 +138,12 @@ struct VinylPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentKugouQuality: player.kugouQuality,
+                currentQQQuality: player.qqMusicQuality,
                 isUnblocked: player.isCurrentSongUnblocked,
+                isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
-                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false }
+                onSelectKugou: { q in player.switchKugouQuality(q); showQualitySheet = false },
+                onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false }
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
