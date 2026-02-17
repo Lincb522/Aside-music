@@ -10,6 +10,8 @@ struct ProfileView: View {
     @State private var showDownloadManage = false
     @State private var showStorageManage = false
     @State private var showCloudDisk = false
+    @State private var showMessages = false
+    @State private var showEvents = false
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
     
@@ -88,6 +90,16 @@ struct ProfileView: View {
         .fullScreenCover(isPresented: $showCloudDisk) {
             NavigationStack {
                 CloudDiskView()
+            }
+        }
+        .fullScreenCover(isPresented: $showMessages) {
+            NavigationStack {
+                MessageListView()
+            }
+        }
+        .fullScreenCover(isPresented: $showEvents) {
+            NavigationStack {
+                UserEventView()
             }
         }
     }
@@ -198,6 +210,17 @@ struct ProfileView: View {
         .padding(20)
         .background(Color.asideCardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(alignment: .topTrailing) {
+            // 右上角私信入口
+            Button(action: { showMessages = true }) {
+                AsideIcon(icon: .send, size: 16, color: .asideTextSecondary)
+                    .frame(width: 32, height: 32)
+                    .background(Color.asideSeparator.opacity(0.6))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(AsideBouncingButtonStyle())
+            .padding(12)
+        }
     }
     
     // MARK: - 听歌数据概览
@@ -224,11 +247,14 @@ struct ProfileView: View {
                 icon: .liked
             )
             
-            StatCard(
-                value: "\(profile?.eventCount ?? 0)",
-                label: NSLocalizedString("profile_dynamic", comment: ""),
-                icon: .send
-            )
+            Button(action: { showEvents = true }) {
+                StatCard(
+                    value: "\(profile?.eventCount ?? 0)",
+                    label: NSLocalizedString("profile_dynamic", comment: ""),
+                    icon: .send
+                )
+            }
+            .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
         }
     }
     

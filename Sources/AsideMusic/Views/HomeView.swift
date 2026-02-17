@@ -18,6 +18,8 @@ struct HomeView: View {
         case artist(Int)
         case album(Int)
         case mvDiscover
+        case newSongExpress
+        case audioMatch
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -27,6 +29,8 @@ struct HomeView: View {
             case .artist(let id): hasher.combine("a_\(id)")
             case .album(let id): hasher.combine("al_\(id)")
             case .mvDiscover: hasher.combine("mv")
+            case .newSongExpress: hasher.combine("newSong")
+            case .audioMatch: hasher.combine("audioMatch")
             }
         }
 
@@ -38,6 +42,8 @@ struct HomeView: View {
             case (.artist(let l), .artist(let r)): return l == r
             case (.album(let l), .album(let r)): return l == r
             case (.mvDiscover, .mvDiscover): return true
+            case (.newSongExpress, .newSongExpress): return true
+            case (.audioMatch, .audioMatch): return true
             default: return false
             }
         }
@@ -72,11 +78,6 @@ struct HomeView: View {
                                 recommendedPlaylistsSection
                             }
 
-                            // 热门新歌 Top 5
-                            if !viewModel.popularSongs.isEmpty {
-                                hotNewSongsSection
-                            }
-
                             // 底部双卡片入口
                             bottomEntryCards
 
@@ -109,6 +110,10 @@ struct HomeView: View {
                     AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
                 case .mvDiscover:
                     MVDiscoverView()
+                case .newSongExpress:
+                    NewSongExpressView()
+                case .audioMatch:
+                    AudioMatchView()
                 }
             }
             .fullScreenCover(isPresented: $showPersonalFM) {
@@ -325,76 +330,178 @@ struct HomeView: View {
 
     private var hotNewSongsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(LocalizedStringKey("new_releases"))
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.asideTextPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, 24)
+            SectionHeader(
+                title: NSLocalizedString("new_releases", comment: ""),
+                subtitle: nil,
+                action: { navigationPath.append(HomeDestination.newSongExpress) }
+            )
 
-            VStack(spacing: 0) {
-                ForEach(Array(viewModel.popularSongs.prefix(5).enumerated()), id: \.element.id) { index, song in
-                    Button(action: {
-                        playerManager.play(song: song, in: viewModel.popularSongs)
-                    }) {
-                        HStack(spacing: 14) {
-                            // 排名序号
-                            Text("\(index + 1)")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(index < 3 ? .asideTextPrimary : .asideTextSecondary)
-                                .frame(width: 28)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    // 第一首大卡片
+                    if let first = viewModel.popularSongs.first {
+                        Button(action: {
+                            playerManager.play(song: first, in: viewModel.popularSongs)
+                        }) {
+                            ZStack(alignment: .bottomLeading) {
+                                CachedAsyncImage(url: first.coverUrl?.sized(400)) {
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .fill(Color.asideSeparator)
+                                }
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 200, height: 200)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                            // 封面
-                            CachedAsyncImage(url: song.coverUrl) {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.asideSeparator)
+                                LinearGradient(
+                                    colors: [.clear, .black.opacity(0.7)],
+                                    startPoint: .center,
+                                    endPoint: .bottom
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("01")
+                                        .font(.system(size: 28, weight: .black, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.4))
+                                    Text(first.name)
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                    Text(first.artistName)
+                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.8))
+                                        .lineLimit(1)
+                                }
+                                .padding(16)
+
+                                // 播放状态
+                                if playerManager.currentSong?.id == first.id {
+                                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .white)
+                                        .frame(width: 20)
+                                        .padding(16)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                                }
                             }
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 48, height: 48)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(song.name)
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.asideTextPrimary)
-                                    .lineLimit(1)
-                                Text(song.artistName)
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                                    .foregroundColor(.asideTextSecondary)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            if playerManager.currentSong?.id == song.id {
-                                PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .asideTextPrimary)
-                                    .frame(width: 20)
-                            } else {
-                                AsideIcon(icon: .play, size: 14, color: .asideTextSecondary)
-                                    .frame(width: 32, height: 32)
-                                    .background(Color.asideSeparator)
-                                    .clipShape(Circle())
-                            }
+                            .frame(width: 200, height: 200)
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .contentShape(Rectangle())
+                        .buttonStyle(AsideBouncingButtonStyle())
                     }
-                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+
+                    // 2-5 竖排小卡片
+                    VStack(spacing: 10) {
+                        ForEach(Array(viewModel.popularSongs.dropFirst().prefix(4).enumerated()), id: \.element.id) { index, song in
+                            Button(action: {
+                                playerManager.play(song: song, in: viewModel.popularSongs)
+                            }) {
+                                HStack(spacing: 12) {
+                                    Text(String(format: "%02d", index + 2))
+                                        .font(.system(size: 14, weight: .black, design: .rounded))
+                                        .foregroundColor(index < 2 ? .asideTextPrimary : .asideTextSecondary.opacity(0.6))
+                                        .frame(width: 24)
+
+                                    CachedAsyncImage(url: song.coverUrl) {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(Color.asideSeparator)
+                                    }
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 40, height: 40)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(song.name)
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.asideTextPrimary)
+                                            .lineLimit(1)
+                                        Text(song.artistName)
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundColor(.asideTextSecondary)
+                                            .lineLimit(1)
+                                    }
+
+                                    Spacer(minLength: 0)
+
+                                    if playerManager.currentSong?.id == song.id {
+                                        PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .asideTextPrimary)
+                                            .frame(width: 16)
+                                    }
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+                        }
+                    }
+                    .frame(width: 220)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay))
+                            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    )
                 }
+                .padding(.horizontal, 24)
             }
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
-            .padding(.horizontal, 24)
         }
     }
 
     // MARK: - MV 入口
 
     private var bottomEntryCards: some View {
-        Button(action: {
-            navigationPath.append(HomeDestination.mvDiscover)
-        }) {
+        VStack(spacing: 12) {
+            // 听歌识曲入口
+            NavigationLink(value: HomeDestination.audioMatch) {
+                HStack(spacing: 14) {
+                    AsideIcon(icon: .audioWave, size: 24, color: .asideTextPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LocalizedStringKey("audio_match_title"))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                        Text(LocalizedStringKey("audio_match_subtitle"))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                    }
+                    Spacer()
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+            
+            // 新歌速递入口
+            NavigationLink(value: HomeDestination.newSongExpress) {
+                HStack(spacing: 14) {
+                    AsideIcon(icon: .musicNote, size: 24, color: .asideTextPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LocalizedStringKey("new_song_express"))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                        Text(LocalizedStringKey("new_releases"))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                    }
+                    Spacer()
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+            
+            // MV 入口
+            Button(action: {
+                navigationPath.append(HomeDestination.mvDiscover)
+            }) {
             HStack(spacing: 14) {
                 AsideIcon(icon: .playCircleFill, size: 24, color: .asideTextPrimary)
                 VStack(alignment: .leading, spacing: 2) {
@@ -416,6 +523,7 @@ struct HomeView: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+        }
         .padding(.horizontal, 24)
     }
 

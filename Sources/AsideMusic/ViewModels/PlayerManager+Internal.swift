@@ -221,6 +221,15 @@ extension PlayerManager {
             LyricViewModel.shared.fetchLyrics(for: song.id)
         }
         
+        // 加载副歌时间（仅网易云歌曲）
+        chorusStartTime = nil
+        chorusEndTime = nil
+        dynamicCoverUrl = nil
+        if !song.isQQMusic {
+            loadChorusTime(songId: song.id)
+            loadDynamicCover(songId: song.id)
+        }
+        
         // 上报听歌记录到网易云（仅网易云歌曲）
         if !song.isQQMusic {
             scrobbleToCloud(song: song)
@@ -425,5 +434,28 @@ extension PlayerManager {
                 })
                 .store(in: &self.cancellables)
         }
+    }
+    
+    // MARK: - 副歌时间加载
+    
+    private func loadChorusTime(songId: Int) {
+        APIService.shared.fetchSongChorus(id: songId)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] result in
+                guard let self = self, self.currentSong?.id == songId else { return }
+                self.chorusStartTime = result.startTime
+                self.chorusEndTime = result.endTime
+            })
+            .store(in: &cancellables)
+    }
+    
+    private func loadDynamicCover(songId: Int) {
+        APIService.shared.fetchSongDynamicCover(id: songId)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] url in
+                guard let self = self, self.currentSong?.id == songId else { return }
+                self.dynamicCoverUrl = url
+            })
+            .store(in: &cancellables)
     }
 }

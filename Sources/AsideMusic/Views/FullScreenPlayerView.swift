@@ -59,6 +59,8 @@ struct FullScreenPlayerView: View {
         let duration: Double
         var color: Color = .asideTextPrimary
         var isAnimating: Bool = true
+        var chorusStart: TimeInterval? = nil
+        var chorusEnd: TimeInterval? = nil
         let onSeek: (Double) -> Void
         let onCommit: (Double) -> Void
 
@@ -90,6 +92,7 @@ struct FullScreenPlayerView: View {
                             let barProgress = Double(index) / Double(barCount - 1)
                             let isPlayed = barProgress <= progress
                             let baseAmplitude = index < amplitudes.count ? amplitudes[index] : 0.5
+                            let isChorus = isInChorus(barProgress: barProgress)
 
                             let height = barHeight(
                                 index: index,
@@ -100,7 +103,7 @@ struct FullScreenPlayerView: View {
                             )
 
                             RoundedRectangle(cornerRadius: 1.5)
-                                .fill(isPlayed ? color : color.opacity(0.2))
+                                .fill(isPlayed ? color : (isChorus ? color.opacity(0.35) : color.opacity(0.2)))
                                 .frame(width: max(2, barWidth), height: height)
                         }
                     }
@@ -183,6 +186,14 @@ struct FullScreenPlayerView: View {
                     // 波形生成失败，保持占位
                 }
             }
+        }
+        
+        /// 判断某个进度位置是否在副歌区间内
+        private func isInChorus(barProgress: Double) -> Bool {
+            guard let start = chorusStart, let end = chorusEnd, duration > 0 else { return false }
+            let startP = start / duration
+            let endP = end / duration
+            return barProgress >= startP && barProgress <= endP
         }
     }
 }

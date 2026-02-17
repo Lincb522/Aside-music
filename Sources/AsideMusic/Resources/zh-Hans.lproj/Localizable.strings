@@ -271,6 +271,16 @@
 "search_unknown_artist" = "未知歌手";
 "search_play_count_suffix" = "播放";
 
+/* Search - Best Match */
+"search_best_match" = "最佳匹配";
+"search_type_artist" = "歌手";
+
+/* Song Wiki */
+"song_wiki_title" = "音乐百科";
+
+/* Related Playlists */
+"related_playlists" = "相关歌单推荐";
+
 /* Home - New */
 "home_playlist" = "歌单";
 "home_mv_zone" = "MV 专区";
@@ -548,6 +558,10 @@
 "podcast_featured" = "精选电台";
 "podcast_broadcast" = "广播电台";
 "podcast_episode_count" = "%d期";
+"podcast_today_pick" = "今日优选";
+"podcast_premium" = "付费精品";
+"podcast_newcomer" = "新人电台榜";
+"podcast_program_toplist" = "节目榜";
 
 /* Podcast Search - New */
 "podcast_search_placeholder" = "搜索电台";
@@ -579,3 +593,74 @@
 "qqmv_more_mv" = "更多MV";
 "qqmv_mv_count" = "%d个";
 "qqmv_play_suffix" = "播放";
+
+/* Similar Songs/Artists */
+"simi_songs_title" = "相似歌曲";
+"artist_tab_similar" = "相似";
+"artist_no_similar" = "暂无相似歌手";
+
+/* FM Mode */
+"fm_mode_title" = "FM 模式";
+"fm_mode_default" = "默认模式";
+"fm_mode_familiar" = "熟悉模式";
+"fm_mode_explore" = "探索模式";
+
+/* Cloud Disk */
+"cloud_title" = "我的云盘";
+"cloud_empty" = "云盘暂无歌曲";
+"cloud_song_count" = "%d 首歌曲";
+"cloud_play_all" = "播放全部";
+"cloud_delete_title" = "确认删除";
+"cloud_delete_message" = "将从云盘中删除「%@」";
+"cloud_delete_action" = "删除";
+"cloud_play_next" = "下一首播放";
+"cloud_add_queue" = "加入队列";
+"cloud_delete_from" = "从云盘删除";
+
+/* New Song Express */
+"new_song_express" = "新歌速递";
+"new_song_all" = "全部";
+"new_song_chinese" = "华语";
+"new_song_western" = "欧美";
+"new_song_korean" = "韩国";
+"new_song_japanese" = "日本";
+
+/* Playlist Create */
+"create_netease_playlist" = "创建网易云歌单";
+"create_netease_playlist_name" = "歌单名称";
+"create_netease_playlist_private" = "设为私密歌单";
+"create_netease_success" = "歌单创建成功";
+"create_netease_failed" = "创建失败";
+"add_to_netease_playlist" = "添加到网易云歌单";
+"netease_playlist_section" = "网易云歌单";
+"local_playlist_section" = "本地歌单";
+
+/* Audio Match - 听歌识曲 */
+"audio_match_title" = "听歌识曲";
+"audio_match_subtitle" = "识别周围正在播放的音乐";
+"audio_match_tap_to_start" = "点击开始识别";
+"audio_match_hint" = "将手机靠近音乐来源，点击按钮开始识别";
+"audio_match_listening" = "正在聆听...";
+"audio_match_listening_hint" = "点击停止";
+"audio_match_searching" = "正在搜索匹配...";
+"audio_match_results" = "匹配结果";
+"audio_match_not_found" = "未能识别";
+"audio_match_not_found_hint" = "请确保周围有音乐播放，然后再试一次";
+"audio_match_try_again" = "再试一次";
+"audio_match_retry" = "重新识别";
+"audio_match_error" = "识别出错";
+"audio_match_mic_denied" = "请在设置中允许麦克风权限";
+
+/* Messages & Events */
+"message_title" = "私信";
+"message_empty" = "暂无私信";
+"message_input_placeholder" = "输入消息...";
+"event_title" = "我的动态";
+"event_empty" = "暂无动态";
+"event_load_more" = "加载更多";
+
+/* Mlog */
+"mlog_title" = "音乐短视频";
+"mlog_subtitle" = "与当前歌曲相关的创作";
+"mlog_loading" = "加载中...";
+"mlog_load_failed" = "视频加载失败";

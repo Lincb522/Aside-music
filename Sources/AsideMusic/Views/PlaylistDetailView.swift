@@ -16,6 +16,8 @@ struct PlaylistDetailView: View {
     @State private var showArtistDetail = false
     @State private var selectedAlbumId: Int?
     @State private var showAlbumDetail = false
+    @State private var selectedRelatedPlaylist: Playlist?
+    @State private var showRelatedPlaylist = false
     
     @State private var scrollOffset: CGFloat = 0
     
@@ -60,6 +62,11 @@ struct PlaylistDetailView: View {
         .navigationDestination(isPresented: $showAlbumDetail) {
             if let albumId = selectedAlbumId {
                 AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
+            }
+        }
+        .navigationDestination(isPresented: $showRelatedPlaylist) {
+            if let pl = selectedRelatedPlaylist {
+                PlaylistDetailView(playlist: pl, songs: nil)
             }
         }
         .onAppear {
@@ -194,7 +201,72 @@ struct PlaylistDetailView: View {
                     NoMoreDataView()
                 }
                 
+                // 相关歌单推荐
+                if !viewModel.relatedPlaylists.isEmpty && !viewModel.isLoading {
+                    relatedPlaylistsSection
+                }
+                
                 Color.clear.frame(height: 100)
+            }
+        }
+    }
+    
+    // MARK: - 相关歌单推荐
+    
+    private var relatedPlaylistsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(LocalizedStringKey("related_playlists"))
+                .font(.rounded(size: 16, weight: .semibold))
+                .foregroundColor(Theme.text)
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.relatedPlaylists) { rp in
+                        Button(action: {
+                            let pl = Playlist(
+                                id: rp.id,
+                                name: rp.name,
+                                coverImgUrl: rp.coverImgUrl,
+                                picUrl: nil,
+                                trackCount: nil,
+                                playCount: nil,
+                                subscribedCount: nil,
+                                shareCount: nil,
+                                commentCount: nil,
+                                creator: nil,
+                                description: nil,
+                                tags: nil
+                            )
+                            selectedRelatedPlaylist = pl
+                            showRelatedPlaylist = true
+                        }) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedAsyncImage(url: rp.coverUrl?.sized(300)) {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.asideCardBackground)
+                                }
+                                .frame(width: 130, height: 130)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                
+                                Text(rp.name)
+                                    .font(.rounded(size: 13, weight: .medium))
+                                    .foregroundColor(.asideTextPrimary)
+                                    .lineLimit(2)
+                                    .frame(width: 130, height: 34, alignment: .topLeading)
+                                
+                                Text(rp.creatorName.isEmpty ? " " : rp.creatorName)
+                                    .font(.rounded(size: 11))
+                                    .foregroundColor(.asideTextSecondary)
+                                    .lineLimit(1)
+                                    .frame(width: 130, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+                .padding(.horizontal, 24)
             }
         }
     }

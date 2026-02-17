@@ -160,6 +160,7 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
 struct MVDiscoverView: View {
     @StateObject private var viewModel = MVDiscoverViewModel()
     @State private var selectedMV: MVIdItem?
+    @State private var selectedMlog: MlogItem?
     @State private var showSublist = false
 
     var body: some View {
@@ -222,6 +223,11 @@ struct MVDiscoverView: View {
                                     listType: .exclusive
                                 )
                             }
+
+                            // Mlog 音乐短视频
+                            if !viewModel.mlogItems.isEmpty {
+                                mlogSection
+                            }
                         }
                         .padding(.top, 24)
                         .padding(.bottom, 120)
@@ -245,6 +251,9 @@ struct MVDiscoverView: View {
             MVSublistSheet()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.hidden)
+        }
+        .fullScreenCover(item: $selectedMlog) { mlog in
+            MlogPlayerView(mlog: mlog)
         }
         .overlay {
             if viewModel.isLoading && viewModel.latestMVs.isEmpty {
@@ -451,6 +460,88 @@ struct MVDiscoverView: View {
                 }
             }
             .padding(.horizontal, 24)
+        }
+    }
+
+    // MARK: - Mlog 音乐短视频
+
+    private var mlogSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(LocalizedStringKey("mlog_title"))
+                        .font(.rounded(size: 22, weight: .bold))
+                        .foregroundColor(.asideTextPrimary)
+                    Text(LocalizedStringKey("mlog_subtitle"))
+                        .font(.rounded(size: 14))
+                        .foregroundColor(.asideTextSecondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.mlogItems) { mlog in
+                        Button(action: { selectedMlog = mlog }) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ZStack(alignment: .bottomTrailing) {
+                                    if let url = mlog.coverURL {
+                                        CachedAsyncImage(url: url) {
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .fill(Color.asideTextSecondary.opacity(0.06))
+                                        }
+                                        .aspectRatio(9/16, contentMode: .fill)
+                                        .frame(width: 140, height: 200)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .fill(Color.asideTextSecondary.opacity(0.06))
+                                            .frame(width: 140, height: 200)
+                                    }
+
+                                    // 时长角标
+                                    if !mlog.durationText.isEmpty {
+                                        Text(mlog.durationText)
+                                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(.ultraThinMaterial)
+                                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                            .padding(8)
+                                    }
+
+                                    // 播放图标
+                                    AsideIcon(icon: .play, size: 28, color: .white)
+                                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                }
+                                .frame(width: 140, height: 200)
+
+                                Text(mlog.text)
+                                    .font(.rounded(size: 13, weight: .medium))
+                                    .foregroundColor(.asideTextPrimary)
+                                    .lineLimit(2)
+                                    .frame(width: 140, alignment: .leading)
+
+                                if let song = mlog.song {
+                                    HStack(spacing: 4) {
+                                        AsideIcon(icon: .musicNote, size: 10, color: .asideTextSecondary)
+                                        Text(song.name)
+                                            .font(.rounded(size: 11))
+                                            .foregroundColor(.asideTextSecondary)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(width: 140, alignment: .leading)
+                                }
+                            }
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
         }
     }
 

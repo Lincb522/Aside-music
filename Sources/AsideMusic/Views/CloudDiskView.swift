@@ -44,17 +44,17 @@ struct CloudDiskView: View {
         }
         .navigationBarHidden(true)
         .onAppear { loadFirstPage() }
-        .alert("确认删除", isPresented: $showDeleteConfirm) {
-            Button("删除", role: .destructive) {
+        .alert(NSLocalizedString("cloud_delete_title", comment: ""), isPresented: $showDeleteConfirm) {
+            Button(NSLocalizedString("cloud_delete_action", comment: ""), role: .destructive) {
                 if let song = songToDelete {
                     deleteSong(song)
                 }
             }
-            Button("取消", role: .cancel) {
+            Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) {
                 songToDelete = nil
             }
         } message: {
-            Text("将从云盘中删除「\(songToDelete?.songName ?? "")」")
+            Text(String(format: NSLocalizedString("cloud_delete_message", comment: ""), songToDelete?.songName ?? ""))
         }
     }
     
@@ -66,7 +66,7 @@ struct CloudDiskView: View {
             
             Spacer()
             
-            Text("我的云盘")
+            Text(LocalizedStringKey("cloud_title"))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.asideTextPrimary)
             
@@ -84,7 +84,7 @@ struct CloudDiskView: View {
         VStack(spacing: 16) {
             Spacer()
             AsideIcon(icon: .cloud, size: 48, color: .asideTextSecondary.opacity(0.3), lineWidth: 1.4)
-            Text("云盘暂无歌曲")
+            Text(LocalizedStringKey("cloud_empty"))
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
             Spacer()
@@ -97,7 +97,7 @@ struct CloudDiskView: View {
         VStack(spacing: 0) {
             // 统计信息
             HStack {
-                Text("\(totalCount) 首歌曲")
+                Text(String(format: NSLocalizedString("cloud_song_count", comment: ""), totalCount))
                     .font(.system(size: 13, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                 Spacer()
@@ -119,7 +119,7 @@ struct CloudDiskView: View {
             } label: {
                 HStack(spacing: 8) {
                     AsideIcon(icon: .play, size: 16, color: .asideIconForeground, lineWidth: 1.6)
-                    Text("播放全部")
+                    Text(LocalizedStringKey("cloud_play_all"))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(.asideIconForeground)
                 }
@@ -226,13 +226,13 @@ struct CloudDiskView: View {
             Button {
                 playerManager.playNext(song: song.toSong())
             } label: {
-                Label("下一首播放", systemImage: "text.line.first.and.arrowtriangle.forward")
+                Label(NSLocalizedString("cloud_play_next", comment: ""), systemImage: "text.line.first.and.arrowtriangle.forward")
             }
             
             Button {
                 playerManager.addToQueue(song: song.toSong())
             } label: {
-                Label("加入队列", systemImage: "text.append")
+                Label(NSLocalizedString("cloud_add_queue", comment: ""), systemImage: "text.append")
             }
             
             Divider()
@@ -241,7 +241,7 @@ struct CloudDiskView: View {
                 songToDelete = song
                 showDeleteConfirm = true
             } label: {
-                Label("从云盘删除", systemImage: "trash")
+                Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
             }
         }
     }

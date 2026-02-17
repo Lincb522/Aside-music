@@ -147,6 +147,15 @@ struct AsideIcon: View {
         
         // 筛选图标
         case filter
+        
+        // 麦克风图标（听歌识曲）
+        case microphone
+        
+        // FM 模式切换图标（旋钮/调频）
+        case fmMode
+        
+        // 听歌识曲图标（声波 + 音符）
+        case audioWave
     }
     
     let icon: IconType
@@ -170,7 +179,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine, .filter:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine, .filter, .microphone, .fmMode, .audioWave:
             return false
         default:
             return true
@@ -320,6 +329,9 @@ struct AsideIcon: View {
         case .logSuccess:   return AnyShape(LogSuccessPath())
         case .arrowDownToLine: return AnyShape(ArrowDownToLinePath())
         case .filter:       return AnyShape(FilterPath())
+        case .microphone:   return AnyShape(MicrophonePath())
+        case .fmMode:       return AnyShape(FMModePath())
+        case .audioWave:    return AnyShape(AudioWavePath())
         }
     }
 }
@@ -2746,6 +2758,101 @@ private struct FilterPath: Shape {
         // 底部最窄线
         path.move(to: CGPoint(x: 10*s, y: 17*s))
         path.addLine(to: CGPoint(x: 14*s, y: 17*s))
+        
+        return path
+    }
+}
+
+// 麦克风图标：竖直麦克风 + 底部支架
+private struct MicrophonePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 麦克风头部（圆角矩形）
+        let capsule = CGRect(x: 9*s, y: 3*s, width: 6*s, height: 10*s)
+        path.addRoundedRect(in: capsule, cornerSize: CGSize(width: 3*s, height: 3*s))
+        
+        // 左侧弧线
+        path.move(to: CGPoint(x: 6*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 17*s), control1: CGPoint(x: 6*s, y: 14*s), control2: CGPoint(x: 8.5*s, y: 17*s))
+        
+        // 右侧弧线
+        path.move(to: CGPoint(x: 18*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 12*s, y: 17*s), control1: CGPoint(x: 18*s, y: 14*s), control2: CGPoint(x: 15.5*s, y: 17*s))
+        
+        // 底部支架
+        path.move(to: CGPoint(x: 12*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 21*s))
+        
+        // 底部横线
+        path.move(to: CGPoint(x: 9*s, y: 21*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 21*s))
+        
+        return path
+    }
+}
+
+
+// FM 模式切换图标：旋钮 + 刻度线，表示调频/模式切换
+private struct FMModePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圈（旋钮轮廓）
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 16*s, height: 16*s))
+        
+        // 中心点
+        path.addEllipse(in: CGRect(x: 10.5*s, y: 10.5*s, width: 3*s, height: 3*s))
+        
+        // 指针（从中心指向上方，表示当前模式位置）
+        path.move(to: CGPoint(x: 12*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 6*s))
+        
+        // 左刻度
+        path.move(to: CGPoint(x: 6.5*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 7.5*s, y: 8*s))
+        
+        // 右刻度
+        path.move(to: CGPoint(x: 17.5*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 16.5*s, y: 8*s))
+        
+        // 底部文字线（FM 标识）
+        path.move(to: CGPoint(x: 8*s, y: 22*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 22*s))
+        
+        return path
+    }
+}
+
+// 听歌识曲图标：声波纹 + 音符，表示音乐识别
+private struct AudioWavePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 左侧声波弧线（由外到内 3 层）
+        path.move(to: CGPoint(x: 3*s, y: 7*s))
+        path.addCurve(to: CGPoint(x: 3*s, y: 17*s), control1: CGPoint(x: 0.5*s, y: 10*s), control2: CGPoint(x: 0.5*s, y: 14*s))
+        
+        path.move(to: CGPoint(x: 6*s, y: 8.5*s))
+        path.addCurve(to: CGPoint(x: 6*s, y: 15.5*s), control1: CGPoint(x: 4*s, y: 10.5*s), control2: CGPoint(x: 4*s, y: 13.5*s))
+        
+        path.move(to: CGPoint(x: 9*s, y: 10*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 14*s), control1: CGPoint(x: 7.5*s, y: 11*s), control2: CGPoint(x: 7.5*s, y: 13*s))
+        
+        // 右侧音符
+        // 音符头（实心椭圆）
+        path.addEllipse(in: CGRect(x: 14*s, y: 13*s, width: 4*s, height: 3*s))
+        
+        // 音符杆
+        path.move(to: CGPoint(x: 18*s, y: 14.5*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 5*s))
+        
+        // 音符旗
+        path.move(to: CGPoint(x: 18*s, y: 5*s))
+        path.addCurve(to: CGPoint(x: 21*s, y: 8*s), control1: CGPoint(x: 20*s, y: 5*s), control2: CGPoint(x: 21*s, y: 6.5*s))
         
         return path
     }

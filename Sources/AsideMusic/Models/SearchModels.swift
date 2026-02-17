@@ -122,3 +122,52 @@ struct DragonBallResponse: Codable {
     let data: [DragonBall]
 }
 
+
+
+// MARK: - Search Default
+
+struct SearchDefaultResult {
+    /// 显示在搜索框的关键词
+    let showKeyword: String
+    /// 实际搜索用的关键词
+    let realkeyword: String
+}
+
+// MARK: - Search Multimatch
+
+struct SearchMultimatchResult {
+    let artist: ArtistInfo?
+    let album: SearchAlbum?
+    let playlist: Playlist?
+}
+
+// MARK: - Song Chorus
+
+struct SongChorusResult {
+    /// 副歌开始时间（秒）
+    let startTime: TimeInterval?
+    /// 副歌结束时间（秒）
+    let endTime: TimeInterval?
+}
+
+// MARK: - Song Wiki
+
+struct SongWikiBlock: Identifiable {
+    let id = UUID()
+    let type: String
+    let title: String
+    let description: String
+}
+
+// MARK: - Related Playlist
+
+struct RelatedPlaylist: Identifiable {
+    let id: Int
+    let name: String
+    let coverImgUrl: String?
+    let creatorName: String
+    
+    var coverUrl: URL? {
+        coverImgUrl.flatMap { URL(string: $0) }
+    }
+}

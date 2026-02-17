@@ -39,6 +39,10 @@ class SearchViewModel: ObservableObject {
     @Published var showSuggestions = false
     @Published var currentTab: SearchTab = .songs
     
+    // MARK: - 搜索默认词 & 多类型匹配
+    @Published var defaultKeyword: SearchDefaultResult?
+    @Published var multimatchResult: SearchMultimatchResult?
+    
     /// 当前展开查看的平台（nil = 双列模式，非 nil = 单平台全屏列表）
     @Published var expandedSource: MusicSource? = nil
 
@@ -68,6 +72,7 @@ class SearchViewModel: ObservableObject {
     init() {
         loadSearchHistory()
         loadHotSearch()
+        loadSearchDefault()
         
         $query
             .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: RunLoop.main)
@@ -100,6 +105,7 @@ class SearchViewModel: ObservableObject {
         hasSearched = false
         showSuggestions = false
         expandedSource = nil
+        multimatchResult = nil
         neteaseCurrentPage = 0
         qqCurrentPage = 0
         neteaseCanLoadMore = true
@@ -115,6 +121,17 @@ class SearchViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] items in
                 self?.hotSearchItems = items
+            })
+            .store(in: &cancellables)
+    }
+    
+    func loadSearchDefault() {
+        apiService.fetchSearchDefault()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] result in
+                if !result.showKeyword.isEmpty {
+                    self?.defaultKeyword = result
+                }
             })
             .store(in: &cancellables)
     }
@@ -148,6 +165,19 @@ class SearchViewModel: ObservableObject {
         // 同时搜索两个平台
         executeNeteaseSearch(keyword: keyword, offset: 0, isLoadMore: false)
         executeQQSearch(keyword: keyword, page: 1, isLoadMore: false)
+        
+        // 获取多类型最佳匹配
+        apiService.fetchSearchMultimatch(keywords: keyword)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] result in
+                // 只有至少有一个匹配结果时才显示
+                if result.artist != nil || result.album != nil || result.playlist != nil {
+                    self?.multimatchResult = result
+                } else {
+                    self?.multimatchResult = nil
+                }
+            })
+            .store(in: &cancellables)
     }
     
     /// 切换搜索类型时重新搜索

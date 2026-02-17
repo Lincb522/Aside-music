@@ -271,6 +271,16 @@
 "search_unknown_artist" = "Unknown Artist";
 "search_play_count_suffix" = " plays";
 
+/* Search - Best Match */
+"search_best_match" = "Best Match";
+"search_type_artist" = "Artist";
+
+/* Song Wiki */
+"song_wiki_title" = "Song Wiki";
+
+/* Related Playlists */
+"related_playlists" = "Related Playlists";
+
 /* Home - New */
 "home_playlist" = "Playlist";
 "home_mv_zone" = "MV Zone";
@@ -548,6 +558,10 @@
 "podcast_featured" = "Featured";
 "podcast_broadcast" = "Radio Stations";
 "podcast_episode_count" = "%d eps";
+"podcast_today_pick" = "Today's Pick";
+"podcast_premium" = "Premium";
+"podcast_newcomer" = "Rising Stars";
+"podcast_program_toplist" = "Top Programs";
 
 /* Podcast Search - New */
 "podcast_search_placeholder" = "Search podcasts";
@@ -579,3 +593,74 @@
 "qqmv_more_mv" = "More MVs";
 "qqmv_mv_count" = "%d items";
 "qqmv_play_suffix" = "plays";
+
+/* Similar Songs/Artists */
+"simi_songs_title" = "Similar Songs";
+"artist_tab_similar" = "Similar";
+"artist_no_similar" = "No similar artists";
+
+/* FM Mode */
+"fm_mode_title" = "FM Mode";
+"fm_mode_default" = "Default";
+"fm_mode_familiar" = "Familiar";
+"fm_mode_explore" = "Explore";
+
+/* Cloud Disk */
+"cloud_title" = "Cloud Disk";
+"cloud_empty" = "No songs in cloud";
+"cloud_song_count" = "%d songs";
+"cloud_play_all" = "Play All";
+"cloud_delete_title" = "Confirm Delete";
+"cloud_delete_message" = "Remove \"%@\" from cloud disk";
+"cloud_delete_action" = "Delete";
+"cloud_play_next" = "Play Next";
+"cloud_add_queue" = "Add to Queue";
+"cloud_delete_from" = "Delete from Cloud";
+
+/* New Song Express */
+"new_song_express" = "New Releases";
+"new_song_all" = "All";
+"new_song_chinese" = "Chinese";
+"new_song_western" = "Western";
+"new_song_korean" = "Korean";
+"new_song_japanese" = "Japanese";
+
+/* Playlist Create */
+"create_netease_playlist" = "Create NetEase Playlist";
+"create_netease_playlist_name" = "Playlist Name";
+"create_netease_playlist_private" = "Set as Private";
+"create_netease_success" = "Playlist Created";
+"create_netease_failed" = "Creation Failed";
+"add_to_netease_playlist" = "Add to NetEase Playlist";
+"netease_playlist_section" = "NetEase Playlists";
+"local_playlist_section" = "Local Playlists";
+
+/* Audio Match */
+"audio_match_title" = "Audio Match";
+"audio_match_subtitle" = "Identify music playing around you";
+"audio_match_tap_to_start" = "Tap to Start";
+"audio_match_hint" = "Hold your phone near the music source and tap the button";
+"audio_match_listening" = "Listening...";
+"audio_match_listening_hint" = "Tap to stop";
+"audio_match_searching" = "Searching for match...";
+"audio_match_results" = "Match Results";
+"audio_match_not_found" = "No Match Found";
+"audio_match_not_found_hint" = "Make sure music is playing nearby and try again";
+"audio_match_try_again" = "Try Again";
+"audio_match_retry" = "Try Again";
+"audio_match_error" = "Recognition Error";
+"audio_match_mic_denied" = "Please allow microphone access in Settings";
+
+/* Messages & Events */
+"message_title" = "Messages";
+"message_empty" = "No messages";
+"message_input_placeholder" = "Type a message...";
+"event_title" = "My Events";
+"event_empty" = "No events yet";
+"event_load_more" = "Load More";
+
+/* Mlog */
+"mlog_title" = "Music Clips";
+"mlog_subtitle" = "Related to what you're listening to";
+"mlog_loading" = "Loading...";
+"mlog_load_failed" = "Failed to load video";

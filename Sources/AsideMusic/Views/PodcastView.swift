@@ -5,6 +5,7 @@ struct PodcastView: View {
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen: Int = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?
+    @State private var bannerIndex: Int = 0
 
     enum PodcastDestination: Hashable {
         case category(RadioCategory)
@@ -50,6 +51,11 @@ struct PodcastView: View {
                         VStack(alignment: .leading, spacing: 28) {
                             headerSection
 
+                            // DJ Banner 轮播
+                            if !viewModel.djBanners.isEmpty {
+                                bannerSection
+                            }
+
                             // 分类标签（横向滚动胶囊）
                             if !viewModel.categories.isEmpty {
                                 categoriesSection
@@ -60,9 +66,29 @@ struct PodcastView: View {
                                 personalizedSection
                             }
 
+                            // 今日优选
+                            if !viewModel.todayPerfered.isEmpty {
+                                todayPerferedSection
+                            }
+
                             // 精选电台（列表样式）
                             if !viewModel.recommendRadios.isEmpty {
                                 recommendSection
+                            }
+
+                            // 付费精品电台
+                            if !viewModel.paygiftRadios.isEmpty {
+                                paygiftSection
+                            }
+
+                            // 新人电台榜
+                            if !viewModel.newcomerRadios.isEmpty {
+                                newcomerSection
+                            }
+
+                            // 节目榜
+                            if !viewModel.programToplist.isEmpty {
+                                programToplistSection
                             }
 
                             // 广播电台（地区 FM）
@@ -139,6 +165,31 @@ struct PodcastView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, DeviceLayout.headerTopPadding)
+    }
+
+    // MARK: - DJ Banner 轮播
+
+    private var bannerSection: some View {
+        TabView(selection: $bannerIndex) {
+            ForEach(Array(viewModel.djBanners.enumerated()), id: \.element.id) { index, banner in
+                CachedAsyncImage(url: banner.imageUrl) {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.asideCardBackground)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 24)
+                .tag(index)
+                .onTapGesture {
+                    if banner.targetId > 0 {
+                        radioIdToOpen = banner.targetId
+                    }
+                }
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .automatic))
+        .frame(height: 140)
     }
 
     // MARK: - 分类标签
@@ -221,6 +272,29 @@ struct PodcastView: View {
         }
     }
 
+    // MARK: - 今日优选
+
+    private var todayPerferedSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("podcast_today_pick")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .padding(.horizontal, 24)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.todayPerfered) { radio in
+                        radioCompactCard(radio: radio)
+                            .onTapGesture {
+                                radioIdToOpen = radio.id
+                            }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
     // MARK: - 精选电台（列表）
 
     private var recommendSection: some View {
@@ -249,6 +323,74 @@ struct PodcastView: View {
                     radioListRow(radio: radio)
                         .onTapGesture {
                             radioIdToOpen = radio.id
+                        }
+                }
+            }
+        }
+    }
+
+    // MARK: - 付费精品电台
+
+    private var paygiftSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("podcast_premium")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .padding(.horizontal, 24)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.paygiftRadios) { radio in
+                        radioCompactCard(radio: radio)
+                            .onTapGesture {
+                                radioIdToOpen = radio.id
+                            }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    // MARK: - 新人电台榜
+
+    private var newcomerSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("podcast_newcomer")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .padding(.horizontal, 24)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.newcomerRadios) { radio in
+                        radioCompactCard(radio: radio)
+                            .onTapGesture {
+                                radioIdToOpen = radio.id
+                            }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    // MARK: - 节目榜
+
+    private var programToplistSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("podcast_program_toplist")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .padding(.horizontal, 24)
+
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.programToplist.enumerated()), id: \.element.id) { index, program in
+                    programListRow(program: program, rank: index + 1)
+                        .onTapGesture {
+                            if let radioId = program.radio?.id {
+                                radioIdToOpen = radioId
+                            }
                         }
                 }
             }
@@ -298,6 +440,38 @@ struct PodcastView: View {
         }
     }
 
+    // MARK: - 紧凑横滑卡片
+
+    private func radioCompactCard(radio: RadioStation) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.asideCardBackground)
+            }
+            .frame(width: 130, height: 130)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            Text(radio.name)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .lineLimit(2)
+                .frame(width: 130, height: 34, alignment: .topLeading)
+
+            if let dj = radio.dj?.nickname {
+                Text(dj)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(.asideTextSecondary)
+                    .lineLimit(1)
+                    .frame(width: 130, alignment: .leading)
+            } else {
+                Text(" ")
+                    .font(.system(size: 11, design: .rounded))
+                    .frame(width: 130, alignment: .leading)
+            }
+        }
+        .frame(width: 130)
+    }
+
     // MARK: - 列表行
 
     private func radioListRow(radio: RadioStation) -> some View {
@@ -337,6 +511,50 @@ struct PodcastView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - 节目榜行
+
+    private func programListRow(program: RadioProgram, rank: Int) -> some View {
+        HStack(spacing: 14) {
+            // 排名
+            Text("\(rank)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(rank <= 3 ? .asideIconBackground : .asideTextSecondary)
+                .frame(width: 28)
+
+            CachedAsyncImage(url: program.programCoverUrl) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.asideCardBackground)
+            }
+            .frame(width: 50, height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(program.name ?? "")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
+                    .lineLimit(1)
+
+                if let radioName = program.radio?.name {
+                    Text(radioName)
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            if let count = program.listenerCount, count > 0 {
+                Text(formatCount(count))
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(.asideTextSecondary)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
 
@@ -429,5 +647,16 @@ struct PodcastView: View {
             }
         }
         .frame(width: 120)
+    }
+
+    // MARK: - 工具方法
+
+    private func formatCount(_ count: Int) -> String {
+        if count >= 100_000_000 {
+            return String(format: "%.1f亿", Double(count) / 100_000_000)
+        } else if count >= 10_000 {
+            return String(format: "%.1f万", Double(count) / 10_000)
+        }
+        return "\(count)"
     }
 }

@@ -182,6 +182,13 @@ class PlayerManager: ObservableObject {
     
     /// 当前播放的音频 URL（用于音频分析等功能）
     @Published var currentPlayingURL: String?
+    
+    /// 当前歌曲副歌时间段
+    @Published var chorusStartTime: TimeInterval?
+    @Published var chorusEndTime: TimeInterval?
+    
+    /// 当前歌曲动态封面 URL
+    @Published var dynamicCoverUrl: String?
     var consecutiveFailures: Int = 0
     let maxConsecutiveFailures: Int = AppConfig.Player.maxConsecutiveFailures
     var retryDelay: TimeInterval = AppConfig.Player.initialRetryDelay

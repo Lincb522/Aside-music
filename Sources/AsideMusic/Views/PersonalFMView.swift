@@ -125,6 +125,8 @@ struct PersonalFMView: View {
     @State private var cardScale: CGFloat = 1.0
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
+    @State private var currentFMMode: String = "DEFAULT"
+    @State private var showFMModePicker = false
 
     var body: some View {
         ZStack {
@@ -347,9 +349,11 @@ struct PersonalFMView: View {
 
                     Spacer()
 
-                    // 占位元素，与左边按钮宽度相同，保持标题居中
-                    Color.clear
-                        .frame(width: 44, height: 44)
+                    // FM 模式切换按钮
+                    Button(action: { showFMModePicker = true }) {
+                        AsideIcon(icon: .fmMode, size: 20, color: .asideTextPrimary)
+                            .frame(width: 44, height: 44)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -362,6 +366,16 @@ struct PersonalFMView: View {
         .onAppear { setupFM() }
         .onDisappear { teardownFM() }
         .onChange(of: player.currentSong?.id) { syncPlayerState() }
+        .confirmationDialog(
+            NSLocalizedString("fm_mode_title", comment: ""),
+            isPresented: $showFMModePicker,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("fm_mode_default", comment: "")) { switchFMMode("DEFAULT") }
+            Button(NSLocalizedString("fm_mode_familiar", comment: "")) { switchFMMode("FAMILIAR") }
+            Button(NSLocalizedString("fm_mode_explore", comment: "")) { switchFMMode("EXPLORE") }
+            Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) {}
+        }
     }
 
     // MARK: - Logic
@@ -503,6 +517,20 @@ struct PersonalFMView: View {
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
                     .background(RoundedRectangle(cornerRadius: 12).fill(Color.asideIconBackground))
+            }
+        }
+    }
+
+    private func switchFMMode(_ mode: String) {
+        currentFMMode = mode
+        Task {
+            do {
+                _ = try await APIService.shared.setPersonalFmMode(mode: mode).async()
+                AppLogger.info("FM 模式切换: \(mode)")
+                // 切换模式后重新加载 FM 数据
+                loadFMData()
+            } catch {
+                AppLogger.error("FM 模式切换失败: \(error)")
             }
         }
     }

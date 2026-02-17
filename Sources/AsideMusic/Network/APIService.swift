@@ -273,7 +273,8 @@ class APIService {
 
     func fetchUserPlaylists(uid: Int) -> AnyPublisher<[Playlist], Error> {
         ncm.fetch([Playlist].self, keyPath: "playlist") { [ncm] in
-            try await ncm.userPlaylist(uid: uid)
+            // 加 timestamp 绕过后端 2 分钟缓存，确保收藏后能立即刷新
+            try await ncm.userPlaylist(uid: uid, limit: 1000, timestamp: Int(Date().timeIntervalSince1970 * 1000))
         }
     }
 

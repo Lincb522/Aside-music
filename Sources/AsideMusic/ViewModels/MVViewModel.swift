@@ -6,10 +6,12 @@ import Combine
 
 // MARK: - MV 发现页 ViewModel
 
+@MainActor
 class MVDiscoverViewModel: ObservableObject {
     @Published var latestMVs: [MV] = []
     @Published var topMVs: [MV] = []
     @Published var exclusiveMVs: [MV] = []
+    @Published var mlogItems: [MlogItem] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -36,7 +38,24 @@ class MVDiscoverViewModel: ObservableObject {
                 self?.latestMVs = latest
                 self?.topMVs = top
                 self?.exclusiveMVs = exclusive
+                self?.fetchMlog()
             }
+            .store(in: &cancellables)
+    }
+
+    /// 加载 Mlog 推荐（基于当前播放歌曲或最新 MV 关联歌曲）
+    func fetchMlog() {
+        // 优先用当前播放歌曲，没有则用 songid=0 获取通用推荐
+        let songId = PlayerManager.shared.currentSong?.id ?? 0
+        api.fetchMlogMusicRcmd(songid: songId, limit: 10)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    AppLogger.debug("Mlog 加载失败: \(error)")
+                }
+            }, receiveValue: { [weak self] items in
+                self?.mlogItems = items
+            })
             .store(in: &cancellables)
     }
 }

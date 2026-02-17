@@ -325,6 +325,8 @@ struct ClassicPlayerLayout: View {
                 duration: player.duration,
                 color: contentColor,
                 isAnimating: player.isPlaying,
+                chorusStart: player.chorusStartTime,
+                chorusEnd: player.chorusEndTime,
                 onSeek: { time in
                     isDraggingSlider = true
                     dragTimeValue = time

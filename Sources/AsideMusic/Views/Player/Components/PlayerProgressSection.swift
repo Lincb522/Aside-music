@@ -23,6 +23,8 @@ struct PlayerProgressSection: View {
                     duration: player.duration,
                     color: contentColor,
                     isAnimating: player.isPlaying,
+                    chorusStart: player.chorusStartTime,
+                    chorusEnd: player.chorusEndTime,
                     onSeek: { time in
                         isDragging = true
                         dragValue = time

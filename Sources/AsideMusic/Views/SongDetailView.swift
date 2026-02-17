@@ -11,6 +11,7 @@ struct SongDetailView: View {
     @State private var showSongDetail = false
     @State private var selectedAlbumId: Int?
     @State private var showAlbumDetail = false
+    @State private var selectedMlog: MlogItem?
     
     struct Theme {
         static let text = Color.asideTextPrimary
@@ -26,13 +27,25 @@ struct SongDetailView: View {
                 headerView
                 
                 ScrollView(showsIndicators: false) {
-                    if !viewModel.relatedSongs.isEmpty {
-                        songsListView
-                            .padding(.bottom, 100)
-                    } else if viewModel.isLoading {
-                        AsideLoadingView(text: "LOADING RELATED")
-                            .padding(.top, 50)
+                    VStack(spacing: 0) {
+                        // 音乐百科
+                        if !viewModel.wikiBlocks.isEmpty {
+                            songWikiSection
+                        }
+                        
+                        // 相似歌曲
+                        if !viewModel.simiSongs.isEmpty {
+                            simiSongsSection
+                        }
+                        
+                        if !viewModel.relatedSongs.isEmpty {
+                            songsListView
+                        } else if viewModel.isLoading {
+                            AsideLoadingView(text: "LOADING RELATED")
+                                .padding(.top, 50)
+                        }
                     }
+                    .padding(.bottom, 100)
                 }
             }
         }
@@ -55,6 +68,11 @@ struct SongDetailView: View {
         .onAppear {
             if let artistId = song.artists.first?.id {
                 viewModel.loadRelatedSongs(artistId: artistId)
+            }
+            // 加载音乐百科（仅网易云歌曲）
+            if !song.isQQMusic {
+                viewModel.loadSongWiki(songId: song.id)
+                viewModel.loadSimiSongs(songId: song.id)
             }
         }
     }
@@ -182,6 +200,93 @@ struct SongDetailView: View {
                             PlayerManager.shared.play(song: relatedSong, in: viewModel.relatedSongs)
                         }
                 }
+            }
+        }
+    }
+    
+    // MARK: - 音乐百科
+    
+    private var songWikiSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(LocalizedStringKey("song_wiki_title"))
+                .font(.rounded(size: 16, weight: .semibold))
+                .foregroundColor(Theme.text)
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+            
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(viewModel.wikiBlocks) { block in
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !block.title.isEmpty {
+                            Text(block.title)
+                                .font(.rounded(size: 14, weight: .medium))
+                                .foregroundColor(Theme.text)
+                        }
+                        if !block.description.isEmpty {
+                            Text(block.description)
+                                .font(.rounded(size: 13))
+                                .foregroundColor(Theme.secondaryText)
+                                .lineSpacing(4)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.asideGlassOverlay)
+                    )
+                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+            )
+            .padding(.horizontal, 24)
+        }
+    }
+    
+    // MARK: - 相似歌曲
+    
+    private var simiSongsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(LocalizedStringKey("simi_songs_title"))
+                .font(.rounded(size: 16, weight: .semibold))
+                .foregroundColor(Theme.text)
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(viewModel.simiSongs.prefix(10)) { simiSong in
+                        Button(action: {
+                            PlayerManager.shared.play(song: simiSong, in: viewModel.simiSongs)
+                        }) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.asideCardBackground)
+                                }
+                                .frame(width: 120, height: 120)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                
+                                Text(simiSong.name)
+                                    .font(.rounded(size: 13, weight: .medium))
+                                    .foregroundColor(.asideTextPrimary)
+                                    .lineLimit(1)
+                                    .frame(width: 120, alignment: .leading)
+                                
+                                Text(simiSong.artistName)
+                                    .font(.rounded(size: 11))
+                                    .foregroundColor(.asideTextSecondary)
+                                    .lineLimit(1)
+                                    .frame(width: 120, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+                .padding(.horizontal, 24)
             }
         }
     }

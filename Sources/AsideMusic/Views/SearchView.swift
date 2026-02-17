@@ -95,24 +95,40 @@ struct SearchView: View {
                 HStack {
                     AsideIcon(icon: .magnifyingGlass, size: 18, color: .gray)
                     
-                    TextField(LocalizedStringKey("search_placeholder"), text: $viewModel.query)
-                        .foregroundColor(.asideTextPrimary)
-                        .font(.rounded(size: 16, weight: .medium))
-                        .focused($isFocused)
-                        .submitLabel(.search)
-                        .onSubmit {
-                            if !viewModel.query.isEmpty {
-                                viewModel.performSearch(keyword: viewModel.query)
-                            }
+                    ZStack(alignment: .leading) {
+                        // 默认搜索词（当输入框为空时显示）
+                        if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
+                            Text(defaultKw.showKeyword)
+                                .font(.rounded(size: 16, weight: .medium))
+                                .foregroundColor(.asideTextSecondary.opacity(0.6))
+                                .lineLimit(1)
+                                .onTapGesture {
+                                    viewModel.performSearch(keyword: defaultKw.realkeyword)
+                                    isFocused = false
+                                }
                         }
-                        .onChange(of: viewModel.query) { _, newValue in
-                            if !newValue.isEmpty {
-                                if viewModel.hasSearched {
-                                    viewModel.hasSearched = false
-                                    viewModel.showSuggestions = true
+                        
+                        TextField("", text: $viewModel.query)
+                            .foregroundColor(.asideTextPrimary)
+                            .font(.rounded(size: 16, weight: .medium))
+                            .focused($isFocused)
+                            .submitLabel(.search)
+                            .onSubmit {
+                                if !viewModel.query.isEmpty {
+                                    viewModel.performSearch(keyword: viewModel.query)
+                                } else if let defaultKw = viewModel.defaultKeyword {
+                                    viewModel.performSearch(keyword: defaultKw.realkeyword)
                                 }
                             }
-                        }
+                            .onChange(of: viewModel.query) { _, newValue in
+                                if !newValue.isEmpty {
+                                    if viewModel.hasSearched {
+                                        viewModel.hasSearched = false
+                                        viewModel.showSuggestions = true
+                                    }
+                                }
+                            }
+                    }
                     
                     if !viewModel.query.isEmpty {
                         Button(action: {
@@ -195,6 +211,11 @@ struct SearchView: View {
     private var dualPlatformResultsView: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
+                // 最佳匹配卡片（暂时隐藏）
+                // if let match = viewModel.multimatchResult {
+                //     bestMatchSection(match: match)
+                // }
+                
                 switch viewModel.currentTab {
                 case .songs:
                     dualSongsSections
@@ -788,6 +809,107 @@ struct SearchView: View {
         .padding(.top, 8)
     }
 
+    // MARK: - 最佳匹配卡片
+    
+    private func bestMatchSection(match: SearchMultimatchResult) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(LocalizedStringKey("search_best_match"))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextSecondary)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 10)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    if let artist = match.artist {
+                        bestMatchCard(
+                            imageUrl: artist.coverUrl?.sized(200),
+                            title: artist.name,
+                            subtitle: String(localized: "search_type_artist"),
+                            isCircle: true
+                        ) {
+                            selectedArtistId = artist.id
+                            showArtistDetail = true
+                        }
+                    }
+                    
+                    if let album = match.album {
+                        bestMatchCard(
+                            imageUrl: album.coverUrl?.sized(200),
+                            title: album.name,
+                            subtitle: album.artistName,
+                            isCircle: false
+                        ) {
+                            selectedAlbumId = album.id
+                            showAlbumDetail = true
+                        }
+                    }
+                    
+                    if let playlist = match.playlist {
+                        bestMatchCard(
+                            imageUrl: playlist.coverUrl?.sized(200),
+                            title: playlist.name,
+                            subtitle: playlist.creator?.nickname ?? "",
+                            isCircle: false
+                        ) {
+                            selectedPlaylist = playlist
+                            showPlaylistDetail = true
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+        .padding(.top, 4)
+    }
+    
+    private func bestMatchCard(
+        imageUrl: URL?,
+        title: String,
+        subtitle: String,
+        isCircle: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                CachedAsyncImage(url: imageUrl) {
+                    RoundedRectangle(cornerRadius: isCircle ? 25 : 10)
+                        .fill(Color.asideCardBackground)
+                }
+                .frame(width: 50, height: 50)
+                .clipShape(isCircle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 10)))
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.rounded(size: 14, weight: .semibold))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
+                    
+                    Text(subtitle)
+                        .font(.rounded(size: 12))
+                        .foregroundColor(.asideTextSecondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer(minLength: 0)
+                
+                AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary.opacity(0.5))
+            }
+            .padding(12)
+            .frame(width: 220)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.asideGlassOverlay)
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+    }
+    
     // MARK: - 空结果提示
     
     private var emptyResultsView: some View {

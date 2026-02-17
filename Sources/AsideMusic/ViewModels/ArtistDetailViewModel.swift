@@ -9,11 +9,13 @@ class ArtistDetailViewModel: ObservableObject {
     @Published var songs: [Song] = []
     @Published var albums: [AlbumInfo] = []
     @Published var mvs: [MV] = []
+    @Published var simiArtists: [ArtistInfo] = []
     @Published var fansCount: Int = 0
     @Published var isFollowed: Bool = false
     @Published var isLoading = true
     @Published var isLoadingAlbums = false
     @Published var isLoadingMVs = false
+    @Published var isLoadingSimi = false
     @Published var descResult: ArtistDescResult?
     @Published var isLoadingDesc = false
     private var cancellables = Set<AnyCancellable>()
@@ -89,6 +91,19 @@ class ArtistDetailViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] success in
                 if success { self?.isFollowed = newState }
+            })
+            .store(in: &cancellables)
+    }
+
+    func loadSimiArtists(artistId: Int) {
+        guard simiArtists.isEmpty, !isLoadingSimi else { return }
+        isLoadingSimi = true
+        APIService.shared.fetchSimiArtists(id: artistId)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] _ in
+                self?.isLoadingSimi = false
+            }, receiveValue: { [weak self] artists in
+                self?.simiArtists = artists
             })
             .store(in: &cancellables)
     }

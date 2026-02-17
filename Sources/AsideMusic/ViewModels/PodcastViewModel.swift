@@ -7,6 +7,14 @@ class PodcastViewModel: ObservableObject {
     @Published var categories: [RadioCategory] = []
     @Published var recommendRadios: [RadioStation] = []
     @Published var broadcastChannels: [BroadcastChannel] = []
+    
+    // DJ 扩展数据
+    @Published var djBanners: [Banner] = []
+    @Published var paygiftRadios: [RadioStation] = []
+    @Published var newcomerRadios: [RadioStation] = []
+    @Published var programToplist: [RadioProgram] = []
+    @Published var todayPerfered: [RadioStation] = []
+    
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -34,6 +42,34 @@ class PodcastViewModel: ObservableObject {
                 self?.recommendRadios = recommend
                 self?.broadcastChannels = broadcasts
                 self?.isLoading = false
+                // 加载扩展数据
+                self?.fetchExtendedData()
+            }
+            .store(in: &cancellables)
+    }
+    
+    /// 加载 DJ 扩展数据（Banner、付费精品、新人榜、节目榜、今日优选）
+    private func fetchExtendedData() {
+        let bannerPub = apiService.fetchDJBanner()
+            .catch { _ in Just([Banner]()) }
+        let paygiftPub = apiService.fetchDJPaygift(limit: 6)
+            .catch { _ in Just([RadioStation]()) }
+        let newcomerPub = apiService.fetchDJToplistNewcomer(limit: 6)
+            .catch { _ in Just([RadioStation]()) }
+        let programPub = apiService.fetchDJProgramToplist(limit: 10)
+            .catch { _ in Just([RadioProgram]()) }
+        let todayPub = apiService.fetchDJTodayPerfered()
+            .catch { _ in Just([RadioStation]()) }
+        
+        Publishers.Zip3(bannerPub, paygiftPub, newcomerPub)
+            .combineLatest(Publishers.Zip(programPub, todayPub))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] first, second in
+                self?.djBanners = first.0
+                self?.paygiftRadios = first.1
+                self?.newcomerRadios = first.2
+                self?.programToplist = second.0
+                self?.todayPerfered = second.1
             }
             .store(in: &cancellables)
     }

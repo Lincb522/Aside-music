@@ -12,6 +12,7 @@ struct AlbumDetailView: View {
     
     @StateObject private var viewModel = AlbumDetailViewModel()
     @ObservedObject var playerManager = PlayerManager.shared
+    @ObservedObject var subManager = SubscriptionManager.shared
     
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
@@ -139,24 +140,33 @@ struct AlbumDetailView: View {
                     
                     Spacer().frame(height: 4)
                     
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                            PlayerManager.shared.play(song: first, in: viewModel.songs)
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.play(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
+                                Text(LocalizedStringKey("play_now"))
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(.asideIconForeground)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Theme.accent)
+                            .cornerRadius(20)
+                            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
                         }
-                    }) {
-                        HStack(spacing: 6) {
-                            AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
-                            Text(LocalizedStringKey("play_now"))
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundColor(.asideIconForeground)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Theme.accent)
-                        .cornerRadius(20)
-                        .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+                        
+                        // 收藏专辑按钮
+                        SubscribeButton(
+                            isSubscribed: viewModel.isSubscribed,
+                            action: { viewModel.toggleSubscription(id: albumId) }
+                        )
+                        .disabled(viewModel.isTogglingSubscription)
                     }
-                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 }
             }
         }

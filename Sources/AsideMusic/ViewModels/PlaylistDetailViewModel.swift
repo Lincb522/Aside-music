@@ -10,6 +10,7 @@ class PlaylistDetailViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var isLoadingMore = false
     @Published var hasMore = true
+    @Published var relatedPlaylists: [RelatedPlaylist] = []
     
     private var cancellables = Set<AnyCancellable>()
     private var currentOffset = 0
@@ -60,6 +61,9 @@ class PlaylistDetailViewModel: ObservableObject {
                 self?.playlistDetail = detail
             })
             .store(in: &cancellables)
+        
+        // 加载相关歌单推荐
+        loadRelatedPlaylists(playlistId: playlistId)
     }
     
     /// 静默刷新第一页 — 不清空列表，不显示 loading
@@ -176,5 +180,31 @@ class PlaylistDetailViewModel: ObservableObject {
     
     func getCurrentList() -> [Song] {
         return songs
+    }
+    
+    private func loadRelatedPlaylists(playlistId: Int) {
+        // 同时加载 relatedPlaylist 和 simiPlaylist，合并去重
+        let relatedPub = APIService.shared.fetchRelatedPlaylists(id: playlistId)
+        let simiPub = APIService.shared.fetchSimiPlaylists(id: playlistId)
+        
+        Publishers.Zip(relatedPub, simiPub)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] (related, simi) in
+                var merged = related
+                let existingIds = Set(related.map(\.id))
+                // 将 simiPlaylist 转换为 RelatedPlaylist 并追加
+                for playlist in simi {
+                    if !existingIds.contains(playlist.id) {
+                        merged.append(RelatedPlaylist(
+                            id: playlist.id,
+                            name: playlist.name,
+                            coverImgUrl: playlist.coverImgUrl,
+                            creatorName: playlist.creator?.nickname ?? ""
+                        ))
+                    }
+                }
+                self?.relatedPlaylists = merged
+            })
+            .store(in: &cancellables)
     }
 }
