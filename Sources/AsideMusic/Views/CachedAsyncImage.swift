@@ -48,7 +48,7 @@ private actor ImageLoadCoordinator {
             
             do {
                 let (data, _) = try await imageSession.data(from: url)
-                return downsampleImage(data: data, maxSize: 200)
+                return downsampleImage(data: data, maxSize: 400)
             } catch {
                 return nil
             }
@@ -117,7 +117,7 @@ class ImageLoader: ObservableObject {
             // 2. 磁盘缓存命中
             if let data = CacheManager.shared.getImageData(forKey: url.absoluteString) {
                 let diskImage = await Task.detached(priority: .userInitiated) {
-                    return self.downsampleImage(data: data, maxSize: 200)
+                    return self.downsampleImage(data: data, maxSize: 400)
                 }.value
                 
                 if Task.isCancelled { return }

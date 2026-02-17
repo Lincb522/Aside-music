@@ -46,3 +46,7 @@ Payload/
 LiquidGlassEffect-main/
 api-enhanced-main*/
 docs/
+build_gui.html
+build_server.py
+build_ipa_visual.sh
+BUILD_GUI_README.md

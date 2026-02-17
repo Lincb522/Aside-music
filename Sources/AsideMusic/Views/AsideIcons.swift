@@ -135,6 +135,15 @@ struct AsideIcon: View {
         
         // 表情图标
         case emoji
+        
+        // 调试日志图标
+        case share
+        case logInfo
+        case logDebug
+        case logError
+        case logNetwork
+        case logSuccess
+        case arrowDownToLine
     }
     
     let icon: IconType
@@ -158,7 +167,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine:
             return false
         default:
             return true
@@ -300,6 +309,13 @@ struct AsideIcon: View {
         case .immersive:    return AnyShape(ImmersivePath())
         case .playerTheme:  return AnyShape(PlayerThemePath())
         case .emoji:        return AnyShape(EmojiPath())
+        case .share:        return AnyShape(ShareIconPath())
+        case .logInfo:      return AnyShape(LogInfoPath())
+        case .logDebug:     return AnyShape(LogDebugPath())
+        case .logError:     return AnyShape(LogErrorPath())
+        case .logNetwork:   return AnyShape(LogNetworkPath())
+        case .logSuccess:   return AnyShape(LogSuccessPath())
+        case .arrowDownToLine: return AnyShape(ArrowDownToLinePath())
         }
     }
 }
@@ -2540,6 +2556,170 @@ private struct EmojiPath: Shape {
             to: CGPoint(x: 16.5*s, y: 14.5*s),
             control: CGPoint(x: 12*s, y: 19*s)
         )
+        
+        return path
+    }
+}
+
+// MARK: - 调试日志图标 Paths
+
+// 分享图标：square.and.arrow.up 风格
+private struct ShareIconPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 向上箭头
+        path.move(to: CGPoint(x: 12*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 14*s))
+        
+        // 箭头两翼
+        path.move(to: CGPoint(x: 8*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 3*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 7*s))
+        
+        // 底部方框（开口向上）
+        path.move(to: CGPoint(x: 7*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 18*s))
+        path.addCurve(to: CGPoint(x: 9*s, y: 20*s), control1: CGPoint(x: 7*s, y: 19.1*s), control2: CGPoint(x: 7.9*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 20*s))
+        path.addCurve(to: CGPoint(x: 17*s, y: 18*s), control1: CGPoint(x: 16.1*s, y: 20*s), control2: CGPoint(x: 17*s, y: 19.1*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 10*s))
+        
+        return path
+    }
+}
+
+// 信息图标：i.circle 风格
+private struct LogInfoPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        
+        // 字母 i 的点
+        path.addEllipse(in: CGRect(x: 11*s, y: 7*s, width: 2*s, height: 2*s))
+        
+        // 字母 i 的竖线
+        path.move(to: CGPoint(x: 12*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 17*s))
+        
+        return path
+    }
+}
+
+// 调试图标：magnifyingglass.circle 风格（放大镜 + 圆圈）
+private struct LogDebugPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        
+        // 放大镜圆圈
+        path.addEllipse(in: CGRect(x: 8*s, y: 7*s, width: 7*s, height: 7*s))
+        
+        // 放大镜手柄
+        path.move(to: CGPoint(x: 14*s, y: 13*s))
+        path.addLine(to: CGPoint(x: 16.5*s, y: 15.5*s))
+        
+        return path
+    }
+}
+
+// 错误图标：xmark.circle 风格
+private struct LogErrorPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        
+        // X 标记
+        path.move(to: CGPoint(x: 9*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 15*s, y: 15*s))
+        
+        path.move(to: CGPoint(x: 15*s, y: 9*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 15*s))
+        
+        return path
+    }
+}
+
+// 网络图标：network 风格（节点连线）
+private struct LogNetworkPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 中心节点
+        path.addEllipse(in: CGRect(x: 10*s, y: 10*s, width: 4*s, height: 4*s))
+        
+        // 上方节点
+        path.addEllipse(in: CGRect(x: 10*s, y: 3*s, width: 4*s, height: 4*s))
+        
+        // 左下节点
+        path.addEllipse(in: CGRect(x: 3*s, y: 17*s, width: 4*s, height: 4*s))
+        
+        // 右下节点
+        path.addEllipse(in: CGRect(x: 17*s, y: 17*s, width: 4*s, height: 4*s))
+        
+        // 连线：中心到上方
+        path.move(to: CGPoint(x: 12*s, y: 10*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 7*s))
+        
+        // 连线：中心到左下
+        path.move(to: CGPoint(x: 10.5*s, y: 13.5*s))
+        path.addLine(to: CGPoint(x: 6.5*s, y: 17.5*s))
+        
+        // 连线：中心到右下
+        path.move(to: CGPoint(x: 13.5*s, y: 13.5*s))
+        path.addLine(to: CGPoint(x: 17.5*s, y: 17.5*s))
+        
+        return path
+    }
+}
+
+// 成功图标：checkmark.circle 风格
+private struct LogSuccessPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圆
+        path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))
+        
+        // 对勾
+        path.move(to: CGPoint(x: 8*s, y: 12.5*s))
+        path.addLine(to: CGPoint(x: 11*s, y: 15.5*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 9*s))
+        
+        return path
+    }
+}
+
+// 向下箭头到底线：arrow.down.to.line 风格
+private struct ArrowDownToLinePath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 向下箭头竖线
+        path.move(to: CGPoint(x: 12*s, y: 4*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 15*s))
+        
+        // 箭头两翼
+        path.move(to: CGPoint(x: 8*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 12*s, y: 16*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 12*s))
+        
+        // 底部横线
+        path.move(to: CGPoint(x: 6*s, y: 20*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 20*s))
         
         return path
     }

@@ -37,8 +37,8 @@ class LyricViewModel: ObservableObject {
     private var translations: [TimeInterval: String] = [:]
     
     func fetchLyrics(for songId: Int) {
-        // 如果已经加载了同一首歌的歌词，跳过
-        guard songId != currentSongId else { return }
+        // 如果已经加载了同一首歌的歌词且有内容，跳过
+        guard songId != currentSongId || (!hasLyrics && !isLoading) else { return }
         currentSongId = songId
         isLoading = true
         lyrics = []
@@ -52,6 +52,8 @@ class LyricViewModel: ObservableObject {
                 if case .failure(let error) = completion {
                     AppLogger.error("Failed to fetch lyrics: \(error)")
                     self?.isLoading = false
+                    // 请求失败时清除 currentSongId，允许下次重试
+                    self?.currentSongId = nil
                 }
             }, receiveValue: { [weak self] response in
                 guard let self = self else { return }
@@ -78,7 +80,7 @@ class LyricViewModel: ObservableObject {
     /// 获取 QQ 音乐歌词
     func fetchQQLyrics(mid: String, songId: Int) {
         // 用 songId 做去重标识
-        guard songId != currentSongId else { return }
+        guard songId != currentSongId || (!hasLyrics && !isLoading) else { return }
         currentSongId = songId
         isLoading = true
         lyrics = []
@@ -92,6 +94,8 @@ class LyricViewModel: ObservableObject {
                 if case .failure(let error) = completion {
                     AppLogger.error("[QQMusic] 获取歌词失败: \(error)")
                     self?.isLoading = false
+                    // 请求失败时清除 currentSongId，允许下次重试
+                    self?.currentSongId = nil
                 }
             }, receiveValue: { [weak self] response in
                 guard let self = self else { return }

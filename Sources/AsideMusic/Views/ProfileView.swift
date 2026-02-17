@@ -20,6 +20,7 @@ struct ProfileView: View {
     
     // 最近播放
     @State private var recentSongs: [Song] = []
+    @State private var showAllRecentSongs = false
     
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
@@ -94,31 +95,35 @@ struct ProfileView: View {
     // MARK: - 已登录
     
     private var loggedInContent: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
-                // 用户卡片
-                profileCard
-                    .padding(.horizontal, 20)
-                
-                // 听歌数据概览
-                listeningStatsSection
-                    .padding(.horizontal, 20)
-                
-                // 最近播放
-                if !recentSongs.isEmpty {
-                    recentlyPlayedSection
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // 用户卡片
+                    profileCard
+                        .padding(.horizontal, 20)
+                    
+                    // 听歌数据概览
+                    listeningStatsSection
+                        .padding(.horizontal, 20)
+                    
+                    // 最近播放
+                    if !recentSongs.isEmpty {
+                        recentlyPlayedSection
+                    }
+                    
+                    // 快捷操作
+                    quickActions
+                        .padding(.horizontal, 20)
+                    
+                    // 退出登录
+                    logoutButton
+                    
+                    Color.clear.frame(height: 100)
                 }
-                
-                // 快捷操作
-                quickActions
-                    .padding(.horizontal, 20)
-                
-                // 退出登录
-                logoutButton
-                
-                Color.clear.frame(height: 100)
+                .padding(.top, DeviceLayout.headerTopPadding + 100)
             }
-            .padding(.top, DeviceLayout.headerTopPadding + 100)
+            .navigationBarHidden(true)
+            .background(Color.clear)
         }
     }
     
@@ -233,9 +238,15 @@ struct ProfileView: View {
                 
                 Spacer()
                 
-                Text("\(recentSongs.count) 首")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.asideTextSecondary)
+                NavigationLink(destination: RecentPlayHistoryView(songs: recentSongs)) {
+                    HStack(spacing: 4) {
+                        Text("\(recentSongs.count) 首")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 24)
             
@@ -430,11 +441,36 @@ struct ProfileView: View {
     // MARK: - 工具方法
     
     private func fetchRecentSongs() {
+        // 先从本地 SwiftData 获取播放历史
+        let localHistory = HistoryRepository().getPlayHistory(limit: 100)
+        let localSongs = localHistory.map { $0.toSong() }
+        
+        // 再从网易云获取最近播放，合并去重
         APIService.shared.fetchRecentSongs()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in },
-                  receiveValue: { songs in
-                self.recentSongs = songs
+                  receiveValue: { [self] remoteSongs in
+                // 合并：本地优先（更新），远程补充
+                var merged: [Song] = []
+                var seenIds = Set<Int>()
+                
+                // 先加本地历史（最新的在前）
+                for song in localSongs {
+                    if !seenIds.contains(song.id) {
+                        seenIds.insert(song.id)
+                        merged.append(song)
+                    }
+                }
+                
+                // 再加远程历史（去重）
+                for song in remoteSongs {
+                    if !seenIds.contains(song.id) {
+                        seenIds.insert(song.id)
+                        merged.append(song)
+                    }
+                }
+                
+                self.recentSongs = merged
             })
             .store(in: &ProfileCancellableStore.shared.cancellables)
     }

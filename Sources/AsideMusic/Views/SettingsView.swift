@@ -404,12 +404,48 @@ struct SettingsView: View {
 
     private var otherSection: some View {
         SettingsSection(title: String(localized: "settings_other")) {
-            SettingsToggleRow(
-                icon: .haptic,
-                title: String(localized: "settings_haptic"),
-                subtitle: String(localized: "settings_haptic_desc"),
-                isOn: $settings.hapticFeedback
-            )
+            VStack(spacing: 0) {
+                SettingsToggleRow(
+                    icon: .haptic,
+                    title: String(localized: "settings_haptic"),
+                    subtitle: String(localized: "settings_haptic_desc"),
+                    isOn: $settings.hapticFeedback
+                )
+                
+                Divider()
+                    .padding(.leading, 56)
+                
+                NavigationLink(destination: DebugLogView()) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.asideIconBackground)
+                                .frame(width: 32, height: 32)
+                            AsideIcon(icon: .logDebug, size: 16, color: .asideIconForeground)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("调试日志")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .foregroundColor(.asideTextPrimary)
+                            Text("查看运行日志，便于排查问题")
+                                .font(.system(size: 12, design: .rounded))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("\(AppLogger.getAllLogs().count)")
+                            .font(.system(size: 14, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                        
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 

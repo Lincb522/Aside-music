@@ -175,7 +175,7 @@ extension PlayerManager {
             let time = currentTime
             
             Task { @MainActor in
-                APIService.shared.fetchQQSongUrl(mid: mid, fileType: quality.fileType)
+                APIService.shared.fetchQQSongUrl(mid: mid, quality: quality)
                     .receive(on: DispatchQueue.main)
                     .sink(receiveCompletion: { completion in
                         if case .failure(let error) = completion {

@@ -120,6 +120,8 @@ extension PlayerManager {
         if history.count > AppConfig.Player.maxHistoryCount {
             history.removeLast()
         }
+        // 同时写入 SwiftData 持久化
+        HistoryRepository().addPlayHistory(song: song)
     }
     
     /// 上报听歌记录到网易云服务端（最近播放、累计听歌数等）
@@ -138,10 +140,27 @@ extension PlayerManager {
     }
     
     func fetchHistory() {
+        // 先从本地 SwiftData 恢复历史（保证离线也有数据）
+        let localHistory = HistoryRepository().getPlayHistory(limit: AppConfig.Player.maxHistoryCount)
+        if !localHistory.isEmpty {
+            self.history = localHistory.map { $0.toSong() }
+        }
+        
+        // 再从服务端拉取最近播放，合并到本地（不覆盖）
         APIService.shared.fetchRecentSongs()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
-                self?.history = songs
+                guard let self = self else { return }
+                // 将服务端的歌曲合并到历史中（本地已有的不重复添加）
+                for song in songs {
+                    if !self.history.contains(where: { $0.id == song.id }) {
+                        self.history.append(song)
+                    }
+                }
+                // 截断
+                if self.history.count > AppConfig.Player.maxHistoryCount {
+                    self.history = Array(self.history.prefix(AppConfig.Player.maxHistoryCount))
+                }
             })
             .store(in: &cancellables)
     }

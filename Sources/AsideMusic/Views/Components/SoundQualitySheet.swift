@@ -13,7 +13,12 @@ struct SoundQualitySheet: View {
     
     private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none && $0 != .higher }
     private let kugouQualities: [KugouQuality] = KugouQuality.allCases
-    private let qqQualities: [QQMusicQuality] = QQMusicQuality.allCases
+    
+    // QQ 音质分组
+    private let qqPremiumQualities: [QQMusicQuality] = [.master, .atmos2, .atmos51]
+    private let qqLosslessQualities: [QQMusicQuality] = [.flac, .ogg640]
+    private let qqHighQualities: [QQMusicQuality] = [.ogg320, .mp3_320, .ogg192, .aac192]
+    private let qqStandardQualities: [QQMusicQuality] = [.mp3_128, .ogg96, .aac96, .aac48]
     
     var body: some View {
         ZStack {
@@ -56,67 +61,119 @@ struct SoundQualitySheet: View {
                 .padding(.top, 8)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
+                    VStack(spacing: 16) {
                         if isQQMusic {
-                            // QQ 音乐歌曲：显示 QQ 音乐音质
-                            ForEach(Array(qqQualities.enumerated()), id: \.element) { index, quality in
-                                Button(action: { onSelectQQ(quality) }) {
-                                    qualityRow(
-                                        name: quality.displayName,
-                                        subtitle: quality.subtitle,
-                                        badge: quality.badgeText,
-                                        isSelected: currentQQQuality == quality
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                
-                                if index < qqQualities.count - 1 {
-                                    Divider().padding(.leading, 56)
-                                }
-                            }
+                            // QQ 音乐歌曲：分组显示音质
+                            qualityGroup(title: "臻品音质", qualities: qqPremiumQualities)
+                            qualityGroup(title: "无损音质", qualities: qqLosslessQualities)
+                            qualityGroup(title: "高品音质", qualities: qqHighQualities)
+                            qualityGroup(title: "标准音质", qualities: qqStandardQualities)
                         } else if isUnblocked {
                             // 解灰歌曲：显示酷狗音质
-                            ForEach(Array(kugouQualities.enumerated()), id: \.element) { index, quality in
-                                Button(action: { onSelectKugou(quality) }) {
-                                    qualityRow(
-                                        name: quality.displayName,
-                                        subtitle: quality.subtitle,
-                                        badge: quality.badgeText,
-                                        isSelected: currentKugouQuality == quality
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                
-                                if index < kugouQualities.count - 1 {
-                                    Divider().padding(.leading, 56)
-                                }
-                            }
+                            qualityList(kugouQualities)
                         } else {
                             // 正常歌曲：显示网易云音质
-                            ForEach(Array(neteaseQualities.enumerated()), id: \.element) { index, quality in
-                                Button(action: { onSelectNetease(quality) }) {
-                                    qualityRow(
-                                        name: quality.displayName,
-                                        subtitle: quality.subtitle,
-                                        badge: quality.badgeText,
-                                        isSelected: currentQuality == quality
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                
-                                if index < neteaseQualities.count - 1 {
-                                    Divider().padding(.leading, 56)
-                                }
-                            }
+                            qualityList(neteaseQualities)
                         }
                     }
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
             }
         }
     }
+    
+    // MARK: - QQ 音质分组
+    
+    @ViewBuilder
+    private func qualityGroup(title: String, qualities: [QQMusicQuality]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(.asideTextSecondary)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+            
+            ForEach(Array(qualities.enumerated()), id: \.element) { index, quality in
+                Button(action: { onSelectQQ(quality) }) {
+                    qualityRow(
+                        name: quality.displayName,
+                        subtitle: quality.subtitle,
+                        badge: quality.badgeText,
+                        isSelected: currentQQQuality == quality
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                if index < qualities.count - 1 {
+                    Divider().padding(.leading, 56)
+                }
+            }
+            
+            Color.clear.frame(height: 8)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.asideGlassOverlay)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+    
+    // MARK: - 通用音质列表
+    
+    @ViewBuilder
+    private func qualityList<T: Hashable>(_ qualities: [T]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(qualities.enumerated()), id: \.element) { index, quality in
+                Button(action: {
+                    if let kugouQuality = quality as? KugouQuality {
+                        onSelectKugou(kugouQuality)
+                    } else if let neteaseQuality = quality as? SoundQuality {
+                        onSelectNetease(neteaseQuality)
+                    }
+                }) {
+                    if let kugouQuality = quality as? KugouQuality {
+                        qualityRow(
+                            name: kugouQuality.displayName,
+                            subtitle: kugouQuality.subtitle,
+                            badge: kugouQuality.badgeText,
+                            isSelected: currentKugouQuality == kugouQuality
+                        )
+                    } else if let neteaseQuality = quality as? SoundQuality {
+                        qualityRow(
+                            name: neteaseQuality.displayName,
+                            subtitle: neteaseQuality.subtitle,
+                            badge: neteaseQuality.badgeText,
+                            isSelected: currentQuality == neteaseQuality
+                        )
+                    }
+                }
+                .buttonStyle(.plain)
+                
+                if index < qualities.count - 1 {
+                    Divider().padding(.leading, 56)
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.asideGlassOverlay)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+    
+    // MARK: - 音质行
     
     private func qualityRow(name: String, subtitle: String, badge: String?, isSelected: Bool) -> some View {
         HStack(spacing: 14) {

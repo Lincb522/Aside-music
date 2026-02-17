@@ -160,9 +160,9 @@ extension PlayerManager {
         // 网络获取 URL
         if song.isQQMusic, let mid = song.qqMid {
             // QQ 音乐歌曲预加载
-            let fileType = self.qqMusicQuality.fileType
+            let quality = self.qqMusicQuality
             Task { @MainActor in
-                APIService.shared.fetchQQSongUrl(mid: mid, fileType: fileType)
+                APIService.shared.fetchQQSongUrl(mid: mid, quality: quality)
                     .receive(on: DispatchQueue.main)
                     .sink(receiveCompletion: { completion in
                         if case .failure(let error) = completion {
@@ -199,14 +199,16 @@ extension PlayerManager {
     }
     
     func loadAndPlay(song: Song, autoPlay: Bool = true, startTime: Double = 0) {
-        // 递增会话 ID，旧会话的 .stopped 回调会被忽略
+        // 递增会话 ID，旧会话的回调会被忽略
         playbackSessionId += 1
+        let sessionId = playbackSessionId
         // 清除待切换状态（用户手动切歌）
         hasPendingTrackTransition = false
         pendingNextSong = nil
         
         isLoading = true
         currentSong = song
+        currentTime = 0
         isCurrentSongUnblocked = false
         streamInfo = nil
         addToHistory(song: song)
@@ -243,7 +245,7 @@ extension PlayerManager {
     
     /// 加载并播放网易云歌曲
     private func loadAndPlayNeteaseSong(song: Song, autoPlay: Bool, startTime: Double) {
-
+        let sessionId = playbackSessionId
         Task { @MainActor in
             APIService.shared.fetchSongUrl(
                 id: song.id,
@@ -253,6 +255,8 @@ extension PlayerManager {
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completion in
                     guard let self = self else { return }
+                    // 会话已过期，忽略回调
+                    guard self.playbackSessionId == sessionId else { return }
                     if case .failure(let error) = completion {
                         AppLogger.error("获取播放 URL 失败: \(error)")
                         self.isLoading = false
@@ -285,6 +289,8 @@ extension PlayerManager {
                     }
                 }, receiveValue: { [weak self] result in
                     guard let self = self, let url = URL(string: result.url) else { return }
+                    // 会话已过期，忽略回调
+                    guard self.playbackSessionId == sessionId else { return }
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
                     self.isCurrentSongUnblocked = result.isUnblocked
@@ -366,12 +372,15 @@ extension PlayerManager {
     
     /// 加载并播放 QQ 音乐歌曲
     private func loadAndPlayQQSong(mid: String, song: Song, autoPlay: Bool, startTime: Double) {
-        let fileType = qqMusicQuality.fileType
+        let quality = qqMusicQuality
+        let sessionId = playbackSessionId
         Task { @MainActor in
-            APIService.shared.fetchQQSongUrl(mid: mid, fileType: fileType)
+            APIService.shared.fetchQQSongUrl(mid: mid, quality: quality)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completion in
                     guard let self = self else { return }
+                    // 会话已过期，忽略回调
+                    guard self.playbackSessionId == sessionId else { return }
                     if case .failure(let error) = completion {
                         AppLogger.error("[QQMusic] 获取播放 URL 失败: \(error)")
                         self.isLoading = false
@@ -399,6 +408,8 @@ extension PlayerManager {
                     }
                 }, receiveValue: { [weak self] result in
                     guard let self = self, let url = URL(string: result.url) else { return }
+                    // 会话已过期，忽略回调
+                    guard self.playbackSessionId == sessionId else { return }
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
                     self.isCurrentSongUnblocked = false

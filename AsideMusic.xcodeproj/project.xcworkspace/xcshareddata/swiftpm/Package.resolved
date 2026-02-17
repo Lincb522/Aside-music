@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/FFmpegSwiftSDK.git",
       "state" : {
-        "revision" : "ca29cd81f5e65ea3d040234cff16c3b32d79580f",
-        "version" : "1.1.12"
+        "revision" : "2161c42d3d6a0995e8538a8aa9de5c523be9ad2f",
+        "version" : "1.3.1"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/MusicKit.git",
       "state" : {
-        "revision" : "5eb244f378889db8ea920fad6898623fa1b92444",
-        "version" : "1.0.0"
+        "revision" : "18c63128669681f6ecb707da4bdf99d22e89736a",
+        "version" : "1.1.1"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git",
       "state" : {
-        "revision" : "4ad4d53a3075d3f6dbce832cd780f270f54a4362",
-        "version" : "1.3.7"
+        "revision" : "7d2f72012660d78a24a47c91c6defee20bc8f1b6",
+        "version" : "1.3.8"
       }
     }
   ],

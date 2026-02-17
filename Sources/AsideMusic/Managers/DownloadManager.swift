@@ -257,8 +257,8 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 开始 QQ 音乐歌曲下载
     private func startQQDownload(songId: Int, mid: String, record: DownloadedSong?) {
-        let fileType = record?.qqQuality?.fileType ?? QQMusicKit.SongFileType.mp3_320
-        apiService.fetchQQSongUrl(mid: mid, fileType: fileType)
+        let quality = record?.qqQuality ?? .mp3_320
+        apiService.fetchQQSongUrl(mid: mid, quality: quality)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {

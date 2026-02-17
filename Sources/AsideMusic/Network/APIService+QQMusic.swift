@@ -137,56 +137,117 @@ extension APIService {
 
 extension APIService {
     
-    /// 获取 QQ 音乐歌曲播放 URL
-    func fetchQQSongUrl(mid: String, fileType: SongFileType = .mp3_128) -> AnyPublisher<SongUrlResult, Error> {
+    /// 获取 QQ 音乐歌曲播放 URL (支持完整音质体系)
+    /// - Parameters:
+    ///   - mid: 歌曲 mid
+    ///   - quality: QQ 音质类型
+    /// - Returns: 播放 URL 结果
+    func fetchQQSongUrl(mid: String, quality: QQMusicQuality = .mp3_320) -> AnyPublisher<SongUrlResult, Error> {
         Future<SongUrlResult, Error> { [weak self] promise in
             guard let self = self else {
                 promise(.failure(PlaybackError.unavailable))
                 return
             }
             Task {
-                // 先尝试用户指定的音质
-                do {
-                    if let url = try await self.qqClient.songURL(mid: mid, fileType: fileType),
-                       !url.isEmpty {
-                        promise(.success(SongUrlResult(url: url, isUnblocked: false)))
-                        return
-                    }
-                } catch {
-                    AppLogger.warning("[QQMusic] \(fileType.displayName) 请求失败，尝试降级: \(error.localizedDescription)")
+                AppLogger.info("[QQMusic] 请求音质: \(quality.displayName) (\(quality.rawValue))")
+                
+                // 1. 尝试用户选择的音质
+                if let url = await self.tryQQQuality(mid: mid, quality: quality) {
+                    promise(.success(SongUrlResult(url: url, isUnblocked: false)))
+                    return
                 }
                 
-                // 降级尝试较低音质（catch 异常 + 空 URL 都走这里）
-                if let fallbackUrl = await self.qqFallbackURL(mid: mid, excluding: fileType) {
+                // 2. 智能降级策略
+                if let fallbackUrl = await self.qqSmartFallback(mid: mid, requestedQuality: quality) {
                     promise(.success(SongUrlResult(url: fallbackUrl, isUnblocked: false)))
-                } else {
-                    AppLogger.error("[QQMusic] 所有音质均无法获取播放 URL: \(mid)")
-                    promise(.failure(PlaybackError.unavailable))
+                    return
                 }
+                
+                // 3. 所有音质都失败
+                AppLogger.error("[QQMusic] 所有音质均无法获取播放 URL: \(mid)")
+                promise(.failure(PlaybackError.unavailable))
             }
         }
         .receive(on: DispatchQueue.main)
         .eraseToAnyPublisher()
     }
     
-    /// QQ 音乐音质降级策略（每个音质独立 catch，不会因单个失败中断）
-    private func qqFallbackURL(mid: String, excluding: SongFileType? = nil) async -> String? {
-        let fallbackTypes: [SongFileType] = [.mp3_320, .mp3_128, .aac96]
-        for type in fallbackTypes {
-            if type == excluding { continue }
-            do {
-                if let url = try await qqClient.songURL(mid: mid, fileType: type), !url.isEmpty {
-                    AppLogger.info("[QQMusic] 降级到 \(type.displayName) 成功")
-                    return url
-                }
-            } catch {
-                AppLogger.warning("[QQMusic] 降级 \(type.displayName) 失败: \(error.localizedDescription)")
-                continue
+    /// 尝试获取指定音质的播放 URL
+    private func tryQQQuality(mid: String, quality: QQMusicQuality) async -> String? {
+        do {
+            // 检查是否是加密音质
+            if isEncryptedQuality(quality) {
+                // 加密音质暂不支持,降级到非加密版本
+                AppLogger.warning("[QQMusic] \(quality.displayName) 为加密音质,暂不支持")
+                return nil
+            }
+            
+            // 请求普通音质
+            if let url = try await qqClient.songURL(mid: mid, fileType: quality.fileType),
+               !url.isEmpty {
+                AppLogger.success("[QQMusic] \(quality.displayName) 获取成功")
+                return url
+            } else {
+                AppLogger.warning("[QQMusic] \(quality.displayName) 返回空 URL")
+                return nil
+            }
+        } catch {
+            AppLogger.warning("[QQMusic] \(quality.displayName) 请求失败: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    /// 智能降级策略 - 根据请求的音质等级选择合适的降级路径
+    private func qqSmartFallback(mid: String, requestedQuality: QQMusicQuality) async -> String? {
+        let fallbackChain = buildFallbackChain(for: requestedQuality)
+        
+        AppLogger.info("[QQMusic] 开始智能降级,降级链: \(fallbackChain.map { $0.displayName }.joined(separator: " → "))")
+        
+        for quality in fallbackChain {
+            if let url = await tryQQQuality(mid: mid, quality: quality) {
+                AppLogger.success("[QQMusic] 降级到 \(quality.displayName) 成功")
+                return url
             }
         }
+        
         return nil
     }
+    
+    /// 构建音质降级链 - 根据请求的音质等级智能选择降级路径
+    private func buildFallbackChain(for quality: QQMusicQuality) -> [QQMusicQuality] {
+        // 根据音质等级分组降级
+        switch quality.level {
+        case 13...11:  // 臻品级别 (母带、全景声、臻品)
+            return [.flac, .ogg640, .ogg320, .mp3_320, .mp3_128, .aac96]
+            
+        case 10...9:   // 无损级别 (FLAC、OGG 640)
+            return [.ogg640, .flac, .ogg320, .mp3_320, .mp3_128, .aac96]
+            
+        case 8...6:    // 高品级别 (OGG/MP3 320, OGG 192)
+            return [.mp3_320, .ogg320, .ogg192, .mp3_128, .aac192, .aac96]
+            
+        case 5...4:    // 标准级别 (AAC 192, MP3 128)
+            return [.mp3_128, .aac192, .ogg192, .aac96, .ogg96]
+            
+        default:       // 低品级别 (OGG/AAC 96, AAC 48)
+            return [.aac96, .ogg96, .mp3_128, .aac48]
+        }
+    }
+    
+    /// 检查是否是加密音质
+    private func isEncryptedQuality(_ quality: QQMusicQuality) -> Bool {
+        // 目前加密音质包括: master, atmos2, atmos51, flac (部分), ogg640 (部分)
+        // 实际上 QQMusicKit 1.1.1 的加密音质需要单独的 API
+        // 这里先标记高级音质可能需要特殊处理
+        switch quality {
+        case .master, .atmos2, .atmos51:
+            return true
+        default:
+            return false
+        }
+    }
 }
+
 
 // MARK: - QQ 音乐歌词
 

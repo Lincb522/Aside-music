@@ -10,7 +10,17 @@ extension PlayerManager {
     // MARK: - Core Playback API
     
     func play(song: Song, in context: [Song]) {
-        self.context = context
+        // 如果点击的是当前正在播放的歌，切换播放/暂停而不是重播
+        if currentSong?.id == song.id {
+            togglePlayPause()
+            return
+        }
+        
+        // 将新 context 中不存在的歌曲追加到现有播放列表
+        let existingIds = Set(self.context.map { $0.id })
+        let newSongs = context.filter { !existingIds.contains($0.id) }
+        self.context.append(contentsOf: newSongs)
+        
         self.playSource = .normal
         
         if let index = context.firstIndex(where: { $0.id == song.id }) {

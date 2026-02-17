@@ -42,6 +42,27 @@ final class PlayHistory {
             completed: completed
         )
     }
+    
+    /// 转换为 Song（用于历史记录恢复）
+    func toSong() -> Song {
+        let coverAlbum: Album? = if let coverUrl = coverUrl {
+            Album(id: 0, name: "", picUrl: coverUrl)
+        } else {
+            nil
+        }
+        return Song(
+            id: songId,
+            name: songName,
+            ar: [Artist(id: 0, name: artistName)],
+            al: coverAlbum,
+            dt: nil,
+            fee: nil,
+            mv: nil,
+            h: nil, m: nil, l: nil, sq: nil, hr: nil,
+            alia: nil,
+            privilege: nil
+        )
+    }
 }
 
 /// 搜索历史记录

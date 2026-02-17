@@ -21,6 +21,50 @@ extension PlayerManager {
             AppLogger.error("AVAudioSession 配置失败: \(error)")
         }
         
+        // 监听音频中断（电话、其他 app 播放等）
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                guard let userInfo = notification.userInfo,
+                      let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+                      let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+                
+                switch type {
+                case .began:
+                    // 中断开始：暂停播放，记录中断前的状态
+                    AppLogger.info("音频中断开始，暂停播放")
+                    if self.isPlaying {
+                        self.wasPlayingBeforeInterruption = true
+                        self.streamPlayer.pause()
+                        self.isPlaying = false
+                        self.updateNowPlayingTime()
+                    }
+                case .ended:
+                    // 中断结束：根据选项决定是否恢复播放
+                    AppLogger.info("音频中断结束")
+                    if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                        let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                        if options.contains(.shouldResume) && self.wasPlayingBeforeInterruption {
+                            AppLogger.info("恢复播放")
+                            // 重新激活音频会话
+                            do {
+                                try AVAudioSession.sharedInstance().setActive(true)
+                            } catch {
+                                AppLogger.error("重新激活音频会话失败: \(error)")
+                            }
+                            self.streamPlayer.resume()
+                            self.isPlaying = true
+                            self.updateNowPlayingTime()
+                        }
+                    }
+                    self.wasPlayingBeforeInterruption = false
+                @unknown default:
+                    break
+                }
+            }
+        }
+        
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
         NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { _ in
             AppLogger.warning("媒体服务被重置，重建 audio session")

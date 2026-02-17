@@ -32,9 +32,15 @@ struct FullScreenPlayerView: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 player.isTabBarHidden = true
             }
-            // 确保歌词已加载
-            if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                lyricVM.fetchLyrics(for: song.id)
+            // 确保歌词已加载（包括之前加载失败的情况）
+            if let song = player.currentSong {
+                if lyricVM.currentSongId != song.id || (!lyricVM.hasLyrics && !lyricVM.isLoading) {
+                    if song.isQQMusic, let mid = song.qqMid {
+                        lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
+                    } else {
+                        lyricVM.fetchLyrics(for: song.id)
+                    }
+                }
             }
         }
         .onDisappear {

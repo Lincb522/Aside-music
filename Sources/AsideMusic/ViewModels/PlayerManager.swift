@@ -192,6 +192,9 @@ class PlayerManager: ObservableObject {
     /// 标记 SDK 已切换到下一首的 pipeline（但 UI 还没更新）
     var hasPendingTrackTransition: Bool = false
     
+    /// 音频中断前是否正在播放（用于中断恢复）
+    var wasPlayingBeforeInterruption: Bool = false
+    
     // MARK: - Remote Command Center
     let commandCenter = MPRemoteCommandCenter.shared()
     
