@@ -71,7 +71,7 @@ struct WelcomeView: View {
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                 
-                Text("乐章之外，心之独白")
+                Text(LocalizedStringKey("welcome_slogan"))
                     .font(.system(size: 13, weight: .regular, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                     .tracking(1)
@@ -98,7 +98,7 @@ struct WelcomeView: View {
                     .shadow(color: Color.black.opacity(0.1), radius: 10, y: 5)
             }
             
-            Text("欢迎回来, \(userProfile?.nickname ?? "用户")")
+            Text(String(format: String(localized: "welcome_back"), userProfile?.nickname ?? String(localized: "welcome_user")))
                 .font(.system(size: 18, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextPrimary.opacity(0.8))
         }

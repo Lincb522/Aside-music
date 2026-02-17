@@ -15,7 +15,7 @@ struct PlayerThemePickerSheet: View {
                 .padding(.top, 12)
 
             // 标题
-            Text("播放器主题")
+            Text("theme_title")
                 .font(.rounded(size: 20, weight: .bold))
                 .foregroundColor(.asideTextPrimary)
                 .padding(.bottom, 4)

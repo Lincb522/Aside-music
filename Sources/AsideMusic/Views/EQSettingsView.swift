@@ -91,12 +91,12 @@ struct EQSettingsView: View {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .scaleEffect(0.8)
-                            Text("正在分析...")
+                            Text(LocalizedStringKey("eq_analyzing"))
                                 .font(.rounded(size: 14, weight: .medium))
                                 .foregroundColor(.white)
                         } else {
                             AsideIcon(icon: .checkmark, size: 16, color: .white)
-                            Text("已应用智能音效")
+                            Text(LocalizedStringKey("eq_applied"))
                                 .font(.rounded(size: 14, weight: .medium))
                                 .foregroundColor(.white)
                         }
@@ -135,12 +135,12 @@ struct EQSettingsView: View {
         HStack {
             AsideBackButton()
             Spacer()
-            Text("调节")
+            Text(LocalizedStringKey("eq_title"))
                 .font(.rounded(size: 18, weight: .semibold))
                 .foregroundColor(.asideTextPrimary)
             Spacer()
             Button(action: { resetAll() }) {
-                Text("重置")
+                Text(LocalizedStringKey("eq_reset"))
                     .font(.rounded(size: 14, weight: .medium))
                     .foregroundColor(.asideTextSecondary)
                     .padding(.horizontal, 12)
@@ -165,10 +165,10 @@ struct EQSettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("音频均衡器")
+                Text(LocalizedStringKey("eq_toggle_title"))
                     .font(.rounded(size: 16, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
-                Text(eqManager.isEnabled ? (eqManager.currentPreset?.name ?? "自定义") : "使用原始音频输出")
+                Text(eqManager.isEnabled ? (eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: "")) : NSLocalizedString("eq_original_output", comment: ""))
                     .font(.rounded(size: 13))
                     .foregroundColor(.asideTextSecondary)
                     .lineLimit(1)
@@ -232,10 +232,10 @@ struct EQSettingsView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("智能分析")
+                    Text(LocalizedStringKey("eq_smart_analyze"))
                         .font(.rounded(size: 15, weight: .semibold))
                         .foregroundColor(.asideTextPrimary)
-                    Text("分析当前歌曲，自动优化音效")
+                    Text(LocalizedStringKey("eq_smart_desc"))
                         .font(.rounded(size: 12))
                         .foregroundColor(.asideTextSecondary)
                 }
@@ -267,25 +267,25 @@ struct EQSettingsView: View {
 
     private var knobSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("音效")
+            Text(LocalizedStringKey("eq_effects"))
                 .font(.rounded(size: 16, weight: .semibold))
                 .foregroundColor(.asideTextPrimary)
 
             HStack(spacing: 0) {
                 Spacer()
-                knobItem(label: "低音", value: $bassValue) { val in
+                knobItem(label: NSLocalizedString("eq_bass", comment: ""), value: $bassValue) { val in
                     applyBassKnob(val)
                 }
                 Spacer()
-                knobItem(label: "高音", value: $trebleValue) { val in
+                knobItem(label: NSLocalizedString("eq_treble", comment: ""), value: $trebleValue) { val in
                     applyTrebleKnob(val)
                 }
                 Spacer()
-                knobItem(label: "环绕", value: $surroundValue) { val in
+                knobItem(label: NSLocalizedString("eq_surround", comment: ""), value: $surroundValue) { val in
                     applySurroundKnob(val)
                 }
                 Spacer()
-                knobItem(label: "混响", value: $reverbValue) { val in
+                knobItem(label: NSLocalizedString("eq_reverb", comment: ""), value: $reverbValue) { val in
                     applyReverbKnob(val)
                 }
                 Spacer()
@@ -310,7 +310,7 @@ struct EQSettingsView: View {
     private var pitchSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("变调")
+                Text(LocalizedStringKey("eq_pitch"))
                     .font(.rounded(size: 16, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
                 Spacer()
@@ -415,8 +415,8 @@ struct EQSettingsView: View {
 
     private var pitchDisplayText: String {
         let v = Int(pitchValue)
-        if v == 0 { return "原调" }
-        return v > 0 ? "+\(v) 半音" : "\(v) 半音"
+        if v == 0 { return NSLocalizedString("eq_original_key", comment: "") }
+        return String(format: NSLocalizedString("eq_semitone", comment: ""), v > 0 ? "+\(v)" : "\(v)")
     }
 
     // MARK: - 均衡器区域（曲线 + 滑块合一）
@@ -424,12 +424,12 @@ struct EQSettingsView: View {
     private var equalizerSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("均衡器")
+                Text(LocalizedStringKey("eq_equalizer"))
                     .font(.rounded(size: 16, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
                 Spacer()
                 Button(action: { showSaveSheet = true }) {
-                    Text("保存")
+                    Text(LocalizedStringKey("eq_save"))
                         .font(.rounded(size: 13, weight: .medium))
                         .foregroundColor(.asideTextSecondary)
                         .padding(.horizontal, 12)
@@ -687,7 +687,7 @@ struct EQSettingsView: View {
 
     private var customPresetsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("我的预设")
+            Text(LocalizedStringKey("eq_my_presets"))
                 .font(.rounded(size: 15, weight: .semibold))
                 .foregroundColor(.asideTextPrimary)
 
@@ -739,7 +739,7 @@ struct EQSettingsView: View {
         Button(action: { showSaveSheet = true }) {
             HStack(spacing: 8) {
                 AsideIcon(icon: .save, size: 16, color: .asideAccent)
-                Text("保存为预设")
+                Text(LocalizedStringKey("eq_save_preset"))
                     .font(.rounded(size: 15, weight: .medium))
                     .foregroundColor(.asideAccent)
             }
@@ -766,11 +766,11 @@ struct EQSettingsView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 24) {
-                    Text("保存自定义预设")
+                    Text(LocalizedStringKey("eq_save_custom"))
                         .font(.rounded(size: 18, weight: .semibold))
                         .foregroundColor(.asideTextPrimary)
 
-                    TextField("预设名称", text: $customPresetName)
+                    TextField(NSLocalizedString("eq_preset_name", comment: ""), text: $customPresetName)
                         .font(.rounded(size: 16))
                         .padding(14)
                         .background(
@@ -784,7 +784,7 @@ struct EQSettingsView: View {
                         customPresetName = ""
                         showSaveSheet = false
                     }) {
-                        Text("保存")
+                        Text(LocalizedStringKey("eq_save"))
                             .font(.rounded(size: 16, weight: .semibold))
                             .foregroundColor(.asideIconForeground)
                             .frame(maxWidth: .infinity)
@@ -870,9 +870,9 @@ struct EQSettingsView: View {
             }
             eqManager.currentPreset = EQPreset(
                 id: "custom",
-                name: "自定义",
+                name: NSLocalizedString("eq_custom", comment: ""),
                 category: .custom,
-                description: "手动调节的均衡器设置",
+                description: "",
                 gains: eqManager.customGains,
                 isCustom: true
             )

@@ -59,7 +59,7 @@ struct SongListRow: View {
                     // 音质标识位置：无版权歌曲显示状态标签，正常歌曲显示音质
                     if song.isUnavailable {
                         if settings.unblockEnabled {
-                            Text("已解灰")
+                            Text(String(localized: "song_unblocked"))
                                 .font(.system(size: 7, weight: .bold))
                                 .foregroundColor(Theme.accent)
                                 .padding(.horizontal, 4)
@@ -69,7 +69,7 @@ struct SongListRow: View {
                                         .stroke(Theme.accent, lineWidth: 0.5)
                                 )
                         } else {
-                            Text("无版权")
+                            Text(String(localized: "song_no_copyright"))
                                 .font(.system(size: 7, weight: .bold))
                                 .foregroundColor(Theme.accent)
                                 .padding(.horizontal, 4)
@@ -163,7 +163,7 @@ struct SongListRow: View {
                 Button(role: .destructive) {
                     downloadManager.deleteDownload(songId: song.id)
                 } label: {
-                    Label("删除下载", systemImage: "trash")
+                    Label(String(localized: "song_delete_download"), systemImage: "trash")
                 }
             } else {
                 Button {
@@ -173,7 +173,7 @@ struct SongListRow: View {
                         downloadManager.download(song: song, quality: player.soundQuality)
                     }
                 } label: {
-                    Label("下载", systemImage: "arrow.down.circle")
+                    Label(String(localized: "song_download"), systemImage: "arrow.down.circle")
                 }
             }
             
@@ -181,7 +181,7 @@ struct SongListRow: View {
             Button {
                 showAddToPlaylist = true
             } label: {
-                Label("添加到歌单", systemImage: "text.badge.plus")
+                Label(String(localized: "song_add_to_playlist"), systemImage: "text.badge.plus")
             }
             
             Divider()
@@ -198,7 +198,7 @@ struct SongListRow: View {
                 Button {
                     onAlbumTap?(albumId)
                 } label: {
-                    Label("查看专辑", systemImage: "square.stack")
+                    Label(String(localized: "song_view_album"), systemImage: "square.stack")
                 }
             }
             
@@ -225,7 +225,7 @@ struct SongListRow: View {
                     }
                 }
             } label: {
-                Label("复制播放链接", systemImage: "link")
+                Label(String(localized: "song_copy_link"), systemImage: "link")
             }
         }
         .sheet(isPresented: $showAddToPlaylist) {
@@ -240,10 +240,10 @@ extension SongListRow {
             // 解灰关闭时，无版权歌曲点击弹窗引导
             if isGrayed {
                 AlertManager.shared.show(
-                    title: "无版权",
-                    message: "该歌曲暂无版权，开启「解灰」功能后可尝试从第三方源获取播放链接",
-                    primaryButtonTitle: "去开启",
-                    secondaryButtonTitle: "取消",
+                    title: String(localized: "song_no_copyright_title"),
+                    message: String(localized: "song_no_copyright_message"),
+                    primaryButtonTitle: String(localized: "song_enable_unblock"),
+                    secondaryButtonTitle: String(localized: "cancel"),
                     primaryAction: {
                         SettingsManager.shared.unblockEnabled = true
                         APIService.shared.setUnblockEnabled(true)

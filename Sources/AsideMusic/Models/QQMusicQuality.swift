@@ -109,6 +109,31 @@ enum QQMusicQuality: String, CaseIterable, Codable {
         }
     }
     
+    /// 对应的加密文件类型（仅高级音质有加密版本）
+    var encryptedFileType: EncryptedSongFileType? {
+        switch self {
+        case .master:  return .master
+        case .atmos2:  return .atmos2
+        case .atmos51: return .atmos51
+        case .flac:    return .flac
+        case .ogg640:  return .ogg640
+        case .ogg320:  return .ogg320
+        case .ogg192:  return .ogg192
+        case .ogg96:   return .ogg96
+        default:       return nil  // MP3/AAC 无加密版本
+        }
+    }
+    
+    /// 是否为加密音质（需要 ekey 解密）
+    var isEncrypted: Bool {
+        switch self {
+        case .master, .atmos2, .atmos51:
+            return true
+        default:
+            return false
+        }
+    }
+    
     /// 常用音质选项（供快速选择使用）
     static var commonOptions: [QQMusicQuality] {
         [.master, .flac, .ogg320, .mp3_320, .mp3_128, .aac96]

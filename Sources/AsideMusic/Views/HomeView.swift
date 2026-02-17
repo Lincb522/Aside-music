@@ -244,7 +244,7 @@ struct HomeView: View {
         case 10:
             navigationPath.append(HomeDestination.album(banner.targetId))
         case 1000:
-            let playlist = Playlist(id: banner.targetId, name: banner.typeTitle ?? "歌单", coverImgUrl: banner.pic, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil)
+            let playlist = Playlist(id: banner.targetId, name: banner.typeTitle ?? String(localized: "home_playlist"), coverImgUrl: banner.pic, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil)
             navigationPath.append(HomeDestination.playlist(playlist))
         case 1004:
             navigationPath.append(HomeDestination.mvDiscover)
@@ -398,10 +398,10 @@ struct HomeView: View {
             HStack(spacing: 14) {
                 AsideIcon(icon: .playCircleFill, size: 24, color: .asideTextPrimary)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("MV 专区")
+                    Text(LocalizedStringKey("home_mv_zone"))
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
-                    Text("看最新最热的音乐视频")
+                    Text(LocalizedStringKey("home_mv_zone_desc"))
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(.asideTextSecondary)
                 }

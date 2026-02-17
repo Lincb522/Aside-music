@@ -174,7 +174,7 @@ struct AlbumDetailView: View {
             } else if viewModel.songs.isEmpty {
                 VStack(spacing: 14) {
                     AsideIcon(icon: .musicNoteList, size: 40, color: Theme.secondaryText.opacity(0.3))
-                    Text("暂无歌曲")
+                    Text(LocalizedStringKey("album_no_songs"))
                         .font(.rounded(size: 15))
                         .foregroundColor(Theme.secondaryText)
                 }
@@ -185,7 +185,7 @@ struct AlbumDetailView: View {
                     Button(action: { showAlbumDesc = true }) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("专辑简介")
+                                Text(LocalizedStringKey("album_desc"))
                                     .font(.rounded(size: 15, weight: .semibold))
                                     .foregroundColor(Theme.text)
                                 Spacer()
@@ -313,7 +313,7 @@ struct AlbumDescSheet: View {
                     } else {
                         VStack(spacing: 14) {
                             AsideIcon(icon: .info, size: 36, color: .asideTextSecondary.opacity(0.3))
-                            Text("暂无专辑简介")
+                            Text(LocalizedStringKey("album_no_desc"))
                                 .font(.rounded(size: 15))
                                 .foregroundColor(.asideTextSecondary)
                         }

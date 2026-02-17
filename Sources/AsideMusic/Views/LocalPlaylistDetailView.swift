@@ -55,18 +55,18 @@ struct LocalPlaylistDetailView: View {
                 AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
             }
         }
-        .alert("重命名歌单", isPresented: $showRenameAlert) {
-            TextField("歌单名称", text: $renameText)
-            Button("取消", role: .cancel) {}
-            Button("确定") {
+        .alert(NSLocalizedString("local_playlist_rename", comment: ""), isPresented: $showRenameAlert) {
+            TextField(NSLocalizedString("local_playlist_name", comment: ""), text: $renameText)
+            Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) {}
+            Button(NSLocalizedString("confirm", comment: "")) {
                 if let p = playlist, !renameText.isEmpty {
                     manager.renamePlaylist(p, name: renameText)
                 }
             }
         }
-        .alert("删除歌单", isPresented: $showDeleteAlert) {
-            Button("取消", role: .cancel) {}
-            Button("删除", role: .destructive) {
+        .alert(NSLocalizedString("local_playlist_delete", comment: ""), isPresented: $showDeleteAlert) {
+            Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) {}
+            Button(NSLocalizedString("lib_delete", comment: ""), role: .destructive) {
                 if let p = playlist {
                     manager.deletePlaylist(p)
                     dismiss()
@@ -74,7 +74,7 @@ struct LocalPlaylistDetailView: View {
             }
         } message: {
             if let p = playlist {
-                Text("确定删除「\(p.name)」？此操作不可恢复。")
+                Text(String(format: NSLocalizedString("local_playlist_delete_confirm", comment: ""), p.name))
             }
         }
         .sheet(isPresented: $showExportShare) {
@@ -176,7 +176,7 @@ struct LocalPlaylistDetailView: View {
                                 .lineLimit(1)
                         }
                         
-                        Text("本地歌单")
+                        Text(LocalizedStringKey("local_playlist_label"))
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.secondaryText.opacity(0.6))
                         
@@ -192,7 +192,7 @@ struct LocalPlaylistDetailView: View {
                             }) {
                                 HStack(spacing: 6) {
                                     AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
-                                    Text("播放")
+                                    Text(LocalizedStringKey("local_playlist_play"))
                                         .font(.system(size: 12, weight: .bold))
                                 }
                                 .foregroundColor(.asideIconForeground)
@@ -261,7 +261,7 @@ struct LocalPlaylistDetailView: View {
                 if songs.isEmpty {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
-                        Text("还没有歌曲")
+                        Text(LocalizedStringKey("local_playlist_no_songs"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -293,7 +293,7 @@ struct LocalPlaylistDetailView: View {
                                     manager.removeSong(id: song.id, from: p)
                                 }
                             } label: {
-                                Label("移除", systemImage: "trash")
+                                Label(NSLocalizedString("local_playlist_remove", comment: ""), systemImage: "trash")
                             }
                         }
                     }

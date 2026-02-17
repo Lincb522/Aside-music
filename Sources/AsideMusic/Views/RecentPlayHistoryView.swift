@@ -30,10 +30,10 @@ struct RecentPlayHistoryView: View {
                     Spacer()
                     
                     VStack(spacing: 2) {
-                        Text("最近播放")
+                        Text(LocalizedStringKey("profile_recently_played"))
                             .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(.asideTextPrimary)
-                        Text("\(songs.count) 首")
+                        Text(String(format: String(localized: "profile_recent_count"), songs.count))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }

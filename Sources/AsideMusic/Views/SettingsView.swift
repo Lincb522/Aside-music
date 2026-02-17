@@ -11,7 +11,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var systemColorScheme
     @ObservedObject private var settings = SettingsManager.shared
-    @State private var cacheSize: String = "计算中..."
+    @State private var cacheSize: String = String(localized: "settings_calculating")
     // 用于强制刷新视图的标识符
     @State private var viewRefreshID = UUID()
 
@@ -347,7 +347,7 @@ struct SettingsView: View {
     @State private var isQQLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.qqMusicLoggedIn)
     
     private var qqMusicSection: some View {
-        SettingsSection(title: "QQ音乐") {
+        SettingsSection(title: String(localized: "settings_qq_music")) {
             VStack(spacing: 0) {
                 Button(action: { showQQAccount = true }) {
                     HStack(spacing: 14) {
@@ -359,10 +359,10 @@ struct SettingsView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("QQ音乐账号")
+                            Text(String(localized: "settings_qq_account"))
                                 .font(.system(size: 16, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)
-                            Text(isQQLoggedIn ? "已登录" : "未登录，点击管理")
+                            Text(isQQLoggedIn ? String(localized: "settings_qq_logged_in") : String(localized: "settings_qq_not_logged_in"))
                                 .font(.system(size: 12, design: .rounded))
                                 .foregroundColor(isQQLoggedIn ? .green : .asideTextSecondary)
                         }
@@ -425,10 +425,10 @@ struct SettingsView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("调试日志")
+                            Text(String(localized: "settings_debug_log"))
                                 .font(.system(size: 16, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)
-                            Text("查看运行日志，便于排查问题")
+                            Text(String(localized: "settings_debug_log_desc"))
                                 .font(.system(size: 12, design: .rounded))
                                 .foregroundColor(.asideTextSecondary)
                         }

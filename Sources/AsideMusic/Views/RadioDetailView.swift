@@ -58,7 +58,7 @@ struct RadioDetailView: View {
                 .font(.system(size: 14, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
                 .multilineTextAlignment(.center)
-            Button("重试") {
+            Button(String(localized: "radio_retry")) {
                 viewModel.fetchDetail()
             }
             .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -102,7 +102,7 @@ struct RadioDetailView: View {
                     if let count = radio.programCount {
                         HStack(spacing: 4) {
                             AsideIcon(icon: .podcast, size: 13, color: .asideTextSecondary)
-                            Text("\(count)期")
+                            Text(String(format: String(localized: "radio_episode_count"), count))
                         }
                             .font(.system(size: 13, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
@@ -130,7 +130,7 @@ struct RadioDetailView: View {
                     Button(action: { showRadioPlayer = true }) {
                         HStack(spacing: 8) {
                             AsideIcon(icon: .radio, size: 16, color: .asideIconForeground, lineWidth: 1.4)
-                            Text("收音机模式")
+                            Text("radio_mode")
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                         }
                         .foregroundColor(.asideIconForeground)
@@ -154,7 +154,7 @@ struct RadioDetailView: View {
     private var programListSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !viewModel.programs.isEmpty {
-                Text("节目列表")
+                Text("radio_program_list_title")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                     .padding(.horizontal, 20)
@@ -220,7 +220,7 @@ struct RadioDetailView: View {
             )
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(program.name ?? "未知节目")
+                Text(program.name ?? String(localized: "radio_unknown_program"))
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(isCurrentPlaying ? .asideAccentBlue : .asideTextPrimary)
                     .lineLimit(1)
@@ -232,7 +232,7 @@ struct RadioDetailView: View {
                             .foregroundColor(.asideTextSecondary)
                     }
                     if let listeners = program.listenerCount, listeners > 0 {
-                        Text("播放 \(formatCount(listeners))")
+                        Text(String(format: String(localized: "radio_play_count"), formatCount(listeners)))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -244,7 +244,7 @@ struct RadioDetailView: View {
             if program.mainSong != nil {
                 AsideIcon(icon: .playCircle, size: 22, color: .asideTextSecondary, lineWidth: 1.4)
             } else {
-                Text("暂不可播放")
+                Text("radio_not_playable")
                     .font(.system(size: 11, design: .rounded))
                     .foregroundColor(.asideTextSecondary.opacity(0.6))
             }

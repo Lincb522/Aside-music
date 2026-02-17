@@ -112,7 +112,7 @@ struct CommentView: View {
                         if vm.totalCount > 0 {
                             Text("·")
                                 .foregroundColor(.asideTextSecondary)
-                            Text("\(vm.totalCount)条评论")
+                            Text(String(format: NSLocalizedString("comment_count", comment: ""), vm.totalCount))
                                 .font(.rounded(size: 13))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -212,7 +212,7 @@ struct CommentView: View {
             // 区块标题
             HStack(spacing: 6) {
                 AsideIcon(icon: .sparkle, size: 14, color: .asideOrange)
-                Text("热门评论")
+                Text(LocalizedStringKey("comment_hot_section"))
                     .font(.rounded(size: 14, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
             }
@@ -249,7 +249,7 @@ struct CommentView: View {
         VStack(alignment: .leading, spacing: 10) {
             // 区块标题
             HStack(spacing: 6) {
-                Text("全部评论")
+                Text(LocalizedStringKey("comment_all_section"))
                     .font(.rounded(size: 14, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
                 
@@ -297,7 +297,7 @@ struct CommentView: View {
                     ProgressView()
                         .scaleEffect(0.8)
                 } else {
-                    Text("加载更多评论")
+                    Text(LocalizedStringKey("comment_load_more_btn"))
                         .font(.rounded(size: 14, weight: .medium))
                 }
             }
@@ -361,10 +361,10 @@ struct CommentView: View {
             }
             
             VStack(spacing: 6) {
-                Text("暂无评论")
+                Text(LocalizedStringKey("comment_no_comments"))
                     .font(.rounded(size: 17, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
-                Text("来发表第一条评论吧")
+                Text(LocalizedStringKey("comment_be_first_text"))
                     .font(.rounded(size: 14))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -426,7 +426,7 @@ struct CommentView: View {
                 // 输入框
                 HStack(spacing: 8) {
                     TextField(
-                        vm.replyTarget != nil ? "回复 @\(vm.replyTarget!.user.nickname)..." : "写评论...",
+                        vm.replyTarget != nil ? String(format: NSLocalizedString("comment_reply_to", comment: ""), vm.replyTarget!.user.nickname) : NSLocalizedString("comment_write", comment: ""),
                         text: $vm.commentText
                     )
                     .font(.rounded(size: 15))

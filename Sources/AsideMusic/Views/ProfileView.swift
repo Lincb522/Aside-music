@@ -96,34 +96,39 @@ struct ProfileView: View {
     
     private var loggedInContent: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    // 用户卡片
-                    profileCard
-                        .padding(.horizontal, 20)
-                    
-                    // 听歌数据概览
-                    listeningStatsSection
-                        .padding(.horizontal, 20)
-                    
-                    // 最近播放
-                    if !recentSongs.isEmpty {
-                        recentlyPlayedSection
+            ZStack {
+                AsideBackground()
+                    .ignoresSafeArea()
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        // 用户卡片
+                        profileCard
+                            .padding(.horizontal, 20)
+                        
+                        // 听歌数据概览
+                        listeningStatsSection
+                            .padding(.horizontal, 20)
+                        
+                        // 最近播放
+                        if !recentSongs.isEmpty {
+                            recentlyPlayedSection
+                        }
+                        
+                        // 快捷操作
+                        quickActions
+                            .padding(.horizontal, 20)
+                        
+                        // 退出登录
+                        logoutButton
+                        
+                        Color.clear.frame(height: 100)
                     }
-                    
-                    // 快捷操作
-                    quickActions
-                        .padding(.horizontal, 20)
-                    
-                    // 退出登录
-                    logoutButton
-                    
-                    Color.clear.frame(height: 100)
+                    .padding(.top, DeviceLayout.headerTopPadding + 100)
                 }
-                .padding(.top, DeviceLayout.headerTopPadding + 100)
             }
             .navigationBarHidden(true)
-            .background(Color.clear)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
     
@@ -175,14 +180,14 @@ struct ProfileView: View {
                         .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
                 } else {
-                    Text("编辑个性签名")
+                    Text(LocalizedStringKey("profile_edit_signature"))
                         .font(.system(size: 13, weight: .regular, design: .rounded))
                         .foregroundColor(.asideTextSecondary.opacity(0.5))
                 }
                 
                 // 注册天数
                 if let days = createDays {
-                    Text("已陪伴你 \(days) 天")
+                    Text(String(format: String(localized: "profile_days_with_you"), days))
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(.asideTextSecondary.opacity(0.6))
                 }
@@ -203,7 +208,7 @@ struct ProfileView: View {
         return HStack(spacing: 12) {
             StatCard(
                 value: formatNumber(listenSongs ?? 0),
-                label: "累计听歌",
+                label: String(localized: "profile_total_songs"),
                 icon: .headphones
             )
             
@@ -232,7 +237,7 @@ struct ProfileView: View {
     private var recentlyPlayedSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("最近播放")
+                Text(LocalizedStringKey("profile_recently_played"))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                 
@@ -240,7 +245,7 @@ struct ProfileView: View {
                 
                 NavigationLink(destination: RecentPlayHistoryView(songs: recentSongs)) {
                     HStack(spacing: 4) {
-                        Text("\(recentSongs.count) 首")
+                        Text(String(format: String(localized: "profile_recent_count"), recentSongs.count))
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                         AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
@@ -299,15 +304,15 @@ struct ProfileView: View {
             QuickActionCard(
                 icon: .download,
                 title: NSLocalizedString("profile_downloads", comment: ""),
-                subtitle: "\(downloadManager.downloadedSongIds.count) 首"
+                subtitle: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count)
             ) {
                 showDownloadManage = true
             }
             
             QuickActionCard(
                 icon: .storage,
-                title: "缓存管理",
-                subtitle: "管理本地缓存"
+                title: String(localized: "profile_cache_manage"),
+                subtitle: String(localized: "profile_cache_manage_desc")
             ) {
                 showStorageManage = true
             }
@@ -315,7 +320,7 @@ struct ProfileView: View {
             QuickActionCard(
                 icon: .cloud,
                 title: NSLocalizedString("profile_cloud_disk", comment: "Cloud Disk"),
-                subtitle: "云端存储"
+                subtitle: String(localized: "profile_cloud_storage")
             ) {
                 showCloudDisk = true
             }
@@ -323,7 +328,7 @@ struct ProfileView: View {
             QuickActionCard(
                 icon: .settings,
                 title: NSLocalizedString("profile_settings", comment: ""),
-                subtitle: "偏好与账号"
+                subtitle: String(localized: "profile_preferences_account")
             ) {
                 showSettingsView = true
             }
@@ -384,17 +389,17 @@ struct ProfileView: View {
                 }
                 
                 VStack(spacing: 10) {
-                    Text("未登录")
+                    Text(LocalizedStringKey("profile_not_logged_in"))
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
                     
-                    Text("登录后享受完整功能")
+                    Text(LocalizedStringKey("profile_login_hint"))
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(.asideTextSecondary)
                 }
                 
                 Button(action: { showLoginView = true }) {
-                    Text("登录账号")
+                    Text(LocalizedStringKey("profile_login_button"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(.asideIconForeground)
                         .frame(width: 200)

@@ -109,11 +109,11 @@ struct DebugLogView: View {
             
             // 标题
             VStack(spacing: 2) {
-                Text("调试日志")
+                Text(LocalizedStringKey("debug_title"))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                 
-                Text("\(filteredLogs.count) 条日志")
+                Text(String(format: NSLocalizedString("debug_log_count", comment: ""), filteredLogs.count))
                     .font(.system(size: 12, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -125,21 +125,21 @@ struct DebugLogView: View {
                 Button(action: { showShareSheet = true }) {
                     HStack {
                         AsideIcon(icon: .share, size: 14, color: .asideTextPrimary)
-                        Text("导出日志")
+                        Text(LocalizedStringKey("debug_export"))
                     }
                 }
                 
                 Button(action: clearLogs) {
                     HStack {
                         AsideIcon(icon: .trash, size: 14, color: .asideTextPrimary)
-                        Text("清空日志")
+                        Text(LocalizedStringKey("debug_clear"))
                     }
                 }
                 
                 Toggle(isOn: $autoScroll) {
                     HStack {
                         AsideIcon(icon: .arrowDownToLine, size: 14, color: .asideTextPrimary)
-                        Text("自动滚动")
+                        Text(LocalizedStringKey("debug_auto_scroll"))
                     }
                 }
             } label: {
@@ -164,25 +164,25 @@ struct DebugLogView: View {
     private var statsCard: some View {
         HStack(spacing: 16) {
             StatItem(
-                title: "总计",
+                title: NSLocalizedString("debug_stat_total", comment: ""),
                 value: "\(logs.count)",
                 color: .asideAccent
             )
             
             StatItem(
-                title: "错误",
+                title: NSLocalizedString("debug_stat_error", comment: ""),
                 value: "\(logs.filter { $0.level == .error }.count)",
                 color: .red
             )
             
             StatItem(
-                title: "警告",
+                title: NSLocalizedString("debug_stat_warning", comment: ""),
                 value: "\(logs.filter { $0.level == .warning }.count)",
                 color: .orange
             )
             
             StatItem(
-                title: "成功",
+                title: NSLocalizedString("debug_stat_success", comment: ""),
                 value: "\(logs.filter { $0.level == .success }.count)",
                 color: .green
             )
@@ -205,7 +205,7 @@ struct DebugLogView: View {
         HStack(spacing: 12) {
             AsideIcon(icon: .magnifyingGlass, size: 16, color: .asideTextSecondary)
             
-            TextField("搜索日志...", text: $searchText)
+            TextField(NSLocalizedString("debug_search_placeholder", comment: ""), text: $searchText)
                 .font(.system(size: 15, design: .rounded))
                 .foregroundColor(.asideTextPrimary)
             
@@ -233,7 +233,7 @@ struct DebugLogView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 FilterChip(
-                    title: "全部",
+                    title: NSLocalizedString("filter_all", comment: ""),
                     icon: nil,
                     isSelected: filterLevel == nil,
                     action: { filterLevel = nil }
@@ -288,12 +288,12 @@ struct DebugLogView: View {
     
     private func levelName(_ level: LogEntry.LogLevel) -> String {
         switch level {
-        case .info: return "信息"
-        case .debug: return "调试"
-        case .warning: return "警告"
-        case .error: return "错误"
-        case .network: return "网络"
-        case .success: return "成功"
+        case .info: return NSLocalizedString("debug_level_info", comment: "")
+        case .debug: return NSLocalizedString("debug_level_debug", comment: "")
+        case .warning: return NSLocalizedString("debug_level_warning", comment: "")
+        case .error: return NSLocalizedString("debug_level_error", comment: "")
+        case .network: return NSLocalizedString("debug_level_network", comment: "")
+        case .success: return NSLocalizedString("debug_level_success", comment: "")
         }
     }
     
@@ -377,12 +377,12 @@ struct LogRowView: View {
     
     private var levelName: String {
         switch log.level {
-        case .info: return "信息"
-        case .debug: return "调试"
-        case .warning: return "警告"
-        case .error: return "错误"
-        case .network: return "网络"
-        case .success: return "成功"
+        case .info: return NSLocalizedString("debug_level_info", comment: "")
+        case .debug: return NSLocalizedString("debug_level_debug", comment: "")
+        case .warning: return NSLocalizedString("debug_level_warning", comment: "")
+        case .error: return NSLocalizedString("debug_level_error", comment: "")
+        case .network: return NSLocalizedString("debug_level_network", comment: "")
+        case .success: return NSLocalizedString("debug_level_success", comment: "")
         }
     }
     

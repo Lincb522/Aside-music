@@ -48,7 +48,7 @@ struct PodcastSearchView: View {
             HStack(spacing: 8) {
                 AsideIcon(icon: .magnifyingGlass, size: 15, color: .asideTextSecondary, lineWidth: 1.4)
 
-                TextField("搜索电台", text: $viewModel.searchText)
+                TextField(String(localized: "podcast_search_placeholder"), text: $viewModel.searchText)
                     .font(.system(size: 15, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                     .focused($isSearchFocused)
@@ -65,7 +65,7 @@ struct PodcastSearchView: View {
             .background(Color.asideCardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            Button("取消") {
+            Button(String(localized: "podcast_search_cancel")) {
                 dismiss()
             }
             .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -80,7 +80,7 @@ struct PodcastSearchView: View {
     private var hotRadiosSection: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
-                Text("热门电台")
+                Text("podcast_hot_radios")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                     .padding(.horizontal, 20)
@@ -144,7 +144,7 @@ struct PodcastSearchView: View {
     private var emptyResultView: some View {
         VStack(spacing: 12) {
             AsideIcon(icon: .magnifyingGlass, size: 36, color: .asideTextSecondary.opacity(0.5))
-            Text("未找到相关电台")
+            Text("podcast_no_results")
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
         }
@@ -175,7 +175,7 @@ struct PodcastSearchView: View {
                             .lineLimit(1)
                     }
                     if let count = radio.programCount, count > 0 {
-                        Text("\(count)期")
+                        Text(String(format: String(localized: "podcast_episode_count"), count))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }

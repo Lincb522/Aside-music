@@ -57,11 +57,11 @@ struct QQLoginView: View {
             }
             
             VStack(spacing: 8) {
-                Text("QQ音乐登录")
+                Text(LocalizedStringKey("qq_login_title"))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                 
-                Text("登录后可播放 QQ 音乐曲库")
+                Text(LocalizedStringKey("qq_login_subtitle"))
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -96,8 +96,8 @@ struct QQLoginView: View {
     
     private var tabSwitcher: some View {
         HStack(spacing: 0) {
-            tabButton(title: "扫码登录", icon: .qr, tab: .qr)
-            tabButton(title: "手机登录", icon: .phone, tab: .phone)
+            tabButton(title: NSLocalizedString("qq_tab_qr", comment: ""), icon: .qr, tab: .qr)
+            tabButton(title: NSLocalizedString("qq_tab_phone", comment: ""), icon: .phone, tab: .phone)
         }
         .padding(4)
         .background(Color.asideCardBackground)
@@ -156,7 +156,7 @@ struct QQLoginView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text("加载中...")
+                        Text(LocalizedStringKey("qq_qr_loading"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -169,12 +169,12 @@ struct QQLoginView: View {
                         
                         VStack(spacing: 16) {
                             AsideIcon(icon: .refresh, size: 32, color: .asideTextPrimary)
-                            Text("二维码已过期")
+                            Text(LocalizedStringKey("qq_qr_expired"))
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)
                             
                             Button(action: { viewModel.refreshQR() }) {
-                                Text("点击刷新")
+                                Text(LocalizedStringKey("qq_qr_refresh"))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
@@ -197,10 +197,10 @@ struct QQLoginView: View {
             
             // 操作说明
             VStack(spacing: 8) {
-                let appName = viewModel.qrLoginType == .qq ? "QQ" : "微信"
-                instructionRow(number: "1", text: "打开 \(appName) App")
-                instructionRow(number: "2", text: "使用扫一扫功能")
-                instructionRow(number: "3", text: "扫描上方二维码登录")
+                let appName = viewModel.qrLoginType == .qq ? "QQ" : "WeChat"
+                instructionRow(number: "1", text: String(format: NSLocalizedString("qq_open_app", comment: ""), appName))
+                instructionRow(number: "2", text: NSLocalizedString("qq_use_scan", comment: ""))
+                instructionRow(number: "3", text: NSLocalizedString("qq_scan_qr", comment: ""))
             }
             .padding(.top, 8)
         }
@@ -211,8 +211,8 @@ struct QQLoginView: View {
     
     private var qrTypePicker: some View {
         HStack(spacing: 12) {
-            qrTypeButton(title: "QQ 扫码", type: .qq)
-            qrTypeButton(title: "微信扫码", type: .wx)
+            qrTypeButton(title: NSLocalizedString("qq_qr_qq", comment: ""), type: .qq)
+            qrTypeButton(title: NSLocalizedString("qq_qr_wx", comment: ""), type: .wx)
         }
     }
     
@@ -259,7 +259,7 @@ struct QQLoginView: View {
         VStack(spacing: 24) {
             // 手机号输入
             VStack(alignment: .leading, spacing: 8) {
-                Text("手机号")
+                Text(LocalizedStringKey("qq_phone_number"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                 
@@ -272,7 +272,7 @@ struct QQLoginView: View {
                     Divider()
                         .frame(height: 20)
                     
-                    TextField("请输入手机号", text: $viewModel.phoneNumber)
+                    TextField(NSLocalizedString("qq_phone_placeholder", comment: ""), text: $viewModel.phoneNumber)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .keyboardType(.phonePad)
                         .padding(.leading, 8)
@@ -285,12 +285,12 @@ struct QQLoginView: View {
             
             // 验证码输入
             VStack(alignment: .leading, spacing: 8) {
-                Text("验证码")
+                Text(LocalizedStringKey("qq_captcha"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                 
                 HStack {
-                    TextField("请输入验证码", text: $viewModel.captchaCode)
+                    TextField(NSLocalizedString("qq_captcha_placeholder", comment: ""), text: $viewModel.captchaCode)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .keyboardType(.numberPad)
                     
@@ -299,7 +299,7 @@ struct QQLoginView: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                         } else {
-                            Text(viewModel.isCaptchaSent ? "重新发送" : "获取验证码")
+                            Text(viewModel.isCaptchaSent ? NSLocalizedString("qq_resend", comment: "") : NSLocalizedString("qq_get_captcha", comment: ""))
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
                                 .foregroundColor(viewModel.phoneNumber.count == 11 ? .asideTextPrimary : .asideTextSecondary)
                         }
@@ -327,7 +327,7 @@ struct QQLoginView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(0.8)
                     }
-                    Text("登录")
+                    Text(LocalizedStringKey("qq_login_btn"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white)

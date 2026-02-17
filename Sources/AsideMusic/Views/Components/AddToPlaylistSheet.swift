@@ -53,7 +53,7 @@ struct AddToPlaylistSheet: View {
                                         .frame(width: 44, height: 44)
                                     AsideIcon(icon: .add, size: 18, color: .asideIconForeground)
                                 }
-                                Text("新建歌单")
+                                Text(LocalizedStringKey("add_to_playlist_new"))
                                     .font(.system(size: 15, weight: .medium, design: .rounded))
                                     .foregroundColor(.asideTextPrimary)
                                 Spacer()
@@ -125,17 +125,17 @@ struct AddToPlaylistSheet: View {
                     .padding(.bottom, 40)
                 }
             }
-            .navigationTitle("添加到歌单")
+            .navigationTitle(NSLocalizedString("add_to_playlist_title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(NSLocalizedString("alert_cancel", comment: "")) { dismiss() }
                 }
             }
-            .alert("新建歌单", isPresented: $showCreateNew) {
-                TextField("歌单名称", text: $newPlaylistName)
-                Button("取消", role: .cancel) { newPlaylistName = "" }
-                Button("创建") {
+            .alert(NSLocalizedString("add_to_playlist_create", comment: ""), isPresented: $showCreateNew) {
+                TextField(NSLocalizedString("add_to_playlist_name", comment: ""), text: $newPlaylistName)
+                Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) { newPlaylistName = "" }
+                Button(NSLocalizedString("lib_create", comment: "")) {
                     guard !newPlaylistName.isEmpty else { return }
                     let newPlaylist = manager.createPlaylist(name: newPlaylistName)
                     manager.addSong(song, to: newPlaylist)

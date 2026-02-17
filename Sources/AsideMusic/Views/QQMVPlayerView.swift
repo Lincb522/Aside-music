@@ -56,7 +56,7 @@ class QQMVPlayerViewModel: ObservableObject {
                 if let url, !url.isEmpty {
                     self?.videoUrl = url
                 } else {
-                    self?.errorMessage = "无法获取 MV 播放链接"
+                    self?.errorMessage = String(localized: "qqmv_no_url")
                 }
             })
             .store(in: &cancellables)
@@ -228,7 +228,7 @@ struct QQMVPlayerView: View {
                         .foregroundColor(.white.opacity(0.5))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
-                    Button("重试") { viewModel.fetchData() }
+                    Button(String(localized: "radio_retry")) { viewModel.fetchData() }
                         .font(.rounded(size: 14, weight: .medium))
                         .foregroundColor(.black)
                         .padding(.horizontal, 24)
@@ -262,7 +262,7 @@ struct QQMVPlayerView: View {
                             .padding(.vertical, 2)
                             .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
                         
-                        Text(viewModel.mvDetail?.name ?? "加载中...")
+                        Text(viewModel.mvDetail?.name ?? String(localized: "qqmv_loading"))
                             .font(.rounded(size: 20, weight: .bold))
                             .foregroundColor(.asideTextPrimary)
                             .lineLimit(2)
@@ -278,7 +278,7 @@ struct QQMVPlayerView: View {
                         if let playCount = viewModel.mvDetail?.playCountText, !playCount.isEmpty {
                             Text("·")
                                 .foregroundColor(.asideTextSecondary.opacity(0.4))
-                            Text(playCount + "播放")
+                            Text(playCount + String(localized: "qqmv_play_suffix"))
                                 .font(.rounded(size: 12))
                                 .foregroundColor(.asideTextSecondary.opacity(0.6))
                         }
@@ -338,11 +338,11 @@ struct QQMVPlayerView: View {
     private var relatedMVsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("更多MV")
+                Text("qqmv_more_mv")
                     .font(.rounded(size: 18, weight: .bold))
                     .foregroundColor(.asideTextPrimary)
                 Spacer()
-                Text("\(viewModel.relatedMVs.count)个")
+                Text(String(format: String(localized: "qqmv_mv_count"), viewModel.relatedMVs.count))
                     .font(.rounded(size: 13))
                     .foregroundColor(.asideTextSecondary)
             }

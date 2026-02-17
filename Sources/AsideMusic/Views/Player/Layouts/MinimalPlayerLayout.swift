@@ -182,7 +182,7 @@ extension MinimalPlayerLayout {
             } else if !lyricVM.hasLyrics {
                 VStack {
                     Spacer()
-                    Text("暂无歌词")
+                    Text("lyrics_no_lyrics")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(mutedColor)
                     Spacer()

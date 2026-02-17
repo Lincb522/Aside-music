@@ -274,17 +274,17 @@ struct QQArtistDetailView: View {
             // 统计信息
             HStack(spacing: 16) {
                 if let fans = viewModel.fansCount, fans > 0 {
-                    Text(formatCount(fans) + " 粉丝")
+                    Text(String(format: String(localized: "qq_fans_count"), formatCount(fans)))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
                 if let ac = viewModel.albumCount, ac > 0 {
-                    Text("\(ac) 专辑")
+                    Text(String(format: String(localized: "qq_album_count"), ac))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
                 if let sc = viewModel.songCount, sc > 0 {
-                    Text("\(sc) 歌曲")
+                    Text(String(format: String(localized: "qq_song_count"), sc))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
@@ -307,7 +307,7 @@ struct QQArtistDetailView: View {
                 }) {
                     HStack(spacing: 8) {
                         AsideIcon(icon: .play, size: 14, color: .asideIconForeground)
-                        Text("播放全部")
+                        Text("qq_play_all")
                             .font(.rounded(size: 14, weight: .bold))
                             .foregroundColor(.asideIconForeground)
                     }
@@ -328,9 +328,9 @@ struct QQArtistDetailView: View {
     
     private var tabBar: some View {
         HStack(spacing: 28) {
-            tabItem("音乐", index: 0)
-            tabItem("专辑", index: 1)
-            tabItem("视频", index: 2)
+            tabItem(String(localized: "qq_tab_music"), index: 0)
+            tabItem(String(localized: "qq_tab_album"), index: 1)
+            tabItem(String(localized: "qq_tab_video"), index: 2)
         }
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -368,7 +368,7 @@ struct QQArtistDetailView: View {
             if viewModel.isLoading && viewModel.songs.isEmpty {
                 loadingView
             } else if viewModel.songs.isEmpty {
-                emptyView("暂无歌曲")
+                emptyView(String(localized: "qq_no_songs"))
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
@@ -394,7 +394,7 @@ struct QQArtistDetailView: View {
             if viewModel.isLoadingAlbums && viewModel.albums.isEmpty {
                 loadingView
             } else if viewModel.albums.isEmpty {
-                emptyView("暂无专辑")
+                emptyView(String(localized: "qq_no_albums"))
             } else {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.albums) { album in
@@ -469,7 +469,7 @@ struct QQArtistDetailView: View {
             if viewModel.isLoadingMVs && viewModel.mvs.isEmpty {
                 loadingView
             } else if viewModel.mvs.isEmpty {
-                emptyView("暂无视频")
+                emptyView(String(localized: "qq_no_videos"))
             } else {
                 let columns = [
                     GridItem(.flexible(), spacing: 14),
@@ -714,7 +714,7 @@ struct QQAlbumDetailView: View {
                 AsideBackButton()
                 Spacer()
                 if let count = viewModel.songCount ?? (viewModel.songs.isEmpty ? nil : viewModel.songs.count), count > 0 {
-                    Text("\(count)首")
+                    Text(String(format: String(localized: "qq_track_count"), count))
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.asideIconBackground)
                         .padding(.horizontal, 8)
@@ -771,7 +771,7 @@ struct QQAlbumDetailView: View {
                     }) {
                         HStack(spacing: 6) {
                             AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
-                            Text("播放")
+                            Text(String(localized: "qq_play"))
                                 .font(.system(size: 12, weight: .bold))
                         }
                         .foregroundColor(.asideIconForeground)
@@ -798,7 +798,7 @@ struct QQAlbumDetailView: View {
             } else if viewModel.songs.isEmpty {
                 VStack(spacing: 14) {
                     AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
-                    Text("暂无歌曲").font(.rounded(size: 15)).foregroundColor(.asideTextSecondary)
+                    Text(String(localized: "qq_no_songs")).font(.rounded(size: 15)).foregroundColor(.asideTextSecondary)
                 }
                 .padding(.top, 40)
             } else {
@@ -807,7 +807,7 @@ struct QQAlbumDetailView: View {
                     Button(action: { showAlbumDesc = true }) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("专辑简介")
+                                Text("qq_album_desc")
                                     .font(.rounded(size: 15, weight: .semibold))
                                     .foregroundColor(.asideTextPrimary)
                                 Spacer()
@@ -1024,7 +1024,7 @@ struct QQPlaylistDetailView: View {
                 HStack {
                     AsideBackButton()
                     Spacer()
-                    Text("QQ音乐")
+                    Text("qq_music_title")
                         .font(.rounded(size: 18, weight: .bold))
                         .foregroundColor(.asideTextPrimary)
                     Spacer()
@@ -1095,7 +1095,7 @@ struct QQPlaylistDetailView: View {
                         .padding(.vertical, 2)
                         .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
                     if !viewModel.songs.isEmpty {
-                        Text("\(viewModel.songs.count)首歌曲")
+                        Text(String(localized: "qq_songs_count", defaultValue: "\(viewModel.songs.count)首歌曲"))
                             .font(.rounded(size: 12))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -1115,7 +1115,7 @@ struct QQPlaylistDetailView: View {
         }) {
             HStack(spacing: 8) {
                 AsideIcon(icon: .play, size: 16, color: .asideTextPrimary)
-                Text("播放全部")
+                Text("qq_play_all")
                     .font(.rounded(size: 15, weight: .semibold))
                     .foregroundColor(.asideTextPrimary)
                 Text("\(viewModel.songs.count)")
@@ -1148,7 +1148,7 @@ struct QQPlaylistDetailView: View {
             if viewModel.isLoadingMore {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.8)
-                    Text("加载更多...").font(.rounded(size: 13)).foregroundColor(.asideTextSecondary)
+                    Text("qq_loading_more").font(.rounded(size: 13)).foregroundColor(.asideTextSecondary)
                 }
                 .padding(.vertical, 14)
             }

@@ -120,10 +120,10 @@ struct PodcastView: View {
     private var headerSection: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("播客")
+                Text("podcast_title")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
-                Text("发现好声音")
+                Text("podcast_discover")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -150,7 +150,7 @@ struct PodcastView: View {
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
                     HStack(spacing: 6) {
                         AsideIcon(icon: .gridSquare, size: 16, color: .asideTextPrimary, lineWidth: 1.4)
-                        Text("全部")
+                        Text("podcast_all")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextPrimary)
                     }
@@ -186,15 +186,15 @@ struct PodcastView: View {
     private var personalizedSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("为你推荐")
+                Text("podcast_for_you")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
 
                 Spacer()
 
-                NavigationLink(value: PodcastDestination.topList("热门电台", .hot)) {
+                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_hot_radios"), .hot)) {
                     HStack(spacing: 4) {
-                        Text("更多")
+                        Text("mv_more_section")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                         AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary, lineWidth: 1.2)
                     }
@@ -226,15 +226,15 @@ struct PodcastView: View {
     private var recommendSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("精选电台")
+                Text("podcast_featured")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
 
                 Spacer()
 
-                NavigationLink(value: PodcastDestination.topList("电台排行", .toplist)) {
+                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_featured"), .toplist)) {
                     HStack(spacing: 4) {
-                        Text("更多")
+                        Text("mv_more_section")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                         AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary, lineWidth: 1.2)
                     }
@@ -324,7 +324,7 @@ struct PodcastView: View {
                     if let count = radio.programCount, count > 0 {
                         Text("·")
                             .foregroundColor(.asideTextSecondary)
-                        Text("\(count)期")
+                        Text(String(format: String(localized: "podcast_episode_count"), count))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -345,7 +345,7 @@ struct PodcastView: View {
     private var broadcastSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("广播电台")
+                Text("podcast_broadcast")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
 
@@ -353,7 +353,7 @@ struct PodcastView: View {
 
                 NavigationLink(value: PodcastDestination.broadcastList) {
                     HStack(spacing: 4) {
-                        Text("更多")
+                        Text("mv_more_section")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                         AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary, lineWidth: 1.2)
                     }

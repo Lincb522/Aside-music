@@ -54,11 +54,11 @@ struct LoginView: View {
             }
             
             VStack(spacing: 8) {
-                Text("登录")
+                Text(LocalizedStringKey("login"))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                 
-                Text("登录网易云音乐账号")
+                Text(LocalizedStringKey("login_subtitle"))
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -93,8 +93,8 @@ struct LoginView: View {
     
     private var tabSwitcher: some View {
         HStack(spacing: 0) {
-            tabButton(title: "扫码登录", icon: .qr, tab: .qr)
-            tabButton(title: "手机登录", icon: .phone, tab: .phone)
+            tabButton(title: String(localized: "scan_qr"), icon: .qr, tab: .qr)
+            tabButton(title: String(localized: "phone_login"), icon: .phone, tab: .phone)
         }
         .padding(4)
         .background(Color.asideCardBackground)
@@ -149,7 +149,7 @@ struct LoginView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text("加载中...")
+                        Text(LocalizedStringKey("login_loading"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -161,12 +161,12 @@ struct LoginView: View {
                         
                         VStack(spacing: 16) {
                             AsideIcon(icon: .refresh, size: 32, color: .asideTextPrimary)
-                            Text("二维码已过期")
+                            Text(LocalizedStringKey("qr_expired"))
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
                                 .foregroundColor(.asideTextPrimary)
                             
                             Button(action: { viewModel.refreshQR() }) {
-                                Text("点击刷新")
+                                Text(LocalizedStringKey("login_tap_refresh"))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
@@ -188,9 +188,9 @@ struct LoginView: View {
                 .multilineTextAlignment(.center)
             
             VStack(spacing: 8) {
-                instructionRow(number: "1", text: "打开网易云音乐 App")
-                instructionRow(number: "2", text: "点击左上角扫一扫")
-                instructionRow(number: "3", text: "扫描上方二维码登录")
+                instructionRow(number: "1", text: String(localized: "login_instruction_1"))
+                instructionRow(number: "2", text: String(localized: "login_instruction_2"))
+                instructionRow(number: "3", text: String(localized: "login_instruction_3"))
             }
             .padding(.top, 8)
         }
@@ -221,7 +221,7 @@ struct LoginView: View {
     private var phoneLoginContent: some View {
         VStack(spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("手机号")
+                Text(LocalizedStringKey("phone_number"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                 
@@ -234,7 +234,7 @@ struct LoginView: View {
                     Divider()
                         .frame(height: 20)
                     
-                    TextField("请输入手机号", text: $viewModel.phoneNumber)
+                    TextField(String(localized: "login_phone_placeholder"), text: $viewModel.phoneNumber)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .keyboardType(.phonePad)
                         .padding(.leading, 8)
@@ -246,17 +246,17 @@ struct LoginView: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("验证码")
+                Text(LocalizedStringKey("captcha"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                 
                 HStack {
-                    TextField("请输入验证码", text: $viewModel.captchaCode)
+                    TextField(String(localized: "login_captcha_placeholder"), text: $viewModel.captchaCode)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .keyboardType(.numberPad)
                     
                     Button(action: { viewModel.sendCaptcha() }) {
-                        Text(viewModel.isCaptchaSent ? "重新发送" : "获取验证码")
+                        Text(viewModel.isCaptchaSent ? String(localized: "login_resend") : String(localized: "get_captcha"))
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundColor(viewModel.phoneNumber.count == 11 ? .asideTextPrimary : .asideTextSecondary)
                     }
@@ -281,7 +281,7 @@ struct LoginView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(0.8)
                     }
-                    Text("登录")
+                    Text(LocalizedStringKey("login"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white)
@@ -304,15 +304,15 @@ struct LoginView: View {
     
     private var footerView: some View {
         VStack(spacing: 8) {
-            Text("登录即表示同意")
+            Text(LocalizedStringKey("login_agreement_prefix"))
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
             
             HStack(spacing: 4) {
-                Text("《用户协议》")
-                Text("和")
+                Text(LocalizedStringKey("login_user_agreement"))
+                Text(LocalizedStringKey("login_and"))
                     .foregroundColor(.asideTextSecondary)
-                Text("《隐私政策》")
+                Text(LocalizedStringKey("login_privacy_policy"))
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundColor(.asideTextPrimary)

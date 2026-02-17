@@ -144,6 +144,9 @@ struct AsideIcon: View {
         case logNetwork
         case logSuccess
         case arrowDownToLine
+        
+        // 筛选图标
+        case filter
     }
     
     let icon: IconType
@@ -167,7 +170,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine, .filter:
             return false
         default:
             return true
@@ -316,6 +319,7 @@ struct AsideIcon: View {
         case .logNetwork:   return AnyShape(LogNetworkPath())
         case .logSuccess:   return AnyShape(LogSuccessPath())
         case .arrowDownToLine: return AnyShape(ArrowDownToLinePath())
+        case .filter:       return AnyShape(FilterPath())
         }
     }
 }
@@ -2720,6 +2724,28 @@ private struct ArrowDownToLinePath: Shape {
         // 底部横线
         path.move(to: CGPoint(x: 6*s, y: 20*s))
         path.addLine(to: CGPoint(x: 18*s, y: 20*s))
+        
+        return path
+    }
+}
+
+// 筛选漏斗图标：三条水平线，从宽到窄
+private struct FilterPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 顶部最宽线
+        path.move(to: CGPoint(x: 4*s, y: 7*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 7*s))
+        
+        // 中间线
+        path.move(to: CGPoint(x: 7*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 12*s))
+        
+        // 底部最窄线
+        path.move(to: CGPoint(x: 10*s, y: 17*s))
+        path.addLine(to: CGPoint(x: 14*s, y: 17*s))
         
         return path
     }

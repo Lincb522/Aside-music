@@ -161,7 +161,7 @@ struct MyPlaylistsContainerView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 subTabButton(title: String(localized: "lib_netease_playlists"), index: 0)
-                subTabButton(title: "本地歌单", index: 1)
+                subTabButton(title: String(localized: "lib_local_playlists"), index: 1)
                 subTabButton(title: String(localized: "lib_my_podcasts"), index: 2)
                 Spacer()
             }
@@ -229,14 +229,14 @@ struct LocalPlaylistsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
-                        Text("还没有本地歌单")
+                        Text(LocalizedStringKey("lib_no_local_playlists"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.secondaryText)
                         
                         Button(action: { showCreateAlert = true }) {
                             HStack(spacing: 6) {
                                 AsideIcon(icon: .add, size: 14, color: .asideIconForeground)
-                                Text("新建歌单")
+                                Text(LocalizedStringKey("lib_create_playlist"))
                                     .font(.system(size: 14, weight: .bold))
                             }
                             .foregroundColor(.asideIconForeground)
@@ -250,7 +250,7 @@ struct LocalPlaylistsView: View {
                         Button(action: { showFileImporter = true }) {
                             HStack(spacing: 6) {
                                 AsideIcon(icon: .download, size: 14, color: Theme.secondaryText)
-                                Text("导入歌单")
+                                Text(LocalizedStringKey("lib_import_playlist"))
                                     .font(.system(size: 14, weight: .bold))
                             }
                             .foregroundColor(Theme.secondaryText)
@@ -274,7 +274,7 @@ struct LocalPlaylistsView: View {
                                     .frame(width: 60, height: 60)
                                 AsideIcon(icon: .add, size: 22, color: .asideIconForeground)
                             }
-                            Text("新建歌单")
+                            Text(LocalizedStringKey("lib_create_playlist"))
                                 .font(.system(size: 16, weight: .bold, design: .rounded))
                                 .foregroundColor(Theme.text)
                             Spacer()
@@ -298,10 +298,10 @@ struct LocalPlaylistsView: View {
                                 AsideIcon(icon: .download, size: 22, color: Theme.secondaryText)
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("导入歌单")
+                                Text(LocalizedStringKey("lib_import_playlist"))
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .foregroundColor(Theme.text)
-                                Text("从 JSON 文件导入")
+                                Text(LocalizedStringKey("lib_import_from_json"))
                                     .font(.system(size: 12, weight: .medium, design: .rounded))
                                     .foregroundColor(Theme.secondaryText)
                             }
@@ -329,7 +329,7 @@ struct LocalPlaylistsView: View {
                                 playlistToDelete = playlist
                                 showDeleteAlert = true
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                Label(String(localized: "lib_delete"), systemImage: "trash")
                             }
                         }
                         .listRowBackground(Color.clear)
@@ -345,18 +345,18 @@ struct LocalPlaylistsView: View {
                 .scrollContentBackground(.hidden)
             }
         }
-        .alert("新建歌单", isPresented: $showCreateAlert) {
-            TextField("歌单名称", text: $newPlaylistName)
-            Button("取消", role: .cancel) { newPlaylistName = "" }
-            Button("创建") {
+        .alert(String(localized: "lib_create_playlist"), isPresented: $showCreateAlert) {
+            TextField(String(localized: "lib_playlist_name"), text: $newPlaylistName)
+            Button(String(localized: "alert_cancel"), role: .cancel) { newPlaylistName = "" }
+            Button(String(localized: "lib_create")) {
                 guard !newPlaylistName.isEmpty else { return }
                 manager.createPlaylist(name: newPlaylistName)
                 newPlaylistName = ""
             }
         }
-        .alert("删除歌单", isPresented: $showDeleteAlert) {
-            Button("取消", role: .cancel) { playlistToDelete = nil }
-            Button("删除", role: .destructive) {
+        .alert(String(localized: "lib_delete_playlist"), isPresented: $showDeleteAlert) {
+            Button(String(localized: "alert_cancel"), role: .cancel) { playlistToDelete = nil }
+            Button(String(localized: "lib_delete"), role: .destructive) {
                 if let p = playlistToDelete {
                     withAnimation { manager.deletePlaylist(p) }
                 }
@@ -364,7 +364,7 @@ struct LocalPlaylistsView: View {
             }
         } message: {
             if let p = playlistToDelete {
-                Text("确定删除「\(p.name)」？此操作不可恢复。")
+                Text(String(format: String(localized: "lib_confirm_delete"), p.name))
             }
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
@@ -377,10 +377,10 @@ struct LocalPlaylistsView: View {
                 showImportError = true
             }
         }
-        .alert("导入失败", isPresented: $showImportError) {
-            Button("确定", role: .cancel) {}
+        .alert(String(localized: "lib_import_failed"), isPresented: $showImportError) {
+            Button(String(localized: "lib_confirm"), role: .cancel) {}
         } message: {
-            Text(importError ?? "未知错误")
+            Text(importError ?? String(localized: "lib_unknown_error"))
         }
     }
     
@@ -399,7 +399,7 @@ struct LocalPlaylistsView: View {
             let name = parsed.name
             
             if ids.isEmpty {
-                importError = "歌单中没有有效的歌曲"
+                importError = String(localized: "lib_import_no_songs")
                 showImportError = true
                 isImporting = false
                 return
@@ -432,7 +432,7 @@ struct LocalPlaylistsView: View {
                 
                 await MainActor.run {
                     if allSongs.isEmpty {
-                        importError = "无法获取歌曲信息"
+                        importError = String(localized: "lib_import_fetch_failed")
                         showImportError = true
                     } else {
                         manager.importPlaylist(name: name, songs: allSongs)
@@ -474,7 +474,7 @@ struct LocalPlaylistRow: View {
                     .foregroundColor(Theme.text)
                     .lineLimit(1)
                 
-                Text("\(playlist.trackCount) 首")
+                Text(String(format: String(localized: "songs_count_format"), playlist.trackCount))
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(Theme.secondaryText)
             }
@@ -511,7 +511,7 @@ struct MyPodcastsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         ProgressView()
-                        Text("加载中...")
+                        Text(LocalizedStringKey("lib_loading"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.secondaryText)
                     }
@@ -521,10 +521,10 @@ struct MyPodcastsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .radio, size: 40, color: .asideTextSecondary.opacity(0.3))
-                        Text("还没有订阅播客")
+                        Text(LocalizedStringKey("lib_no_podcasts"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.secondaryText)
-                        Text("去播客页面发现感兴趣的内容")
+                        Text(LocalizedStringKey("lib_discover_podcasts"))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(Theme.secondaryText.opacity(0.6))
                     }
@@ -541,7 +541,7 @@ struct MyPodcastsView: View {
                                 radioToRemove = radio
                                 showUnsubAlert = true
                             } label: {
-                                Label("取消订阅", systemImage: "heart.slash")
+                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
                             }
                         }
                         .contextMenu {
@@ -549,7 +549,7 @@ struct MyPodcastsView: View {
                                 radioToRemove = radio
                                 showUnsubAlert = true
                             } label: {
-                                Label("取消订阅", systemImage: "heart.slash")
+                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
                             }
                         }
                         .listRowBackground(Color.clear)
@@ -573,11 +573,11 @@ struct MyPodcastsView: View {
                 subManager.fetchSubscribedRadios()
             }
         }
-        .alert("取消订阅", isPresented: $showUnsubAlert) {
-            Button("取消", role: .cancel) {
+        .alert(String(localized: "lib_unsubscribe"), isPresented: $showUnsubAlert) {
+            Button(String(localized: "alert_cancel"), role: .cancel) {
                 radioToRemove = nil
             }
-            Button("取消订阅", role: .destructive) {
+            Button(String(localized: "lib_unsubscribe"), role: .destructive) {
                 guard let radio = radioToRemove else { return }
                 withAnimation {
                     subManager.unsubscribeRadio(radio) { _ in }
@@ -586,7 +586,7 @@ struct MyPodcastsView: View {
             }
         } message: {
             if let radio = radioToRemove {
-                Text("确定取消订阅「\(radio.name)」？")
+                Text(String(format: String(localized: "lib_confirm_unsubscribe"), radio.name))
             }
         }
     }
@@ -615,7 +615,7 @@ struct MyPodcastsView: View {
                     if let count = radio.programCount, count > 0 {
                         Text("·")
                             .foregroundColor(.asideTextSecondary)
-                        Text("\(count)期")
+                        Text(String(format: String(localized: "lib_episode_count"), count))
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                     }
@@ -662,7 +662,7 @@ struct NetEasePlaylistsView: View {
                                 isOwnPlaylist = isUserCreated(playlist)
                                 showRemoveAlert = true
                             } label: {
-                                Label(isUserCreated(playlist) ? "删除" : "取消收藏",
+                                Label(isUserCreated(playlist) ? String(localized: "lib_delete") : String(localized: "lib_uncollect"),
                                       systemImage: isUserCreated(playlist) ? "trash" : "heart.slash")
                             }
                         }
@@ -672,7 +672,7 @@ struct NetEasePlaylistsView: View {
                                 isOwnPlaylist = isUserCreated(playlist)
                                 showRemoveAlert = true
                             } label: {
-                                Label(isUserCreated(playlist) ? "删除歌单" : "取消收藏",
+                                Label(isUserCreated(playlist) ? String(localized: "lib_delete_playlist") : String(localized: "lib_uncollect"),
                                       systemImage: isUserCreated(playlist) ? "trash" : "heart.slash")
                             }
                         }
@@ -693,11 +693,11 @@ struct NetEasePlaylistsView: View {
             }
         }
         .background(Color.clear)
-        .alert(isOwnPlaylist ? "删除歌单" : "取消收藏", isPresented: $showRemoveAlert) {
-            Button("取消", role: .cancel) {
+        .alert(isOwnPlaylist ? String(localized: "lib_delete_playlist") : String(localized: "lib_uncollect"), isPresented: $showRemoveAlert) {
+            Button(String(localized: "alert_cancel"), role: .cancel) {
                 playlistToRemove = nil
             }
-            Button(isOwnPlaylist ? "删除" : "取消收藏", role: .destructive) {
+            Button(isOwnPlaylist ? String(localized: "lib_delete") : String(localized: "lib_uncollect"), role: .destructive) {
                 guard let playlist = playlistToRemove else { return }
                 let playlistId = playlist.id
                 // 立即从本地列表移除，不等网络返回
@@ -724,7 +724,7 @@ struct NetEasePlaylistsView: View {
             }
         } message: {
             if let playlist = playlistToRemove {
-                Text(isOwnPlaylist ? "确定删除「\(playlist.name)」？此操作不可恢复。" : "确定取消收藏「\(playlist.name)」？")
+                Text(isOwnPlaylist ? String(format: String(localized: "lib_confirm_delete"), playlist.name) : String(format: String(localized: "lib_confirm_uncollect"), playlist.name))
             }
         }
     }
@@ -817,6 +817,7 @@ struct PlaylistSquareView: View {
 
 struct ArtistLibraryView: View {
     @ObservedObject var viewModel: LibraryViewModel
+    @State private var showFilters = false
     typealias Theme = PlaylistDetailView.Theme
 
     let columns = [
@@ -824,33 +825,69 @@ struct ArtistLibraryView: View {
         GridItem(.flexible(), spacing: 16),
         GridItem(.flexible(), spacing: 16)
     ]
+    
+    /// 是否有非默认筛选条件（用于高亮筛选按钮）
+    private var hasActiveFilter: Bool {
+        viewModel.artistArea != -1 || viewModel.artistType != -1 || viewModel.artistInitial != "-1"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                AsideIcon(icon: .magnifyingGlass, size: 18, color: Theme.secondaryText)
+            HStack(spacing: 10) {
+                HStack {
+                    AsideIcon(icon: .magnifyingGlass, size: 18, color: Theme.secondaryText)
 
-                TextField(LocalizedStringKey("search_artists"), text: $viewModel.artistSearchText)
-                    .font(.system(size: 16, design: .rounded))
-                    .foregroundColor(Theme.text)
+                    TextField(LocalizedStringKey("search_artists"), text: $viewModel.artistSearchText)
+                        .font(.system(size: 16, design: .rounded))
+                        .foregroundColor(Theme.text)
 
-                if !viewModel.artistSearchText.isEmpty {
-                    Button(action: {
-                        viewModel.artistSearchText = ""
-                        viewModel.fetchArtistData(reset: true)
-                    }) {
-                        AsideIcon(icon: .xmark, size: 18, color: Theme.secondaryText)
+                    if !viewModel.artistSearchText.isEmpty {
+                        Button(action: {
+                            viewModel.artistSearchText = ""
+                            viewModel.fetchArtistData(reset: true)
+                        }) {
+                            AsideIcon(icon: .xmark, size: 18, color: Theme.secondaryText)
+                        }
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                
+                // 筛选抽屉按钮
+                if !viewModel.isSearchingArtists {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showFilters.toggle()
+                        }
+                    }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(hasActiveFilter ? Color.asideIconBackground : Color.clear)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                                )
+                                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                            
+                            AsideIcon(
+                                icon: .filter,
+                                size: 18,
+                                color: hasActiveFilter ? .asideIconForeground : Theme.secondaryText
+                            )
+                            .rotationEffect(.degrees(showFilters ? 180 : 0))
+                        }
+                        .frame(width: 46, height: 46)
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle())
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
             .padding(.top, 8)
 
-            if !viewModel.isSearchingArtists {
+            if !viewModel.isSearchingArtists && showFilters {
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 12) {
                         filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea)
@@ -861,6 +898,7 @@ struct ArtistLibraryView: View {
                     .padding(.bottom, 16)
                 }
                 .scrollContentBackground(.hidden)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             ScrollView(showsIndicators: false) {

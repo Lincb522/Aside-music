@@ -173,28 +173,34 @@ extension APIService {
     }
     
     /// 尝试获取指定音质的播放 URL
+    /// 对于加密音质（master/atmos2/atmos51），先尝试普通接口，失败后尝试加密接口
     private func tryQQQuality(mid: String, quality: QQMusicQuality) async -> String? {
+        // 1. 先尝试普通接口
         do {
-            // 检查是否是加密音质
-            if isEncryptedQuality(quality) {
-                // 加密音质暂不支持,降级到非加密版本
-                AppLogger.warning("[QQMusic] \(quality.displayName) 为加密音质,暂不支持")
-                return nil
-            }
-            
-            // 请求普通音质
             if let url = try await qqClient.songURL(mid: mid, fileType: quality.fileType),
                !url.isEmpty {
                 AppLogger.success("[QQMusic] \(quality.displayName) 获取成功")
                 return url
-            } else {
-                AppLogger.warning("[QQMusic] \(quality.displayName) 返回空 URL")
-                return nil
             }
         } catch {
-            AppLogger.warning("[QQMusic] \(quality.displayName) 请求失败: \(error.localizedDescription)")
-            return nil
+            AppLogger.debug("[QQMusic] \(quality.displayName) 普通接口失败: \(error.localizedDescription)")
         }
+        
+        // 2. 如果是加密音质，尝试加密接口
+        if quality.isEncrypted, let encType = quality.encryptedFileType {
+            do {
+                if let result = try await qqClient.encryptedSongURL(mid: mid, fileType: encType),
+                   !result.url.isEmpty {
+                    AppLogger.success("[QQMusic] \(quality.displayName) 加密接口获取成功 (ekey: \(result.ekey.prefix(16))...)")
+                    return result.url
+                }
+            } catch {
+                AppLogger.warning("[QQMusic] \(quality.displayName) 加密接口也失败: \(error.localizedDescription)")
+            }
+        }
+        
+        AppLogger.warning("[QQMusic] \(quality.displayName) 所有接口均返回空")
+        return nil
     }
     
     /// 智能降级策略 - 根据请求的音质等级选择合适的降级路径
@@ -217,8 +223,14 @@ extension APIService {
     private func buildFallbackChain(for quality: QQMusicQuality) -> [QQMusicQuality] {
         // 根据音质等级分组降级
         switch quality.level {
-        case 13...11:  // 臻品级别 (母带、全景声、臻品)
-            return [.flac, .ogg640, .ogg320, .mp3_320, .mp3_128, .aac96]
+        case 13:       // 臻品母带 → 先尝试其他臻品，再降到无损/高品
+            return [.atmos2, .atmos51, .flac, .ogg640, .ogg320, .mp3_320, .mp3_128, .aac96]
+            
+        case 12:       // 臻品全景声 → 先尝试其他臻品，再降到无损/高品
+            return [.atmos51, .master, .flac, .ogg640, .ogg320, .mp3_320, .mp3_128, .aac96]
+            
+        case 11:       // 臻品音质 → 先尝试其他臻品，再降到无损/高品
+            return [.atmos2, .master, .flac, .ogg640, .ogg320, .mp3_320, .mp3_128, .aac96]
             
         case 10...9:   // 无损级别 (FLAC、OGG 640)
             return [.ogg640, .flac, .ogg320, .mp3_320, .mp3_128, .aac96]
@@ -234,18 +246,6 @@ extension APIService {
         }
     }
     
-    /// 检查是否是加密音质
-    private func isEncryptedQuality(_ quality: QQMusicQuality) -> Bool {
-        // 目前加密音质包括: master, atmos2, atmos51, flac (部分), ogg640 (部分)
-        // 实际上 QQMusicKit 1.1.1 的加密音质需要单独的 API
-        // 这里先标记高级音质可能需要特殊处理
-        switch quality {
-        case .master, .atmos2, .atmos51:
-            return true
-        default:
-            return false
-        }
-    }
 }
 
 

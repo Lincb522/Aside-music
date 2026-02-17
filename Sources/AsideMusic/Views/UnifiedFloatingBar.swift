@@ -165,10 +165,10 @@ struct AsideTabBar: View {
     private let padding: CGFloat = 6
     
     private let items: [(icon: AsideIcon.IconType, label: String)] = [
-        (.home, "首页"),
-        (.podcast, "播客"),
-        (.library, "音乐库"),
-        (.profile, "我的")
+        (.home, NSLocalizedString("tabbar_home", comment: "")),
+        (.podcast, NSLocalizedString("tabbar_podcast", comment: "")),
+        (.library, NSLocalizedString("tabbar_library", comment: "")),
+        (.profile, NSLocalizedString("tabbar_profile", comment: ""))
     ]
     
     /// 计算气泡的水平偏移量

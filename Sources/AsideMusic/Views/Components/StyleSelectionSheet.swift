@@ -6,11 +6,11 @@ struct StyleSelectionMorphView: View {
     @Binding var isPresented: Bool
     
     @State private var tempSelectedStyle: APIService.StyleTag?
-    @State private var selectedTab: String = "曲风"
+    @State private var selectedTab: String = String(localized: "style_tab_genre")
     
     var namespace: Namespace.ID
     
-    private let tabs = ["曲风"]
+    private let tabs = [String(localized: "style_tab_genre")]
     private let columns = [GridItem(.adaptive(minimum: 80, maximum: 120), spacing: 12)]
     
     var body: some View {
@@ -23,7 +23,7 @@ struct StyleSelectionMorphView: View {
                             .foregroundColor(.clear)
                             .matchedGeometryEffect(id: "filter_text", in: namespace)
                         
-                        Text("选择风格")
+                        Text("style_select_title")
                             .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundColor(.asideTextPrimary.opacity(0.85))
                     }
@@ -120,7 +120,7 @@ struct StyleSelectionMorphView: View {
     
     private var styleGrid: some View {
         LazyVGrid(columns: columns, spacing: 10) {
-            tagButton(name: "默认推荐", isSelected: tempSelectedStyle == nil) {
+            tagButton(name: String(localized: "style_default"), isSelected: tempSelectedStyle == nil) {
                 tempSelectedStyle = nil
             }
             
@@ -158,7 +158,7 @@ struct StyleSelectionMorphView: View {
                 isPresented = false
             }
         }) {
-            Text("确认选择")
+            Text("style_confirm")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)

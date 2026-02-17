@@ -22,7 +22,7 @@ struct BroadcastListView: View {
                     Spacer()
                 } else if viewModel.channels.isEmpty {
                     Spacer()
-                    Text("暂无广播电台")
+                    Text(LocalizedStringKey("broadcast_no_stations"))
                         .font(.system(size: 14, design: .rounded))
                         .foregroundColor(.asideTextSecondary)
                     Spacer()
@@ -41,7 +41,7 @@ struct BroadcastListView: View {
                 }
             }
         }
-        .navigationTitle("广播电台")
+        .navigationTitle(NSLocalizedString("broadcast_title", comment: ""))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if viewModel.channels.isEmpty {
@@ -59,7 +59,7 @@ struct BroadcastListView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 // "全部"按钮
-                filterCapsule(title: "全部", isSelected: viewModel.selectedRegionId == "0") {
+                filterCapsule(title: NSLocalizedString("broadcast_all", comment: ""), isSelected: viewModel.selectedRegionId == "0") {
                     viewModel.selectRegion("0")
                 }
 

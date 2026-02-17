@@ -42,13 +42,13 @@ struct MVGridCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(mv.name ?? "未知MV")
+                    Text(mv.name ?? String(localized: "mv_unknown_name"))
                         .font(.rounded(size: 14, weight: .semibold))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
-                        Text(mv.artistName ?? "未知歌手")
+                        Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
                             .font(.rounded(size: 12))
                             .foregroundColor(.asideTextSecondary)
                             .lineLimit(1)
@@ -57,7 +57,7 @@ struct MVGridCard: View {
                             Circle()
                                 .fill(Color.asideTextSecondary.opacity(0.3))
                                 .frame(width: 3, height: 3)
-                            Text(mv.playCountText + "播放")
+                            Text(mv.playCountText + String(localized: "mv_play_suffix"))
                                 .font(.rounded(size: 11))
                                 .foregroundColor(.asideTextSecondary.opacity(0.6))
                         }
@@ -105,12 +105,12 @@ struct MVRowCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(mv.name ?? "未知MV")
+                    Text(mv.name ?? String(localized: "mv_unknown_name"))
                         .font(.rounded(size: 15, weight: .medium))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(2)
 
-                    Text(mv.artistName ?? "未知歌手")
+                    Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
@@ -196,8 +196,8 @@ struct MVDiscoverView: View {
                             // 最新 MV（横向滚动，跳过 Hero 已展示的第一个）
                             if viewModel.latestMVs.count > 1 {
                                 mvHorizontalSection(
-                                    title: "最新上线",
-                                    subtitle: "新鲜出炉的音乐视频",
+                                    title: String(localized: "mv_latest"),
+                                    subtitle: String(localized: "mv_latest_desc"),
                                     mvs: Array(viewModel.latestMVs.dropFirst()),
                                     listType: .latest
                                 )
@@ -206,8 +206,8 @@ struct MVDiscoverView: View {
                             // 热门排行（带排名的列表）
                             if !viewModel.topMVs.isEmpty {
                                 mvRankSection(
-                                    title: "热门排行",
-                                    subtitle: "大家都在看",
+                                    title: String(localized: "mv_top"),
+                                    subtitle: String(localized: "mv_top_desc"),
                                     mvs: viewModel.topMVs,
                                     listType: .top
                                 )
@@ -216,8 +216,8 @@ struct MVDiscoverView: View {
                             // 独家放送（双列网格）
                             if !viewModel.exclusiveMVs.isEmpty {
                                 mvGridSection(
-                                    title: "独家放送",
-                                    subtitle: "平台精选内容",
+                                    title: String(localized: "mv_exclusive"),
+                                    subtitle: String(localized: "mv_exclusive_desc"),
                                     mvs: viewModel.exclusiveMVs,
                                     listType: .exclusive
                                 )
@@ -283,7 +283,7 @@ struct MVDiscoverView: View {
 
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("最新发布")
+                        Text(String(localized: "mv_latest_release"))
                             .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundColor(.black)
                             .padding(.horizontal, 10)
@@ -291,7 +291,7 @@ struct MVDiscoverView: View {
                             .background(Color.white)
                             .clipShape(Capsule())
 
-                        Text(mv.name ?? "未知MV")
+                        Text(mv.name ?? String(localized: "mv_unknown_name"))
                             .font(.rounded(size: 22, weight: .bold))
                             .foregroundColor(.white)
                             .lineLimit(2)
@@ -302,7 +302,7 @@ struct MVDiscoverView: View {
                                 .foregroundColor(.white.opacity(0.8))
 
                             if !mv.playCountText.isEmpty {
-                                Text(mv.playCountText + "播放")
+                                Text(mv.playCountText + String(localized: "mv_play_suffix"))
                                     .font(.rounded(size: 12))
                                     .foregroundColor(.white.opacity(0.5))
                             }
@@ -328,12 +328,12 @@ struct MVDiscoverView: View {
 
     private var actionRow: some View {
         HStack(spacing: 12) {
-            NavigationLink(value: MVListDestination(title: "全部MV", listType: .all)) {
-                actionCard(icon: .gridSquare, title: "全部MV", subtitle: "浏览全部")
+            NavigationLink(value: MVListDestination(title: String(localized: "mv_all"), listType: .all)) {
+                actionCard(icon: .gridSquare, title: String(localized: "mv_all"), subtitle: String(localized: "mv_browse_all"))
             }
 
             Button(action: { showSublist = true }) {
-                actionCard(icon: .like, title: "我的收藏", subtitle: "已收藏MV")
+                actionCard(icon: .like, title: String(localized: "mv_my_collection"), subtitle: String(localized: "mv_collected_mv"))
             }
         }
         .padding(.horizontal, 24)
@@ -395,11 +395,11 @@ struct MVDiscoverView: View {
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(mv.name ?? "未知MV")
+                                    Text(mv.name ?? String(localized: "mv_unknown_name"))
                                         .font(.rounded(size: 14, weight: .semibold))
                                         .foregroundColor(.asideTextPrimary)
                                         .lineLimit(1)
-                                    Text(mv.artistName ?? "未知歌手")
+                                    Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
                                         .font(.rounded(size: 12))
                                         .foregroundColor(.asideTextSecondary)
                                         .lineLimit(1)
@@ -471,7 +471,7 @@ struct MVDiscoverView: View {
 
             NavigationLink(value: MVListDestination(title: title, listType: listType)) {
                 HStack(spacing: 4) {
-                    Text("更多")
+                    Text("mv_more_section")
                         .font(.rounded(size: 14, weight: .medium))
                         .foregroundColor(.asideTextSecondary)
                     AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
@@ -553,7 +553,7 @@ struct MVFullListView: View {
                     if viewModel.isLoadingMore {
                         HStack(spacing: 8) {
                             ProgressView().scaleEffect(0.8)
-                            Text("加载更多...")
+                            Text("mv_loading_more")
                                 .font(.rounded(size: 13))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -603,12 +603,12 @@ struct MVSublistSheet: View {
 
             // 头部
             HStack {
-                Text("我的收藏")
+                Text("mv_my_collection")
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundColor(.asideTextPrimary)
                 Spacer()
                 if !viewModel.items.isEmpty {
-                    Text("\(viewModel.items.count)个MV")
+                    Text(String(format: String(localized: "mv_mv_count"), viewModel.items.count))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
@@ -629,7 +629,7 @@ struct MVSublistSheet: View {
                 Spacer()
                 VStack(spacing: 14) {
                     AsideIcon(icon: .like, size: 40, color: .asideTextSecondary.opacity(0.25))
-                    Text("还没有收藏MV")
+                    Text("mv_no_collection")
                         .font(.rounded(size: 15))
                         .foregroundColor(.asideTextSecondary)
                 }
@@ -649,7 +649,7 @@ struct MVSublistSheet: View {
                         if viewModel.isLoadingMore {
                             HStack(spacing: 8) {
                                 ProgressView().scaleEffect(0.8)
-                                Text("加载更多...")
+                                Text("mv_loading_more")
                                     .font(.rounded(size: 13))
                                     .foregroundColor(.asideTextSecondary)
                             }
@@ -704,7 +704,7 @@ struct MVSublistSheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(item.title ?? "未知MV")
+                    Text(item.title ?? String(localized: "mv_unknown_name"))
                         .font(.rounded(size: 15, weight: .medium))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)

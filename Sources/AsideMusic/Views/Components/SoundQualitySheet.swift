@@ -27,12 +27,12 @@ struct SoundQualitySheet: View {
             
             VStack(spacing: 20) {
                 HStack {
-                    Text("音质选择")
+                    Text(LocalizedStringKey("quality_title"))
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
                     
                     if isUnblocked {
-                        Text("酷狗源")
+                        Text(LocalizedStringKey("quality_kugou_source"))
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.asideIconForeground)
                             .padding(.horizontal, 6)
@@ -40,7 +40,7 @@ struct SoundQualitySheet: View {
                             .background(Color.asideIconBackground)
                             .cornerRadius(4)
                     } else if isQQMusic {
-                        Text("QQ音乐")
+                        Text(LocalizedStringKey("quality_qq_source"))
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.asideIconForeground)
                             .padding(.horizontal, 6)
@@ -64,10 +64,10 @@ struct SoundQualitySheet: View {
                     VStack(spacing: 16) {
                         if isQQMusic {
                             // QQ 音乐歌曲：分组显示音质
-                            qualityGroup(title: "臻品音质", qualities: qqPremiumQualities)
-                            qualityGroup(title: "无损音质", qualities: qqLosslessQualities)
-                            qualityGroup(title: "高品音质", qualities: qqHighQualities)
-                            qualityGroup(title: "标准音质", qualities: qqStandardQualities)
+                            qualityGroup(title: NSLocalizedString("quality_premium", comment: ""), qualities: qqPremiumQualities)
+                            qualityGroup(title: NSLocalizedString("quality_lossless", comment: ""), qualities: qqLosslessQualities)
+                            qualityGroup(title: NSLocalizedString("quality_high", comment: ""), qualities: qqHighQualities)
+                            qualityGroup(title: NSLocalizedString("quality_standard", comment: ""), qualities: qqStandardQualities)
                         } else if isUnblocked {
                             // 解灰歌曲：显示酷狗音质
                             qualityList(kugouQualities)

@@ -227,3 +227,355 @@
 "comment_reply" = "回复";
 "comment_placeholder" = "写评论...";
 "comment_reply_placeholder" = "回复 @%@...";
+
+/* Profile - New */
+"profile_preferences_account" = "偏好与账号";
+"profile_recent_count" = "%d 首";
+
+/* Settings - New */
+"settings_calculating" = "计算中...";
+"settings_debug_log" = "调试日志";
+"settings_debug_log_desc" = "查看运行日志，便于排查问题";
+"settings_qq_music" = "QQ音乐";
+"settings_qq_account" = "QQ音乐账号";
+"settings_qq_logged_in" = "已登录";
+"settings_qq_not_logged_in" = "未登录，点击管理";
+
+/* Login - New */
+"login_subtitle" = "登录网易云音乐账号";
+"login_loading" = "加载中...";
+"login_tap_refresh" = "点击刷新";
+"login_phone_placeholder" = "请输入手机号";
+"login_captcha_placeholder" = "请输入验证码";
+"login_resend" = "重新发送";
+"login_instruction_1" = "打开网易云音乐 App";
+"login_instruction_2" = "点击左上角扫一扫";
+"login_instruction_3" = "扫描上方二维码登录";
+"login_agreement_prefix" = "登录即表示同意";
+"login_user_agreement" = "《用户协议》";
+"login_and" = "和";
+"login_privacy_policy" = "《隐私政策》";
+
+/* Welcome - New */
+"welcome_slogan" = "乐章之外，心之独白";
+"welcome_back" = "欢迎回来, %@";
+"welcome_user" = "用户";
+
+/* Search - New */
+"search_platform_netease" = "网易云音乐";
+"search_platform_qq" = "QQ音乐";
+"search_no_results" = "暂无结果";
+"search_album_count" = "专辑: %d";
+"search_song_count" = "歌曲: %d";
+"search_track_count" = "%d首";
+"search_unknown_artist" = "未知歌手";
+"search_play_count_suffix" = "播放";
+
+/* Home - New */
+"home_playlist" = "歌单";
+"home_mv_zone" = "MV 专区";
+"home_mv_zone_desc" = "看最新最热的音乐视频";
+
+/* Library - New */
+"lib_local_playlists" = "本地歌单";
+"lib_no_local_playlists" = "还没有本地歌单";
+"lib_create_playlist" = "新建歌单";
+"lib_import_playlist" = "导入歌单";
+"lib_import_from_json" = "从 JSON 文件导入";
+"lib_playlist_name" = "歌单名称";
+"lib_create" = "创建";
+"lib_delete" = "删除";
+"lib_uncollect" = "取消收藏";
+"lib_import_failed" = "导入失败";
+"lib_confirm" = "确定";
+"lib_import_no_songs" = "歌单中没有有效的歌曲";
+"lib_import_fetch_failed" = "无法获取歌曲信息";
+"lib_unknown_error" = "未知错误";
+"lib_episode_count" = "%d期";
+
+/* Artist Detail - New */
+"artist_followed" = "已关注";
+"artist_follow" = "关注";
+"artist_fans_count" = "%@ 粉丝";
+"artist_album_count" = "%d 专辑";
+"artist_song_count" = "%d 歌曲";
+"artist_play_all" = "播放全部";
+"artist_tab_music" = "音乐";
+"artist_tab_album" = "专辑";
+"artist_tab_video" = "视频";
+"artist_no_songs" = "暂无歌曲";
+"artist_no_albums" = "暂无专辑";
+"artist_no_videos" = "暂无视频";
+"artist_no_bio" = "暂无歌手简介";
+
+/* Album Detail - New */
+"album_no_songs" = "暂无歌曲";
+"album_desc" = "专辑简介";
+"album_no_desc" = "暂无专辑简介";
+
+/* Comment - New */
+"comment_count" = "%d条评论";
+"comment_hot_section" = "热门评论";
+"comment_all_section" = "全部评论";
+"comment_load_more_btn" = "加载更多评论";
+"comment_no_comments" = "暂无评论";
+"comment_be_first_text" = "来发表第一条评论吧";
+"comment_reply_prefix" = "回复";
+"comment_write" = "写评论...";
+"comment_reply_to" = "回复 @%@...";
+
+/* Debug Log - New */
+"debug_title" = "调试日志";
+"debug_log_count" = "%d 条日志";
+"debug_export" = "导出日志";
+"debug_clear" = "清空日志";
+"debug_auto_scroll" = "自动滚动";
+"debug_search_placeholder" = "搜索日志...";
+"debug_stat_total" = "总计";
+"debug_stat_error" = "错误";
+"debug_stat_warning" = "警告";
+"debug_stat_success" = "成功";
+"debug_level_info" = "信息";
+"debug_level_debug" = "调试";
+"debug_level_warning" = "警告";
+"debug_level_error" = "错误";
+"debug_level_network" = "网络";
+"debug_level_success" = "成功";
+"debug_export_title" = "AsideMusic 调试日志";
+"debug_export_time" = "导出时间";
+"debug_export_count" = "日志数量";
+
+/* EQ Settings - New */
+"eq_title" = "调节";
+"eq_reset" = "重置";
+"eq_toggle_title" = "音频均衡器";
+"eq_custom" = "自定义";
+"eq_original_output" = "使用原始音频输出";
+"eq_smart_analyze" = "智能分析";
+"eq_smart_desc" = "分析当前歌曲，自动优化音效";
+"eq_analyzing" = "正在分析...";
+"eq_applied" = "已应用智能音效";
+"eq_effects" = "音效";
+"eq_bass" = "低音";
+"eq_treble" = "高音";
+"eq_surround" = "环绕";
+"eq_reverb" = "混响";
+"eq_pitch" = "变调";
+"eq_original_key" = "原调";
+"eq_semitone" = "%@ 半音";
+"eq_equalizer" = "均衡器";
+"eq_save" = "保存";
+"eq_save_preset" = "保存为预设";
+"eq_save_custom" = "保存自定义预设";
+"eq_preset_name" = "预设名称";
+"eq_my_presets" = "我的预设";
+
+/* QQ Login - New */
+"qq_login_title" = "QQ音乐登录";
+"qq_login_subtitle" = "登录后可播放 QQ 音乐曲库";
+"qq_tab_qr" = "扫码登录";
+"qq_tab_phone" = "手机登录";
+"qq_qr_loading" = "加载中...";
+"qq_qr_expired" = "二维码已过期";
+"qq_qr_refresh" = "点击刷新";
+"qq_qr_qq" = "QQ 扫码";
+"qq_qr_wx" = "微信扫码";
+"qq_open_app" = "打开 %@ App";
+"qq_use_scan" = "使用扫一扫功能";
+"qq_scan_qr" = "扫描上方二维码登录";
+"qq_phone_number" = "手机号";
+"qq_phone_placeholder" = "请输入手机号";
+"qq_captcha" = "验证码";
+"qq_captcha_placeholder" = "请输入验证码";
+"qq_get_captcha" = "获取验证码";
+"qq_resend" = "重新发送";
+"qq_login_btn" = "登录";
+
+/* QQ Account - New */
+"qq_account_title" = "QQ音乐";
+"qq_checking_status" = "检查登录状态...";
+"qq_user_default" = "QQ音乐用户";
+"qq_connected" = "已连接";
+"qq_login_method" = "登录方式";
+"qq_login_qq_scan" = "QQ 扫码";
+"qq_login_wx_scan" = "微信扫码";
+"qq_login_phone_code" = "手机验证码";
+"qq_login_unknown" = "未知";
+"qq_vip_status" = "会员状态";
+"qq_svip" = "超级会员";
+"qq_vip" = "绿钻会员";
+"qq_normal_user" = "普通用户";
+"qq_expiry_title" = "登录有效期约 3 天";
+"qq_expiry_desc" = "过期后需重新扫码或验证码登录";
+"qq_relogin" = "重新登录";
+"qq_logout" = "退出登录";
+"qq_logout_title" = "退出 QQ 音乐";
+"qq_logout_message" = "退出后将无法播放 QQ 音乐歌曲";
+"qq_not_logged_in" = "未登录 QQ 音乐";
+"qq_not_logged_desc" = "登录后可搜索和播放 QQ 音乐曲库中的歌曲";
+"qq_login_action" = "登录 QQ 音乐";
+"qq_feature_search" = "搜索 QQ 音乐曲库";
+"qq_feature_search_desc" = "千万首正版歌曲";
+"qq_feature_play" = "在线播放";
+"qq_feature_play_desc" = "支持多种音质";
+"qq_feature_lyrics" = "歌词同步";
+"qq_feature_lyrics_desc" = "支持翻译歌词";
+
+/* Daily Recommend - New */
+"daily_history" = "历史";
+"daily_history_title" = "历史日推";
+"daily_history_subtitle" = "回顾往日推荐";
+"daily_select_date" = "选择日期查看历史推荐";
+"daily_date_recommend" = "%@年%@月%@日 推荐";
+"daily_song_count" = "%d 首歌曲";
+"daily_no_history" = "好的";
+
+/* Broadcast - New */
+"broadcast_title" = "广播电台";
+"broadcast_no_stations" = "暂无广播电台";
+"broadcast_all" = "全部";
+
+/* Local Playlist - New */
+"local_playlist_label" = "本地歌单";
+"local_playlist_rename" = "重命名歌单";
+"local_playlist_name" = "歌单名称";
+"local_playlist_delete" = "删除歌单";
+"local_playlist_delete_confirm" = "确定删除「%@」？此操作不可恢复。";
+"local_playlist_no_songs" = "还没有歌曲";
+"local_playlist_play" = "播放";
+"local_playlist_remove" = "移除";
+
+/* Add To Playlist - New */
+"add_to_playlist_title" = "添加到歌单";
+"add_to_playlist_new" = "新建歌单";
+"add_to_playlist_create" = "新建歌单";
+"add_to_playlist_name" = "歌单名称";
+
+/* Sound Quality - New */
+"quality_title" = "音质选择";
+"quality_kugou_source" = "酷狗源";
+"quality_qq_source" = "QQ音乐";
+"quality_premium" = "臻品音质";
+"quality_lossless" = "无损音质";
+"quality_high" = "高品音质";
+"quality_standard" = "标准音质";
+
+/* Tab Bar - New */
+"tabbar_home" = "首页";
+"tabbar_podcast" = "播客";
+"tabbar_library" = "音乐库";
+"tabbar_profile" = "我的";
+
+/* Song List Row - New */
+"song_unblocked" = "已解灰";
+"song_no_copyright" = "无版权";
+"song_delete_download" = "删除下载";
+"song_download" = "下载";
+"song_add_to_playlist" = "添加到歌单";
+"song_view_album" = "查看专辑";
+"song_copy_link" = "复制播放链接";
+"song_no_copyright_title" = "无版权";
+"song_no_copyright_message" = "该歌曲暂无版权，开启「解灰」功能后可尝试从第三方源获取播放链接";
+"song_enable_unblock" = "去开启";
+
+/* Common */
+"confirm" = "确定";
+"ok" = "好的";
+"retry" = "重试";
+
+/* QQ Music Detail - New */
+"qq_fans_count" = "%@ 粉丝";
+"qq_album_count" = "%d 专辑";
+"qq_song_count" = "%d 歌曲";
+"qq_play_all" = "播放全部";
+"qq_tab_music" = "音乐";
+"qq_tab_album" = "专辑";
+"qq_tab_video" = "视频";
+"qq_no_songs" = "暂无歌曲";
+"qq_no_albums" = "暂无专辑";
+"qq_no_videos" = "暂无视频";
+"qq_track_count" = "%d首";
+"qq_play" = "播放";
+"qq_album_desc" = "专辑简介";
+"qq_songs_count" = "%d首歌曲";
+"qq_loading_more" = "加载更多...";
+"qq_music_title" = "QQ音乐";
+
+/* MV List - New */
+"mv_unknown_name" = "未知MV";
+"mv_unknown_artist" = "未知歌手";
+"mv_play_suffix" = "播放";
+"mv_latest" = "最新上线";
+"mv_latest_desc" = "新鲜出炉的音乐视频";
+"mv_top" = "热门排行";
+"mv_top_desc" = "大家都在看";
+"mv_exclusive" = "独家放送";
+"mv_exclusive_desc" = "平台精选内容";
+"mv_latest_release" = "最新发布";
+"mv_all" = "全部MV";
+"mv_browse_all" = "浏览全部";
+"mv_my_collection" = "我的收藏";
+"mv_collected_mv" = "已收藏MV";
+"mv_loading_more" = "加载更多...";
+"mv_no_collection" = "还没有收藏MV";
+"mv_mv_count" = "%d个MV";
+"mv_more_section" = "更多";
+
+/* Radio Player - New */
+"radio_playing" = "电台播放";
+"radio_retry" = "重试";
+"radio_unknown_program" = "未知节目";
+"radio_tuning" = "调频中...";
+"radio_no_programs" = "暂无节目";
+"radio_episode_format" = "第 %d / %d 期";
+"radio_program_list" = "节目列表";
+"radio_total_episodes" = "共%d期节目";
+"radio_episode_count" = "%d期";
+"radio_play_suffix" = "播放";
+"radio_now_playing" = "播放中";
+
+/* Radio Detail - New */
+"radio_mode" = "收音机模式";
+"radio_program_list_title" = "节目列表";
+"radio_play_count" = "播放 %@";
+"radio_not_playable" = "暂不可播放";
+
+/* Podcast - New */
+"podcast_title" = "播客";
+"podcast_discover" = "发现好声音";
+"podcast_all" = "全部";
+"podcast_for_you" = "为你推荐";
+"podcast_featured" = "精选电台";
+"podcast_broadcast" = "广播电台";
+"podcast_episode_count" = "%d期";
+
+/* Podcast Search - New */
+"podcast_search_placeholder" = "搜索电台";
+"podcast_search_cancel" = "取消";
+"podcast_hot_radios" = "热门电台";
+"podcast_no_results" = "未找到相关电台";
+
+/* Top Radio List - New */
+"radio_empty" = "暂无电台";
+
+/* Radio Category Browse - New */
+"radio_category_browse" = "分类浏览";
+
+/* Style Selection - New */
+"style_select_title" = "选择风格";
+"style_tab_genre" = "曲风";
+"style_default" = "默认推荐";
+"style_confirm" = "确认选择";
+
+/* Player Theme - New */
+"theme_title" = "播放器主题";
+
+/* Minimal Player - New */
+"lyrics_no_lyrics" = "暂无歌词";
+
+/* QQ MV Player - New */
+"qqmv_loading" = "加载中...";
+"qqmv_no_url" = "无法获取 MV 播放链接";
+"qqmv_more_mv" = "更多MV";
+"qqmv_mv_count" = "%d个";
+"qqmv_play_suffix" = "播放";

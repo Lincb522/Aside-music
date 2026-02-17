@@ -227,3 +227,355 @@
 "comment_reply" = "Reply";
 "comment_placeholder" = "Write a comment...";
 "comment_reply_placeholder" = "Reply to @%@...";
+
+/* Profile - New */
+"profile_preferences_account" = "Preferences & Account";
+"profile_recent_count" = "%d songs";
+
+/* Settings - New */
+"settings_calculating" = "Calculating...";
+"settings_debug_log" = "Debug Log";
+"settings_debug_log_desc" = "View runtime logs for troubleshooting";
+"settings_qq_music" = "QQ Music";
+"settings_qq_account" = "QQ Music Account";
+"settings_qq_logged_in" = "Logged In";
+"settings_qq_not_logged_in" = "Not logged in, tap to manage";
+
+/* Login - New */
+"login_subtitle" = "Log in to NetEase Cloud Music";
+"login_loading" = "Loading...";
+"login_tap_refresh" = "Tap to Refresh";
+"login_phone_placeholder" = "Enter phone number";
+"login_captcha_placeholder" = "Enter captcha";
+"login_resend" = "Resend";
+"login_instruction_1" = "Open NetEase Cloud Music App";
+"login_instruction_2" = "Tap scan in the top left";
+"login_instruction_3" = "Scan the QR code above to log in";
+"login_agreement_prefix" = "By logging in, you agree to";
+"login_user_agreement" = "User Agreement";
+"login_and" = "and";
+"login_privacy_policy" = "Privacy Policy";
+
+/* Welcome - New */
+"welcome_slogan" = "Beyond the music, a soliloquy of the heart";
+"welcome_back" = "Welcome back, %@";
+"welcome_user" = "User";
+
+/* Search - New */
+"search_platform_netease" = "NetEase Cloud Music";
+"search_platform_qq" = "QQ Music";
+"search_no_results" = "No results";
+"search_album_count" = "Albums: %d";
+"search_song_count" = "Songs: %d";
+"search_track_count" = "%d songs";
+"search_unknown_artist" = "Unknown Artist";
+"search_play_count_suffix" = " plays";
+
+/* Home - New */
+"home_playlist" = "Playlist";
+"home_mv_zone" = "MV Zone";
+"home_mv_zone_desc" = "Watch the latest and hottest music videos";
+
+/* Library - New */
+"lib_local_playlists" = "Local Playlists";
+"lib_no_local_playlists" = "No local playlists yet";
+"lib_create_playlist" = "Create Playlist";
+"lib_import_playlist" = "Import Playlist";
+"lib_import_from_json" = "Import from JSON file";
+"lib_playlist_name" = "Playlist Name";
+"lib_create" = "Create";
+"lib_delete" = "Delete";
+"lib_uncollect" = "Remove";
+"lib_import_failed" = "Import Failed";
+"lib_confirm" = "OK";
+"lib_import_no_songs" = "No valid songs in playlist";
+"lib_import_fetch_failed" = "Unable to fetch song info";
+"lib_unknown_error" = "Unknown error";
+"lib_episode_count" = "%d episodes";
+
+/* Artist Detail - New */
+"artist_followed" = "Following";
+"artist_follow" = "Follow";
+"artist_fans_count" = "%@ fans";
+"artist_album_count" = "%d albums";
+"artist_song_count" = "%d songs";
+"artist_play_all" = "Play All";
+"artist_tab_music" = "Music";
+"artist_tab_album" = "Albums";
+"artist_tab_video" = "Videos";
+"artist_no_songs" = "No songs";
+"artist_no_albums" = "No albums";
+"artist_no_videos" = "No videos";
+"artist_no_bio" = "No artist bio available";
+
+/* Album Detail - New */
+"album_no_songs" = "No songs";
+"album_desc" = "Album Description";
+"album_no_desc" = "No album description";
+
+/* Comment - New */
+"comment_count" = "%d comments";
+"comment_hot_section" = "Hot Comments";
+"comment_all_section" = "All Comments";
+"comment_load_more_btn" = "Load more comments";
+"comment_no_comments" = "No comments yet";
+"comment_be_first_text" = "Be the first to comment";
+"comment_reply_prefix" = "Reply";
+"comment_write" = "Write a comment...";
+"comment_reply_to" = "Reply to @%@...";
+
+/* Debug Log - New */
+"debug_title" = "Debug Log";
+"debug_log_count" = "%d logs";
+"debug_export" = "Export Logs";
+"debug_clear" = "Clear Logs";
+"debug_auto_scroll" = "Auto Scroll";
+"debug_search_placeholder" = "Search logs...";
+"debug_stat_total" = "Total";
+"debug_stat_error" = "Errors";
+"debug_stat_warning" = "Warnings";
+"debug_stat_success" = "Success";
+"debug_level_info" = "Info";
+"debug_level_debug" = "Debug";
+"debug_level_warning" = "Warning";
+"debug_level_error" = "Error";
+"debug_level_network" = "Network";
+"debug_level_success" = "Success";
+"debug_export_title" = "AsideMusic Debug Log";
+"debug_export_time" = "Export Time";
+"debug_export_count" = "Log Count";
+
+/* EQ Settings - New */
+"eq_title" = "Adjust";
+"eq_reset" = "Reset";
+"eq_toggle_title" = "Audio Equalizer";
+"eq_custom" = "Custom";
+"eq_original_output" = "Original audio output";
+"eq_smart_analyze" = "Smart Analyze";
+"eq_smart_desc" = "Analyze current song, auto-optimize effects";
+"eq_analyzing" = "Analyzing...";
+"eq_applied" = "Smart effects applied";
+"eq_effects" = "Effects";
+"eq_bass" = "Bass";
+"eq_treble" = "Treble";
+"eq_surround" = "Surround";
+"eq_reverb" = "Reverb";
+"eq_pitch" = "Pitch";
+"eq_original_key" = "Original";
+"eq_semitone" = "%@ semitones";
+"eq_equalizer" = "Equalizer";
+"eq_save" = "Save";
+"eq_save_preset" = "Save as Preset";
+"eq_save_custom" = "Save Custom Preset";
+"eq_preset_name" = "Preset Name";
+"eq_my_presets" = "My Presets";
+
+/* QQ Login - New */
+"qq_login_title" = "QQ Music Login";
+"qq_login_subtitle" = "Log in to play QQ Music library";
+"qq_tab_qr" = "Scan QR";
+"qq_tab_phone" = "Phone Login";
+"qq_qr_loading" = "Loading...";
+"qq_qr_expired" = "QR Code Expired";
+"qq_qr_refresh" = "Tap to Refresh";
+"qq_qr_qq" = "QQ Scan";
+"qq_qr_wx" = "WeChat Scan";
+"qq_open_app" = "Open %@ App";
+"qq_use_scan" = "Use scan feature";
+"qq_scan_qr" = "Scan the QR code above to log in";
+"qq_phone_number" = "Phone Number";
+"qq_phone_placeholder" = "Enter phone number";
+"qq_captcha" = "Captcha";
+"qq_captcha_placeholder" = "Enter captcha";
+"qq_get_captcha" = "Get Captcha";
+"qq_resend" = "Resend";
+"qq_login_btn" = "Login";
+
+/* QQ Account - New */
+"qq_account_title" = "QQ Music";
+"qq_checking_status" = "Checking login status...";
+"qq_user_default" = "QQ Music User";
+"qq_connected" = "Connected";
+"qq_login_method" = "Login Method";
+"qq_login_qq_scan" = "QQ Scan";
+"qq_login_wx_scan" = "WeChat Scan";
+"qq_login_phone_code" = "Phone Code";
+"qq_login_unknown" = "Unknown";
+"qq_vip_status" = "VIP Status";
+"qq_svip" = "Super VIP";
+"qq_vip" = "Green Diamond VIP";
+"qq_normal_user" = "Regular User";
+"qq_expiry_title" = "Login valid for ~3 days";
+"qq_expiry_desc" = "Re-login via QR or phone code after expiry";
+"qq_relogin" = "Re-login";
+"qq_logout" = "Log Out";
+"qq_logout_title" = "Log Out QQ Music";
+"qq_logout_message" = "You won't be able to play QQ Music songs after logging out";
+"qq_not_logged_in" = "Not Logged In to QQ Music";
+"qq_not_logged_desc" = "Log in to search and play songs from QQ Music library";
+"qq_login_action" = "Log In to QQ Music";
+"qq_feature_search" = "Search QQ Music Library";
+"qq_feature_search_desc" = "Millions of licensed songs";
+"qq_feature_play" = "Online Playback";
+"qq_feature_play_desc" = "Multiple quality options";
+"qq_feature_lyrics" = "Lyrics Sync";
+"qq_feature_lyrics_desc" = "Translation lyrics supported";
+
+/* Daily Recommend - New */
+"daily_history" = "History";
+"daily_history_title" = "Daily History";
+"daily_history_subtitle" = "Review past recommendations";
+"daily_select_date" = "Select a date to view history";
+"daily_date_recommend" = "%@/%@/%@ Recommendations";
+"daily_song_count" = "%d songs";
+"daily_no_history" = "OK";
+
+/* Broadcast - New */
+"broadcast_title" = "Radio Stations";
+"broadcast_no_stations" = "No radio stations";
+"broadcast_all" = "All";
+
+/* Local Playlist - New */
+"local_playlist_label" = "Local Playlist";
+"local_playlist_rename" = "Rename Playlist";
+"local_playlist_name" = "Playlist Name";
+"local_playlist_delete" = "Delete Playlist";
+"local_playlist_delete_confirm" = "Delete \"%@\"? This cannot be undone.";
+"local_playlist_no_songs" = "No songs yet";
+"local_playlist_play" = "Play";
+"local_playlist_remove" = "Remove";
+
+/* Add To Playlist - New */
+"add_to_playlist_title" = "Add to Playlist";
+"add_to_playlist_new" = "Create Playlist";
+"add_to_playlist_create" = "Create Playlist";
+"add_to_playlist_name" = "Playlist Name";
+
+/* Sound Quality - New */
+"quality_title" = "Sound Quality";
+"quality_kugou_source" = "Kugou Source";
+"quality_qq_source" = "QQ Music";
+"quality_premium" = "Premium";
+"quality_lossless" = "Lossless";
+"quality_high" = "High Quality";
+"quality_standard" = "Standard";
+
+/* Tab Bar - New */
+"tabbar_home" = "Home";
+"tabbar_podcast" = "Podcast";
+"tabbar_library" = "Library";
+"tabbar_profile" = "Profile";
+
+/* Song List Row - New */
+"song_unblocked" = "Unblocked";
+"song_no_copyright" = "No License";
+"song_delete_download" = "Delete Download";
+"song_download" = "Download";
+"song_add_to_playlist" = "Add to Playlist";
+"song_view_album" = "View Album";
+"song_copy_link" = "Copy Play Link";
+"song_no_copyright_title" = "No License";
+"song_no_copyright_message" = "This song has no license. Enable \"Unblock\" to try fetching from third-party sources.";
+"song_enable_unblock" = "Enable";
+
+/* Common */
+"confirm" = "OK";
+"ok" = "OK";
+"retry" = "Retry";
+
+/* QQ Music Detail - New */
+"qq_fans_count" = "%@ fans";
+"qq_album_count" = "%d albums";
+"qq_song_count" = "%d songs";
+"qq_play_all" = "Play All";
+"qq_tab_music" = "Music";
+"qq_tab_album" = "Albums";
+"qq_tab_video" = "Videos";
+"qq_no_songs" = "No songs";
+"qq_no_albums" = "No albums";
+"qq_no_videos" = "No videos";
+"qq_track_count" = "%d songs";
+"qq_play" = "Play";
+"qq_album_desc" = "Album Description";
+"qq_songs_count" = "%d songs";
+"qq_loading_more" = "Loading more...";
+"qq_music_title" = "QQ Music";
+
+/* MV List - New */
+"mv_unknown_name" = "Unknown MV";
+"mv_unknown_artist" = "Unknown Artist";
+"mv_play_suffix" = "plays";
+"mv_latest" = "Latest";
+"mv_latest_desc" = "Fresh music videos";
+"mv_top" = "Top Charts";
+"mv_top_desc" = "Most watched";
+"mv_exclusive" = "Exclusive";
+"mv_exclusive_desc" = "Platform picks";
+"mv_latest_release" = "Latest Release";
+"mv_all" = "All MVs";
+"mv_browse_all" = "Browse All";
+"mv_my_collection" = "My Collection";
+"mv_collected_mv" = "Collected MVs";
+"mv_loading_more" = "Loading more...";
+"mv_no_collection" = "No collected MVs yet";
+"mv_mv_count" = "%d MVs";
+"mv_more_section" = "More";
+
+/* Radio Player - New */
+"radio_playing" = "Radio";
+"radio_retry" = "Retry";
+"radio_unknown_program" = "Unknown Program";
+"radio_tuning" = "Tuning...";
+"radio_no_programs" = "No programs";
+"radio_episode_format" = "Episode %d / %d";
+"radio_program_list" = "Program List";
+"radio_total_episodes" = "%d episodes";
+"radio_episode_count" = "%d eps";
+"radio_play_suffix" = "plays";
+"radio_now_playing" = "Playing";
+
+/* Radio Detail - New */
+"radio_mode" = "Radio Mode";
+"radio_program_list_title" = "Program List";
+"radio_play_count" = "%@ plays";
+"radio_not_playable" = "Not available";
+
+/* Podcast - New */
+"podcast_title" = "Podcast";
+"podcast_discover" = "Discover great audio";
+"podcast_all" = "All";
+"podcast_for_you" = "For You";
+"podcast_featured" = "Featured";
+"podcast_broadcast" = "Radio Stations";
+"podcast_episode_count" = "%d eps";
+
+/* Podcast Search - New */
+"podcast_search_placeholder" = "Search podcasts";
+"podcast_search_cancel" = "Cancel";
+"podcast_hot_radios" = "Popular Podcasts";
+"podcast_no_results" = "No podcasts found";
+
+/* Top Radio List - New */
+"radio_empty" = "No podcasts";
+
+/* Radio Category Browse - New */
+"radio_category_browse" = "Browse Categories";
+
+/* Style Selection - New */
+"style_select_title" = "Select Style";
+"style_tab_genre" = "Genre";
+"style_default" = "Default";
+"style_confirm" = "Confirm";
+
+/* Player Theme - New */
+"theme_title" = "Player Theme";
+
+/* Minimal Player - New */
+"lyrics_no_lyrics" = "No lyrics";
+
+/* QQ MV Player - New */
+"qqmv_loading" = "Loading...";
+"qqmv_no_url" = "Unable to get MV playback URL";
+"qqmv_more_mv" = "More MVs";
+"qqmv_mv_count" = "%d items";
+"qqmv_play_suffix" = "plays";

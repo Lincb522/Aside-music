@@ -47,11 +47,11 @@ struct DailyRecommendView: View {
         .sheet(isPresented: $viewModel.showHistorySheet) {
             DailyHistoryView(dates: viewModel.historyDates)
         }
-        .alert("历史推荐", isPresented: Binding(
+        .alert(NSLocalizedString("daily_history_title", comment: ""), isPresented: Binding(
             get: { viewModel.noHistoryMessage != nil },
             set: { if !$0 { viewModel.noHistoryMessage = nil } }
         )) {
-            Button("好的", role: .cancel) {
+            Button(NSLocalizedString("daily_no_history", comment: ""), role: .cancel) {
                 viewModel.noHistoryMessage = nil
             }
         } message: {
@@ -128,7 +128,7 @@ struct DailyRecommendView: View {
                                 }
                             }) {
                                 HStack(spacing: 6) {
-                                    Text(styleManager.currentStyle == nil ? "每日推荐" : styleManager.currentStyleName)
+                                    Text(styleManager.currentStyle == nil ? NSLocalizedString("daily_recommend", comment: "") : styleManager.currentStyleName)
                                         .font(.system(size: 14, weight: .medium, design: .rounded))
                                         .foregroundColor(Theme.secondaryText)
                                         .matchedGeometryEffect(id: "filter_text", in: animationNamespace)
@@ -149,7 +149,7 @@ struct DailyRecommendView: View {
                             }) {
                                 HStack(spacing: 6) {
                                     AsideIcon(icon: .history, size: 14, color: Theme.secondaryText)
-                                    Text("历史")
+                                    Text(LocalizedStringKey("daily_history"))
                                         .font(.system(size: 14, weight: .medium, design: .rounded))
                                 }
                                 .foregroundColor(Theme.secondaryText)
@@ -295,11 +295,11 @@ struct DailyHistoryView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text("历史日推")
+                Text(LocalizedStringKey("daily_history_title"))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(Theme.text)
 
-                Text("回顾往日推荐")
+                Text(LocalizedStringKey("daily_history_subtitle"))
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundColor(Theme.secondaryText)
             }
@@ -373,7 +373,7 @@ struct DailyHistoryView: View {
 
             AsideIcon(icon: .clock, size: 48, color: .asideTextSecondary.opacity(0.5))
 
-            Text("选择日期查看历史推荐")
+            Text(LocalizedStringKey("daily_select_date"))
                 .font(.system(size: 16, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
 
@@ -392,7 +392,7 @@ struct DailyHistoryView: View {
 
                         Spacer()
 
-                        Text("\(songs.count) 首歌曲")
+                        Text(String(format: NSLocalizedString("daily_song_count", comment: ""), songs.count))
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.secondaryText.opacity(0.7))
                     }

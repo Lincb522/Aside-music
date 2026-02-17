@@ -206,11 +206,11 @@ struct SearchView: View {
                     dualAlbumsSections
                 case .mvs:
                     // 网易云 MV
-                    platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseMVResults.count) {
+                    platformSection(title: String(localized: "search_platform_netease"), source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseMVResults.count) {
                         mvsResultList(mvs: viewModel.neteaseMVResults)
                     }
                     // QQ 音乐 MV
-                    platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqMVResults.count) {
+                    platformSection(title: String(localized: "search_platform_qq"), source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqMVResults.count) {
                         qqMVsResultList(mvs: viewModel.qqMVResults)
                     }
                 }
@@ -227,7 +227,7 @@ struct SearchView: View {
     private var dualSongsSections: some View {
         VStack(spacing: 20) {
             // 网易云
-            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseResults.count) {
+            platformSection(title: String(localized: "search_platform_netease"), source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseResults.count) {
                 ForEach(Array(viewModel.neteaseResults.prefix(5).enumerated()), id: \.element.id) { index, song in
                     SongListRow(song: song, index: index, onArtistTap: { artistId in
                         selectedArtistId = artistId
@@ -247,7 +247,7 @@ struct SearchView: View {
             }
             
             // QQ 音乐
-            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqResults.count) {
+            platformSection(title: String(localized: "search_platform_qq"), source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqResults.count) {
                 ForEach(Array(viewModel.qqResults.prefix(5).enumerated()), id: \.element.id) { index, song in
                     SongListRow(song: song, index: index, onArtistTap: { _ in }, onDetailTap: { detailSong in
                         selectedSongForDetail = detailSong
@@ -266,13 +266,13 @@ struct SearchView: View {
     
     private var dualArtistsSections: some View {
         VStack(spacing: 20) {
-            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseArtistResults.count) {
+            platformSection(title: String(localized: "search_platform_netease"), source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseArtistResults.count) {
                 ForEach(viewModel.neteaseArtistResults.prefix(5)) { artist in
                     artistRow(artist: artist)
                 }
             }
             
-            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqArtistResults.count) {
+            platformSection(title: String(localized: "search_platform_qq"), source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqArtistResults.count) {
                 ForEach(viewModel.qqArtistResults.prefix(5)) { artist in
                     artistRow(artist: artist)
                 }
@@ -284,13 +284,13 @@ struct SearchView: View {
     
     private var dualPlaylistsSections: some View {
         VStack(spacing: 20) {
-            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteasePlaylistResults.count) {
+            platformSection(title: String(localized: "search_platform_netease"), source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteasePlaylistResults.count) {
                 ForEach(viewModel.neteasePlaylistResults.prefix(5)) { playlist in
                     playlistRow(playlist: playlist)
                 }
             }
             
-            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqPlaylistResults.count) {
+            platformSection(title: String(localized: "search_platform_qq"), source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqPlaylistResults.count) {
                 ForEach(viewModel.qqPlaylistResults.prefix(5)) { playlist in
                     playlistRow(playlist: playlist)
                 }
@@ -302,13 +302,13 @@ struct SearchView: View {
     
     private var dualAlbumsSections: some View {
         VStack(spacing: 20) {
-            platformSection(title: "网易云音乐", source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseAlbumResults.count) {
+            platformSection(title: String(localized: "search_platform_netease"), source: .netease, isLoading: viewModel.isNeteaseLoading, count: viewModel.neteaseAlbumResults.count) {
                 ForEach(viewModel.neteaseAlbumResults.prefix(5)) { album in
                     albumRow(album: album)
                 }
             }
             
-            platformSection(title: "QQ音乐", source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqAlbumResults.count) {
+            platformSection(title: String(localized: "search_platform_qq"), source: .qqmusic, isLoading: viewModel.isQQLoading, count: viewModel.qqAlbumResults.count) {
                 ForEach(viewModel.qqAlbumResults.prefix(5)) { album in
                     albumRow(album: album)
                 }
@@ -346,7 +346,7 @@ struct SearchView: View {
                         }
                     }) {
                         HStack(spacing: 4) {
-                            Text("查看全部")
+                            Text(LocalizedStringKey("view_all"))
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                             AsideIcon(icon: .chevronRight, size: 10, color: .asideTextSecondary)
                         }
@@ -367,7 +367,7 @@ struct SearchView: View {
                 }
                 .padding(.vertical, 20)
             } else if count == 0 {
-                Text("暂无结果")
+                Text(LocalizedStringKey("search_no_results"))
                     .font(.system(size: 13, design: .rounded))
                     .foregroundColor(.asideTextSecondary.opacity(0.6))
                     .padding(.horizontal, 24)
@@ -391,7 +391,7 @@ struct SearchView: View {
                 }) {
                     HStack(spacing: 6) {
                         AsideIcon(icon: .chevronLeft, size: 14, color: .asideTextPrimary)
-                        Text(source == .netease ? "网易云音乐" : "QQ音乐")
+                        Text(source == .netease ? String(localized: "search_platform_netease") : String(localized: "search_platform_qq"))
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(.asideTextPrimary)
                     }
@@ -550,12 +550,12 @@ struct SearchView: View {
                     
                     HStack(spacing: 8) {
                         if let albumSize = artist.albumSize, albumSize > 0 {
-                            Text("专辑: \(albumSize)")
+                            Text(String(format: String(localized: "search_album_count"), albumSize))
                                 .font(.rounded(size: 12, weight: .regular))
                                 .foregroundColor(.asideTextSecondary)
                         }
                         if let musicSize = artist.musicSize, musicSize > 0 {
-                            Text("歌曲: \(musicSize)")
+                            Text(String(format: String(localized: "search_song_count"), musicSize))
                                 .font(.rounded(size: 12, weight: .regular))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -598,7 +598,7 @@ struct SearchView: View {
                     
                     HStack(spacing: 8) {
                         if let trackCount = playlist.trackCount, trackCount > 0 {
-                            Text("\(trackCount)首")
+                            Text(String(format: String(localized: "search_track_count"), trackCount))
                                 .font(.rounded(size: 12, weight: .regular))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -652,7 +652,7 @@ struct SearchView: View {
                             .lineLimit(1)
                         
                         if let size = album.size, size > 0 {
-                            Text("\(size)首")
+                            Text(String(format: String(localized: "search_track_count"), size))
                                 .font(.rounded(size: 12, weight: .regular))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -746,7 +746,7 @@ struct SearchView: View {
                         .lineLimit(1)
                     
                     HStack(spacing: 4) {
-                        Text(mv.singerName ?? "未知歌手")
+                        Text(mv.singerName ?? String(localized: "search_unknown_artist"))
                             .font(.rounded(size: 12))
                             .foregroundColor(.asideTextSecondary)
                             .lineLimit(1)
@@ -755,7 +755,7 @@ struct SearchView: View {
                             Circle()
                                 .fill(Color.asideTextSecondary.opacity(0.3))
                                 .frame(width: 3, height: 3)
-                            Text(mv.playCountText + "播放")
+                            Text(mv.playCountText + String(localized: "search_play_count_suffix"))
                                 .font(.rounded(size: 11))
                                 .foregroundColor(.asideTextSecondary.opacity(0.6))
                         }
@@ -807,7 +807,7 @@ struct SearchView: View {
                 // 搜索历史
                 if !viewModel.searchHistory.isEmpty {
                     HStack {
-                        Text("搜索历史")
+                        Text(LocalizedStringKey("search_history"))
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(.asideTextSecondary)
                         
@@ -854,7 +854,7 @@ struct SearchView: View {
                 
                 // 热门搜索
                 if !viewModel.hotSearchItems.isEmpty {
-                    Text("热门搜索")
+                    Text(LocalizedStringKey("search_hot"))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(.asideTextSecondary)
                         .padding(.horizontal, 24)

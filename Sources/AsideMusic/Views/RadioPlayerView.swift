@@ -52,7 +52,7 @@ struct RadioPlayerView: View {
                         .foregroundColor(.asideTextSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
-                    Button("重试") {
+                    Button(String(localized: "radio_retry")) {
                         viewModel.fetchDetail()
                     }
                     .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -116,7 +116,7 @@ struct RadioPlayerView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text("电台播放")
+                Text("radio_playing")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                     .tracking(1)
@@ -244,7 +244,7 @@ struct RadioPlayerView: View {
 
             // 当前节目名称
             if let program = currentProgram {
-                Text(program.name ?? "未知节目")
+                Text(program.name ?? String(localized: "radio_unknown_program"))
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                     .lineLimit(2)
@@ -270,11 +270,11 @@ struct RadioPlayerView: View {
                     }
                 }
             } else if viewModel.isLoading {
-                Text("调频中...")
+                Text("radio_tuning")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             } else {
-                Text("暂无节目")
+                Text("radio_no_programs")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -323,7 +323,7 @@ struct RadioPlayerView: View {
             // 节目序号 — 使用电台总节目数
             if !viewModel.programs.isEmpty {
                 let total = viewModel.radioDetail?.programCount ?? viewModel.programs.count
-                Text("第 \(currentProgramIndex + 1) / \(total) 期")
+                Text(String(format: String(localized: "radio_episode_format"), currentProgramIndex + 1, total))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -418,7 +418,7 @@ struct RadioPlayerView: View {
                 Spacer()
                 VStack(spacing: 12) {
                     AsideIcon(icon: .micSlash, size: 44, color: .asideTextSecondary.opacity(0.3))
-                    Text("暂无节目")
+                    Text("radio_no_programs")
                         .font(.rounded(size: 15, weight: .medium))
                         .foregroundColor(.asideTextSecondary)
                 }
@@ -443,7 +443,7 @@ struct RadioPlayerView: View {
                             HStack(spacing: 8) {
                                 ProgressView()
                                     .scaleEffect(0.8)
-                                Text("加载更多...")
+                                Text("mv_loading_more")
                                     .font(.rounded(size: 13))
                                     .foregroundColor(.asideTextSecondary)
                             }
@@ -491,7 +491,7 @@ struct RadioPlayerView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(viewModel.radioDetail?.name ?? "节目列表")
+                    Text(viewModel.radioDetail?.name ?? String(localized: "radio_program_list"))
                         .font(.rounded(size: 17, weight: .bold))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)
@@ -515,14 +515,14 @@ struct RadioPlayerView: View {
                                 .frame(height: 10)
                             }
 
-                            Text(program.name ?? "未知节目")
+                            Text(program.name ?? String(localized: "radio_unknown_program"))
                                 .font(.rounded(size: 13))
                                 .foregroundColor(.asideTextSecondary)
                                 .lineLimit(1)
                         }
                     } else {
                         if let count = viewModel.radioDetail?.programCount {
-                            Text("共\(count)期节目")
+                            Text(String(format: String(localized: "radio_total_episodes"), count))
                                 .font(.rounded(size: 13))
                                 .foregroundColor(.asideTextSecondary)
                         }
@@ -533,7 +533,7 @@ struct RadioPlayerView: View {
 
                 // 节目总数胶囊
                 if let count = viewModel.radioDetail?.programCount {
-                    Text("\(count)期")
+                    Text(String(format: String(localized: "radio_episode_count"), count))
                         .font(.rounded(size: 12, weight: .medium))
                         .foregroundColor(.asideTextSecondary)
                         .padding(.horizontal, 10)
@@ -580,7 +580,7 @@ struct RadioPlayerView: View {
 
             // 节目信息
             VStack(alignment: .leading, spacing: 3) {
-                Text(program.name ?? "未知节目")
+                Text(program.name ?? String(localized: "radio_unknown_program"))
                     .font(.rounded(size: 15, weight: isCurrent ? .semibold : .regular))
                     .foregroundColor(isCurrent ? .asideAccentBlue : .asideTextPrimary)
                     .lineLimit(1)
@@ -595,7 +595,7 @@ struct RadioPlayerView: View {
                         Circle()
                             .fill(Color.asideTextSecondary.opacity(0.3))
                             .frame(width: 3, height: 3)
-                        Text("\(formatCount(listeners))播放")
+                        Text("\(formatCount(listeners))" + String(localized: "radio_play_suffix"))
                             .font(.rounded(size: 11))
                             .foregroundColor(.asideTextSecondary.opacity(0.7))
                     }
@@ -606,7 +606,7 @@ struct RadioPlayerView: View {
 
             // 右侧：当前播放标记 或 时长胶囊
             if isCurrent {
-                Text("播放中")
+                Text("radio_now_playing")
                     .font(.rounded(size: 10, weight: .semibold))
                     .foregroundColor(.asideAccentBlue)
                     .padding(.horizontal, 8)

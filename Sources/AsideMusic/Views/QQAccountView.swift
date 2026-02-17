@@ -84,7 +84,7 @@ struct QQAccountView: View {
             
             Spacer()
             
-            Text("QQ音乐")
+            Text(LocalizedStringKey("qq_account_title"))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.asideTextPrimary)
             
@@ -110,7 +110,7 @@ struct QQAccountView: View {
                 ProgressView()
                     .scaleEffect(1.3)
             }
-            Text("检查登录状态...")
+            Text(LocalizedStringKey("qq_checking_status"))
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
         }
@@ -163,7 +163,7 @@ struct QQAccountView: View {
             VStack(spacing: 10) {
                 // 昵称
                 HStack(spacing: 8) {
-                    Text(nickname ?? "QQ音乐用户")
+                    Text(nickname ?? NSLocalizedString("qq_user_default", comment: ""))
                         .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
                         .lineLimit(1)
@@ -199,7 +199,7 @@ struct QQAccountView: View {
                     Circle()
                         .fill(Color.asideAccentGreen)
                         .frame(width: 7, height: 7)
-                    Text("已连接")
+                    Text(LocalizedStringKey("qq_connected"))
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(.asideAccentGreen)
                 }
@@ -243,7 +243,7 @@ struct QQAccountView: View {
         VStack(spacing: 0) {
             detailRow(
                 icon: .profile,
-                title: "登录方式",
+                title: NSLocalizedString("qq_login_method", comment: ""),
                 trailing: AnyView(
                     Text(loginTypeText)
                         .font(.system(size: 14, weight: .regular, design: .rounded))
@@ -269,9 +269,9 @@ struct QQAccountView: View {
             
             detailRow(
                 icon: .sparkle,
-                title: "会员状态",
+                title: NSLocalizedString("qq_vip_status", comment: ""),
                 trailing: AnyView(
-                    Text(isSVIP ? "超级会员" : isVIP ? "绿钻会员" : "普通用户")
+                    Text(isSVIP ? NSLocalizedString("qq_svip", comment: "") : isVIP ? NSLocalizedString("qq_vip", comment: "") : NSLocalizedString("qq_normal_user", comment: ""))
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(isSVIP || isVIP ? .asideOrange : .asideTextSecondary)
                 )
@@ -311,10 +311,10 @@ struct QQAccountView: View {
     
     private var loginTypeText: String {
         switch loginType {
-        case 1: return "QQ 扫码"
-        case 2: return "微信扫码"
-        case 3: return "手机验证码"
-        default: return "未知"
+        case 1: return NSLocalizedString("qq_login_qq_scan", comment: "")
+        case 2: return NSLocalizedString("qq_login_wx_scan", comment: "")
+        case 3: return NSLocalizedString("qq_login_phone_code", comment: "")
+        default: return NSLocalizedString("qq_login_unknown", comment: "")
         }
     }
     
@@ -328,10 +328,10 @@ struct QQAccountView: View {
             }
             
             VStack(alignment: .leading, spacing: 2) {
-                Text("登录有效期约 3 天")
+                Text(LocalizedStringKey("qq_expiry_title"))
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
-                Text("过期后需重新扫码或验证码登录")
+                Text(LocalizedStringKey("qq_expiry_desc"))
                     .font(.system(size: 11, weight: .regular, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
             }
@@ -354,7 +354,7 @@ struct QQAccountView: View {
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 8) {
                     AsideIcon(icon: .refresh, size: 15, color: .asideIconForeground)
-                    Text("重新登录")
+                    Text(LocalizedStringKey("qq_relogin"))
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.asideIconForeground)
@@ -367,20 +367,20 @@ struct QQAccountView: View {
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             
             Button(action: { showLogoutConfirm = true }) {
-                Text("退出登录")
+                Text(LocalizedStringKey("qq_logout"))
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary.opacity(0.5))
             }
             .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
             .contentShape(Rectangle())
             .padding(.top, 4)
-            .alert("退出 QQ 音乐", isPresented: $showLogoutConfirm) {
-                Button("取消", role: .cancel) {}
-                Button("退出", role: .destructive) {
+            .alert(NSLocalizedString("qq_logout_title", comment: ""), isPresented: $showLogoutConfirm) {
+                Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) {}
+                Button(NSLocalizedString("alert_logout_confirm", comment: ""), role: .destructive) {
                     Task { await performLogout() }
                 }
             } message: {
-                Text("退出后将无法播放 QQ 音乐歌曲")
+                Text(LocalizedStringKey("qq_logout_message"))
             }
         }
     }
@@ -410,11 +410,11 @@ struct QQAccountView: View {
             Spacer().frame(height: 28)
             
             VStack(spacing: 10) {
-                Text("未登录 QQ 音乐")
+                Text(LocalizedStringKey("qq_not_logged_in"))
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
                 
-                Text("登录后可搜索和播放 QQ 音乐曲库中的歌曲")
+                Text(LocalizedStringKey("qq_not_logged_desc"))
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
                     .multilineTextAlignment(.center)
@@ -428,7 +428,7 @@ struct QQAccountView: View {
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 10) {
                     AsideIcon(icon: .qr, size: 18, color: .asideIconForeground)
-                    Text("登录 QQ 音乐")
+                    Text(LocalizedStringKey("qq_login_action"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.asideIconForeground)
@@ -452,11 +452,11 @@ struct QQAccountView: View {
     
     private var featureList: some View {
         VStack(spacing: 0) {
-            featureRow(icon: .search, title: "搜索 QQ 音乐曲库", subtitle: "千万首正版歌曲")
+            featureRow(icon: .search, title: NSLocalizedString("qq_feature_search", comment: ""), subtitle: NSLocalizedString("qq_feature_search_desc", comment: ""))
             Divider().padding(.leading, 56)
-            featureRow(icon: .play, title: "在线播放", subtitle: "支持多种音质")
+            featureRow(icon: .play, title: NSLocalizedString("qq_feature_play", comment: ""), subtitle: NSLocalizedString("qq_feature_play_desc", comment: ""))
             Divider().padding(.leading, 56)
-            featureRow(icon: .translate, title: "歌词同步", subtitle: "支持翻译歌词")
+            featureRow(icon: .translate, title: NSLocalizedString("qq_feature_lyrics", comment: ""), subtitle: NSLocalizedString("qq_feature_lyrics_desc", comment: ""))
         }
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
