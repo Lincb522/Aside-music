@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git",
       "state" : {
-        "revision" : "7d2f72012660d78a24a47c91c6defee20bc8f1b6",
-        "version" : "1.3.8"
+        "revision" : "b61b31ce581de752be675803830a9d0fbde2dc2e",
+        "version" : "1.3.9"
       }
     }
   ],
