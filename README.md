@@ -1,6 +1,8 @@
-<h1 align="center">
-  🎵 Aside Music
-</h1>
+<p align="center">
+  <img src="assets/icon.png" width="120" height="120" style="border-radius: 22px;" alt="Aside Music Icon" />
+</p>
+
+<h1 align="center">Aside Music</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-iOS%2017+-blue?logo=apple&logoColor=white" />
@@ -12,6 +14,17 @@
 
 <p align="center">
   基于 SwiftUI + FFmpeg 构建的 iOS 音乐播放器
+</p>
+
+---
+
+## 📸 截图
+
+<p align="center">
+  <img src="assets/screenshots/home.png" width="200" alt="首页" />
+  <img src="assets/screenshots/podcast.png" width="200" alt="播客" />
+  <img src="assets/screenshots/library.png" width="200" alt="音乐库" />
+  <img src="assets/screenshots/profile.png" width="200" alt="个人中心" />
 </p>
 
 ---
