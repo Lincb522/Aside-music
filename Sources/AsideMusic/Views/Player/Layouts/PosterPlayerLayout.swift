@@ -126,51 +126,51 @@ struct PosterPlayerLayout: View {
 // MARK: - 大字报顶栏
 extension PosterPlayerLayout {
     
-    /// 顶栏 — 无边框，纯文字风格
+    /// 顶栏 — 无边框，纯文字风格，左中右固定三栏布局
     private var posterTopBar: some View {
-        HStack(spacing: 0) {
-            // 返回 — 纯文字
-            Button(action: { dismiss() }) {
-                Text("返回")
-                    .font(.custom(posterFont, size: 16))
-                    .foregroundColor(fg)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            Spacer()
-            
-            // 音质 — 使用字魂字体
-            Button(action: { showQualitySheet = true }) {
-                Text(player.qualityButtonText)
-                    .font(.custom(posterFont, size: 12))
-                    .foregroundColor(bg)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(fg)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            if let info = player.streamInfo {
-                Text(streamInfoText(info))
-                    .font(.custom(posterFont, size: 10))
-                    .foregroundColor(muted)
-                    .padding(.leading, 8)
+        ZStack {
+            // 中间 — 音质 + 流信息，绝对居中
+            HStack(spacing: 8) {
+                Button(action: { showQualitySheet = true }) {
+                    Text(player.qualityButtonText)
+                        .font(.custom(posterFont, size: 12))
+                        .foregroundColor(bg)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(fg)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+                
+                if let info = player.streamInfo {
+                    Text(streamInfoText(info))
+                        .font(.custom(posterFont, size: 10))
+                        .foregroundColor(muted)
+                }
             }
             
-            Spacer()
-            
-            // 更多 — 纯文字
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
-            }) {
-                Text("更多")
-                    .font(.custom(posterFont, size: 16))
-                    .foregroundColor(fg)
-                    .contentShape(Rectangle())
+            // 左右两侧 — 固定在两端
+            HStack {
+                Button(action: { dismiss() }) {
+                    Text("返回")
+                        .font(.custom(posterFont, size: 16))
+                        .foregroundColor(fg)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+                
+                Spacer()
+                
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
+                }) {
+                    Text("更多")
+                        .font(.custom(posterFont, size: 16))
+                        .foregroundColor(fg)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
             }
-            .buttonStyle(AsideBouncingButtonStyle())
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -184,7 +184,6 @@ extension PosterPlayerLayout {
     private func bigTitleArea(geo: GeometryProxy) -> some View {
         let songName = player.currentSong?.name ?? "—"
         let artistName = player.currentSong?.artistName ?? ""
-        let availW = geo.size.width - 32
         
         return VStack(alignment: .leading, spacing: 0) {
             Spacer()
@@ -201,7 +200,7 @@ extension PosterPlayerLayout {
                 .lineSpacing(-8)
                 .minimumScaleFactor(0.3)
                 .lineLimit(5)
-                .frame(maxWidth: availW, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
@@ -211,7 +210,7 @@ extension PosterPlayerLayout {
             Rectangle()
                 .fill(accent)
                 .frame(height: 6)
-                .frame(maxWidth: availW)
+                .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
             
             // 歌手名 — 使用字魂字体，点击切换歌词
@@ -261,6 +260,7 @@ extension PosterPlayerLayout {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
     }
 }
@@ -268,7 +268,7 @@ extension PosterPlayerLayout {
 // MARK: - 控制条 — 无边框风格
 extension PosterPlayerLayout {
     
-    /// 底部控制 — 一行图标，无边框
+    /// 底部控制 — 一行图标，无边框，居中
     private var controlStrip: some View {
         HStack(spacing: 24) {
             // 播放模式
@@ -339,6 +339,7 @@ extension PosterPlayerLayout {
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
+        .frame(maxWidth: .infinity)
         .frame(height: 48)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)

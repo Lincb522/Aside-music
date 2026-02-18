@@ -8,7 +8,7 @@ struct ArtistDetailView: View {
     @ObservedObject var playerManager = PlayerManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var selectedTab = 0 // 0: 音乐, 1: 专辑, 2: 视频
+    @State private var selectedTab = 0 // 0: 音乐, 1: 专辑, 2: 视频, 3: 相似
     @State private var showFullDescription = false
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
@@ -91,6 +91,7 @@ struct ArtistDetailView: View {
         .onChange(of: selectedTab) { _, newTab in
             if newTab == 1 { viewModel.loadAlbums(artistId: artistId) }
             if newTab == 2 { viewModel.loadMVs(artistId: artistId) }
+            if newTab == 3 { viewModel.loadSimiArtists(artistId: artistId) }
         }
     }
 }
@@ -150,7 +151,7 @@ extension ArtistDetailView {
 
                 // 关注按钮
                 Button(action: { viewModel.toggleFollow(artistId: artistId) }) {
-                    Text(viewModel.isFollowed ? "已关注" : "关注")
+                    Text(LocalizedStringKey(viewModel.isFollowed ? "artist_followed" : "artist_follow"))
                         .font(.rounded(size: 14, weight: .semibold))
                         .foregroundColor(viewModel.isFollowed ? .asideTextSecondary : .asideIconForeground)
                         .padding(.horizontal, 20)
@@ -168,19 +169,19 @@ extension ArtistDetailView {
             // 粉丝数 + 简介
             HStack(spacing: 16) {
                 if viewModel.fansCount > 0 {
-                    Text(formatFansCount(viewModel.fansCount) + " 粉丝")
+                    Text(String(format: NSLocalizedString("artist_fans_count", comment: ""), formatFansCount(viewModel.fansCount)))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
 
                 if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
-                    Text("\(albumSize) 专辑")
+                    Text(String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
 
                 if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
-                    Text("\(musicSize) 歌曲")
+                    Text(String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize))
                         .font(.rounded(size: 13))
                         .foregroundColor(.asideTextSecondary)
                 }
@@ -208,7 +209,7 @@ extension ArtistDetailView {
                 }) {
                     HStack(spacing: 8) {
                         AsideIcon(icon: .play, size: 14, color: .asideIconForeground)
-                        Text("播放全部")
+                        Text(LocalizedStringKey("artist_play_all"))
                             .font(.rounded(size: 14, weight: .bold))
                             .foregroundColor(.asideIconForeground)
                     }
@@ -244,9 +245,10 @@ extension ArtistDetailView {
 
     private var tabBar: some View {
         HStack(spacing: 28) {
-            tabItem("音乐", index: 0)
-            tabItem("专辑", index: 1)
-            tabItem("视频", index: 2)
+            tabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0)
+            tabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1)
+            tabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2)
+            tabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3)
         }
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -282,6 +284,8 @@ extension ArtistDetailView {
             albumsTab
         case 2:
             mvsTab
+        case 3:
+            simiArtistsTab
         default:
             EmptyView()
         }
@@ -294,7 +298,7 @@ extension ArtistDetailView {
             if viewModel.isLoading && viewModel.songs.isEmpty {
                 loadingPlaceholder
             } else if viewModel.songs.isEmpty {
-                emptyPlaceholder("暂无歌曲")
+                emptyPlaceholder(NSLocalizedString("artist_no_songs", comment: ""))
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
@@ -325,7 +329,7 @@ extension ArtistDetailView {
             if viewModel.isLoadingAlbums && viewModel.albums.isEmpty {
                 loadingPlaceholder
             } else if viewModel.albums.isEmpty {
-                emptyPlaceholder("暂无专辑")
+                emptyPlaceholder(NSLocalizedString("artist_no_albums", comment: ""))
             } else {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.albums) { album in
@@ -401,7 +405,7 @@ extension ArtistDetailView {
             if viewModel.isLoadingMVs && viewModel.mvs.isEmpty {
                 loadingPlaceholder
             } else if viewModel.mvs.isEmpty {
-                emptyPlaceholder("暂无视频")
+                emptyPlaceholder(NSLocalizedString("artist_no_videos", comment: ""))
             } else {
                 let columns = [
                     GridItem(.flexible(), spacing: 14),
@@ -412,6 +416,56 @@ extension ArtistDetailView {
                         MVGridCard(mv: mv) {
                             selectedMV = MVIdItem(id: mv.id)
                         }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    // MARK: 相似歌手 Tab
+
+    private var simiArtistsTab: some View {
+        Group {
+            if viewModel.isLoadingSimi && viewModel.simiArtists.isEmpty {
+                loadingPlaceholder
+            } else if viewModel.simiArtists.isEmpty {
+                emptyPlaceholder(NSLocalizedString("artist_no_similar", comment: ""))
+            } else {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                LazyVGrid(columns: columns, spacing: 20) {
+                    ForEach(viewModel.simiArtists) { artist in
+                        Button(action: {
+                            selectedArtistId = artist.id
+                            showArtistDetail = true
+                        }) {
+                            VStack(spacing: 10) {
+                                if let coverUrl = artist.coverUrl?.sized(300) {
+                                    CachedAsyncImage(url: coverUrl) {
+                                        Circle().fill(Color.asideCardBackground)
+                                    }
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 90, height: 90)
+                                    .clipShape(Circle())
+                                } else {
+                                    Circle()
+                                        .fill(Color.asideCardBackground)
+                                        .frame(width: 90, height: 90)
+                                        .overlay(AsideIcon(icon: .personCircle, size: 32, color: .asideTextSecondary.opacity(0.3)))
+                                }
+                                
+                                Text(artist.name)
+                                    .font(.rounded(size: 13, weight: .medium))
+                                    .foregroundColor(.asideTextPrimary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                     }
                 }
                 .padding(.horizontal, 24)
@@ -480,7 +534,7 @@ struct ArtistBioSheet: View {
                         if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
                             HStack(spacing: 4) {
                                 AsideIcon(icon: .album, size: 12, color: .asideTextSecondary)
-                                Text("\(albumSize) 专辑")
+                                Text(String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize))
                             }
                             .font(.rounded(size: 12))
                             .foregroundColor(.asideTextSecondary)
@@ -488,7 +542,7 @@ struct ArtistBioSheet: View {
                         if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
                             HStack(spacing: 4) {
                                 AsideIcon(icon: .musicNote, size: 12, color: .asideTextSecondary)
-                                Text("\(musicSize) 歌曲")
+                                Text(String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize))
                             }
                             .font(.rounded(size: 12))
                             .foregroundColor(.asideTextSecondary)
@@ -597,7 +651,7 @@ struct ArtistBioSheet: View {
     private var noContentView: some View {
         VStack(spacing: 14) {
             AsideIcon(icon: .info, size: 36, color: .asideTextSecondary.opacity(0.3))
-            Text("暂无歌手简介")
+            Text(LocalizedStringKey("artist_no_bio"))
                 .font(.rounded(size: 15))
                 .foregroundColor(.asideTextSecondary)
         }

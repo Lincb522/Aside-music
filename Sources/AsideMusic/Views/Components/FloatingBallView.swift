@@ -91,20 +91,21 @@ struct FloatingBallView: View {
                 .frame(width: ballSize + 4, height: ballSize + 4)
         )
         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
-        .onTapGesture {
-            // 单击展开/收起面板
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                isPanelOpen.toggle()
-            }
-        }
-        .onLongPressGesture {
-            // 长按打开全屏播放器
-            openPlayer()
-        }
-        .simultaneousGesture(
-            TapGesture(count: 2).onEnded {
+        .contentShape(Circle())
+        .asideMultiGesture(
+            onTap: {
+                // 单击展开/收起面板
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    isPanelOpen.toggle()
+                }
+            },
+            onDoubleTap: {
                 // 双击播放/暂停
                 player.togglePlayPause()
+            },
+            onLongPress: {
+                // 长按打开全屏播放器
+                openPlayer()
             }
         )
     }

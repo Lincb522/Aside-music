@@ -45,8 +45,8 @@ public struct ContentView: View {
                 }
                 .ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.15), value: currentTab)
-                // 极简模式下添加滑动手势切换页面
-                .gesture(settings.floatingBarStyle == .minimal ? swipeGesture : nil)
+                // 极简模式和悬浮球模式下添加滑动手势切换页面
+                .gesture((settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall) ? swipeGesture : nil)
 
                 if !player.isTabBarHidden {
                     floatingBarView
