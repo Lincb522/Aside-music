@@ -377,24 +377,27 @@ struct KaraokeLineView: View {
         PlayerThemeManager.shared.currentTheme == .poster
     }
     
-    // 当前行字体 — 大字报用等宽粗体
+    // 字魂半天云魅黑手书字体
+    private let posterFont = "zihunbantianyunmeiheishoushu"
+    
+    // 当前行字体 — 大字报用字魂字体，更大
     private var currentLineFont: Font {
         isPoster
-            ? .system(size: 18, weight: .black, design: .monospaced)
+            ? .custom(posterFont, size: 28)
             : .rounded(size: 26, weight: .bold)
     }
     
-    // 非当前行字体 — 大字报用等宽中号
+    // 非当前行字体 — 大字报用字魂字体
     private var normalLineFont: Font {
         isPoster
-            ? .system(size: 14, weight: .bold, design: .monospaced)
+            ? .custom(posterFont, size: 16)
             : .rounded(size: 16, weight: .medium)
     }
     
-    // 翻译字体 — 大字报用等宽斜体
+    // 翻译字体 — 大字报用字魂字体
     private func translationFont(isCurrent: Bool) -> Font {
         isPoster
-            ? .system(size: isCurrent ? 13 : 11, weight: .medium, design: .monospaced).italic()
+            ? .custom(posterFont, size: isCurrent ? 16 : 12)
             : .rounded(size: isCurrent ? 15 : 13, weight: .regular)
     }
     
@@ -423,8 +426,8 @@ struct KaraokeLineView: View {
                         .font(translationFont(isCurrent: isCurrent))
                         .foregroundColor(transColor)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, isCurrent ? 8 : 0)
-                        .padding(.vertical, isCurrent ? 2 : 0)
+                        .padding(.horizontal, isCurrent ? 12 : 0)
+                        .padding(.vertical, isCurrent ? 6 : 0)
                         .background(isCurrent ? Color(hex: "FF0000").opacity(0.8) : .clear)
                 } else {
                     Text(trans)
@@ -443,14 +446,13 @@ struct KaraokeLineView: View {
     @ViewBuilder
     private var posterLyricContent: some View {
         if isCurrent && !line.text.trimmingCharacters(in: .whitespaces).isEmpty {
-            // 当前行 — 黑条贴左边缘，和屏幕左边连成一体
+            // 当前行 — 黑条贴左边缘，和屏幕左边连成一体，支持自动换行
             HStack(spacing: 0) {
                 currentPosterLine
                     .padding(.leading, 32)
-                    .padding(.trailing, 8)
-                    .padding(.vertical, 6)
+                    .padding(.trailing, 16)
+                    .padding(.vertical, 12)
                     .background(Color.asideTextPrimary)
-                    .fixedSize(horizontal: true, vertical: false)
                 
                 Spacer(minLength: 0)
             }
@@ -466,12 +468,12 @@ struct KaraokeLineView: View {
                 .font(normalLineFont)
                 .foregroundColor(.asideTextPrimary.opacity(0.15))
                 .tracking(1)
-                .lineLimit(1)
+                .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     
-    /// 大字报当前行内容 — 纯文字，不逐字
+    /// 大字报当前行内容 — 使用字魂字体，支持自动换行
     @ViewBuilder
     private var currentPosterLine: some View {
         // 大字报当前行：背景是 fg（深色=白，浅色=黑），文字需要反色
@@ -481,7 +483,8 @@ struct KaraokeLineView: View {
             .font(currentLineFont)
             .foregroundColor(invertedFg)
             .tracking(-1)
-            .lineLimit(1)
+            .lineSpacing(4)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
     

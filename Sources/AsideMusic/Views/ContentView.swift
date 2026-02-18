@@ -5,6 +5,7 @@ public struct ContentView: View {
     @State private var showWelcome = true
     @State private var currentTab: Tab = .home
     @ObservedObject var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
@@ -15,7 +16,7 @@ public struct ContentView: View {
 
     public init() {
         // TabBar 外观配置已在 AsideMusicApp.init() 中统一设置
-        UITabBar.appearance().isHidden = true
+        // 根据悬浮栏样式决定是否隐藏系统 TabBar
     }
 
     public var body: some View {
@@ -44,19 +45,17 @@ public struct ContentView: View {
                 }
                 .ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.15), value: currentTab)
+                // 极简模式下添加滑动手势切换页面
+                .gesture(settings.floatingBarStyle == .minimal ? swipeGesture : nil)
 
                 if !player.isTabBarHidden {
-                    VStack {
-                        Spacer()
-                        UnifiedFloatingBar(currentTab: $currentTab)
-                            .padding(.horizontal, 24)
-                            .padding(.bottom, 0)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(1)
+                    floatingBarView
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(1)
                 }
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: player.isTabBarHidden)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: settings.floatingBarStyle)
             .ignoresSafeArea(.keyboard)
             .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
                 showPersonalFM = true
@@ -110,6 +109,82 @@ public struct ContentView: View {
             }
         }
         // SwipeBackInjector 已在 AsideMusicApp 层注入
+        .onAppear {
+            updateTabBarVisibility()
+        }
+        .onChange(of: settings.floatingBarStyle) { _, _ in
+            updateTabBarVisibility()
+        }
+    }
+    
+    // MARK: - 悬浮栏视图
+    
+    @ViewBuilder
+    private var floatingBarView: some View {
+        switch settings.floatingBarStyle {
+        case .unified:
+            // 统一悬浮栏：MiniPlayer + TabBar 合一
+            VStack {
+                Spacer()
+                UnifiedFloatingBar(currentTab: $currentTab)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 0)
+            }
+            
+        case .classic:
+            // 经典模式：MiniPlayer + TabBar 合一，贴底不悬浮
+            ClassicFloatingBar(currentTab: $currentTab)
+            
+        case .minimal:
+            // 极简模式：仅 MiniPlayer
+            VStack {
+                Spacer()
+                MinimalMiniPlayer(currentTab: $currentTab)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+            }
+            
+        case .floatingBall:
+            // 悬浮球模式
+            FloatingBallView(currentTab: $currentTab)
+        }
+    }
+    
+    // MARK: - 滑动手势（极简模式）
+    
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                
+                let allTabs = Tab.allCases
+                guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+                
+                if value.translation.width < 0 {
+                    // 向左滑 -> 下一个 tab
+                    let nextIndex = currentIndex + 1
+                    if nextIndex < allTabs.count {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            currentTab = allTabs[nextIndex]
+                        }
+                    }
+                } else {
+                    // 向右滑 -> 上一个 tab
+                    let prevIndex = currentIndex - 1
+                    if prevIndex >= 0 {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            currentTab = allTabs[prevIndex]
+                        }
+                    }
+                }
+            }
+    }
+    
+    // MARK: - 更新 TabBar 可见性
+    
+    private func updateTabBarVisibility() {
+        // 经典模式使用自定义 TabBar，其他模式隐藏系统 TabBar
+        UITabBar.appearance().isHidden = true
     }
 }
 

@@ -15,6 +15,19 @@ final class SettingsManager: ObservableObject {
         }
     }
     
+    /// 悬浮栏样式
+    @AppStorage("floatingBarStyle") var floatingBarStyleRaw: String = FloatingBarStyle.unified.rawValue {
+        didSet {
+            objectWillChange.send()
+        }
+    }
+    
+    /// 悬浮栏样式（类型安全访问）
+    var floatingBarStyle: FloatingBarStyle {
+        get { FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .unified }
+        set { floatingBarStyleRaw = newValue.rawValue }
+    }
+    
     /// 主题模式: "system" 跟随系统, "light" 浅色, "dark" 深色
     @AppStorage("themeMode") var themeMode: String = "system" {
         didSet {

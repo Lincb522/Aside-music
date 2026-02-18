@@ -156,6 +156,12 @@ struct AsideIcon: View {
         
         // 听歌识曲图标（声波 + 音符）
         case audioWave
+        
+        // 悬浮栏样式图标
+        case layers       // 统一悬浮栏（层叠）
+        case tabBar       // 经典 TabBar
+        case minimalBar   // 极简模式
+        case floatingBall // 悬浮球
     }
     
     let icon: IconType
@@ -179,7 +185,7 @@ struct AsideIcon: View {
     
     private var shouldShowFill: Bool {
         switch icon {
-        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine, .filter, .microphone, .fmMode, .audioWave:
+        case .back, .close, .chevronRight, .chevronLeft, .xmark, .list, .more, .pause, .next, .previous, .shuffle, .refresh, .repeatMode, .repeatOne, .add, .playNext, .addToQueue, .waveform, .skipBack, .skipForward, .rewind15, .forward15, .playerDownload, .comment, .checkmark, .shrinkScreen, .expandScreen, .heartSlash, .equalizer, .immersive, .playerTheme, .catDefault, .catMusic, .catLife, .catEmotion, .catCreate, .catAcg, .catEntertain, .catTalkshow, .catBook, .catKnowledge, .catBusiness, .catHistory, .catNews, .catParenting, .catTravel, .catCrosstalk, .catFood, .catTech, .catPodcast, .catElectronic, .catStar, .catDrama, .catStory, .catOther, .catPublish, .emoji, .share, .logInfo, .logDebug, .logError, .logNetwork, .logSuccess, .arrowDownToLine, .filter, .microphone, .fmMode, .audioWave, .layers, .tabBar, .minimalBar, .floatingBall:
             return false
         default:
             return true
@@ -332,6 +338,10 @@ struct AsideIcon: View {
         case .microphone:   return AnyShape(MicrophonePath())
         case .fmMode:       return AnyShape(FMModePath())
         case .audioWave:    return AnyShape(AudioWavePath())
+        case .layers:       return AnyShape(LayersPath())
+        case .tabBar:       return AnyShape(TabBarPath())
+        case .minimalBar:   return AnyShape(MinimalBarPath())
+        case .floatingBall: return AnyShape(FloatingBallPath())
         }
     }
 }
@@ -2853,6 +2863,105 @@ private struct AudioWavePath: Shape {
         // 音符旗
         path.move(to: CGPoint(x: 18*s, y: 5*s))
         path.addCurve(to: CGPoint(x: 21*s, y: 8*s), control1: CGPoint(x: 20*s, y: 5*s), control2: CGPoint(x: 21*s, y: 6.5*s))
+        
+        return path
+    }
+}
+
+// 层叠图标：表示统一悬浮栏（MiniPlayer + TabBar 合一）
+private struct LayersPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 底层矩形
+        path.move(to: CGPoint(x: 4*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 18*s))
+        path.addLine(to: CGPoint(x: 20*s, y: 14*s))
+        path.addLine(to: CGPoint(x: 4*s, y: 14*s))
+        path.closeSubpath()
+        
+        // 中层矩形
+        path.move(to: CGPoint(x: 6*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 18*s, y: 8*s))
+        path.addLine(to: CGPoint(x: 6*s, y: 8*s))
+        path.closeSubpath()
+        
+        // 顶层矩形
+        path.move(to: CGPoint(x: 8*s, y: 6*s))
+        path.addLine(to: CGPoint(x: 16*s, y: 6*s))
+        
+        return path
+    }
+}
+
+// TabBar 图标：表示经典系统 TabBar
+private struct TabBarPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 底部栏框架
+        let barRect = CGRect(x: 3*s, y: 15*s, width: 18*s, height: 6*s)
+        path.addRoundedRect(in: barRect, cornerSize: CGSize(width: 2*s, height: 2*s))
+        
+        // 四个 tab 点
+        path.addEllipse(in: CGRect(x: 5*s, y: 17*s, width: 2*s, height: 2*s))
+        path.addEllipse(in: CGRect(x: 9*s, y: 17*s, width: 2*s, height: 2*s))
+        path.addEllipse(in: CGRect(x: 13*s, y: 17*s, width: 2*s, height: 2*s))
+        path.addEllipse(in: CGRect(x: 17*s, y: 17*s, width: 2*s, height: 2*s))
+        
+        // 上方内容区域
+        path.move(to: CGPoint(x: 5*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 5*s))
+        path.addLine(to: CGPoint(x: 19*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 5*s, y: 12*s))
+        path.closeSubpath()
+        
+        return path
+    }
+}
+
+// 极简栏图标：仅 MiniPlayer，无 TabBar
+private struct MinimalBarPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 单一悬浮条
+        let barRect = CGRect(x: 4*s, y: 10*s, width: 16*s, height: 4*s)
+        path.addRoundedRect(in: barRect, cornerSize: CGSize(width: 2*s, height: 2*s))
+        
+        // 播放按钮示意
+        path.move(to: CGPoint(x: 7*s, y: 11*s))
+        path.addLine(to: CGPoint(x: 9*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 7*s, y: 13*s))
+        path.closeSubpath()
+        
+        // 进度条
+        path.move(to: CGPoint(x: 11*s, y: 12*s))
+        path.addLine(to: CGPoint(x: 17*s, y: 12*s))
+        
+        return path
+    }
+}
+
+
+// 悬浮球图标：圆形 + 中心唱片 + 外圈进度
+private struct FloatingBallPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let s = rect.width / 24.0
+        
+        // 外圈
+        path.addEllipse(in: CGRect(x: 4*s, y: 4*s, width: 16*s, height: 16*s))
+        
+        // 内圈（唱片）
+        path.addEllipse(in: CGRect(x: 8*s, y: 8*s, width: 8*s, height: 8*s))
+        
+        // 中心点
+        path.addEllipse(in: CGRect(x: 11*s, y: 11*s, width: 2*s, height: 2*s))
         
         return path
     }

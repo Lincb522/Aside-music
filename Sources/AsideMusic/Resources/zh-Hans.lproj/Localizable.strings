@@ -240,6 +240,17 @@
 "settings_qq_account" = "QQ音乐账号";
 "settings_qq_logged_in" = "已登录";
 "settings_qq_not_logged_in" = "未登录，点击管理";
+"settings_floating_bar" = "悬浮栏样式";
+
+/* Floating Bar Styles */
+"floating_bar_unified" = "统一悬浮栏";
+"floating_bar_unified_desc" = "MiniPlayer 与 TabBar 合为一体";
+"floating_bar_classic" = "经典模式";
+"floating_bar_classic_desc" = "贴底不悬浮，传统布局";
+"floating_bar_minimal" = "极简模式";
+"floating_bar_minimal_desc" = "仅显示 MiniPlayer，手势切换页面";
+"floating_bar_ball" = "悬浮球";
+"floating_bar_ball_desc" = "黑胶唱片悬浮球，点击展开导航";
 
 /* Login - New */
 "login_subtitle" = "登录网易云音乐账号";

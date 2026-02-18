@@ -36,6 +36,9 @@ struct PosterPlayerLayout: View {
     private var muted: Color { fg.opacity(0.25) }
     private var border: Color { fg.opacity(0.15) }
     
+    // 字魂半天云魅黑手书字体
+    private let posterFont = "zihunbantianyunmeiheishoushu"
+    
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -123,31 +126,27 @@ struct PosterPlayerLayout: View {
 // MARK: - 大字报顶栏
 extension PosterPlayerLayout {
     
-    /// 顶栏 — 粗野主义：粗边框按钮、无圆角
+    /// 顶栏 — 无边框，纯文字风格
     private var posterTopBar: some View {
         HStack(spacing: 0) {
-            // 返回
+            // 返回 — 纯文字
             Button(action: { dismiss() }) {
-                Rectangle()
-                    .stroke(fg, lineWidth: 2)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        AsideIcon(icon: .chevronRight, size: 18, color: fg)
-                            .rotationEffect(.degrees(90))
-                    )
+                Text("返回")
+                    .font(.custom(posterFont, size: 16))
+                    .foregroundColor(fg)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
             Spacer()
             
-            // 音质 — 粗体标签
+            // 音质 — 使用字魂字体
             Button(action: { showQualitySheet = true }) {
                 Text(player.qualityButtonText)
-                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .font(.custom(posterFont, size: 12))
                     .foregroundColor(bg)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                     .background(fg)
                     .contentShape(Rectangle())
             }
@@ -155,23 +154,20 @@ extension PosterPlayerLayout {
             
             if let info = player.streamInfo {
                 Text(streamInfoText(info))
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .font(.custom(posterFont, size: 10))
                     .foregroundColor(muted)
                     .padding(.leading, 8)
             }
             
             Spacer()
             
-            // 更多
+            // 更多 — 纯文字
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
             }) {
-                Rectangle()
-                    .stroke(fg, lineWidth: 2)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        AsideIcon(icon: .more, size: 18, color: fg)
-                    )
+                Text("更多")
+                    .font(.custom(posterFont, size: 16))
+                    .foregroundColor(fg)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -197,9 +193,9 @@ extension PosterPlayerLayout {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
-            // 巨型歌名 — 自适应字号撑满宽度（点击切换歌词）
+            // 巨型歌名 — 使用字魂半天云魅黑手书字体（点击切换歌词）
             Text(songName)
-                .font(.system(size: 72, weight: .black, design: .default))
+                .font(.custom(posterFont, size: 72))
                 .foregroundColor(fg)
                 .tracking(-3)
                 .lineSpacing(-8)
@@ -211,16 +207,16 @@ extension PosterPlayerLayout {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
-            // 分隔粗线
+            // 分隔粗线 — 手写风格，更粗更有力
             Rectangle()
                 .fill(accent)
-                .frame(height: 4)
+                .frame(height: 6)
                 .frame(maxWidth: availW)
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
             
-            // 歌手名 — 点击切换歌词
+            // 歌手名 — 使用字魂字体，点击切换歌词
             Text(artistName.uppercased())
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .font(.custom(posterFont, size: 24))
                 .foregroundColor(muted)
                 .tracking(6)
                 .lineLimit(1)
@@ -237,8 +233,8 @@ extension PosterPlayerLayout {
                             .progressViewStyle(CircularProgressViewStyle(tint: fg))
                             .frame(width: 44, height: 40)
                     } else {
-                        Text(player.isPlaying ? "PAUSE" : "PLAY")
-                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                        Text(player.isPlaying ? "暂停" : "播放")
+                            .font(.custom(posterFont, size: 14))
                             .foregroundColor(bg)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
@@ -250,11 +246,11 @@ extension PosterPlayerLayout {
                 
                 // 时间
                 Text(formatTime(isDragging ? dragValue : player.currentTime))
-                    .font(.system(size: 32, weight: .black, design: .monospaced))
+                    .font(.custom(posterFont, size: 32))
                     .foregroundColor(fg)
                 +
                 Text(" / " + formatTime(player.duration))
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .font(.custom(posterFont, size: 16))
                     .foregroundColor(muted)
             }
             .padding(.top, 20)
@@ -269,132 +265,90 @@ extension PosterPlayerLayout {
     }
 }
 
-// MARK: - 控制条 — 粗野主义风格
+// MARK: - 控制条 — 无边框风格
 extension PosterPlayerLayout {
     
-    /// 底部控制 — 一行图标，粗边框分隔
+    /// 底部控制 — 一行图标，无边框
     private var controlStrip: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 24) {
             // 播放模式
-            controlCell {
-                Button(action: { player.switchMode() }) {
-                    AsideIcon(icon: player.mode.asideIcon, size: 18, color: fg)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
+            Button(action: { player.switchMode() }) {
+                AsideIcon(icon: player.mode.asideIcon, size: 22, color: fg)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            
-            divider
+            .buttonStyle(AsideBouncingButtonStyle())
             
             // 上一首
-            controlCell {
-                Button(action: { player.previous() }) {
-                    AsideIcon(icon: .previous, size: 22, color: fg)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
+            Button(action: { player.previous() }) {
+                AsideIcon(icon: .previous, size: 24, color: fg)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            
-            divider
+            .buttonStyle(AsideBouncingButtonStyle())
             
             // 喜欢
-            controlCell {
-                if let songId = player.currentSong?.id {
-                    LikeButton(songId: songId, size: 20, activeColor: accent, inactiveColor: fg)
-                }
+            if let songId = player.currentSong?.id {
+                LikeButton(songId: songId, size: 22, activeColor: accent, inactiveColor: fg)
             }
-            
-            divider
             
             // 下一首
-            controlCell {
-                Button(action: { player.next() }) {
-                    AsideIcon(icon: .next, size: 22, color: fg)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
+            Button(action: { player.next() }) {
+                AsideIcon(icon: .next, size: 24, color: fg)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            
-            divider
+            .buttonStyle(AsideBouncingButtonStyle())
             
             // 评论
-            controlCell {
-                Button(action: { showComments = true }) {
-                    AsideIcon(icon: .comment, size: 18, color: fg, lineWidth: 1.5)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(AsideBouncingButtonStyle())
+            Button(action: { showComments = true }) {
+                AsideIcon(icon: .comment, size: 22, color: fg, lineWidth: 1.5)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            
-            divider
+            .buttonStyle(AsideBouncingButtonStyle())
             
             // 下载
-            controlCell {
-                if let song = player.currentSong {
-                    Button(action: {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            if song.isQQMusic {
-                                downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
-                            } else {
-                                downloadManager.download(song: song, quality: player.soundQuality)
-                            }
+            if let song = player.currentSong {
+                Button(action: {
+                    if !downloadManager.isDownloaded(songId: song.id) {
+                        if song.isQQMusic {
+                            downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
+                        } else {
+                            downloadManager.download(song: song, quality: player.soundQuality)
                         }
-                    }) {
-                        AsideIcon(
-                            icon: .playerDownload, size: 18,
-                            color: downloadManager.isDownloaded(songId: song.id) ? accent : fg,
-                            lineWidth: 1.5
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
                     }
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
-                    .buttonStyle(AsideBouncingButtonStyle())
+                }) {
+                    AsideIcon(
+                        icon: .playerDownload, size: 22,
+                        color: downloadManager.isDownloaded(songId: song.id) ? accent : fg,
+                        lineWidth: 1.5
+                    )
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
-            }
-            
-            divider
-            
-            // 播放列表
-            controlCell {
-                Button(action: { showPlaylist = true }) {
-                    AsideIcon(icon: .list, size: 18, color: fg)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
+                .disabled(downloadManager.isDownloaded(songId: song.id))
                 .buttonStyle(AsideBouncingButtonStyle())
             }
+            
+            // 播放列表
+            Button(action: { showPlaylist = true }) {
+                AsideIcon(icon: .list, size: 22, color: fg)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(AsideBouncingButtonStyle())
         }
         .frame(height: 48)
-        .overlay(
-            Rectangle().stroke(fg, lineWidth: 2)
-        )
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-    }
-    
-    /// 单个控制格子
-    private func controlCell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    /// 竖线分隔
-    private var divider: some View {
-        Rectangle()
-            .fill(fg)
-            .frame(width: 2)
     }
 }
 
 // MARK: - 进度线
 extension PosterPlayerLayout {
     
-    /// 底部进度线 — 全宽细线，红色已播放
+    /// 底部进度线 — 更粗，贴合手写风格
     private func progressLine(width: CGFloat) -> some View {
         let progress = player.duration > 0
             ? (isDragging ? dragValue : player.currentTime) / player.duration
@@ -404,11 +358,11 @@ extension PosterPlayerLayout {
             ZStack(alignment: .leading) {
                 Rectangle()
                     .fill(border)
-                    .frame(height: 3)
+                    .frame(height: 6)
                 
                 Rectangle()
                     .fill(accent)
-                    .frame(width: max(3, geo.size.width * CGFloat(min(max(progress, 0), 1))), height: 3)
+                    .frame(width: max(6, geo.size.width * CGFloat(min(max(progress, 0), 1))), height: 6)
             }
             .contentShape(Rectangle().inset(by: -20))
             .gesture(
@@ -423,7 +377,7 @@ extension PosterPlayerLayout {
                     }
             )
         }
-        .frame(height: 3)
+        .frame(height: 6)
         .padding(.horizontal, 16)
     }
 }
@@ -431,25 +385,22 @@ extension PosterPlayerLayout {
 // MARK: - 歌词模式
 extension PosterPlayerLayout {
     
-    /// 歌词顶栏
+    /// 歌词顶栏 — 无边框，纯文字风格
     private var lyricsTopBar: some View {
         HStack {
             Button(action: { dismiss() }) {
-                Rectangle()
-                    .stroke(fg, lineWidth: 2)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        AsideIcon(icon: .chevronRight, size: 18, color: fg)
-                            .rotationEffect(.degrees(90))
-                    )
+                Text("返回")
+                    .font(.custom(posterFont, size: 16))
+                    .foregroundColor(fg)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
             Spacer()
             
-            // 歌名 — 粗体
+            // 歌名 — 使用字魂字体
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 14, weight: .black, design: .monospaced))
+                .font(.custom(posterFont, size: 14))
                 .foregroundColor(fg)
                 .lineLimit(1)
             
@@ -458,12 +409,10 @@ extension PosterPlayerLayout {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
             }) {
-                Rectangle()
-                    .stroke(fg, lineWidth: 2)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        AsideIcon(icon: .more, size: 18, color: fg)
-                    )
+                Text("更多")
+                    .font(.custom(posterFont, size: 16))
+                    .foregroundColor(fg)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
@@ -479,8 +428,8 @@ extension PosterPlayerLayout {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = false }
                 })
             } else {
-                Text("NO LYRICS")
-                    .font(.system(size: 48, weight: .black, design: .monospaced))
+                Text("暂无歌词")
+                    .font(.custom(posterFont, size: 48))
                     .foregroundColor(muted)
             }
         }

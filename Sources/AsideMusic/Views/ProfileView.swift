@@ -124,7 +124,7 @@ struct ProfileView: View {
                         
                         Color.clear.frame(height: 100)
                     }
-                    .padding(.top, DeviceLayout.headerTopPadding + 100)
+                    .padding(.top, DeviceLayout.headerTopPadding)
                 }
             }
             .navigationBarHidden(true)

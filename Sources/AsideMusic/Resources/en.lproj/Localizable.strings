@@ -240,6 +240,17 @@
 "settings_qq_account" = "QQ Music Account";
 "settings_qq_logged_in" = "Logged In";
 "settings_qq_not_logged_in" = "Not logged in, tap to manage";
+"settings_floating_bar" = "Floating Bar Style";
+
+/* Floating Bar Styles */
+"floating_bar_unified" = "Unified Bar";
+"floating_bar_unified_desc" = "MiniPlayer and TabBar combined";
+"floating_bar_classic" = "Classic Mode";
+"floating_bar_classic_desc" = "Bottom-docked, traditional layout";
+"floating_bar_minimal" = "Minimal Mode";
+"floating_bar_minimal_desc" = "MiniPlayer only, swipe to switch tabs";
+"floating_bar_ball" = "Floating Ball";
+"floating_bar_ball_desc" = "Vinyl floating ball, tap to expand navigation";
 
 /* Login - New */
 "login_subtitle" = "Log in to NetEase Cloud Music";

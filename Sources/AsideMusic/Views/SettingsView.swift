@@ -117,6 +117,18 @@ struct SettingsView: View {
                     subtitle: String(localized: "settings_liquid_glass_desc"),
                     isOn: $settings.liquidGlassEnabled
                 )
+                
+                Divider()
+                    .padding(.leading, 56)
+                
+                SettingsFloatingBarRow(
+                    icon: .layers,
+                    title: String(localized: "settings_floating_bar"),
+                    selection: Binding(
+                        get: { settings.floatingBarStyle },
+                        set: { settings.floatingBarStyle = $0 }
+                    )
+                )
             }
         }
     }
@@ -733,6 +745,74 @@ struct SettingsThemeRow: View {
                                       : Color.asideSeparator)
                         )
                         .foregroundColor(selection == option.key
+                                         ? Color.asideIconForeground
+                                         : Color.asideTextSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+}
+
+// MARK: - 悬浮栏样式选择行
+
+struct SettingsFloatingBarRow: View {
+    let icon: AsideIcon.IconType
+    let title: String
+    @Binding var selection: FloatingBarStyle
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.asideIconBackground)
+                        .frame(width: 32, height: 32)
+
+                    AsideIcon(icon: icon, size: 16, color: .asideIconForeground)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
+                    
+                    Text(selection.description)
+                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .foregroundColor(.asideTextSecondary)
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                ForEach(FloatingBarStyle.allCases) { style in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selection = style
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            AsideIcon(
+                                icon: style.iconType,
+                                size: 20,
+                                color: selection == style ? .asideIconForeground : .asideTextSecondary
+                            )
+                            Text(style.displayName)
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(selection == style
+                                      ? Color.asideIconBackground
+                                      : Color.asideSeparator)
+                        )
+                        .foregroundColor(selection == style
                                          ? Color.asideIconForeground
                                          : Color.asideTextSecondary)
                     }
