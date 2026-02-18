@@ -23,6 +23,12 @@ DerivedData/
 *.dSYM
 *.xcarchive
 
+# Crash reports
+*.ips
+
+# Misc
+*.css
+
 # Logs
 *.log
 
