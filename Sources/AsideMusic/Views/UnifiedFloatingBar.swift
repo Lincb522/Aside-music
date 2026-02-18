@@ -140,7 +140,9 @@ struct ProgressBarView: View {
                     .fill(Color.gray.opacity(0.1))
                     .frame(height: 3)
                 
-                let progress = player.duration > 0 ? player.currentTime / player.duration : 0
+                // 限制进度在 0...1 范围内，防止超出
+                let rawProgress = player.duration > 0 ? player.currentTime / player.duration : 0
+                let progress = min(max(rawProgress, 0), 1)
                 Capsule()
                     .fill(Color.asideIconBackground)
                     .frame(width: geometry.size.width * CGFloat(progress), height: 3)
