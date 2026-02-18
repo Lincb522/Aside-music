@@ -16,16 +16,14 @@ extension PlayerManager {
             return
         }
         
-        // 将新 context 中不存在的歌曲追加到现有播放列表
-        let existingIds = Set(self.context.map { $0.id })
-        let newSongs = context.filter { !existingIds.contains($0.id) }
-        self.context.append(contentsOf: newSongs)
-        
+        // 替换为新的播放列表
+        self.context = context
         self.playSource = .normal
         
-        if let index = context.firstIndex(where: { $0.id == song.id }) {
+        if let index = self.context.firstIndex(where: { $0.id == song.id }) {
             self.contextIndex = index
         } else {
+            // 歌曲不在列表中，插入到开头
             self.context.insert(song, at: 0)
             self.contextIndex = 0
         }
@@ -132,17 +130,22 @@ extension PlayerManager {
         let userQueueCount = userQueue.count
         
         if index < userQueueCount {
+            // 从 userQueue 中移除
             userQueue.remove(at: index)
         } else {
-            let contextListIndex = contextIndex + 1 + (index - userQueueCount)
-            let list = currentContextList
+            // 从 context 后续列表中移除
+            // upcomingSongs 的 context 部分已经过滤掉了 userQueue 中的歌
+            // 需要找到实际对应的歌曲再从 context 中删除
+            let queueIds = Set(userQueue.map { $0.id })
+            let contextRemaining = Array(currentContextList.dropFirst(contextIndex + 1))
+                .filter { !queueIds.contains($0.id) }
+            let remainingIndex = index - userQueueCount
             
-            if contextListIndex >= 0 && contextListIndex < list.count {
-                let songToRemove = list[contextListIndex]
-                context.removeAll { $0.id == songToRemove.id }
-                if mode == .shuffle {
-                    shuffledContext.removeAll { $0.id == songToRemove.id }
-                }
+            guard remainingIndex >= 0 && remainingIndex < contextRemaining.count else { return }
+            let songToRemove = contextRemaining[remainingIndex]
+            context.removeAll { $0.id == songToRemove.id }
+            if mode == .shuffle {
+                shuffledContext.removeAll { $0.id == songToRemove.id }
             }
         }
         saveState()
@@ -154,22 +157,27 @@ extension PlayerManager {
             return
         }
         
+        // 优先从 userQueue 中取
         if let queueIndex = userQueue.firstIndex(where: { $0.id == song.id }) {
             userQueue.remove(at: queueIndex)
-            if let contextListIndex = currentContextList.firstIndex(where: { $0.id == song.id }) {
-                contextIndex = contextListIndex
-            }
-            loadAndPlay(song: song)
-            return
         }
         
+        // 在当前播放列表中找到这首歌
         if let contextListIndex = currentContextList.firstIndex(where: { $0.id == song.id }) {
             contextIndex = contextListIndex
             loadAndPlay(song: song)
             return
         }
         
-        playSingle(song: song)
+        // 歌曲不在当前列表中（比如从历史记录播放），插入到当前位置之后
+        let insertIndex = min(contextIndex + 1, context.count)
+        context.insert(song, at: insertIndex)
+        if mode == .shuffle {
+            let shuffleInsert = min(contextIndex + 1, shuffledContext.count)
+            shuffledContext.insert(song, at: shuffleInsert)
+        }
+        contextIndex = insertIndex
+        loadAndPlay(song: song)
     }
     
     func isInUserQueue(song: Song) -> Bool {

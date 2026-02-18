@@ -166,7 +166,7 @@ class PlayerManager: ObservableObject {
     
     // MARK: - Queue System
     @Published var context: [Song] = []
-    @Published var contextIndex: Int = -1
+    @Published var contextIndex: Int = 0
     @Published var shuffledContext: [Song] = []
     @Published var userQueue: [Song] = []
     @Published var history: [Song] = []
@@ -235,8 +235,11 @@ class PlayerManager: ObservableObject {
     }
     
     var upcomingSongs: [Song] {
-        let contextRemaining = currentContextList.dropFirst(contextIndex + 1)
-        return userQueue + contextRemaining
+        let contextRemaining = Array(currentContextList.dropFirst(contextIndex + 1))
+        // userQueue 中的歌优先显示，context 后续列表去掉 userQueue 中已有的
+        let queueIds = Set(userQueue.map { $0.id })
+        let filteredRemaining = contextRemaining.filter { !queueIds.contains($0.id) }
+        return userQueue + filteredRemaining
     }
     
     /// 当前音质按钮显示文字（根据歌曲来源区分）
@@ -257,8 +260,8 @@ class PlayerManager: ObservableObject {
         setupRemoteCommands()
         setupStreamPlayerDelegate()
         startTimeUpdateTimer()
-        fetchHistory()
         restoreState()
+        fetchHistory()
         // 恢复变调设置
         let savedPitch = UserDefaults.standard.float(forKey: "aside_pitch_semitones")
         if savedPitch != 0 {

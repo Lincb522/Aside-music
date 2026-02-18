@@ -35,10 +35,16 @@ class LyricViewModel: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private var translations: [TimeInterval: String] = [:]
+    /// 当前歌词请求的会话 ID，防止旧请求回调覆盖新歌词
+    private var lyricSessionId: Int = 0
     
     func fetchLyrics(for songId: Int) {
         // 如果已经加载了同一首歌的歌词且有内容，跳过
         guard songId != currentSongId || (!hasLyrics && !isLoading) else { return }
+        
+        lyricSessionId += 1
+        let sessionId = lyricSessionId
+        
         currentSongId = songId
         isLoading = true
         lyrics = []
@@ -49,14 +55,15 @@ class LyricViewModel: ObservableObject {
         
         APIService.shared.fetchLyric(id: songId)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self = self, self.lyricSessionId == sessionId else { return }
                 if case .failure(let error) = completion {
                     AppLogger.error("Failed to fetch lyrics: \(error)")
-                    self?.isLoading = false
+                    self.isLoading = false
                     // 请求失败时清除 currentSongId，允许下次重试
-                    self?.currentSongId = nil
+                    self.currentSongId = nil
                 }
             }, receiveValue: { [weak self] response in
-                guard let self = self else { return }
+                guard let self = self, self.lyricSessionId == sessionId else { return }
                 
                 if let tlyric = response.tlyric?.lyric {
                     self.parseTranslations(tlyric)
@@ -81,6 +88,10 @@ class LyricViewModel: ObservableObject {
     func fetchQQLyrics(mid: String, songId: Int) {
         // 用 songId 做去重标识
         guard songId != currentSongId || (!hasLyrics && !isLoading) else { return }
+        
+        lyricSessionId += 1
+        let sessionId = lyricSessionId
+        
         currentSongId = songId
         isLoading = true
         lyrics = []
@@ -91,14 +102,15 @@ class LyricViewModel: ObservableObject {
         
         APIService.shared.fetchQQLyric(mid: mid)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self = self, self.lyricSessionId == sessionId else { return }
                 if case .failure(let error) = completion {
                     AppLogger.error("[QQMusic] 获取歌词失败: \(error)")
-                    self?.isLoading = false
+                    self.isLoading = false
                     // 请求失败时清除 currentSongId，允许下次重试
-                    self?.currentSongId = nil
+                    self.currentSongId = nil
                 }
             }, receiveValue: { [weak self] response in
-                guard let self = self else { return }
+                guard let self = self, self.lyricSessionId == sessionId else { return }
                 
                 if let trans = response.trans {
                     self.parseTranslations(trans)
@@ -657,9 +669,13 @@ struct LyricsView: View {
             }
         }
         .onAppear {
-            // 确保歌词已加载（如果还没加载的话）
+            // 确保歌词已加载（如果还没加载的话），区分来源
             if viewModel.currentSongId != song.id {
-                viewModel.fetchLyrics(for: song.id)
+                if song.isQQMusic, let mid = song.qqMid {
+                    viewModel.fetchQQLyrics(mid: mid, songId: song.id)
+                } else {
+                    viewModel.fetchLyrics(for: song.id)
+                }
             }
         }
     }

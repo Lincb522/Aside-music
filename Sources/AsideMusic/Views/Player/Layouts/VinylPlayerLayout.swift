@@ -116,7 +116,11 @@ struct VinylPlayerLayout: View {
             lastSongId = player.currentSong?.id
             // 预加载歌词，确保切换到歌词视图时已准备好
             if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                lyricVM.fetchLyrics(for: song.id)
+                if song.isQQMusic, let mid = song.qqMid {
+                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
+                } else {
+                    lyricVM.fetchLyrics(for: song.id)
+                }
             }
         }
         .onChange(of: player.isPlaying) { _, _ in

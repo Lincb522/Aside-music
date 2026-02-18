@@ -594,6 +594,9 @@ extension PixelPlayerLayout {
                     .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
                         withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
                     }
+                    .onAppear {
+                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
+                    }
                 }
             } else {
                 Spacer()

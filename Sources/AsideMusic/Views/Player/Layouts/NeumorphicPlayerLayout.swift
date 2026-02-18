@@ -112,7 +112,11 @@ struct NeumorphicPlayerLayout: View {
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { isAppeared = true }
             if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                lyricVM.fetchLyrics(for: song.id)
+                if song.isQQMusic, let mid = song.qqMid {
+                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
+                } else {
+                    lyricVM.fetchLyrics(for: song.id)
+                }
             }
         }
         .sheet(isPresented: $showPlaylist) {

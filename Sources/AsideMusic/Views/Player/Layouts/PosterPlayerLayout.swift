@@ -56,6 +56,7 @@ struct PosterPlayerLayout: View {
                         
                         progressLine(width: geo.size.width)
                     }
+                    .frame(width: geo.size.width, alignment: .center)
                     .transition(.opacity)
                 } else {
                     // 大字报主体
@@ -73,6 +74,7 @@ struct PosterPlayerLayout: View {
                         progressLine(width: geo.size.width)
                             .padding(.bottom, DeviceLayout.playerBottomPadding)
                     }
+                    .frame(width: geo.size.width, alignment: .center)
                     .transition(.opacity)
                 }
                 
@@ -90,7 +92,11 @@ struct PosterPlayerLayout: View {
         .onAppear {
             withAnimation(.easeOut(duration: 0.2)) { isAppeared = true }
             if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                lyricVM.fetchLyrics(for: song.id)
+                if song.isQQMusic, let mid = song.qqMid {
+                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
+                } else {
+                    lyricVM.fetchLyrics(for: song.id)
+                }
             }
         }
         .sheet(isPresented: $showPlaylist) {
@@ -187,12 +193,13 @@ extension PosterPlayerLayout {
         
         return VStack(alignment: .leading, spacing: 0) {
             Spacer()
+                .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
-            // 巨型歌名 — 使用字魂半天云魅黑手书字体（点击切换歌词）
+            // 巨型歌名
             Text(songName)
                 .font(.custom(posterFont, size: 72))
                 .foregroundColor(fg)
@@ -206,25 +213,25 @@ extension PosterPlayerLayout {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
-            // 分隔粗线 — 手写风格，更粗更有力
+            // 分隔粗线
             Rectangle()
                 .fill(accent)
                 .frame(height: 6)
-                .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
             
-            // 歌手名 — 使用字魂字体，点击切换歌词
+            // 歌手名
             Text(artistName.uppercased())
                 .font(.custom(posterFont, size: 24))
                 .foregroundColor(muted)
                 .tracking(6)
                 .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
-            // 播放/暂停 — 嵌在文字区域内，用文字表达
+            // 播放/暂停
             HStack(spacing: 16) {
                 Button(action: { player.togglePlayPause() }) {
                     if player.isLoading {
@@ -255,12 +262,12 @@ extension PosterPlayerLayout {
             .padding(.top, 20)
             
             Spacer()
+                .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
     }
 }
@@ -268,9 +275,9 @@ extension PosterPlayerLayout {
 // MARK: - 控制条 — 无边框风格
 extension PosterPlayerLayout {
     
-    /// 底部控制 — 一行图标，无边框，居中
+    /// 底部控制 — 精简五个核心按钮，均匀分布
     private var controlStrip: some View {
-        HStack(spacing: 24) {
+        HStack {
             // 播放模式
             Button(action: { player.switchMode() }) {
                 AsideIcon(icon: player.mode.asideIcon, size: 22, color: fg)
@@ -278,6 +285,8 @@ extension PosterPlayerLayout {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
+            
+            Spacer()
             
             // 上一首
             Button(action: { player.previous() }) {
@@ -287,10 +296,14 @@ extension PosterPlayerLayout {
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
+            Spacer()
+            
             // 喜欢
             if let songId = player.currentSong?.id {
                 LikeButton(songId: songId, size: 22, activeColor: accent, inactiveColor: fg)
             }
+            
+            Spacer()
             
             // 下一首
             Button(action: { player.next() }) {
@@ -300,36 +313,7 @@ extension PosterPlayerLayout {
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
-            // 评论
-            Button(action: { showComments = true }) {
-                AsideIcon(icon: .comment, size: 22, color: fg, lineWidth: 1.5)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            // 下载
-            if let song = player.currentSong {
-                Button(action: {
-                    if !downloadManager.isDownloaded(songId: song.id) {
-                        if song.isQQMusic {
-                            downloadManager.downloadQQ(song: song, quality: player.qqMusicQuality)
-                        } else {
-                            downloadManager.download(song: song, quality: player.soundQuality)
-                        }
-                    }
-                }) {
-                    AsideIcon(
-                        icon: .playerDownload, size: 22,
-                        color: downloadManager.isDownloaded(songId: song.id) ? accent : fg,
-                        lineWidth: 1.5
-                    )
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-                }
-                .disabled(downloadManager.isDownloaded(songId: song.id))
-                .buttonStyle(AsideBouncingButtonStyle())
-            }
+            Spacer()
             
             // 播放列表
             Button(action: { showPlaylist = true }) {
@@ -339,7 +323,6 @@ extension PosterPlayerLayout {
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
-        .frame(maxWidth: .infinity)
         .frame(height: 48)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -355,7 +338,8 @@ extension PosterPlayerLayout {
             ? (isDragging ? dragValue : player.currentTime) / player.duration
             : 0
         
-        return GeometryReader { geo in
+        return GeometryReader { barGeo in
+            let barWidth = barGeo.size.width
             ZStack(alignment: .leading) {
                 Rectangle()
                     .fill(border)
@@ -363,18 +347,18 @@ extension PosterPlayerLayout {
                 
                 Rectangle()
                     .fill(accent)
-                    .frame(width: max(6, geo.size.width * CGFloat(min(max(progress, 0), 1))), height: 6)
+                    .frame(width: max(6, barWidth * CGFloat(min(max(progress, 0), 1))), height: 6)
             }
             .contentShape(Rectangle().inset(by: -20))
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         isDragging = true
-                        dragValue = min(max(value.location.x / geo.size.width, 0), 1) * player.duration
+                        dragValue = min(max(value.location.x / barWidth, 0), 1) * player.duration
                     }
                     .onEnded { value in
                         isDragging = false
-                        player.seek(to: min(max(value.location.x / geo.size.width, 0), 1) * player.duration)
+                        player.seek(to: min(max(value.location.x / barWidth, 0), 1) * player.duration)
                     }
             )
         }

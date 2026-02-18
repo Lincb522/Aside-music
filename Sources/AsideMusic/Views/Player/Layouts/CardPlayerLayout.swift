@@ -107,7 +107,11 @@ struct CardPlayerLayout: View {
         extractColors()
         withAnimation(.easeOut(duration: 0.6)) { isAppeared = true }
         if let song = player.currentSong, lyricVM.currentSongId != song.id {
-            lyricVM.fetchLyrics(for: song.id)
+            if song.isQQMusic, let mid = song.qqMid {
+                lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
+            } else {
+                lyricVM.fetchLyrics(for: song.id)
+            }
         }
     }
 }
@@ -302,6 +306,9 @@ extension CardPlayerLayout {
                     }
                     .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
                         withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
+                    }
+                    .onAppear {
+                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
                     }
                 }
             } else {

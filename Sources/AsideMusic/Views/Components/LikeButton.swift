@@ -34,6 +34,8 @@ struct LikeButton: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: likeManager.isLiked(id: songId))

@@ -12,6 +12,26 @@ extension PlayerManager {
     
     // MARK: - Internal Methods
     
+    /// 根据歌曲来源获取歌词（统一入口，避免重复判断）
+    func fetchLyricsForSong(_ song: Song) {
+        if song.isQQMusic, let mid = song.qqMid {
+            LyricViewModel.shared.fetchQQLyrics(mid: mid, songId: song.id)
+        } else {
+            LyricViewModel.shared.fetchLyrics(for: song.id)
+        }
+    }
+    
+    /// 根据歌曲来源加载副歌时间和动态封面（仅网易云）
+    func loadSongExtras(for song: Song) {
+        chorusStartTime = nil
+        chorusEndTime = nil
+        dynamicCoverUrl = nil
+        if !song.isQQMusic {
+            loadChorusTime(songId: song.id)
+            loadDynamicCover(songId: song.id)
+        }
+    }
+    
     func generateShuffledContext() {
         guard let current = currentSong else {
             shuffledContext = context.shuffled()
@@ -76,7 +96,8 @@ extension PlayerManager {
         
         // 立即更新 UI（SDK 已经在播放下一首了）
         currentSong = song
-        LyricViewModel.shared.fetchLyrics(for: song.id)
+        fetchLyricsForSong(song)
+        loadSongExtras(for: song)
         addToHistory(song: song)
         saveState()
         updateNowPlayingInfo()
@@ -121,7 +142,8 @@ extension PlayerManager {
         // 更新 UI
         currentSong = song
         currentTime = 0
-        LyricViewModel.shared.fetchLyrics(for: song.id)
+        fetchLyricsForSong(song)
+        loadSongExtras(for: song)
         addToHistory(song: song)
         saveState()
         updateNowPlayingInfo()
@@ -215,20 +237,10 @@ extension PlayerManager {
         saveState()
         
         // 全局歌词获取（根据来源选择不同歌词接口）
-        if song.isQQMusic, let mid = song.qqMid {
-            LyricViewModel.shared.fetchQQLyrics(mid: mid, songId: song.id)
-        } else {
-            LyricViewModel.shared.fetchLyrics(for: song.id)
-        }
+        fetchLyricsForSong(song)
         
-        // 加载副歌时间（仅网易云歌曲）
-        chorusStartTime = nil
-        chorusEndTime = nil
-        dynamicCoverUrl = nil
-        if !song.isQQMusic {
-            loadChorusTime(songId: song.id)
-            loadDynamicCover(songId: song.id)
-        }
+        // 加载副歌时间和动态封面
+        loadSongExtras(for: song)
         
         // 上报听歌记录到网易云（仅网易云歌曲）
         if !song.isQQMusic {
@@ -317,6 +329,7 @@ extension PlayerManager {
     }
     
     func autoNext() {
+        // 自动下一首（播放失败时调用），不重置 consecutiveFailures
         if let nextSong = userQueue.first {
             userQueue.removeFirst()
             if let index = currentContextList.firstIndex(where: { $0.id == nextSong.id }) {

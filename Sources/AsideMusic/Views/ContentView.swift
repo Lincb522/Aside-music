@@ -25,26 +25,21 @@ public struct ContentView: View {
                 .ignoresSafeArea()
 
             ZStack(alignment: .bottom) {
-                // 预加载所有视图，使用 opacity 控制显示
+                // 预加载所有视图，使用 opacity + offset 控制显示
+                // 极简/悬浮球模式下滑动切换带水平位移动画
+                let useSlide = settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall
+                let currentIndex = Tab.allCases.firstIndex(of: currentTab) ?? 0
+                
                 ZStack {
-                    HomeView()
-                        .opacity(currentTab == .home ? 1 : 0)
-                        .zIndex(currentTab == .home ? 1 : 0)
-
-                    PodcastView()
-                        .opacity(currentTab == .podcast ? 1 : 0)
-                        .zIndex(currentTab == .podcast ? 1 : 0)
-
-                    LibraryView()
-                        .opacity(currentTab == .library ? 1 : 0)
-                        .zIndex(currentTab == .library ? 1 : 0)
-
-                    ProfileView()
-                        .opacity(currentTab == .profile ? 1 : 0)
-                        .zIndex(currentTab == .profile ? 1 : 0)
+                    ForEach(Array(Tab.allCases.enumerated()), id: \.element) { index, tab in
+                        tabView(for: tab)
+                            .opacity(currentTab == tab ? 1 : 0)
+                            .offset(x: useSlide ? CGFloat(index - currentIndex) * UIScreen.main.bounds.width : 0)
+                            .zIndex(currentTab == tab ? 1 : 0)
+                    }
                 }
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.15), value: currentTab)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: currentTab)
                 // 极简模式和悬浮球模式下添加滑动手势切换页面
                 .gesture((settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall) ? swipeGesture : nil)
 
@@ -178,6 +173,18 @@ public struct ContentView: View {
                     }
                 }
             }
+    }
+    
+    // MARK: - Tab 页面视图
+    
+    @ViewBuilder
+    private func tabView(for tab: Tab) -> some View {
+        switch tab {
+        case .home: HomeView()
+        case .podcast: PodcastView()
+        case .library: LibraryView()
+        case .profile: ProfileView()
+        }
     }
     
     // MARK: - 更新 TabBar 可见性

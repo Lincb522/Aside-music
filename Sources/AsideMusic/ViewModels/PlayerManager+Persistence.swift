@@ -143,7 +143,16 @@ extension PlayerManager {
         // 先从本地 SwiftData 恢复历史（保证离线也有数据）
         let localHistory = HistoryRepository().getPlayHistory(limit: AppConfig.Player.maxHistoryCount)
         if !localHistory.isEmpty {
-            self.history = localHistory.map { $0.toSong() }
+            // 将 SwiftData 的记录合并到内存历史中（内存中已有的保留，因为内存版本信息更完整）
+            let existingIds = Set(self.history.map { $0.id })
+            let newSongs = localHistory
+                .map { $0.toSong() }
+                .filter { !existingIds.contains($0.id) }
+            self.history.append(contentsOf: newSongs)
+            // 按时间排序（最近的在前）— 内存中的已经是最近播放的
+            if self.history.count > AppConfig.Player.maxHistoryCount {
+                self.history = Array(self.history.prefix(AppConfig.Player.maxHistoryCount))
+            }
         }
         
         // 再从服务端拉取最近播放，合并到本地（不覆盖）

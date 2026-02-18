@@ -13,13 +13,21 @@ final class PlayHistory {
     var playDuration: Int // 播放时长（秒）
     var completed: Bool // 是否播放完成
     
+    // 音乐来源信息（v2 新增）
+    var sourceRaw: String? // MusicSource.rawValue
+    var qqMid: String?
+    var qqAlbumMid: String?
+    
     init(
         songId: Int,
         songName: String,
         artistName: String,
         coverUrl: String? = nil,
         playDuration: Int = 0,
-        completed: Bool = false
+        completed: Bool = false,
+        sourceRaw: String? = nil,
+        qqMid: String? = nil,
+        qqAlbumMid: String? = nil
     ) {
         self.id = UUID()
         self.songId = songId
@@ -29,6 +37,9 @@ final class PlayHistory {
         self.playedAt = Date()
         self.playDuration = playDuration
         self.completed = completed
+        self.sourceRaw = sourceRaw
+        self.qqMid = qqMid
+        self.qqAlbumMid = qqAlbumMid
     }
     
     /// 从 Song 创建
@@ -39,7 +50,10 @@ final class PlayHistory {
             artistName: song.artistName,
             coverUrl: song.coverUrl?.absoluteString,
             playDuration: duration,
-            completed: completed
+            completed: completed,
+            sourceRaw: song.source?.rawValue,
+            qqMid: song.qqMid,
+            qqAlbumMid: song.qqAlbumMid
         )
     }
     
@@ -50,7 +64,7 @@ final class PlayHistory {
         } else {
             nil
         }
-        return Song(
+        var song = Song(
             id: songId,
             name: songName,
             ar: [Artist(id: 0, name: artistName)],
@@ -62,6 +76,13 @@ final class PlayHistory {
             alia: nil,
             privilege: nil
         )
+        // 恢复音乐来源信息
+        if let raw = sourceRaw {
+            song.source = MusicSource(rawValue: raw)
+        }
+        song.qqMid = qqMid
+        song.qqAlbumMid = qqAlbumMid
+        return song
     }
 }
 

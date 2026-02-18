@@ -72,7 +72,11 @@ struct MinimalPlayerLayout: View {
             songChangeId = player.currentSong?.id.description ?? ""
             // 确保歌词已加载
             if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                lyricVM.fetchLyrics(for: song.id)
+                if song.isQQMusic, let mid = song.qqMid {
+                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
+                } else {
+                    lyricVM.fetchLyrics(for: song.id)
+                }
             }
         }
         .onChange(of: player.currentSong?.id) { _, newId in
@@ -258,6 +262,11 @@ extension MinimalPlayerLayout {
                                 proxy.scrollTo(newIndex, anchor: .center)
                             }
                         }
+                    }
+                    .onAppear {
+                        // 视图出现时立即跳转到当前行（切换主题时需要）
+                        isUserScrolling = false
+                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
                     }
                 }
                 .mask(

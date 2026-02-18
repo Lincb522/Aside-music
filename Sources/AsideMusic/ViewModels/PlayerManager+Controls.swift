@@ -27,6 +27,8 @@ extension PlayerManager {
         
         if let nextSong = userQueue.first {
             userQueue.removeFirst()
+            // 如果歌曲在 context 中，更新索引；否则保持当前索引不变
+            // 这样下次从 context 继续时，会从正确的位置接着播
             if let index = currentContextList.firstIndex(where: { $0.id == nextSong.id }) {
                 contextIndex = index
             }
