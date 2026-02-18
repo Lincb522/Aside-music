@@ -110,6 +110,8 @@ struct PlayerThemePickerSheet: View {
             posterPreview
         case .motoPager:
             motoPagerPreview
+        case .pixel:
+            pixelPreview
         }
     }
 
@@ -418,6 +420,66 @@ struct PlayerThemePickerSheet: View {
             .padding(.horizontal, 12)
         }
     }
+    
+    // MARK: - 像素预览
+    private var pixelPreview: some View {
+        let bgColor = colorScheme == .dark ? Color(hex: "1a1a2e") : Color(hex: "e8eaf0")
+        let pixelGreen = Color(hex: "00ff41")
+        let pixelPurple = Color(hex: "bd00ff")
+        
+        return ZStack {
+            bgColor
+            
+            VStack(spacing: 6) {
+                // 像素化封面占位
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(
+                        LinearGradient(
+                            colors: [pixelPurple.opacity(0.4), pixelGreen.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        // 像素网格
+                        Canvas { ctx, size in
+                            let step: CGFloat = 6
+                            for row in 0..<Int(size.height / step) {
+                                for col in 0..<Int(size.width / step) {
+                                    let on = (row + col) % 3 != 0
+                                    if on {
+                                        ctx.fill(
+                                            Path(CGRect(x: CGFloat(col) * step, y: CGFloat(row) * step, width: step - 1, height: step - 1)),
+                                            with: .color(pixelGreen.opacity(0.3))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    )
+                
+                // 像素进度条
+                HStack(spacing: 1) {
+                    ForEach(0..<10, id: \.self) { i in
+                        Rectangle()
+                            .fill(i < 4 ? pixelGreen : pixelGreen.opacity(0.15))
+                            .frame(width: 5, height: 4)
+                    }
+                }
+                
+                // 像素控制按钮
+                HStack(spacing: 6) {
+                    ForEach(0..<3, id: \.self) { i in
+                        Rectangle()
+                            .fill(i == 1 ? pixelGreen : pixelGreen.opacity(0.4))
+                            .frame(width: i == 1 ? 12 : 8, height: i == 1 ? 12 : 8)
+                    }
+                }
+            }
+        }
+    }
+    
 }
 
 /// 三角形 Shape（用于小票锯齿边缘）

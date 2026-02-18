@@ -272,9 +272,25 @@ class APIService {
     }
 
     func fetchUserPlaylists(uid: Int) -> AnyPublisher<[Playlist], Error> {
-        ncm.fetch([Playlist].self, keyPath: "playlist") { [ncm] in
-            // 加 timestamp 绕过后端 2 分钟缓存，确保收藏后能立即刷新
-            try await ncm.userPlaylist(uid: uid, limit: 1000, timestamp: Int(Date().timeIntervalSince1970 * 1000))
+        ncm.publisher { [ncm] in
+            // 直接用 postToBackend 绕过后端 2 分钟缓存
+            if let serverUrl = ncm.serverUrl {
+                let params: [String: Any] = [
+                    "uid": uid,
+                    "limit": 1000,
+                    "offset": 0,
+                    "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+                ]
+                let body = try await Self.postToBackend(serverUrl: serverUrl, route: "/user/playlist", params: params)
+                guard let playlistArray = body["playlist"] as? [[String: Any]] else { return [Playlist]() }
+                let data = try JSONSerialization.data(withJSONObject: playlistArray)
+                return try JSONDecoder().decode([Playlist].self, from: data)
+            }
+            // 无后端时走 SDK
+            let response = try await ncm.userPlaylist(uid: uid, limit: 1000)
+            guard let playlistArray = response.body["playlist"] as? [[String: Any]] else { return [Playlist]() }
+            let data = try JSONSerialization.data(withJSONObject: playlistArray)
+            return try JSONDecoder().decode([Playlist].self, from: data)
         }
     }
 

@@ -19,7 +19,6 @@ struct HomeView: View {
         case album(Int)
         case mvDiscover
         case newSongExpress
-        case audioMatch
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -30,7 +29,6 @@ struct HomeView: View {
             case .album(let id): hasher.combine("al_\(id)")
             case .mvDiscover: hasher.combine("mv")
             case .newSongExpress: hasher.combine("newSong")
-            case .audioMatch: hasher.combine("audioMatch")
             }
         }
 
@@ -43,7 +41,6 @@ struct HomeView: View {
             case (.album(let l), .album(let r)): return l == r
             case (.mvDiscover, .mvDiscover): return true
             case (.newSongExpress, .newSongExpress): return true
-            case (.audioMatch, .audioMatch): return true
             default: return false
             }
         }
@@ -112,8 +109,6 @@ struct HomeView: View {
                     MVDiscoverView()
                 case .newSongExpress:
                     NewSongExpressView()
-                case .audioMatch:
-                    AudioMatchView()
                 }
             }
             .fullScreenCover(isPresented: $showPersonalFM) {
@@ -450,30 +445,6 @@ struct HomeView: View {
 
     private var bottomEntryCards: some View {
         VStack(spacing: 12) {
-            // 听歌识曲入口
-            NavigationLink(value: HomeDestination.audioMatch) {
-                HStack(spacing: 14) {
-                    AsideIcon(icon: .audioWave, size: 24, color: .asideTextPrimary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(LocalizedStringKey("audio_match_title"))
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.asideTextPrimary)
-                        Text(LocalizedStringKey("audio_match_subtitle"))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.asideTextSecondary)
-                    }
-                    Spacer()
-                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
-            
             // 新歌速递入口
             NavigationLink(value: HomeDestination.newSongExpress) {
                 HStack(spacing: 14) {

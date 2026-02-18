@@ -9,6 +9,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case neumorphic        // 新拟物 - 柔和阴影立体感
     case poster            // 海报 - 全屏封面海报风格
     case motoPager         // 寻呼机 - 复古小票打印风格
+    case pixel             // 像素 - 8-bit 复古游戏风格
 
     var id: String { rawValue }
     
@@ -21,6 +22,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .neumorphic: return "新拟物"
         case .poster:     return "海报"
         case .motoPager:  return "寻呼机"
+        case .pixel:      return "像素"
         }
     }
     
@@ -33,6 +35,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .neumorphic: return "circle.circle"
         case .poster:     return "photo.fill"
         case .motoPager:  return "printer.fill"
+        case .pixel:      return "square.grid.3x3.fill"
         }
     }
     
@@ -45,6 +48,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .neumorphic: return "新拟物化设计，柔和阴影立体感"
         case .poster:     return "全屏封面海报，沉浸式视觉体验"
         case .motoPager:  return "复古寻呼机，打印小票式歌词显示"
+        case .pixel:      return "8-bit 像素风格，复古游戏机界面"
         }
     }
 }

@@ -34,11 +34,6 @@ struct NewSongExpressView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 24) {
-                            // 顶部精选横滑大卡片（前 5 首）
-                            if viewModel.songs.count >= 3 {
-                                featuredSection
-                            }
-                            
                             // 完整列表
                             fullListSection
                         }
@@ -130,86 +125,6 @@ struct NewSongExpressView: View {
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundColor(.asideTextSecondary)
         }
-    }
-    
-    // MARK: - 精选横滑大卡片
-    
-    private var featuredSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(Array(viewModel.songs.prefix(5).enumerated()), id: \.element.id) { index, song in
-                        featuredCard(song: song, rank: index + 1)
-                    }
-                }
-                .padding(.horizontal, 24)
-            }
-        }
-    }
-    
-    private func featuredCard(song: Song, rank: Int) -> some View {
-        Button(action: {
-            playerManager.play(song: song, in: viewModel.songs)
-        }) {
-            ZStack(alignment: .bottomLeading) {
-                // 封面背景
-                CachedAsyncImage(url: song.coverUrl?.sized(600)) {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.asideCardBackground)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 260, height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                
-                // 渐变遮罩
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.7)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                
-                // 信息层
-                HStack(alignment: .bottom, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // 排名标签
-                        Text("#\(rank)")
-                            .font(.system(size: 11, weight: .black, design: .rounded))
-                            .foregroundColor(.white.opacity(0.7))
-                        
-                        Text(song.name)
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        
-                        Text(song.artistName)
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.8))
-                            .lineLimit(1)
-                    }
-                    
-                    Spacer()
-                    
-                    // 播放按钮
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 36, height: 36)
-                        
-                        if playerManager.currentSong?.id == song.id && playerManager.isPlaying {
-                            PlayingVisualizerView(isAnimating: true, color: .white)
-                                .frame(width: 16)
-                        } else {
-                            AsideIcon(icon: .play, size: 14, color: .white)
-                                .offset(x: 1)
-                        }
-                    }
-                }
-                .padding(16)
-            }
-            .frame(width: 260, height: 180)
-        }
-        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
     }
     
     // MARK: - 完整列表

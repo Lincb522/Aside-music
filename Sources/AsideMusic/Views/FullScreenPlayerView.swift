@@ -26,6 +26,8 @@ struct FullScreenPlayerView: View {
                 PosterPlayerLayout()
             case .motoPager:
                 MotoPagerLayout()
+            case .pixel:
+                PixelPlayerLayout()
             }
         }
         .onAppear {
