@@ -1,80 +1,60 @@
-<p align="center">
-  <img src="docs/assets/logo.png" width="128" height="128" alt="Aside Music Logo" style="border-radius: 24px;">
-</p>
+# Aside Music
 
-<h1 align="center">Aside Music</h1>
+iOS 音乐播放器，基于 SwiftUI + FFmpeg 构建。
 
-<p align="center">
-  一款精致的第三方网易云音乐 iOS 客户端
-</p>
+## 依赖
 
-<p align="center">
-  <img src="https://img.shields.io/badge/iOS-17%2B-black?style=flat-square&logo=apple" alt="Platform">
-  <img src="https://img.shields.io/badge/Swift-5.9-black?style=flat-square&logo=swift" alt="Swift">
-  <img src="https://img.shields.io/badge/SwiftUI-black?style=flat-square" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/FFmpeg-8.0-black?style=flat-square" alt="FFmpeg">
-  <img src="https://img.shields.io/badge/License-MIT-black?style=flat-square" alt="License">
-</p>
+| 库 | 地址 |
+|---|---|
+| NeteaseCloudMusicAPI-Swift | https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift |
+| FFmpegSwiftSDK | https://github.com/Lincb522/FFmpegSwiftSDK |
+| LiquidGlassEffect | https://github.com/Lincb522/LiquidGlassEffect |
+| QQMusicKit | https://github.com/Lincb522/MusicKit |
 
----
+## 源码使用
 
-纯 SwiftUI 构建，自研 FFmpeg 播放引擎，支持 Hi-Res 无损播放、无缝切歌、10 段均衡器。全套自绘 Aura 图标系统，零 SF Symbols 依赖。
-
-## 特性
-
-- 基于自研 [FFmpegSwiftSDK](https://github.com/Lincb522/FFmpegSwiftSDK) 播放引擎，支持 192kHz/24bit 母带音质
-- 无缝切歌 (Gapless Playback)，预加载下一首 pipeline
-- 10 段 EQ 均衡器，基于 FFmpeg SwrContext 实时调节
-- 自研 Aura 图标系统，64+ 自绘浮动线条图标
-- 自研 [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) 液态玻璃视觉效果
-- 弥散背景、弹性动画、深色/浅色自适应
-- MV 播放器，横屏全屏，内嵌评论
-- 播客电台，收音机模式沉浸播放
-- 沉浸式歌词，横屏 VJ 风格逐词快闪
-- 私人 FM、每日推荐、歌单广场、排行榜
-- 云盘歌曲管理，浏览/播放/删除
-- 评论系统，点赞/回复/排序
-- 歌曲下载与离线播放
-- 解灰功能，自动匹配第三方音源
-- 听歌打卡，同步播放记录到网易云
-
-## 安装
-
-需要 macOS 14+、Xcode 15+、iOS 17+。
-
-需配合 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 后端服务。
+### 1. 克隆项目
 
 ```bash
 git clone https://github.com/Lincb522/Aside-music.git
 cd Aside-music
+```
 
-# 编辑 .env 设置 API_BASE_URL
-# Xcode 打开或脚本构建
-open AsideMusic.xcodeproj
+### 2. 配置服务器地址
+
+复制示例配置文件并填入你的服务器地址：
+
+```bash
+cp Secrets.xcconfig.example Secrets.xcconfig
+```
+
+编辑 `Secrets.xcconfig`：
+
+```
+API_BASE_URL = https:/$()/your-ncm-server.com
+QQ_MUSIC_BASE_URL = http:/$()/your-qq-server:8000
+UNBLOCK_SERVER_URL = http:/$()/your-unblock-server:4000
+```
+
+### 3. 关联 xcconfig
+
+Xcode → 点击项目 → Info → Configurations → 将 Debug 和 Release 都选择 `Secrets.xcconfig`。
+
+### 4. 编译运行
+
+Xcode 打开 `AsideMusic.xcodeproj`，SPM 会自动拉取远程依赖，编译运行即可。
+
+## 免签调试
+
+项目已配置免签（`CODE_SIGNING_ALLOWED = NO`），无需 Apple 开发者账号。
+
+连接 iPhone，Xcode 选择设备，`Cmd + R` 直接运行。设备需开启开发者模式。
+
+## 免签打包 IPA
+
+```bash
+chmod +x build_ipa.sh
 ./build_ipa.sh
 ```
 
-## 技术栈
-
-| 类别 | 技术 |
-|------|------|
-| UI | SwiftUI + MVVM |
-| 音频引擎 | [FFmpegSwiftSDK](https://github.com/Lincb522/FFmpegSwiftSDK) (FFmpeg 8.0) |
-| 网易云 API | [NeteaseCloudMusicAPI-Swift](https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift) |
-| 视觉效果 | [LiquidGlassEffect](https://github.com/Lincb522/LiquidGlassEffect) |
-| 数据持久化 | SQLite |
-| 依赖管理 | Swift Package Manager |
-
-## 致谢
-
-- [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced) — API 服务
-- [Binaryify](https://github.com/Binaryify) — 原版 NeteaseCloudMusicApi
-- [YesPlayMusic](https://github.com/qier222/YesPlayMusic)、[listen1](https://github.com/listen1/listen1_chrome_extension) — 参考项目
-
-## 许可证
-
-[MIT License](LICENSE)
-
----
-
-> 仅供学习交流，请勿商用。音乐版权归网易云音乐及相关权利人所有。
+脚本以 `CODE_SIGNING_ALLOWED=NO` 编译 Release 版本并打包生成 `AsideMusic.ipa`，可通过 TrollStore 安装。

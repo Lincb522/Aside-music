@@ -97,7 +97,7 @@ class APIService {
         }
 
         // 配置解灰：保留 SDK 层 UnblockManager（备用），主要解灰逻辑在 fetchSongUrl 中 app 层处理
-        _unblockManager.register(SearchUnblockSource(serverUrl: "http://114.66.31.109:4000"))
+        _unblockManager.register(SearchUnblockSource(serverUrl: SecureConfig.unblockServerURL))
         ncm.unblockManager = _unblockManager
         
         // 关闭 SDK 自动解灰（解灰逻辑已移到 app 层 fetchSongUrl）
@@ -551,7 +551,7 @@ class APIService {
     }
 
     /// 搜索解灰源（app 层直接调用，不走 SDK 解灰流程）
-    private let searchUnblockSource = SearchUnblockSource(serverUrl: "http://114.66.31.109:4000")
+    private let searchUnblockSource = SearchUnblockSource(serverUrl: SecureConfig.unblockServerURL)
     
     /// 获取歌曲播放URL
     /// 优先走网易云官方，不可用时 app 层直接调搜索解灰源（:4000）

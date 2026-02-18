@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F4096B1E2F457B85006F9554 /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */; };
 		F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */; };
 		F48E9C482F3B4F590060F4D4 /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C472F3B4F590060F4D4 /* LiquidGlassEffect */; };
 		F4DE904E2F42439900F27065 /* QQMusicKit in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE904D2F42439900F27065 /* QQMusicKit */; };
@@ -14,6 +15,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		F4096B1D2F457B85006F9554 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		F4CCFD782F320B5900FC36CA /* AsideMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AsideMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -58,6 +60,7 @@
 			children = (
 				F4CCFD7A2F320B5900FC36CA /* Sources/AsideMusic */,
 				F4CCFD792F320B5900FC36CA /* Products */,
+				F4096B1D2F457B85006F9554 /* Secrets.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -144,6 +147,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F4096B1E2F457B85006F9554 /* Secrets.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +166,7 @@
 /* Begin XCBuildConfiguration section */
 		F4CCFD9A2F320B5D00FC36CA /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -227,6 +232,7 @@
 		};
 		F4CCFD9B2F320B5D00FC36CA /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -285,6 +291,7 @@
 		};
 		F4CCFD9D2F320B5D00FC36CA /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -323,6 +330,7 @@
 		};
 		F4CCFD9E2F320B5D00FC36CA /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

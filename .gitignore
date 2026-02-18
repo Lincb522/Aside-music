@@ -33,6 +33,7 @@ DerivedData/
 # Environment
 .env
 .env.local
+Secrets.xcconfig
 
 # Archives & Compressed
 *.tar.gz
@@ -48,5 +49,5 @@ api-enhanced-main*/
 docs/
 build_gui.html
 build_server.py
-build_ipa_visual.sh
+
 BUILD_GUI_README.md
