@@ -273,25 +273,29 @@ struct SongListRow: View {
         .sheet(isPresented: $showAddToPlaylist) {
             AddToPlaylistSheet(song: song)
         }
-        // QQ 音乐歌手详情页导航
-        .navigationDestination(isPresented: $showQQArtistDetail) {
+        // QQ 音乐歌手详情页（使用 sheet 避免 lazy 容器中 navigationDestination 警告）
+        .sheet(isPresented: $showQQArtistDetail) {
             if let artistMid = song.qqArtistMid, let artistName = song.ar?.first?.name {
-                QQMusicDetailView(detailType: .artist(
-                    mid: artistMid,
-                    name: artistName,
-                    coverUrl: nil
-                ))
+                NavigationStack {
+                    QQMusicDetailView(detailType: .artist(
+                        mid: artistMid,
+                        name: artistName,
+                        coverUrl: nil
+                    ))
+                }
             }
         }
-        // QQ 音乐专辑详情页导航
-        .navigationDestination(isPresented: $showQQAlbumDetail) {
+        // QQ 音乐专辑详情页
+        .sheet(isPresented: $showQQAlbumDetail) {
             if let albumMid = song.qqAlbumMid {
-                QQMusicDetailView(detailType: .album(
-                    mid: albumMid,
-                    name: song.al?.name ?? "",
-                    coverUrl: song.al?.picUrl,
-                    artistName: song.artistName
-                ))
+                NavigationStack {
+                    QQMusicDetailView(detailType: .album(
+                        mid: albumMid,
+                        name: song.al?.name ?? "",
+                        coverUrl: song.al?.picUrl,
+                        artistName: song.artistName
+                    ))
+                }
             }
         }
     }

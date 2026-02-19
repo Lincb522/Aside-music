@@ -39,26 +39,36 @@ struct SearchView: View {
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
+            } else {
+                EmptyView()
             }
         }
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
+            } else {
+                EmptyView()
             }
         }
         .navigationDestination(isPresented: $showPlaylistDetail) {
             if let playlist = selectedPlaylist {
                 PlaylistDetailView(playlist: playlist, songs: nil)
+            } else {
+                EmptyView()
             }
         }
         .navigationDestination(isPresented: $showAlbumDetail) {
             if let albumId = selectedAlbumId {
                 AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
+            } else {
+                EmptyView()
             }
         }
         .navigationDestination(isPresented: $showQQDetail) {
             if let detail = qqDetailType {
                 QQMusicDetailView(detailType: detail)
+            } else {
+                EmptyView()
             }
         }
         .onAppear {

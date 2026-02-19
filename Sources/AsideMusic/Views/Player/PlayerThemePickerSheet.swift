@@ -112,6 +112,8 @@ struct PlayerThemePickerSheet: View {
             motoPagerPreview
         case .pixel:
             pixelPreview
+        case .aqua:
+            aquaPreview
         }
     }
 
@@ -476,6 +478,59 @@ struct PlayerThemePickerSheet: View {
                             .frame(width: i == 1 ? 12 : 8, height: i == 1 ? 12 : 8)
                     }
                 }
+            }
+        }
+    }
+    
+    // MARK: - 水韵预览
+    private var aquaPreview: some View {
+        ZStack {
+            aquaPreviewBackground
+            aquaPreviewContent
+        }
+    }
+
+    private var aquaPreviewBackground: some View {
+        LinearGradient(
+            colors: [Color(hex: "3A8FB7"), Color(hex: "7EC8E3"), Color(hex: "B8E0F7")],
+            startPoint: .bottom,
+            endPoint: .top
+        )
+        .overlay(
+            // 简化波浪：用两条半透明 Capsule 模拟水面
+            VStack(spacing: 0) {
+                Spacer()
+                Capsule()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(height: 3)
+                    .offset(y: -2)
+                Capsule()
+                    .fill(Color.white.opacity(0.07))
+                    .frame(height: 2)
+                    .offset(y: 2)
+                Color.white.opacity(0.06)
+                    .frame(height: 40)
+            }
+        )
+    }
+
+    private var aquaPreviewContent: some View {
+        let bubbleGrad = LinearGradient(
+            colors: [Color(hex: "7EC8E3").opacity(0.5), Color(hex: "3A8FB7").opacity(0.3)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        return VStack(spacing: 8) {
+            Circle()
+                .fill(bubbleGrad)
+                .frame(width: 40, height: 40)
+                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                .overlay(AsideIcon(icon: .musicNote, size: 16, color: .white.opacity(0.6)))
+
+            HStack(spacing: 6) {
+                Circle().fill(Color.white.opacity(0.3)).frame(width: 7, height: 7)
+                Circle().fill(Color.white.opacity(0.6)).frame(width: 14, height: 14)
+                Circle().fill(Color.white.opacity(0.3)).frame(width: 7, height: 7)
             }
         }
     }

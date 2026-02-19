@@ -28,6 +28,8 @@ struct FullScreenPlayerView: View {
                 MotoPagerLayout()
             case .pixel:
                 PixelPlayerLayout()
+            case .aqua:
+                AquaPlayerLayout()
             }
         }
         .onAppear {

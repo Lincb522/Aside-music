@@ -198,7 +198,11 @@ struct QQArtistDetailView: View {
         }
         .navigationBarHidden(true)
         .navigationDestination(isPresented: $showSongDetail) {
-            if let song = selectedSongForDetail { SongDetailView(song: song) }
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+            } else {
+                EmptyView()
+            }
         }
         .navigationDestination(isPresented: $showAlbumDetail) {
             if let albumMid = selectedAlbumMid {
@@ -208,6 +212,8 @@ struct QQArtistDetailView: View {
                     coverUrl: selectedAlbumCover,
                     artistName: selectedAlbumArtist
                 ))
+            } else {
+                EmptyView()
             }
         }
         .fullScreenCover(item: $selectedQQMV) { item in
