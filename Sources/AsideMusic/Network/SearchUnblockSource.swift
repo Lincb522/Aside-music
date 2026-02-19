@@ -23,11 +23,15 @@ class SearchUnblockSource: NCMUnblockSource {
         let songName = (title ?? "").trimmingCharacters(in: .whitespaces)
         let artistName = (artist ?? "").trimmingCharacters(in: .whitespaces)
         
+        #if DEBUG
+        print("[SearchUnblock] match 调用: id=\(id), title=\(songName), artist=\(artistName), quality=\(quality)")
+        #endif
+        
         guard !songName.isEmpty else {
             return UnblockResult(url: "", quality: quality, platform: name)
         }
         
-        // quality 直接就是酷狗音质（128/320/flac/high 等），不做映射
+        // quality 直接就是酷狗音质（normal/high/sq/res/viper_* 等），不做映射
         let searchQueries = buildSearchQueries(songName: songName, artistName: artistName)
         
         for query in searchQueries {

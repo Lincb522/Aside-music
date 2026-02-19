@@ -56,6 +56,7 @@ extension View {
 }
 
 /// 触觉反馈样式
+@MainActor
 enum HapticStyle {
     case light
     case medium

@@ -137,10 +137,14 @@ extension PlayerManager {
         if let current = currentSong, isCurrentSongUnblocked {
             let time = currentTime
             
+            #if DEBUG
+            print("[PlayerManager] switchKugouQuality: \(kugouQuality.rawValue) → \(quality.rawValue)")
+            #endif
+            
             Task { @MainActor in
-                APIService.shared.fetchSongUrl(
+                // 已解灰歌曲直接走酷狗解灰源，不尝试网易云
+                APIService.shared.fetchUnblockedSongUrl(
                     id: current.id,
-                    level: self.soundQuality.rawValue,
                     kugouQuality: quality.rawValue
                 )
                     .receive(on: DispatchQueue.main)

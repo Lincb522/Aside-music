@@ -276,13 +276,21 @@ struct UnifiedFloatingBar: View {
             // 根据设置选择液态玻璃或原生毛玻璃
             if settings.liquidGlassEnabled {
                 // 使用 .liquidGlass 修饰器
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.asideCardBackground.opacity(0.4))
-                    .liquidGlass(config: .regular, cornerRadius: 20, backgroundCaptureFrameRate: 30)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.asideCardBackground.opacity(0.4))
+                        .liquidGlass(config: .regular, cornerRadius: 20, backgroundCaptureFrameRate: 30)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(0.25))
+                }
             } else {
-                // 原生毛玻璃效果
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                // 原生毛玻璃 + 白色半透明层
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(0.35))
+                }
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

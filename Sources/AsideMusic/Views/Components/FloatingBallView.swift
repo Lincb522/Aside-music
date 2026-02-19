@@ -10,6 +10,7 @@ struct FloatingBallView: View {
     
     // 唱片旋转角度
     @State private var rotationAngle: Double = 0
+    @State private var lastTickDate: Date? = nil
     
     private let ballSize: CGFloat = 56
     
@@ -53,12 +54,9 @@ struct FloatingBallView: View {
                 }
             }
         }
-        .onAppear {
-            startRotationIfNeeded()
-        }
         .onChange(of: player.isPlaying) { _, isPlaying in
-            if isPlaying {
-                startRotation()
+            if !isPlaying {
+                lastTickDate = nil
             }
         }
     }
@@ -81,9 +79,23 @@ struct FloatingBallView: View {
                 .animation(.linear(duration: 0.1), value: progress)
             
             // 黑胶唱片
-            vinylDisc
-                .frame(width: ballSize - 8, height: ballSize - 8)
-                .rotationEffect(.degrees(rotationAngle))
+            TimelineView(.animation(paused: !player.isPlaying)) { timeline in
+                vinylDisc
+                    .frame(width: ballSize - 8, height: ballSize - 8)
+                    .rotationEffect(.degrees(rotationAngle))
+                    .onChange(of: timeline.date) { oldDate, newDate in
+                        guard player.isPlaying else {
+                            lastTickDate = nil
+                            return
+                        }
+                        if let last = lastTickDate {
+                            let dt = newDate.timeIntervalSince(last)
+                            // 8秒转一圈 = 45度/秒
+                            rotationAngle += dt * 45.0
+                        }
+                        lastTickDate = newDate
+                    }
+            }
         }
         .background(
             Circle()
@@ -169,9 +181,13 @@ struct FloatingBallView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.35))
+            }
+            .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
         )
         .padding(.trailing, 8)
     }
@@ -236,20 +252,6 @@ struct FloatingBallView: View {
             }
         }
         .buttonStyle(AsideBouncingButtonStyle())
-    }
-    
-    // MARK: - 旋转动画
-    
-    private func startRotationIfNeeded() {
-        if player.isPlaying {
-            startRotation()
-        }
-    }
-    
-    private func startRotation() {
-        withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-            rotationAngle = 360
-        }
     }
     
     // MARK: - 打开播放器

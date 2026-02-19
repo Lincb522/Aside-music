@@ -90,6 +90,14 @@ struct ProfileView: View {
                 CloudDiskView()
             }
         }
+        // 监听当前歌曲变化，实时更新历史记录
+        .onReceive(playerManager.$currentSong.dropFirst()) { newSong in
+            guard newSong != nil, isAppLoggedIn else { return }
+            // 延迟一点确保历史已写入
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                refreshRecentSongsFromLocal()
+            }
+        }
     }
 
     // MARK: - 已登录
@@ -481,6 +489,34 @@ struct ProfileView: View {
                 self.recentSongs = merged
             })
             .store(in: &ProfileCancellableStore.shared.cancellables)
+    }
+    
+    /// 仅从本地刷新历史记录（播放新歌时调用，避免频繁网络请求）
+    private func refreshRecentSongsFromLocal() {
+        let localHistory = HistoryRepository().getPlayHistory(limit: 100)
+        let localSongs = localHistory.map { $0.toSong() }
+        
+        // 保留远程歌曲（本地没有的）
+        var merged: [Song] = []
+        var seenIds = Set<Int>()
+        
+        // 先加本地历史（最新的在前）
+        for song in localSongs {
+            if !seenIds.contains(song.id) {
+                seenIds.insert(song.id)
+                merged.append(song)
+            }
+        }
+        
+        // 再加之前的远程历史（去重）
+        for song in recentSongs {
+            if !seenIds.contains(song.id) {
+                seenIds.insert(song.id)
+                merged.append(song)
+            }
+        }
+        
+        self.recentSongs = merged
     }
     
     private func formatNumber(_ value: Int) -> String {

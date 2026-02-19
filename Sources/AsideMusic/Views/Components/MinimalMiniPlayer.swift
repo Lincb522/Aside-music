@@ -13,15 +13,19 @@ struct MinimalMiniPlayer: View {
     
     var body: some View {
         ZStack {
-            // 迷你播放器内容
-            miniPlayerContent
-                .opacity(showingTabs ? 0 : 1)
-                .offset(x: showingTabs ? -50 : 0)
-            
-            // Tab 选择器内容
-            tabSelectorContent
-                .opacity(showingTabs ? 1 : 0)
-                .offset(x: showingTabs ? 0 : 50)
+            if player.currentSong != nil {
+                // 有歌曲时：迷你播放器 / Tab 选择器切换
+                miniPlayerContent
+                    .opacity(showingTabs ? 0 : 1)
+                    .offset(x: showingTabs ? -50 : 0)
+                
+                tabSelectorContent
+                    .opacity(showingTabs ? 1 : 0)
+                    .offset(x: showingTabs ? 0 : 50)
+            } else {
+                // 无歌曲时：只显示 Tab 选择器
+                tabSelectorContent
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -189,12 +193,20 @@ struct MinimalMiniPlayer: View {
     @ViewBuilder
     private var glassBackground: some View {
         if settings.liquidGlassEnabled {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideCardBackground.opacity(0.4))
-                .liquidGlass(config: .regular, cornerRadius: 16, backgroundCaptureFrameRate: 30)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideCardBackground.opacity(0.4))
+                    .liquidGlass(config: .regular, cornerRadius: 16, backgroundCaptureFrameRate: 30)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.25))
+            }
         } else {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.35))
+            }
         }
     }
     

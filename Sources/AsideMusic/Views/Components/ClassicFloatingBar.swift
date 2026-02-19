@@ -32,14 +32,22 @@ struct ClassicFloatingBar: View {
             }
             .background {
                 if settings.liquidGlassEnabled {
-                    Rectangle()
-                        .fill(Color.asideCardBackground.opacity(0.6))
-                        .liquidGlass(config: .regular, cornerRadius: 0, backgroundCaptureFrameRate: 30)
-                        .ignoresSafeArea(.container, edges: .bottom)
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.asideCardBackground.opacity(0.6))
+                            .liquidGlass(config: .regular, cornerRadius: 0, backgroundCaptureFrameRate: 30)
+                        Rectangle()
+                            .fill(Color.white.opacity(0.25))
+                    }
+                    .ignoresSafeArea(.container, edges: .bottom)
                 } else {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .ignoresSafeArea(.container, edges: .bottom)
+                    ZStack {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                        Rectangle()
+                            .fill(Color.white.opacity(0.35))
+                    }
+                    .ignoresSafeArea(.container, edges: .bottom)
                 }
             }
             .overlay(alignment: .top) {

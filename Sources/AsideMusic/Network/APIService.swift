@@ -555,7 +555,11 @@ class APIService {
     
     /// 获取歌曲播放URL
     /// 优先走网易云官方，不可用时 app 层直接调搜索解灰源（:4000）
-    func fetchSongUrl(id: Int, level: String = "exhigh", kugouQuality: String = "320") -> AnyPublisher<SongUrlResult, Error> {
+    /// - Parameters:
+    ///   - id: 歌曲 ID
+    ///   - level: 网易云音质（standard/higher/exhigh/lossless/hires）
+    ///   - kugouQuality: 酷狗音质（normal/high/sq/res/viper_*），对应 KugouQuality.rawValue
+    func fetchSongUrl(id: Int, level: String = "exhigh", kugouQuality: String = "res") -> AnyPublisher<SongUrlResult, Error> {
         let qualityLevel = NeteaseCloudMusicAPI.SoundQualityType(rawValue: level) ?? .exhigh
 
         return ncm.publisher { [ncm] in
@@ -583,6 +587,9 @@ class APIService {
     
     /// 通过搜索解灰源获取播放 URL（先拿歌曲详情再搜索）
     private func fetchSongUrlFromSearch(id: Int, kugouQuality: String) -> AnyPublisher<SongUrlResult, Error> {
+        #if DEBUG
+        print("[APIService] fetchSongUrlFromSearch: id=\(id), kugouQuality=\(kugouQuality)")
+        #endif
         // 先获取歌曲详情（歌名、歌手），再用关键词搜索
         return fetchSongDetails(ids: [id])
             .flatMap { [weak self] songs -> AnyPublisher<SongUrlResult, Error> in
@@ -615,6 +622,15 @@ class APIService {
                 .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
+    }
+    
+    /// 直接通过酷狗解灰源获取播放 URL（用于已解灰歌曲的音质切换）
+    /// 跳过网易云官方，直接走酷狗搜索
+    func fetchUnblockedSongUrl(id: Int, kugouQuality: String) -> AnyPublisher<SongUrlResult, Error> {
+        #if DEBUG
+        print("[APIService] fetchUnblockedSongUrl: id=\(id), kugouQuality=\(kugouQuality)")
+        #endif
+        return fetchSongUrlFromSearch(id: id, kugouQuality: kugouQuality)
     }
 
     /// 直接 POST 到 Node 后端指定路由

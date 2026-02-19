@@ -223,7 +223,6 @@ extension PlayerManager {
     func loadAndPlay(song: Song, autoPlay: Bool = true, startTime: Double = 0) {
         // 递增会话 ID，旧会话的回调会被忽略
         playbackSessionId += 1
-        let sessionId = playbackSessionId
         // 清除待切换状态（用户手动切歌）
         hasPendingTrackTransition = false
         pendingNextSong = nil
@@ -267,6 +266,7 @@ extension PlayerManager {
     /// 加载并播放网易云歌曲
     private func loadAndPlayNeteaseSong(song: Song, autoPlay: Bool, startTime: Double) {
         let sessionId = playbackSessionId
+        
         Task { @MainActor in
             APIService.shared.fetchSongUrl(
                 id: song.id,
@@ -315,6 +315,10 @@ extension PlayerManager {
                     self.consecutiveFailures = 0
                     self.retryDelay = 1.0
                     self.isCurrentSongUnblocked = result.isUnblocked
+                    
+                    #if DEBUG
+                    print("[PlayerManager] 网易云歌曲 URL 获取成功: \(song.name), isUnblocked=\(result.isUnblocked)")
+                    #endif
                     
                     // 边听边存
                     if SettingsManager.shared.listenAndSave,
