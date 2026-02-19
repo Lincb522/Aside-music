@@ -79,7 +79,7 @@ struct MiniPlayerSection: View {
                             }
                         }) {
                             AsideIcon(icon: .close, size: 12, color: .gray)
-                                .frame(width: 24, height: 24)
+                                .frame(width: 32, height: 32)
                                 .background(Color.gray.opacity(0.1))
                                 .clipShape(Circle())
                                 .contentShape(Circle())

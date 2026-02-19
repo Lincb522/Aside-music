@@ -199,6 +199,10 @@ class PlayerManager: ObservableObject {
     /// 标记 SDK 已切换到下一首的 pipeline（但 UI 还没更新）
     var hasPendingTrackTransition: Bool = false
     
+    /// 异常停止重试计数器（防止损坏音源无限重试）
+    var abnormalStopRetryCount: Int = 0
+    let maxAbnormalStopRetries: Int = 3
+    
     /// 音频中断前是否正在播放（用于中断恢复）
     var wasPlayingBeforeInterruption: Bool = false
     
@@ -326,11 +330,19 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
                     // 保护：如果播放时间远小于总时长，说明不是正常结束（可能是连接中断）
                     let playedRatio = pm.duration > 0 ? pm.currentTime / pm.duration : 0
                     if pm.duration > 0 && playedRatio < 0.5 && pm.currentTime < 30 {
-                        AppLogger.warning("异常结束: 只播放了 \(String(format: "%.1f", pm.currentTime))s / \(String(format: "%.1f", pm.duration))s，尝试重新播放")
-                        if let song = pm.currentSong {
-                            pm.loadAndPlay(song: song)
+                        pm.abnormalStopRetryCount += 1
+                        if pm.abnormalStopRetryCount >= pm.maxAbnormalStopRetries {
+                            AppLogger.warning("异常结束重试已达上限(\(pm.maxAbnormalStopRetries)次)，跳到下一首")
+                            pm.abnormalStopRetryCount = 0
+                            pm.autoNext()
+                        } else {
+                            AppLogger.warning("异常结束: 只播放了 \(String(format: "%.1f", pm.currentTime))s / \(String(format: "%.1f", pm.duration))s，重试第\(pm.abnormalStopRetryCount)次")
+                            if let song = pm.currentSong {
+                                pm.loadAndPlay(song: song)
+                            }
                         }
                     } else {
+                        pm.abnormalStopRetryCount = 0
                         AppLogger.info("播放结束 (EOF)，自动下一首")
                         pm.playerDidFinishPlaying()
                     }

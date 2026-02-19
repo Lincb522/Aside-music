@@ -17,6 +17,8 @@ class PlaylistDetailViewModel: ObservableObject {
     private let limit = 30
     private var playlistId: Int?
     private var isFirstPageLoaded = false
+    private var retryCount = 0
+    private let maxRetries = 2
     
     /// 缓存 key 前缀
     private func cacheKey(for id: Int) -> String {
@@ -35,6 +37,7 @@ class PlaylistDetailViewModel: ObservableObject {
         hasMore = true
         isLoadingMore = false
         isFirstPageLoaded = false
+        retryCount = 0
         
         // 1. 先尝试从缓存加载，立即显示
         if let cached = OptimizedCacheManager.shared.getObject(forKey: cacheKey(for: playlistId), type: [Song].self),
@@ -125,10 +128,21 @@ class PlaylistDetailViewModel: ObservableObject {
                 
                 if case .failure(let error) = completion {
                     AppLogger.error("[PlaylistDetail] 加载失败: \(error.localizedDescription)")
-                    // 加载失败时,如果是首页且没有数据,确保显示错误而不是空白
+                    // 首页加载失败时自动重试
                     if self.currentOffset == 0 && self.songs.isEmpty {
-                        self.isLoading = false
-                        self.hasMore = false
+                        if self.retryCount < self.maxRetries {
+                            self.retryCount += 1
+                            let delay = Double(self.retryCount) * 1.5
+                            AppLogger.debug("[PlaylistDetail] 第 \(self.retryCount) 次重试，\(delay)s 后执行")
+                            self.isLoading = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                                self?.loadMore()
+                            }
+                        } else {
+                            AppLogger.error("[PlaylistDetail] 重试 \(self.maxRetries) 次后仍失败")
+                            self.isLoading = false
+                            self.hasMore = false
+                        }
                     }
                 }
             }, receiveValue: { [weak self] fetchedSongs in
@@ -147,8 +161,19 @@ class PlaylistDetailViewModel: ObservableObject {
                     if !fetchedSongs.isEmpty {
                         OptimizedCacheManager.shared.setObject(fetchedSongs, forKey: self.cacheKey(for: id), ttl: 3600)
                         AppLogger.debug("[PlaylistDetail] 已缓存 \(fetchedSongs.count) 首歌曲")
+                        self.retryCount = 0
                     } else {
                         AppLogger.warning("[PlaylistDetail] 首页返回空数据")
+                        // 空数据也触发重试（可能是后端临时故障）
+                        if self.retryCount < self.maxRetries {
+                            self.retryCount += 1
+                            let delay = Double(self.retryCount) * 1.5
+                            AppLogger.debug("[PlaylistDetail] 空数据，第 \(self.retryCount) 次重试，\(delay)s 后执行")
+                            self.isLoading = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                                self?.loadMore()
+                            }
+                        }
                     }
                 } else {
                     // 加载更多

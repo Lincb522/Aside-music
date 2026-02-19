@@ -82,10 +82,14 @@ struct AlbumInfo: Identifiable, Codable {
     var publishDateText: String {
         guard let ts = publishTime else { return "" }
         let date = Date(timeIntervalSince1970: Double(ts) / 1000)
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        return Self.dateFormatter.string(from: date)
     }
+    
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 }
 
 struct AlbumDetailResponse: Codable {

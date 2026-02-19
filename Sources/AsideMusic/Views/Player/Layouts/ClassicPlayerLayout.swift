@@ -310,7 +310,6 @@ struct ClassicPlayerLayout: View {
 
             if let song = player.currentSong {
                 LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 22, activeColor: .red, inactiveColor: contentColor)
-                    .padding(8)
                     .background(contentColor.opacity(0.05))
                     .clipShape(Circle())
             }

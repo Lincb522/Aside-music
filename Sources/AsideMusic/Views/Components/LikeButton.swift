@@ -35,7 +35,7 @@ struct LikeButton: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .frame(width: 44, height: 44)
+            .frame(width: 36, height: 36)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())

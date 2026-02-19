@@ -232,6 +232,10 @@ extension PlayerManager {
         currentTime = 0
         isCurrentSongUnblocked = false
         streamInfo = nil
+        // 切歌时重置异常停止计数器
+        if startTime == 0 {
+            abnormalStopRetryCount = 0
+        }
         addToHistory(song: song)
         saveState()
         

@@ -138,7 +138,7 @@ private struct ClassicMiniPlayerSection: View {
                             }
                         }) {
                             AsideIcon(icon: .close, size: 10, color: .gray)
-                                .frame(width: 24, height: 24)
+                                .frame(width: 32, height: 32)
                                 .background(Color.gray.opacity(0.1))
                                 .clipShape(Circle())
                         }

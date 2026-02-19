@@ -423,10 +423,6 @@ extension DownloadManager: URLSessionDownloadDelegate {
         Task { @MainActor [weak self] in
             guard let self = self, let songId = self.taskToSongId[taskId] else { return }
             self.downloadingTasks[songId]?.progress = progress
-            // 每 5% 更新一次数据库，避免频繁写入
-            if Int(progress * 100) % 5 == 0 {
-                self.updateDBProgress(songId: songId, progress: progress)
-            }
         }
     }
     
