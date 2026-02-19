@@ -6,6 +6,7 @@ import FFmpegSwiftSDK
 /// 水位 = 播放进度，气泡随音乐上浮
 struct AquaPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) var colorScheme
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
@@ -21,15 +22,34 @@ struct AquaPlayerLayout: View {
     @State private var showLyrics = false
     @State private var rippleTrigger = false
 
-    // 配色 — 白底蓝水
-    private let bgColor = Color.white
-    private let waterTop = Color(hex: "7DD3FC")        // 浅蓝水面
-    private let waterMid = Color(hex: "38BDF8")        // 中蓝水体
-    private let waterBot = Color(hex: "0EA5E9")        // 深蓝水底
-    private let bubbleColor = Color(hex: "BAE6FD")     // 气泡色
-    private let accentColor = Color(hex: "0EA5E9")     // 强调色
-    private let textPrimary = Color(hex: "0F172A")     // 深色文字
-    private let textMuted = Color(hex: "64748B")       // 次要文字
+    // 配色 — 自适应深浅模式
+    private var bgColor: Color {
+        colorScheme == .dark ? Color(hex: "0B1A2B") : Color.white
+    }
+    private var waterTop: Color {
+        colorScheme == .dark ? Color(hex: "1E6091") : Color(hex: "7DD3FC")
+    }
+    private var waterMid: Color {
+        colorScheme == .dark ? Color(hex: "1A5276") : Color(hex: "38BDF8")
+    }
+    private var waterBot: Color {
+        colorScheme == .dark ? Color(hex: "154360") : Color(hex: "0EA5E9")
+    }
+    private var bubbleColor: Color {
+        colorScheme == .dark ? Color(hex: "2980B9") : Color(hex: "BAE6FD")
+    }
+    private var accentColor: Color {
+        colorScheme == .dark ? Color(hex: "5DADE2") : Color(hex: "0EA5E9")
+    }
+    private var textPrimary: Color {
+        colorScheme == .dark ? Color(hex: "E2E8F0") : Color(hex: "0F172A")
+    }
+    private var textMuted: Color {
+        colorScheme == .dark ? Color(hex: "94A3B8") : Color(hex: "64748B")
+    }
+    private var btnBgColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05)
+    }
 
     private var progress: CGFloat {
         guard player.duration > 0 else { return 0 }
@@ -59,7 +79,7 @@ struct AquaPlayerLayout: View {
                     } else {
                         Spacer()
                         songInfoArea
-                        Spacer()
+                            .padding(.bottom, 24)
                         controls
                             .padding(.bottom, 12)
                         timeAndProgress(width: geo.size.width)
@@ -152,7 +172,7 @@ extension AquaPlayerLayout {
                 // 水面高光线
                 let hlPath = waveLinePath(width: cs.width, waterY: waterY, t: t,
                                           amp: 18, freq: 1.0, speed: 0.5, phase: 0)
-                ctx.stroke(hlPath, with: .color(Color.white.opacity(0.5)), lineWidth: 2)
+                ctx.stroke(hlPath, with: .color(Color.white.opacity(0.35)), lineWidth: 2)
             }
         }
         .ignoresSafeArea()
@@ -192,38 +212,48 @@ extension AquaPlayerLayout {
 
 extension AquaPlayerLayout {
 
-    /// 圆润的卡通气泡 — 纯圆 + 高光弧
+    /// 柔和的卡通气泡 — 缓慢上浮，顶部渐隐底部渐显，无跳变
     private func cartoonBubbles(size: CGSize, waterY: CGFloat) -> some View {
         TimelineView(.animation(paused: !player.isPlaying)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             Canvas { ctx, cs in
-                let count = 12
-                let bottom = Double(cs.height)
-                let top = Double(waterY + 10)
+                let count = 5
+                let bottom = Double(cs.height + 20)
+                let top = Double(waterY - 10)
                 guard bottom > top else { return }
                 let range = bottom - top
 
                 for i in 0..<count {
                     let fi = Double(i)
-                    let speed = 18.0 + fi * 3.0
-                    let cyclePos = (t * speed + fi * 55).truncatingRemainder(dividingBy: range)
-                    let cy = CGFloat(bottom - cyclePos)
-                    guard cy > waterY else { continue }
+                    // 极慢上浮，每个气泡不同周期
+                    let period = 25.0 + fi * 8.0
+                    let phase = fi * period / Double(count)
+                    let cycleT = (t + phase).truncatingRemainder(dividingBy: period)
+                    let normalizedPos = cycleT / period  // 0~1，0=底部 1=顶部
 
-                    let baseX = (fi * 71).truncatingRemainder(dividingBy: Double(cs.width))
-                    let wobble = sin(t * 1.2 + fi * 2.0) * 10
-                    let cx = CGFloat(baseX) + CGFloat(wobble)
-                    let r = CGFloat(4 + (fi * 1.7).truncatingRemainder(dividingBy: 8))
+                    let cy = CGFloat(bottom - normalizedPos * range)
 
-                    // 气泡体
+                    let baseX = cs.width * CGFloat(0.15 + fi * 0.16)
+                    let wobble = sin(t * 0.25 + fi * 1.2) * 3
+                    let cx = baseX + CGFloat(wobble)
+                    let r = CGFloat(5 + fi * 1.2)
+
+                    // 底部 10% 渐显，顶部 15% 渐隐
+                    var alpha = 1.0
+                    if normalizedPos < 0.1 {
+                        alpha = normalizedPos / 0.1
+                    } else if normalizedPos > 0.85 {
+                        alpha = (1.0 - normalizedPos) / 0.15
+                    }
+                    alpha = max(alpha, 0)
+
                     let rect = CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)
-                    ctx.fill(Circle().path(in: rect), with: .color(bubbleColor.opacity(0.3)))
-                    ctx.stroke(Circle().path(in: rect), with: .color(bubbleColor.opacity(0.5)), lineWidth: 1)
+                    ctx.fill(Circle().path(in: rect), with: .color(bubbleColor.opacity(0.1 * alpha)))
+                    ctx.stroke(Circle().path(in: rect), with: .color(bubbleColor.opacity(0.2 * alpha)), lineWidth: 0.8)
 
-                    // 高光 — 左上小圆
-                    let hlR = r * 0.3
-                    let hlRect = CGRect(x: cx - r * 0.35, y: cy - r * 0.4, width: hlR, height: hlR)
-                    ctx.fill(Circle().path(in: hlRect), with: .color(Color.white.opacity(0.7)))
+                    let hlR = r * 0.25
+                    let hlRect = CGRect(x: cx - r * 0.3, y: cy - r * 0.35, width: hlR, height: hlR)
+                    ctx.fill(Circle().path(in: hlRect), with: .color(Color.white.opacity(0.3 * alpha)))
                 }
             }
         }
@@ -240,7 +270,7 @@ extension AquaPlayerLayout {
             Button(action: { dismiss() }) {
                 AsideIcon(icon: .close, size: 18, color: textPrimary)
                     .frame(width: 36, height: 36)
-                    .background(Color.black.opacity(0.05))
+                    .background(btnBgColor)
                     .clipShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -253,7 +283,7 @@ extension AquaPlayerLayout {
                     .foregroundColor(textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(Color.black.opacity(0.05)))
+                    .background(Capsule().fill(btnBgColor))
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -270,7 +300,7 @@ extension AquaPlayerLayout {
             }) {
                 AsideIcon(icon: .more, size: 18, color: textPrimary)
                     .frame(width: 36, height: 36)
-                    .background(Color.black.opacity(0.05))
+                    .background(btnBgColor)
                     .clipShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -285,19 +315,29 @@ extension AquaPlayerLayout {
 extension AquaPlayerLayout {
 
     private var songInfoArea: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
+            // 歌名 — 超大字，居中，字间距拉开
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundColor(textPrimary)
+                .tracking(1)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.7)
 
-            Text(player.currentSong?.artistName ?? "")
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .foregroundColor(textMuted)
-                .lineLimit(1)
+            // 歌手 — 水色胶囊标签
+            if let artist = player.currentSong?.artistName, !artist.isEmpty {
+                Text(artist)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(accentColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(accentColor.opacity(0.08))
+                    )
+            }
         }
-        .padding(.horizontal, 36)
+        .padding(.horizontal, 32)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -364,7 +404,7 @@ extension AquaPlayerLayout {
                         .animation(.easeOut(duration: 0.6), value: rippleTrigger)
 
                     Circle()
-                        .fill(accentColor.opacity(0.1))
+                        .fill(accentColor.opacity(0.12))
                         .frame(width: 60, height: 60)
                         .overlay(Circle().stroke(accentColor.opacity(0.25), lineWidth: 1.5))
 
@@ -416,7 +456,7 @@ extension AquaPlayerLayout {
                 let fillW = max(4, bw * progress)
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.black.opacity(0.06))
+                        .fill(btnBgColor)
                         .frame(height: 4)
 
                     Capsule()
@@ -430,7 +470,7 @@ extension AquaPlayerLayout {
                         .frame(width: fillW, height: 4)
 
                     Circle()
-                        .fill(Color.white)
+                        .fill(colorScheme == .dark ? Color(hex: "1E293B") : Color.white)
                         .frame(width: isDragging ? 14 : 6, height: isDragging ? 14 : 6)
                         .shadow(color: accentColor.opacity(0.4), radius: 4)
                         .offset(x: max(0, fillW - 3))

@@ -37,7 +37,7 @@ struct ClassicFloatingBar: View {
                             .fill(Color.asideCardBackground.opacity(0.6))
                             .liquidGlass(config: .regular, cornerRadius: 0, backgroundCaptureFrameRate: 30)
                         Rectangle()
-                            .fill(Color.white.opacity(0.25))
+                            .fill(Color.asideGlassOverlay)
                     }
                     .ignoresSafeArea(.container, edges: .bottom)
                 } else {
@@ -45,7 +45,7 @@ struct ClassicFloatingBar: View {
                         Rectangle()
                             .fill(.ultraThinMaterial)
                         Rectangle()
-                            .fill(Color.white.opacity(0.35))
+                            .fill(Color.asideGlassOverlay)
                     }
                     .ignoresSafeArea(.container, edges: .bottom)
                 }

@@ -198,14 +198,14 @@ struct MinimalMiniPlayer: View {
                     .fill(Color.asideCardBackground.opacity(0.4))
                     .liquidGlass(config: .regular, cornerRadius: 16, backgroundCaptureFrameRate: 30)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.25))
+                    .fill(Color.asideGlassOverlay)
             }
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.35))
+                    .fill(Color.asideGlassOverlay)
             }
         }
     }

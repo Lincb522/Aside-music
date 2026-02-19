@@ -281,15 +281,15 @@ struct UnifiedFloatingBar: View {
                         .fill(Color.asideCardBackground.opacity(0.4))
                         .liquidGlass(config: .regular, cornerRadius: 20, backgroundCaptureFrameRate: 30)
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color.white.opacity(0.25))
+                        .fill(Color.asideGlassOverlay)
                 }
             } else {
-                // 原生毛玻璃 + 白色半透明层
+                // 原生毛玻璃 + 自适应叠加色
                 ZStack {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .fill(.ultraThinMaterial)
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color.white.opacity(0.35))
+                        .fill(Color.asideGlassOverlay)
                 }
             }
         }

@@ -185,7 +185,7 @@ struct FloatingBallView: View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.35))
+                    .fill(Color.asideGlassOverlay)
             }
             .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
         )

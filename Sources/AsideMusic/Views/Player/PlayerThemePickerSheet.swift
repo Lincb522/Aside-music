@@ -491,24 +491,26 @@ struct PlayerThemePickerSheet: View {
     }
 
     private var aquaPreviewBackground: some View {
-        LinearGradient(
-            colors: [Color(hex: "3A8FB7"), Color(hex: "7EC8E3"), Color(hex: "B8E0F7")],
+        let isDark = colorScheme == .dark
+        return LinearGradient(
+            colors: isDark
+                ? [Color(hex: "154360"), Color(hex: "1A5276"), Color(hex: "0B1A2B")]
+                : [Color(hex: "3A8FB7"), Color(hex: "7EC8E3"), Color(hex: "B8E0F7")],
             startPoint: .bottom,
             endPoint: .top
         )
         .overlay(
-            // 简化波浪：用两条半透明 Capsule 模拟水面
             VStack(spacing: 0) {
                 Spacer()
                 Capsule()
-                    .fill(Color.white.opacity(0.12))
+                    .fill(Color.white.opacity(isDark ? 0.06 : 0.12))
                     .frame(height: 3)
                     .offset(y: -2)
                 Capsule()
-                    .fill(Color.white.opacity(0.07))
+                    .fill(Color.white.opacity(isDark ? 0.03 : 0.07))
                     .frame(height: 2)
                     .offset(y: 2)
-                Color.white.opacity(0.06)
+                Color.white.opacity(isDark ? 0.03 : 0.06)
                     .frame(height: 40)
             }
         )

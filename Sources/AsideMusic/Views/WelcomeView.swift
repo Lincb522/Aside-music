@@ -4,15 +4,56 @@ import Combine
 struct WelcomeView: View {
     @Binding var isPresented: Bool
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
+    @Environment(\.colorScheme) private var colorScheme
     
-    // 初始值设为 true 避免白屏
-    @State private var showLogo = true
-    @State private var logoScale: CGFloat = 0.8
+    // 动画状态
+    @State private var logoScale: CGFloat = 0.3
     @State private var logoOpacity: Double = 0
+    @State private var logoRotation: Double = -15
+    @State private var textOffset: CGFloat = 30
+    @State private var textOpacity: Double = 0
+    @State private var copyrightOpacity: Double = 0
+    @State private var glowOpacity: Double = 0
+    @State private var ringScale: CGFloat = 0.5
+    @State private var ringOpacity: Double = 0
     
     var body: some View {
         ZStack {
             AsideBackground()
+            
+            // 背景光晕效果
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            (colorScheme == .dark ? Color.blue : Color.orange).opacity(0.3),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .opacity(glowOpacity)
+                .blur(radius: 60)
+            
+            // 扩散光环
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            (colorScheme == .dark ? Color.blue : Color.orange).opacity(0.5),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 2
+                )
+                .frame(width: 200, height: 200)
+                .scaleEffect(ringScale)
+                .opacity(ringOpacity)
             
             VStack {
                 Spacer()
@@ -20,17 +61,18 @@ struct WelcomeView: View {
                 logoView
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
+                    .rotation3DEffect(.degrees(logoRotation), axis: (x: 0, y: 1, z: 0))
                 
                 Spacer()
             }
             
             VStack {
                 Spacer()
-                Text("© 2025 ZIJIU STUDIO")
+                Text("© 2026 ZIJIU STUDIO")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(Color.gray.opacity(0.4))
+                    .foregroundColor(Color.gray.opacity(0.5))
                     .padding(.bottom, 40)
-                    .opacity(logoOpacity)
+                    .opacity(copyrightOpacity)
             }
         }
         .onAppear {
@@ -45,28 +87,50 @@ struct WelcomeView: View {
             // 动态 Logo
             AnimatedLogoView(size: 120, animated: true)
                 .background(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white, Color(white: 0.9)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: colorScheme == .dark 
+                                        ? [Color(white: 0.15), Color(white: 0.1)]
+                                        : [Color.white, Color(white: 0.92)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                        
+                        // 内发光
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(colorScheme == .dark ? 0.2 : 0.8),
+                                        Color.white.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                    .shadow(color: .black.opacity(0.15), radius: 25, x: 0, y: 12)
                 )
                 .frame(width: 120, height: 120)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text("Aside Music")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
+                    .offset(y: textOffset)
+                    .opacity(textOpacity)
                 
                 Text(LocalizedStringKey("welcome_slogan"))
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary)
-                    .tracking(1)
+                    .tracking(1.5)
+                    .offset(y: textOffset)
+                    .opacity(textOpacity)
             }
         }
     }
@@ -74,10 +138,40 @@ struct WelcomeView: View {
     // MARK: - Animation Sequence
     
     private func startAnimation() {
-        // 立即显示 Logo 动画（无延迟）
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+        // 阶段 1: Logo 弹入 + 旋转
+        withAnimation(.spring(response: 0.7, dampingFraction: 0.6, blendDuration: 0)) {
             logoScale = 1.0
             logoOpacity = 1.0
+            logoRotation = 0
+        }
+        
+        // 阶段 2: 背景光晕
+        withAnimation(.easeOut(duration: 0.8)) {
+            glowOpacity = 1.0
+        }
+        
+        // 阶段 3: 扩散光环
+        withAnimation(.easeOut(duration: 1.2).delay(0.2)) {
+            ringScale = 2.5
+            ringOpacity = 0.6
+        }
+        withAnimation(.easeOut(duration: 0.5).delay(1.0)) {
+            ringOpacity = 0
+        }
+        
+        // 阶段 4: 文字滑入
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                textOffset = 0
+                textOpacity = 1.0
+            }
+        }
+        
+        // 阶段 5: 版权信息淡入
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                copyrightOpacity = 1.0
+            }
         }
         
         // 后台加载数据
@@ -85,7 +179,7 @@ struct WelcomeView: View {
             await loadDataInBackground()
         }
         
-        // 延长展示时间到 2.5 秒，让动画充分展示
+        // 展示 2.5 秒后消失
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
             dismissWelcome()
         }
@@ -94,19 +188,15 @@ struct WelcomeView: View {
     /// 后台加载数据（不影响动画）
     @MainActor
     private func loadDataInBackground() async {
-        // 快速预加载
         await OptimizedCacheManager.shared.quickPreload()
         
-        // 如果已登录，触发数据刷新和登录状态检查
         if isAppLoggedIn {
-            // 检查登录状态
             do {
                 let _ = try await APIService.shared.fetchLoginStatus().async()
             } catch {
                 AppLogger.warning("登录状态检查失败: \(error)")
             }
             
-            // 触发数据刷新
             let needsRefresh = GlobalRefreshManager.shared.checkDailyRefreshNeeded()
             GlobalRefreshManager.shared.refreshHomePublisher.send(needsRefresh)
             GlobalRefreshManager.shared.refreshLibraryPublisher.send(false)
@@ -115,7 +205,16 @@ struct WelcomeView: View {
     }
     
     private func dismissWelcome() {
-        withAnimation(.easeOut(duration: 0.4)) {
+        // 淡出动画
+        withAnimation(.easeOut(duration: 0.35)) {
+            logoOpacity = 0
+            logoScale = 1.1
+            textOpacity = 0
+            copyrightOpacity = 0
+            glowOpacity = 0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             isPresented = false
         }
     }
