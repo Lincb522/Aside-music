@@ -164,7 +164,7 @@ struct RadioDetailView: View {
             LazyVStack(spacing: 0) {
                 ForEach(viewModel.programs) { program in
                     programRow(program: program)
-                        .onTapGesture {
+                        .onTapWithHaptic {
                             playProgram(program)
                         }
 

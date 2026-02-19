@@ -278,6 +278,7 @@ struct HomeView: View {
                         .font(.rounded(size: 13, weight: .semibold))
                         .foregroundColor(.asideTextSecondary)
                 }
+                .buttonStyle(AsideBouncingButtonStyle())
             }
             .padding(.horizontal, 24)
 
@@ -314,6 +315,7 @@ struct HomeView: View {
                         }) {
                             PlaylistVerticalCard(playlist: playlist)
                         }
+                        .buttonStyle(AsideBouncingButtonStyle())
                     }
                 }
                 .padding(.horizontal, 24)
@@ -540,6 +542,7 @@ struct SectionHeader: View {
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(.asideTextSecondary)
                 }
+                .buttonStyle(AsideBouncingButtonStyle())
             }
         }
         .padding(.horizontal, 24)

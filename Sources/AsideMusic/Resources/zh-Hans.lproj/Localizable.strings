@@ -675,3 +675,35 @@
 "mlog_subtitle" = "与当前歌曲相关的创作";
 "mlog_loading" = "加载中...";
 "mlog_load_failed" = "视频加载失败";
+
+/* Storage Management */
+"storage_title" = "存储管理";
+"storage_total" = "总占用";
+"storage_download" = "下载";
+"storage_cache" = "缓存";
+"storage_data" = "数据";
+"storage_image" = "图片";
+"storage_download_songs" = "下载歌曲";
+"storage_song_count" = "%d 首";
+"storage_song_cache" = "歌曲缓存";
+"storage_song_cache_desc" = "歌曲、歌单、歌词等";
+"storage_user_data" = "用户数据";
+"storage_user_data_desc" = "播放历史、搜索记录等";
+"storage_image_cache" = "图片缓存";
+"storage_image_cache_desc" = "封面、头像等图片";
+"storage_clear_btn" = "清除";
+"storage_clear_all_title" = "清除全部数据";
+"storage_clear_all_subtitle" = "释放所有存储空间";
+"storage_clear_cache" = "清除歌曲缓存";
+"storage_clear_cache_desc" = "将清除所有歌曲和歌单的缓存数据";
+"storage_clear_data" = "清除用户数据";
+"storage_clear_data_desc" = "将清除播放历史、搜索记录等用户数据";
+"storage_clear_download" = "清除下载";
+"storage_clear_download_desc" = "将删除所有已下载的歌曲文件";
+"storage_delete_all" = "删除全部";
+"storage_clear_image" = "清除图片缓存";
+"storage_clear_image_desc" = "将清除所有缓存的封面图片";
+"storage_clear_all" = "清除全部";
+"storage_clear_all_confirm" = "全部清除";
+"storage_clear_all_desc" = "将清除所有缓存、用户数据和下载文件，此操作不可撤销";
+"storage_clear" = "清除";

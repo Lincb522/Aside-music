@@ -64,7 +64,7 @@ struct ClassicPlayerLayout: View {
                         }
                     }
                     .frame(maxHeight: .infinity)
-                    .onTapGesture {
+                    .onTapWithHaptic {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             showLyrics.toggle()
                         }

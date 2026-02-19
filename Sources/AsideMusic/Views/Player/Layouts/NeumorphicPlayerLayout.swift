@@ -78,7 +78,7 @@ struct NeumorphicPlayerLayout: View {
                                 songInfoSection
                                 Spacer()
                             }
-                            .onTapGesture {
+                            .onTapWithHaptic {
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                     showLyrics = true
                                 }

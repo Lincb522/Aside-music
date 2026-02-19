@@ -181,7 +181,7 @@ struct PodcastView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 24)
                 .tag(index)
-                .onTapGesture {
+                .onTapWithHaptic {
                     if banner.targetId > 0 {
                         radioIdToOpen = banner.targetId
                     }
@@ -263,7 +263,7 @@ struct PodcastView: View {
             LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(viewModel.personalizedRadios) { radio in
                     radioGridCard(radio: radio)
-                        .onTapGesture {
+                        .onTapWithHaptic {
                             radioIdToOpen = radio.id
                         }
                 }
@@ -285,7 +285,7 @@ struct PodcastView: View {
                 HStack(spacing: 14) {
                     ForEach(viewModel.todayPerfered) { radio in
                         radioCompactCard(radio: radio)
-                            .onTapGesture {
+                            .onTapWithHaptic {
                                 radioIdToOpen = radio.id
                             }
                     }
@@ -321,7 +321,7 @@ struct PodcastView: View {
             VStack(spacing: 0) {
                 ForEach(viewModel.recommendRadios) { radio in
                     radioListRow(radio: radio)
-                        .onTapGesture {
+                        .onTapWithHaptic {
                             radioIdToOpen = radio.id
                         }
                 }
@@ -342,7 +342,7 @@ struct PodcastView: View {
                 HStack(spacing: 14) {
                     ForEach(viewModel.paygiftRadios) { radio in
                         radioCompactCard(radio: radio)
-                            .onTapGesture {
+                            .onTapWithHaptic {
                                 radioIdToOpen = radio.id
                             }
                     }
@@ -365,7 +365,7 @@ struct PodcastView: View {
                 HStack(spacing: 14) {
                     ForEach(viewModel.newcomerRadios) { radio in
                         radioCompactCard(radio: radio)
-                            .onTapGesture {
+                            .onTapWithHaptic {
                                 radioIdToOpen = radio.id
                             }
                     }
@@ -387,7 +387,7 @@ struct PodcastView: View {
             VStack(spacing: 0) {
                 ForEach(Array(viewModel.programToplist.enumerated()), id: \.element.id) { index, program in
                     programListRow(program: program, rank: index + 1)
-                        .onTapGesture {
+                        .onTapWithHaptic {
                             if let radioId = program.radio?.id {
                                 radioIdToOpen = radioId
                             }
@@ -585,7 +585,7 @@ struct PodcastView: View {
                 HStack(spacing: 14) {
                     ForEach(viewModel.broadcastChannels) { channel in
                         broadcastCard(channel: channel)
-                            .onTapGesture {
+                            .onTapWithHaptic {
                                 selectedBroadcastChannel = channel
                             }
                     }

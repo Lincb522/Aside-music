@@ -102,7 +102,7 @@ struct SearchView: View {
                                 .font(.rounded(size: 16, weight: .medium))
                                 .foregroundColor(.asideTextSecondary.opacity(0.6))
                                 .lineLimit(1)
-                                .onTapGesture {
+                                .onTapWithHaptic {
                                     viewModel.performSearch(keyword: defaultKw.realkeyword)
                                     isFocused = false
                                 }

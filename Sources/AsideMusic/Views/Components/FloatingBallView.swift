@@ -20,7 +20,7 @@ struct FloatingBallView: View {
                 if isPanelOpen {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
-                        .onTapGesture {
+                        .onTapWithHaptic(.soft) {
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                 isPanelOpen = false
                             }
@@ -189,8 +189,7 @@ struct FloatingBallView: View {
         return HStack(spacing: 6) {
             ForEach(items, id: \.tab) { item in
                 Button {
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
+                    HapticManager.shared.light()
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         currentTab = item.tab
                     }

@@ -145,7 +145,7 @@ private struct ClassicMiniPlayerSection: View {
             .background {
                 Color.clear
                     .contentShape(Rectangle())
-                    .onTapGesture {
+                    .onTapWithHaptic {
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             switch player.playSource {
                             case .fm:
@@ -195,8 +195,7 @@ private struct ClassicTabBarSection: View {
                 let isSelected = currentTab == tab
                 
                 Button {
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
+                    HapticManager.shared.light()
                     withAnimation(.easeInOut(duration: 0.15)) {
                         currentTab = tab
                     }

@@ -73,7 +73,7 @@ struct VinylPlayerLayout: View {
                                 vinylDisc(size: discSize)
                                 tonearm(discSize: discSize)
                             }
-                            .onTapGesture {
+                            .onTapWithHaptic {
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                     showLyrics = true
                                 }

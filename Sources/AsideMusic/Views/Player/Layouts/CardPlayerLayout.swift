@@ -234,7 +234,7 @@ extension CardPlayerLayout {
                         }
                     }
             )
-            .onTapGesture {
+            .onTapWithHaptic {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                     showLyrics.toggle()
                 }
@@ -298,7 +298,7 @@ extension CardPlayerLayout {
                                     .scaleEffect(isCurrent ? 1.05 : 1.0)
                                     .animation(.spring(), value: isCurrent)
                                     .id(index)
-                                    .onTapGesture { player.seek(to: line.time) }
+                                    .onTapWithHaptic { player.seek(to: line.time) }
                             }
                             Color.clear.frame(height: 60)
                         }

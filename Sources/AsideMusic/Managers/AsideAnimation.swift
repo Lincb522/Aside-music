@@ -21,12 +21,18 @@ struct AsideBouncingButtonStyle: ButtonStyle {
     
     var scale: CGFloat = 0.92
     var opacity: CGFloat = 0.85
+    var enableHaptic: Bool = true
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1.0)
             .opacity(configuration.isPressed ? opacity : 1.0)
             .animation(AsideAnimation.buttonPress, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed && enableHaptic {
+                    HapticManager.shared.light()
+                }
+            }
     }
 }
 
@@ -35,5 +41,43 @@ struct AsideBouncingButtonStyle: ButtonStyle {
 extension View {
     func asideBouncing() -> some View {
         self.buttonStyle(AsideBouncingButtonStyle())
+    }
+    
+    /// 带触觉反馈的点击手势
+    func onTapWithHaptic(
+        _ style: HapticStyle = .light,
+        perform action: @escaping () -> Void
+    ) -> some View {
+        self.onTapGesture {
+            style.trigger()
+            action()
+        }
+    }
+}
+
+/// 触觉反馈样式
+enum HapticStyle {
+    case light
+    case medium
+    case heavy
+    case soft
+    case selection
+    case success
+    case warning
+    case error
+    case none
+    
+    func trigger() {
+        switch self {
+        case .light: HapticManager.shared.light()
+        case .medium: HapticManager.shared.medium()
+        case .heavy: HapticManager.shared.heavy()
+        case .soft: HapticManager.shared.soft()
+        case .selection: HapticManager.shared.selection()
+        case .success: HapticManager.shared.success()
+        case .warning: HapticManager.shared.warning()
+        case .error: HapticManager.shared.error()
+        case .none: break
+        }
     }
 }

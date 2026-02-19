@@ -98,7 +98,7 @@ struct MiniPlayerSection: View {
                 // 用背景区域接收点击，避免 contentShape + onTapGesture 覆盖子按钮
                 Color.clear
                     .contentShape(Rectangle())
-                    .onTapGesture {
+                    .onTapWithHaptic {
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             switch player.playSource {
                             case .fm:

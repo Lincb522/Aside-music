@@ -675,3 +675,36 @@
 "mlog_subtitle" = "Related to what you're listening to";
 "mlog_loading" = "Loading...";
 "mlog_load_failed" = "Failed to load video";
+
+
+/* Storage Management */
+"storage_title" = "Storage";
+"storage_total" = "Total Used";
+"storage_download" = "Downloads";
+"storage_cache" = "Cache";
+"storage_data" = "Data";
+"storage_image" = "Images";
+"storage_download_songs" = "Downloaded Songs";
+"storage_song_count" = "%d songs";
+"storage_song_cache" = "Song Cache";
+"storage_song_cache_desc" = "Songs, playlists, lyrics, etc.";
+"storage_user_data" = "User Data";
+"storage_user_data_desc" = "Play history, search history, etc.";
+"storage_image_cache" = "Image Cache";
+"storage_image_cache_desc" = "Covers, avatars, etc.";
+"storage_clear_btn" = "Clear";
+"storage_clear_all_title" = "Clear All Data";
+"storage_clear_all_subtitle" = "Free up all storage space";
+"storage_clear_cache" = "Clear Song Cache";
+"storage_clear_cache_desc" = "This will clear all cached songs and playlists";
+"storage_clear_data" = "Clear User Data";
+"storage_clear_data_desc" = "This will clear play history, search history, etc.";
+"storage_clear_download" = "Clear Downloads";
+"storage_clear_download_desc" = "This will delete all downloaded song files";
+"storage_delete_all" = "Delete All";
+"storage_clear_image" = "Clear Image Cache";
+"storage_clear_image_desc" = "This will clear all cached cover images";
+"storage_clear_all" = "Clear All";
+"storage_clear_all_confirm" = "Clear All";
+"storage_clear_all_desc" = "This will clear all cache, user data and downloads. This action cannot be undone.";
+"storage_clear" = "Clear";

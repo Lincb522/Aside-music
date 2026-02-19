@@ -119,7 +119,7 @@ struct MinimalMiniPlayer: View {
                 .buttonStyle(AsideBouncingButtonStyle())
             }
         }
-        .onTapGesture {
+        .onTapWithHaptic {
             if player.currentSong != nil {
                 openPlayer()
             }
@@ -162,8 +162,7 @@ struct MinimalMiniPlayer: View {
         HStack(spacing: 0) {
             ForEach(Tab.allCases, id: \.self) { tab in
                 Button {
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
+                    HapticManager.shared.light()
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         currentTab = tab
                     }

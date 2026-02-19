@@ -181,7 +181,7 @@ struct DownloadManageView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .onTapGesture {
+        .onTapWithHaptic {
             // 播放已下载歌曲
             let s = song.toSong()
             PlayerManager.shared.play(song: s, in: downloadManager.fetchAllDownloaded().map { $0.toSong() })

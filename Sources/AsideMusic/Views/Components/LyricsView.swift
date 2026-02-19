@@ -606,6 +606,7 @@ struct LyricsView: View {
                             
                             ForEach(Array(viewModel.lyrics.enumerated()), id: \.element.id) { index, line in
                                 Button(action: {
+                                    HapticManager.shared.light()
                                     player.seek(to: line.time)
                                 }) {
                                     KaraokeLineView(

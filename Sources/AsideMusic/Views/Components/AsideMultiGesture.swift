@@ -16,14 +16,17 @@ extension View {
         self
             // 双击优先级最高
             .onTapGesture(count: 2) {
+                HapticManager.shared.medium()
                 onDoubleTap()
             }
             // 单击（SwiftUI 会自动等待双击超时后才触发）
             .onTapGesture(count: 1) {
+                HapticManager.shared.light()
                 onTap()
             }
             // 长按
             .onLongPressGesture(minimumDuration: 0.5) {
+                HapticManager.shared.heavy()
                 onLongPress()
             }
     }

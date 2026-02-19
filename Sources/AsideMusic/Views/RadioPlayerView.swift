@@ -428,7 +428,7 @@ struct RadioPlayerView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(viewModel.programs.enumerated()), id: \.element.id) { index, program in
                             programSheetRow(program: program, index: index)
-                                .onTapGesture {
+                                .onTapWithHaptic {
                                     playProgramAt(index: index)
                                     showProgramList = false
                                 }

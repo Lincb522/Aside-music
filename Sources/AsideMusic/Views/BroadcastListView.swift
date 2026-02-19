@@ -31,7 +31,7 @@ struct BroadcastListView: View {
                         LazyVStack(spacing: 0) {
                             ForEach(viewModel.channels) { channel in
                                 channelRow(channel: channel)
-                                    .onTapGesture {
+                                    .onTapWithHaptic {
                                         selectedChannel = channel
                                     }
                             }

@@ -243,7 +243,7 @@ extension PixelPlayerLayout {
             statusBar(width: width)
             
             pixelArtwork(width: width)
-                .onTapGesture {
+                .onTapWithHaptic {
                     withAnimation(.easeInOut(duration: 0.1)) { showLyrics = true }
                 }
             
@@ -585,7 +585,7 @@ extension PixelPlayerLayout {
                                     Spacer()
                                 }
                                 .id(index)
-                                .onTapGesture { player.seek(to: line.time) }
+                                .onTapWithHaptic { player.seek(to: line.time) }
                             }
                             Color.clear.frame(height: 60)
                         }
@@ -608,7 +608,7 @@ extension PixelPlayerLayout {
                         .font(.custom(pixelFont, size: 11))
                         .foregroundColor(fgDim.opacity(0.5))
                 }
-                .onTapGesture {
+                .onTapWithHaptic {
                     withAnimation(.easeInOut(duration: 0.1)) { showLyrics = false }
                 }
                 Spacer()

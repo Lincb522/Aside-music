@@ -195,7 +195,7 @@ extension PosterPlayerLayout {
             Spacer()
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
-                .onTapGesture {
+                .onTapWithHaptic {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
@@ -209,7 +209,7 @@ extension PosterPlayerLayout {
                 .lineLimit(5)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                .onTapGesture {
+                .onTapWithHaptic {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
@@ -227,7 +227,7 @@ extension PosterPlayerLayout {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                .onTapGesture {
+                .onTapWithHaptic {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
             
@@ -264,7 +264,7 @@ extension PosterPlayerLayout {
             Spacer()
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
-                .onTapGesture {
+                .onTapWithHaptic {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
         }
