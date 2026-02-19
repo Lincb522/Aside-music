@@ -535,8 +535,8 @@ extension VinylPlayerLayout {
                     .foregroundColor(secondaryColor)
                     .lineLimit(1)
 
-                if let songId = player.currentSong?.id {
-                    LikeButton(songId: songId, size: 20, activeColor: .red, inactiveColor: secondaryColor)
+                if let song = player.currentSong {
+                    LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 20, activeColor: .red, inactiveColor: secondaryColor)
                 }
             }
         }

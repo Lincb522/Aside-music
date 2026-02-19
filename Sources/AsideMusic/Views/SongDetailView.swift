@@ -66,11 +66,11 @@ struct SongDetailView: View {
             }
         }
         .onAppear {
-            if let artistId = song.artists.first?.id {
-                viewModel.loadRelatedSongs(artistId: artistId)
-            }
-            // 加载音乐百科（仅网易云歌曲）
+            // 仅网易云歌曲加载相关内容
             if !song.isQQMusic {
+                if let artistId = song.artists.first?.id {
+                    viewModel.loadRelatedSongs(artistId: artistId)
+                }
                 viewModel.loadSongWiki(songId: song.id)
                 viewModel.loadSimiSongs(songId: song.id)
             }

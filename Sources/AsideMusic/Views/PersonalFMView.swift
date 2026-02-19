@@ -284,8 +284,8 @@ struct PersonalFMView: View {
                 Spacer()
 
                 HStack(spacing: 40) {
-                    if let songId = currentFMSong?.id {
-                        LikeButton(songId: songId, size: 24, activeColor: .red, inactiveColor: .asideTextPrimary)
+                    if let song = currentFMSong {
+                        LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 24, activeColor: .red, inactiveColor: .asideTextPrimary)
                             .frame(width: 50, height: 50)
                             .background(Circle().fill(Color.asideCardBackground))
                             .overlay(Circle().stroke(Color.asideSeparator, lineWidth: 1))

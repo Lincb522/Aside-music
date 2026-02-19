@@ -299,8 +299,8 @@ extension PosterPlayerLayout {
             Spacer()
             
             // 喜欢
-            if let songId = player.currentSong?.id {
-                LikeButton(songId: songId, size: 22, activeColor: accent, inactiveColor: fg)
+            if let song = player.currentSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 22, activeColor: accent, inactiveColor: fg)
             }
             
             Spacer()

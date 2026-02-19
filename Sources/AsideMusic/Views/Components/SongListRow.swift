@@ -13,6 +13,10 @@ struct SongListRow: View {
     
     @State private var showAddToPlaylist = false
     
+    // QQ 音乐详情页导航状态
+    @State private var showQQArtistDetail = false
+    @State private var showQQAlbumDetail = false
+    
     var isCurrent: Bool {
         player.currentSong?.id == song.id
     }
@@ -186,26 +190,64 @@ struct SongListRow: View {
             
             Divider()
             
-            if let artistId = song.ar?.first?.id {
-                Button {
-                    onArtistTap?(artistId)
-                } label: {
-                    Label(LocalizedStringKey("action_artist"), systemImage: "person.circle")
+            // 歌手 — 分源处理
+            if song.isQQMusic {
+                // QQ 音乐歌曲：跳转到 QQ 歌手详情页
+                if let artistMid = song.qqArtistMid, !artistMid.isEmpty,
+                   let artistName = song.ar?.first?.name {
+                    Button {
+                        showQQArtistDetail = true
+                    } label: {
+                        Label(LocalizedStringKey("action_artist"), systemImage: "person.circle")
+                    }
+                }
+            } else {
+                // 网易云歌曲：跳转到网易云歌手详情页
+                if let artistId = song.ar?.first?.id {
+                    Button {
+                        onArtistTap?(artistId)
+                    } label: {
+                        Label(LocalizedStringKey("action_artist"), systemImage: "person.circle")
+                    }
                 }
             }
             
-            if let albumId = song.al?.id, albumId > 0 {
-                Button {
-                    onAlbumTap?(albumId)
-                } label: {
-                    Label(String(localized: "song_view_album"), systemImage: "square.stack")
+            // 专辑 — 分源处理
+            if song.isQQMusic {
+                // QQ 音乐歌曲：跳转到 QQ 专辑详情页
+                if let albumMid = song.qqAlbumMid, !albumMid.isEmpty {
+                    Button {
+                        showQQAlbumDetail = true
+                    } label: {
+                        Label(String(localized: "song_view_album"), systemImage: "square.stack")
+                    }
+                }
+            } else {
+                // 网易云歌曲：跳转到网易云专辑详情页
+                if let albumId = song.al?.id, albumId > 0 {
+                    Button {
+                        onAlbumTap?(albumId)
+                    } label: {
+                        Label(String(localized: "song_view_album"), systemImage: "square.stack")
+                    }
                 }
             }
             
-            Button {
-                onDetailTap?(song)
-            } label: {
-                Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
+            // 详情 — 分源处理
+            if song.isQQMusic {
+                // QQ 音乐歌曲：跳转到 QQ 歌曲详情页（暂时复用 SongDetailView，已做分源处理）
+                Button {
+                    onDetailTap?(song)
+                } label: {
+                    Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
+                }
+            } else {
+                // 网易云歌曲：跳转到网易云歌曲详情页
+                Button {
+                    onDetailTap?(song)
+                } label: {
+                    Label(LocalizedStringKey("action_details"), systemImage: "info.circle")
+                }
             }
             
             Divider()
@@ -230,6 +272,27 @@ struct SongListRow: View {
         }
         .sheet(isPresented: $showAddToPlaylist) {
             AddToPlaylistSheet(song: song)
+        }
+        // QQ 音乐歌手详情页导航
+        .navigationDestination(isPresented: $showQQArtistDetail) {
+            if let artistMid = song.qqArtistMid, let artistName = song.ar?.first?.name {
+                QQMusicDetailView(detailType: .artist(
+                    mid: artistMid,
+                    name: artistName,
+                    coverUrl: nil
+                ))
+            }
+        }
+        // QQ 音乐专辑详情页导航
+        .navigationDestination(isPresented: $showQQAlbumDetail) {
+            if let albumMid = song.qqAlbumMid {
+                QQMusicDetailView(detailType: .album(
+                    mid: albumMid,
+                    name: song.al?.name ?? "",
+                    coverUrl: song.al?.picUrl,
+                    artistName: song.artistName
+                ))
+            }
         }
     }
 }

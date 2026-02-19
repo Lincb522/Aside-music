@@ -30,13 +30,15 @@ struct Song: Identifiable, Codable {
     var qqMid: String?
     /// QQ 音乐专辑 mid
     var qqAlbumMid: String?
+    /// QQ 音乐歌手 mid（用于跳转歌手详情页）
+    var qqArtistMid: String?
     /// QQ 音乐最高可用音质（从搜索结果 file 字段解析）
     var qqMaxQuality: QQMusicQuality?
     
     enum CodingKeys: String, CodingKey {
         case id, name, ar, al, dt, fee, mv
         case h, m, l, sq, hr, alia, privilege
-        case source, qqMid, qqAlbumMid, qqMaxQuality
+        case source, qqMid, qqAlbumMid, qqArtistMid, qqMaxQuality
     }
     
     // MARK: - 辅助属性

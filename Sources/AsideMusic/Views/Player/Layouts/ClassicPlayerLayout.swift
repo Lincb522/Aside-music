@@ -271,8 +271,8 @@ struct ClassicPlayerLayout: View {
                     )
             }
 
-            if let songId = player.currentSong?.id {
-                LikeButton(songId: songId, size: 26, activeColor: .red, inactiveColor: contentColor)
+            if let song = player.currentSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 26, activeColor: .red, inactiveColor: contentColor)
             } else {
                 AsideIcon(icon: .like, size: 26, color: contentColor)
             }
@@ -308,8 +308,8 @@ struct ClassicPlayerLayout: View {
                     .clipShape(Circle())
             }
 
-            if let songId = player.currentSong?.id {
-                LikeButton(songId: songId, size: 22, activeColor: .red, inactiveColor: contentColor)
+            if let song = player.currentSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 22, activeColor: .red, inactiveColor: contentColor)
                     .padding(8)
                     .background(contentColor.opacity(0.05))
                     .clipShape(Circle())

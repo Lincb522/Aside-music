@@ -462,7 +462,7 @@ extension MotoPagerLayout {
                     
                     // 爱心
                     if let song = player.currentSong {
-                        LikeButton(songId: song.id, size: 14, activeColor: accentColor, inactiveColor: brandSubColor)
+                        LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 14, activeColor: accentColor, inactiveColor: brandSubColor)
                             .frame(width: 25, height: 25)
                             .background(smallBtnColor)
                             .clipShape(Circle())

@@ -25,12 +25,18 @@ extension APIService {
         
         // 解析歌手
         var artists: [Artist] = []
+        var firstArtistMid: String?  // 保存第一个歌手的 mid
         if let singerArray = json["singer"]?.arrayValue {
-            for singer in singerArray {
+            for (index, singer) in singerArray.enumerated() {
                 let singerId = singer["id"]?.intValue ?? 0
                 let singerName = singer["name"]?.stringValue ?? ""
+                let singerMid = singer["mid"]?.stringValue
                 if !singerName.isEmpty {
                     artists.append(Artist(id: singerId, name: singerName))
+                }
+                // 保存第一个歌手的 mid
+                if index == 0, let mid = singerMid, !mid.isEmpty {
+                    firstArtistMid = mid
                 }
             }
         }
@@ -99,6 +105,7 @@ extension APIService {
             source: .qqmusic,
             qqMid: mid,
             qqAlbumMid: albumMid,
+            qqArtistMid: firstArtistMid,
             qqMaxQuality: qqMaxQuality
         )
     }

@@ -688,8 +688,8 @@ extension PixelPlayerLayout {
             HStack(spacing: 0) {
                 funcButton(icon: player.mode.asideIcon) { player.switchMode() }
                 Spacer()
-                if let songId = player.currentSong?.id {
-                    LikeButton(songId: songId, size: 16, activeColor: pixelRed, inactiveColor: fg)
+                if let song = player.currentSong {
+                    LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 16, activeColor: pixelRed, inactiveColor: fg)
                         .frame(width: 40, height: 36)
                 }
                 Spacer()

@@ -214,49 +214,29 @@ struct FloatingBallView: View {
     // MARK: - 播放控制区域
     
     private var playbackSection: some View {
-        HStack(spacing: 12) {
-            // 上一首
-            Button {
-                player.previous()
-            } label: {
-                AsideIcon(icon: .previous, size: 16, color: .asideTextPrimary)
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            // 播放/暂停
-            Button {
-                player.togglePlayPause()
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideAccent)
-                        .frame(width: 40, height: 40)
-                    
-                    if player.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.6)
-                    } else {
-                        AsideIcon(
-                            icon: player.isPlaying ? .pause : .play,
-                            size: 16,
-                            color: .white
-                        )
-                    }
+        // 播放/暂停
+        Button {
+            player.togglePlayPause()
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(Color.asideIconBackground)
+                    .frame(width: 40, height: 40)
+                
+                if player.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .asideIconForeground))
+                        .scaleEffect(0.6)
+                } else {
+                    AsideIcon(
+                        icon: player.isPlaying ? .pause : .play,
+                        size: 16,
+                        color: .asideIconForeground
+                    )
                 }
             }
-            .buttonStyle(AsideBouncingButtonStyle())
-            
-            // 下一首
-            Button {
-                player.next()
-            } label: {
-                AsideIcon(icon: .next, size: 16, color: .asideTextPrimary)
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
         }
+        .buttonStyle(AsideBouncingButtonStyle())
     }
     
     // MARK: - 旋转动画

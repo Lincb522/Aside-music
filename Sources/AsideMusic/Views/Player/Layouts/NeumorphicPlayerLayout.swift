@@ -434,8 +434,8 @@ extension NeumorphicPlayerLayout {
     // MARK: 附加按钮
     private var additionalButtons: some View {
         HStack(spacing: 0) {
-            if let songId = player.currentSong?.id {
-                LikeButton(songId: songId, size: 22, activeColor: .red, inactiveColor: secondaryTextColor)
+            if let song = player.currentSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 22, activeColor: .red, inactiveColor: secondaryTextColor)
                     .frame(width: 44)
             } else {
                 Color.clear.frame(width: 44)
