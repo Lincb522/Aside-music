@@ -63,25 +63,27 @@ struct NeumorphicPlayerLayout: View {
                     
                     // 中间区域
                     ZStack {
-                        if showLyrics {
-                            if let song = player.currentSong {
-                                LyricsView(song: song, onBackgroundTap: {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        showLyrics = false
-                                    }
-                                })
-                            }
-                        } else {
-                            VStack(spacing: 32) {
-                                Spacer()
-                                neumorphicCover(size: coverSize)
-                                songInfoSection
-                                Spacer()
-                            }
-                            .onTapWithHaptic {
+                        // 歌词视图
+                        if let song = player.currentSong {
+                            LyricsView(song: song, onBackgroundTap: {
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                    showLyrics = true
+                                    showLyrics = false
                                 }
+                            })
+                            .opacity(showLyrics ? 1 : 0)
+                        }
+
+                        // 封面 + 歌曲信息
+                        VStack(spacing: 32) {
+                            Spacer()
+                            neumorphicCover(size: coverSize)
+                            songInfoSection
+                            Spacer()
+                        }
+                        .opacity(showLyrics ? 0 : 1)
+                        .onTapWithHaptic {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showLyrics = true
                             }
                         }
                     }
@@ -95,6 +97,7 @@ struct NeumorphicPlayerLayout: View {
                         additionalButtons
                     }
                     .padding(.horizontal, 28)
+                    .padding(.top, 16)
                     .padding(.bottom, DeviceLayout.playerBottomPadding)
                 }
                 

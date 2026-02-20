@@ -656,16 +656,6 @@ struct NetEasePlaylistsView: View {
                         NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                             LibraryPlaylistRow(playlist: playlist)
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                playlistToRemove = playlist
-                                isOwnPlaylist = isUserCreated(playlist)
-                                showRemoveAlert = true
-                            } label: {
-                                Label(isUserCreated(playlist) ? String(localized: "lib_delete") : String(localized: "lib_uncollect"),
-                                      systemImage: isUserCreated(playlist) ? "trash" : "heart.slash")
-                            }
-                        }
                         .contextMenu {
                             Button(role: .destructive) {
                                 playlistToRemove = playlist

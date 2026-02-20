@@ -139,11 +139,34 @@ extension MinimalPlayerLayout {
 
             Spacer()
 
-            // 极简时间显示
-            Text(currentTimeString())
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(mutedColor)
-                .tracking(1)
+            // 极简时间显示 + 音质 + 音频流信息
+            VStack(spacing: 2) {
+                Text(currentTimeString())
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(mutedColor)
+                    .tracking(1)
+
+                HStack(spacing: 6) {
+                    Button(action: { showQualitySheet = true }) {
+                        Text(player.qualityButtonText)
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundColor(mutedColor)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .stroke(mutedColor, lineWidth: 0.5)
+                            )
+                    }
+
+                    if let info = player.streamInfo {
+                        Text(streamInfoText(info))
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundColor(mutedColor)
+                            .lineLimit(1)
+                    }
+                }
+            }
 
             Spacer()
 
@@ -350,31 +373,12 @@ extension MinimalPlayerLayout {
             }
             .padding(.bottom, 6)
 
-            // 歌手名 + 音质
+            // 歌手名 + 爱心
             HStack(spacing: 12) {
                 Text(player.currentSong?.artistName ?? "")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(secondaryColor)
                     .lineLimit(1)
-
-                Button(action: { showQualitySheet = true }) {
-                    Text(player.qualityButtonText)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundColor(mutedColor)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3)
-                                .stroke(mutedColor, lineWidth: 0.5)
-                        )
-                }
-
-                if let info = player.streamInfo {
-                    Text(streamInfoText(info))
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundColor(mutedColor)
-                        .lineLimit(1)
-                }
 
                 Spacer()
 

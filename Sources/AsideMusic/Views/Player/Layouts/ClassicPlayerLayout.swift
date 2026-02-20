@@ -74,13 +74,12 @@ struct ClassicPlayerLayout: View {
 
                     // 底部区域 — spacing: 32 与原始一致
                     VStack(spacing: 32) {
-                        if !showLyrics {
-                            songInfoView
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        } else {
-                            lyricsModeSongInfo
-                                .transition(.move(edge: .top).combined(with: .opacity))
+                        ZStack(alignment: .leading) {
+                            // 用 songInfoView 撑高度，保证切换歌词时不跳动
+                            songInfoView.opacity(showLyrics ? 0 : 1)
+                            lyricsModeSongInfo.opacity(showLyrics ? 1 : 0)
                         }
+                        .animation(.easeInOut(duration: 0.25), value: showLyrics)
 
                         progressSection
                             .padding(.vertical, 8)
@@ -88,6 +87,7 @@ struct ClassicPlayerLayout: View {
                         controlsView
                     }
                     .padding(.horizontal, 32)
+                    .padding(.top, 16)
                     .padding(.bottom, 50)
                 }
 

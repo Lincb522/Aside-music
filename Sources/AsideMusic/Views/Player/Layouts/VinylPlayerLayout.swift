@@ -529,11 +529,32 @@ extension VinylPlayerLayout {
                 .foregroundColor(contentColor)
                 .lineLimit(1)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Text(player.currentSong?.artistName ?? "")
                     .font(.system(size: 16, weight: .regular, design: .default))
                     .foregroundColor(secondaryColor)
                     .lineLimit(1)
+
+                Button(action: { showQualitySheet = true }) {
+                    Text(player.qualityButtonText)
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundColor(secondaryColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(secondaryColor.opacity(0.5), lineWidth: 0.8)
+                        )
+                }
+
+                if let info = player.streamInfo {
+                    Text(streamInfoText(info))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundColor(secondaryColor.opacity(0.7))
+                        .lineLimit(1)
+                }
+
+                Spacer()
 
                 if let song = player.currentSong {
                     LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 20, activeColor: .red, inactiveColor: secondaryColor)

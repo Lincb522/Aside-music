@@ -425,115 +425,191 @@ struct PlayerThemePickerSheet: View {
     
     // MARK: - 像素预览
     private var pixelPreview: some View {
-        let bgColor = colorScheme == .dark ? Color(hex: "1a1a2e") : Color(hex: "e8eaf0")
+        let isDark = colorScheme == .dark
+        let bgColor = isDark ? Color(hex: "0a0a1a") : Color(hex: "e8eaf0")
         let pixelGreen = Color(hex: "00ff41")
-        let pixelPurple = Color(hex: "bd00ff")
+        let gridColor = isDark ? pixelGreen.opacity(0.08) : Color.black.opacity(0.04)
         
         return ZStack {
             bgColor
             
-            VStack(spacing: 6) {
-                // 像素化封面占位
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(
-                        LinearGradient(
-                            colors: [pixelPurple.opacity(0.4), pixelGreen.opacity(0.3)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            // 背景像素网格
+            Canvas { ctx, size in
+                let step: CGFloat = 8
+                for row in 0...Int(size.height / step) {
+                    for col in 0...Int(size.width / step) {
+                        ctx.stroke(
+                            Path(CGRect(x: CGFloat(col) * step, y: CGFloat(row) * step, width: step, height: step)),
+                            with: .color(gridColor),
+                            lineWidth: 0.5
                         )
-                    )
-                    .frame(width: 44, height: 44)
-                    .overlay(
-                        // 像素网格
-                        Canvas { ctx, size in
-                            let step: CGFloat = 6
-                            for row in 0..<Int(size.height / step) {
-                                for col in 0..<Int(size.width / step) {
-                                    let on = (row + col) % 3 != 0
-                                    if on {
-                                        ctx.fill(
-                                            Path(CGRect(x: CGFloat(col) * step, y: CGFloat(row) * step, width: step - 1, height: step - 1)),
-                                            with: .color(pixelGreen.opacity(0.3))
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    )
-                
-                // 像素进度条
-                HStack(spacing: 1) {
-                    ForEach(0..<10, id: \.self) { i in
-                        Rectangle()
-                            .fill(i < 4 ? pixelGreen : pixelGreen.opacity(0.15))
-                            .frame(width: 5, height: 4)
-                    }
-                }
-                
-                // 像素控制按钮
-                HStack(spacing: 6) {
-                    ForEach(0..<3, id: \.self) { i in
-                        Rectangle()
-                            .fill(i == 1 ? pixelGreen : pixelGreen.opacity(0.4))
-                            .frame(width: i == 1 ? 12 : 8, height: i == 1 ? 12 : 8)
                     }
                 }
             }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // 扫描线效果标题
+                HStack(spacing: 2) {
+                    // "PIXEL" 像素字
+                    ForEach(["P","I","X","E","L"], id: \.self) { ch in
+                        Text(ch)
+                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                            .foregroundColor(pixelGreen)
+                    }
+                }
+                .shadow(color: pixelGreen.opacity(0.6), radius: 4, x: 0, y: 0)
+                
+                Spacer().frame(height: 8)
+                
+                // 像素化波形
+                HStack(spacing: 2) {
+                    ForEach(0..<14, id: \.self) { i in
+                        let heights: [CGFloat] = [4, 8, 12, 18, 14, 20, 10, 16, 22, 14, 8, 12, 6, 4]
+                        Rectangle()
+                            .fill(pixelGreen.opacity(i < 6 ? 0.9 : 0.3))
+                            .frame(width: 4, height: heights[i])
+                    }
+                }
+                
+                Spacer().frame(height: 8)
+                
+                // 底部像素控制行
+                HStack(spacing: 10) {
+                    // 上一首
+                    HStack(spacing: 0) {
+                        Rectangle().fill(pixelGreen.opacity(0.5)).frame(width: 2, height: 8)
+                        Path { p in
+                            p.move(to: .init(x: 8, y: 0))
+                            p.addLine(to: .init(x: 0, y: 4))
+                            p.addLine(to: .init(x: 8, y: 8))
+                            p.closeSubpath()
+                        }
+                        .fill(pixelGreen.opacity(0.5))
+                        .frame(width: 8, height: 8)
+                    }
+                    
+                    // 播放
+                    Rectangle()
+                        .fill(pixelGreen)
+                        .frame(width: 12, height: 12)
+                        .shadow(color: pixelGreen.opacity(0.5), radius: 3)
+                    
+                    // 下一首
+                    HStack(spacing: 0) {
+                        Path { p in
+                            p.move(to: .init(x: 0, y: 0))
+                            p.addLine(to: .init(x: 8, y: 4))
+                            p.addLine(to: .init(x: 0, y: 8))
+                            p.closeSubpath()
+                        }
+                        .fill(pixelGreen.opacity(0.5))
+                        .frame(width: 8, height: 8)
+                        Rectangle().fill(pixelGreen.opacity(0.5)).frame(width: 2, height: 8)
+                    }
+                }
+                
+                Spacer().frame(height: 10)
+            }
+            
+            // CRT 扫描线叠加
+            VStack(spacing: 2) {
+                ForEach(0..<65, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.black.opacity(isDark ? 0.15 : 0.03))
+                        .frame(height: 1)
+                    Spacer().frame(height: 1)
+                }
+            }
+            .allowsHitTesting(false)
         }
     }
     
     // MARK: - 水韵预览
     private var aquaPreview: some View {
-        ZStack {
-            aquaPreviewBackground
-            aquaPreviewContent
-        }
-    }
-
-    private var aquaPreviewBackground: some View {
         let isDark = colorScheme == .dark
-        return LinearGradient(
-            colors: isDark
-                ? [Color(hex: "154360"), Color(hex: "1A5276"), Color(hex: "0B1A2B")]
-                : [Color(hex: "3A8FB7"), Color(hex: "7EC8E3"), Color(hex: "B8E0F7")],
-            startPoint: .bottom,
-            endPoint: .top
-        )
-        .overlay(
+        
+        return ZStack {
+            // 水面渐变背景
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "0B1A2B"), Color(hex: "154360"), Color(hex: "1A5276")]
+                    : [.white, Color(hex: "D6EAF8"), Color(hex: "85C1E9")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // 水波纹同心圆
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .stroke(
+                        isDark ? Color.white.opacity(0.06 - Double(i) * 0.015) : Color(hex: "3A8FB7").opacity(0.12 - Double(i) * 0.03),
+                        lineWidth: 1
+                    )
+                    .frame(width: CGFloat(30 + i * 28), height: CGFloat(30 + i * 28))
+                    .offset(y: 10)
+            }
+            
             VStack(spacing: 0) {
                 Spacer()
-                Capsule()
-                    .fill(Color.white.opacity(isDark ? 0.06 : 0.12))
-                    .frame(height: 3)
-                    .offset(y: -2)
-                Capsule()
-                    .fill(Color.white.opacity(isDark ? 0.03 : 0.07))
-                    .frame(height: 2)
-                    .offset(y: 2)
-                Color.white.opacity(isDark ? 0.03 : 0.06)
-                    .frame(height: 40)
+                
+                // 水滴涟漪中心
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: isDark
+                                ? [Color(hex: "7EC8E3").opacity(0.4), Color.clear]
+                                : [Color(hex: "3A8FB7").opacity(0.25), Color.clear],
+                            center: .center,
+                            startRadius: 2,
+                            endRadius: 20
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                    .offset(y: -10)
+                
+                Spacer().frame(height: 16)
+                
+                // 气泡控制按钮
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(isDark ? Color.white.opacity(0.08) : Color.white.opacity(0.6))
+                        .frame(width: 14, height: 14)
+                        .overlay(Circle().stroke(isDark ? Color.white.opacity(0.15) : Color(hex: "85C1E9"), lineWidth: 0.5))
+                    
+                    // 播放气泡（大）
+                    Circle()
+                        .fill(isDark ? Color.white.opacity(0.12) : Color.white.opacity(0.8))
+                        .frame(width: 24, height: 24)
+                        .overlay(Circle().stroke(isDark ? Color.white.opacity(0.2) : Color(hex: "5DADE2"), lineWidth: 0.8))
+                        .overlay(
+                            AsideIcon(icon: .play, size: 10, color: isDark ? .white.opacity(0.5) : Color(hex: "2E86C1"))
+                        )
+                        .shadow(color: isDark ? Color(hex: "7EC8E3").opacity(0.2) : Color(hex: "5DADE2").opacity(0.3), radius: 6)
+                    
+                    Circle()
+                        .fill(isDark ? Color.white.opacity(0.08) : Color.white.opacity(0.6))
+                        .frame(width: 14, height: 14)
+                        .overlay(Circle().stroke(isDark ? Color.white.opacity(0.15) : Color(hex: "85C1E9"), lineWidth: 0.5))
+                }
+                
+                Spacer().frame(height: 12)
             }
-        )
-    }
-
-    private var aquaPreviewContent: some View {
-        let bubbleGrad = LinearGradient(
-            colors: [Color(hex: "7EC8E3").opacity(0.5), Color(hex: "3A8FB7").opacity(0.3)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        return VStack(spacing: 8) {
+            
+            // 漂浮小气泡装饰
             Circle()
-                .fill(bubbleGrad)
-                .frame(width: 40, height: 40)
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .overlay(AsideIcon(icon: .musicNote, size: 16, color: .white.opacity(0.6)))
-
-            HStack(spacing: 6) {
-                Circle().fill(Color.white.opacity(0.3)).frame(width: 7, height: 7)
-                Circle().fill(Color.white.opacity(0.6)).frame(width: 14, height: 14)
-                Circle().fill(Color.white.opacity(0.3)).frame(width: 7, height: 7)
-            }
+                .fill(isDark ? Color.white.opacity(0.08) : Color.white.opacity(0.5))
+                .frame(width: 5, height: 5)
+                .offset(x: -35, y: 20)
+            Circle()
+                .fill(isDark ? Color.white.opacity(0.05) : Color.white.opacity(0.35))
+                .frame(width: 3, height: 3)
+                .offset(x: 40, y: 30)
+            Circle()
+                .fill(isDark ? Color.white.opacity(0.06) : Color.white.opacity(0.4))
+                .frame(width: 4, height: 4)
+                .offset(x: 25, y: -15)
         }
     }
     

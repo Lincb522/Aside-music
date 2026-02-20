@@ -296,6 +296,15 @@ struct LocalPlaylistDetailView: View {
                                 Label(NSLocalizedString("local_playlist_remove", comment: ""), systemImage: "trash")
                             }
                         }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    manager.removeSong(id: song.id, from: p)
+                                }
+                            } label: {
+                                Label(NSLocalizedString("local_playlist_remove", comment: ""), systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
