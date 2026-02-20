@@ -118,36 +118,30 @@ struct LibraryView: View {
             .padding(.top, DeviceLayout.headerTopPadding)
 
             // 标签栏 — 滑动下划线
-            GeometryReader { tabBarGeo in
-                let tabWidth = (tabBarGeo.size.width - 32) / CGFloat(allTabs.count)
-                ZStack(alignment: .bottomLeading) {
-                    HStack(spacing: 0) {
-                        ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
-                            Button(action: {
-                                switchToTab(tab)
-                            }) {
-                                Text(tab.localizedKey)
-                                    .font(.system(size: 16, weight: tabIndex == index ? .bold : .medium, design: .rounded))
-                                    .foregroundColor(tabIndex == index ? Theme.text : Theme.secondaryText)
-                                    .animation(.none, value: tabIndex)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.bottom, 10)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
+            HStack(spacing: 0) {
+                ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
+                    Button(action: {
+                        switchToTab(tab)
+                    }) {
+                        VStack(spacing: 6) {
+                            Text(tab.localizedKey)
+                                .font(.system(size: 16, weight: tabIndex == index ? .bold : .medium, design: .rounded))
+                                .foregroundColor(tabIndex == index ? Theme.text : Theme.secondaryText)
+                                .animation(.none, value: tabIndex)
+
+                            Capsule()
+                                .fill(Theme.text)
+                                .frame(width: 24, height: 3)
+                                .opacity(tabIndex == index ? 1 : 0)
                         }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    
-                    // 滑动指示器
-                    Capsule()
-                        .fill(Theme.text)
-                        .frame(width: 24, height: 3)
-                        .offset(x: tabWidth * CGFloat(tabIndex) + (tabWidth - 24) / 2)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
+                    .buttonStyle(.plain)
                 }
             }
-            .frame(height: 36)
             .padding(.horizontal, 16)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
         }
         .padding(.bottom, 10)
         .background(
