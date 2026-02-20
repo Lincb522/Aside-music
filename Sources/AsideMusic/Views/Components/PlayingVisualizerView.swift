@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 播放状态指示器 — 迷你音纹波形条，风格与 FM WaveformProgressBar 一致
+/// 播放状态指示器 — 迷你音纹波形条
 struct PlayingVisualizerView: View {
     let isAnimating: Bool
     let color: Color
@@ -11,23 +11,23 @@ struct PlayingVisualizerView: View {
     private let maxHeight: CGFloat = 14
     private let minHeight: CGFloat = 3
     
-    @State private var amplitudes: [CGFloat] = []
+    @State private var phases: [Double] = []
     
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.1, paused: !isAnimating)) { timeline in
-            let phase = timeline.date.timeIntervalSinceReferenceDate * 2
+        TimelineView(.animation(minimumInterval: 0.06, paused: !isAnimating)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
             
             HStack(alignment: .center, spacing: barSpacing) {
                 ForEach(0..<barCount, id: \.self) { index in
-                    let baseAmp = index < amplitudes.count ? amplitudes[index] : 0.5
+                    let offset = index < phases.count ? phases[index] : Double(index)
                     let h = isAnimating
-                        ? barHeight(index: index, baseAmplitude: baseAmp, phase: phase)
+                        ? barHeight(index: index, time: time, phaseOffset: offset)
                         : minHeight
                     
-                    RoundedRectangle(cornerRadius: 1)
+                    RoundedRectangle(cornerRadius: 1.5)
                         .fill(color)
                         .frame(width: barWidth, height: h)
-                        .animation(.easeInOut(duration: 0.12), value: h)
+                        .animation(.easeInOut(duration: 0.15), value: h)
                 }
             }
             .frame(
@@ -35,22 +35,22 @@ struct PlayingVisualizerView: View {
                 height: maxHeight
             )
         }
-        .onAppear { generateAmplitudes() }
+        .onAppear { generatePhases() }
     }
     
-    private func barHeight(index: Int, baseAmplitude: CGFloat, phase: Double) -> CGFloat {
-        let wave = sin(Double(index) * 0.8 + phase)
-        let dynamic = 1.0 + CGFloat(wave) * 0.4
-        let amp = min(max(baseAmplitude * dynamic, 0), 1)
-        return minHeight + amp * (maxHeight - minHeight)
+    private func barHeight(index: Int, time: Double, phaseOffset: Double) -> CGFloat {
+        // 每根条用不同频率和相位，产生错落感
+        let freq = 2.5 + Double(index) * 0.6
+        let wave = sin(time * freq + phaseOffset)
+        // 映射到 0~1 范围
+        let normalized = (wave + 1.0) / 2.0
+        // 加一点随机抖动让更自然
+        let jitter = sin(time * 7.3 + Double(index) * 2.1) * 0.1
+        let amp = min(max(normalized + jitter, 0.15), 1.0)
+        return minHeight + CGFloat(amp) * (maxHeight - minHeight)
     }
     
-    private func generateAmplitudes() {
-        amplitudes = (0..<barCount).map { index in
-            let norm = Double(index) / Double(barCount - 1)
-            let envelope = sin(norm * .pi)
-            let rand = Double.random(in: 0.4...1.0)
-            return CGFloat(envelope * rand)
-        }
+    private func generatePhases() {
+        phases = (0..<barCount).map { _ in Double.random(in: 0...(.pi * 2)) }
     }
 }

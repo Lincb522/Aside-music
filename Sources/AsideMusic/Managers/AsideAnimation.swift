@@ -14,9 +14,38 @@ struct AsideAnimation {
     static let buttonPress = Animation.easeOut(duration: 0.1)
 }
 
+// MARK: - 全局边缘滑动防误触管理器
+
+/// 监听返回手势状态，在滑动期间抑制按钮点击
+final class EdgeSwipeGuard {
+    static let shared = EdgeSwipeGuard()
+    
+    /// 当前是否正在进行边缘滑动手势
+    private(set) var isSwiping = false
+    
+    /// 滑动结束后的冷却保护
+    private var cooldownWorkItem: DispatchWorkItem?
+    
+    private init() {}
+    
+    func beginSwipe() {
+        cooldownWorkItem?.cancel()
+        isSwiping = true
+    }
+    
+    func endSwipe() {
+        cooldownWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.isSwiping = false
+        }
+        cooldownWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
+    }
+}
+
 // MARK: - Button Styles
 
-/// A button style that scales down when pressed
+/// A button style that scales down when pressed, with edge-swipe mistouch protection
 struct AsideBouncingButtonStyle: ButtonStyle {
     
     var scale: CGFloat = 0.92
@@ -24,12 +53,15 @@ struct AsideBouncingButtonStyle: ButtonStyle {
     var enableHaptic: Bool = true
     
     func makeBody(configuration: Configuration) -> some View {
+        let isSwiping = EdgeSwipeGuard.shared.isSwiping
+        let effectivePressed = configuration.isPressed && !isSwiping
+        
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
-            .opacity(configuration.isPressed ? opacity : 1.0)
-            .animation(AsideAnimation.buttonPress, value: configuration.isPressed)
+            .scaleEffect(effectivePressed ? scale : 1.0)
+            .opacity(effectivePressed ? opacity : 1.0)
+            .animation(AsideAnimation.buttonPress, value: effectivePressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
-                if isPressed && enableHaptic {
+                if isPressed && enableHaptic && !EdgeSwipeGuard.shared.isSwiping {
                     HapticManager.shared.light()
                 }
             }

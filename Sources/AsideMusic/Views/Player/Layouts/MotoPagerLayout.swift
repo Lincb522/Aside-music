@@ -124,6 +124,8 @@ struct MotoPagerLayout: View {
                             paperColor: paperColor, textColor: paperTextColor,
                             metaColor: paperMetaColor, dashColor: paperDashColor
                         )
+                            .rotationEffect(.degrees(item.randomRotation))
+                            .offset(x: item.randomOffsetX)
                             .zIndex(Double(index))
                             .transition(.asymmetric(
                                 insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -889,6 +891,9 @@ struct PrintedLyric: Identifiable {
     let id = UUID().uuidString.prefix(6).uppercased()
     let text: String
     let time: String
+    // 随机散落参数 — 创建时固定，不会每次重绘变化
+    let randomRotation: Double = Double.random(in: -3.5...3.5)
+    let randomOffsetX: CGFloat = CGFloat.random(in: -8...8)
 }
 
 // MARK: - Helpers

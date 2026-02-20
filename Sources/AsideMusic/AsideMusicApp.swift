@@ -71,6 +71,12 @@ struct AsideMusicApp: App {
                         }
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    // 从后台回来时，如果是跟随系统模式，重新应用主题
+                    if settings.themeMode == "system" {
+                        settings.applyTheme()
+                    }
+                }
                 .modelContainer(DatabaseManager.shared.container)
         }
     }

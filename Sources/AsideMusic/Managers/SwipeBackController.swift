@@ -50,13 +50,22 @@ class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
             let action = Selector(("handleNavigationTransition:"))
             panGesture.addTarget(target, action: action)
             
+            // 防误触：监听手势状态变化，通知 EdgeSwipeGuard
+            panGesture.addTarget(swipeGuardTarget, action: #selector(SwipeGuardTarget.handleGestureState(_:)))
+            
             gestureView.addGestureRecognizer(panGesture)
             attachedNavControllers.add(navigationController)
             gestureMap.setObject(panGesture, forKey: navigationController)
             
             AppLogger.debug("SwipeBackController: Attached to NavigationController (\(attachedNavControllers.count) total)")
         }
+        
+        // 同时监听系统原生的边缘返回手势
+        interactivePopGestureRecognizer.addTarget(swipeGuardTarget, action: #selector(SwipeGuardTarget.handleGestureState(_:)))
     }
+    
+    /// 手势状态接收者 — 桥接到 EdgeSwipeGuard
+    private let swipeGuardTarget = SwipeGuardTarget()
     
     private func findNavigationController(for gesture: UIGestureRecognizer) -> UINavigationController? {
         for nav in attachedNavControllers.allObjects {
@@ -152,6 +161,22 @@ class SwipeBackViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             SwipeBackController.shared.enable(for: window)
             self?.hasAttached = true
+        }
+    }
+}
+
+// MARK: - 防误触手势状态桥接
+
+/// 接收 UIPanGestureRecognizer 状态变化，通知 EdgeSwipeGuard
+final class SwipeGuardTarget: NSObject {
+    @objc func handleGestureState(_ gesture: UIGestureRecognizer) {
+        switch gesture.state {
+        case .began, .changed:
+            EdgeSwipeGuard.shared.beginSwipe()
+        case .ended, .cancelled, .failed:
+            EdgeSwipeGuard.shared.endSwipe()
+        default:
+            break
         }
     }
 }

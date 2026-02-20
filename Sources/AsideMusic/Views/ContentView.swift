@@ -6,6 +6,7 @@ public struct ContentView: View {
     @State private var currentTab: Tab = .home
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.colorScheme) private var systemColorScheme
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
@@ -109,6 +110,13 @@ public struct ContentView: View {
         }
         .onChange(of: settings.floatingBarStyle) { _, _ in
             updateTabBarVisibility()
+        }
+        .onChange(of: systemColorScheme) { _, newScheme in
+            // 系统深浅色切换时，自动模式下同步更新
+            if settings.themeMode == "system" {
+                settings.activeColorScheme = newScheme
+                settings.applyTheme()
+            }
         }
     }
     

@@ -878,16 +878,21 @@ struct ArtistLibraryView: View {
             .padding(.top, 8)
 
             if !viewModel.isSearchingArtists && showFilters {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ScrollView(.horizontal, showsIndicators: false) {
                         filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea)
-                        filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType)
-                        filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial)
+                            .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 16)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType)
+                            .padding(.horizontal, 24)
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial)
+                            .padding(.horizontal, 24)
+                    }
                 }
-                .scrollContentBackground(.hidden)
+                .padding(.bottom, 16)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
