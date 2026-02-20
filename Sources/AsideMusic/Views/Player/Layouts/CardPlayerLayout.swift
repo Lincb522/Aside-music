@@ -262,7 +262,7 @@ extension CardPlayerLayout {
     
     @ViewBuilder
     func artworkView(size: CGSize) -> some View {
-        if let url = player.currentSong?.coverUrl {
+        if let url = player.currentSong?.coverUrl?.sized(800) {
             CachedAsyncImage(url: url) { Color.gray.opacity(0.1) }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size.width, height: size.height)
@@ -452,8 +452,7 @@ extension CardPlayerLayout {
         Task {
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
-                // 降采样到 50pt 即可提取颜色，避免全尺寸图片占用大量内存
-                guard let image = Self.downsampleForColor(data: data, maxSize: 50) else { return }
+                guard let image = UIImage(data: data) else { return }
                 let colors = image.extractColors()
                 await MainActor.run {
                     withAnimation(.easeOut(duration: 0.5)) {
@@ -461,26 +460,10 @@ extension CardPlayerLayout {
                         secondaryColor = colors.secondary
                     }
                 }
-            } catch {}
+            } catch {
+                AppLogger.error("CardPlayer 封面取色失败: \(error)")
+            }
         }
-    }
-    
-    /// 颜色提取专用降采样（不需要高分辨率）
-    private static func downsampleForColor(data: Data, maxSize: CGFloat) -> UIImage? {
-        let options = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let source = CGImageSourceCreateWithData(data as CFData, options) else {
-            return UIImage(data: data)
-        }
-        let downsampleOptions = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxSize
-        ] as CFDictionary
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, downsampleOptions) else {
-            return UIImage(data: data)
-        }
-        return UIImage(cgImage: cgImage)
     }
     
     func formatTime(_ seconds: Double) -> String {

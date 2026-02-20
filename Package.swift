@@ -33,9 +33,9 @@ let package = Package(
                 "QQMusicKit",
             ],
             resources: [
-                .process("Resources/SanJiPoMoTi-2.ttf"),
-                .process("Resources/HYPixel11pxU-2.ttf"),
-                .process("Resources/字魂半天云魅黑手书(商用需授权).ttf"),
+                .process("Resources/SanJiPoMoTi.ttf"),
+                .process("Resources/HYPixel11pxU.ttf"),
+                .process("Resources/ZihunBantianyun.ttf"),
                 .process("Resources/eq_presets.json"),
                 .process("Resources/en.lproj"),
                 .process("Resources/zh-Hans.lproj"),

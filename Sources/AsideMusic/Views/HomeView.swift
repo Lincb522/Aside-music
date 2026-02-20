@@ -274,9 +274,12 @@ struct HomeView: View {
                 Button(action: {
                     navigationPath.append(HomeDestination.dailyRecommend)
                 }) {
-                    Text(LocalizedStringKey("view_all"))
-                        .font(.rounded(size: 13, weight: .semibold))
-                        .foregroundColor(.asideTextSecondary)
+                    HStack(spacing: 4) {
+                        Text(LocalizedStringKey("view_all"))
+                            .font(.rounded(size: 13, weight: .semibold))
+                            .foregroundColor(.asideTextSecondary)
+                        AsideIcon(icon: .chevronRight, size: 10, color: .asideTextSecondary)
+                    }
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }
@@ -464,7 +467,10 @@ struct HomeView: View {
                 }
                 .padding(16)
                 .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -475,27 +481,30 @@ struct HomeView: View {
             Button(action: {
                 navigationPath.append(HomeDestination.mvDiscover)
             }) {
-            HStack(spacing: 14) {
-                AsideIcon(icon: .playCircleFill, size: 24, color: .asideTextPrimary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(LocalizedStringKey("home_mv_zone"))
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(.asideTextPrimary)
-                    Text(LocalizedStringKey("home_mv_zone_desc"))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.asideTextSecondary)
+                HStack(spacing: 14) {
+                    AsideIcon(icon: .playCircleFill, size: 24, color: .asideTextPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LocalizedStringKey("home_mv_zone"))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.asideTextPrimary)
+                        Text(LocalizedStringKey("home_mv_zone_desc"))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                    }
+                    Spacer()
+                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
                 }
-                Spacer()
-                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
+            .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
         }
         .padding(.horizontal, 24)
     }
@@ -538,9 +547,12 @@ struct SectionHeader: View {
 
             if let action = action {
                 Button(action: action) {
-                    Text(LocalizedStringKey("view_all"))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.asideTextSecondary)
+                    HStack(spacing: 4) {
+                        Text(LocalizedStringKey("view_all"))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.asideTextSecondary)
+                        AsideIcon(icon: .chevronRight, size: 10, color: .asideTextSecondary)
+                    }
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
             }
@@ -560,11 +572,11 @@ struct SongCard: View {
                     Color.asideSeparator
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 140, height: 140)
+                .frame(width: 150, height: 150)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(song.name)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundColor(.asideTextPrimary)
@@ -576,7 +588,7 @@ struct SongCard: View {
                         .lineLimit(1)
                 }
             }
-            .frame(width: 140)
+            .frame(width: 150)
         }
         .buttonStyle(AsideBouncingButtonStyle())
     }
@@ -592,7 +604,7 @@ struct PlaylistVerticalCard: View {
                     Color.asideSeparator
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 140, height: 140)
+                .frame(width: 150, height: 150)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
@@ -609,14 +621,14 @@ struct PlaylistVerticalCard: View {
                 .clipShape(Capsule())
                 .padding(8)
             }
-            .frame(width: 140, height: 140)
+            .frame(width: 150, height: 150)
 
             Text(playlist.name)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundColor(.asideTextPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(width: 140, alignment: .leading)
+                .frame(width: 150, alignment: .leading)
                 .frame(height: 36, alignment: .top)
         }
     }

@@ -117,28 +117,36 @@ struct LibraryView: View {
             .padding(.horizontal, 24)
             .padding(.top, DeviceLayout.headerTopPadding)
 
-            // 标签栏 — 用下划线位置偏移替代 matchedGeometryEffect
-            HStack(spacing: 0) {
-                ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
-                    Button(action: {
-                        switchToTab(tab)
-                    }) {
-                        VStack(spacing: 6) {
-                            Text(tab.localizedKey)
-                                .font(.system(size: 16, weight: tabIndex == index ? .bold : .medium, design: .rounded))
-                                .foregroundColor(tabIndex == index ? Theme.text : Theme.secondaryText)
-                                .animation(.none, value: tabIndex)
-
-                            Capsule()
-                                .fill(tabIndex == index ? Theme.text : Color.clear)
-                                .frame(height: 3)
+            // 标签栏 — 滑动下划线
+            GeometryReader { tabBarGeo in
+                let tabWidth = (tabBarGeo.size.width - 32) / CGFloat(allTabs.count)
+                ZStack(alignment: .bottomLeading) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
+                            Button(action: {
+                                switchToTab(tab)
+                            }) {
+                                Text(tab.localizedKey)
+                                    .font(.system(size: 16, weight: tabIndex == index ? .bold : .medium, design: .rounded))
+                                    .foregroundColor(tabIndex == index ? Theme.text : Theme.secondaryText)
+                                    .animation(.none, value: tabIndex)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.bottom, 10)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    
+                    // 滑动指示器
+                    Capsule()
+                        .fill(Theme.text)
+                        .frame(width: 24, height: 3)
+                        .offset(x: tabWidth * CGFloat(tabIndex) + (tabWidth - 24) / 2)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
                 }
             }
+            .frame(height: 36)
             .padding(.horizontal, 16)
         }
         .padding(.bottom, 10)
@@ -554,7 +562,7 @@ struct MyPodcastsView: View {
                         }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 2, leading: 24, bottom: 2, trailing: 24))
+                        .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
                     }
 
                     Color.clear.frame(height: 120)
@@ -767,6 +775,12 @@ struct PlaylistSquareView: View {
                 .padding(.vertical, 16)
             }
             .scrollContentBackground(.hidden)
+            
+            // 分隔线
+            Rectangle()
+                .fill(Color.asideSeparator.opacity(0.5))
+                .frame(height: 0.5)
+                .padding(.horizontal, 24)
 
             ScrollView(showsIndicators: false) {
                 if viewModel.isLoadingSquare && viewModel.squarePlaylists.isEmpty {
@@ -830,6 +844,9 @@ struct ArtistLibraryView: View {
                     TextField(LocalizedStringKey("search_artists"), text: $viewModel.artistSearchText)
                         .font(.system(size: 16, design: .rounded))
                         .foregroundColor(Theme.text)
+                        .onSubmit {
+                            viewModel.fetchArtistData(reset: true)
+                        }
 
                     if !viewModel.artistSearchText.isEmpty {
                         Button(action: {
@@ -866,7 +883,7 @@ struct ArtistLibraryView: View {
                                 size: 18,
                                 color: hasActiveFilter ? .asideIconForeground : Theme.secondaryText
                             )
-                            .rotationEffect(.degrees(showFilters ? 180 : 0))
+                            .rotationEffect(.degrees(showFilters ? 90 : 0))
                         }
                         .frame(width: 46, height: 46)
                     }
@@ -916,6 +933,7 @@ struct ArtistLibraryView: View {
                                         Color.gray.opacity(0.1)
                                     }
                                     .aspectRatio(contentMode: .fill)
+                                    .frame(width: 100, height: 100)
                                     .clipShape(Circle())
                                     .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
 
@@ -1010,6 +1028,7 @@ struct ChartsLibraryView: View {
                                 }
                                 .aspectRatio(contentMode: .fill)
                                 .frame(height: 110)
+                                .clipped()
                                 .cornerRadius(12)
                                 .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
 

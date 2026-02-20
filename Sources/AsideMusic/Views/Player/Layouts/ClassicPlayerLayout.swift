@@ -219,7 +219,7 @@ struct ClassicPlayerLayout: View {
 
         return ZStack {
             if let song = player.currentSong {
-                CachedAsyncImage(url: song.coverUrl) {
+                CachedAsyncImage(url: song.coverUrl?.sized(800)) {
                     Color.gray.opacity(0.2)
                 }
                 .aspectRatio(contentMode: .fill)

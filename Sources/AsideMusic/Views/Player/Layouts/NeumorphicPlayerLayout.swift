@@ -224,7 +224,7 @@ extension NeumorphicPlayerLayout {
             
             // 封面图片
             if let song = player.currentSong {
-                CachedAsyncImage(url: song.coverUrl) {
+                CachedAsyncImage(url: song.coverUrl?.sized(800)) {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(surfaceColor)
                 }

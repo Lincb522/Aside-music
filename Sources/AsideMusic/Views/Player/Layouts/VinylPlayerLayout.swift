@@ -289,7 +289,7 @@ extension VinylPlayerLayout {
 
             // 封面（圆形居中）
             if let song = player.currentSong {
-                CachedAsyncImage(url: song.coverUrl) { Color.gray.opacity(0.3) }
+                CachedAsyncImage(url: song.coverUrl?.sized(800)) { Color.gray.opacity(0.3) }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: size * 0.40, height: size * 0.40)
                     .clipShape(Circle())

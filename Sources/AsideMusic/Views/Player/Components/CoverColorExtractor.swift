@@ -69,14 +69,17 @@ extension UIImage {
         let bytesPerPixel = cgImage.bitsPerPixel / 8
         let totalPixels = Int(size.width) * Int(size.height)
         
-        var totalR: CGFloat = 0, totalG: CGFloat = 0, totalB: CGFloat = 0
-        var count: CGFloat = 0
-        
         // 采样中心区域（避免边缘噪声）
         let startX = Int(size.width * 0.2)
         let endX = Int(size.width * 0.8)
         let startY = Int(size.height * 0.2)
         let endY = Int(size.height * 0.8)
+        
+        // 收集所有采样像素，按饱和度加权
+        var weightedR: CGFloat = 0, weightedG: CGFloat = 0, weightedB: CGFloat = 0
+        var totalWeight: CGFloat = 0
+        var totalR: CGFloat = 0, totalG: CGFloat = 0, totalB: CGFloat = 0
+        var count: CGFloat = 0
         
         for y in startY..<endY {
             for x in startX..<endX {
@@ -85,27 +88,58 @@ extension UIImage {
                 let r = CGFloat(ptr[offset]) / 255.0
                 let g = CGFloat(ptr[offset + 1]) / 255.0
                 let b = CGFloat(ptr[offset + 2]) / 255.0
+                
                 totalR += r; totalG += g; totalB += b
                 count += 1
+                
+                // 饱和度越高的像素权重越大，提取更鲜明的颜色
+                let maxC = max(r, g, b)
+                let minC = min(r, g, b)
+                let saturation = maxC > 0 ? (maxC - minC) / maxC : 0
+                let weight = 0.2 + saturation * 2.0 // 基础权重 + 饱和度加成
+                
+                weightedR += r * weight
+                weightedG += g * weight
+                weightedB += b * weight
+                totalWeight += weight
             }
         }
         
-        guard count > 0 else {
+        guard count > 0, totalWeight > 0 else {
             return ExtractedColors(dominant: .gray, secondary: .gray, isDark: true)
         }
         
-        let avgR = totalR / count
-        let avgG = totalG / count
-        let avgB = totalB / count
+        // 用加权平均得到更鲜明的主色
+        let avgR = weightedR / totalWeight
+        let avgG = weightedG / totalWeight
+        let avgB = weightedB / totalWeight
         
-        // 计算亮度
-        let luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB
+        // 计算亮度（用普通平均值）
+        let plainR = totalR / count
+        let plainG = totalG / count
+        let plainB = totalB / count
+        let luminance = 0.299 * plainR + 0.587 * plainG + 0.114 * plainB
         let isDark = luminance < 0.5
         
-        // 增加饱和度让颜色更鲜明
-        let dominant = Color(red: avgR, green: avgG, blue: avgB)
-        let secondary = Color(red: avgR * 0.7, green: avgG * 0.7, blue: avgB * 0.7)
+        // 轻微提升饱和度让颜色更鲜明
+        let dominant = boostSaturation(r: avgR, g: avgG, b: avgB, factor: 1.3)
+        let secondary = boostSaturation(r: avgR * 0.8, g: avgG * 0.8, b: avgB * 0.8, factor: 1.2)
         
         return ExtractedColors(dominant: dominant, secondary: secondary, isDark: isDark)
+    }
+    
+    /// 提升颜色饱和度
+    private func boostSaturation(r: CGFloat, g: CGFloat, b: CGFloat, factor: CGFloat) -> Color {
+        let maxC = max(r, g, b)
+        let minC = min(r, g, b)
+        guard maxC > minC, maxC > 0 else {
+            return Color(red: r, green: g, blue: b)
+        }
+        // 将每个通道向最大值方向拉伸
+        let gray = (r + g + b) / 3.0
+        let newR = min(1.0, gray + (r - gray) * factor)
+        let newG = min(1.0, gray + (g - gray) * factor)
+        let newB = min(1.0, gray + (b - gray) * factor)
+        return Color(red: max(0, newR), green: max(0, newG), blue: max(0, newB))
     }
 }

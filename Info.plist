@@ -52,7 +52,7 @@
     <string>$(API_BASE_URL)</string>
     <key>UIAppFonts</key>
     <array>
-        <string>SanJiPoMoTi-2.ttf</string>
+        <string>SanJiPoMoTi.ttf</string>
     </array>
 </dict>
 </plist>
