@@ -1027,7 +1027,7 @@ struct SearchView: View {
             
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(viewModel.suggestions, id: \.self) { suggestion in
+                    ForEach(Array(viewModel.suggestions.enumerated()), id: \.offset) { _, suggestion in
                         Button(action: {
                             viewModel.performSearch(keyword: suggestion)
                             isFocused = false

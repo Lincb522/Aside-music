@@ -30,6 +30,8 @@ struct FullScreenPlayerView: View {
                 PixelPlayerLayout()
             case .aqua:
                 AquaPlayerLayout()
+            case .cassette:
+                CassettePlayerLayout()
             }
         }
         .onAppear {

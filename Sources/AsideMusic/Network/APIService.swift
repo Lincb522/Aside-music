@@ -229,7 +229,16 @@ class APIService {
             let response = try await ncm.loginQrCheck(key: key)
             let code = response.body["code"] as? Int ?? 0
             let message = response.body["message"] as? String ?? ""
-            let cookie = response.cookies.isEmpty ? nil : response.cookies.joined(separator: "; ")
+            // 优先从 JSON body 中取 cookie（Node 后端把登录 cookie 放在 body 里），
+            // 其次从 HTTP Set-Cookie 头取
+            let cookie: String?
+            if let bodyCookie = response.body["cookie"] as? String, !bodyCookie.isEmpty {
+                cookie = bodyCookie
+            } else if !response.cookies.isEmpty {
+                cookie = response.cookies.joined(separator: "; ")
+            } else {
+                cookie = nil
+            }
             return QRCheckResponse(code: code, message: message, cookie: cookie)
         }
     }
@@ -247,7 +256,16 @@ class APIService {
         ncm.publisher { [ncm] in
             let response = try await ncm.loginCellphone(phone: phone, captcha: captcha)
             let code = response.body["code"] as? Int ?? 0
-            let cookie = response.cookies.isEmpty ? nil : response.cookies.joined(separator: "; ")
+            // 优先从 JSON body 中取 cookie（Node 后端把登录 cookie 放在 body 里），
+            // 其次从 HTTP Set-Cookie 头取
+            let cookie: String?
+            if let bodyCookie = response.body["cookie"] as? String, !bodyCookie.isEmpty {
+                cookie = bodyCookie
+            } else if !response.cookies.isEmpty {
+                cookie = response.cookies.joined(separator: "; ")
+            } else {
+                cookie = nil
+            }
             var profile: UserProfile? = nil
             if let profileDict = response.body["profile"] as? [String: Any] {
                 let data = try JSONSerialization.data(withJSONObject: profileDict)

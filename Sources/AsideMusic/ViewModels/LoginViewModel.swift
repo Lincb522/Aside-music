@@ -81,7 +81,10 @@ class LoginViewModel: ObservableObject {
         timer = Timer.publish(every: 3.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.checkStatus()
+                guard let self = self else { return }
+                Task { @MainActor in
+                    await self.checkStatus()
+                }
             }
     }
     
@@ -90,46 +93,73 @@ class LoginViewModel: ObservableObject {
         timer = nil
     }
     
-    private func checkStatus() {
+    private func checkStatus() async {
         guard let key = qrKey else { return }
-        apiService.checkQRStatus(key: key)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] response in
-                guard let self = self else { return }
-                switch response.code {
-                case 800:
-                    self.qrStatusMessage = NSLocalizedString("qr_expired", comment: "QR Code Expired")
-                    self.isQRExpired = true
-                    self.stopQRPolling()
-                case 801:
-                    self.qrStatusMessage = NSLocalizedString("qr_waiting", comment: "Waiting for scan...")
-                case 802:
-                    self.qrStatusMessage = NSLocalizedString("qr_scanned", comment: "Scanned! Please confirm on phone.")
-                case 803:
-                    self.qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
-                    if let cookie = response.cookie {
-                        APIService.shared.currentCookie = cookie
-                        APIService.shared.fetchLoginStatus()
-                            .sink(receiveCompletion: { _ in }, receiveValue: { status in
-                                if let profile = status.data.profile {
-                                    APIService.shared.currentUserId = profile.userId
-                                    LikeManager.shared.refreshLikes()
-                                    self.isLoggedIn = true
-                                    // 同步到 AppStorage，让 ContentView/ProfileView 感知登录状态
-                                    UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
-                                    self.stopQRPolling()
-                                    NotificationCenter.default.post(name: .didLogin, object: nil)
-                                    Task { @MainActor in
-                                        GlobalRefreshManager.shared.triggerLoginRefresh()
-                                    }
-                                }
-                            })
-                            .store(in: &self.cancellables)
-                    }
-                default:
-                    break
-                }
-            })
-            .store(in: &cancellables)
+        do {
+            let response = try await apiService.checkQRStatus(key: key).async()
+            #if DEBUG
+            print("[Login] QR 状态: code=\(response.code), message=\(response.message ?? "")")
+            #endif
+            switch response.code {
+            case 800:
+                self.qrStatusMessage = NSLocalizedString("qr_expired", comment: "QR Code Expired")
+                self.isQRExpired = true
+                self.stopQRPolling()
+            case 801:
+                self.qrStatusMessage = NSLocalizedString("qr_waiting", comment: "Waiting for scan...")
+            case 802:
+                self.qrStatusMessage = NSLocalizedString("qr_scanned", comment: "Scanned! Please confirm on phone.")
+            case 803:
+                self.qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
+                self.stopQRPolling()
+                #if DEBUG
+                print("[Login] 收到 803，cookie 长度: \(response.cookie?.count ?? 0)")
+                #endif
+                await self.handleQRLoginSuccess(cookie: response.cookie)
+            default:
+                break
+            }
+        } catch {
+            #if DEBUG
+            print("[Login] checkQRStatus 请求失败: \(error)")
+            #endif
+        }
+    }
+    
+    /// 处理二维码登录成功
+    private func handleQRLoginSuccess(cookie: String?) async {
+        if let cookie = cookie {
+            APIService.shared.currentCookie = cookie
+            #if DEBUG
+            print("[Login] cookie 已保存，开始获取登录状态...")
+            #endif
+        } else {
+            #if DEBUG
+            print("[Login] 803 但 cookie 为空，尝试用 SessionManager 已有 session")
+            #endif
+        }
+        
+        // 获取登录状态
+        do {
+            let status = try await APIService.shared.fetchLoginStatus().async()
+            #if DEBUG
+            print("[Login] fetchLoginStatus 成功，profile: \(status.data.profile?.nickname ?? "nil")")
+            #endif
+            if let profile = status.data.profile {
+                APIService.shared.currentUserId = profile.userId
+                LikeManager.shared.refreshLikes()
+            }
+        } catch {
+            #if DEBUG
+            print("[Login] fetchLoginStatus 失败: \(error)，但 cookie 已保存，继续登录")
+            #endif
+        }
+        
+        // 无论 fetchLoginStatus 是否成功，只要 803 就标记登录成功
+        self.isLoggedIn = true
+        UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
+        NotificationCenter.default.post(name: .didLogin, object: nil)
+        GlobalRefreshManager.shared.triggerLoginRefresh()
     }
     
     func refreshQR() {

@@ -9,23 +9,52 @@ extension PlayerManager {
     
     // MARK: - Core Playback API
     
-    func play(song: Song, in context: [Song]) {
+    func play(song: Song, in newContext: [Song]) {
         // 如果点击的是当前正在播放的歌，切换播放/暂停而不是重播
         if currentSong?.id == song.id {
             togglePlayPause()
             return
         }
         
-        // 替换为新的播放列表
-        self.context = context
         self.playSource = .normal
         
-        if let index = self.context.firstIndex(where: { $0.id == song.id }) {
-            self.contextIndex = index
+        // 如果当前没有播放队列，或者点的就是当前队列里的歌，直接替换
+        if self.context.isEmpty || self.currentSong == nil {
+            self.context = newContext
+            if let index = self.context.firstIndex(where: { $0.id == song.id }) {
+                self.contextIndex = index
+            } else {
+                self.context.insert(song, at: 0)
+                self.contextIndex = 0
+            }
+        } else if newContext.contains(where: { $0.id == song.id }) &&
+                  newContext.count == self.context.count &&
+                  newContext.first?.id == self.context.first?.id {
+            // 同一个列表内切歌，直接替换（避免重复插入）
+            self.context = newContext
+            if let index = self.context.firstIndex(where: { $0.id == song.id }) {
+                self.contextIndex = index
+            } else {
+                self.context.insert(song, at: 0)
+                self.contextIndex = 0
+            }
         } else {
-            // 歌曲不在列表中，插入到开头
-            self.context.insert(song, at: 0)
-            self.contextIndex = 0
+            // 从不同列表点歌：将新列表的歌插入到当前位置之后
+            // 1. 找到新列表中点击歌曲的位置，取它及其后面的歌
+            let songIndex = newContext.firstIndex(where: { $0.id == song.id }) ?? 0
+            let newSongs = Array(newContext[songIndex...])
+            
+            // 2. 去重：过滤掉已在当前队列中的歌
+            let existingIds = Set(self.context.map { $0.id })
+            let uniqueNewSongs = newSongs.filter { !existingIds.contains($0.id) || $0.id == song.id }
+            
+            // 3. 如果点击的歌已在队列中，先移除旧的位置
+            self.context.removeAll { $0.id == song.id }
+            
+            // 4. 插入到当前播放位置之后
+            let insertAt = min(self.contextIndex + 1, self.context.count)
+            self.context.insert(contentsOf: uniqueNewSongs, at: insertAt)
+            self.contextIndex = insertAt
         }
         
         if mode == .shuffle {

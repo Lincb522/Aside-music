@@ -167,20 +167,39 @@ struct AsideIcon: View {
     let icon: IconType
     var size: CGFloat = 24
     var color: Color = .black
-    var lineWidth: CGFloat = 1.6
+    var lineWidth: CGFloat? = nil
+    
+    // 动态缩放线条宽度，让大尺寸和小尺寸图标都保持精致比例
+    private var actualLineWidth: CGFloat {
+        if let explicit = lineWidth { return explicit }
+        return max(1.0, size * (1.6 / 24.0))
+    }
+    
+    // 高级感渐变填充，取代单调的纯色透明度
+    private var fillGradient: LinearGradient {
+        LinearGradient(
+            colors: [color.opacity(0.25), color.opacity(0.02)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
     
     private var strokeColor: Color { color }
-    private var fillColor: Color { color.opacity(0.15) }
     
     var body: some View {
         ZStack {
             if shouldShowFill {
                 fillLayer
+                    // 轻微模糊填充层，营造 Aura 悬浮发光感
+                    .blur(radius: size * 0.02)
             }
             
             strokeLayer
+                // 给所有描边添加微弱投影，增加厚度感和精致度
+                .shadow(color: color.opacity(0.15), radius: size * 0.05, x: 0, y: size * 0.03)
         }
         .frame(width: size, height: size)
+        .drawingGroup() // 开启离屏渲染，彻底解决小尺寸路径锯齿和抗锯齿边缘粗糙问题
     }
     
     private var shouldShowFill: Bool {
@@ -195,21 +214,21 @@ struct AsideIcon: View {
     @ViewBuilder
     private var fillLayer: some View {
         switch icon {
-        case .liked:        LikePath().fill(color.opacity(0.15))
-        default:            pathForIcon(icon).fill(fillColor)
+        case .liked:        LikePath().fill(fillGradient)
+        default:            pathForIcon(icon).fill(fillGradient)
         }
     }
     
     @ViewBuilder
     private var strokeLayer: some View {
-        let style = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+        let style = StrokeStyle(lineWidth: actualLineWidth, lineCap: .round, lineJoin: .round)
         
         switch icon {
         case .liked:
             LikedPath().stroke(strokeColor, style: style)
             ZStack {
                 LikePath().stroke(strokeColor, style: style)
-                LikePath().fill(color.opacity(0.15))
+                LikePath().fill(fillGradient)
                 Circle().frame(width: size * (3.0/24.0), height: size * (3.0/24.0)).position(x: size * (12.0/24.0), y: size * (10.0/24.0)).foregroundColor(color)
             }
         default:

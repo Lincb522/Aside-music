@@ -52,8 +52,12 @@ class PlayerManager: ObservableObject {
     @Published var currentSong: Song?
     @Published var isPlaying: Bool = false
     @Published var isLoading: Bool = false
-    @Published var currentTime: Double = 0
-    @Published var duration: Double = 0
+    @Published var currentTime: Double = 0 {
+        didSet { PlaybackTimePublisher.shared.currentTime = currentTime }
+    }
+    @Published var duration: Double = 0 {
+        didSet { PlaybackTimePublisher.shared.duration = duration }
+    }
     @Published var showFullScreenPlayer = false
     @Published var mode: PlayMode = .sequence
     @Published var isTabBarHidden: Bool = false

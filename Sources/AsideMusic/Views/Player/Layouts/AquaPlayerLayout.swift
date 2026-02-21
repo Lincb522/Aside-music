@@ -22,34 +22,40 @@ struct AquaPlayerLayout: View {
     @State private var showLyrics = false
     @State private var rippleTrigger = false
 
-    // 配色 — 自适应深浅模式
+    // 纯正的动画风配色（高饱和、无通透感）
     private var bgColor: Color {
-        colorScheme == .dark ? Color(hex: "0B1A2B") : Color.white
+        // 背景改为极浅的蓝，而不是突兀的纯白（亮色模式），深色模式下为深藏青色
+        colorScheme == .dark ? Color(hex: "081020") : Color(hex: "E0F2FE")
     }
-    private var waterTop: Color {
-        colorScheme == .dark ? Color(hex: "1E6091") : Color(hex: "7DD3FC")
+    private var waterBack: Color {
+        colorScheme == .dark ? Color(hex: "1E3A8A") : Color(hex: "60A5FA") // 深海蓝
     }
     private var waterMid: Color {
-        colorScheme == .dark ? Color(hex: "1A5276") : Color(hex: "38BDF8")
+        colorScheme == .dark ? Color(hex: "2563EB") : Color(hex: "3B82F6") // 明亮蓝
     }
-    private var waterBot: Color {
-        colorScheme == .dark ? Color(hex: "154360") : Color(hex: "0EA5E9")
+    private var waterFront: Color {
+        colorScheme == .dark ? Color(hex: "3B82F6") : Color(hex: "0EA5E9") // 浅水蓝
     }
     private var bubbleColor: Color {
-        colorScheme == .dark ? Color(hex: "2980B9") : Color(hex: "BAE6FD")
+        Color.white.opacity(0.4) // 半透明白框气泡
     }
     private var accentColor: Color {
-        colorScheme == .dark ? Color(hex: "5DADE2") : Color(hex: "0EA5E9")
+        colorScheme == .dark ? Color(hex: "60A5FA") : Color(hex: "2563EB")
     }
     private var textPrimary: Color {
-        colorScheme == .dark ? Color(hex: "E2E8F0") : Color(hex: "0F172A")
+        colorScheme == .dark ? Color.white : Color(hex: "0F172A")
     }
     private var textMuted: Color {
         colorScheme == .dark ? Color(hex: "94A3B8") : Color(hex: "64748B")
     }
     private var btnBgColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05)
+        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06)
     }
+
+    // 气泡破裂特效存储池
+    @State private var poppedBubbles: [UUID: CGPoint] = [:]
+    // 文字呼吸浮动动效
+    @State private var textFloatOffset: CGFloat = 0
 
     private var progress: CGFloat {
         guard player.duration > 0 else { return 0 }
@@ -58,35 +64,40 @@ struct AquaPlayerLayout: View {
 
     var body: some View {
         GeometryReader { geo in
-            let waterY = geo.size.height * (0.82 - progress * 0.65)
+            // 水位计算：根据不包含安全区的核心内容高度的比例
+            let ratio = CGFloat(0.80 - progress * 0.50)
+            
             ZStack {
-                bgColor.ignoresSafeArea()
+                // 1. 全屏卡通背景层
+                ZStack {
+                    bgColor
+                    cartoonWater(waterRatio: ratio)
+                        .allowsHitTesting(false)
+                    
+                    cartoonBubbles(waterRatio: ratio)
+                        .allowsHitTesting(false)
+                }
+                .ignoresSafeArea()
 
-                // 水体 + 波浪
-                cartoonWater(size: geo.size, waterY: waterY)
-                    .allowsHitTesting(false)
-
-                // 气泡
-                cartoonBubbles(size: geo.size, waterY: waterY)
-                    .allowsHitTesting(false)
-
-                // 内容
+                // 2. 界面内容层 (受制于安全区)
                 VStack(spacing: 0) {
                     topBar.padding(.top, DeviceLayout.headerTopPadding)
 
-                    if showLyrics {
-                        lyricsContent.transition(.opacity)
-                    } else {
-                        Spacer()
+                    // 歌曲信息和歌词完全整合在中间
+                    VStack(spacing: 16) {
                         songInfoArea
-                            .padding(.bottom, 24)
-                        controls
-                            .padding(.bottom, 12)
-                        timeAndProgress(width: geo.size.width)
-                            .padding(.bottom, DeviceLayout.playerBottomPadding)
+                            .padding(.top, 24)
+                        
+                        lyricsContent
                     }
-                }
 
+                    Spacer()
+
+                    controls
+                        .padding(.bottom, DeviceLayout.playerBottomPadding + 20)
+                }
+                
+                // 更多菜单浮层
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
@@ -97,7 +108,13 @@ struct AquaPlayerLayout: View {
             }
             .animation(.easeInOut(duration: 0.3), value: showLyrics)
         }
-        .onAppear { loadLyricsIfNeeded() }
+        .onAppear { 
+            loadLyricsIfNeeded() 
+            // 启动文字呼吸漂浮动画
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                textFloatOffset = -8
+            }
+        }
         .sheet(isPresented: $showPlaylist) {
             PlaylistPopupView().presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
         }
@@ -142,40 +159,42 @@ struct AquaPlayerLayout: View {
 
 extension AquaPlayerLayout {
 
-    /// 扁平化水体：两层圆润正弦波 + 渐变填充
-    private func cartoonWater(size: CGSize, waterY: CGFloat) -> some View {
+    /// 纯正卡通水体：三层波浪，纯色填充，无渐变，带高光轮廓描边
+    private func cartoonWater(waterRatio: CGFloat) -> some View {
         TimelineView(.animation(paused: !player.isPlaying)) { timeline in
             let t = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
             Canvas { ctx, cs in
-                // 后层波浪 — 大振幅慢速
+                let waterY = cs.height * waterRatio
+                
+                // --------- 最底层波浪 (Back) ---------
                 let backPath = wavePath(width: cs.width, height: cs.height,
-                                        waterY: waterY, t: t,
-                                        amp: 18, freq: 1.0, speed: 0.5, phase: 0)
-                let backGrad = Gradient(colors: [waterMid.opacity(0.5), waterBot.opacity(0.7)])
-                ctx.fill(backPath, with: .linearGradient(
-                    backGrad,
-                    startPoint: CGPoint(x: cs.width / 2, y: waterY),
-                    endPoint: CGPoint(x: cs.width / 2, y: cs.height)
-                ))
-
-                // 前层波浪 — 小振幅快速
+                                        waterY: waterY - 10, t: t,
+                                        amp: 24, freq: 0.8, speed: 0.4, phase: 0)
+                ctx.fill(backPath, with: .color(waterBack))
+                
+                // --------- 中间层波浪 (Mid) ---------
+                let midPath = wavePath(width: cs.width, height: cs.height,
+                                       waterY: waterY + 5, t: t,
+                                       amp: 18, freq: 1.2, speed: 0.7, phase: 2)
+                ctx.fill(midPath, with: .color(waterMid))
+                
+                // --------- 最前层波浪 (Front) ---------
                 let frontPath = wavePath(width: cs.width, height: cs.height,
-                                         waterY: waterY + 8, t: t,
-                                         amp: 12, freq: 1.6, speed: 0.8, phase: 1.5)
-                let frontGrad = Gradient(colors: [waterTop.opacity(0.6), waterMid.opacity(0.5)])
-                ctx.fill(frontPath, with: .linearGradient(
-                    frontGrad,
-                    startPoint: CGPoint(x: cs.width / 2, y: waterY),
-                    endPoint: CGPoint(x: cs.width / 2, y: cs.height)
-                ))
+                                         waterY: waterY + 15, t: t,
+                                         amp: 14, freq: 1.5, speed: 1.0, phase: 1)
+                ctx.fill(frontPath, with: .color(waterFront))
 
-                // 水面高光线
-                let hlPath = waveLinePath(width: cs.width, waterY: waterY, t: t,
-                                          amp: 18, freq: 1.0, speed: 0.5, phase: 0)
-                ctx.stroke(hlPath, with: .color(Color.white.opacity(0.35)), lineWidth: 2)
+                // 卡通轮廓高光（实线细描边），增强 2D 动画感
+                let frontHighlight = waveLinePath(width: cs.width, waterY: waterY + 15, t: t,
+                                                  amp: 14, freq: 1.5, speed: 1.0, phase: 1)
+                ctx.stroke(frontHighlight, with: .color(.white.opacity(0.6)), lineWidth: 3)
+                
+                let midHighlight = waveLinePath(width: cs.width, waterY: waterY + 5, t: t,
+                                                  amp: 18, freq: 1.2, speed: 0.7, phase: 2)
+                ctx.stroke(midHighlight, with: .color(.white.opacity(0.3)), lineWidth: 2)
             }
         }
-        .ignoresSafeArea()
+        .drawingGroup() // 开启抗锯齿
     }
 
     private func wavePath(width: CGFloat, height: CGFloat, waterY: CGFloat,
@@ -212,52 +231,51 @@ extension AquaPlayerLayout {
 
 extension AquaPlayerLayout {
 
-    /// 柔和的卡通气泡 — 缓慢上浮，顶部渐隐底部渐显，无跳变
-    private func cartoonBubbles(size: CGSize, waterY: CGFloat) -> some View {
+    /// 卡通气泡 — 实体描边，侧边月牙高光，破裂特效
+    private func cartoonBubbles(waterRatio: CGFloat) -> some View {
         TimelineView(.animation(paused: !player.isPlaying)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             Canvas { ctx, cs in
-                let count = 5
-                let bottom = Double(cs.height + 20)
-                let top = Double(waterY - 10)
+                let waterY = cs.height * waterRatio
+                let count = 8
+                let bottom = Double(cs.height + 40)
+                let top = Double(waterY)
                 guard bottom > top else { return }
                 let range = bottom - top
 
                 for i in 0..<count {
                     let fi = Double(i)
-                    // 极慢上浮，每个气泡不同周期
-                    let period = 25.0 + fi * 8.0
+                    // 上浮周期
+                    let period = 15.0 + fi * 6.0
                     let phase = fi * period / Double(count)
                     let cycleT = (t + phase).truncatingRemainder(dividingBy: period)
-                    let normalizedPos = cycleT / period  // 0~1，0=底部 1=顶部
-
+                    let normalizedPos = cycleT / period 
+                    
+                    // 动态弹跳上浮 (水流中之字形摆动)
                     let cy = CGFloat(bottom - normalizedPos * range)
-
-                    let baseX = cs.width * CGFloat(0.15 + fi * 0.16)
-                    let wobble = sin(t * 0.25 + fi * 1.2) * 3
+                    let baseX = cs.width * CGFloat(0.1 + fi * 0.12)
+                    let wobble = sin(t * 1.5 + fi * 2.0) * (20.0 + fi * 2.0)
                     let cx = baseX + CGFloat(wobble)
-                    let r = CGFloat(5 + fi * 1.2)
+                    
+                    // 随着上升水压减小气泡变大
+                    let r = CGFloat(4 + fi * 1.5) + CGFloat(normalizedPos * 4.0)
 
-                    // 底部 10% 渐显，顶部 15% 渐隐
-                    var alpha = 1.0
-                    if normalizedPos < 0.1 {
-                        alpha = normalizedPos / 0.1
-                    } else if normalizedPos > 0.85 {
-                        alpha = (1.0 - normalizedPos) / 0.15
+                    // 如果快到水面了，触发破裂效果 (隐藏实体并画放射线)
+                    if normalizedPos > 0.95 {
+                        let popScale = CGFloat((normalizedPos - 0.95) / 0.05) // 0 to 1
+                        ctx.stroke(Circle().path(in: CGRect(x: cx - r * (1 + popScale), y: cy - r * (1 + popScale), width: r * 2 * (1 + popScale), height: r * 2 * (1 + popScale))), with: .color(bubbleColor.opacity(1.0 - popScale)), lineWidth: 2)
+                        continue
                     }
-                    alpha = max(alpha, 0)
 
                     let rect = CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)
-                    ctx.fill(Circle().path(in: rect), with: .color(bubbleColor.opacity(0.1 * alpha)))
-                    ctx.stroke(Circle().path(in: rect), with: .color(bubbleColor.opacity(0.2 * alpha)), lineWidth: 0.8)
-
-                    let hlR = r * 0.25
-                    let hlRect = CGRect(x: cx - r * 0.3, y: cy - r * 0.35, width: hlR, height: hlR)
-                    ctx.fill(Circle().path(in: hlRect), with: .color(Color.white.opacity(0.3 * alpha)))
+                    
+                    // 气泡轮廓 (实色实心白点或空心圆，完全扁平无光泽)
+                    ctx.stroke(Circle().path(in: rect), with: .color(bubbleColor), lineWidth: 2)
                 }
             }
         }
         .ignoresSafeArea()
+        .drawingGroup() // 开启抗锯齿
     }
 }
 
@@ -316,34 +334,33 @@ extension AquaPlayerLayout {
 
     private var songInfoArea: some View {
         VStack(spacing: 16) {
-            // 歌名 — 超大字，居中，字间距拉开
+            // 歌名 — 绝对纯粹的扁平（无投影、无高光）
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .font(.system(size: 34, weight: .black, design: .rounded))
                 .foregroundColor(textPrimary)
-                .tracking(1)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.7)
 
-            // 歌手 — 水色胶囊标签
+            // 歌手 — 卡通贴纸感标签（纯平圆角矩形）
             if let artist = player.currentSong?.artistName, !artist.isEmpty {
-                Text(artist)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(accentColor)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule().fill(accentColor.opacity(0.08))
-                    )
+                HStack(spacing: 6) {
+                    AsideIcon(icon: .sparkle, size: 14, color: .white) // 用星星图标装饰
+                    Text(artist)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(accentColor)
+                )
             }
         }
         .padding(.horizontal, 32)
+        .offset(y: textFloatOffset) // 挂载呼吸动效
         .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                showLyrics = true
-            }
-        }
     }
 }
 
@@ -355,9 +372,7 @@ extension AquaPlayerLayout {
         ZStack {
             if let song = player.currentSong {
                 LyricsView(song: song, onBackgroundTap: {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showLyrics = false
-                    }
+                    // 歌词页面已整合，无需点击退出
                 })
             }
         }
@@ -389,47 +404,50 @@ extension AquaPlayerLayout {
 
             Spacer()
 
-            // 播放按钮 — 涟漪
+            // 播放按钮 — Q弹物理拉伸
             Button(action: {
-                rippleTrigger.toggle()
+                // 触发极速 Q 弹反馈（夸张的形变）
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.3, blendDuration: 0)) {
+                    rippleTrigger = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                        rippleTrigger = false
+                    }
+                }
                 player.togglePlayPause()
             }) {
                 ZStack {
-                    // 涟漪圈
+                    // 圆润的卡通色块，去除描边圈
                     Circle()
-                        .stroke(accentColor.opacity(0.3), lineWidth: 1.5)
-                        .frame(width: 60, height: 60)
-                        .scaleEffect(rippleTrigger ? 1.6 : 1.0)
-                        .opacity(rippleTrigger ? 0 : 0.4)
-                        .animation(.easeOut(duration: 0.6), value: rippleTrigger)
-
-                    Circle()
-                        .fill(accentColor.opacity(0.12))
-                        .frame(width: 60, height: 60)
-                        .overlay(Circle().stroke(accentColor.opacity(0.25), lineWidth: 1.5))
+                        .fill(accentColor)
+                        .frame(width: 64, height: 64)
+                        // Q 弹形变动画
+                        .scaleEffect(rippleTrigger ? 0.8 : 1.0)
 
                     if player.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: textPrimary))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         AsideIcon(
                             icon: player.isPlaying ? .pause : .play,
-                            size: 24, color: textPrimary
+                            size: 26, color: .white
                         )
                         .offset(x: player.isPlaying ? 0 : 2)
+                        .scaleEffect(rippleTrigger ? 0.8 : 1.0)
                     }
                 }
             }
-            .buttonStyle(AsideBouncingButtonStyle())
-
+            .buttonStyle(PlainButtonStyle()) // 重点：去除默认点击框高亮，完全接管动画
+            
             Spacer()
 
             Button(action: { player.next() }) {
-                AsideIcon(icon: .next, size: 20, color: textPrimary)
+                AsideIcon(icon: .next, size: 24, color: textPrimary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(AsideBouncingButtonStyle())
+            .buttonStyle(AsideBouncingButtonStyle(scale: 0.8)) // 夸张的小缩放
 
             Spacer()
 
@@ -439,68 +457,6 @@ extension AquaPlayerLayout {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
-        }
-        .padding(.horizontal, 24)
-    }
-}
-
-// MARK: - 时间 + 进度
-
-extension AquaPlayerLayout {
-
-    private func timeAndProgress(width: CGFloat) -> some View {
-        VStack(spacing: 8) {
-            // 进度条 — 圆角胶囊，水色填充
-            GeometryReader { barGeo in
-                let bw = barGeo.size.width
-                let fillW = max(4, bw * progress)
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(btnBgColor)
-                        .frame(height: 4)
-
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [waterTop, waterMid],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: fillW, height: 4)
-
-                    Circle()
-                        .fill(colorScheme == .dark ? Color(hex: "1E293B") : Color.white)
-                        .frame(width: isDragging ? 14 : 6, height: isDragging ? 14 : 6)
-                        .shadow(color: accentColor.opacity(0.4), radius: 4)
-                        .offset(x: max(0, fillW - 3))
-                        .animation(.spring(response: 0.2), value: isDragging)
-                }
-                .contentShape(Rectangle().inset(by: -20))
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { v in
-                            isDragging = true
-                            dragValue = min(max(Double(v.location.x / bw), 0), 1) * player.duration
-                        }
-                        .onEnded { v in
-                            isDragging = false
-                            player.seek(to: min(max(Double(v.location.x / bw), 0), 1) * player.duration)
-                        }
-                )
-            }
-            .frame(height: 14)
-
-            // 时间
-            HStack {
-                Text(formatTime(isDragging ? dragValue : player.currentTime))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(textMuted)
-                Spacer()
-                Text(formatTime(player.duration))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(textMuted.opacity(0.6))
-            }
         }
         .padding(.horizontal, 24)
     }

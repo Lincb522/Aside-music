@@ -62,3 +62,9 @@ image.png
 AsideMusic.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 AsideMusic.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 AuroraIcon.svg
+.agents/skills/swiftui-performance-audit/references/demystify-swiftui-performance-wwdc23.md
+.agents/skills/swiftui-performance-audit/references/optimizing-swiftui-performance-instruments.md
+.agents/skills/swiftui-performance-audit/references/understanding-hangs-in-your-app.md
+.agents/skills/swiftui-performance-audit/references/understanding-improving-swiftui-performance.md
+.agents/skills/swiftui-performance-audit/SKILL.md
+.claude/skills/swiftui-performance-audit

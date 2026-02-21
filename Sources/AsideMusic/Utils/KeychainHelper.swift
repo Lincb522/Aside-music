@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 /// 安全存储工具
-/// 优先使用 Keychain，如果 Keychain 不可用（如巨魔安装）则自动降级到文件存储
+/// 优先使用 Keychain，如果 Keychain 不可用则自动降级到文件存储
 enum KeychainHelper {
     
     private static let service = "com.aside.music"

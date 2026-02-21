@@ -15,26 +15,24 @@ struct DebugLogView: View {
     @State private var searchText = ""
     @State private var autoScroll = true
     @State private var showShareSheet = false
+    @State private var cachedFilteredLogs: [LogEntry] = []
     
     private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     
-    var filteredLogs: [LogEntry] {
+    var filteredLogs: [LogEntry] { cachedFilteredLogs }
+    
+    private func recomputeFilteredLogs() {
         var result = logs
-        
-        // 按级别过滤
         if let level = filterLevel {
             result = result.filter { $0.level == level }
         }
-        
-        // 按搜索文本过滤
         if !searchText.isEmpty {
             result = result.filter { log in
                 log.message.localizedCaseInsensitiveContains(searchText) ||
                 log.fileName.localizedCaseInsensitiveContains(searchText)
             }
         }
-        
-        return result
+        cachedFilteredLogs = result
     }
     
     
@@ -74,10 +72,14 @@ struct DebugLogView: View {
             .navigationBarHidden(true)
             .onAppear {
                 loadLogs()
+                recomputeFilteredLogs()
             }
             .onReceive(timer) { _ in
                 loadLogs()
+                recomputeFilteredLogs()
             }
+            .onChange(of: filterLevel) { _, _ in recomputeFilteredLogs() }
+            .onChange(of: searchText) { _, _ in recomputeFilteredLogs() }
             .sheet(isPresented: $showShareSheet) {
                 DebugLogShareSheet(items: [exportLogsAsText()])
             }

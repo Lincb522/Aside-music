@@ -114,6 +114,8 @@ struct PlayerThemePickerSheet: View {
             pixelPreview
         case .aqua:
             aquaPreview
+        case .cassette:
+            cassettePreview
         }
     }
 
@@ -612,7 +614,71 @@ struct PlayerThemePickerSheet: View {
                 .offset(x: 25, y: -15)
         }
     }
-    
+    // MARK: - 磁带预览
+    private var cassettePreview: some View {
+        let bgColor = colorScheme == .dark ? Color(hex: "1F1F24") : Color(hex: "E8E8E3")
+        let shellColor = colorScheme == .dark ? Color(hex: "2A2A30") : Color.white
+        let labelColor = colorScheme == .dark ? Color(hex: "E0E0D6") : Color(hex: "F4F4EB")
+        
+        return ZStack {
+            bgColor
+            
+            // 磁带外壳
+            RoundedRectangle(cornerRadius: 6)
+                .fill(shellColor)
+                .frame(width: 80, height: 50)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.black.opacity(0.1), lineWidth: 1))
+            
+            VStack(spacing: 2) {
+                // 顶部防误擦除孔
+                HStack {
+                    RoundedRectangle(cornerRadius: 1).fill(Color.black.opacity(0.1)).frame(width: 6, height: 4)
+                    Spacer().frame(width: 40)
+                    RoundedRectangle(cornerRadius: 1).fill(Color.black.opacity(0.1)).frame(width: 6, height: 4)
+                }
+                .padding(.top, 2)
+                
+                // 贴纸 (Label)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(labelColor)
+                    .frame(width: 66, height: 28)
+                    .overlay(
+                        VStack(spacing: 0) {
+                            // 红色横条纹
+                            Rectangle().fill(Color(hex: "E74C3C")).frame(height: 3)
+                            Rectangle().fill(Color(hex: "E67E22")).frame(height: 3)
+                            Rectangle().fill(Color(hex: "F1C40F")).frame(height: 3)
+                            Spacer()
+                        }
+                        .padding(.top, 4)
+                        .padding(.horizontal, 4)
+                    )
+                    .overlay(
+                        // 磁带大孔
+                        HStack(spacing: 16) {
+                            Circle().fill(bgColor).frame(width: 14, height: 14)
+                                .overlay(Circle().fill(Color.black).frame(width: 4, height: 4))
+                            Circle().fill(bgColor).frame(width: 14, height: 14)
+                                .overlay(Circle().fill(Color.black).frame(width: 4, height: 4))
+                        }
+                    )
+                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.black.opacity(0.05), lineWidth: 1))
+                
+                // 底部梯形槽
+                Path { path in
+                    path.move(to: CGPoint(x: 10, y: 0))
+                    path.addLine(to: CGPoint(x: 40, y: 0))
+                    path.addLine(to: CGPoint(x: 45, y: 8))
+                    path.addLine(to: CGPoint(x: 5, y: 8))
+                    path.closeSubpath()
+                }
+                .fill(Color.black.opacity(0.05))
+                .frame(width: 50, height: 8)
+                
+                Spacer().frame(height: 2)
+            }
+        }
+    }
 }
 
 /// 三角形 Shape（用于小票锯齿边缘）

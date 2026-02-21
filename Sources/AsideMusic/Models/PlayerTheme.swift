@@ -11,6 +11,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case motoPager         // 寻呼机 - 复古小票打印风格
     case pixel             // 像素 - 8-bit 复古游戏风格
     case aqua              // 水韵 - 水波纹沉浸式播放器
+    case cassette          // 磁带 - 精致复古纯平几何像素风
 
     var id: String { rawValue }
     
@@ -25,6 +26,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .motoPager:  return "寻呼机"
         case .pixel:      return "像素"
         case .aqua:       return "水韵"
+        case .cassette:   return "磁带"
         }
     }
     
@@ -39,6 +41,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .motoPager:  return "printer.fill"
         case .pixel:      return "square.grid.3x3.fill"
         case .aqua:       return "drop.fill"
+        case .cassette:   return "play.rectangle.fill"
         }
     }
     
@@ -53,6 +56,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .motoPager:  return "复古寻呼机，打印小票式歌词显示"
         case .pixel:      return "8-bit 像素风格，复古游戏机界面"
         case .aqua:       return "水波纹沉浸式，如水杯般宁静流动"
+        case .cassette:   return "复古扁平磁带，极其精致的纯平几何重构"
         }
     }
 }

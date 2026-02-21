@@ -31,8 +31,14 @@ struct LoginView: View {
             }
         }
         .navigationBarHidden(true)
-        .onChange(of: viewModel.isLoggedIn) { loggedIn in
+        .onChange(of: viewModel.isLoggedIn) { _, loggedIn in
             if loggedIn {
+                handleLoginSuccess()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didLogin)) { _ in
+            // 双保险：如果 onChange 没触发，通过通知兜底
+            if !isAppLoggedIn {
                 handleLoginSuccess()
             }
         }
@@ -323,6 +329,7 @@ struct LoginView: View {
     // MARK: - Actions
     
     private func handleLoginSuccess() {
+        guard !isAppLoggedIn else { return }
         isAppLoggedIn = true
         
         // 触发全量数据刷新
@@ -330,7 +337,7 @@ struct LoginView: View {
         
         // 关闭登录界面
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            dismiss()
+            self.dismiss()
         }
     }
 }
