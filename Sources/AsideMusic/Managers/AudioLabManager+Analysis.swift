@@ -16,11 +16,20 @@ extension AudioLabManager {
         guard let song = PlayerManager.shared.currentSong else { return }
         guard !isAnalyzing else { return }
         
-        // 检查缓存（同一首歌不重复分析）
+        // 检查内存缓存（同一首歌不重复分析）
         if let cached = analysisCache[song.id] {
             currentAnalysis = cached
             lastAnalyzedSongId = song.id
-            AppLogger.info("使用缓存的分析结果: \(song.name)")
+            AppLogger.info("使用内存缓存的分析结果: \(song.name)")
+            return
+        }
+        
+        // 检查磁盘持久化缓存
+        if let persisted = loadPersistedAnalysis(songId: song.id) {
+            analysisCache[song.id] = persisted
+            currentAnalysis = persisted
+            lastAnalyzedSongId = song.id
+            AppLogger.info("使用持久化缓存的分析结果: \(song.name)")
             return
         }
         
@@ -43,13 +52,19 @@ extension AudioLabManager {
                 analysis = analyzeFromSpectrum(spectrumData: spectrumData)
             }
             
-            // 缓存结果
+            // 缓存结果到内存
             analysisCache[song.id] = analysis
             
-            // 限制缓存大小（最多保留 50 首歌的分析结果）
-            if analysisCache.count > 50 {
-                if let firstKey = analysisCache.keys.first {
-                    analysisCache.removeValue(forKey: firstKey)
+            // 持久化到磁盘（文件分析结果更有价值，优先持久化）
+            if analysisMode == .file {
+                persistAnalysis(analysis, songId: song.id)
+            }
+            
+            // 智能淘汰：超过上限时移除最早的缓存
+            if analysisCache.count > maxAnalysisCacheCount {
+                let keysToRemove = analysisCache.keys.prefix(analysisCache.count - maxAnalysisCacheCount)
+                for key in keysToRemove {
+                    analysisCache.removeValue(forKey: key)
                 }
             }
             
@@ -72,8 +87,105 @@ extension AudioLabManager {
     func forceReanalyze() async {
         guard let song = PlayerManager.shared.currentSong else { return }
         analysisCache.removeValue(forKey: song.id)
+        removePersistedAnalysis(songId: song.id)
         lastAnalyzedSongId = nil
         await analyzeCurrentSong()
+    }
+    
+    // MARK: - 分析结果持久化
+    
+    /// 将分析结果持久化到 UserDefaults（轻量级，适合结构化数据）
+    private func persistAnalysis(_ analysis: AudioAnalysisResult, songId: Int) {
+        let key = "\(analysisCachePrefix)\(songId)"
+        let dict: [String: Any] = [
+            "bpm": analysis.bpm,
+            "bpmConfidence": analysis.bpmConfidence,
+            "loudness": analysis.loudness,
+            "dynamicRange": analysis.dynamicRange,
+            "spectralCentroid": analysis.spectralCentroid,
+            "lowFrequencyRatio": analysis.lowFrequencyRatio,
+            "midFrequencyRatio": analysis.midFrequencyRatio,
+            "highFrequencyRatio": analysis.highFrequencyRatio,
+            "genre": analysis.suggestedGenre.rawValue,
+            "presetId": analysis.recommendedPresetId,
+            "eqGains": analysis.recommendedEffects.eqGains,
+            "bassGain": analysis.recommendedEffects.bassGain,
+            "trebleGain": analysis.recommendedEffects.trebleGain,
+            "surroundLevel": analysis.recommendedEffects.surroundLevel,
+            "reverbLevel": analysis.recommendedEffects.reverbLevel,
+            "stereoWidth": analysis.recommendedEffects.stereoWidth,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        UserDefaults.standard.set(dict, forKey: key)
+        
+        // 维护持久化索引
+        var index = UserDefaults.standard.array(forKey: "\(analysisCachePrefix)index") as? [Int] ?? []
+        if !index.contains(songId) {
+            index.append(songId)
+            // 超过上限时清理最旧的
+            if index.count > maxAnalysisCacheCount {
+                let toRemove = index.prefix(index.count - maxAnalysisCacheCount)
+                for id in toRemove {
+                    UserDefaults.standard.removeObject(forKey: "\(analysisCachePrefix)\(id)")
+                }
+                index = Array(index.suffix(maxAnalysisCacheCount))
+            }
+            UserDefaults.standard.set(index, forKey: "\(analysisCachePrefix)index")
+        }
+    }
+    
+    /// 从持久化缓存加载分析结果
+    private func loadPersistedAnalysis(songId: Int) -> AudioAnalysisResult? {
+        let key = "\(analysisCachePrefix)\(songId)"
+        guard let dict = UserDefaults.standard.dictionary(forKey: key) else { return nil }
+        
+        // 检查是否过期（7天）
+        if let timestamp = dict["timestamp"] as? TimeInterval {
+            let age = Date().timeIntervalSince1970 - timestamp
+            if age > 7 * 24 * 3600 {
+                UserDefaults.standard.removeObject(forKey: key)
+                return nil
+            }
+        }
+        
+        guard let bpm = dict["bpm"] as? Float,
+              let genreRaw = dict["genre"] as? String,
+              let genre = SuggestedGenre(rawValue: genreRaw),
+              let eqGains = dict["eqGains"] as? [Float] else {
+            return nil
+        }
+        
+        let effects = RecommendedEffects.defaultNewFilters(
+            bassGain: dict["bassGain"] as? Float ?? 0,
+            trebleGain: dict["trebleGain"] as? Float ?? 0,
+            surroundLevel: dict["surroundLevel"] as? Float ?? 0.2,
+            reverbLevel: dict["reverbLevel"] as? Float ?? 0.1,
+            stereoWidth: dict["stereoWidth"] as? Float ?? 1.0,
+            loudnormEnabled: false,
+            eqGains: eqGains
+        )
+        
+        return AudioAnalysisResult(
+            bpm: bpm,
+            bpmConfidence: dict["bpmConfidence"] as? Float ?? 0.6,
+            loudness: dict["loudness"] as? Float ?? -14,
+            dynamicRange: dict["dynamicRange"] as? Float ?? 10,
+            spectralCentroid: dict["spectralCentroid"] as? Float ?? 1000,
+            lowFrequencyRatio: dict["lowFrequencyRatio"] as? Float ?? 0.33,
+            midFrequencyRatio: dict["midFrequencyRatio"] as? Float ?? 0.34,
+            highFrequencyRatio: dict["highFrequencyRatio"] as? Float ?? 0.33,
+            suggestedGenre: genre,
+            recommendedPresetId: dict["presetId"] as? String ?? "flat",
+            recommendedEffects: effects,
+            timbreAnalysis: nil,
+            qualityAssessment: nil
+        )
+    }
+    
+    /// 删除持久化的分析结果
+    private func removePersistedAnalysis(songId: Int) {
+        let key = "\(analysisCachePrefix)\(songId)"
+        UserDefaults.standard.removeObject(forKey: key)
     }
     
     // MARK: - 下载并分析

@@ -79,7 +79,7 @@ private struct ClassicMiniPlayerSection: View {
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 36, height: 36)
-                .cornerRadius(6)
+                .cornerRadius(8)
                 .overlay {
                     if player.playSource == .fm {
                         sourceIndicator(icon: .fm)

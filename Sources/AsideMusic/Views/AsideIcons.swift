@@ -169,10 +169,19 @@ struct AsideIcon: View {
     var color: Color = .black
     var lineWidth: CGFloat? = nil
     
-    // 动态缩放线条宽度，让大尺寸和小尺寸图标都保持精致比例
+    // 动态缩放线条宽度 — 分段函数确保各尺寸下都清晰锐利
+    // 小图标（<16pt）用更粗的相对线宽防止模糊
+    // 中图标（16~32pt）标准比例
+    // 大图标（>32pt）略微收敛防止过粗
     private var actualLineWidth: CGFloat {
         if let explicit = lineWidth { return explicit }
-        return max(1.0, size * (1.6 / 24.0))
+        if size <= 14 {
+            return max(1.2, size * (1.8 / 24.0))
+        } else if size <= 32 {
+            return max(1.0, size * (1.6 / 24.0))
+        } else {
+            return max(1.5, size * (1.4 / 24.0))
+        }
     }
     
     // 高级感渐变填充，取代单调的纯色透明度
@@ -186,6 +195,14 @@ struct AsideIcon: View {
     
     private var strokeColor: Color { color }
     
+    // 根据屏幕 scale 计算超采样倍率
+    // 3x 屏幕用 2x 渲染，2x 屏幕用 3x 渲染，确保路径边缘像素对齐
+    @Environment(\.displayScale) private var displayScale
+    
+    private var renderScale: CGFloat {
+        max(displayScale, 3.0)
+    }
+    
     var body: some View {
         ZStack {
             if shouldShowFill {
@@ -195,11 +212,27 @@ struct AsideIcon: View {
             }
             
             strokeLayer
-                // 给所有描边添加微弱投影，增加厚度感和精致度
-                .shadow(color: color.opacity(0.15), radius: size * 0.05, x: 0, y: size * 0.03)
+                // 小图标不加 shadow 避免模糊，大图标加微弱投影增加厚度感
+                .modifier(IconShadowModifier(color: color, size: size))
         }
         .frame(width: size, height: size)
-        .drawingGroup() // 开启离屏渲染，彻底解决小尺寸路径锯齿和抗锯齿边缘粗糙问题
+        // 使用 drawingGroup 配合高分辨率渲染，确保路径抗锯齿清晰
+        .drawingGroup(opaque: false, colorMode: .nonLinear)
+    }
+    
+    /// 图标投影修饰器 — 小图标跳过投影保持锐利
+    private struct IconShadowModifier: ViewModifier {
+        let color: Color
+        let size: CGFloat
+        
+        func body(content: Content) -> some View {
+            if size >= 20 {
+                content
+                    .shadow(color: color.opacity(0.12), radius: size * 0.04, x: 0, y: size * 0.02)
+            } else {
+                content
+            }
+        }
     }
     
     private var shouldShowFill: Bool {

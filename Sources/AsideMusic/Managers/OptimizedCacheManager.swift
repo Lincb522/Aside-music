@@ -523,26 +523,42 @@ final class OptimizedCacheManager: ObservableObject {
     
     // MARK: - 内存管理
     
-    /// 处理内存警告
+    /// 处理内存警告 — 分级释放策略
     private func handleMemoryWarning() {
-        AppLogger.warning("收到内存警告，清理内存缓存...")
+        AppLogger.warning("收到内存警告，执行分级内存释放...")
         
-        // 清理所有内存缓存
+        // 第一级：清理非关键内存缓存（保留当前播放相关）
+        let currentSongId = PlayerManager.shared.currentSong?.id
+        
+        // 保存当前播放歌曲的缓存 key
+        var keysToPreserve: [NSString] = []
+        if let id = currentSongId {
+            keysToPreserve.append("song_\(id)" as NSString)
+        }
+        
+        // NSCache 会自动按 cost 淘汰，这里手动触发全量清理
         memoryCache.removeAllObjects()
         
-        // 清理图片缓存
+        // 回填当前播放歌曲（避免播放中断）
+        if let id = currentSongId, let dbSong = songRepo.getSong(id: id) {
+            let song = dbSong.toSong()
+            memoryCache.setObject(song as AnyObject, forKey: "song_\(id)" as NSString)
+        }
+        
+        // 第二级：清理图片缓存
         CachedAsyncImage<EmptyView>.clearMemoryCache()
         
-        // 通知 LiquidGlass 释放缓存
+        // 第三级：通知 LiquidGlass 释放缓存
         Task { @MainActor in
             LiquidGlassEngine.shared.releaseAllCaches()
         }
         
-        AppLogger.success("内存缓存已清理")
+        AppLogger.success("分级内存释放完成")
     }
     
-    /// 清理过期数据
+    /// 清理过期数据（增强版 — 触发数据库维护）
     func cleanupExpiredData() async {
+        DatabaseManager.shared.performMaintenance()
         DatabaseManager.shared.cleanExpiredData(olderThan: 30)
     }
     
@@ -552,6 +568,41 @@ final class OptimizedCacheManager: ObservableObject {
         DatabaseManager.shared.clearAllData()
         diskCache.clearAll()
         UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
+    }
+    
+    // MARK: - 智能预取
+    
+    /// 预取即将播放的歌曲信息（基于播放队列）
+    func prefetchUpcomingSongs(queue: [Song], currentIndex: Int, count: Int = 3) {
+        let startIndex = currentIndex + 1
+        let endIndex = min(startIndex + count, queue.count)
+        guard startIndex < endIndex else { return }
+        
+        let upcoming = Array(queue[startIndex..<endIndex])
+        
+        // 预加载到内存缓存
+        for song in upcoming {
+            let cacheKey = "song_\(song.id)" as NSString
+            if memoryCache.object(forKey: cacheKey) == nil {
+                memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+            }
+        }
+        
+        // 异步写入数据库
+        Task.detached { @MainActor in
+            self.songRepo.save(songs: upcoming)
+        }
+    }
+    
+    /// 预取歌单详情（用户可能点击的歌单）
+    func prefetchPlaylistIfNeeded(id: Int) {
+        let cacheKey = "playlist_\(id)" as NSString
+        guard memoryCache.object(forKey: cacheKey) == nil else { return }
+        
+        if let dbPlaylist = playlistRepo.getPlaylist(id: id) {
+            let playlist = dbPlaylist.toPlaylist()
+            memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
+        }
     }
     
     /// 获取缓存大小

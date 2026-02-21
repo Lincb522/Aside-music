@@ -70,7 +70,7 @@ struct MinimalMiniPlayer: View {
                 }
             }
             .frame(width: 40, height: 40)
-            .cornerRadius(8)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 if player.playSource == .fm {
                     sourceIndicator(icon: .fm)

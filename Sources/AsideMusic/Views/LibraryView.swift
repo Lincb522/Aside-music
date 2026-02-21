@@ -323,7 +323,12 @@ struct LocalPlaylistsView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
                     
                     ForEach(manager.playlists, id: \.id) { playlist in
-                        NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
+                        ZStack {
+                            NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
+                                EmptyView()
+                            }
+                            .opacity(0)
+                            
                             LocalPlaylistRow(playlist: playlist)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -535,7 +540,12 @@ struct MyPodcastsView: View {
             } else {
                 List {
                     ForEach(subManager.subscribedRadios) { radio in
-                        NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                        ZStack {
+                            NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                                EmptyView()
+                            }
+                            .opacity(0)
+                            
                             podcastRow(radio: radio)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -626,7 +636,7 @@ struct MyPodcastsView: View {
 
             Spacer()
 
-            AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+            AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
         }
         .padding(.vertical, 6)
     }
@@ -655,7 +665,12 @@ struct NetEasePlaylistsView: View {
             } else {
                 List {
                     ForEach(viewModel.userPlaylists) { playlist in
-                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                        ZStack {
+                            NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                EmptyView()
+                            }
+                            .opacity(0)
+                            
                             LibraryPlaylistRow(playlist: playlist)
                         }
                         .contextMenu {

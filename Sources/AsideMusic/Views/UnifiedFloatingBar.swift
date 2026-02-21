@@ -17,7 +17,7 @@ struct MiniPlayerSection: View {
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 32, height: 32)
-                .cornerRadius(6)
+                .cornerRadius(8)
                 .overlay {
                     // 播放来源小图标（居中覆盖在封面上）
                     if player.playSource == .fm {
@@ -126,7 +126,7 @@ struct MiniPlayerSection: View {
 
     /// 播放来源角标
     private func sourceIndicator(icon: AsideIcon.IconType) -> some View {
-        AsideIcon(icon: icon, size: 14, color: Color(red: 1, green: 1, blue: 1), lineWidth: 1.8)
+        AsideIcon(icon: icon, size: 12, color: Color(red: 1, green: 1, blue: 1), lineWidth: 1.6)
     }
 }
 

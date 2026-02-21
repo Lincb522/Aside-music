@@ -107,6 +107,22 @@ final class DatabaseManager {
         }
     }
     
+    // MARK: - 批量操作（事务优化）
+    
+    /// 批量执行操作后统一保存，减少 I/O 次数
+    func performBatch(_ operations: () -> Void) {
+        operations()
+        save()
+    }
+    
+    /// 异步批量操作（后台线程安全）
+    func performBatchAsync(_ operations: @escaping @MainActor () -> Void) {
+        Task { @MainActor in
+            operations()
+            self.save()
+        }
+    }
+    
     // MARK: - 数据库大小
     
     func calculateDatabaseSize() -> String {
@@ -148,13 +164,26 @@ final class DatabaseManager {
     
     // MARK: - 清理过期数据
     
+    /// 智能清理过期数据 — 分层策略
+    /// - 30天以上未访问的缓存直接删除
+    /// - 7天以上未播放且播放次数为0的歌曲删除
+    /// - 保留高频播放歌曲（playCount > 5）不受时间限制
     func cleanExpiredData(olderThan days: Int = 30) {
         let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let recentCutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
         
         do {
-            // 清理过期歌曲缓存
-            let songPredicate = #Predicate<CachedSong> { $0.cachedAt < cutoffDate }
+            // 清理过期歌曲缓存（排除高频播放歌曲）
+            let songPredicate = #Predicate<CachedSong> {
+                $0.cachedAt < cutoffDate && $0.playCount <= 5
+            }
             try context.delete(model: CachedSong.self, where: songPredicate)
+            
+            // 清理 7 天内未播放且从未播放过的歌曲
+            let coldSongPredicate = #Predicate<CachedSong> {
+                $0.cachedAt < recentCutoff && $0.playCount == 0 && $0.lastPlayedAt == nil
+            }
+            try context.delete(model: CachedSong.self, where: coldSongPredicate)
             
             // 清理过期歌单缓存
             let playlistPredicate = #Predicate<CachedPlaylist> { $0.cachedAt < cutoffDate }
@@ -165,9 +194,49 @@ final class DatabaseManager {
             try context.delete(model: CachedArtist.self, where: artistPredicate)
             
             try context.save()
-            AppLogger.success("已清理 \(days) 天前的过期数据")
+            AppLogger.success("智能清理完成：已清理 \(days) 天前的过期数据（保留高频歌曲）")
         } catch {
             AppLogger.error("清理过期数据失败: \(error)")
+        }
+    }
+    
+    // MARK: - 数据库健康检查
+    
+    /// 执行数据库健康检查和自动维护
+    func performMaintenance() {
+        let songCount = (try? context.fetchCount(FetchDescriptor<CachedSong>())) ?? 0
+        let playlistCount = (try? context.fetchCount(FetchDescriptor<CachedPlaylist>())) ?? 0
+        let historyCount = (try? context.fetchCount(FetchDescriptor<PlayHistory>())) ?? 0
+        
+        AppLogger.info("数据库状态 — 歌曲: \(songCount), 歌单: \(playlistCount), 历史: \(historyCount)")
+        
+        // 歌曲缓存超过 2000 条时自动清理最旧的
+        if songCount > 2000 {
+            cleanExpiredData(olderThan: 14)
+        }
+        
+        // 播放历史超过 1000 条时裁剪
+        if historyCount > 1000 {
+            trimPlayHistory(keepCount: 500)
+        }
+    }
+    
+    /// 裁剪播放历史到指定数量
+    private func trimPlayHistory(keepCount: Int) {
+        do {
+            let descriptor = FetchDescriptor<PlayHistory>(
+                sortBy: [SortDescriptor(\.playedAt, order: .reverse)]
+            )
+            let allHistory = try context.fetch(descriptor)
+            if allHistory.count > keepCount {
+                for history in allHistory.dropFirst(keepCount) {
+                    context.delete(history)
+                }
+                try context.save()
+                AppLogger.info("播放历史已裁剪至 \(keepCount) 条")
+            }
+        } catch {
+            AppLogger.error("裁剪播放历史失败: \(error)")
         }
     }
 }

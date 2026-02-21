@@ -154,8 +154,14 @@ class AudioLabManager: ObservableObject {
     /// 上次分析的歌曲 ID
     @Published var lastAnalyzedSongId: Int?
     
-    /// 分析结果缓存（歌曲 ID -> 分析结果）
+    /// 分析结果缓存（歌曲 ID -> 分析结果）— 内存缓存
     var analysisCache: [Int: AudioAnalysisResult] = [:]
+    
+    /// 分析结果持久化 key 前缀
+    let analysisCachePrefix = "audio_analysis_"
+    
+    /// 最大缓存分析结果数量
+    let maxAnalysisCacheCount = 100
     
     /// 分析模式
     enum AnalysisMode: String, CaseIterable {

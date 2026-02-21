@@ -71,17 +71,7 @@ struct SettingsView: View {
 
     private var headerSection: some View {
         HStack {
-            Button(action: { dismiss() }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideCardBackground)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-
-                    AsideIcon(icon: .back, size: 16, color: .asideTextPrimary)
-                }
-            }
-            .buttonStyle(AsideBouncingButtonStyle())
+            AsideBackButton(style: .dismiss)
 
             Spacer()
 

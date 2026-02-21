@@ -153,38 +153,77 @@ extension AudioLabManager {
         return weightedSum / magnitudeSum
     }
     
-    /// 基于频谱估算 BPM
+    /// 基于频谱估算 BPM（增强版 — 多特征融合）
     func estimateBPMFromSpectrum(spectrum: [Float]) -> Float {
         let lowEnergy = spectrum.prefix(spectrum.count / 4).reduce(0, +)
+        let midEnergy = spectrum.prefix(spectrum.count * 3 / 4).dropFirst(spectrum.count / 4).reduce(0, +)
         let totalEnergy = spectrum.reduce(0, +)
-        let lowRatio = totalEnergy > 0 ? lowEnergy / totalEnergy : 0.3
+        guard totalEnergy > 0 else { return 100 }
         
-        if lowRatio > 0.4 {
+        let lowRatio = lowEnergy / totalEnergy
+        let midRatio = midEnergy / totalEnergy
+        
+        // 低频主导 + 中频弱 → 电子/嘻哈（高 BPM）
+        if lowRatio > 0.4 && midRatio < 0.3 {
             return 128
-        } else if lowRatio > 0.3 {
-            return 110
-        } else {
-            return 85
         }
+        // 低频主导 + 中频强 → 摇滚（中高 BPM）
+        if lowRatio > 0.35 && midRatio > 0.35 {
+            return 120
+        }
+        // 中频主导 → 流行/人声（中等 BPM）
+        if midRatio > 0.4 {
+            return 105
+        }
+        // 高频主导 → 古典/爵士（较低 BPM）
+        if lowRatio < 0.25 {
+            return 80
+        }
+        // 均衡分布 → 流行
+        return 100
     }
     
-    /// 推断音乐类型
+    /// 推断音乐类型（增强版 — 多维度加权判断）
     func inferGenre(lowRatio: Float, midRatio: Float, highRatio: Float, centroid: Float, bpm: Float) -> SuggestedGenre {
-        if lowRatio > 0.4 && midRatio < 0.35 {
-            return bpm > 120 ? .electronic : .hiphop
+        // 构建特征向量进行多维度判断
+        
+        // 电子音乐：强低频 + 高 BPM + 低中频
+        if lowRatio > 0.4 && bpm > 120 && midRatio < 0.35 {
+            return .electronic
         }
-        if midRatio > 0.45 {
-            return centroid > 2000 ? .vocal : .acoustic
+        // 嘻哈：强低频 + 中等 BPM
+        if lowRatio > 0.4 && bpm >= 80 && bpm <= 120 && midRatio < 0.35 {
+            return .hiphop
         }
-        if highRatio > 0.35 {
-            return centroid > 3000 ? .classical : .jazz
+        // 金属：高能量全频段 + 高 BPM
+        if lowRatio > 0.3 && highRatio > 0.25 && bpm > 130 {
+            return .metal
         }
-        if bpm > 110 {
-            return lowRatio > 0.35 ? .rock : .pop
+        // 摇滚：均衡偏低频 + 中高 BPM
+        if lowRatio > 0.3 && midRatio > 0.3 && bpm > 110 {
+            return .rock
         }
+        // 人声：中频主导 + 高频谱质心
+        if midRatio > 0.45 && centroid > 2000 {
+            return .vocal
+        }
+        // 民谣：中频主导 + 低频谱质心
+        if midRatio > 0.4 && centroid <= 2000 && bpm < 120 {
+            return .acoustic
+        }
+        // 古典：高频突出 + 高频谱质心 + 低 BPM
+        if highRatio > 0.3 && centroid > 3000 && bpm < 100 {
+            return .classical
+        }
+        // 爵士：高频突出 + 中等频谱质心
+        if highRatio > 0.3 && centroid > 2000 && centroid <= 3000 {
+            return .jazz
+        }
+        // R&B：低频偏重 + 慢节奏
         if lowRatio > 0.35 && bpm < 100 {
             return .rnb
         }
+        // 默认流行
         return .pop
     }
 

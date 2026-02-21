@@ -64,6 +64,8 @@ struct FullScreenPlayerView: View {
         @Binding var currentTime: Double
         let duration: Double
         var color: Color = .asideTextPrimary
+        /// 未播放部分的不透明度（默认 0.2，越低越融入背景）
+        var trackOpacity: Double = 0.2
         var isAnimating: Bool = true
         var chorusStart: TimeInterval? = nil
         var chorusEnd: TimeInterval? = nil
@@ -109,7 +111,7 @@ struct FullScreenPlayerView: View {
                             )
 
                             RoundedRectangle(cornerRadius: 1.5)
-                                .fill(isPlayed ? color : (isChorus ? color.opacity(0.35) : color.opacity(0.2)))
+                                .fill(isPlayed ? color : (isChorus ? color.opacity(trackOpacity * 1.75) : color.opacity(trackOpacity)))
                                 .frame(width: max(2, barWidth), height: height)
                         }
                     }

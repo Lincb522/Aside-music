@@ -291,6 +291,10 @@ class APIService {
 
     func fetchUserPlaylists(uid: Int) -> AnyPublisher<[Playlist], Error> {
         ncm.publisher { [ncm] in
+            #if DEBUG
+            print("[API] fetchUserPlaylists: uid=\(uid), serverUrl=\(ncm.serverUrl ?? "nil")")
+            print("[API] cookie存在: \(APIService.shared.currentCookie != nil)")
+            #endif
             // 直接用 postToBackend 绕过后端 2 分钟缓存
             if let serverUrl = ncm.serverUrl {
                 let params: [String: Any] = [
@@ -299,14 +303,39 @@ class APIService {
                     "offset": 0,
                     "timestamp": Int(Date().timeIntervalSince1970 * 1000),
                 ]
-                let body = try await Self.postToBackend(serverUrl: serverUrl, route: "/user/playlist", params: params)
-                guard let playlistArray = body["playlist"] as? [[String: Any]] else { return [Playlist]() }
+                // 优先使用 NCMClient sessionManager 中的最新 cookie（proxyRequest 会更新它）
+                let cookieHeader: String? = {
+                    let cookies = ncm.currentCookies
+                    if !cookies.isEmpty {
+                        return cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+                    }
+                    return APIService.shared.currentCookie
+                }()
+                let body = try await Self.postToBackend(serverUrl: serverUrl, route: "/user/playlist", params: params, cookie: cookieHeader)
+                #if DEBUG
+                print("[API] postToBackend 响应 keys: \(body.keys.sorted())")
+                if let code = body["code"] as? Int { print("[API] 响应 code=\(code)") }
+                #endif
+                guard let playlistArray = body["playlist"] as? [[String: Any]] else {
+                    #if DEBUG
+                    print("[API] ⚠️ 响应中无 playlist 数组，body: \(String(describing: body).prefix(300))")
+                    #endif
+                    return [Playlist]()
+                }
+                #if DEBUG
+                print("[API] 获取到 \(playlistArray.count) 个歌单")
+                #endif
                 let data = try JSONSerialization.data(withJSONObject: playlistArray)
                 return try JSONDecoder().decode([Playlist].self, from: data)
             }
             // 无后端时走 SDK
             let response = try await ncm.userPlaylist(uid: uid, limit: 1000)
-            guard let playlistArray = response.body["playlist"] as? [[String: Any]] else { return [Playlist]() }
+            guard let playlistArray = response.body["playlist"] as? [[String: Any]] else {
+                #if DEBUG
+                print("[API] ⚠️ SDK 响应中无 playlist 数组")
+                #endif
+                return [Playlist]()
+            }
             let data = try JSONSerialization.data(withJSONObject: playlistArray)
             return try JSONDecoder().decode([Playlist].self, from: data)
         }
@@ -652,14 +681,16 @@ class APIService {
     }
 
     /// 直接 POST 到 Node 后端指定路由
-    static func postToBackend(serverUrl: String, route: String, params: [String: Any]) async throws -> [String: Any] {
+    static func postToBackend(serverUrl: String, route: String, params: [String: Any], cookie: String? = nil) async throws -> [String: Any] {
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         guard let url = URL(string: base + route) else { throw PlaybackError.networkError }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        if let cookie = APIService.shared.currentCookie {
-            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        // 优先使用传入的 cookie，回退到 APIService 存储的 cookie
+        let effectiveCookie = cookie ?? APIService.shared.currentCookie
+        if let c = effectiveCookie {
+            request.setValue(c, forHTTPHeaderField: "Cookie")
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
         let (data, _) = try await URLSession.shared.data(for: request)

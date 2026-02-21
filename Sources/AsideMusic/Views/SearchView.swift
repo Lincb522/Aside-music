@@ -169,12 +169,14 @@ struct SearchView: View {
                 }) {
                     VStack(spacing: 6) {
                         Text(tab.rawValue)
-                            .font(.rounded(size: 14, weight: viewModel.currentTab == tab ? .semibold : .regular))
+                            .font(.rounded(size: 14, weight: viewModel.currentTab == tab ? .bold : .medium))
                             .foregroundColor(viewModel.currentTab == tab ? .asideTextPrimary : .asideTextSecondary)
+                            .animation(.none, value: viewModel.currentTab)
                         
-                        RoundedRectangle(cornerRadius: 1.5)
-                            .fill(viewModel.currentTab == tab ? Color.asideTextPrimary : Color.clear)
-                            .frame(width: 20, height: 3)
+                        Capsule()
+                            .fill(Color.asideTextPrimary)
+                            .frame(width: 24, height: 3)
+                            .opacity(viewModel.currentTab == tab ? 1 : 0)
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
@@ -184,6 +186,7 @@ struct SearchView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.currentTab)
     }
 
     // MARK: - 搜索内容区域
@@ -570,7 +573,7 @@ struct SearchView: View {
                 CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
                     Circle().fill(Color.asideCardBackground)
                 }
-                .frame(width: 50, height: 50)
+                .frame(width: 52, height: 52)
                 .clipShape(Circle())
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -616,10 +619,10 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 12).fill(Color.asideCardBackground)
                 }
                 .frame(width: 56, height: 56)
-                .cornerRadius(10)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
@@ -665,10 +668,10 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 12).fill(Color.asideCardBackground)
                 }
                 .frame(width: 56, height: 56)
-                .cornerRadius(10)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.name)
@@ -903,7 +906,7 @@ struct SearchView: View {
                 
                 Spacer(minLength: 0)
                 
-                AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary.opacity(0.5))
+                AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
             }
             .padding(12)
             .frame(width: 220)

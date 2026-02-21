@@ -396,7 +396,7 @@ extension AquaPlayerLayout {
             Spacer()
 
             Button(action: { player.previous() }) {
-                AsideIcon(icon: .previous, size: 20, color: textPrimary)
+                AsideIcon(icon: .previous, size: 22, color: textPrimary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -443,11 +443,11 @@ extension AquaPlayerLayout {
             Spacer()
 
             Button(action: { player.next() }) {
-                AsideIcon(icon: .next, size: 24, color: textPrimary)
+                AsideIcon(icon: .next, size: 22, color: textPrimary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(AsideBouncingButtonStyle(scale: 0.8)) // 夸张的小缩放
+            .buttonStyle(AsideBouncingButtonStyle())
 
             Spacer()
 

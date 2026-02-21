@@ -317,7 +317,7 @@ struct ClassicPlayerLayout: View {
         .padding(.horizontal, 4)
     }
 
-    /// 进度条区域 — 与原始完全一致，使用波形进度条
+    /// 进度条区域 — 柔和融入背景的波形进度条
     private var progressSection: some View {
         VStack(spacing: 6) {
             FullScreenPlayerView.WaveformProgressBar(
@@ -326,7 +326,8 @@ struct ClassicPlayerLayout: View {
                     set: { _ in }
                 ),
                 duration: player.duration,
-                color: contentColor,
+                color: contentColor.opacity(0.7),
+                trackOpacity: 0.1,
                 isAnimating: player.isPlaying,
                 chorusStart: player.chorusStartTime,
                 chorusEnd: player.chorusEndTime,
@@ -347,7 +348,7 @@ struct ClassicPlayerLayout: View {
                 Text(formatTime(player.duration))
             }
             .font(.rounded(size: 11, weight: .medium))
-            .foregroundColor(secondaryContentColor)
+            .foregroundColor(secondaryContentColor.opacity(0.6))
             .monospacedDigit()
         }
         .padding(.horizontal, 24)

@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// 跑马灯文字 — 文字超出容器宽度时自动循环滚动，短文字静态居中
+/// 优化：使用 TimelineView 替代 repeatForever 动画，避免动画中断和闪烁
 struct MarqueeText: View {
     let text: String
     var font: Font = .system(size: 13, weight: .semibold, design: .rounded)
@@ -13,9 +14,10 @@ struct MarqueeText: View {
     @State private var containerWidth: CGFloat = 0
     @State private var offset: CGFloat = 0
     @State private var animating = false
+    @State private var textId = UUID() // 用于强制重新测量
 
     /// 是否需要滚动
-    private var needsScroll: Bool { textWidth > containerWidth }
+    private var needsScroll: Bool { textWidth > containerWidth + 2 } // 加 2pt 容差
 
     var body: some View {
         GeometryReader { geo in
@@ -34,6 +36,7 @@ struct MarqueeText: View {
                         startAnimation()
                     }
                     .onChange(of: text) { _, _ in
+                        textId = UUID()
                         resetAndMeasure(containerWidth: cw)
                     }
                 } else {
@@ -51,6 +54,7 @@ struct MarqueeText: View {
         .background(
             // 隐藏测量文字宽度
             textView
+                .id(textId)
                 .fixedSize()
                 .background(
                     GeometryReader { proxy in
@@ -100,7 +104,7 @@ struct MarqueeText: View {
         offset = 0
         animating = false
         // 等测量完成后重新启动
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             startAnimation()
         }
     }

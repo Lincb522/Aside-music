@@ -50,7 +50,7 @@ struct SongListRow: View {
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: 48, height: 48)
-            .cornerRadius(12)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .opacity(isGrayed ? 0.4 : 1.0)
             
             VStack(alignment: .leading, spacing: 4) {

@@ -93,10 +93,21 @@ final class SongRepository {
         try? context.save()
     }
     
-    /// 批量保存歌曲
+    /// 批量保存歌曲（优化版 — 先批量查询已有 ID，减少逐条查询开销）
     func save(songs: [Song]) {
+        guard !songs.isEmpty else { return }
+        
+        // 一次性查询所有已存在的歌曲 ID
+        let ids = songs.map { $0.id }
+        let existingMap: [Int: CachedSong] = {
+            let predicate = #Predicate<CachedSong> { ids.contains($0.id) }
+            let descriptor = FetchDescriptor<CachedSong>(predicate: predicate)
+            let results = (try? context.fetch(descriptor)) ?? []
+            return Dictionary(uniqueKeysWithValues: results.map { ($0.id, $0) })
+        }()
+        
         for song in songs {
-            if let existing = getSong(id: song.id) {
+            if let existing = existingMap[song.id] {
                 existing.name = song.name
                 existing.artistName = song.artistName
                 existing.albumName = song.al?.name

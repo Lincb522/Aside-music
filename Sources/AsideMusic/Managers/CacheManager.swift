@@ -6,6 +6,9 @@ class CacheManager {
     
     private let memoryCache = NSCache<NSString, AnyObject>()
     
+    /// 串行队列保护磁盘 I/O，避免并发写入冲突
+    private let diskQueue = DispatchQueue(label: "com.asidemusic.cache.disk", qos: .utility)
+    
     private var diskCacheURL: URL {
         let urls = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         let cacheDirectory = urls[0].appendingPathComponent("AsideMusicCache")
@@ -21,10 +24,14 @@ class CacheManager {
     private let diskLimit = AppConfig.Cache.diskLimit
     private let defaultExpiration: TimeInterval = AppConfig.Cache.defaultTTL
     
+    /// 磁盘缓存命中/未命中统计（用于调优）
+    private var diskHitCount: Int = 0
+    private var diskMissCount: Int = 0
+    
     init() {
         memoryCache.totalCostLimit = memoryLimit
-        memoryCache.countLimit = 100
-        DispatchQueue.global(qos: .utility).async {
+        memoryCache.countLimit = 200 // 提高内存缓存条目上限
+        diskQueue.async {
             self.cleanExpiredDiskCache()
         }
     }
@@ -35,7 +42,7 @@ class CacheManager {
         if let encoded = try? JSONEncoder().encode(object) {
             memoryCache.setObject(encoded as NSData, forKey: key as NSString, cost: encoded.count)
             
-            DispatchQueue.global(qos: .background).async {
+            diskQueue.async {
                 self.saveToDisk(data: encoded, key: key, ttl: ttl)
             }
         }
@@ -49,11 +56,14 @@ class CacheManager {
         }
         
         if let data = loadFromDisk(key: key) {
+            diskHitCount += 1
             memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
             
             if let object = try? JSONDecoder().decode(T.self, from: data) {
                 return object
             }
+        } else {
+            diskMissCount += 1
         }
         
         return nil
@@ -77,7 +87,7 @@ class CacheManager {
     
     func setImageData(_ data: Data, forKey key: String) {
         memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
-        DispatchQueue.global(qos: .background).async {
+        diskQueue.async {
             self.saveToDisk(data: data, key: key, ttl: nil)
         }
     }
@@ -143,12 +153,21 @@ class CacheManager {
     }
     
     func clearCache(completion: @escaping () -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
+        diskQueue.async {
             self.clearAll()
             DispatchQueue.main.async {
                 completion()
             }
         }
+    }
+    
+    // MARK: - 缓存统计
+    
+    /// 获取缓存命中率（用于调优）
+    var hitRate: Double {
+        let total = diskHitCount + diskMissCount
+        guard total > 0 else { return 0 }
+        return Double(diskHitCount) / Double(total)
     }
     
     // MARK: - 磁盘操作
@@ -196,24 +215,27 @@ class CacheManager {
     }
     
     private func cleanExpiredDiskCache() {
-        DispatchQueue.global(qos: .utility).async {
-            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: self.diskCacheURL, includingPropertiesForKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else { return }
+        diskQueue.async {
+            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: self.diskCacheURL, includingPropertiesForKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey, .creationDateKey], options: .skipsHiddenFiles) else { return }
             
             var files = [(url: URL, date: Date, size: Int)]()
             var totalSize = 0
+            var removedCount = 0
             
             for url in fileURLs {
-                if let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey]),
+                if let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey, .creationDateKey]),
                    let date = resourceValues.contentModificationDate,
                    let size = resourceValues.totalFileAllocatedSize {
                     
                     if let expirationDate = resourceValues.creationDate {
                         if Date() > expirationDate {
-                             try? FileManager.default.removeItem(at: url)
-                             continue
+                            try? FileManager.default.removeItem(at: url)
+                            removedCount += 1
+                            continue
                         }
                     } else if Date().timeIntervalSince(date) > self.defaultExpiration {
                         try? FileManager.default.removeItem(at: url)
+                        removedCount += 1
                         continue
                     }
                     
@@ -222,14 +244,20 @@ class CacheManager {
                 }
             }
             
+            // LRU 淘汰：超出磁盘限制时按最后访问时间排序删除最旧的
             if totalSize > self.diskLimit {
                 files.sort { $0.date < $1.date }
                 
                 for file in files {
-                    if totalSize <= self.diskLimit { break }
+                    if totalSize <= self.diskLimit / 2 { break } // 清理到 50% 容量，留出余量
                     try? FileManager.default.removeItem(at: file.url)
                     totalSize -= file.size
+                    removedCount += 1
                 }
+            }
+            
+            if removedCount > 0 {
+                AppLogger.debug("磁盘缓存清理完成：删除 \(removedCount) 个文件")
             }
         }
     }

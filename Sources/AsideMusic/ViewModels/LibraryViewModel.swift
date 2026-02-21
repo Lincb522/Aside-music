@@ -152,9 +152,16 @@ class LibraryViewModel: ObservableObject {
         }
 
         guard let uid = apiService.currentUserId else {
+            #if DEBUG
+            print("[Library] fetchPlaylists: currentUserId 为 nil，跳过")
+            #endif
             GlobalRefreshManager.shared.markLibraryDataReady()
             return
         }
+
+        #if DEBUG
+        print("[Library] fetchPlaylists: uid=\(uid), force=\(force)")
+        #endif
 
         // force 刷新时直接加载歌单，不需要重新验证登录状态
         if force {
@@ -168,29 +175,46 @@ class LibraryViewModel: ObservableObject {
         apiService.fetchLoginStatus()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                if case .failure = completion {
-                    GlobalRefreshManager.shared.markLibraryDataReady()
+                if case .failure(let error) = completion {
+                    #if DEBUG
+                    print("[Library] fetchLoginStatus 失败: \(error)，使用已有 uid=\(uid) 加载歌单")
+                    #endif
+                    // 即使登录状态检查失败，也尝试用已有 uid 加载歌单
+                    self?.loadUserPlaylists(uid: uid)
                 }
             }, receiveValue: { [weak self] response in
                 if let profile = response.data.profile {
                     self?.apiService.currentUserId = profile.userId
                     self?.loadUserPlaylists(uid: profile.userId)
                 } else {
-                    GlobalRefreshManager.shared.markLibraryDataReady()
+                    #if DEBUG
+                    print("[Library] fetchLoginStatus 返回 profile 为 nil，使用已有 uid=\(uid) 加载歌单")
+                    #endif
+                    // profile 为 nil 但 uid 存在，仍然尝试加载歌单
+                    self?.loadUserPlaylists(uid: uid)
                 }
             })
             .store(in: &cancellables)
     }
 
     private func loadUserPlaylists(uid: Int) {
+        #if DEBUG
+        print("[Library] loadUserPlaylists: uid=\(uid)")
+        #endif
         apiService.fetchUserPlaylists(uid: uid)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
                     AppLogger.error("歌单获取失败: \(error)")
+                    #if DEBUG
+                    print("[Library] ❌ 歌单获取失败: \(error)")
+                    #endif
                 }
                 GlobalRefreshManager.shared.markLibraryDataReady()
             }, receiveValue: { [weak self] playlists in
+                #if DEBUG
+                print("[Library] ✅ 获取到 \(playlists.count) 个歌单")
+                #endif
                 // 过滤掉系统临时歌单（如 test_audit_tmp）
                 let filtered = playlists.filter { !$0.name.hasPrefix("test_audit") && $0.name != "test_audit_tmp" }
                 self?.userPlaylists = filtered
