@@ -49,7 +49,7 @@ struct AsideLiquidCard<Content: View>: View {
                 if useMetal {
                     // 使用新的 .liquidGlass 修饰器
                     Color.clear
-                        .liquidGlassBackground(cornerRadius: cornerRadius, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                        .liquidGlassBackground(cornerRadius: cornerRadius)
                 } else {
                     LiquidGlassBlur(cornerRadius: cornerRadius)
                 }
@@ -67,7 +67,7 @@ extension View {
     
     /// Metal 液态玻璃背景（使用新 API）
     func liquidGlassMetal(cornerRadius: CGFloat = 20) -> some View {
-        self.liquidGlassBackground(cornerRadius: cornerRadius, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+        self.liquidGlassBackground(cornerRadius: cornerRadius)
     }
     
     /// 液态玻璃样式（支持 Metal/非 Metal 切换）

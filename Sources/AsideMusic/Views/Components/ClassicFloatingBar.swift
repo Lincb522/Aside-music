@@ -39,7 +39,7 @@ struct ClassicFloatingBar: View {
                     ZStack {
                         Rectangle()
                             .fill(Color.asideCardBackground.opacity(0.6))
-                            .liquidGlassBackground(cornerRadius: 0, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                            .liquidGlassBackground(cornerRadius: 0)
                         Rectangle()
                             .fill(Color.asideGlassOverlay)
                     }

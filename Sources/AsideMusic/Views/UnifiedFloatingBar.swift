@@ -274,7 +274,7 @@ struct UnifiedFloatingBar: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(Color.asideCardBackground.opacity(0.4))
-                        .liquidGlassBackground(cornerRadius: 22, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                        .liquidGlassBackground(cornerRadius: 22)
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(Color.asideGlassOverlay)
                 }

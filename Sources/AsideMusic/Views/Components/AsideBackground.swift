@@ -258,7 +258,7 @@ struct AsideLiquidGlassCard<Content: View>: View {
                 Group {
                     if useMetal {
                         Color.clear
-                            .liquidGlassBackground(cornerRadius: cornerRadius, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                            .liquidGlassBackground(cornerRadius: cornerRadius)
                     } else {
                         SwiftUIGlassBackground(cornerRadius: cornerRadius)
                     }

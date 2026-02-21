@@ -127,10 +127,10 @@
 			mainGroup = F4CCFD6F2F320B5900FC36CA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				F48E9C432F3B4F060060F4D4 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
-				F4DE904C2F42439900F27065 /* XCRemoteSwiftPackageReference "MusicKit" */,
-				F4DE905D2F42E31F00F27065 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */,
-				F44F90E32F4A3855001AC8E9 /* XCRemoteSwiftPackageReference "LiquidGlass" */,
+				F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
+				F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "MusicKit" */,
+				F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "FFmpegSwiftSDK" */,
+				F44F90E32F4A3855001AC8E9 /* XCLocalSwiftPackageReference "LiquidGlass" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -388,60 +388,44 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		F44F90E32F4A3855001AC8E9 /* XCRemoteSwiftPackageReference "LiquidGlass" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/BarredEwe/LiquidGlass.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.8.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		F44F90E32F4A3855001AC8E9 /* XCLocalSwiftPackageReference "LiquidGlass" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "LiquidGlass-main";
 		};
-		F48E9C432F3B4F060060F4D4 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.3.5;
-			};
+		F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "NeteaseCloudMusicAPI-Swift";
 		};
-		F4DE904C2F42439900F27065 /* XCRemoteSwiftPackageReference "MusicKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Lincb522/MusicKit.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
+		F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "MusicKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "QQMusicKit";
 		};
-		F4DE905D2F42E31F00F27065 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Lincb522/FFmpegSwiftSDK.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.12;
-			};
+		F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "FFmpegSwiftSDK" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "ffmpeg-swift";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		F44F90E42F4A3855001AC8E9 /* LiquidGlass */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F44F90E32F4A3855001AC8E9 /* XCRemoteSwiftPackageReference "LiquidGlass" */;
+			package = F44F90E32F4A3855001AC8E9 /* XCLocalSwiftPackageReference "LiquidGlass" */;
 			productName = LiquidGlass;
 		};
 		F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F48E9C432F3B4F060060F4D4 /* XCRemoteSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */;
+			package = F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */;
 			productName = NeteaseCloudMusicAPI;
 		};
 		F4DE904D2F42439900F27065 /* QQMusicKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DE904C2F42439900F27065 /* XCRemoteSwiftPackageReference "MusicKit" */;
+			package = F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "MusicKit" */;
 			productName = QQMusicKit;
 		};
 		F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DE905D2F42E31F00F27065 /* XCRemoteSwiftPackageReference "FFmpegSwiftSDK" */;
+			package = F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "FFmpegSwiftSDK" */;
 			productName = FFmpegSwiftSDK;
 		};
 /* End XCSwiftPackageProductDependency section */

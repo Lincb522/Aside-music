@@ -201,7 +201,7 @@ struct MinimalMiniPlayer: View {
             ZStack {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(Color.asideCardBackground.opacity(0.4))
-                        .liquidGlassBackground(cornerRadius: 18, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                        .liquidGlassBackground(cornerRadius: 18)
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color.asideGlassOverlay)
             }

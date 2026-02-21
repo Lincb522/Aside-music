@@ -15,13 +15,13 @@ let package = Package(
     ],
     dependencies: [
         // LiquidGlass - iOS 26 风格液态玻璃效果库
-        .package(url: "https://github.com/Lincb522/LiquidGlass.git", branch: "main"),
+        .package(path: "LiquidGlass-main"),
         // NeteaseCloudMusicAPI - 网易云音乐 API 封装库（362+ 接口）
-        .package(url: "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git", from: "1.0.0"),
+        .package(path: "NeteaseCloudMusicAPI-Swift"),
         // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
-        .package(url: "https://github.com/Lincb522/FFmpegSwiftSDK.git", from: "0.12.2"),
+        .package(path: "ffmpeg-swift"),
         // QQMusicKit - QQ 音乐 API 封装库（本地包）
-        .package(path: "../QQMusicKit/QQMusicKit"),
+        .package(path: "QQMusicKit"),
     ],
     targets: [
         .target(
