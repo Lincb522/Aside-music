@@ -1,5 +1,5 @@
 import SwiftUI
-import LiquidGlassEffect
+import LiquidGlass
 
 struct UserPlaylistRow: View {
     let playlist: Playlist
@@ -30,7 +30,7 @@ struct UserPlaylistRow: View {
             // 使用 .liquidGlass 修饰器
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.asideCardBackground.opacity(0.4))
-                .liquidGlass(config: .regular, cornerRadius: 16, backgroundCaptureFrameRate: 20)
+                .liquidGlassBackground(cornerRadius: 16, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.1), radius: 12, x: 0, y: 6)

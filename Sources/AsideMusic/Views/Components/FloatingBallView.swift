@@ -22,7 +22,7 @@ struct FloatingBallView: View {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
                         .onTapWithHaptic(.soft) {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            withAnimation(AsideAnimation.panelToggle) {
                                 isPanelOpen = false
                             }
                         }
@@ -65,15 +65,15 @@ struct FloatingBallView: View {
     
     private var floatingBall: some View {
         ZStack {
-            // 进度环
+            // 进度环 - 轨道更柔和
             Circle()
-                .stroke(Color.gray.opacity(0.2), lineWidth: 3)
+                .stroke(Color.asideTextPrimary.opacity(0.08), lineWidth: 2.5)
                 .frame(width: ballSize, height: ballSize)
             
             let progress = player.duration > 0 ? min(max(player.currentTime / player.duration, 0), 1) : 0
             Circle()
                 .trim(from: 0, to: CGFloat(progress))
-                .stroke(Color.asideAccent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(Color.asideAccent.opacity(0.6), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .frame(width: ballSize, height: ballSize)
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.1), value: progress)
@@ -90,7 +90,6 @@ struct FloatingBallView: View {
                         }
                         if let last = lastTickDate {
                             let dt = newDate.timeIntervalSince(last)
-                            // 8秒转一圈 = 45度/秒
                             rotationAngle += dt * 45.0
                         }
                         lastTickDate = newDate
@@ -102,12 +101,13 @@ struct FloatingBallView: View {
                 .fill(.ultraThinMaterial)
                 .frame(width: ballSize + 4, height: ballSize + 4)
         )
-        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
         .contentShape(Circle())
         .asideMultiGesture(
             onTap: {
                 // 单击展开/收起面板
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                withAnimation(AsideAnimation.panelToggle) {
                     isPanelOpen.toggle()
                 }
             },
@@ -169,10 +169,10 @@ struct FloatingBallView: View {
             // Tab 切换
             tabSection
             
-            // 分隔线
+            // 分隔线 - 更柔和
             Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(width: 1, height: 40)
+                .fill(Color.asideSeparator.opacity(0.3))
+                .frame(width: 0.5, height: 36)
                 .padding(.horizontal, 8)
             
             // 播放控制
@@ -187,7 +187,7 @@ struct FloatingBallView: View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color.asideGlassOverlay)
             }
-            .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 4)
         )
         .padding(.trailing, 8)
     }
@@ -206,7 +206,7 @@ struct FloatingBallView: View {
             ForEach(items, id: \.tab) { item in
                 Button {
                     HapticManager.shared.light()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(AsideAnimation.tabSwitch) {
                         currentTab = item.tab
                     }
                 } label: {

@@ -3,7 +3,7 @@ import Combine
 import SwiftData
 import UIKit
 import SwiftUI
-import LiquidGlassEffect
+import LiquidGlass
 
 /// 优化的缓存管理器
 /// 三级缓存架构：内存缓存 -> SwiftData 数据库 -> 磁盘文件缓存
@@ -549,9 +549,7 @@ final class OptimizedCacheManager: ObservableObject {
         CachedAsyncImage<EmptyView>.clearMemoryCache()
         
         // 第三级：通知 LiquidGlass 释放缓存
-        Task { @MainActor in
-            LiquidGlassEngine.shared.releaseAllCaches()
-        }
+        // 新库自动管理，无需手动释放
         
         AppLogger.success("分级内存释放完成")
     }

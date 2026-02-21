@@ -14,8 +14,8 @@ let package = Package(
             targets: ["AsideMusic"]),
     ],
     dependencies: [
-        // LiquidGlassEffect - iOS 26 风格液态玻璃效果库
-        .package(url: "https://github.com/Lincb522/LiquidGlassEffect.git", from: "2.1.0"),
+        // LiquidGlass - iOS 26 风格液态玻璃效果库
+        .package(url: "https://github.com/Lincb522/LiquidGlass.git", branch: "main"),
         // NeteaseCloudMusicAPI - 网易云音乐 API 封装库（362+ 接口）
         .package(url: "https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift.git", from: "1.0.0"),
         // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
@@ -27,7 +27,7 @@ let package = Package(
         .target(
             name: "AsideMusic",
             dependencies: [
-                "LiquidGlassEffect",
+                "LiquidGlass",
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
                 "FFmpegSwiftSDK",
                 "QQMusicKit",

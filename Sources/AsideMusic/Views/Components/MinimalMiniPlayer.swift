@@ -1,5 +1,5 @@
 import SwiftUI
-import LiquidGlassEffect
+import LiquidGlass
 
 /// 极简模式的 MiniPlayer（同一容器内左滑显示 Tab，右滑回播放器）
 struct MinimalMiniPlayer: View {
@@ -30,8 +30,9 @@ struct MinimalMiniPlayer: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(glassBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
+        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 30)
@@ -40,7 +41,7 @@ struct MinimalMiniPlayer: View {
                     // 只处理水平滑动
                     guard abs(value.translation.width) > abs(value.translation.height) else { return }
                     
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(AsideAnimation.panelToggle) {
                         if value.translation.width < -threshold {
                             // 左滑显示 Tab
                             showingTabs = true
@@ -51,14 +52,14 @@ struct MinimalMiniPlayer: View {
                     }
                 }
         )
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showingTabs)
+        .animation(AsideAnimation.panelToggle, value: showingTabs)
     }
     
     // MARK: - 迷你播放器内容
     
     private var miniPlayerContent: some View {
         HStack(spacing: 10) {
-            // 封面（有歌显示封面，没歌显示默认黑胶）
+            // 封面
             Group {
                 if let song = player.currentSong {
                     CachedAsyncImage(url: song.coverUrl) {
@@ -70,7 +71,7 @@ struct MinimalMiniPlayer: View {
                 }
             }
             .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
                 if player.playSource == .fm {
                     sourceIndicator(icon: .fm)
@@ -79,22 +80,26 @@ struct MinimalMiniPlayer: View {
                 }
             }
             
-            // 歌曲信息
+            // 歌曲信息 - 使用跑马灯
             VStack(alignment: .leading, spacing: 2) {
-                Text(player.currentSong?.name ?? NSLocalizedString("not_playing", comment: "未在播放"))
-                    .font(.rounded(size: 13, weight: .semibold))
-                    .foregroundColor(.asideTextPrimary)
-                    .lineLimit(1)
+                MarqueeText(
+                    text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: "未在播放"),
+                    font: .system(size: 13, weight: .semibold, design: .rounded),
+                    color: .asideTextPrimary,
+                    speed: 25
+                )
+                .frame(height: 16)
+                
                 Text(player.currentSong?.artistName ?? NSLocalizedString("select_song_to_play", comment: "选择歌曲开始播放"))
                     .font(.rounded(size: 11, weight: .medium))
                     .foregroundColor(.asideTextSecondary)
                     .lineLimit(1)
             }
             
-            Spacer()
+            Spacer(minLength: 4)
             
             // 控制按钮
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
                         Circle()
@@ -117,7 +122,7 @@ struct MinimalMiniPlayer: View {
                 .buttonStyle(AsideBouncingButtonStyle())
                 
                 Button(action: { showPlaylist.toggle() }) {
-                    AsideIcon(icon: .list, size: 16, color: .asideTextPrimary)
+                    AsideIcon(icon: .list, size: 16, color: .asideTextPrimary.opacity(0.7))
                         .frame(width: 34, height: 34)
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -167,19 +172,19 @@ struct MinimalMiniPlayer: View {
             ForEach(Tab.allCases, id: \.self) { tab in
                 Button {
                     HapticManager.shared.light()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(AsideAnimation.tabSwitch) {
                         currentTab = tab
                     }
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         AsideIcon(
                             icon: tab.asideIcon,
-                            size: 20,
-                            color: currentTab == tab ? .asideAccent : .asideTextSecondary.opacity(0.5)
+                            size: 18,
+                            color: currentTab == tab ? .asideAccent : .asideTextSecondary.opacity(0.4)
                         )
                         Text(NSLocalizedString(tab.titleKey, comment: ""))
-                            .font(.system(size: 10, weight: currentTab == tab ? .semibold : .medium))
-                            .foregroundColor(currentTab == tab ? .asideAccent : .asideTextSecondary.opacity(0.5))
+                            .font(.system(size: 9, weight: currentTab == tab ? .semibold : .medium))
+                            .foregroundColor(currentTab == tab ? .asideAccent : .asideTextSecondary.opacity(0.4))
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -194,17 +199,17 @@ struct MinimalMiniPlayer: View {
     private var glassBackground: some View {
         if settings.liquidGlassEnabled {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideCardBackground.opacity(0.4))
-                    .liquidGlass(config: .regular, cornerRadius: 16, backgroundCaptureFrameRate: 30)
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.asideCardBackground.opacity(0.4))
+                        .liquidGlassBackground(cornerRadius: 18, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color.asideGlassOverlay)
             }
         } else {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color.asideGlassOverlay)
             }
         }
@@ -217,7 +222,7 @@ struct MinimalMiniPlayer: View {
     }
     
     private func openPlayer() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+        withAnimation(AsideAnimation.playerTransition) {
             switch player.playSource {
             case .fm:
                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)

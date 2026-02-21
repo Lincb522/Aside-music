@@ -139,14 +139,14 @@ struct WelcomeView: View {
     
     private func startAnimation() {
         // 阶段 1: Logo 弹入 + 旋转
-        withAnimation(.spring(response: 0.7, dampingFraction: 0.6, blendDuration: 0)) {
+        withAnimation(AsideAnimation.bouncy) {
             logoScale = 1.0
             logoOpacity = 1.0
             logoRotation = 0
         }
         
         // 阶段 2: 背景光晕
-        withAnimation(.easeOut(duration: 0.8)) {
+        withAnimation(AsideAnimation.contentAppear) {
             glowOpacity = 1.0
         }
         
@@ -161,7 +161,7 @@ struct WelcomeView: View {
         
         // 阶段 4: 文字滑入
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(AsideAnimation.smooth) {
                 textOffset = 0
                 textOpacity = 1.0
             }
@@ -169,7 +169,7 @@ struct WelcomeView: View {
         
         // 阶段 5: 版权信息淡入
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeOut(duration: 0.4)) {
+            withAnimation(AsideAnimation.contentAppear) {
                 copyrightOpacity = 1.0
             }
         }
@@ -206,7 +206,7 @@ struct WelcomeView: View {
     
     private func dismissWelcome() {
         // 淡出动画
-        withAnimation(.easeOut(duration: 0.35)) {
+        withAnimation(AsideAnimation.contentAppear) {
             logoOpacity = 0
             logoScale = 1.1
             textOpacity = 0
@@ -214,7 +214,7 @@ struct WelcomeView: View {
             glowOpacity = 0
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             isPresented = false
         }
     }

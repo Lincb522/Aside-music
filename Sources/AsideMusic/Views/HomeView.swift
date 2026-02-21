@@ -211,19 +211,20 @@ struct HomeView: View {
             ForEach(viewModel.banners) { banner in
                 Button(action: { handleBannerTap(banner) }) {
                     CachedAsyncImage(url: banner.imageUrl) {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(Color.asideSeparator)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(height: 130)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 4)
                     .padding(.horizontal, 24)
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .automatic))
-        .frame(height: 140)
+        .frame(height: 150)
     }
 
     private func handleBannerTap(_ banner: Banner) {
@@ -452,28 +453,7 @@ struct HomeView: View {
         VStack(spacing: 12) {
             // 新歌速递入口
             NavigationLink(value: HomeDestination.newSongExpress) {
-                HStack(spacing: 14) {
-                    AsideIcon(icon: .musicNote, size: 24, color: .asideTextPrimary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(LocalizedStringKey("new_song_express"))
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.asideTextPrimary)
-                        Text(LocalizedStringKey("new_releases"))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.asideTextSecondary)
-                    }
-                    Spacer()
-                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
-                        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                entryCardRow(icon: .musicNote, title: "new_song_express", subtitle: "new_releases")
             }
             .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
             
@@ -481,32 +461,41 @@ struct HomeView: View {
             Button(action: {
                 navigationPath.append(HomeDestination.mvDiscover)
             }) {
-                HStack(spacing: 14) {
-                    AsideIcon(icon: .playCircleFill, size: 24, color: .asideTextPrimary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(LocalizedStringKey("home_mv_zone"))
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.asideTextPrimary)
-                        Text(LocalizedStringKey("home_mv_zone_desc"))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.asideTextSecondary)
-                    }
-                    Spacer()
-                    AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
-                        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                entryCardRow(icon: .playCircleFill, title: "home_mv_zone", subtitle: "home_mv_zone_desc")
             }
             .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))
         }
         .padding(.horizontal, 24)
+    }
+
+    private func entryCardRow(icon: AsideIcon.IconType, title: String, subtitle: String) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.asideAccent.opacity(0.1))
+                    .frame(width: 40, height: 40)
+                AsideIcon(icon: icon, size: 20, color: .asideAccent)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(LocalizedStringKey(title))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.asideTextPrimary)
+                Text(LocalizedStringKey(subtitle))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(.asideTextSecondary)
+            }
+            Spacer()
+            AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary.opacity(0.6))
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - 工具
@@ -564,22 +553,38 @@ struct SectionHeader: View {
 struct SongCard: View {
     let song: Song
     let onTap: () -> Void
+    @ObservedObject private var player = PlayerManager.shared
+
+    private var isCurrentSong: Bool {
+        player.currentSong?.id == song.id
+    }
 
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
-                CachedAsyncImage(url: song.coverUrl) {
-                    Color.asideSeparator
+                ZStack(alignment: .bottomTrailing) {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color.asideSeparator)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 150, height: 150)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+
+                    // 正在播放指示器
+                    if isCurrentSong {
+                        PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
+                            .frame(width: 18)
+                            .padding(10)
+                    }
                 }
-                .aspectRatio(contentMode: .fill)
                 .frame(width: 150, height: 150)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(song.name)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(.asideTextPrimary)
+                        .foregroundColor(isCurrentSong ? .asideAccent : .asideTextPrimary)
                         .lineLimit(1)
 
                     Text(song.artistName)
@@ -601,7 +606,8 @@ struct PlaylistVerticalCard: View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
-                    Color.asideSeparator
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.asideSeparator)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 150, height: 150)
@@ -609,17 +615,19 @@ struct PlaylistVerticalCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
 
-                HStack(spacing: 4) {
-                    AsideIcon(icon: .play, size: 8, color: .white)
-                    Text(formatCount(playlist.playCount))
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                if let count = playlist.playCount, count > 0 {
+                    HStack(spacing: 3) {
+                        AsideIcon(icon: .play, size: 7, color: .white)
+                        Text(formatCount(count))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .padding(8)
                 }
-                .foregroundColor(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(.ultraThinMaterial)
-                .clipShape(Capsule())
-                .padding(8)
             }
             .frame(width: 150, height: 150)
 
@@ -663,7 +671,8 @@ struct MiniSongRow: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    Color.asideSeparator
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.asideSeparator)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 56, height: 56)
@@ -700,7 +709,8 @@ struct HeroCard: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             CachedAsyncImage(url: song.coverUrl) {
-                Color.asideSeparator
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(Color.asideSeparator)
             }
             .aspectRatio(contentMode: .fill)
             .frame(height: 260)

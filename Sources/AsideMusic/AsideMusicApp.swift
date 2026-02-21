@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import LiquidGlassEffect
+import LiquidGlass
 
 // MARK: - AppDelegate（控制设备方向）
 
@@ -17,8 +17,6 @@ struct AsideMusicApp: App {
     @ObservedObject private var settings = SettingsManager.shared
     
     init() {
-        LiquidGlassEngine.shared.performanceMode = .balanced
-        
         // 预初始化 EQManager，避免在 view body 中首次访问时触发 @Published 变更
         _ = EQManager.shared
         
@@ -47,6 +45,7 @@ struct AsideMusicApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .fontDesign(.rounded)
                 .preferredColorScheme(settings.preferredColorScheme)
                 .background(SwipeBackInjector())
                 .onAppear {

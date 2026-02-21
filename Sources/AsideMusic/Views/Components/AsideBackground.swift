@@ -1,5 +1,5 @@
 import SwiftUI
-import LiquidGlassEffect
+import LiquidGlass
 
 // MARK: - 返回按钮组件
 struct AsideBackButton: View {
@@ -257,7 +257,8 @@ struct AsideLiquidGlassCard<Content: View>: View {
             .background(
                 Group {
                     if useMetal {
-                        LiquidGlassMetalView(cornerRadius: cornerRadius, backgroundCaptureFrameRate: 20)
+                        Color.clear
+                            .liquidGlassBackground(cornerRadius: cornerRadius, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
                     } else {
                         SwiftUIGlassBackground(cornerRadius: cornerRadius)
                     }

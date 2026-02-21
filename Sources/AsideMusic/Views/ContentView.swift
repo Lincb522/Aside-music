@@ -40,7 +40,7 @@ public struct ContentView: View {
                     }
                 }
                 .ignoresSafeArea()
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: currentTab)
+                .animation(AsideAnimation.tabSwitch, value: currentTab)
                 // 极简模式和悬浮球模式下添加滑动手势切换页面
                 .gesture((settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall) ? swipeGesture : nil)
 
@@ -50,8 +50,8 @@ public struct ContentView: View {
                         .zIndex(1)
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: player.isTabBarHidden)
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: settings.floatingBarStyle)
+            .animation(AsideAnimation.floatingBar, value: player.isTabBarHidden)
+            .animation(AsideAnimation.panelToggle, value: settings.floatingBarStyle)
             .ignoresSafeArea(.keyboard)
             .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
                 showPersonalFM = true
@@ -167,7 +167,7 @@ public struct ContentView: View {
                     // 向左滑 -> 下一个 tab
                     let nextIndex = currentIndex + 1
                     if nextIndex < allTabs.count {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(AsideAnimation.tabSwitch) {
                             currentTab = allTabs[nextIndex]
                         }
                     }
@@ -175,7 +175,7 @@ public struct ContentView: View {
                     // 向右滑 -> 上一个 tab
                     let prevIndex = currentIndex - 1
                     if prevIndex >= 0 {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(AsideAnimation.tabSwitch) {
                             currentTab = allTabs[prevIndex]
                         }
                     }

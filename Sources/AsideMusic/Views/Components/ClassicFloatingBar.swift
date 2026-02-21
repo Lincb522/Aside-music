@@ -1,5 +1,5 @@
 import SwiftUI
-import LiquidGlassEffect
+import LiquidGlass
 
 /// 经典风格的统一悬浮栏（MiniPlayer + TabBar 合一，贴底不悬浮）
 struct ClassicFloatingBar: View {
@@ -24,7 +24,11 @@ struct ClassicFloatingBar: View {
                         removal: .opacity.combined(with: .move(edge: .top))
                     ))
                     
-                    Divider()
+                    // 分隔线 - 更柔和
+                    Rectangle()
+                        .fill(Color.asideSeparator.opacity(0.3))
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 16)
                 }
                 
                 // TabBar 部分
@@ -35,7 +39,7 @@ struct ClassicFloatingBar: View {
                     ZStack {
                         Rectangle()
                             .fill(Color.asideCardBackground.opacity(0.6))
-                            .liquidGlass(config: .regular, cornerRadius: 0, backgroundCaptureFrameRate: 30)
+                            .liquidGlassBackground(cornerRadius: 0, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
                         Rectangle()
                             .fill(Color.asideGlassOverlay)
                     }
@@ -52,13 +56,13 @@ struct ClassicFloatingBar: View {
             }
             .overlay(alignment: .top) {
                 Rectangle()
-                    .fill(Color.asideSeparator.opacity(0.5))
+                    .fill(Color.asideSeparator.opacity(0.3))
                     .frame(height: 0.5)
             }
         }
-        .padding(.bottom, 0) // 贴底，不留边距
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: player.currentSong != nil)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentTab)
+        .padding(.bottom, 0)
+        .animation(AsideAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(AsideAnimation.tabSwitch, value: currentTab)
     }
 }
 
@@ -75,11 +79,12 @@ private struct ClassicMiniPlayerSection: View {
             HStack(spacing: 10) {
                 // 封面
                 CachedAsyncImage(url: song.coverUrl) {
-                    Color.gray.opacity(0.3)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.gray.opacity(0.15))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 36, height: 36)
-                .cornerRadius(8)
+                .frame(width: 38, height: 38)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
                     if player.playSource == .fm {
                         sourceIndicator(icon: .fm)
@@ -88,22 +93,26 @@ private struct ClassicMiniPlayerSection: View {
                     }
                 }
                 
-                // 歌曲信息
+                // 歌曲信息 - 使用跑马灯
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(song.name)
-                        .font(.rounded(size: 13, weight: .semibold))
-                        .foregroundColor(.asideTextPrimary)
-                        .lineLimit(1)
+                    MarqueeText(
+                        text: song.name,
+                        font: .system(size: 13, weight: .semibold, design: .rounded),
+                        color: .asideTextPrimary,
+                        speed: 25
+                    )
+                    .frame(height: 16)
+                    
                     Text(song.artistName)
                         .font(.rounded(size: 11, weight: .medium))
                         .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
                 }
                 
-                Spacer()
+                Spacer(minLength: 4)
                 
                 // 控制按钮
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     Button(action: togglePlayPause) {
                         ZStack {
                             Circle()
@@ -126,20 +135,20 @@ private struct ClassicMiniPlayerSection: View {
                     .buttonStyle(AsideBouncingButtonStyle())
                     
                     Button(action: { showPlaylist.toggle() }) {
-                        AsideIcon(icon: .list, size: 16, color: .asideTextPrimary)
+                        AsideIcon(icon: .list, size: 16, color: .asideTextPrimary.opacity(0.7))
                             .frame(width: 34, height: 34)
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                     
                     if !isPlaying {
                         Button(action: {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            withAnimation(AsideAnimation.floatingBar) {
                                 player.stopAndClear()
                             }
                         }) {
-                            AsideIcon(icon: .close, size: 10, color: .gray)
-                                .frame(width: 32, height: 32)
-                                .background(Color.gray.opacity(0.1))
+                            AsideIcon(icon: .close, size: 10, color: .asideTextSecondary)
+                                .frame(width: 28, height: 28)
+                                .background(Color.gray.opacity(0.08))
                                 .clipShape(Circle())
                         }
                         .buttonStyle(AsideBouncingButtonStyle())
@@ -154,7 +163,7 @@ private struct ClassicMiniPlayerSection: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapWithHaptic {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        withAnimation(AsideAnimation.playerTransition) {
                             switch player.playSource {
                             case .fm:
                                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
@@ -169,7 +178,7 @@ private struct ClassicMiniPlayerSection: View {
             
             // 进度条
             ProgressBarView()
-                .frame(height: 2)
+                .frame(height: 2.5)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 4)
         }
@@ -204,20 +213,20 @@ private struct ClassicTabBarSection: View {
                 
                 Button {
                     HapticManager.shared.light()
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(AsideAnimation.micro) {
                         currentTab = tab
                     }
                 } label: {
                     VStack(spacing: 2) {
                         AsideIcon(
                             icon: items[index].icon,
-                            size: 22,
-                            color: isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4)
+                            size: 20,
+                            color: isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.35)
                         )
                         
                         Text(items[index].label)
                             .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
-                            .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4))
+                            .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.35))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)

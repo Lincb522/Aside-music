@@ -16,7 +16,7 @@ struct AnimatedLogoView: View {
     private let glossColor = Color.white.opacity(0.15)
     
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1/60, paused: !animated)) { timeline in
+        TimelineView(.animation(minimumInterval: 1/30, paused: !animated)) { timeline in
             Canvas { context, canvasSize in
                 let time = animated ? timeline.date.timeIntervalSinceReferenceDate : 0
                 drawLogo(context: context, size: canvasSize, time: time)

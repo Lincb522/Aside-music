@@ -35,7 +35,7 @@ struct FullScreenPlayerView: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(AsideAnimation.playerTransition) {
                 player.isTabBarHidden = true
             }
             // 确保歌词已加载（包括之前加载失败的情况）
@@ -51,7 +51,7 @@ struct FullScreenPlayerView: View {
         }
         .onDisappear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                withAnimation(AsideAnimation.playerTransition) {
                     player.isTabBarHidden = false
                 }
             }

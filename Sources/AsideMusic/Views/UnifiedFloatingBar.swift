@@ -1,5 +1,5 @@
 import SwiftUI
-import LiquidGlassEffect
+import LiquidGlass
 
 // MARK: - Subviews for Performance
 struct MiniPlayerSection: View {
@@ -11,15 +11,16 @@ struct MiniPlayerSection: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
+                // 封面 - 增大尺寸，圆角更精致
                 CachedAsyncImage(url: song.coverUrl) {
-                    Color.gray.opacity(0.3)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.gray.opacity(0.15))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 32, height: 32)
-                .cornerRadius(8)
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
-                    // 播放来源小图标（居中覆盖在封面上）
                     if player.playSource == .fm {
                         sourceIndicator(icon: .fm)
                     } else if player.isPlayingPodcast {
@@ -27,22 +28,26 @@ struct MiniPlayerSection: View {
                     }
                 }
                 
+                // 歌曲信息 - 使用跑马灯避免长标题截断
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(song.name)
-                        .font(.rounded(size: 12, weight: .bold))
-                        .foregroundColor(.asideTextPrimary)
+                    MarqueeText(
+                        text: song.name,
+                        font: .system(size: 13, weight: .semibold, design: .rounded),
+                        color: .asideTextPrimary,
+                        speed: 25
+                    )
+                    .frame(height: 16)
+                    
+                    Text(song.artistName)
+                        .font(.rounded(size: 11, weight: .medium))
+                        .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
-                    HStack(spacing: 4) {
-                        Text(song.artistName)
-                            .font(.rounded(size: 10, weight: .medium))
-                            .foregroundColor(.asideTextSecondary)
-                            .lineLimit(1)
-                    }
                 }
                 
-                Spacer()
+                Spacer(minLength: 4)
                 
-                HStack(spacing: 12) {
+                // 控制按钮
+                HStack(spacing: 10) {
                     Button(action: togglePlayPause) {
                         ZStack {
                             Circle()
@@ -54,11 +59,11 @@ struct MiniPlayerSection: View {
                                     .progressViewStyle(CircularProgressViewStyle(tint: .asideIconForeground))
                                     .scaleEffect(0.6)
                             } else {
-                                if isPlaying {
-                                    AsideIcon(icon: .pause, size: 14, color: .asideIconForeground)
-                                } else {
-                                    AsideIcon(icon: .play, size: 14, color: .asideIconForeground)
-                                }
+                                AsideIcon(
+                                    icon: isPlaying ? .pause : .play,
+                                    size: 14,
+                                    color: .asideIconForeground
+                                )
                             }
                         }
                         .contentShape(Circle())
@@ -66,7 +71,7 @@ struct MiniPlayerSection: View {
                     .buttonStyle(AsideBouncingButtonStyle())
                     
                     Button(action: { showPlaylist.toggle() }) {
-                        AsideIcon(icon: .list, size: 16, color: .asideTextPrimary)
+                        AsideIcon(icon: .list, size: 16, color: .asideTextPrimary.opacity(0.7))
                             .frame(width: 32, height: 32)
                             .contentShape(Rectangle())
                     }
@@ -74,13 +79,13 @@ struct MiniPlayerSection: View {
                     
                     if !isPlaying {
                         Button(action: {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            withAnimation(AsideAnimation.floatingBar) {
                                 player.stopAndClear()
                             }
                         }) {
-                            AsideIcon(icon: .close, size: 12, color: .gray)
-                                .frame(width: 32, height: 32)
-                                .background(Color.gray.opacity(0.1))
+                            AsideIcon(icon: .close, size: 10, color: .asideTextSecondary)
+                                .frame(width: 28, height: 28)
+                                .background(Color.gray.opacity(0.08))
                                 .clipShape(Circle())
                                 .contentShape(Circle())
                         }
@@ -88,18 +93,16 @@ struct MiniPlayerSection: View {
                         .transition(.scale.combined(with: .opacity))
                     }
                 }
-                // 防止按钮区域被 onTapGesture 吞掉
                 .zIndex(1)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 14)
             .padding(.top, 10)
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
             .background {
-                // 用背景区域接收点击，避免 contentShape + onTapGesture 覆盖子按钮
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapWithHaptic {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        withAnimation(AsideAnimation.playerTransition) {
                             switch player.playSource {
                             case .fm:
                                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
@@ -113,8 +116,8 @@ struct MiniPlayerSection: View {
             }
             
             ProgressBarView()
-                .frame(height: 2)
-                .padding(.horizontal, 12)
+                .frame(height: 2.5)
+                .padding(.horizontal, 14)
                 .padding(.bottom, 4)
         }
         .sheet(isPresented: $showPlaylist) {
@@ -126,7 +129,7 @@ struct MiniPlayerSection: View {
 
     /// 播放来源角标
     private func sourceIndicator(icon: AsideIcon.IconType) -> some View {
-        AsideIcon(icon: icon, size: 12, color: Color(red: 1, green: 1, blue: 1), lineWidth: 1.6)
+        AsideIcon(icon: icon, size: 12, color: .white, lineWidth: 1.6)
     }
 }
 
@@ -136,33 +139,31 @@ struct ProgressBarView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
+                // 轨道 - 更柔和的背景
                 Capsule()
-                    .fill(Color.gray.opacity(0.1))
-                    .frame(height: 3)
+                    .fill(Color.asideTextPrimary.opacity(0.06))
+                    .frame(height: 2.5)
                 
+                // 进度 - 使用强调色，更细腻
                 let progress = timePublisher.progress
                 Capsule()
-                    .fill(Color.asideIconBackground)
-                    .frame(width: geometry.size.width * CGFloat(progress), height: 3)
+                    .fill(Color.asideAccent.opacity(0.5))
+                    .frame(width: max(geometry.size.width * CGFloat(progress), 0), height: 2.5)
                     .animation(.linear(duration: 0.1), value: progress)
             }
         }
     }
 }
 
-// MARK: - Aside TabBar (使用 LiquidGlassEffect 风格)
+// MARK: - Aside TabBar (使用 LiquidGlass 风格)
 struct AsideTabBar: View {
     @Binding var selectedIndex: Int
     @ObservedObject private var settings = SettingsManager.shared
     
-    /// 每个 tab 的宽度
     private let itemWidth: CGFloat = 64
-    /// 每个 tab 的高度
-    private let itemHeight: CGFloat = 44
-    /// 气泡宽度
-    private let bubbleWidth: CGFloat = 56
-    /// 内边距
-    private let padding: CGFloat = 6
+    private let itemHeight: CGFloat = 42
+    private let bubbleWidth: CGFloat = 54
+    private let padding: CGFloat = 4
     
     private let items: [(icon: AsideIcon.IconType, label: String)] = [
         (.home, NSLocalizedString("tabbar_home", comment: "")),
@@ -171,7 +172,6 @@ struct AsideTabBar: View {
         (.profile, NSLocalizedString("tabbar_profile", comment: ""))
     ]
     
-    /// 计算气泡的水平偏移量
     private var bubbleOffset: CGFloat {
         let totalWidth = CGFloat(items.count) * itemWidth
         let startX = -totalWidth / 2 + itemWidth / 2
@@ -180,23 +180,21 @@ struct AsideTabBar: View {
     
     var body: some View {
         ZStack {
-            // 单一气泡 - 通过位置动画移动，避免闪烁
+            // 气泡指示器
             Group {
                 if settings.liquidGlassEnabled {
-                    LiquidGlassContainer(config: .thumb(), cornerRadius: 16) {
-                        Color.clear
-                            .frame(width: bubbleWidth, height: itemHeight)
-                    }
+                    Color.clear
+                        .frame(width: bubbleWidth, height: itemHeight)
+                        .liquidGlassBackground(cornerRadius: 14, blurScale: 0.2, tintColor: UIColor.white.withAlphaComponent(0.05))
                 } else {
-                    // 原生毛玻璃气泡
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(.regularMaterial)
                         .frame(width: bubbleWidth, height: itemHeight)
-                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
                 }
             }
             .offset(x: bubbleOffset)
-            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedIndex)
+            .animation(AsideAnimation.tabSwitch, value: selectedIndex)
             
             HStack(spacing: 0) {
                 ForEach(0..<items.count, id: \.self) { index in
@@ -205,7 +203,7 @@ struct AsideTabBar: View {
                         label: items[index].label,
                         isSelected: selectedIndex == index
                     ) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        withAnimation(AsideAnimation.tabSwitch) {
                             selectedIndex = index
                         }
                     }
@@ -217,7 +215,7 @@ struct AsideTabBar: View {
     }
 }
 
-// MARK: - Tab Item View (复用 LiquidGlassEffect 风格)
+// MARK: - Tab Item View
 private struct AsideTabItemView: View {
     let icon: AsideIcon.IconType
     let label: String
@@ -226,19 +224,21 @@ private struct AsideTabItemView: View {
     
     var body: some View {
         Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.impactOccurred()
+            HapticManager.shared.light()
             action()
         }) {
             VStack(spacing: 2) {
-                AsideIcon(icon: icon, size: 20, color: isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4))
-                    .scaleEffect(isSelected ? 1.05 : 0.95)
+                AsideIcon(
+                    icon: icon,
+                    size: 18,
+                    color: isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.35)
+                )
                 
                 Text(label)
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
-                    .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.4))
+                    .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
+                    .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.35))
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+            .animation(AsideAnimation.micro, value: isSelected)
         }
         .buttonStyle(AsideBouncingButtonStyle())
     }
@@ -259,43 +259,40 @@ struct UnifiedFloatingBar: View {
                     togglePlayPause: { player.togglePlayPause() }
                 )
                 .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .bottom)),
-                    removal: .opacity.combined(with: .scale(scale: 0.95, anchor: .bottom))
+                    insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)),
+                    removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
                 ))
             }
             
-            // 使用新的 AsideTabBar
             AsideTabBar(selectedIndex: Binding(
                 get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
                 set: { currentTab = Tab.allCases[$0] }
             ))
         }
         .background {
-            // 根据设置选择液态玻璃或原生毛玻璃
             if settings.liquidGlassEnabled {
-                // 使用 .liquidGlass 修饰器
                 ZStack {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(Color.asideCardBackground.opacity(0.4))
-                        .liquidGlass(config: .regular, cornerRadius: 20, backgroundCaptureFrameRate: 30)
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .liquidGlassBackground(cornerRadius: 22, blurScale: 0.3, tintColor: UIColor.white.withAlphaComponent(0.05))
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(Color.asideGlassOverlay)
                 }
             } else {
-                // 原生毛玻璃 + 自适应叠加色
                 ZStack {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(Color.asideGlassOverlay)
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0.2), value: player.currentSong != nil)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentTab)
-        .animation(.easeInOut(duration: 0.3), value: settings.liquidGlassEnabled)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
+        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .animation(AsideAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(AsideAnimation.tabSwitch, value: currentTab)
+        .animation(AsideAnimation.panelToggle, value: settings.liquidGlassEnabled)
         .gesture(
             DragGesture(minimumDistance: 50, coordinateSpace: .local)
                 .onEnded { value in
@@ -317,7 +314,7 @@ struct UnifiedFloatingBar: View {
         let nextIndex = currentIndex + direction
         
         if nextIndex >= 0 && nextIndex < allTabs.count {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(AsideAnimation.tabSwitch) {
                 currentTab = allTabs[nextIndex]
             }
         }

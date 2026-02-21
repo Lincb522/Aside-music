@@ -5,13 +5,31 @@ struct AsideAnimation {
     
     // MARK: - Standard Curves
     
-    static let bouncy = Animation.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)
-    static let smooth = Animation.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
-    static let snappy = Animation.spring(response: 0.3, dampingFraction: 0.7, blendDuration: 0)
-    static let easeOut = Animation.easeOut(duration: 0.25)
-    
+    /// 弹性动画 — 适合元素出现、弹入
+    static let bouncy = Animation.spring(response: 0.4, dampingFraction: 0.65, blendDuration: 0)
+    /// 平滑动画 — 适合大面积过渡、背景变化
+    static let smooth = Animation.spring(response: 0.5, dampingFraction: 0.82, blendDuration: 0)
+    /// 灵敏动画 — 适合 Tab 切换、小元素交互
+    static let snappy = Animation.spring(response: 0.28, dampingFraction: 0.72, blendDuration: 0)
+    /// 缓出 — 适合淡入淡出
+    static let easeOut = Animation.easeOut(duration: 0.22)
     /// 按钮按压专用 — 快速响应，无弹跳延迟
-    static let buttonPress = Animation.easeOut(duration: 0.1)
+    static let buttonPress = Animation.easeOut(duration: 0.08)
+    
+    // MARK: - Contextual Presets
+    
+    /// 页面/Tab 切换 — 快速但不突兀
+    static let tabSwitch = Animation.spring(response: 0.32, dampingFraction: 0.82)
+    /// 面板展开/收起 — 稍慢，有质感
+    static let panelToggle = Animation.spring(response: 0.45, dampingFraction: 0.8)
+    /// 浮动栏变形成迷你播放器、出入场
+    static let floatingBar = Animation.spring(response: 0.6, dampingFraction: 0.78)
+    /// 全屏播放器打开/关闭
+    static let playerTransition = Animation.spring(response: 0.4, dampingFraction: 0.82)
+    /// 微交互 — 图标高亮、颜色变化
+    static let micro = Animation.easeOut(duration: 0.15)
+    /// 内容淡入 — 列表项、卡片出现
+    static let contentAppear = Animation.easeOut(duration: 0.25)
 }
 
 // MARK: - 全局边缘滑动防误触管理器
