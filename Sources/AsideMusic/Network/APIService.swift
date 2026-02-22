@@ -693,8 +693,18 @@ class APIService {
             request.setValue(c, forHTTPHeaderField: "Cookie")
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        let (data, response) = try await URLSession.shared.data(for: request)
+        // 校验 HTTP 状态码
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            AppLogger.error("postToBackend \(route) HTTP \(httpResponse.statusCode)")
+            throw PlaybackError.networkError
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            AppLogger.error("postToBackend \(route) 响应解析失败")
+            throw PlaybackError.networkError
+        }
+        return json
     }
 
     /// 将真实播放 URL 提交给后端，换取短链接

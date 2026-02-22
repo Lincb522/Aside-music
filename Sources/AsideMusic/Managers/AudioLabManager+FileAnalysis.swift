@@ -458,14 +458,32 @@ extension AudioLabManager {
             crossfeedStrength = 0.4
         }
         
+        let stabilizedEQ = stabilizeSmartEQCurve(
+            eqGains,
+            genre: genre,
+            confidence: sdkResult.bpm.confidence,
+            quality: quality,
+            timbre: timbre,
+            loudness: sdkResult.loudness.integratedLUFS,
+            dynamicRange: Float(dynamic.drValue)
+        )
+        
+        let safetyFactor = smartEffectSafetyFactor(
+            quality: quality,
+            dynamicRange: Float(dynamic.drValue),
+            loudness: sdkResult.loudness.integratedLUFS
+        )
+        let tonalSafety = 0.82 + safetyFactor * 0.18
+        let spatialSafety = 0.7 + safetyFactor * 0.3
+        
         return RecommendedEffects(
-            bassGain: clampGain(bassGain),
-            trebleGain: clampGain(trebleGain),
-            surroundLevel: max(0, min(1, surroundLevel)),
-            reverbLevel: max(0, min(1, reverbLevel)),
-            stereoWidth: max(0.5, min(2, stereoWidth)),
+            bassGain: clampGain(bassGain * tonalSafety),
+            trebleGain: clampGain(trebleGain * tonalSafety),
+            surroundLevel: clampValue(surroundLevel * spatialSafety, min: 0, max: 1),
+            reverbLevel: clampValue(reverbLevel * spatialSafety, min: 0, max: 1),
+            stereoWidth: clampValue(1.0 + (stereoWidth - 1.0) * spatialSafety, min: 0.5, max: 2),
             loudnormEnabled: loudnormEnabled,
-            eqGains: eqGains,
+            eqGains: stabilizedEQ,
             fftDenoiseEnabled: fftDenoiseEnabled, fftDenoiseAmount: fftDenoiseAmount,
             declickEnabled: declickEnabled, declipEnabled: declipEnabled,
             dynaudnormEnabled: false, speechnormEnabled: false, compandEnabled: false,

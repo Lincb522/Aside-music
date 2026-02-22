@@ -335,14 +335,33 @@ extension AudioLabManager {
             break
         }
         
+        let realtimeConfidence: Float = 0.6
+        let stabilizedEQ = stabilizeSmartEQCurve(
+            eqGains,
+            genre: genre,
+            confidence: realtimeConfidence,
+            quality: nil,
+            timbre: timbre,
+            loudness: nil,
+            dynamicRange: 10
+        )
+        
+        let safetyFactor = smartEffectSafetyFactor(
+            quality: nil,
+            dynamicRange: 10,
+            loudness: nil
+        ) * 0.92
+        let tonalSafety = 0.86 + safetyFactor * 0.14
+        let spatialSafety = 0.75 + safetyFactor * 0.25
+        
         return RecommendedEffects.defaultNewFilters(
-            bassGain: clampGain(bassGain),
-            trebleGain: clampGain(trebleGain),
-            surroundLevel: max(0, min(1, surroundLevel)),
-            reverbLevel: max(0, min(1, reverbLevel)),
-            stereoWidth: max(0.5, min(2, stereoWidth)),
+            bassGain: clampGain(bassGain * tonalSafety),
+            trebleGain: clampGain(trebleGain * tonalSafety),
+            surroundLevel: clampValue(surroundLevel * spatialSafety, min: 0, max: 1),
+            reverbLevel: clampValue(reverbLevel * spatialSafety, min: 0, max: 1),
+            stereoWidth: clampValue(1.0 + (stereoWidth - 1.0) * spatialSafety, min: 0.5, max: 2),
             loudnormEnabled: loudnormEnabled,
-            eqGains: eqGains
+            eqGains: stabilizedEQ
         )
     }
 }

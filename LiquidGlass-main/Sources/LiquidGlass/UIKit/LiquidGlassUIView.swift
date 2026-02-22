@@ -1,56 +1,36 @@
-//
-//  LiquidGlassUIView.swift
-//  LiquidGlass
-//
-//  Created by kaixin.lian on 2025/06/18.
-//
-
 import UIKit
 import MetalKit
 import simd
 
-/// UIKit version of LiquidGlass - a UIView that applies liquid glass effect to its background
+/// UIKit 版液态玻璃视图 — 可直接添加到任意 UIView
 @MainActor
 public class LiquidGlassUIView: UIView {
 
-    // MARK: - Public Properties
+    // MARK: - 公开属性
 
-    /// Corner radius for the glass effect
     public var cornerRadius: CGFloat = 20 {
-        didSet {
-            layer.cornerRadius = cornerRadius * 0.32
-            setNeedsDisplay()
-        }
+        didSet { metalView.setNeedsDisplay() }
     }
 
-    /// Background snapshot update mode
     public var updateMode: SnapshotUpdateMode = .continuous() {
-        didSet {
-            backgroundProvider?.updateMode = updateMode
-        }
+        didSet { backgroundProvider?.updateMode = updateMode }
     }
 
-    /// Blur intensity (0.0 = no blur, 1.0 = maximum blur)
     public var blurScale: CGFloat = 0.5 {
-        didSet {
-            metalView.setNeedsDisplay()
-        }
+        didSet { metalView.setNeedsDisplay() }
     }
 
-    /// Glass tint color for the effect (renamed to avoid UIView.tintColor conflict)
     public var glassTintColor: UIColor = .gray.withAlphaComponent(0.2) {
-        didSet {
-            metalView.setNeedsDisplay()
-        }
+        didSet { metalView.setNeedsDisplay() }
     }
 
-    // MARK: - Private Properties
+    // MARK: - 私有属性
 
     private var metalView: MTKView!
     private var coordinator: MetalCoordinator!
     private var backgroundProvider: BackgroundTextureProvider?
 
-    // MARK: - Initialization
+    // MARK: - 初始化
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -73,30 +53,23 @@ public class LiquidGlassUIView: UIView {
         self.updateMode = updateMode
         self.blurScale = blurScale
         self.glassTintColor = tintColor
-
-        layer.cornerRadius = cornerRadius * 0.32
         backgroundProvider?.updateMode = updateMode
     }
 
-    // MARK: - Public Methods
+    // MARK: - 公开方法
 
-    /// Manually invalidate the background texture (useful when updateMode is .manual)
+    /// 手动刷新背景纹理（updateMode 为 .manual 时使用）
     public func invalidateBackground() {
         backgroundProvider?.invalidate()
         metalView.setNeedsDisplay()
     }
 
-    // MARK: - Private Methods
+    // MARK: - 内部
 
     private func setupView() {
         backgroundColor = .clear
         clipsToBounds = true
-        layer.cornerRadius = cornerRadius * 0.32
 
-        setupMetalView()
-    }
-
-    private func setupMetalView() {
         metalView = MTKView()
         metalView.device = MTLCreateSystemDefaultDevice()
         metalView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
@@ -105,8 +78,8 @@ public class LiquidGlassUIView: UIView {
         metalView.backgroundColor = .clear
         metalView.enableSetNeedsDisplay = true
         metalView.translatesAutoresizingMaskIntoConstraints = false
-
         addSubview(metalView)
+        
         NSLayoutConstraint.activate([
             metalView.topAnchor.constraint(equalTo: topAnchor),
             metalView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -114,31 +87,17 @@ public class LiquidGlassUIView: UIView {
             metalView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        guard let device = metalView.device else {
-            print("Failed to create Metal device")
-            return
-        }
+        guard let device = metalView.device else { return }
 
-        coordinator = MetalCoordinator(
-            device: device,
-            cornerRadius: cornerRadius,
-            updateMode: updateMode,
-            blurScale: blurScale,
-            tintColor: glassTintColor
-        )
-
+        coordinator = MetalCoordinator(device: device, parentView: self)
         metalView.delegate = coordinator
 
         backgroundProvider = BackgroundTextureProvider(device: device)
         backgroundProvider?.updateMode = updateMode
         backgroundProvider?.didUpdateTexture = { [weak self] in
-            DispatchQueue.main.async {
-                self?.metalView.setNeedsDisplay()
-            }
+            DispatchQueue.main.async { self?.metalView.setNeedsDisplay() }
         }
-
         coordinator.backgroundProvider = backgroundProvider
-        coordinator.parentView = self
     }
 
     public override func layoutSubviews() {
@@ -153,58 +112,40 @@ private class MetalCoordinator: NSObject, MTKViewDelegate {
     weak var parentView: LiquidGlassUIView?
     var backgroundProvider: BackgroundTextureProvider?
 
-    var pipelineState: MTLRenderPipelineState!
-    var commandQueue: MTLCommandQueue!
-    var device: MTLDevice!
-    var startTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
+    private var pipelineState: MTLRenderPipelineState!
+    private var samplerState: MTLSamplerState!
+    private var commandQueue: MTLCommandQueue!
+    private var device: MTLDevice!
+    private let startTime = CFAbsoluteTimeGetCurrent()
 
-    var cornerRadius: CGFloat
-    var updateMode: SnapshotUpdateMode
-    var blurScale: CGFloat
-    var tintColor: UIColor
-
-    init(device: MTLDevice, cornerRadius: CGFloat, updateMode: SnapshotUpdateMode, blurScale: CGFloat, tintColor: UIColor) {
+    init(device: MTLDevice, parentView: LiquidGlassUIView) {
         self.device = device
-        self.cornerRadius = cornerRadius
-        self.updateMode = updateMode
-        self.blurScale = blurScale
-        self.tintColor = tintColor
-
+        self.parentView = parentView
         super.init()
 
-        setupMetal()
-    }
-
-    private func setupMetal() {
         commandQueue = device.makeCommandQueue()
+        
+        guard let library = try? device.makeDefaultLibrary(bundle: .module) else { return }
 
-        let bundle = Bundle.module
-        guard let library = try? device.makeDefaultLibrary(bundle: bundle) else {
-            print("Failed to create Metal library")
-            return
-        }
-
-        let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertexPassthrough")
-        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "liquidGlassFragment")
-        pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-
-        do {
-            pipelineState = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
-        } catch {
-            print("Failed to create render pipeline state: \(error)")
-        }
+        let desc = MTLRenderPipelineDescriptor()
+        desc.vertexFunction = library.makeFunction(name: "vertexPassthrough")
+        desc.fragmentFunction = library.makeFunction(name: "liquidGlassFragment")
+        desc.colorAttachments[0].pixelFormat = .bgra8Unorm
+        pipelineState = try? device.makeRenderPipelineState(descriptor: desc)
+        
+        let samplerDesc = MTLSamplerDescriptor()
+        samplerDesc.minFilter = .linear
+        samplerDesc.magFilter = .linear
+        samplerDesc.sAddressMode = .clampToEdge
+        samplerDesc.tAddressMode = .clampToEdge
+        samplerState = device.makeSamplerState(descriptor: samplerDesc)
     }
 
     func draw(in view: MTKView) {
         guard let drawable = view.currentDrawable,
               let descriptor = view.currentRenderPassDescriptor,
-              let parentView = parentView else { return }
-
-        // Update properties from parent view
-        cornerRadius = parentView.cornerRadius
-        blurScale = parentView.blurScale
-        tintColor = parentView.glassTintColor
+              let parentView = parentView,
+              let pipelineState = pipelineState else { return }
 
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].loadAction = .clear
@@ -212,34 +153,37 @@ private class MetalCoordinator: NSObject, MTKViewDelegate {
 
         let commandBuffer = commandQueue.makeCommandBuffer()!
         let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
-
         encoder.setRenderPipelineState(pipelineState)
+
+        let tint = parentView.glassTintColor
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        tint.getRed(&r, green: &g, blue: &b, alpha: &a)
 
         var uniforms = Uniforms(
             resolution: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
             time: Float(CFAbsoluteTimeGetCurrent() - startTime),
-            blurScale: Float(blurScale),
+            blurScale: Float(parentView.blurScale),
             boxSize: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-            cornerRadius: Float(cornerRadius * 0.32), // Align with SwiftUI
-            tintColor: SIMD3<Float>(
-                Float(tintColor.cgColor.components?[safe: 0] ?? 0),
-                Float(tintColor.cgColor.components?[safe: 1] ?? 0),
-                Float(tintColor.cgColor.components?[safe: 2] ?? 0)
+            cornerRadius: min(
+                Float(parentView.cornerRadius * view.contentScaleFactor),
+                min(Float(view.drawableSize.width), Float(view.drawableSize.height)) / 2.0
             ),
-            tintAlpha: Float(tintColor.cgColor.components?.last ?? 0)
+            tintColor: SIMD3<Float>(Float(r), Float(g), Float(b)),
+            tintAlpha: Float(a)
         )
 
         encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
 
-        let sampler = device.makeSamplerState(descriptor: MTLSamplerDescriptor())!
-
-        let snapshotTexture = backgroundProvider?.currentTexture(for: parentView)
-        encoder.setFragmentTexture(snapshotTexture, index: 0)
-        encoder.setFragmentSamplerState(sampler, index: 0)
+        if let provider = backgroundProvider {
+            provider.blurRadius = Float(parentView.blurScale) * 30.0
+            if let texture = provider.currentTexture(for: parentView) {
+                encoder.setFragmentTexture(texture, index: 0)
+                encoder.setFragmentSamplerState(samplerState, index: 0)
+            }
+        }
 
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
-
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()

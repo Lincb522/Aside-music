@@ -165,7 +165,7 @@ struct SongListRow: View {
             // 下载选项
             if downloadManager.isDownloaded(songId: song.id) {
                 Button(role: .destructive) {
-                    downloadManager.deleteDownload(songId: song.id)
+                    downloadManager.deleteDownload(songId: song.id, isQQ: song.isQQMusic)
                 } label: {
                     Label(String(localized: "song_delete_download"), systemImage: "trash")
                 }

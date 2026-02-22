@@ -95,6 +95,12 @@ class PlayerManager: ObservableObject {
     
     func setPitch(_ semitones: Float) {
         let clamped = min(max(semitones, -12), 12)
+        
+        // 避免重复设置相同值导致滤镜图频繁重建（拖动滑块时可显著减少噪声）
+        if abs(clamped - pitchSemitones) < 0.001 {
+            return
+        }
+        
         pitchSemitones = clamped
         audioEffects.setPitch(clamped)
         // 持久化

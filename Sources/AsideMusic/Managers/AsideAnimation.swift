@@ -23,7 +23,7 @@ struct AsideAnimation {
     /// 面板展开/收起 — 稍慢，有质感
     static let panelToggle = Animation.spring(response: 0.45, dampingFraction: 0.8)
     /// 浮动栏变形成迷你播放器、出入场
-    static let floatingBar = Animation.spring(response: 0.6, dampingFraction: 0.78)
+    static let floatingBar = Animation.spring(response: 0.65, dampingFraction: 0.72)
     /// 全屏播放器打开/关闭
     static let playerTransition = Animation.spring(response: 0.4, dampingFraction: 0.82)
     /// 微交互 — 图标高亮、颜色变化

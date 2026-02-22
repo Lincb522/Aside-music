@@ -156,7 +156,7 @@ final class AudioMatchViewModel: ObservableObject {
             state = .notFound
             return
         }
-        let query = artist != nil ? "\(title) \(artist!)" : title
+        let query = [title, artist].compactMap { $0 }.joined(separator: " ")
         Task {
             do {
                 let songs = try await APIService.shared.searchSongs(keyword: query).async()

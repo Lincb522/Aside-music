@@ -155,8 +155,10 @@ final class DatabaseManager {
             try context.delete(model: PlayHistory.self)
             try context.delete(model: SearchHistory.self)
             try context.delete(model: CachedLyrics.self)
+            try context.delete(model: DownloadedSong.self)
+            try context.delete(model: LocalPlaylist.self)
             try context.save()
-            AppLogger.success("数据库已清空")
+            AppLogger.success("数据库已清空（含下载记录和本地歌单）")
         } catch {
             AppLogger.error("清空数据库失败: \(error)")
         }

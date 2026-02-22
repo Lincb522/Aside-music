@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import LiquidGlass
+import CoreText
 
 // MARK: - AppDelegate（控制设备方向）
 
@@ -17,6 +17,9 @@ struct AsideMusicApp: App {
     @ObservedObject private var settings = SettingsManager.shared
     
     init() {
+        // 注册 SPM 包中的自定义字体
+        Self.registerBundledFonts()
+        
         // 预初始化 EQManager，避免在 view body 中首次访问时触发 @Published 变更
         _ = EQManager.shared
         
@@ -77,6 +80,49 @@ struct AsideMusicApp: App {
                     }
                 }
                 .modelContainer(DatabaseManager.shared.container)
+        }
+    }
+    
+    /// 注册自定义字体 — 搜索主 bundle 和所有子 bundle
+    private static func registerBundledFonts() {
+        let fontFiles = [
+            "SanJiPoMoTi",
+            "HYPixel11pxU",
+            "ZihunBantianyun",
+            "YeZiGongChangGangFengSong",
+        ]
+        
+        // 收集所有可能包含资源的 bundle
+        var bundles: [Bundle] = [Bundle.main]
+        // SPM 资源可能在子 bundle 中（如 AsideMusic_AsideMusic.bundle）
+        if let resourceURL = Bundle.main.resourceURL,
+           let contents = try? FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil) {
+            for item in contents where item.pathExtension == "bundle" {
+                if let sub = Bundle(url: item) {
+                    bundles.append(sub)
+                }
+            }
+        }
+        
+        for fontName in fontFiles {
+            var registered = false
+            for bundle in bundles {
+                if let url = bundle.url(forResource: fontName, withExtension: "ttf") {
+                    var error: Unmanaged<CFError>?
+                    if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
+                        registered = true
+                        break
+                    } else {
+                        // 已注册过也算成功（error domain kCTFontManagerErrorAlreadyRegistered）
+                        registered = true
+                        error?.release()
+                        break
+                    }
+                }
+            }
+            if !registered {
+                AppLogger.warning("[Font] 未找到字体文件: \(fontName).ttf")
+            }
         }
     }
 }

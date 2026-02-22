@@ -3,8 +3,10 @@ import MetalKit
 import SwiftUI
 import simd
 
+/// UIKit 版液态玻璃效果视图
 @MainActor
 public final class LiquidGlassEffectView: UIView {
+    
     public var cornerRadius: CGFloat {
         didSet { coordinator.cornerRadius = cornerRadius }
     }
@@ -12,13 +14,12 @@ public final class LiquidGlassEffectView: UIView {
         didSet { coordinator.blurScale = blurScale }
     }
     public var glassColor: UIColor {
-        didSet { coordinator.tintColor = tintColor.cgColor }
+        didSet { coordinator.tintColor = glassColor.cgColor }
     }
     public var updateMode: SnapshotUpdateMode {
         didSet { coordinator.updateMode = updateMode }
     }
 
-    // MARK: – Internals
     private let mtkView: MTKView
     private let coordinator: MetalShaderView.Coordinator
 
@@ -34,16 +35,13 @@ public final class LiquidGlassEffectView: UIView {
         self.glassColor = glassColor
         self.updateMode = updateMode
 
-        // MTKView setup
         mtkView = MTKView(frame: frame, device: MTLCreateSystemDefaultDevice())
         mtkView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         mtkView.isOpaque = false
         mtkView.backgroundColor = .clear
         mtkView.enableSetNeedsDisplay = true
-        mtkView.layer.cornerRadius = cornerRadius * 0.32
         mtkView.clipsToBounds = true
 
-        // Coordinator re-using shader pipeline
         coordinator = .init(
             cornerRadius: cornerRadius,
             updateMode: updateMode,
@@ -55,7 +53,6 @@ public final class LiquidGlassEffectView: UIView {
 
         coordinator.mtkView = mtkView
         mtkView.delegate = coordinator
-
         addSubview(mtkView)
     }
 
@@ -68,18 +65,3 @@ public final class LiquidGlassEffectView: UIView {
         mtkView.frame = bounds
     }
 }
-
-#if DEBUG
-@available(iOS 17.0, *)
-#Preview {
-    let vc = UIViewController()
-    vc.view.backgroundColor = .red
-    
-    let glassView = LiquidGlassEffectView(
-        frame: CGRect(origin: .zero, size: CGSize(width: 300, height: 300))
-    )
-    
-    vc.view.addSubview(glassView)
-    return vc
-}
-#endif

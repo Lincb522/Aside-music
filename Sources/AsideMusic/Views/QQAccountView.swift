@@ -251,14 +251,14 @@ struct QQAccountView: View {
                 )
             )
             
-            if musicId != nil {
+            if let mid = musicId {
                 Divider().padding(.leading, 56)
                 
                 detailRow(
                     icon: .musicNote,
                     title: "Music ID",
                     trailing: AnyView(
-                        Text("\(musicId!)")
+                        Text("\(mid)")
                             .font(.system(size: 14, weight: .medium, design: .monospaced))
                             .foregroundColor(.asideTextSecondary)
                     )

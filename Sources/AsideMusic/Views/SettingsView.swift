@@ -101,15 +101,16 @@ struct SettingsView: View {
                 Divider()
                     .padding(.leading, 56)
 
-                SettingsToggleRow(
-                    icon: .sparkle,
-                    title: String(localized: "settings_liquid_glass"),
-                    subtitle: String(localized: "settings_liquid_glass_desc"),
-                    isOn: $settings.liquidGlassEnabled
-                )
-                
-                Divider()
-                    .padding(.leading, 56)
+                // 液态玻璃功能暂时禁用
+                // SettingsToggleRow(
+                //     icon: .sparkle,
+                //     title: String(localized: "settings_liquid_glass"),
+                //     subtitle: String(localized: "settings_liquid_glass_desc"),
+                //     isOn: $settings.liquidGlassEnabled
+                // )
+                //
+                // Divider()
+                //     .padding(.leading, 56)
                 
                 SettingsFloatingBarRow(
                     icon: .layers,

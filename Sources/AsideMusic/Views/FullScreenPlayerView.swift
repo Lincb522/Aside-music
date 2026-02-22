@@ -6,8 +6,8 @@ struct FullScreenPlayerView: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var lyricVM = LyricViewModel.shared
     
-    // PlayerThemeManager 使用 @Observable，需要用 @State 或直接访问
-    private var themeManager: PlayerThemeManager { PlayerThemeManager.shared }
+    // PlayerThemeManager 使用 @Observable，需要用 @State 持有引用以确保观察生效
+    @State private var themeManager = PlayerThemeManager.shared
 
     var body: some View {
         Group {
@@ -24,10 +24,12 @@ struct FullScreenPlayerView: View {
                 NeumorphicPlayerLayout()
             case .poster:
                 PosterPlayerLayout()
+                    .fontDesign(nil)
             case .motoPager:
                 MotoPagerLayout()
             case .pixel:
                 PixelPlayerLayout()
+                    .fontDesign(nil)
             case .aqua:
                 AquaPlayerLayout()
             case .cassette:

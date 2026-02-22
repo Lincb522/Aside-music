@@ -442,7 +442,8 @@ extension PixelPlayerLayout {
                 text: player.currentSong?.name ?? "NO DATA",
                 font: .custom(pixelFont, size: 18),
                 color: fg,
-                speed: 30
+                speed: 30,
+                alignment: .center
             )
             .frame(height: 24)
             

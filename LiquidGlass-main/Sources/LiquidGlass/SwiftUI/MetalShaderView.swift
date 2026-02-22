@@ -3,6 +3,7 @@ import UIKit
 import MetalKit
 import simd
 
+/// Metal shader uniform 参数（16 字节对齐）
 struct Uniforms {
     var resolution: SIMD2<Float>
     var time: Float
@@ -13,6 +14,7 @@ struct Uniforms {
     var tintAlpha: Float
 }
 
+/// Metal 渲染的 SwiftUI 桥接视图
 struct MetalShaderView: UIViewRepresentable {
     let cornerRadius: CGFloat
     let blurScale: CGFloat
@@ -28,7 +30,6 @@ struct MetalShaderView: UIViewRepresentable {
         view.backgroundColor = .clear
         view.enableSetNeedsDisplay = true
         view.delegate = context.coordinator
-        
         return view
     }
 
@@ -37,17 +38,24 @@ struct MetalShaderView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(cornerRadius: cornerRadius, updateMode: updateMode, blurScale: blurScale, tintColor: tintColor)
+        Coordinator(
+            cornerRadius: cornerRadius,
+            updateMode: updateMode,
+            blurScale: blurScale,
+            tintColor: tintColor
+        )
     }
+
+    // MARK: - Coordinator
 
     class Coordinator: NSObject, MTKViewDelegate {
         weak var mtkView: MTKView?
         
-        var pipelineState: MTLRenderPipelineState!
-        var samplerState: MTLSamplerState!
-        var commandQueue: MTLCommandQueue!
-        var device: MTLDevice!
-        var startTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
+        private var pipelineState: MTLRenderPipelineState!
+        private var samplerState: MTLSamplerState!
+        private var commandQueue: MTLCommandQueue!
+        private var device: MTLDevice!
+        private let startTime = CFAbsoluteTimeGetCurrent()
 
         var backgroundProvider: BackgroundTextureProvider!
         
@@ -69,23 +77,18 @@ struct MetalShaderView: UIViewRepresentable {
 
             let library = try! device.makeDefaultLibrary(bundle: .module)
 
-            let pipelineDescriptor = MTLRenderPipelineDescriptor()
-            pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertexPassthrough")
-            pipelineDescriptor.fragmentFunction = library.makeFunction(name: "liquidGlassFragment")
-            pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-
-            pipelineState = try! device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+            let pipelineDesc = MTLRenderPipelineDescriptor()
+            pipelineDesc.vertexFunction = library.makeFunction(name: "vertexPassthrough")
+            pipelineDesc.fragmentFunction = library.makeFunction(name: "liquidGlassFragment")
+            pipelineDesc.colorAttachments[0].pixelFormat = .bgra8Unorm
+            pipelineState = try! device.makeRenderPipelineState(descriptor: pipelineDesc)
             
-            let samplerDescriptor = MTLSamplerDescriptor()
-            samplerDescriptor.minFilter = .linear
-            samplerDescriptor.magFilter = .linear
-            samplerDescriptor.mipFilter = .linear
-            samplerDescriptor.minFilter = .linear
-            samplerDescriptor.magFilter = .linear
-            samplerDescriptor.mipFilter = .linear
-            samplerDescriptor.sAddressMode = .clampToEdge
-            samplerDescriptor.tAddressMode = .clampToEdge
-            samplerState = device.makeSamplerState(descriptor: samplerDescriptor)
+            let samplerDesc = MTLSamplerDescriptor()
+            samplerDesc.minFilter = .linear
+            samplerDesc.magFilter = .linear
+            samplerDesc.sAddressMode = .clampToEdge
+            samplerDesc.tAddressMode = .clampToEdge
+            samplerState = device.makeSamplerState(descriptor: samplerDesc)
 
             backgroundProvider = BackgroundTextureProvider(device: device)
             backgroundProvider.updateMode = updateMode
@@ -107,34 +110,50 @@ struct MetalShaderView: UIViewRepresentable {
 
             let commandBuffer = commandQueue.makeCommandBuffer()!
             let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
-
             encoder.setRenderPipelineState(pipelineState)
 
+            // 构建 uniform
+            let (r, g, b, a) = extractRGBA(from: tintColor)
             var uniforms = Uniforms(
                 resolution: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
                 time: Float(CFAbsoluteTimeGetCurrent() - startTime),
                 blurScale: Float(blurScale),
                 boxSize: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-                cornerRadius: Float(cornerRadius * view.contentScaleFactor),
-                tintColor: SIMD3<Float>(Float(tintColor.components?[safe: 0] ?? 0), Float(tintColor.components?[safe: 1] ?? 0), Float(tintColor.components?[safe: 2] ?? 0)),
-                tintAlpha: Float(tintColor.components?.last ?? 0)
+                cornerRadius: min(
+                    Float(cornerRadius * view.contentScaleFactor),
+                    min(Float(view.drawableSize.width), Float(view.drawableSize.height)) / 2.0
+                ),
+                tintColor: SIMD3<Float>(r, g, b),
+                tintAlpha: a
             )
+            
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
 
             backgroundProvider.blurRadius = Float(blurScale) * 30.0
-            let snapshotTexture = backgroundProvider.currentTexture(for: mtkView!)
+            guard let snapshotTexture = backgroundProvider.currentTexture(for: mtkView!) else {
+                encoder.endEncoding()
+                return
+            }
             encoder.setFragmentTexture(snapshotTexture, index: 0)
             encoder.setFragmentSamplerState(samplerState, index: 0)
 
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
-
             encoder.endEncoding()
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
 
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+        
+        // MARK: - 工具
+        
+        private func extractRGBA(from color: CGColor) -> (Float, Float, Float, Float) {
+            let uiColor = UIColor(cgColor: color)
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+            return (Float(r), Float(g), Float(b), Float(a))
+        }
     }
 }
 
@@ -143,90 +162,3 @@ extension Collection {
         indices.contains(index) ? self[index] : nil
     }
 }
-
-#if DEBUG
-import SwiftUI
-import MetalKit
-
-@available(iOS 17.0, *)
-#Preview("Shader Live Debug") {
-    ShaderLiveDebugView()
-}
-
-@available(iOS 17.0, *)
-struct ShaderLiveDebugView: View {
-    @State private var blur: CGFloat = 0.4
-    @State private var radius: CGFloat = 30
-    @State private var tint: Color = .white.opacity(0.1)
-    
-    @State private var animateBG = true
-    
-    var body: some View {
-        ZStack {
-            GeometryReader { geo in
-                ZStack {
-                    LinearGradient(colors: [.black, .purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    
-                    Circle().fill(.orange).frame(width: 100).blur(radius: 20)
-                        .offset(x: animateBG ? 100 : -100, y: -50)
-                    
-                    Circle().fill(.cyan).frame(width: 80).blur(radius: 10)
-                        .offset(x: animateBG ? -80 : 80, y: 80)
-                    
-                    VStack(spacing: 5) {
-                        Text("LIQUID")
-                            .font(.system(size: 80, weight: .black))
-                            .foregroundStyle(.white)
-                            .shadow(color: .black, radius: 2)
-                        
-                        Text("GLASS")
-                            .font(.system(size: 80, weight: .black))
-                            .foregroundStyle(.clear)
-                            .overlay(
-                                LinearGradient(colors: [.yellow, .red], startPoint: .top, endPoint: .bottom)
-                                    .mask(Text("GLASS").font(.system(size: 80, weight: .black)))
-                            )
-                    }
-                }
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-                        animateBG.toggle()
-                    }
-                }
-            }
-            .ignoresSafeArea()
-            
-            VStack {
-                Spacer()
-                
-                VStack(spacing: 10) {
-                    Text("Glass Card")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    
-                    Button(action: {}) {
-                        Text("Action")
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .background(.white.opacity(0.2))
-                            .cornerRadius(8)
-                    }
-                }
-                .padding(30)
-                .frame(width: 250, height: 160)
-                
-                .liquidGlassBackground(
-                    cornerRadius: radius,
-                    updateMode: .continuous(),
-                    blurScale: blur,
-                    tintColor: UIColor(tint)
-                )
-                
-                Spacer()
-            }
-        }
-        .frame(height: 400)
-        .clipped()
-    }
-}
-#endif

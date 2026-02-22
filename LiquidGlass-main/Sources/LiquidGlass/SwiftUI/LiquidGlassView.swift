@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// SwiftUI 液态玻璃视图
 public struct LiquidGlassView: View {
     let cornerRadius: CGFloat
     let updateMode: SnapshotUpdateMode
@@ -19,6 +20,11 @@ public struct LiquidGlassView: View {
     }
 
     public var body: some View {
-        MetalShaderView(cornerRadius: cornerRadius, blurScale: blurScale, tintColor: tintColor, updateMode: updateMode)
+        MetalShaderView(
+            cornerRadius: cornerRadius,
+            blurScale: blurScale,
+            tintColor: tintColor,
+            updateMode: updateMode
+        )
     }
 }

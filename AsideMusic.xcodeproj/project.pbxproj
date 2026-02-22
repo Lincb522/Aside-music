@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		F4096B1E2F457B85006F9554 /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */; };
-		F44F90E52F4A3855001AC8E9 /* LiquidGlass in Frameworks */ = {isa = PBXBuildFile; productRef = F44F90E42F4A3855001AC8E9 /* LiquidGlass */; };
 		F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */; };
 		F4DE904E2F42439900F27065 /* QQMusicKit in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE904D2F42439900F27065 /* QQMusicKit */; };
 		F4DE905F2F42E31F00F27065 /* FFmpegSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */; };
@@ -46,7 +45,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F4DE904E2F42439900F27065 /* QQMusicKit in Frameworks */,
-				F44F90E52F4A3855001AC8E9 /* LiquidGlass in Frameworks */,
 				F4DE905F2F42E31F00F27065 /* FFmpegSwiftSDK in Frameworks */,
 				F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */,
 			);
@@ -95,7 +93,6 @@
 				F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */,
 				F4DE904D2F42439900F27065 /* QQMusicKit */,
 				F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */,
-				F44F90E42F4A3855001AC8E9 /* LiquidGlass */,
 			);
 			productName = AsideMusic;
 			productReference = F4CCFD782F320B5900FC36CA /* AsideMusic.app */;
@@ -128,9 +125,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
-				F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "MusicKit" */,
-				F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "FFmpegSwiftSDK" */,
-				F44F90E32F4A3855001AC8E9 /* XCLocalSwiftPackageReference "LiquidGlass" */,
+				F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */,
+				F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -389,30 +385,21 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		F44F90E32F4A3855001AC8E9 /* XCLocalSwiftPackageReference "LiquidGlass" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "LiquidGlass-main";
-		};
 		F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "NeteaseCloudMusicAPI-Swift";
 		};
-		F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "MusicKit" */ = {
+		F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "QQMusicKit";
+			relativePath = QQMusicKit;
 		};
-		F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "FFmpegSwiftSDK" */ = {
+		F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "ffmpeg-swift";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F44F90E42F4A3855001AC8E9 /* LiquidGlass */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F44F90E32F4A3855001AC8E9 /* XCLocalSwiftPackageReference "LiquidGlass" */;
-			productName = LiquidGlass;
-		};
 		F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */;
@@ -420,12 +407,12 @@
 		};
 		F4DE904D2F42439900F27065 /* QQMusicKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "MusicKit" */;
+			package = F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */;
 			productName = QQMusicKit;
 		};
 		F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "FFmpegSwiftSDK" */;
+			package = F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */;
 			productName = FFmpegSwiftSDK;
 		};
 /* End XCSwiftPackageProductDependency section */

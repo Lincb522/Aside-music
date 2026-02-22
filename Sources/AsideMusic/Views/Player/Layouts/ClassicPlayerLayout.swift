@@ -184,7 +184,8 @@ struct ClassicPlayerLayout: View {
                         font: .rounded(size: 13, weight: .semibold),
                         color: secondaryContentColor,
                         speed: 30,
-                        delayBeforeScroll: 2.0
+                        delayBeforeScroll: 2.0,
+                        alignment: .center
                     )
                     .frame(maxWidth: 180)
                 }

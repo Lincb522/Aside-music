@@ -1,5 +1,4 @@
 import SwiftUI
-import LiquidGlass
 
 // MARK: - Subviews for Performance
 struct MiniPlayerSection: View {
@@ -43,8 +42,8 @@ struct MiniPlayerSection: View {
                         .foregroundColor(.asideTextSecondary)
                         .lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Spacer(minLength: 4)
                 
                 // 控制按钮
                 HStack(spacing: 10) {
@@ -155,10 +154,9 @@ struct ProgressBarView: View {
     }
 }
 
-// MARK: - Aside TabBar (使用 LiquidGlass 风格)
+// MARK: - Aside TabBar
 struct AsideTabBar: View {
     @Binding var selectedIndex: Int
-    @ObservedObject private var settings = SettingsManager.shared
     
     private let itemWidth: CGFloat = 64
     private let itemHeight: CGFloat = 42
@@ -181,18 +179,10 @@ struct AsideTabBar: View {
     var body: some View {
         ZStack {
             // 气泡指示器
-            Group {
-                if settings.liquidGlassEnabled {
-                    Color.clear
-                        .frame(width: bubbleWidth, height: itemHeight)
-                        .liquidGlassBackground(cornerRadius: 14, blurScale: 0.2, tintColor: UIColor.white.withAlphaComponent(0.05))
-                } else {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.regularMaterial)
-                        .frame(width: bubbleWidth, height: itemHeight)
-                        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-                }
-            }
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.regularMaterial)
+                .frame(width: bubbleWidth, height: itemHeight)
+                .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
             .offset(x: bubbleOffset)
             .animation(AsideAnimation.tabSwitch, value: selectedIndex)
             
@@ -248,7 +238,6 @@ private struct AsideTabItemView: View {
 struct UnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var settings = SettingsManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -270,21 +259,11 @@ struct UnifiedFloatingBar: View {
             ))
         }
         .background {
-            if settings.liquidGlassEnabled {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color.asideCardBackground.opacity(0.4))
-                        .liquidGlassBackground(cornerRadius: 22)
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                }
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                }
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.asideGlassOverlay)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -292,7 +271,6 @@ struct UnifiedFloatingBar: View {
         .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
         .animation(AsideAnimation.floatingBar, value: player.currentSong != nil)
         .animation(AsideAnimation.tabSwitch, value: currentTab)
-        .animation(AsideAnimation.panelToggle, value: settings.liquidGlassEnabled)
         .gesture(
             DragGesture(minimumDistance: 50, coordinateSpace: .local)
                 .onEnded { value in

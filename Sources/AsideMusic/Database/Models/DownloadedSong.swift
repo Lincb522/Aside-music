@@ -4,7 +4,8 @@ import SwiftData
 /// 已下载歌曲数据模型
 @Model
 final class DownloadedSong {
-    @Attribute(.unique) var id: Int
+    @Attribute(.unique) var uniqueKey: String  // "ncm_123" 或 "qq_456"，避免跨平台 ID 冲突
+    var id: Int
     var name: String
     var artistName: String
     var albumName: String?
@@ -72,6 +73,7 @@ final class DownloadedSong {
         isQQMusic: Bool = false,
         qqQuality: QQMusicQuality? = nil
     ) {
+        self.uniqueKey = isQQMusic ? "qq_\(id)" : "ncm_\(id)"
         self.id = id
         self.name = name
         self.artistName = artistName

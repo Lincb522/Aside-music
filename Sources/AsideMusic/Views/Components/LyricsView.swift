@@ -389,28 +389,45 @@ struct KaraokeLineView: View {
         PlayerThemeManager.shared.currentTheme == .poster
     }
     
+    // 水韵主题判断
+    private var isAqua: Bool {
+        PlayerThemeManager.shared.currentTheme == .aqua
+    }
+    
     // 字魂半天云魅黑手书字体
     private let posterFont = "zihunbantianyunmeiheishoushu"
     
-    // 当前行字体 — 大字报用字魂字体，更大
+    // 文道泡泡体（水韵主题）
+    private let aquaFont = "WDPPT"
+    
+    // 当前行字体
     private var currentLineFont: Font {
-        isPoster
-            ? .custom(posterFont, size: 28)
-            : .rounded(size: 26, weight: .bold)
+        if isPoster {
+            return .custom(posterFont, size: 28)
+        } else if isAqua {
+            return .custom(aquaFont, size: 26)
+        }
+        return .rounded(size: 26, weight: .bold)
     }
     
-    // 非当前行字体 — 大字报用字魂字体
+    // 非当前行字体
     private var normalLineFont: Font {
-        isPoster
-            ? .custom(posterFont, size: 16)
-            : .rounded(size: 16, weight: .medium)
+        if isPoster {
+            return .custom(posterFont, size: 16)
+        } else if isAqua {
+            return .custom(aquaFont, size: 16)
+        }
+        return .rounded(size: 16, weight: .medium)
     }
     
-    // 翻译字体 — 大字报用字魂字体
+    // 翻译字体
     private func translationFont(isCurrent: Bool) -> Font {
-        isPoster
-            ? .custom(posterFont, size: isCurrent ? 16 : 12)
-            : .rounded(size: isCurrent ? 15 : 13, weight: .regular)
+        if isPoster {
+            return .custom(posterFont, size: isCurrent ? 16 : 12)
+        } else if isAqua {
+            return .custom(aquaFont, size: isCurrent ? 15 : 13)
+        }
+        return .rounded(size: isCurrent ? 15 : 13, weight: .regular)
     }
     
     // 大字报当前行颜色

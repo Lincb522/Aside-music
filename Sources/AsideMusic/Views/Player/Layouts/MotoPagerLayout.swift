@@ -366,7 +366,8 @@ extension MotoPagerLayout {
                         text: "\(song.artistName) — \(song.name)",
                         font: .system(size: 9, weight: .regular, design: .monospaced),
                         color: brandSubColor,
-                        speed: 25
+                        speed: 25,
+                        alignment: .center
                     )
                     .frame(maxWidth: 200, minHeight: 16)
                 } else {

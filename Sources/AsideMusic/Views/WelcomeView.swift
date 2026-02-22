@@ -21,12 +21,12 @@ struct WelcomeView: View {
         ZStack {
             AsideBackground()
             
-            // 背景光晕效果
+            // 背景光晕效果 — 跟随主题的柔和光晕
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            (colorScheme == .dark ? Color.blue : Color.orange).opacity(0.3),
+                            Color.asideTextPrimary.opacity(0.06),
                             Color.clear
                         ],
                         center: .center,
@@ -38,18 +38,11 @@ struct WelcomeView: View {
                 .opacity(glowOpacity)
                 .blur(radius: 60)
             
-            // 扩散光环
+            // 扩散光环 — 中性色调
             Circle()
                 .stroke(
-                    LinearGradient(
-                        colors: [
-                            (colorScheme == .dark ? Color.blue : Color.orange).opacity(0.5),
-                            Color.clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 2
+                    Color.asideTextPrimary.opacity(0.08),
+                    lineWidth: 1.5
                 )
                 .frame(width: 200, height: 200)
                 .scaleEffect(ringScale)

@@ -1,11 +1,9 @@
 import SwiftUI
-import LiquidGlass
 
 /// 极简模式的 MiniPlayer（同一容器内左滑显示 Tab，右滑回播放器）
 struct MinimalMiniPlayer: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var settings = SettingsManager.shared
     @State private var showPlaylist = false
     
     // 当前显示模式：false = 迷你播放器，true = Tab 选择器
@@ -197,21 +195,11 @@ struct MinimalMiniPlayer: View {
     
     @ViewBuilder
     private var glassBackground: some View {
-        if settings.liquidGlassEnabled {
-            ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideCardBackground.opacity(0.4))
-                        .liquidGlassBackground(cornerRadius: 18)
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.asideGlassOverlay)
-            }
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.asideGlassOverlay)
-            }
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.asideGlassOverlay)
         }
     }
     

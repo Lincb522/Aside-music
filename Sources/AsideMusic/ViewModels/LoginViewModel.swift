@@ -147,6 +147,7 @@ class LoginViewModel: ObservableObject {
             #endif
             if let profile = status.data.profile {
                 APIService.shared.currentUserId = profile.userId
+                // currentUserId 的 didSet 已经发送了 .didLogin 通知，无需重复发送
                 LikeManager.shared.refreshLikes()
             }
         } catch {
@@ -158,7 +159,7 @@ class LoginViewModel: ObservableObject {
         // 无论 fetchLoginStatus 是否成功，只要 803 就标记登录成功
         self.isLoggedIn = true
         UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
-        NotificationCenter.default.post(name: .didLogin, object: nil)
+        // 不再重复发送 .didLogin 通知（currentUserId didSet 已发送）
         GlobalRefreshManager.shared.triggerLoginRefresh()
     }
     
@@ -196,12 +197,13 @@ class LoginViewModel: ObservableObject {
                     APIService.shared.currentCookie = cookie
                     if let profile = response.profile {
                         APIService.shared.currentUserId = profile.userId
+                        // currentUserId 的 didSet 已经发送了 .didLogin 通知
                         LikeManager.shared.refreshLikes()
                     }
                     self?.isLoggedIn = true
                     // 同步到 AppStorage，让 ContentView/ProfileView 感知登录状态
                     UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
-                    NotificationCenter.default.post(name: .didLogin, object: nil)
+                    // 不再重复发送 .didLogin 通知
                     Task { @MainActor in
                         GlobalRefreshManager.shared.triggerLoginRefresh()
                     }

@@ -1,11 +1,9 @@
 import SwiftUI
-import LiquidGlass
 
 /// 经典风格的统一悬浮栏（MiniPlayer + TabBar 合一，贴底不悬浮）
 struct ClassicFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var settings = SettingsManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -35,24 +33,13 @@ struct ClassicFloatingBar: View {
                 ClassicTabBarSection(currentTab: $currentTab)
             }
             .background {
-                if settings.liquidGlassEnabled {
-                    ZStack {
-                        Rectangle()
-                            .fill(Color.asideCardBackground.opacity(0.6))
-                            .liquidGlassBackground(cornerRadius: 0)
-                        Rectangle()
-                            .fill(Color.asideGlassOverlay)
-                    }
-                    .ignoresSafeArea(.container, edges: .bottom)
-                } else {
-                    ZStack {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                        Rectangle()
-                            .fill(Color.asideGlassOverlay)
-                    }
-                    .ignoresSafeArea(.container, edges: .bottom)
+                ZStack {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                    Rectangle()
+                        .fill(Color.asideGlassOverlay)
                 }
+                .ignoresSafeArea(.container, edges: .bottom)
             }
             .overlay(alignment: .top) {
                 Rectangle()
@@ -99,7 +86,8 @@ private struct ClassicMiniPlayerSection: View {
                         text: song.name,
                         font: .system(size: 13, weight: .semibold, design: .rounded),
                         color: .asideTextPrimary,
-                        speed: 25
+                        speed: 25,
+                        alignment: .leading
                     )
                     .frame(height: 16)
                     

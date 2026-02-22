@@ -188,7 +188,7 @@ struct DownloadManageView: View {
         }
         .contextMenu {
             Button(role: .destructive) {
-                downloadManager.deleteDownload(songId: song.id)
+                downloadManager.deleteDownload(songId: song.id, isQQ: song.isQQMusic)
                 updateTotalSize()
             } label: {
                 Label("删除", systemImage: "trash")
@@ -224,7 +224,7 @@ struct DownloadManageView: View {
     }
     
     private func downloadingRow(song: DownloadedSong) -> some View {
-        let progress = downloadManager.downloadingTasks[song.id]?.progress ?? song.progress
+        let progress = downloadManager.downloadingTasks[song.uniqueKey]?.progress ?? song.progress
         
         return HStack(spacing: 14) {
             // 封面
@@ -268,7 +268,7 @@ struct DownloadManageView: View {
             
             // 取消按钮
             Button {
-                downloadManager.cancelDownload(songId: song.id)
+                downloadManager.cancelDownload(songId: song.id, isQQ: song.isQQMusic)
             } label: {
                 AsideIcon(icon: .close, size: 14, color: .asideTextSecondary, lineWidth: 1.4)
                     .frame(width: 32, height: 32)

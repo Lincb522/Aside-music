@@ -1,5 +1,4 @@
 import SwiftUI
-import LiquidGlass
 
 // MARK: - 返回按钮组件
 struct AsideBackButton: View {
@@ -236,7 +235,7 @@ struct LiquidGlassOverlay: View {
     }
 }
 
-// MARK: - Liquid Glass 卡片（Metal 渲染）
+// MARK: - Liquid Glass 卡片
 struct AsideLiquidGlassCard<Content: View>: View {
     let cornerRadius: CGFloat
     let useMetal: Bool
@@ -244,7 +243,7 @@ struct AsideLiquidGlassCard<Content: View>: View {
 
     init(
         cornerRadius: CGFloat = 20,
-        useMetal: Bool = true,
+        useMetal: Bool = false,
         @ViewBuilder content: () -> Content
     ) {
         self.cornerRadius = cornerRadius
@@ -255,14 +254,7 @@ struct AsideLiquidGlassCard<Content: View>: View {
     var body: some View {
         content
             .background(
-                Group {
-                    if useMetal {
-                        Color.clear
-                            .liquidGlassBackground(cornerRadius: cornerRadius)
-                    } else {
-                        SwiftUIGlassBackground(cornerRadius: cornerRadius)
-                    }
-                }
+                SwiftUIGlassBackground(cornerRadius: cornerRadius)
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 5)

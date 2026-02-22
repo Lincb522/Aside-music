@@ -22,6 +22,9 @@ struct AquaPlayerLayout: View {
     @State private var showLyrics = false
     @State private var rippleTrigger = false
 
+    /// 文道泡泡体 — 与水韵卡通气泡风格高度契合
+    private let bubbleFont = "WDPPT"
+
     // 纯正的动画风配色（高饱和、无通透感）
     private var bgColor: Color {
         // 背景改为极浅的蓝，而不是突兀的纯白（亮色模式），深色模式下为深藏青色
@@ -107,6 +110,7 @@ struct AquaPlayerLayout: View {
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: showLyrics)
+        .fontDesign(nil) // 重置全局 .rounded，让泡泡体自定义字体生效
         }
         .onAppear { 
             loadLyricsIfNeeded() 
@@ -297,7 +301,7 @@ extension AquaPlayerLayout {
 
             Button(action: { showQualitySheet = true }) {
                 Text(player.qualityButtonText)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.custom(bubbleFont, size: 11))
                     .foregroundColor(textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -307,7 +311,7 @@ extension AquaPlayerLayout {
 
             if let info = player.streamInfo {
                 Text(streamInfoText(info))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(.custom(bubbleFont, size: 10))
                     .foregroundColor(textMuted)
             }
 
@@ -334,20 +338,20 @@ extension AquaPlayerLayout {
 
     private var songInfoArea: some View {
         VStack(spacing: 16) {
-            // 歌名 — 绝对纯粹的扁平（无投影、无高光）
+            // 歌名 — 泡泡体，与水韵卡通风格一致
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 34, weight: .black, design: .rounded))
+                .font(.custom(bubbleFont, size: 34))
                 .foregroundColor(textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.7)
 
-            // 歌手 — 卡通贴纸感标签（纯平圆角矩形）
+            // 歌手 — 卡通贴纸感标签（泡泡体）
             if let artist = player.currentSong?.artistName, !artist.isEmpty {
                 HStack(spacing: 6) {
-                    AsideIcon(icon: .sparkle, size: 14, color: .white) // 用星星图标装饰
+                    AsideIcon(icon: .sparkle, size: 14, color: .white)
                     Text(artist)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.custom(bubbleFont, size: 15))
                         .foregroundColor(.white)
                 }
                 .padding(.horizontal, 16)
@@ -359,7 +363,7 @@ extension AquaPlayerLayout {
             }
         }
         .padding(.horizontal, 32)
-        .offset(y: textFloatOffset) // 挂载呼吸动效
+        .offset(y: textFloatOffset)
         .contentShape(Rectangle())
     }
 }

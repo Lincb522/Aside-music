@@ -1,6 +1,5 @@
 import UIKit
 import SwiftUI
-import LiquidGlass
 
 // MARK: - Basic Visual Effect Blur (UIKit)
 struct VisualEffectBlur: UIViewRepresentable {
@@ -31,28 +30,20 @@ struct LiquidGlassBlur: View {
     }
 }
 
-// MARK: - Aside Liquid Glass Card (本地版本，支持 fallback)
+// MARK: - Aside Liquid Card
 struct AsideLiquidCard<Content: View>: View {
     let cornerRadius: CGFloat
-    let useMetal: Bool
     let content: Content
     
-    init(cornerRadius: CGFloat = 20, useMetal: Bool = true, @ViewBuilder content: () -> Content) {
+    init(cornerRadius: CGFloat = 20, useMetal: Bool = false, @ViewBuilder content: () -> Content) {
         self.cornerRadius = cornerRadius
-        self.useMetal = useMetal
         self.content = content()
     }
     
     var body: some View {
         content
             .background {
-                if useMetal {
-                    // 使用新的 .liquidGlass 修饰器
-                    Color.clear
-                        .liquidGlassBackground(cornerRadius: cornerRadius)
-                } else {
-                    LiquidGlassBlur(cornerRadius: cornerRadius)
-                }
+                LiquidGlassBlur(cornerRadius: cornerRadius)
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
@@ -60,19 +51,14 @@ struct AsideLiquidCard<Content: View>: View {
 
 // MARK: - View Extensions
 extension View {
-    /// 毛玻璃背景（非 Metal）
+    /// 毛玻璃背景
     func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
         self.background(LiquidGlassBlur(cornerRadius: cornerRadius))
     }
     
-    /// Metal 液态玻璃背景（使用新 API）
-    func liquidGlassMetal(cornerRadius: CGFloat = 20) -> some View {
-        self.liquidGlassBackground(cornerRadius: cornerRadius)
-    }
-    
-    /// 液态玻璃样式（支持 Metal/非 Metal 切换）
-    func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = true) -> some View {
-        AsideLiquidCard(cornerRadius: cornerRadius, useMetal: useMetal) {
+    /// 液态玻璃样式（暂时回退到 SwiftUI material）
+    func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = false) -> some View {
+        AsideLiquidCard(cornerRadius: cornerRadius) {
             self
         }
     }

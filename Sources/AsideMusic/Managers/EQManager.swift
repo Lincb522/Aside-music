@@ -112,10 +112,10 @@ class EQManager: ObservableObject {
     /// 内嵌兜底预设（当 JSON 文件无法加载时使用）
     private static let embeddedFallbackPresets: [EQPreset] = [
         EQPreset(id: "flat", name: "平坦", category: .flat, description: "无修饰的原始音频", gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        EQPreset(id: "pop", name: "流行", category: .genre, description: "增强低频和高频", gains: [2.5, 4.5, 5.5, 2.0, -2.0, -2.5, 1.5, 4.5, 6.0, 4.5]),
-        EQPreset(id: "rock", name: "摇滚", category: .genre, description: "强劲的中低频和明亮的高频", gains: [5.0, 5.5, 3.5, 1.0, -1.5, 1.0, 3.5, 5.5, 5.0, 3.0]),
-        EQPreset(id: "vocal_enhance", name: "人声增强", category: .vocal, description: "突出人声清晰度", gains: [-3.5, -2.5, -1.5, -1.0, 1.0, 4.0, 6.0, 5.0, 3.0, 1.5]),
-        EQPreset(id: "bass_boost", name: "低音增强", category: .scene, description: "增强低频冲击力", gains: [8.5, 7.5, 5.5, 3.0, 0.5, 0, 0, 0, 0, 0]),
+        EQPreset(id: "pop", name: "流行", category: .genre, description: "增强低频和高频", gains: [1.5, 2.5, 2.8, 1.2, -0.5, -0.8, 0.8, 1.8, 2.2, 1.5]),
+        EQPreset(id: "rock", name: "摇滚", category: .genre, description: "强劲的中低频和明亮的高频", gains: [2.5, 3.0, 2.2, 0.8, -0.6, 0.6, 1.8, 2.4, 2.0, 1.0]),
+        EQPreset(id: "vocal_enhance", name: "人声增强", category: .vocal, description: "突出人声清晰度", gains: [-2.0, -1.5, -1.0, -0.5, 0.8, 2.5, 3.5, 2.8, 1.5, 0.8]),
+        EQPreset(id: "bass_boost", name: "低音增强", category: .scene, description: "增强低频冲击力", gains: [5.0, 4.5, 3.0, 1.5, 0.2, 0, 0, 0, 0, 0]),
     ]
     
     // MARK: - Init

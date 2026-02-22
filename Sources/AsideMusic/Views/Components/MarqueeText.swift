@@ -9,6 +9,7 @@ struct MarqueeText: View {
     var speed: Double = 30 // 每秒滚动的点数
     var delayBeforeScroll: Double = 1.5 // 开始滚动前的停顿
     var spacing: CGFloat = 40 // 两段文字之间的间距
+    var alignment: Alignment = .leading // 静态模式下的对齐方式
 
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
@@ -40,9 +41,9 @@ struct MarqueeText: View {
                         resetAndMeasure(containerWidth: cw)
                     }
                 } else {
-                    // 静态模式：居中显示
+                    // 静态模式：按指定对齐方式显示
                     textView
-                        .frame(width: cw, alignment: .center)
+                        .frame(width: cw, alignment: alignment)
                 }
             }
             .clipped()

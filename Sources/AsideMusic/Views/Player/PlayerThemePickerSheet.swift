@@ -4,7 +4,7 @@ import SwiftUI
 struct PlayerThemePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    let themeManager = PlayerThemeManager.shared
+    @State private var themeManager = PlayerThemeManager.shared
 
     var body: some View {
         VStack(spacing: 16) {
