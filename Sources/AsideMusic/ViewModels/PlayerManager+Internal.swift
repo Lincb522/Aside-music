@@ -142,6 +142,12 @@ extension PlayerManager {
         // 更新 UI
         currentSong = song
         currentTime = 0
+        
+        // 从 streamInfo 获取下一首的 duration（transitionToNextTrack 中不再单独发送 didUpdateDuration）
+        if let nextDuration = streamPlayer.streamInfo?.duration, nextDuration > 0 {
+            duration = nextDuration
+        }
+        
         fetchLyricsForSong(song)
         loadSongExtras(for: song)
         addToHistory(song: song)

@@ -147,6 +147,9 @@ extension PlayerManager {
                     let jump = time - self.currentTime
                     if self.currentTime < 1.0 && jump > 2.0 {
                         // 刚开始播放，SDK 的时间不可信（解码缓冲超前），跳过
+                    } else if self.currentTime > 10.0 && time < self.currentTime - 5.0 && !self.isSeeking {
+                        // 防止无缝切歌时进度条回跳：SDK 已切换到下一首（decodedTime 重置为 0），
+                        // 但 playerDidTransitionToNextTrack 回调还没到达主线程，忽略这次更新
                     } else {
                         // 检查是否有待切换的下一首
                         if self.hasPendingTrackTransition {

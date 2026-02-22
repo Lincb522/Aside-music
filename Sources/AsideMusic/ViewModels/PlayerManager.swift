@@ -391,6 +391,9 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
     func player(_ player: StreamPlayer, didUpdateDuration duration: TimeInterval) {
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
+            // 如果 SDK 已切换到下一首的 pipeline 但 UI 还没切换，
+            // 忽略这个 duration 更新（它属于下一首歌）
+            if pm.hasPendingTrackTransition { return }
             if duration.isFinite && !duration.isNaN && duration > 0 {
                 pm.duration = duration
             }
