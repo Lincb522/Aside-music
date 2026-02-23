@@ -709,3 +709,9 @@
 "storage_clear_all_confirm" = "全部清除";
 "storage_clear_all_desc" = "将清除所有缓存、用户数据和下载文件，此操作不可撤销";
 "storage_clear" = "清除";
+
+/* QQ Music Recommend */
+"qq_recommend_playlists" = "QQ音乐 · 推荐歌单";
+"qq_recommend_playlists_desc" = "来自QQ音乐的精选推荐";
+"qq_new_songs" = "QQ音乐 · 新歌推荐";
+"qq_new_songs_desc" = "最新热门单曲";

@@ -249,6 +249,79 @@ extension APIService {
 }
 
 
+// MARK: - QQ 音乐推荐
+
+extension APIService {
+    
+    /// 获取 QQ 音乐推荐歌单
+    func fetchQQRecommendPlaylists() -> AnyPublisher<[Playlist], Error> {
+        Future<[Playlist], Error> { [weak self] promise in
+            guard let self = self else { promise(.success([])); return }
+            Task {
+                do {
+                    let result = try await self.qqClient.recommendSonglist()
+                    AppLogger.debug("[QQMusic] 推荐歌单原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
+                    // 尝试多种字段名提取歌单数组
+                    let listArray: [JSON]
+                    if let arr = result["Playlist"]?.arrayValue, !arr.isEmpty {
+                        listArray = arr
+                    } else if let arr = result["playlist"]?.arrayValue, !arr.isEmpty {
+                        listArray = arr
+                    } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
+                        listArray = arr
+                    } else if let arr = result["data"]?.arrayValue, !arr.isEmpty {
+                        listArray = arr
+                    } else {
+                        listArray = Self.extractJSONArray(from: result)
+                    }
+                    let playlists = listArray.compactMap { Self.convertQQPlaylistToPlaylist($0) }
+                    AppLogger.info("[QQMusic] 推荐歌单: 原始\(listArray.count)条, 转换\(playlists.count)条")
+                    promise(.success(playlists))
+                } catch {
+                    AppLogger.error("[QQMusic] 获取推荐歌单失败: \(error)")
+                    promise(.failure(error))
+                }
+            }
+        }
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
+    }
+    
+    /// 获取 QQ 音乐推荐新歌
+    func fetchQQRecommendNewSongs() -> AnyPublisher<[Song], Error> {
+        Future<[Song], Error> { [weak self] promise in
+            guard let self = self else { promise(.success([])); return }
+            Task {
+                do {
+                    let result = try await self.qqClient.recommendNewSong()
+                    AppLogger.debug("[QQMusic] 推荐新歌原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
+                    // Demo 中的解析方式: data["songlist"] ?? data["lanlist"][0]["songlist"]
+                    let songArray: [JSON]
+                    if let arr = result["songlist"]?.arrayValue, !arr.isEmpty {
+                        songArray = arr
+                    } else if let lanlist = result["lanlist"]?.arrayValue,
+                              let first = lanlist.first,
+                              let arr = first["songlist"]?.arrayValue, !arr.isEmpty {
+                        songArray = arr
+                    } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
+                        songArray = arr
+                    } else {
+                        songArray = Self.extractJSONArray(from: result)
+                    }
+                    let songs = songArray.compactMap { Self.convertQQSongToSong($0) }
+                    AppLogger.info("[QQMusic] 推荐新歌: 原始\(songArray.count)条, 转换\(songs.count)条")
+                    promise(.success(songs))
+                } catch {
+                    AppLogger.error("[QQMusic] 获取推荐新歌失败: \(error)")
+                    promise(.failure(error))
+                }
+            }
+        }
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
+    }
+}
+
 // MARK: - QQ 音乐歌词
 
 extension APIService {

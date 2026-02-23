@@ -710,3 +710,9 @@
 "storage_clear_all_confirm" = "Clear All";
 "storage_clear_all_desc" = "This will clear all cache, user data and downloads. This action cannot be undone.";
 "storage_clear" = "Clear";
+
+/* QQ Music Recommend */
+"qq_recommend_playlists" = "QQ Music · Playlists";
+"qq_recommend_playlists_desc" = "Curated picks from QQ Music";
+"qq_new_songs" = "QQ Music · New Songs";
+"qq_new_songs_desc" = "Latest trending tracks";

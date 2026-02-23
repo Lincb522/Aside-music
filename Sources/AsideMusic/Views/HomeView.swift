@@ -75,6 +75,16 @@ struct HomeView: View {
                                 recommendedPlaylistsSection
                             }
 
+                            // QQ 音乐推荐歌单
+                            if !viewModel.qqRecommendPlaylists.isEmpty {
+                                qqRecommendPlaylistsSection
+                            }
+
+                            // QQ 音乐推荐新歌
+                            if !viewModel.qqNewSongs.isEmpty {
+                                qqNewSongsSection
+                            }
+
                             // 底部双卡片入口
                             bottomEntryCards
 
@@ -441,6 +451,53 @@ struct HomeView: View {
                             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay))
                             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                     )
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    // MARK: - QQ 音乐推荐歌单
+
+    private var qqRecommendPlaylistsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(
+                title: NSLocalizedString("qq_recommend_playlists", comment: ""),
+                subtitle: NSLocalizedString("qq_recommend_playlists_desc", comment: "")
+            )
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(viewModel.qqRecommendPlaylists.prefix(10)) { playlist in
+                        Button(action: {
+                            navigationPath.append(HomeDestination.playlist(playlist))
+                        }) {
+                            PlaylistVerticalCard(playlist: playlist)
+                        }
+                        .buttonStyle(AsideBouncingButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    // MARK: - QQ 音乐推荐新歌
+
+    private var qqNewSongsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(
+                title: NSLocalizedString("qq_new_songs", comment: ""),
+                subtitle: NSLocalizedString("qq_new_songs_desc", comment: "")
+            )
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(viewModel.qqNewSongs.prefix(10)) { song in
+                        SongCard(song: song) {
+                            playerManager.play(song: song, in: viewModel.qqNewSongs)
+                        }
+                    }
                 }
                 .padding(.horizontal, 24)
             }

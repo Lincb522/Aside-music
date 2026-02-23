@@ -4,10 +4,6 @@
 <dict>
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
-	<key>QQ_MUSIC_BASE_URL</key>
-	<string>$(QQ_MUSIC_BASE_URL)</string>
-	<key>UNBLOCK_SERVER_URL</key>
-	<string>$(UNBLOCK_SERVER_URL)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -28,6 +24,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -35,6 +33,17 @@
 	</dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>QQ_MUSIC_BASE_URL</key>
+	<string>$(QQ_MUSIC_BASE_URL)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>SanJiPoMoTi.ttf</string>
+		<string>HYPixel11pxU.ttf</string>
+		<string>ZihunBantianyun.ttf</string>
+		<string>YeZiGongChangGangFengSong.ttf</string>
+		<string>WenDaoPaoPaoTi-2.ttf</string>
+		<string>k8x12S-4.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -47,6 +56,8 @@
 		<string>audio</string>
 		<string>fetch</string>
 	</array>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -57,18 +68,7 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
-	<key>UIAppFonts</key>
-	<array>
-		<string>SanJiPoMoTi.ttf</string>
-		<string>HYPixel11pxU.ttf</string>
-		<string>ZihunBantianyun.ttf</string>
-		<string>YeZiGongChangGangFengSong.ttf</string>
-		<string>WenDaoPaoPaoTi-2.ttf</string>
-		<string>k8x12S-4.ttf</string>
-	</array>
+	<key>UNBLOCK_SERVER_URL</key>
+	<string>$(UNBLOCK_SERVER_URL)</string>
 </dict>
 </plist>

@@ -14,6 +14,9 @@ class HomeViewModel: ObservableObject {
     @Published var hotSearch: String = NSLocalizedString("search_bar_placeholder", comment: "")
     @Published var userProfile: UserProfile?
     
+    @Published var qqRecommendPlaylists: [Playlist] = []
+    @Published var qqNewSongs: [Song] = []
+    
     @Published var isLoading = false
     @Published var errorMessage: String?
     
@@ -88,6 +91,12 @@ class HomeViewModel: ObservableObject {
         }
         if let cachedBanners = cache.getObject(forKey: "banners", type: [Banner].self) {
             self.banners = cachedBanners
+        }
+        if let cachedQQPlaylists = cache.getObject(forKey: "qq_recommend_playlists", type: [Playlist].self) {
+            self.qqRecommendPlaylists = cachedQQPlaylists
+        }
+        if let cachedQQNewSongs = cache.getObject(forKey: "qq_new_songs", type: [Song].self) {
+            self.qqNewSongs = cachedQQNewSongs
         }
         if let cachedProfile = cache.getObject(forKey: "user_profile_detail", type: UserProfile.self) {
             self.userProfile = cachedProfile
@@ -177,6 +186,35 @@ class HomeViewModel: ObservableObject {
                 self?.banners = banners
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(banners, forKey: "banners")
+                }
+            })
+            .store(in: &cancellables)
+        
+        // QQ 音乐推荐歌单
+        apiService.fetchQQRecommendPlaylists()
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    AppLogger.error("QQ推荐歌单获取失败: \(error)")
+                }
+            }, receiveValue: { [weak self] playlists in
+                self?.qqRecommendPlaylists = playlists
+                Task { @MainActor in
+                    OptimizedCacheManager.shared.setObject(playlists, forKey: "qq_recommend_playlists")
+                }
+            })
+            .store(in: &cancellables)
+        
+        // QQ 音乐推荐新歌
+        apiService.fetchQQRecommendNewSongs()
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    AppLogger.error("QQ推荐新歌获取失败: \(error)")
+                }
+            }, receiveValue: { [weak self] songs in
+                self?.qqNewSongs = songs
+                Task { @MainActor in
+                    OptimizedCacheManager.shared.setObject(songs, forKey: "qq_new_songs")
+                    OptimizedCacheManager.shared.cacheSongs(songs)
                 }
             })
             .store(in: &cancellables)
@@ -281,6 +319,8 @@ class HomeViewModel: ObservableObject {
         recentSongs = []
         dailySongs = []
         recommendPlaylists = []
+        qqRecommendPlaylists = []
+        qqNewSongs = []
         popularSongs = []
         banners = []
         hotSearch = NSLocalizedString("search_bar_placeholder", comment: "")
