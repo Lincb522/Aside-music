@@ -1009,10 +1009,22 @@ struct ChartsLibraryView: View {
     @ObservedObject var viewModel: LibraryViewModel
     typealias Theme = PlaylistDetailView.Theme
 
+    /// 官方榜单 ID（飙升榜、新歌榜、原创榜、热歌榜）
+    private let officialIds: Set<Int> = [19723756, 3779629, 2884035, 3778678]
+
+    private var officialCharts: [TopList] {
+        // 保持原始顺序中的官方榜
+        viewModel.topLists.filter { officialIds.contains($0.id) }
+    }
+
+    private var otherCharts: [TopList] {
+        viewModel.topLists.filter { !officialIds.contains($0.id) }
+    }
+
     let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14)
     ]
 
     var body: some View {
@@ -1020,48 +1032,160 @@ struct ChartsLibraryView: View {
             if viewModel.isLoadingCharts && viewModel.topLists.isEmpty {
                 AsideLoadingView()
             } else if viewModel.topLists.isEmpty {
-                 VStack(spacing: 16) {
-                     AsideIcon(icon: .chart, size: 50, color: Theme.secondaryText.opacity(0.5))
-                     Text(LocalizedStringKey("empty_no_charts"))
-                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                         .foregroundColor(Theme.secondaryText)
-                 }
-                 .padding(.top, 50)
+                VStack(spacing: 16) {
+                    AsideIcon(icon: .chart, size: 50, color: Theme.secondaryText.opacity(0.5))
+                    Text(LocalizedStringKey("empty_no_charts"))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .padding(.top, 50)
             } else {
-                LazyVGrid(columns: columns, spacing: 20) {
-                    ForEach(viewModel.topLists) { list in
-                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(Playlist(id: list.id, name: list.name, coverImgUrl: list.coverImgUrl, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil))) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                CachedAsyncImage(url: list.coverUrl?.sized(400)) {
-                                    Color.gray.opacity(0.1)
+                VStack(alignment: .leading, spacing: 28) {
+                    // 官方榜单 — 大卡片横向滚动
+                    if !officialCharts.isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text(LocalizedStringKey("charts_official"))
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(Theme.text)
+                                .padding(.horizontal, 24)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 14) {
+                                    ForEach(officialCharts) { list in
+                                        NavigationLink(value: chartDestination(list)) {
+                                            OfficialChartCard(list: list)
+                                        }
+                                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.96))
+                                    }
                                 }
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 110)
-                                .clipped()
-                                .cornerRadius(12)
-                                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-
-                                Text(list.name)
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                                    .foregroundColor(Theme.text)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-
-                                Text(list.updateFrequency)
-                                    .font(.system(size: 10, design: .rounded))
-                                    .foregroundColor(Theme.secondaryText)
+                                .padding(.horizontal, 24)
                             }
                         }
-                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+                    }
+
+                    // 更多榜单 — 紧凑网格
+                    if !otherCharts.isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text(LocalizedStringKey("charts_more"))
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(Theme.text)
+                                .padding(.horizontal, 24)
+
+                            LazyVGrid(columns: columns, spacing: 16) {
+                                ForEach(otherCharts) { list in
+                                    NavigationLink(value: chartDestination(list)) {
+                                        CompactChartCard(list: list)
+                                    }
+                                    .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                        }
                     }
                 }
-                .padding(24)
+                .padding(.top, 8)
             }
 
             Color.clear.frame(height: 120)
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+        .refreshable {
+            await refreshCharts()
+        }
+    }
+
+    private func chartDestination(_ list: TopList) -> LibraryViewModel.NavigationDestination {
+        .playlist(Playlist(
+            id: list.id, name: list.name, coverImgUrl: list.coverImgUrl,
+            picUrl: nil, trackCount: nil, playCount: nil,
+            subscribedCount: nil, shareCount: nil, commentCount: nil,
+            creator: nil, description: nil, tags: nil
+        ))
+    }
+
+    private func refreshCharts() async {
+        viewModel.topLists = []
+        viewModel.isLoadingCharts = true
+        // 用空数组覆盖缓存，强制从网络刷新
+        OptimizedCacheManager.shared.setObject([TopList](), forKey: "top_charts_lists")
+        viewModel.fetchTopLists()
+        // 等待加载完成
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+    }
+}
+
+// MARK: - 官方榜单大卡片
+
+private struct OfficialChartCard: View {
+    let list: TopList
+    typealias Theme = PlaylistDetailView.Theme
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            CachedAsyncImage(url: list.coverUrl?.sized(600)) {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.asideSeparator)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 200, height: 200)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+            // 底部渐变遮罩 + 文字
+            VStack(alignment: .leading, spacing: 4) {
+                Spacer()
+                Text(list.name)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Text(list.updateFrequency)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(14)
+            .frame(width: 200, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.6)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            )
+        }
+        .frame(width: 200, height: 200)
+        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
+    }
+}
+
+// MARK: - 紧凑榜单卡片
+
+private struct CompactChartCard: View {
+    let list: TopList
+    typealias Theme = PlaylistDetailView.Theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CachedAsyncImage(url: list.coverUrl?.sized(400)) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.asideSeparator)
+            }
+            .aspectRatio(1, contentMode: .fill)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+
+            Text(list.name)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(Theme.text)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            Text(list.updateFrequency)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.secondaryText)
+        }
     }
 }
 

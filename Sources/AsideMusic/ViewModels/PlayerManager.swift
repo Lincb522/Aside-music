@@ -422,7 +422,15 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
                 // 正常切歌：SDK 已切换到下一首的 pipeline
                 AppLogger.info("无缝切歌：SDK 已准备好下一首，等待当前歌曲结束")
                 pm.preparePendingNextTrack()
-                pm.hasPendingTrackTransition = true
+                
+                // 只有在 pendingNextSong 成功准备好时才标记待切换
+                if pm.pendingNextSong != nil {
+                    pm.hasPendingTrackTransition = true
+                } else {
+                    // 单曲循环或列表为空，直接走 playerDidFinishPlaying 逻辑
+                    AppLogger.info("无缝切歌：无待切换歌曲（单曲循环或列表为空），走 finish 逻辑")
+                    pm.playerDidFinishPlaying()
+                }
             }
         }
     }

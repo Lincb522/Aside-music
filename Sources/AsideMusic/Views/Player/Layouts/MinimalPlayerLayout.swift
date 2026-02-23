@@ -344,9 +344,10 @@ private struct MinimalKaraokeWord: View {
     }
 
     func calculateProgress() -> CGFloat {
+        guard word.duration > 0 else { return currentTime >= word.startTime ? 1 : 0 }
         if currentTime < word.startTime { return 0 }
         if currentTime >= word.startTime + word.duration { return 1 }
-        return CGFloat((currentTime - word.startTime) / word.duration)
+        return min(max(CGFloat((currentTime - word.startTime) / word.duration), 0), 1)
     }
 }
 

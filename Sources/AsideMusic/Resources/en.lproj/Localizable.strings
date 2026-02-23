@@ -116,6 +116,8 @@
 "empty_no_playlists" = "No playlists found";
 "empty_no_artists" = "No artists found";
 "empty_no_charts" = "No charts found";
+"charts_official" = "Official Charts";
+"charts_more" = "More Charts";
 "library_playlists_empty" = "No playlists found. Create or like some!";
 "fm_offline" = "Station Offline";
 "fm_offline_desc" = "Please check your internet and try again.";

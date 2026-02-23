@@ -116,6 +116,8 @@
 "empty_no_playlists" = "暂无歌单";
 "empty_no_artists" = "暂无歌手";
 "empty_no_charts" = "暂无榜单";
+"charts_official" = "官方榜";
+"charts_more" = "更多榜单";
 "library_playlists_empty" = "暂无歌单，快去收藏一些吧！";
 "fm_offline" = "电台离线";
 "fm_offline_desc" = "请检查网络连接后重试。";

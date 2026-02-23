@@ -381,11 +381,10 @@ class LibraryViewModel: ObservableObject {
     func fetchTopLists() {
         if !topLists.isEmpty { return }
 
-        if let cached = OptimizedCacheManager.shared.getObject(forKey: "top_charts_lists", type: [TopList].self) {
+        if let cached = OptimizedCacheManager.shared.getObject(forKey: "top_charts_lists", type: [TopList].self), !cached.isEmpty {
             self.topLists = cached
+            return
         }
-
-        if !topLists.isEmpty { return }
 
         isLoadingCharts = true
 

@@ -302,11 +302,12 @@ struct KaraokeWordView: View {
     }
     
     func calculateProgress() -> CGFloat {
+        guard word.duration > 0 else { return currentTime >= word.startTime ? 1 : 0 }
         if currentTime < word.startTime { return 0 }
         if currentTime >= word.startTime + word.duration { return 1 }
         
         let rawProgress = CGFloat((currentTime - word.startTime) / word.duration)
-        return rawProgress
+        return min(max(rawProgress, 0), 1)
     }
 }
 

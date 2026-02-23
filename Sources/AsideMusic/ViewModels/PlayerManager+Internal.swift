@@ -124,7 +124,15 @@ extension PlayerManager {
     
     /// 当前歌曲真正结束后，应用待切换的下一首
     func applyPendingTrackTransition() {
-        guard hasPendingTrackTransition, let song = pendingNextSong else { return }
+        guard hasPendingTrackTransition, let song = pendingNextSong else {
+            // 安全清理：如果 pendingNextSong 为 nil 但 hasPendingTrackTransition 为 true，重置标记
+            if hasPendingTrackTransition {
+                AppLogger.warning("applyPendingTrackTransition: pendingNextSong 为 nil，重置标记")
+                hasPendingTrackTransition = false
+                pendingNextSong = nil
+            }
+            return
+        }
         
         hasPendingTrackTransition = false
         pendingNextSong = nil
@@ -142,6 +150,11 @@ extension PlayerManager {
         // 更新 UI
         currentSong = song
         currentTime = 0
+        
+        // 确保播放状态正确（无缝切歌时 SDK 一直在播放，isPlaying 应为 true）
+        if !isPlaying {
+            isPlaying = true
+        }
         
         // 从 streamInfo 获取下一首的 duration（transitionToNextTrack 中不再单独发送 didUpdateDuration）
         if let nextDuration = streamPlayer.streamInfo?.duration, nextDuration > 0 {

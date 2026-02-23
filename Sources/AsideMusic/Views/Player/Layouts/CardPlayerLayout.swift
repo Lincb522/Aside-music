@@ -352,7 +352,7 @@ extension CardPlayerLayout {
                         
                         Capsule()
                             .fill(dominantColor)
-                            .frame(width: barGeo.size.width * (player.duration > 0 ? player.currentTime / player.duration : 0), height: 6)
+                            .frame(width: barGeo.size.width * CGFloat(player.duration > 0 ? min(max(player.currentTime / player.duration, 0), 1) : 0), height: 6)
                     }
                     .gesture(
                         DragGesture()
