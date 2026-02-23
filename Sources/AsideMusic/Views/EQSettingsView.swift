@@ -181,7 +181,7 @@ struct EQSettingsView: View {
                 .tint(.asideAccent)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     // MARK: - 智能分析按钮
@@ -247,11 +247,8 @@ struct EQSettingsView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.asideGlassOverlay)
-                    )
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -292,7 +289,7 @@ struct EQSettingsView: View {
             }
         }
         .padding(20)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
 
     private func knobItem(label: String, value: Binding<CGFloat>, onChange: @escaping (CGFloat) -> Void) -> some View {
@@ -410,7 +407,7 @@ struct EQSettingsView: View {
             }
         }
         .padding(20)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
 
     private var pitchDisplayText: String {
@@ -455,7 +452,7 @@ struct EQSettingsView: View {
             frequencyLabels
         }
         .padding(20)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
 
     // 频谱曲线填充（渐变）

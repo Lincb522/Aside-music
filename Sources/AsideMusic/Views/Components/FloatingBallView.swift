@@ -98,11 +98,10 @@ struct FloatingBallView: View {
         }
         .background(
             Circle()
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
                 .frame(width: ballSize + 4, height: ballSize + 4)
         )
-        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
-        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
+        .glassEffect(.regular, in: .circle)
         .contentShape(Circle())
         .asideMultiGesture(
             onTap: {
@@ -180,15 +179,7 @@ struct FloatingBallView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.asideGlassOverlay)
-            }
-            .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 4)
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
         .padding(.trailing, 8)
     }
     

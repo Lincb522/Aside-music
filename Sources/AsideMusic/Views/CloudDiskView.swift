@@ -320,7 +320,7 @@ struct CloudDiskView: View {
 
 // MARK: - Cancellable 存储
 
-private class CloudDiskCancellableStore {
+private class CloudDiskCancellableStore: @unchecked Sendable {
     static let shared = CloudDiskCancellableStore()
     var cancellables = Set<AnyCancellable>()
 }

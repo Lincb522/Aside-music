@@ -9,7 +9,7 @@ private struct ImageCacheConfig {
 }
 
 // MARK: - 图片内存缓存
-private let imageCache: NSCache<NSString, UIImage> = {
+private nonisolated(unsafe) let imageCache: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
     cache.totalCostLimit = ImageCacheConfig.maxMemoryCost
     cache.countLimit = ImageCacheConfig.maxCount
@@ -83,6 +83,7 @@ private actor ImageLoadCoordinator {
 }
 
 
+@MainActor
 class ImageLoader: ObservableObject {
     @Published var image: UIImage?
     @Published var isLoading = false
@@ -95,7 +96,8 @@ class ImageLoader: ObservableObject {
     }
     
     func load(url: URL) {
-        let cacheKey = url.absoluteString as NSString
+        let cacheKeyStr = url.absoluteString
+        let cacheKey = cacheKeyStr as NSString
         
         // 1. 内存缓存命中 → 立即返回
         if let cachedImage = imageCache.object(forKey: cacheKey) {
@@ -115,22 +117,18 @@ class ImageLoader: ObservableObject {
             guard let self = self else { return }
             
             // 2. 磁盘缓存命中
-            if let data = CacheManager.shared.getImageData(forKey: url.absoluteString) {
-                let diskImage = await Task.detached(priority: .userInitiated) {
-                    return self.downsampleImage(data: data, maxSize: 400)
-                }.value
+            if let data = CacheManager.shared.getImageData(forKey: cacheKeyStr) {
+                let diskImage = self.downsampleImage(data: data, maxSize: 400)
                 
                 if Task.isCancelled { return }
                 
                 if let diskImage = diskImage {
                     let cost = diskImage.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                    imageCache.setObject(diskImage, forKey: cacheKey, cost: cost)
+                    imageCache.setObject(diskImage, forKey: cacheKeyStr as NSString, cost: cost)
                     
-                    await MainActor.run {
-                        guard self.currentUrl == url else { return }
-                        self.image = diskImage
-                        self.isLoading = false
-                    }
+                    guard self.currentUrl == url else { return }
+                    self.image = diskImage
+                    self.isLoading = false
                     return
                 }
             }
@@ -142,21 +140,20 @@ class ImageLoader: ObservableObject {
             
             if Task.isCancelled { return }
             
-            await MainActor.run {
-                guard self.currentUrl == url else { return }
-                self.isLoading = false
+            guard self.currentUrl == url else { return }
+            self.isLoading = false
+            
+            if let image = downloadedImage {
+                self.image = image
                 
-                if let image = downloadedImage {
-                    self.image = image
-                    
-                    let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                    imageCache.setObject(image, forKey: cacheKey, cost: cost)
-                    
-                    // 异步保存到磁盘
-                    Task.detached(priority: .background) {
-                        if let data = image.jpegData(compressionQuality: 0.7) {
-                            CacheManager.shared.setImageData(data, forKey: url.absoluteString)
-                        }
+                let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+                imageCache.setObject(image, forKey: cacheKeyStr as NSString, cost: cost)
+                
+                // 异步保存到磁盘
+                let saveKey = cacheKeyStr
+                Task.detached(priority: .background) {
+                    if let data = image.jpegData(compressionQuality: 0.7) {
+                        CacheManager.shared.setImageData(data, forKey: saveKey)
                     }
                 }
             }
@@ -261,7 +258,7 @@ extension CachedAsyncImage {
 }
 
 // MARK: - 内存警告监听器（App 级别注册一次）
-final class ImageMemoryWarningObserver {
+final class ImageMemoryWarningObserver: @unchecked Sendable {
     static let shared = ImageMemoryWarningObserver()
     private var registered = false
     

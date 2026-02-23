@@ -378,7 +378,7 @@ struct QQMVPlayerView: View {
                                             .foregroundColor(.white)
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .background(.ultraThinMaterial)
+                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                                             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                             .padding(6)
                                     }

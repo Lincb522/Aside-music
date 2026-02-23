@@ -282,7 +282,7 @@ struct LocalPlaylistsView: View {
                             Spacer()
                         }
                         .padding(16)
-                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
@@ -313,7 +313,7 @@ struct LocalPlaylistsView: View {
                             }
                         }
                         .padding(16)
-                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
@@ -491,7 +491,7 @@ struct LocalPlaylistRow: View {
             AsideIcon(icon: .chevronRight, size: 14, color: Theme.secondaryText)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
     
@@ -868,7 +868,7 @@ struct ArtistLibraryView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
-                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                .glassEffect(.regular, in: .rect(cornerRadius: 20))
                 
                 // 筛选抽屉按钮
                 if !viewModel.isSearchingArtists {
@@ -881,9 +881,7 @@ struct ArtistLibraryView: View {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(hasActiveFilter ? Color.asideIconBackground : Color.clear)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(.ultraThinMaterial)
-                                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                                    Color.clear // glassEffect applied via modifier
                                 )
                                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                             
@@ -1221,7 +1219,7 @@ struct LibraryPlaylistRow: View {
             AsideIcon(icon: .chevronRight, size: 14, color: Theme.secondaryText)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

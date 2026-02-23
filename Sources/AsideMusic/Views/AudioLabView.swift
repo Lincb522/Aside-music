@@ -129,11 +129,8 @@ struct AudioLabView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
     }
@@ -200,11 +197,8 @@ struct AudioLabView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
     
@@ -428,11 +422,8 @@ struct AudioLabView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
     
@@ -624,11 +615,8 @@ struct AudioLabView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
     
@@ -681,11 +669,8 @@ struct AudioLabView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
     

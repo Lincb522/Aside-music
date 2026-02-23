@@ -219,7 +219,8 @@ struct AsideBackground: View {
 
             // 第四层：极淡毛玻璃统一色调（降低遮盖，让弥散更透出来）
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .opacity(colorScheme == .dark ? 0.05 : 0.08)
                 .ignoresSafeArea()
         }
@@ -230,7 +231,8 @@ struct AsideBackground: View {
 struct LiquidGlassOverlay: View {
     var body: some View {
         Rectangle()
-            .fill(.ultraThinMaterial)
+            .fill(.clear)
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
             .opacity(0.3)
     }
 }
@@ -268,7 +270,8 @@ struct SwiftUIGlassBackground: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(Color.white.opacity(0.4))

@@ -3,8 +3,8 @@
 // 将 QQMusicKit 的 async/await 接口适配到 AsideMusic 的 Song 模型和 Combine 体系
 
 import Foundation
-import Combine
-import QQMusicKit
+@preconcurrency import Combine
+@preconcurrency import QQMusicKit
 
 // MARK: - QQ 音乐配置
 
@@ -22,114 +22,62 @@ extension APIService {
     
     /// 搜索 QQ 音乐歌曲
     func searchQQSongs(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[Song], Error> {
-        Future<[Song], Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.success([]))
-                return
-            }
-            Task {
-                do {
-                    let results = try await self.qqClient.search(
-                        keyword: keyword,
-                        type: .song,
-                        num: num,
-                        page: page,
-                        highlight: false
-                    )
-                    let songs = results.compactMap { Self.convertQQSongToSong($0) }
-                    promise(.success(songs))
-                } catch {
-                    AppLogger.error("[QQMusic] 搜索失败: \(error)")
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.search(
+                keyword: keyword,
+                type: .song,
+                num: num,
+                page: page,
+                highlight: false
+            )
+            return results.compactMap { Self.convertQQSongToSong($0) }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 搜索 QQ 音乐歌手
     func searchQQArtists(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[ArtistInfo], Error> {
-        Future<[ArtistInfo], Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.success([]))
-                return
-            }
-            Task {
-                do {
-                    let results = try await self.qqClient.search(
-                        keyword: keyword,
-                        type: .singer,
-                        num: num,
-                        page: page,
-                        highlight: false
-                    )
-                    let artists = results.compactMap { Self.convertQQArtistToArtistInfo($0) }
-                    promise(.success(artists))
-                } catch {
-                    AppLogger.error("[QQMusic] 搜索歌手失败: \(error)")
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.search(
+                keyword: keyword,
+                type: .singer,
+                num: num,
+                page: page,
+                highlight: false
+            )
+            return results.compactMap { Self.convertQQArtistToArtistInfo($0) }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 搜索 QQ 音乐歌单
     func searchQQPlaylists(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[Playlist], Error> {
-        Future<[Playlist], Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.success([]))
-                return
-            }
-            Task {
-                do {
-                    let results = try await self.qqClient.search(
-                        keyword: keyword,
-                        type: .songlist,
-                        num: num,
-                        page: page,
-                        highlight: false
-                    )
-                    let playlists = results.compactMap { Self.convertQQPlaylistToPlaylist($0) }
-                    promise(.success(playlists))
-                } catch {
-                    AppLogger.error("[QQMusic] 搜索歌单失败: \(error)")
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.search(
+                keyword: keyword,
+                type: .songlist,
+                num: num,
+                page: page,
+                highlight: false
+            )
+            return results.compactMap { Self.convertQQPlaylistToPlaylist($0) }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 搜索 QQ 音乐专辑
     func searchQQAlbums(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[SearchAlbum], Error> {
-        Future<[SearchAlbum], Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.success([]))
-                return
-            }
-            Task {
-                do {
-                    let results = try await self.qqClient.search(
-                        keyword: keyword,
-                        type: .album,
-                        num: num,
-                        page: page,
-                        highlight: false
-                    )
-                    let albums = results.compactMap { Self.convertQQAlbumToSearchAlbum($0) }
-                    promise(.success(albums))
-                } catch {
-                    AppLogger.error("[QQMusic] 搜索专辑失败: \(error)")
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.search(
+                keyword: keyword,
+                type: .album,
+                num: num,
+                page: page,
+                highlight: false
+            )
+            return results.compactMap { Self.convertQQAlbumToSearchAlbum($0) }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
@@ -143,33 +91,24 @@ extension APIService {
     ///   - quality: QQ 音质类型
     /// - Returns: 播放 URL 结果
     func fetchQQSongUrl(mid: String, quality: QQMusicQuality = .mp3_320) -> AnyPublisher<SongUrlResult, Error> {
-        Future<SongUrlResult, Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.failure(PlaybackError.unavailable))
-                return
+        asyncToPublisher { [weak self] in
+            guard let self = self else { throw PlaybackError.unavailable }
+            AppLogger.info("[QQMusic] 请求音质: \(quality.displayName) (\(quality.rawValue))")
+            
+            // 1. 尝试用户选择的音质
+            if let url = await self.tryQQQuality(mid: mid, quality: quality) {
+                return SongUrlResult(url: url, isUnblocked: false)
             }
-            Task {
-                AppLogger.info("[QQMusic] 请求音质: \(quality.displayName) (\(quality.rawValue))")
-                
-                // 1. 尝试用户选择的音质
-                if let url = await self.tryQQQuality(mid: mid, quality: quality) {
-                    promise(.success(SongUrlResult(url: url, isUnblocked: false)))
-                    return
-                }
-                
-                // 2. 智能降级策略
-                if let fallbackUrl = await self.qqSmartFallback(mid: mid, requestedQuality: quality) {
-                    promise(.success(SongUrlResult(url: fallbackUrl, isUnblocked: false)))
-                    return
-                }
-                
-                // 3. 所有音质都失败
-                AppLogger.error("[QQMusic] 所有音质均无法获取播放 URL: \(mid)")
-                promise(.failure(PlaybackError.unavailable))
+            
+            // 2. 智能降级策略
+            if let fallbackUrl = await self.qqSmartFallback(mid: mid, requestedQuality: quality) {
+                return SongUrlResult(url: fallbackUrl, isUnblocked: false)
             }
+            
+            // 3. 所有音质都失败
+            AppLogger.error("[QQMusic] 所有音质均无法获取播放 URL: \(mid)")
+            throw PlaybackError.unavailable
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 尝试获取指定音质的播放 URL
@@ -255,70 +194,51 @@ extension APIService {
     
     /// 获取 QQ 音乐推荐歌单
     func fetchQQRecommendPlaylists() -> AnyPublisher<[Playlist], Error> {
-        Future<[Playlist], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.recommendSonglist()
-                    AppLogger.debug("[QQMusic] 推荐歌单原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
-                    // 尝试多种字段名提取歌单数组
-                    let listArray: [JSON]
-                    if let arr = result["Playlist"]?.arrayValue, !arr.isEmpty {
-                        listArray = arr
-                    } else if let arr = result["playlist"]?.arrayValue, !arr.isEmpty {
-                        listArray = arr
-                    } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
-                        listArray = arr
-                    } else if let arr = result["data"]?.arrayValue, !arr.isEmpty {
-                        listArray = arr
-                    } else {
-                        listArray = Self.extractJSONArray(from: result)
-                    }
-                    let playlists = listArray.compactMap { Self.convertQQPlaylistToPlaylist($0) }
-                    AppLogger.info("[QQMusic] 推荐歌单: 原始\(listArray.count)条, 转换\(playlists.count)条")
-                    promise(.success(playlists))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取推荐歌单失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.recommendSonglist()
+            AppLogger.debug("[QQMusic] 推荐歌单原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
+            // 尝试多种字段名提取歌单数组
+            let listArray: [JSON]
+            if let arr = result["Playlist"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else if let arr = result["playlist"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else if let arr = result["data"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else {
+                listArray = Self.extractJSONArray(from: result)
             }
+            let playlists = listArray.compactMap { Self.convertQQPlaylistToPlaylist($0) }
+            AppLogger.info("[QQMusic] 推荐歌单: 原始\(listArray.count)条, 转换\(playlists.count)条")
+            return playlists
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 获取 QQ 音乐推荐新歌
     func fetchQQRecommendNewSongs() -> AnyPublisher<[Song], Error> {
-        Future<[Song], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.recommendNewSong()
-                    AppLogger.debug("[QQMusic] 推荐新歌原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
-                    // Demo 中的解析方式: data["songlist"] ?? data["lanlist"][0]["songlist"]
-                    let songArray: [JSON]
-                    if let arr = result["songlist"]?.arrayValue, !arr.isEmpty {
-                        songArray = arr
-                    } else if let lanlist = result["lanlist"]?.arrayValue,
-                              let first = lanlist.first,
-                              let arr = first["songlist"]?.arrayValue, !arr.isEmpty {
-                        songArray = arr
-                    } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
-                        songArray = arr
-                    } else {
-                        songArray = Self.extractJSONArray(from: result)
-                    }
-                    let songs = songArray.compactMap { Self.convertQQSongToSong($0) }
-                    AppLogger.info("[QQMusic] 推荐新歌: 原始\(songArray.count)条, 转换\(songs.count)条")
-                    promise(.success(songs))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取推荐新歌失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.recommendNewSong()
+            AppLogger.debug("[QQMusic] 推荐新歌原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
+            let songArray: [JSON]
+            if let arr = result["songlist"]?.arrayValue, !arr.isEmpty {
+                songArray = arr
+            } else if let lanlist = result["lanlist"]?.arrayValue,
+                      let first = lanlist.first,
+                      let arr = first["songlist"]?.arrayValue, !arr.isEmpty {
+                songArray = arr
+            } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
+                songArray = arr
+            } else {
+                songArray = Self.extractJSONArray(from: result)
             }
+            let songs = songArray.compactMap { Self.convertQQSongToSong($0) }
+            AppLogger.info("[QQMusic] 推荐新歌: 原始\(songArray.count)条, 转换\(songs.count)条")
+            return songs
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
@@ -328,36 +248,24 @@ extension APIService {
     
     /// 获取 QQ 音乐歌词
     func fetchQQLyric(mid: String) -> AnyPublisher<QQLyricResponse, Error> {
-        Future<QQLyricResponse, Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.success(QQLyricResponse(lyric: nil, trans: nil)))
-                return
-            }
-            Task {
-                do {
-                    let result = try await self.qqClient.lyric(
-                        value: mid,
-                        qrc: false,
-                        trans: true,
-                        roma: false
-                    )
-                    promise(.success(QQLyricResponse(
-                        lyric: result.lyric,
-                        trans: result.trans
-                    )))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取歌词失败: \(error)")
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return QQLyricResponse(lyric: nil, trans: nil) }
+            let result = try await self.qqClient.lyric(
+                value: mid,
+                qrc: false,
+                trans: true,
+                roma: false
+            )
+            return QQLyricResponse(
+                lyric: result.lyric,
+                trans: result.trans
+            )
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
 /// QQ 音乐歌词响应
-struct QQLyricResponse {
+struct QQLyricResponse: Sendable {
     let lyric: String?
     let trans: String?
 }
@@ -368,24 +276,16 @@ extension APIService {
     
     /// 获取 QQ 音乐热搜词
     func fetchQQHotSearch() -> AnyPublisher<[HotSearchItem], Error> {
-        Future<[HotSearchItem], Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.success([]))
-                return
-            }
-            Task {
-                do {
-                    let result = try await self.qqClient.hotkey()
-                    let items = Self.convertQQHotkeys(result)
-                    promise(.success(items))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取热搜失败: \(error)")
-                    promise(.success([]))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            do {
+                let result = try await self.qqClient.hotkey()
+                return Self.convertQQHotkeys(result)
+            } catch {
+                AppLogger.error("[QQMusic] 获取热搜失败: \(error)")
+                return []
             }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
@@ -396,42 +296,24 @@ extension APIService {
     
     /// 获取 QQ 音乐歌手歌曲
     func fetchQQSingerSongs(mid: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[Song], Error> {
-        Future<[Song], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let results = try await self.qqClient.singerSongs(mid: mid, num: num, page: page)
-                    if let first = results.first {
-                        AppLogger.debug("[QQMusic] 歌手歌曲第一条: \(first)")
-                    }
-                    let songs = results.compactMap { Self.convertQQSongToSong($0) }
-                    AppLogger.info("[QQMusic] 歌手歌曲: 原始\(results.count)条, 转换成功\(songs.count)条")
-                    promise(.success(songs))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取歌手歌曲失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.singerSongs(mid: mid, num: num, page: page)
+            if let first = results.first {
+                AppLogger.debug("[QQMusic] 歌手歌曲第一条: \(first)")
             }
+            let songs = results.compactMap { Self.convertQQSongToSong($0) }
+            AppLogger.info("[QQMusic] 歌手歌曲: 原始\(results.count)条, 转换成功\(songs.count)条")
+            return songs
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 获取 QQ 音乐歌手信息
     func fetchQQSingerInfo(mid: String) -> AnyPublisher<JSON, Error> {
-        Future<JSON, Error> { [weak self] promise in
-            guard let self = self else { promise(.failure(PlaybackError.unavailable)); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.singerInfo(mid: mid)
-                    promise(.success(result))
-                } catch {
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { throw PlaybackError.unavailable }
+            return try await self.qqClient.singerInfo(mid: mid)
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
@@ -441,27 +323,18 @@ extension APIService {
     
     /// 获取 QQ 音乐歌手专辑列表
     func fetchQQSingerAlbums(mid: String, num: Int = 20, begin: Int = 0) -> AnyPublisher<[AlbumInfo], Error> {
-        Future<[AlbumInfo], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.singerAlbums(mid: mid, number: num, begin: begin)
-                    AppLogger.debug("[QQMusic] 歌手专辑原始: \(result)")
-                    let albumArray = Self.extractJSONArray(from: result)
-                    if albumArray.isEmpty {
-                        AppLogger.warning("[QQMusic] 歌手专辑: 无法提取数组，原始keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
-                    }
-                    let albums: [AlbumInfo] = albumArray.compactMap { Self.convertQQSingerAlbum($0) }
-                    AppLogger.info("[QQMusic] 歌手专辑: 原始\(albumArray.count)条, 转换\(albums.count)条")
-                    promise(.success(albums))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取歌手专辑失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.singerAlbums(mid: mid, number: num, begin: begin)
+            AppLogger.debug("[QQMusic] 歌手专辑原始: \(result)")
+            let albumArray = Self.extractJSONArray(from: result)
+            if albumArray.isEmpty {
+                AppLogger.warning("[QQMusic] 歌手专辑: 无法提取数组，原始keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
             }
+            let albums: [AlbumInfo] = albumArray.compactMap { Self.convertQQSingerAlbum($0) }
+            AppLogger.info("[QQMusic] 歌手专辑: 原始\(albumArray.count)条, 转换\(albums.count)条")
+            return albums
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 将 QQ 歌手专辑 JSON 转换为 AlbumInfo（独立方法，避免编译器超时）
@@ -519,30 +392,21 @@ extension APIService {
     
     /// 获取 QQ 音乐歌手 MV 列表
     func fetchQQSingerMVs(mid: String, num: Int = 20, begin: Int = 0) -> AnyPublisher<[QQMV], Error> {
-        Future<[QQMV], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.singerMVs(mid: mid, number: num, begin: begin)
-                    AppLogger.debug("[QQMusic] 歌手MV原始: \(result)")
-                    let mvArray = Self.extractJSONArray(from: result)
-                    if mvArray.isEmpty {
-                        AppLogger.warning("[QQMusic] 歌手MV: 无法提取数组，原始keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
-                    }
-                    if let first = mvArray.first {
-                        AppLogger.debug("[QQMusic] 歌手MV第一项: \(first)")
-                    }
-                    let mvs = mvArray.compactMap { Self.convertQQSingerMV($0, singerMid: mid) }
-                    AppLogger.info("[QQMusic] 歌手MV: 原始\(mvArray.count)条, 转换\(mvs.count)条")
-                    promise(.success(mvs))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取歌手MV失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.singerMVs(mid: mid, number: num, begin: begin)
+            AppLogger.debug("[QQMusic] 歌手MV原始: \(result)")
+            let mvArray = Self.extractJSONArray(from: result)
+            if mvArray.isEmpty {
+                AppLogger.warning("[QQMusic] 歌手MV: 无法提取数组，原始keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
             }
+            if let first = mvArray.first {
+                AppLogger.debug("[QQMusic] 歌手MV第一项: \(first)")
+            }
+            let mvs = mvArray.compactMap { Self.convertQQSingerMV($0, singerMid: mid) }
+            AppLogger.info("[QQMusic] 歌手MV: 原始\(mvArray.count)条, 转换\(mvs.count)条")
+            return mvs
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// QQ 日期字符串 → 毫秒时间戳
@@ -640,42 +504,24 @@ extension APIService {
     
     /// 获取 QQ 音乐专辑歌曲
     func fetchQQAlbumSongs(albumMid: String, page: Int = 1, num: Int = 50) -> AnyPublisher<[Song], Error> {
-        Future<[Song], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let results = try await self.qqClient.albumSongs(value: albumMid, num: num, page: page)
-                    if let first = results.first {
-                        AppLogger.debug("[QQMusic] 专辑歌曲第一条: \(first)")
-                    }
-                    let songs = results.compactMap { Self.convertQQSongToSong($0) }
-                    AppLogger.info("[QQMusic] 专辑歌曲: 原始\(results.count)条, 转换成功\(songs.count)条")
-                    promise(.success(songs))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取专辑歌曲失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.albumSongs(value: albumMid, num: num, page: page)
+            if let first = results.first {
+                AppLogger.debug("[QQMusic] 专辑歌曲第一条: \(first)")
             }
+            let songs = results.compactMap { Self.convertQQSongToSong($0) }
+            AppLogger.info("[QQMusic] 专辑歌曲: 原始\(results.count)条, 转换成功\(songs.count)条")
+            return songs
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 获取 QQ 音乐专辑详情
     func fetchQQAlbumDetail(albumMid: String) -> AnyPublisher<JSON, Error> {
-        Future<JSON, Error> { [weak self] promise in
-            guard let self = self else { promise(.failure(PlaybackError.unavailable)); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.albumDetail(value: albumMid)
-                    promise(.success(result))
-                } catch {
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { throw PlaybackError.unavailable }
+            return try await self.qqClient.albumDetail(value: albumMid)
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
@@ -685,56 +531,34 @@ extension APIService {
     
     /// 搜索 QQ 音乐 MV
     func searchQQMVs(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[QQMV], Error> {
-        Future<[QQMV], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let results = try await self.qqClient.search(
-                        keyword: keyword,
-                        type: .mv,
-                        num: num,
-                        page: page,
-                        highlight: false
-                    )
-                    let mvs = results.compactMap { Self.convertQQSearchMV($0) }
-                    promise(.success(mvs))
-                } catch {
-                    AppLogger.error("[QQMusic] 搜索MV失败: \(error)")
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.search(
+                keyword: keyword,
+                type: .mv,
+                num: num,
+                page: page,
+                highlight: false
+            )
+            return results.compactMap { Self.convertQQSearchMV($0) }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 获取 QQ 音乐 MV 播放 URL
     func fetchQQMVUrl(vid: String) -> AnyPublisher<String?, Error> {
-        Future<String?, Error> { [weak self] promise in
-            guard let self = self else { promise(.success(nil)); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.mvURLs(vids: vid)
-                    // 打印完整返回结构用于调试
-                    AppLogger.debug("[QQMusic] MV URL 原始返回: \(result)")
-                    
-                    // 递归搜索 freeflow_url
-                    if let url = Self.extractMVUrl(from: result) {
-                        AppLogger.info("[QQMusic] MV URL 提取成功: \(url.prefix(80))...")
-                        promise(.success(url))
-                        return
-                    }
-                    
-                    AppLogger.warning("[QQMusic] MV URL 为空: vid=\(vid)")
-                    promise(.success(nil))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取MV URL失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return nil }
+            let result = try await self.qqClient.mvURLs(vids: vid)
+            AppLogger.debug("[QQMusic] MV URL 原始返回: \(result)")
+            
+            if let url = Self.extractMVUrl(from: result) {
+                AppLogger.info("[QQMusic] MV URL 提取成功: \(url.prefix(80))...")
+                return url
             }
+            
+            AppLogger.warning("[QQMusic] MV URL 为空: vid=\(vid)")
+            return nil
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 从 MV URL 响应中递归提取播放链接
@@ -782,27 +606,17 @@ extension APIService {
     
     /// 获取 QQ 音乐 MV 详情
     func fetchQQMVDetail(vid: String) -> AnyPublisher<QQMV?, Error> {
-        Future<QQMV?, Error> { [weak self] promise in
-            guard let self = self else { promise(.success(nil)); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.mvDetail(vids: vid)
-                    // 详情可能在数组中
-                    if let arr = result.arrayValue, let first = arr.first {
-                        promise(.success(Self.convertQQDetailMV(first)))
-                    } else if let obj = result.objectValue, let first = obj.values.first {
-                        promise(.success(Self.convertQQDetailMV(first)))
-                    } else {
-                        promise(.success(Self.convertQQDetailMV(result)))
-                    }
-                } catch {
-                    AppLogger.error("[QQMusic] 获取MV详情失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return nil }
+            let result = try await self.qqClient.mvDetail(vids: vid)
+            if let arr = result.arrayValue, let first = arr.first {
+                return Self.convertQQDetailMV(first)
+            } else if let obj = result.objectValue, let first = obj.values.first {
+                return Self.convertQQDetailMV(first)
+            } else {
+                return Self.convertQQDetailMV(result)
             }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }
 
@@ -812,53 +626,33 @@ extension APIService {
     
     /// 获取 QQ 音乐歌单歌曲
     func fetchQQPlaylistSongs(playlistId: Int, page: Int = 1, num: Int = 50) -> AnyPublisher<[Song], Error> {
-        Future<[Song], Error> { [weak self] promise in
-            guard let self = self else { promise(.success([])); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.songlistDetail(
-                        songlistId: playlistId, num: num, page: page, onlySong: true
-                    )
-                    AppLogger.debug("[QQMusic] 歌单歌曲原始响应: \(result)")
-                    // 歌单详情返回的歌曲在 songlist 字段中
-                    let songArray: [JSON]
-                    if let songs = result["songlist"]?.arrayValue {
-                        songArray = songs
-                    } else if let songs = result["songs"]?.arrayValue {
-                        songArray = songs
-                    } else if let arr = result.arrayValue {
-                        songArray = arr
-                    } else {
-                        songArray = []
-                    }
-                    let songs = songArray.compactMap { Self.convertQQSongToSong($0) }
-                    promise(.success(songs))
-                } catch {
-                    AppLogger.error("[QQMusic] 获取歌单歌曲失败: \(error)")
-                    promise(.failure(error))
-                }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.songlistDetail(
+                songlistId: playlistId, num: num, page: page, onlySong: true
+            )
+            AppLogger.debug("[QQMusic] 歌单歌曲原始响应: \(result)")
+            let songArray: [JSON]
+            if let songs = result["songlist"]?.arrayValue {
+                songArray = songs
+            } else if let songs = result["songs"]?.arrayValue {
+                songArray = songs
+            } else if let arr = result.arrayValue {
+                songArray = arr
+            } else {
+                songArray = []
             }
+            return songArray.compactMap { Self.convertQQSongToSong($0) }
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
     
     /// 获取 QQ 音乐歌单详情（封面、描述等）
     func fetchQQPlaylistDetail(playlistId: Int) -> AnyPublisher<JSON, Error> {
-        Future<JSON, Error> { [weak self] promise in
-            guard let self = self else { promise(.failure(PlaybackError.unavailable)); return }
-            Task {
-                do {
-                    let result = try await self.qqClient.songlistDetail(
-                        songlistId: playlistId, num: 0, page: 1, onlySong: false
-                    )
-                    promise(.success(result))
-                } catch {
-                    promise(.failure(error))
-                }
-            }
+        asyncToPublisher { [weak self] in
+            guard let self = self else { throw PlaybackError.unavailable }
+            return try await self.qqClient.songlistDetail(
+                songlistId: playlistId, num: 0, page: 1, onlySong: false
+            )
         }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
     }
 }

@@ -21,7 +21,7 @@ struct MlogPlayerView: View {
                     Button(action: { dismiss() }) {
                         AsideIcon(icon: .close, size: 18, color: .white)
                             .frame(width: 36, height: 36)
-                            .background(.ultraThinMaterial)
+                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                             .clipShape(Circle())
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
@@ -59,7 +59,7 @@ struct MlogPlayerView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
-                                .background(.ultraThinMaterial)
+                                .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(AsideBouncingButtonStyle())
@@ -106,7 +106,7 @@ struct MlogPlayerView: View {
                                 
                                 AsideIcon(icon: .play, size: 14, color: .white)
                                     .frame(width: 28, height: 28)
-                                    .background(.ultraThinMaterial)
+                                    .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                                     .clipShape(Circle())
                             }
                             .padding(10)

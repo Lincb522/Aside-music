@@ -292,8 +292,7 @@ extension AquaPlayerLayout {
             Button(action: { dismiss() }) {
                 AsideIcon(icon: .close, size: 18, color: textPrimary)
                     .frame(width: 36, height: 36)
-                    .background(btnBgColor)
-                    .clipShape(Circle())
+                    .asideGlassCircle()
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -305,7 +304,7 @@ extension AquaPlayerLayout {
                     .foregroundColor(textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(btnBgColor))
+                    .asideGlass(cornerRadius: 15)
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -322,8 +321,7 @@ extension AquaPlayerLayout {
             }) {
                 AsideIcon(icon: .more, size: 18, color: textPrimary)
                     .frame(width: 36, height: 36)
-                    .background(btnBgColor)
-                    .clipShape(Circle())
+                    .asideGlassCircle()
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }

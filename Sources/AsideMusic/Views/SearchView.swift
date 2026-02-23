@@ -150,7 +150,7 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)))
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
             }
@@ -767,7 +767,7 @@ struct SearchView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(.ultraThinMaterial)
+                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .padding(8)
                     }
@@ -912,11 +912,8 @@ struct SearchView: View {
             .frame(width: 220)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.asideGlassOverlay)
-                    )
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -1007,7 +1004,7 @@ struct SearchView: View {
                                     .foregroundColor(.asideTextPrimary)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
-                                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)))
+                                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
                                     .clipShape(RoundedRectangle(cornerRadius: 16))
                                     .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
                             }

@@ -41,7 +41,7 @@ struct PixelPlayerLayout: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                bg.ignoresSafeArea()
+                AsideBackground().ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     topBar.padding(.top, DeviceLayout.headerTopPadding)
@@ -157,10 +157,11 @@ extension PixelPlayerLayout {
             Button(action: { showQualitySheet = true }) {
                 Text(player.qualityButtonText)
                     .font(.custom(pixelFont, size: 14))
-                    .foregroundColor(colorScheme == .dark ? bgDark : .white)
+                    .foregroundColor(fg)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(fg)
+                    .asideGlass(cornerRadius: 0)
+                    .overlay(Rectangle().stroke(fg.opacity(0.5), lineWidth: 2))
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -183,9 +184,9 @@ extension PixelPlayerLayout {
     }
     
     private func pixelButton(icon: AsideIcon.IconType, rotation: Double = 0) -> some View {
-        Rectangle()
-            .fill(screenBg)
+        Color.clear
             .frame(width: 36, height: 36)
+            .asideGlass(cornerRadius: 0)
             .overlay(Rectangle().stroke(fg.opacity(0.5), lineWidth: 2))
             .overlay(
                 AsideIcon(icon: icon, size: 16, color: fg)

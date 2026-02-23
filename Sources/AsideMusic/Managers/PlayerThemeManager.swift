@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 播放器主题管理器
-@Observable
+@MainActor @Observable
 final class PlayerThemeManager {
     static let shared = PlayerThemeManager()
     

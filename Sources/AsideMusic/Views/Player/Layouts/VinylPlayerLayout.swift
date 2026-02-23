@@ -641,11 +641,8 @@ extension VinylPlayerLayout {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.asideIconBackground)
-                        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 8, y: 4)
-                )
+                .asideGlass(cornerRadius: 16)
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 8, y: 4)
             }
             .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
 
@@ -653,10 +650,7 @@ extension VinylPlayerLayout {
             Button(action: { player.previous() }) {
                 AsideIcon(icon: .previous, size: 22, color: contentColor)
                     .frame(width: 50, height: 50)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : contentColor.opacity(0.06))
-                    )
+                    .asideGlass(cornerRadius: 16)
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -664,10 +658,7 @@ extension VinylPlayerLayout {
             Button(action: { player.next() }) {
                 AsideIcon(icon: .next, size: 22, color: contentColor)
                     .frame(width: 50, height: 50)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : contentColor.opacity(0.06))
-                    )
+                    .asideGlass(cornerRadius: 16)
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }

@@ -357,7 +357,7 @@ extension APIService {
 // MARK: - QQ 音乐 MV 模型
 
 /// QQ 音乐 MV 模型（使用 vid 字符串标识）
-struct QQMV: Identifiable, Hashable {
+struct QQMV: Identifiable, Hashable, Sendable {
     let vid: String
     let name: String
     let singerName: String?

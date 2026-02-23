@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-class CacheManager {
+class CacheManager: @unchecked Sendable {
     static let shared = CacheManager()
     
     private let memoryCache = NSCache<NSString, AnyObject>()
@@ -103,7 +103,7 @@ class CacheManager {
         return nil
     }
     
-    func getImageDataAsync(forKey key: String, completion: @escaping (Data?) -> Void) {
+    func getImageDataAsync(forKey key: String, completion: @escaping @Sendable (Data?) -> Void) {
         if let data = memoryCache.object(forKey: key as NSString) as? Data {
             completion(data)
             return
@@ -152,7 +152,7 @@ class CacheManager {
         return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
     
-    func clearCache(completion: @escaping () -> Void) {
+    func clearCache(completion: @escaping @Sendable () -> Void) {
         diskQueue.async {
             self.clearAll()
             DispatchQueue.main.async {

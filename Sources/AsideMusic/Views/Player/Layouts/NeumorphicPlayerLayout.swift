@@ -197,14 +197,16 @@ extension NeumorphicPlayerLayout {
         ZStack {
             // 外层凸起容器
             RoundedRectangle(cornerRadius: 32)
-                .fill(raisedColor)
+                .fill(Color.clear)
+                .asideGlass(cornerRadius: 32)
                 .frame(width: size + 24, height: size + 24)
                 .shadow(color: darkShadow, radius: 15, x: 10, y: 10)
                 .shadow(color: lightShadow, radius: 15, x: -10, y: -10)
             
             // 内层凹陷区域
             RoundedRectangle(cornerRadius: 24)
-                .fill(surfaceColor)
+                .fill(Color.clear)
+                .asideGlass(cornerRadius: 24)
                 .frame(width: size + 8, height: size + 8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24)
@@ -283,11 +285,8 @@ extension NeumorphicPlayerLayout {
                 ZStack(alignment: .leading) {
                     // 凹陷轨道 — 半透明
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(
-                            colorScheme == .dark
-                                ? Color.black.opacity(0.3)
-                                : Color.black.opacity(0.06)
-                        )
+                        .fill(Color.clear)
+                        .asideGlass(cornerRadius: 6)
                         .frame(height: 12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
@@ -317,7 +316,8 @@ extension NeumorphicPlayerLayout {
                     
                     // 拖动手柄（凸起）
                     Circle()
-                        .fill(raisedColor)
+                        .fill(Color.clear)
+                        .asideGlassCircle()
                         .frame(width: 20, height: 20)
                         .overlay(
                             Circle().stroke(
@@ -400,13 +400,15 @@ extension NeumorphicPlayerLayout {
         Button(action: { player.togglePlayPause() }) {
             ZStack {
                 Circle()
-                    .fill(raisedColor)
+                    .fill(Color.clear)
+                    .asideGlassCircle()
                     .frame(width: 76, height: 76)
                     .shadow(color: darkShadow, radius: 10, x: 8, y: 8)
                     .shadow(color: lightShadow, radius: 10, x: -8, y: -8)
                 
                 Circle()
-                    .fill(surfaceColor)
+                    .fill(Color.clear)
+                    .asideGlassCircle()
                     .frame(width: 64, height: 64)
                     .overlay(
                         Circle()
@@ -488,7 +490,8 @@ extension NeumorphicPlayerLayout {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(raisedColor)
+                    .fill(Color.clear)
+                    .asideGlassCircle()
                     .frame(width: size, height: size)
                     .overlay(
                         Circle().stroke(

@@ -389,9 +389,7 @@ extension ArtistDetailView {
             }
             .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                Color.clear // glassEffect applied via modifier
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
         }
@@ -641,9 +639,7 @@ struct ArtistBioSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+            Color.clear // glassEffect applied via modifier
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
     }

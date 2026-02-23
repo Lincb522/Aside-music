@@ -32,7 +32,8 @@ struct ClassicPlayerLayout: View {
 
                 if showLyrics {
                     Rectangle()
-                        .fill(.ultraThinMaterial)
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 16))
                         .ignoresSafeArea()
                         .transition(.opacity)
                 }

@@ -35,7 +35,7 @@ struct MVGridCard: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(.ultraThinMaterial)
+                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .padding(8)
                     }
@@ -98,7 +98,7 @@ struct MVRowCard: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(.ultraThinMaterial)
+                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                             .padding(6)
                     }
@@ -128,7 +128,7 @@ struct MVRowCard: View {
                 Spacer(minLength: 0)
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }
@@ -374,7 +374,7 @@ struct MVDiscoverView: View {
         .padding(12)
         .frame(height: 64)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 
     // MARK: - 横向滚动区块
@@ -397,7 +397,7 @@ struct MVDiscoverView: View {
                                             .foregroundColor(.white)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(.ultraThinMaterial)
+                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                             .padding(8)
                                     }
@@ -507,7 +507,7 @@ struct MVDiscoverView: View {
                                             .foregroundColor(.white)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(.ultraThinMaterial)
+                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                             .padding(8)
                                     }
@@ -759,7 +759,8 @@ struct MVSublistSheet: View {
         }
         .background {
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .overlay(Color.asideCardBackground.opacity(0.55))
         }
         .ignoresSafeArea(edges: .bottom)
@@ -788,7 +789,7 @@ struct MVSublistSheet: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(.ultraThinMaterial)
+                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                             .padding(6)
                     }
@@ -822,7 +823,7 @@ struct MVSublistSheet: View {
             }
             .frame(height: 88)
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }

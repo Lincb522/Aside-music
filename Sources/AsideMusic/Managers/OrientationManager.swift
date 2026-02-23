@@ -5,6 +5,7 @@ import UIKit
 import SwiftUI
 
 /// 全局方向管理器，控制 App 支持的设备方向
+@MainActor
 class OrientationManager: ObservableObject {
     static let shared = OrientationManager()
 

@@ -461,9 +461,7 @@ struct QQArtistDetailView: View {
             }
             .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                Color.clear // glassEffect applied via modifier
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
         }
@@ -517,7 +515,7 @@ struct QQArtistDetailView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(.ultraThinMaterial)
+                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .padding(6)
                     }
@@ -829,9 +827,7 @@ struct QQAlbumDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                            Color.clear // glassEffect applied via modifier
                                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                         )
                     }
@@ -914,9 +910,7 @@ struct QQAlbumDescSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                        Color.clear // glassEffect applied via modifier
                             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                     )
                     .padding(.horizontal, 24)

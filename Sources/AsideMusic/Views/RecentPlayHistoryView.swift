@@ -18,8 +18,7 @@ struct RecentPlayHistoryView: View {
                     Button(action: { dismiss() }) {
                         ZStack {
                             Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Circle().fill(Color.asideGlassOverlay))
+                                .fill(.clear)
                                 .frame(width: 40, height: 40)
                                 .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
                             AsideIcon(icon: .back, size: 16, color: .asideTextPrimary)
@@ -48,8 +47,7 @@ struct RecentPlayHistoryView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Circle().fill(Color.asideGlassOverlay))
+                                .fill(.clear)
                                 .frame(width: 40, height: 40)
                                 .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
                             AsideIcon(icon: .play, size: 16, color: .asideTextPrimary)

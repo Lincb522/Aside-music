@@ -141,9 +141,7 @@ struct MVEmbeddedCommentSection: View {
                     }
                     .padding(.vertical, 4)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                        Color.clear // glassEffect applied via modifier
                             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -183,9 +181,7 @@ struct MVEmbeddedCommentSection: View {
                     }
                     .padding(.vertical, 4)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+                        Color.clear // glassEffect applied via modifier
                             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -311,6 +307,6 @@ struct MVCommentInputBar: View {
             .padding(.vertical, 10)
             .padding(.bottom, 4)
         }
-        .background(.ultraThinMaterial)
+        .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 }

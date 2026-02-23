@@ -30,7 +30,7 @@ struct FFmpegVideoView: UIViewRepresentable {
 final class VideoContainerView: UIView {
     private var displayLayer: AVSampleBufferDisplayLayer?
     /// 定时器：监控 displayLayer 状态，自动恢复错误
-    private var statusCheckTimer: Timer?
+    private nonisolated(unsafe) var statusCheckTimer: Timer?
     
     init(displayLayer: AVSampleBufferDisplayLayer) {
         self.displayLayer = displayLayer
@@ -48,7 +48,10 @@ final class VideoContainerView: UIView {
     }
     
     deinit {
-        statusCheckTimer?.invalidate()
+        // Timer 不是 Sendable，不能在 nonisolated deinit 中直接访问
+        // 使用 nonisolated(unsafe) 局部引用来安全地 invalidate
+        let timer = statusCheckTimer
+        timer?.invalidate()
     }
     
     override func layoutSubviews() {
@@ -417,7 +420,7 @@ struct MVPlayerView: View {
                                             .foregroundColor(.white)
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .background(.ultraThinMaterial)
+                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                                             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                             .padding(6)
                                     }
@@ -620,7 +623,8 @@ struct MVPlayerView: View {
         }
         .background {
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .overlay(Color.asideCardBackground.opacity(0.55))
         }
         .ignoresSafeArea(edges: .bottom)

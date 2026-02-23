@@ -120,7 +120,7 @@ enum KeychainHelper {
     
     // MARK: - 文件存储降级（巨魔/无签名环境）
     
-    private static var storageDir: URL = {
+    private nonisolated(unsafe) static var storageDir: URL = {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(".aside_secure", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

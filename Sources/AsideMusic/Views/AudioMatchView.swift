@@ -42,6 +42,7 @@ final class AudioMatchViewModel: ObservableObject {
     private var listenTimer: Timer?
     private var listenDuration: TimeInterval = 0
     private let maxListenDuration: TimeInterval = 15
+    private var shazamDelegate: ShazamDelegate?
     
     func startListening() {
         AVAudioApplication.requestRecordPermission { [weak self] granted in
@@ -84,7 +85,8 @@ final class AudioMatchViewModel: ObservableObject {
         listenProgress = 0
         
         session = SHSession()
-        session?.delegate = ShazamDelegate(viewModel: self)
+        shazamDelegate = ShazamDelegate(viewModel: self)
+        session?.delegate = shazamDelegate
         
         do {
             let audioSession = AVAudioSession.sharedInstance()
@@ -182,12 +184,15 @@ private class ShazamDelegate: NSObject, SHSessionDelegate {
     init(viewModel: AudioMatchViewModel) { self.viewModel = viewModel }
     
     func session(_ session: SHSession, didFind match: SHMatch) {
-        Task { @MainActor in viewModel?.handleMatch(match) }
+        let vm = UnsafeSendableBox(viewModel)
+        Task { @MainActor in vm.value?.handleMatch(match) }
     }
     func session(_ session: SHSession, didNotFindMatchFor signature: SHSignature, error: (any Error)?) {
+        let vm = UnsafeSendableBox(viewModel)
+        let err = error
         Task { @MainActor in
-            if let error { viewModel?.handleError(error) }
-            else { viewModel?.handleNoMatch() }
+            if let err { vm.value?.handleError(err) }
+            else { vm.value?.handleNoMatch() }
         }
     }
 }

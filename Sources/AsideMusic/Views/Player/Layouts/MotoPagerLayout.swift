@@ -87,9 +87,8 @@ struct MotoPagerLayout: View {
 
     var body: some View {
         ZStack {
-            // 1. 全局背景 + 复古网格纹理
-            bgColor.ignoresSafeArea()
-            retroGridBackground.ignoresSafeArea()
+            // 1. 全局背景 + 弥散光效
+            AsideBackground().ignoresSafeArea()
             
             // 2. 主布局：缝隙 + 机器（固定在底部）
             VStack(spacing: 0) {
@@ -725,8 +724,7 @@ extension MotoPagerLayout {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(topBtnFgColor)
                         .frame(width: 40, height: 40)
-                        .background(topBtnBgColor)
-                        .clipShape(Circle())
+                        .asideGlassCircle()
                         .contentShape(Circle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -738,8 +736,7 @@ extension MotoPagerLayout {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(topBtnFgColor)
                         .frame(width: 40, height: 40)
-                        .background(topBtnBgColor)
-                        .clipShape(Circle())
+                        .asideGlassCircle()
                         .contentShape(Circle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -881,7 +878,7 @@ extension MotoPagerLayout {
 
 // MARK: - PreferenceKey
 struct SlotPositionKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }

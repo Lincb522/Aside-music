@@ -94,11 +94,8 @@ struct DebugLogView: View {
             Button(action: { dismiss() }) {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Circle()
-                                .fill(Color.asideGlassOverlay)
-                        )
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .circle)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
                     
@@ -147,11 +144,8 @@ struct DebugLogView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Circle()
-                                .fill(Color.asideGlassOverlay)
-                        )
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .circle)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
                     
@@ -192,11 +186,8 @@ struct DebugLogView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 6)
         )
     }
@@ -221,11 +212,8 @@ struct DebugLogView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 12))
         )
     }
     
@@ -455,11 +443,8 @@ struct LogRowView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.asideGlassOverlay)
-                    )
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(levelColor.opacity(0.2), lineWidth: 1)

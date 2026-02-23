@@ -13,9 +13,9 @@
 
 import Foundation
 import AVFoundation
-import Combine
+@preconcurrency import Combine
 import MediaPlayer
-import FFmpegSwiftSDK
+@preconcurrency import FFmpegSwiftSDK
 
 @MainActor
 class PlayerManager: ObservableObject {
@@ -285,9 +285,13 @@ class PlayerManager: ObservableObject {
     }
     
     deinit {
-        timeUpdateTimer?.invalidate()
-        cancellables.removeAll()
-        saveStateWorkItem?.cancel()
+        // Swift 6: deinit 是 nonisolated 的，不能直接访问非 Sendable 属性
+        // 使用 MainActor.assumeIsolated 因为 @MainActor 类的 deinit 实际上在主线程执行
+        MainActor.assumeIsolated {
+            timeUpdateTimer?.invalidate()
+            cancellables.removeAll()
+            saveStateWorkItem?.cancel()
+        }
     }
 }
 
@@ -296,19 +300,37 @@ class PlayerManager: ObservableObject {
 
 /// 桥接 StreamPlayerDelegate 回调到 @MainActor PlayerManager
 /// StreamPlayer 的回调可能在后台线程，需要 dispatch 到主线程
-class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
-    private weak var playerManager: PlayerManager?
+class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
+    nonisolated(unsafe) private weak var playerManager: PlayerManager?
     
     init(playerManager: PlayerManager) {
         self.playerManager = playerManager
     }
     
     func player(_ player: StreamPlayer, didChangeState state: PlaybackState) {
+        // 在进入 @MainActor Task 前提取需要的值，避免非 Sendable 类型跨隔离域
+        let streamInfo = player.streamInfo
+        let errorDesc: String? = {
+            if case .error(let e) = state { return e.description }
+            return nil
+        }()
+        // 将 PlaybackState 转为 Sendable 的简单值
+        enum StateKind: Sendable { case idle, connecting, playing, paused, stopped, error }
+        let kind: StateKind = {
+            switch state {
+            case .idle: return .idle
+            case .connecting: return .connecting
+            case .playing: return .playing
+            case .paused: return .paused
+            case .stopped: return .stopped
+            case .error: return .error
+            }
+        }()
+        
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
-            // 记录当前会话 ID，用于校验 .stopped 回调
             let sessionAtCallback = pm.playbackSessionId
-            switch state {
+            switch kind {
             case .idle:
                 pm.isPlaying = false
                 pm.isLoading = false
@@ -318,11 +340,9 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
             case .playing:
                 pm.isPlaying = true
                 pm.isLoading = false
-                // 每次进入 playing 都更新流信息（切歌后 streamInfo 会变）
-                if let info = player.streamInfo {
+                if let info = streamInfo {
                     pm.streamInfo = info
                 }
-                // 重新应用变调设置（新的播放 pipeline 需要重新设置）
                 if pm.pitchSemitones != 0 {
                     pm.audioEffects.setPitch(pm.pitchSemitones)
                     AppLogger.info("播放状态变为 playing，重新应用变调: \(pm.pitchSemitones) 半音")
@@ -333,11 +353,8 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
             case .stopped:
                 pm.isPlaying = false
                 pm.isLoading = false
-                // 忽略旧会话的 .stopped 回调（新歌已经开始播放）
                 guard sessionAtCallback == pm.playbackSessionId else { return }
-                // 非用户主动停止时处理播放结束
                 if !pm.isUserStopping && pm.currentSong != nil {
-                    // 保护：如果播放时间远小于总时长，说明不是正常结束（可能是连接中断）
                     let playedRatio = pm.duration > 0 ? pm.currentTime / pm.duration : 0
                     if pm.duration > 0 && playedRatio < 0.5 && pm.currentTime < 30 {
                         pm.abnormalStopRetryCount += 1
@@ -357,11 +374,10 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
                         pm.playerDidFinishPlaying()
                     }
                 }
-            case .error(let error):
+            case .error:
                 pm.isPlaying = false
                 pm.isLoading = false
-                AppLogger.error("FFmpeg 播放错误: \(error.description)")
-                // 自动重试或跳下一首
+                AppLogger.error("FFmpeg 播放错误: \(errorDesc ?? "unknown")")
                 if pm.currentSong != nil {
                     pm.consecutiveFailures += 1
                     if pm.consecutiveFailures >= pm.maxConsecutiveFailures {
@@ -380,54 +396,48 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate {
     }
     
     func player(_ player: StreamPlayer, didEncounterError error: FFmpegError) {
+        let desc = error.description
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
-            AppLogger.error("FFmpeg 错误: \(error.description)")
+            AppLogger.error("FFmpeg 错误: \(desc)")
             pm.isPlaying = false
             pm.isLoading = false
         }
     }
     
     func player(_ player: StreamPlayer, didUpdateDuration duration: TimeInterval) {
+        let dur = duration
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
-            // 如果 SDK 已切换到下一首的 pipeline 但 UI 还没切换，
-            // 忽略这个 duration 更新（它属于下一首歌）
             if pm.hasPendingTrackTransition { return }
-            if duration.isFinite && !duration.isNaN && duration > 0 {
-                pm.duration = duration
+            if dur.isFinite && !dur.isNaN && dur > 0 {
+                pm.duration = dur
             }
         }
     }
     
     func playerDidTransitionToNextTrack(_ player: StreamPlayer) {
+        let streamInfo = player.streamInfo
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
             
-            // 更新 streamInfo
-            if let info = player.streamInfo {
+            if let info = streamInfo {
                 pm.streamInfo = info
             }
             
-            // 判断是音质切换还是切歌
             if let seekTime = pm.pendingQualitySwitchSeek {
-                // 音质切换：不推进播放队列，只更新流信息和时间
                 AppLogger.info("无缝音质切换完成")
                 pm.pendingQualitySwitchSeek = nil
                 pm.currentTime = seekTime
                 pm.isSeeking = false
-                // 重新预加载下一首
                 pm.prepareNextTrackURL()
             } else {
-                // 正常切歌：SDK 已切换到下一首的 pipeline
                 AppLogger.info("无缝切歌：SDK 已准备好下一首，等待当前歌曲结束")
                 pm.preparePendingNextTrack()
                 
-                // 只有在 pendingNextSong 成功准备好时才标记待切换
                 if pm.pendingNextSong != nil {
                     pm.hasPendingTrackTransition = true
                 } else {
-                    // 单曲循环或列表为空，直接走 playerDidFinishPlaying 逻辑
                     AppLogger.info("无缝切歌：无待切换歌曲（单曲循环或列表为空），走 finish 逻辑")
                     pm.playerDidFinishPlaying()
                 }

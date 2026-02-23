@@ -3,7 +3,7 @@
 // 将 NCMClient 的 async/await + APIResponse 转换为 Combine Publisher + Codable 模型
 
 import Foundation
-import Combine
+@preconcurrency import Combine
 import NeteaseCloudMusicAPI
 
 // MARK: - APIResponse 扩展：支持 Codable 解码
@@ -81,18 +81,7 @@ extension NCMClient {
     func publisher<T>(
         _ operation: @escaping () async throws -> T
     ) -> AnyPublisher<T, Error> {
-        Future<T, Error> { promise in
-            Task {
-                do {
-                    let result = try await operation()
-                    promise(.success(result))
-                } catch {
-                    promise(.failure(error))
-                }
-            }
-        }
-        .receive(on: DispatchQueue.main)
-        .eraseToAnyPublisher()
+        asyncToPublisher(operation)
     }
 
     /// 执行 API 请求并自动解码为 Codable 类型
@@ -134,40 +123,80 @@ extension NCMClient {
 }
 
 
+// MARK: - async → Combine 通用桥接
+
+/// 将 async 闭包转换为 Combine Publisher，避免 Future + Task + promise 的 Sendable 问题
+func asyncToPublisher<T>(
+    _ operation: @escaping () async throws -> T
+) -> AnyPublisher<T, Error> {
+    let sendableOp = UnsafeSendableBox(operation)
+    return Deferred {
+        Future<T, Error> { promise in
+            let sendablePromise = UnsafeSendableBox(promise)
+            Task {
+                do {
+                    let result = try await sendableOp.value()
+                    sendablePromise.value(.success(result))
+                } catch {
+                    sendablePromise.value(.failure(error))
+                }
+            }
+        }
+    }
+    .receive(on: DispatchQueue.main)
+    .eraseToAnyPublisher()
+}
+
+/// 包装非 Sendable 值使其可跨 Task 边界传递
+/// 仅用于 Future promise 和已知安全的 async 桥接场景
+struct UnsafeSendableBox<T>: @unchecked Sendable {
+    let value: T
+    init(_ value: T) { self.value = value }
+}
+
 // MARK: - Publisher → async/await 桥接
 
-extension Publisher {
+extension Publisher where Failure == Error {
     /// 将 Combine Publisher 转换为 async/await 调用
     /// 等待第一个值或抛出错误
     func async() async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
+            let state = UnsafeSendableBox(ContinuationState(continuation: continuation))
             var cancellable: AnyCancellable?
-            var didResume = false
             
             cancellable = self.first()
                 .sink(
                     receiveCompletion: { completion in
-                        guard !didResume else { return }
+                        guard !state.value.didResume else { return }
                         switch completion {
                         case .finished:
-                            // 如果没有值就完成了，视为错误
-                            if !didResume {
-                                didResume = true
-                                continuation.resume(throwing: NCMBridgeError.invalidResponse)
+                            if !state.value.didResume {
+                                state.value.didResume = true
+                                state.value.continuation.resume(throwing: NCMBridgeError.invalidResponse)
                             }
                         case .failure(let error):
-                            didResume = true
-                            continuation.resume(throwing: error)
+                            state.value.didResume = true
+                            state.value.continuation.resume(throwing: error)
                         }
                         cancellable?.cancel()
                     },
                     receiveValue: { value in
-                        guard !didResume else { return }
-                        didResume = true
-                        continuation.resume(returning: value)
+                        guard !state.value.didResume else { return }
+                        state.value.didResume = true
+                        let sendableValue = UnsafeSendableBox(value)
+                        state.value.continuation.resume(returning: sendableValue.value)
                         cancellable?.cancel()
                     }
                 )
         }
+    }
+}
+
+/// 内部状态容器，用于 Publisher.async() 的 continuation 管理
+private class ContinuationState<T> {
+    var didResume = false
+    let continuation: CheckedContinuation<T, Error>
+    init(continuation: CheckedContinuation<T, Error>) {
+        self.continuation = continuation
     }
 }

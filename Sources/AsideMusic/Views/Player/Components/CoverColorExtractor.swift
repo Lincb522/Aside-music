@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// 从封面图片提取主色调
-@Observable
+@MainActor @Observable
 final class CoverColorExtractor {
     var dominantColor: Color = .gray
     var secondaryColor: Color = .gray.opacity(0.6)
@@ -18,19 +18,22 @@ final class CoverColorExtractor {
         guard let url = URL(string: urlString) else { return }
         
         Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                guard let image = UIImage(data: data) else { return }
-                let colors = image.extractColors()
-                await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.6)) {
-                        self.dominantColor = colors.dominant
-                        self.secondaryColor = colors.secondary
-                        self.isDark = colors.isDark
-                    }
+            let colors = await Task.detached(priority: .userInitiated) {
+                do {
+                    let (data, _) = try await URLSession.shared.data(from: url)
+                    guard let image = UIImage(data: data) else { return nil as UIImage.ExtractedColors? }
+                    return image.extractColors()
+                } catch {
+                    return nil
                 }
-            } catch {
-                // 提取失败，保持默认
+            }.value
+            
+            if let colors {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    self.dominantColor = colors.dominant
+                    self.secondaryColor = colors.secondary
+                    self.isDark = colors.isDark
+                }
             }
         }
     }

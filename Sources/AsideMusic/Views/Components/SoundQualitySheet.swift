@@ -115,11 +115,8 @@ struct SoundQualitySheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -163,11 +160,8 @@ struct SoundQualitySheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

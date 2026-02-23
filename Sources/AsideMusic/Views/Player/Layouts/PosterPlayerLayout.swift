@@ -42,7 +42,7 @@ struct PosterPlayerLayout: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                bg.ignoresSafeArea()
+                AsideBackground().ignoresSafeArea()
                 
                 if showLyrics {
                     // 歌词模式 — 点击返回大字报
@@ -140,10 +140,10 @@ extension PosterPlayerLayout {
                 Button(action: { showQualitySheet = true }) {
                     Text(player.qualityButtonText)
                         .font(.custom(posterFont, size: 12))
-                        .foregroundColor(bg)
+                        .foregroundColor(fg)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(fg)
+                        .asideGlass(cornerRadius: 0)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())

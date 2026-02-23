@@ -27,10 +27,7 @@ struct MinimalMiniPlayer: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(glassBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 30)
@@ -188,18 +185,6 @@ struct MinimalMiniPlayer: View {
                 }
                 .buttonStyle(.plain)
             }
-        }
-    }
-    
-    // MARK: - 玻璃背景
-    
-    @ViewBuilder
-    private var glassBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassOverlay)
         }
     }
     

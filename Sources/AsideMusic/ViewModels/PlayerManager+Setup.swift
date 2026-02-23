@@ -24,11 +24,13 @@ extension PlayerManager {
         // 监听音频中断（电话、其他 app 播放等）
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] notification in
+            // 在进入 @MainActor Task 前提取值，避免 Sendable 数据竞争
+            guard let userInfo = notification.userInfo,
+                  let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+            let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                guard let userInfo = notification.userInfo,
-                      let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
-                      let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
                 
                 switch type {
                 case .began:
@@ -43,7 +45,7 @@ extension PlayerManager {
                 case .ended:
                     // 中断结束：根据选项决定是否恢复播放
                     AppLogger.info("音频中断结束")
-                    if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                    if let optionsValue {
                         let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
                         if options.contains(.shouldResume) && self.wasPlayingBeforeInterruption {
                             AppLogger.info("恢复播放")

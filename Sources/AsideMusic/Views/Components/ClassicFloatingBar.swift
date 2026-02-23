@@ -33,13 +33,10 @@ struct ClassicFloatingBar: View {
                 ClassicTabBarSection(currentTab: $currentTab)
             }
             .background {
-                ZStack {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                    Rectangle()
-                        .fill(Color.asideGlassOverlay)
-                }
-                .ignoresSafeArea(.container, edges: .bottom)
+                Rectangle()
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect)
+                    .ignoresSafeArea(.container, edges: .bottom)
             }
             .overlay(alignment: .top) {
                 Rectangle()

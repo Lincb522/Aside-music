@@ -215,7 +215,9 @@ class LoginViewModel: ObservableObject {
     }
     
     deinit {
-        timer?.cancel()
-        timer = nil
+        MainActor.assumeIsolated {
+            timer?.cancel()
+            timer = nil
+        }
     }
 }

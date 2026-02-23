@@ -157,66 +157,31 @@ struct ProgressBarView: View {
 // MARK: - Aside TabBar
 struct AsideTabBar: View {
     @Binding var selectedIndex: Int
+    @Namespace private var tabNS
     
     private let itemWidth: CGFloat = 64
     private let itemHeight: CGFloat = 42
-    private let bubbleWidth: CGFloat = 54
     private let padding: CGFloat = 4
     
-    private let items: [(icon: AsideIcon.IconType, label: String)] = [
-        (.home, NSLocalizedString("tabbar_home", comment: "")),
-        (.podcast, NSLocalizedString("tabbar_podcast", comment: "")),
-        (.library, NSLocalizedString("tabbar_library", comment: "")),
-        (.profile, NSLocalizedString("tabbar_profile", comment: ""))
-    ]
-    
-    private var bubbleOffset: CGFloat {
-        let totalWidth = CGFloat(items.count) * itemWidth
-        let startX = -totalWidth / 2 + itemWidth / 2
-        return startX + CGFloat(selectedIndex) * itemWidth
-    }
-    
     var body: some View {
-        ZStack {
-            // 气泡指示器
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.regularMaterial)
-                .frame(width: bubbleWidth, height: itemHeight)
-                .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-            .offset(x: bubbleOffset)
-            .animation(AsideAnimation.tabSwitch, value: selectedIndex)
-            
-            HStack(spacing: 0) {
-                ForEach(0..<items.count, id: \.self) { index in
-                    AsideTabItemView(
-                        icon: items[index].icon,
-                        label: items[index].label,
-                        isSelected: selectedIndex == index
-                    ) {
-                        withAnimation(AsideAnimation.tabSwitch) {
-                            selectedIndex = index
-                        }
-                    }
-                    .frame(width: itemWidth, height: itemHeight)
-                }
-            }
+        HStack(spacing: 0) {
+            tabButton(index: 0, icon: .home, label: NSLocalizedString("tabbar_home", comment: ""))
+            tabButton(index: 1, icon: .podcast, label: NSLocalizedString("tabbar_podcast", comment: ""))
+            tabButton(index: 2, icon: .library, label: NSLocalizedString("tabbar_library", comment: ""))
+            tabButton(index: 3, icon: .profile, label: NSLocalizedString("tabbar_profile", comment: ""))
         }
         .padding(.vertical, padding)
     }
-}
-
-// MARK: - Tab Item View
-private struct AsideTabItemView: View {
-    let icon: AsideIcon.IconType
-    let label: String
-    let isSelected: Bool
-    let action: () -> Void
     
-    var body: some View {
-        Button(action: {
+    @ViewBuilder
+    private func tabButton(index: Int, icon: AsideIcon.IconType, label: String) -> some View {
+        let isSelected = selectedIndex == index
+        Button {
             HapticManager.shared.light()
-            action()
-        }) {
+            withAnimation(AsideAnimation.tabSwitch) {
+                selectedIndex = index
+            }
+        } label: {
             VStack(spacing: 2) {
                 AsideIcon(
                     icon: icon,
@@ -228,9 +193,18 @@ private struct AsideTabItemView: View {
                     .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
                     .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.35))
             }
-            .animation(AsideAnimation.micro, value: isSelected)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(width: itemWidth, height: itemHeight)
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.asideTextPrimary.opacity(0.1))
+                        .matchedGeometryEffect(id: "tabHighlight", in: tabNS)
+                }
+            }
         }
-        .buttonStyle(AsideBouncingButtonStyle())
+        .buttonStyle(.plain)
     }
 }
 
@@ -258,17 +232,8 @@ struct UnifiedFloatingBar: View {
                 set: { currentTab = Tab.allCases[$0] }
             ))
         }
-        .background {
-            ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.asideGlassOverlay)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 22))
         .animation(AsideAnimation.floatingBar, value: player.currentSong != nil)
         .animation(AsideAnimation.tabSwitch, value: currentTab)
         .gesture(

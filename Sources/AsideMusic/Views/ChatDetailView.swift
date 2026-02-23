@@ -82,7 +82,7 @@ struct ChatDetailView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
+                .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
             }
         }
         .navigationBarHidden(true)

@@ -49,7 +49,8 @@ struct MVVideoControlsOverlay: View {
                 Button(action: { onTogglePlayback(); onScheduleControlsHide() }) {
                     ZStack {
                         Circle()
-                            .fill(.ultraThinMaterial)
+                            .fill(.clear)
+                            .glassEffect(.regular, in: .circle)
                             .frame(width: fullscreen ? 64 : 52, height: fullscreen ? 64 : 52)
                         AsideIcon(
                             icon: isPlaying ? .pause : .play,

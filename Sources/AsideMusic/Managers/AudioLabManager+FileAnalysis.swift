@@ -18,7 +18,7 @@ extension AudioLabManager {
         let sdkResult = try await AudioAnalyzer.analyzeFile(
             url: url,
             maxDuration: 60,
-            onProgress: { [weak self] progress in
+            onProgress: { @Sendable [weak self] progress in
                 Task { @MainActor in
                     self?.analysisProgress = 0.4 + progress * 0.45
                 }

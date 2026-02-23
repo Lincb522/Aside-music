@@ -49,9 +49,7 @@ struct AddToPlaylistSheet: View {
                         }
                         .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                            Color.clear // glassEffect applied via modifier
                         )
 
                         // 本地歌单区域
@@ -126,9 +124,7 @@ struct AddToPlaylistSheet: View {
                 }
                 .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                    Color.clear // glassEffect applied via modifier
                 )
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -171,9 +167,7 @@ struct AddToPlaylistSheet: View {
                     }
                     .padding(12)
                     .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                        Color.clear // glassEffect applied via modifier
                     )
                     .opacity(contains ? 0.6 : 1)
                 }
@@ -209,9 +203,7 @@ struct AddToPlaylistSheet: View {
                 }
                 .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                    Color.clear // glassEffect applied via modifier
                 )
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -254,9 +246,7 @@ struct AddToPlaylistSheet: View {
                         }
                         .padding(12)
                         .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.asideGlassOverlay))
+                            Color.clear // glassEffect applied via modifier
                         )
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
@@ -332,7 +322,7 @@ struct AddToPlaylistSheet: View {
     }
 }
 
-private class AddToPlaylistCancellableStore {
+private class AddToPlaylistCancellableStore: @unchecked Sendable {
     static let shared = AddToPlaylistCancellableStore()
     var cancellables = Set<AnyCancellable>()
 }

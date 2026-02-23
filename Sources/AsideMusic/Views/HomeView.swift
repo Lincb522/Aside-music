@@ -207,7 +207,7 @@ struct HomeView: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
             .padding(.horizontal, 24)
             .contentShape(Rectangle())
         }
@@ -446,9 +446,7 @@ struct HomeView: View {
                     .frame(width: 220)
                     .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.asideGlassOverlay))
+                        Color.clear // glassEffect applied via modifier
                             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                     )
                 }
@@ -546,9 +544,7 @@ struct HomeView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay))
+            Color.clear // glassEffect applied via modifier
                 .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -681,7 +677,7 @@ struct PlaylistVerticalCard: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(.ultraThinMaterial)
+                    .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .clipShape(Capsule())
                     .padding(8)
                 }
@@ -754,7 +750,7 @@ struct MiniSongRow: View {
                     .background(Circle().fill(Color.asideMilk))
             }
             .padding(8)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }

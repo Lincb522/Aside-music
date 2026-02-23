@@ -61,7 +61,7 @@ enum AppError: LocalizedError {
 }
 
 /// 统一错误处理器
-class ErrorHandler {
+class ErrorHandler: @unchecked Sendable {
     static let shared = ErrorHandler()
     
     private init() {}
@@ -86,8 +86,9 @@ class ErrorHandler {
         
         // UI 反馈
         if showAlert {
+            let sendableRetry = retryAction.map { UnsafeSendableBox($0) }
             DispatchQueue.main.async {
-                if let retry = retryAction {
+                if let retry = sendableRetry?.value {
                     AlertManager.shared.show(
                         title: appError.shortDescription,
                         message: appError.errorDescription ?? "发生未知错误",

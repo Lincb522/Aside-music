@@ -213,11 +213,8 @@ struct QQAccountView: View {
         .padding(.vertical, 32)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 24))
                 .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -279,11 +276,8 @@ struct QQAccountView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -460,11 +454,8 @@ struct QQAccountView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.asideGlassOverlay)
-                )
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }

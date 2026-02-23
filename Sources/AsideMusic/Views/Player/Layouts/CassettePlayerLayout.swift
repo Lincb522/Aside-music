@@ -74,7 +74,7 @@ struct CassettePlayerLayout: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                bgColor.ignoresSafeArea()
+                AsideBackground().ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     topBar
@@ -431,7 +431,7 @@ extension CassettePlayerLayout {
                     .foregroundColor(textMuted)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(shellColor))
+                    .asideGlass(cornerRadius: 15)
                     .overlay(Capsule().stroke(strokeColor, lineWidth: 1))
             }
             .buttonStyle(AsideBouncingButtonStyle())

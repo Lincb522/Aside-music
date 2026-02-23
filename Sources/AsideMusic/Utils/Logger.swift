@@ -48,7 +48,7 @@ struct LogEntry: Identifiable {
 enum AppLogger {
     
     // 日志存储（最多保留 1000 条）
-    private static var logs: [LogEntry] = []
+    private nonisolated(unsafe) static var logs: [LogEntry] = []
     private static let maxLogs = 1000
     private static let lock = NSLock()
     

@@ -11,12 +11,15 @@ struct PixelatedImageView: View {
     @State private var pixelatedImage: CGImage?
     @State private var currentURL: URL?
     
+    /// 屏幕缩放因子（现代 iPhone 均为 3x，避免使用已废弃的 UIScreen.main）
+    private nonisolated static let screenScale: CGFloat = 3.0
+    
     // 输出像素尺寸（匹配屏幕物理像素）
     private var outputPixels: Int {
-        Int(size * UIScreen.main.scale)
+        Int(size * Self.screenScale)
     }
     
-    private static let context = CIContext(options: [
+    private nonisolated static let context = CIContext(options: [
         .useSoftwareRenderer: false,
         .highQualityDownsample: false
     ])
@@ -26,7 +29,7 @@ struct PixelatedImageView: View {
             guard let cgImage = pixelatedImage else { return }
             // 直接绘制，Canvas 不会做额外插值
             ctx.draw(
-                Image(decorative: cgImage, scale: UIScreen.main.scale),
+                Image(decorative: cgImage, scale: Self.screenScale),
                 in: CGRect(origin: .zero, size: canvasSize)
             )
         }
@@ -67,7 +70,7 @@ struct PixelatedImageView: View {
             // 2. CIPixellate — 在目标尺寸上做像素化
             let filter = CIFilter.pixellate()
             filter.inputImage = scaled
-            filter.scale = Float(blockSize * UIScreen.main.scale)
+            filter.scale = Float(blockSize * Self.screenScale)
             filter.center = CGPoint(x: scaled.extent.midX, y: scaled.extent.midY)
             
             guard let output = filter.outputImage else { return }

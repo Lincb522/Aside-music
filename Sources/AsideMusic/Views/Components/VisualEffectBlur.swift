@@ -1,7 +1,7 @@
 import UIKit
 import SwiftUI
 
-// MARK: - Basic Visual Effect Blur (UIKit)
+// MARK: - Basic Visual Effect Blur (UIKit 兼容)
 struct VisualEffectBlur: UIViewRepresentable {
     var blurStyle: UIBlurEffect.Style
     var cornerRadius: CGFloat = 0
@@ -20,17 +20,18 @@ struct VisualEffectBlur: UIViewRepresentable {
     }
 }
 
-// MARK: - Simple Blur Fallback
+// MARK: - Liquid Glass 背景（iOS 26 原生）
 struct LiquidGlassBlur: View {
     var cornerRadius: CGFloat = 0
     
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.ultraThinMaterial)
+            .fill(.clear)
+            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }
 
-// MARK: - Aside Liquid Card
+// MARK: - Aside Liquid Card（iOS 26 原生 glassEffect）
 struct AsideLiquidCard<Content: View>: View {
     let cornerRadius: CGFloat
     let content: Content
@@ -42,24 +43,30 @@ struct AsideLiquidCard<Content: View>: View {
     
     var body: some View {
         content
-            .background {
-                LiquidGlassBlur(cornerRadius: cornerRadius)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }
 
 // MARK: - View Extensions
 extension View {
-    /// 毛玻璃背景
-    func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
-        self.background(LiquidGlassBlur(cornerRadius: cornerRadius))
+    /// Aside 统一液态玻璃效果（iOS 26 原生）
+    /// 替代之前的 .ultraThinMaterial + asideGlassOverlay 组合
+    func asideGlass(cornerRadius: CGFloat = 16) -> some View {
+        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
     
-    /// 液态玻璃样式（暂时回退到 SwiftUI material）
+    /// 圆形液态玻璃效果
+    func asideGlassCircle() -> some View {
+        self.glassEffect(.regular, in: .circle)
+    }
+    
+    /// 毛玻璃背景（兼容旧调用）
+    func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
+        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+    }
+    
+    /// 液态玻璃样式（兼容旧调用）
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = false) -> some View {
-        AsideLiquidCard(cornerRadius: cornerRadius) {
-            self
-        }
+        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }

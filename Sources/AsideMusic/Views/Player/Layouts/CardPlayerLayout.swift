@@ -120,12 +120,12 @@ struct CardPlayerLayout: View {
 extension CardPlayerLayout {
     var backgroundLayer: some View {
         ZStack {
-            // 基础色
-            Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            // 原生弥散大背景
+            AsideBackground()
             
-            // 氛围光
+            // 氛围光叠加
             LinearGradient(
-                colors: [dominantColor.opacity(0.3), secondaryColor.opacity(0.1), .clear],
+                colors: [dominantColor.opacity(0.25), secondaryColor.opacity(0.1), .clear],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -140,8 +140,7 @@ extension CardPlayerLayout {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.primary)
                     .frame(width: 40, height: 40)
-                    .background(Color(UIColor.systemBackground).opacity(0.5))
-                    .clipShape(Circle())
+                    .asideGlassCircle()
                     .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -154,8 +153,7 @@ extension CardPlayerLayout {
                     .foregroundColor(.primary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color(UIColor.systemBackground).opacity(0.5))
-                    .clipShape(Capsule())
+                    .asideGlass(cornerRadius: 15)
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
@@ -195,8 +193,7 @@ extension CardPlayerLayout {
                 }
             }
             .frame(width: width, height: height)
-            .background(Color(UIColor.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 32))
+            .asideGlass(cornerRadius: 32)
             .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
             .rotationEffect(.degrees(Double(dragOffset.width / 15)))
             .offset(x: dragOffset.width, y: dragOffset.height)
@@ -319,7 +316,7 @@ extension CardPlayerLayout {
                 Spacer()
             }
         }
-        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .asideGlass(cornerRadius: 32)
     }
 }
 
@@ -375,8 +372,7 @@ extension CardPlayerLayout {
         }
         .padding(24)
         .frame(width: geo.size.width - 64)
-        .background(Color(UIColor.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .asideGlass(cornerRadius: 24)
         .shadow(color: Color.black.opacity(0.1), radius: 15, x: 0, y: 8)
     }
 }
@@ -439,8 +435,7 @@ extension CardPlayerLayout {
         .padding(.top, 24) // Extra padding for overlap
         .padding(.bottom, 16)
         .frame(width: geo.size.width - 80)
-        .background(Color(UIColor.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .asideGlass(cornerRadius: 24)
         .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
     }
 }

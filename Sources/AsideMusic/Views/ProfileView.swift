@@ -529,7 +529,7 @@ struct ProfileView: View {
 
 // MARK: - Cancellable 存储（避免 struct 中持有 Set<AnyCancellable>）
 
-private class ProfileCancellableStore {
+private class ProfileCancellableStore: @unchecked Sendable {
     static let shared = ProfileCancellableStore()
     var cancellables = Set<AnyCancellable>()
 }

@@ -300,9 +300,11 @@ class BroadcastPlayerViewModel: ObservableObject {
     }
 
     deinit {
-        avPlayer?.pause()
-        avPlayer = nil
-        waveTimer?.invalidate()
+        MainActor.assumeIsolated {
+            avPlayer?.pause()
+            avPlayer = nil
+            waveTimer?.invalidate()
+        }
     }
 }
 

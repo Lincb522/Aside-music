@@ -3,7 +3,7 @@
 // 完全基于 NeteaseCloudMusicAPI-Swift (NCMClient) 实现
 
 import Foundation
-import Combine
+@preconcurrency import Combine
 import NeteaseCloudMusicAPI
 import QQMusicKit
 
@@ -13,7 +13,7 @@ extension Notification.Name {
     static let didLogout = Notification.Name("AsideMusic.didLogout")
 }
 
-class APIService {
+class APIService: @unchecked Sendable {
     static let shared = APIService()
 
     // MARK: - NCMClient 实例
@@ -591,7 +591,7 @@ class APIService {
     }
 
     /// 歌曲URL结果
-    struct SongUrlResult {
+    struct SongUrlResult: Sendable {
         let url: String
         /// 是否来自解灰源（酷狗）
         let isUnblocked: Bool
@@ -647,23 +647,17 @@ class APIService {
                 let title = song?.name
                 let artist = song?.artistName
                 
-                return Future<SongUrlResult, Error> { promise in
-                    Task {
-                        do {
-                            let result = try await self.searchUnblockSource.match(
-                                id: id, title: title, artist: artist, quality: kugouQuality
-                            )
-                            if !result.url.isEmpty {
-                                AppLogger.info("搜索解灰成功: \(title ?? "") - \(artist ?? "")")
-                                promise(.success(SongUrlResult(url: result.url, isUnblocked: true)))
-                            } else {
-                                AppLogger.warning("搜索解灰无结果: \(title ?? "")")
-                                promise(.failure(PlaybackError.unavailable))
-                            }
-                        } catch {
-                            AppLogger.error("搜索解灰失败: \(error)")
-                            promise(.failure(PlaybackError.unavailable))
-                        }
+                return asyncToPublisher { [weak self] in
+                    guard let self = self else { throw PlaybackError.unavailable }
+                    let result = try await self.searchUnblockSource.match(
+                        id: id, title: title, artist: artist, quality: kugouQuality
+                    )
+                    if !result.url.isEmpty {
+                        AppLogger.info("搜索解灰成功: \(title ?? "") - \(artist ?? "")")
+                        return SongUrlResult(url: result.url, isUnblocked: true)
+                    } else {
+                        AppLogger.warning("搜索解灰无结果: \(title ?? "")")
+                        throw PlaybackError.unavailable
                     }
                 }
                 .eraseToAnyPublisher()
@@ -709,28 +703,22 @@ class APIService {
 
     /// 将真实播放 URL 提交给后端，换取短链接
     static func shortenPlayUrl(_ playUrl: String) -> AnyPublisher<String, Error> {
-        Future<String, Error> { promise in
-            Task {
-                do {
-                    let base = SecureConfig.apiBaseURL.hasSuffix("/")
-                        ? String(SecureConfig.apiBaseURL.dropLast())
-                        : SecureConfig.apiBaseURL
-                    let body = try await postToBackend(
-                        serverUrl: SecureConfig.apiBaseURL,
-                        route: "/play/shorten",
-                        params: ["url": playUrl]
-                    )
-                    if let data = body["data"] as? [String: Any],
-                       let code = data["code"] as? String {
-                        promise(.success("\(base)/play/\(code)"))
-                    } else {
-                        promise(.failure(URLError(.badServerResponse)))
-                    }
-                } catch {
-                    promise(.failure(error))
-                }
+        asyncToPublisher {
+            let base = SecureConfig.apiBaseURL.hasSuffix("/")
+                ? String(SecureConfig.apiBaseURL.dropLast())
+                : SecureConfig.apiBaseURL
+            let body = try await postToBackend(
+                serverUrl: SecureConfig.apiBaseURL,
+                route: "/play/shorten",
+                params: ["url": playUrl]
+            )
+            if let data = body["data"] as? [String: Any],
+               let code = data["code"] as? String {
+                return "\(base)/play/\(code)"
+            } else {
+                throw URLError(.badServerResponse)
             }
-        }.eraseToAnyPublisher()
+        }
     }
 
     func fetchSongDetails(ids: [Int]) -> AnyPublisher<[Song], Error> {

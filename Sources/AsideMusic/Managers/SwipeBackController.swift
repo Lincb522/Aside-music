@@ -2,6 +2,7 @@ import UIKit
 import SwiftUI
 
 /// 全局侧滑返回控制器 - 拦截 UINavigationController 实现全屏返回手势
+@MainActor
 class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
     
     static let shared = SwipeBackController()
@@ -169,7 +170,7 @@ class SwipeBackViewController: UIViewController {
 
 /// 接收 UIPanGestureRecognizer 状态变化，通知 EdgeSwipeGuard
 final class SwipeGuardTarget: NSObject {
-    @objc func handleGestureState(_ gesture: UIGestureRecognizer) {
+    @MainActor @objc func handleGestureState(_ gesture: UIGestureRecognizer) {
         switch gesture.state {
         case .began, .changed:
             EdgeSwipeGuard.shared.beginSwipe()

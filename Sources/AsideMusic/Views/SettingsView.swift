@@ -532,16 +532,14 @@ struct SettingsSection<Content: View>: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.asideGlassOverlay)
-                    )
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .allowsHitTesting(false)
 
                 content
             }
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }

@@ -211,7 +211,7 @@ struct AlbumDetailView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
-                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 24)
@@ -319,7 +319,7 @@ struct AlbumDescSheet: View {
                             .lineSpacing(6)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(16)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.asideGlassOverlay)).shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2))
+                            .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     } else {
                         VStack(spacing: 14) {
                             AsideIcon(icon: .info, size: 36, color: .asideTextSecondary.opacity(0.3))

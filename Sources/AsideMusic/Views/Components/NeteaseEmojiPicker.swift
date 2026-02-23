@@ -166,7 +166,7 @@ struct NeteaseEmojiPicker: View {
             emojiGrid
         }
         .frame(height: 200)
-        .background(.ultraThinMaterial)
+        .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
     
     // MARK: - 分类标签

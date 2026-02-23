@@ -35,7 +35,7 @@ struct AsideAnimation {
 // MARK: - 全局边缘滑动防误触管理器
 
 /// 监听返回手势状态，在滑动期间抑制按钮点击
-final class EdgeSwipeGuard {
+final class EdgeSwipeGuard: @unchecked Sendable {
     static let shared = EdgeSwipeGuard()
     
     /// 当前是否正在进行边缘滑动手势
