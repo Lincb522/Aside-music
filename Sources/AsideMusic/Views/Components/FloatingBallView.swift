@@ -208,8 +208,13 @@ struct FloatingBallView: View {
                     )
                     .frame(width: 36, height: 36)
                     .background(
-                        Circle()
-                            .fill(currentTab == item.tab ? Color.asideAccent.opacity(0.15) : Color.clear)
+                        Group {
+                            if currentTab == item.tab {
+                                Circle()
+                                    .fill(.clear)
+                                    .glassEffect(Glass.regular.tint(Color.asideAccent.opacity(0.2)), in: .circle)
+                            }
+                        }
                     )
                 }
                 .buttonStyle(.plain)

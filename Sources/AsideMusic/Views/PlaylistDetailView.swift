@@ -245,7 +245,8 @@ struct PlaylistDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: rp.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.asideCardBackground)
+                                        .fill(.clear)
+                                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
                                 }
                                 .frame(width: 130, height: 130)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))

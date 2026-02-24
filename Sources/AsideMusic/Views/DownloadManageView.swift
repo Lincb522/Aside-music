@@ -140,14 +140,15 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 10).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideCardBackground)
+                    .fill(.clear)
                     .frame(width: 48, height: 48)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 10))
                     .overlay(AsideIcon(icon: .musicNote, size: 20, color: .asideTextSecondary, lineWidth: 1.4))
             }
             
@@ -230,14 +231,15 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 10).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideCardBackground)
+                    .fill(.clear)
                     .frame(width: 48, height: 48)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 10))
             }
             
             VStack(alignment: .leading, spacing: 6) {
@@ -250,7 +252,7 @@ struct DownloadManageView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.asideCardBackground)
+                            .fill(Color.asideSeparator.opacity(0.3))
                             .frame(height: 3)
                         RoundedRectangle(cornerRadius: 2)
                             .fill(Color.asideAccentBlue)

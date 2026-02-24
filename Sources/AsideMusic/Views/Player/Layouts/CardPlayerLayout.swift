@@ -193,7 +193,7 @@ extension CardPlayerLayout {
                 }
             }
             .frame(width: width, height: height)
-            .asideGlass(cornerRadius: 32)
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
             .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
             .rotationEffect(.degrees(Double(dragOffset.width / 15)))
             .offset(x: dragOffset.width, y: dragOffset.height)
@@ -263,6 +263,7 @@ extension CardPlayerLayout {
             CachedAsyncImage(url: url) { Color.gray.opacity(0.1) }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size.width, height: size.height)
+                .clipped()
         } else {
             ZStack {
                 Color.gray.opacity(0.1)

@@ -153,7 +153,9 @@ struct SongDetailView: View {
                 }) {
                     AsideIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
-                        .background(Color.asideCardBackground)
+                        .background(
+                            Circle().fill(.clear).glassEffect(.regular, in: .circle)
+                        )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
                 }
@@ -164,7 +166,9 @@ struct SongDetailView: View {
                 }) {
                     AsideIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
-                        .background(Color.asideCardBackground)
+                        .background(
+                            Circle().fill(.clear).glassEffect(.regular, in: .circle)
+                        )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
                 }
@@ -262,7 +266,8 @@ struct SongDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.asideCardBackground)
+                                        .fill(.clear)
+                                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
                                 }
                                 .frame(width: 120, height: 120)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))

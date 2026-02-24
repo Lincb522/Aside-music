@@ -625,7 +625,6 @@ struct MVPlayerView: View {
             Rectangle()
                 .fill(.clear)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                .overlay(Color.asideCardBackground.opacity(0.55))
         }
         .ignoresSafeArea(edges: .bottom)
     }

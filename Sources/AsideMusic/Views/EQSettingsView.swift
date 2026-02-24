@@ -145,7 +145,7 @@ struct EQSettingsView: View {
                     .foregroundColor(.asideTextSecondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.asideCardBackground)
+                    .background(Capsule().fill(.clear).glassEffect(.regular, in: .capsule))
                     .clipShape(Capsule())
             }
             .opacity(eqManager.isEnabled ? 1 : 0)
@@ -641,7 +641,8 @@ struct EQSettingsView: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.asideAccent : Color.asideCardBackground)
+                    .fill(isSelected ? Color.asideAccent : .clear)
+                    .glassEffect(isSelected ? .identity : .regular, in: .capsule)
             )
         }
         .buttonStyle(.plain)
@@ -669,7 +670,8 @@ struct EQSettingsView: View {
             .frame(width: 72, height: 72)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? Color.asideCardBackground : Color.asideCardBackground.opacity(0.6))
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -726,7 +728,8 @@ struct EQSettingsView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isSelected ? Color.asideAccent.opacity(0.08) : Color.asideCardBackground)
+                .fill(isSelected ? Color.asideAccent.opacity(0.08) : .clear)
+                .glassEffect(isSelected ? .identity : .regular, in: .rect(cornerRadius: 14))
         )
     }
 
@@ -772,7 +775,8 @@ struct EQSettingsView: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.asideCardBackground)
+                                .fill(.clear)
+                                .glassEffect(.regular, in: .rect(cornerRadius: 12))
                         )
 
                     Button(action: {

@@ -205,8 +205,9 @@ struct ClassicPlayerLayout: View {
             Button(action: { withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() } }) {
                 ZStack {
                     Circle()
-                        .fill(contentColor.opacity(0.1))
+                        .fill(.clear)
                         .frame(width: 44, height: 44)
+                        .glassEffect(.regular, in: .circle)
                     AsideIcon(icon: .more, size: 20, color: contentColor)
                 }
             }
@@ -380,16 +381,17 @@ struct ClassicPlayerLayout: View {
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
                         Circle()
-                            .fill(Color.asideIconBackground)
+                            .fill(.clear)
                             .frame(width: 72, height: 72)
+                            .glassEffect(.regular, in: .circle)
                             .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
 
                         if player.isLoading {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: Color.asideIconForeground))
+                                .progressViewStyle(CircularProgressViewStyle(tint: Color.asideTextPrimary))
                                 .scaleEffect(1.2)
                         } else {
-                            AsideIcon(icon: player.isPlaying ? .pause : .play, size: 32, color: .asideIconForeground)
+                            AsideIcon(icon: player.isPlaying ? .pause : .play, size: 32, color: .asideTextPrimary)
                         }
                     }
                 }

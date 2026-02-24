@@ -18,8 +18,9 @@ struct AsideBackButton: View {
         }) {
             ZStack {
                 Circle()
-                    .fill(isDarkBackground ? Color.white.opacity(0.2) : Color.asideSeparator)
+                    .fill(.clear)
                     .frame(width: 40, height: 40)
+                    .glassEffect(.regular, in: .circle)
 
                 AsideIcon(
                     icon: style == .back ? .back : .chevronRight,
@@ -132,17 +133,17 @@ struct AsideBackground: View {
                         ))
 
                     } else {
-                        // ── 浅色模式：柔和的奶油弥散（更明显） ──
+                        // ── 浅色模式：柔和弥散 + 更丰富的色彩层次 ──
 
-                        // 左上 — 暖米色光晕
+                        // 左上 — 暖杏色光晕（更饱和）
                         let topLeft = Path(ellipseIn: CGRect(
                             x: -w * 0.2, y: -h * 0.15,
                             width: w * 1.0, height: h * 0.65
                         ))
                         context.fill(topLeft, with: .radialGradient(
                             Gradient(colors: [
-                                Color(hex: "DDD3C7").opacity(0.85),
-                                Color(hex: "E6DFD8").opacity(0.4),
+                                Color(hex: "D4C0AE").opacity(0.95),
+                                Color(hex: "DDD3C7").opacity(0.5),
                                 Color(hex: "E6DFD8").opacity(0)
                             ]),
                             center: CGPoint(x: w * 0.12, y: h * 0.08),
@@ -150,15 +151,15 @@ struct AsideBackground: View {
                             endRadius: w * 0.6
                         ))
 
-                        // 右上 — 淡蓝灰光晕
+                        // 右上 — 淡薰衣草蓝光晕（更鲜明）
                         let topRight = Path(ellipseIn: CGRect(
                             x: w * 0.3, y: -h * 0.1,
                             width: w * 0.85, height: h * 0.6
                         ))
                         context.fill(topRight, with: .radialGradient(
                             Gradient(colors: [
-                                Color(hex: "C8D4E4").opacity(0.75),
-                                Color(hex: "D8E0EA").opacity(0.35),
+                                Color(hex: "B8C8E0").opacity(0.9),
+                                Color(hex: "C8D4E4").opacity(0.45),
                                 Color(hex: "D8E0EA").opacity(0)
                             ]),
                             center: CGPoint(x: w * 0.8, y: h * 0.06),
@@ -166,15 +167,15 @@ struct AsideBackground: View {
                             endRadius: w * 0.55
                         ))
 
-                        // 中部 — 淡玫瑰暖色（增加温度感）
+                        // 中部 — 淡玫瑰暖色（更明显的温度感）
                         let mid = Path(ellipseIn: CGRect(
                             x: w * 0.05, y: h * 0.2,
                             width: w * 0.7, height: h * 0.45
                         ))
                         context.fill(mid, with: .radialGradient(
                             Gradient(colors: [
-                                Color(hex: "E5D5CA").opacity(0.65),
-                                Color(hex: "EDE5DF").opacity(0.3),
+                                Color(hex: "DBBFB0").opacity(0.8),
+                                Color(hex: "E5D5CA").opacity(0.4),
                                 Color(hex: "EDE5DF").opacity(0)
                             ]),
                             center: CGPoint(x: w * 0.4, y: h * 0.4),
@@ -182,15 +183,31 @@ struct AsideBackground: View {
                             endRadius: w * 0.45
                         ))
 
-                        // 底部 — 奶油色收底
+                        // 右下 — 淡紫丁香（增加色彩丰富度）
+                        let rightBottom = Path(ellipseIn: CGRect(
+                            x: w * 0.35, y: h * 0.35,
+                            width: w * 0.7, height: h * 0.45
+                        ))
+                        context.fill(rightBottom, with: .radialGradient(
+                            Gradient(colors: [
+                                Color(hex: "C8B8D4").opacity(0.6),
+                                Color(hex: "D8D0E0").opacity(0.25),
+                                Color(hex: "D8D0E0").opacity(0)
+                            ]),
+                            center: CGPoint(x: w * 0.7, y: h * 0.55),
+                            startRadius: 0,
+                            endRadius: w * 0.4
+                        ))
+
+                        // 底部 — 奶油色收底（更温暖）
                         let bottom = Path(ellipseIn: CGRect(
                             x: w * 0.0, y: h * 0.45,
                             width: w * 1.0, height: h * 0.6
                         ))
                         context.fill(bottom, with: .radialGradient(
                             Gradient(colors: [
-                                Color(hex: "E8DFD4").opacity(0.7),
-                                Color(hex: "F0EBE4").opacity(0.3),
+                                Color(hex: "DDD0C0").opacity(0.8),
+                                Color(hex: "E8DFD4").opacity(0.4),
                                 Color(hex: "F0EBE4").opacity(0)
                             ]),
                             center: CGPoint(x: w * 0.5, y: h * 0.72),

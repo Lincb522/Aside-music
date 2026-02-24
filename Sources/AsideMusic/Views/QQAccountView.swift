@@ -229,8 +229,9 @@ struct QQAccountView: View {
             
             ZStack {
                 Circle()
-                    .fill(Color.asideIconBackground)
+                    .fill(.clear)
                     .frame(width: 52, height: 52)
+                    .glassEffect(.regular, in: .circle)
                 AsideIcon(icon: .musicNote, size: 24, color: .asideIconForeground)
             }
         }
@@ -354,7 +355,11 @@ struct QQAccountView: View {
                 .foregroundColor(.asideIconForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
-                .background(Color.asideIconBackground)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -428,7 +433,11 @@ struct QQAccountView: View {
                 .foregroundColor(.asideIconForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Color.asideIconBackground)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(AsideBouncingButtonStyle())

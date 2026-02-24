@@ -2,6 +2,7 @@ import UIKit
 import SwiftUI
 
 // MARK: - Basic Visual Effect Blur (UIKit 兼容)
+@available(*, deprecated, message: "使用 .glassEffect() 替代")
 struct VisualEffectBlur: UIViewRepresentable {
     var blurStyle: UIBlurEffect.Style
     var cornerRadius: CGFloat = 0

@@ -11,7 +11,11 @@ struct QRLoginView: View {
                     .interpolation(.none)
                     .frame(width: 120, height: 120)
                     .padding(10)
-                    .background(Color.asideCardBackground)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.clear)
+                            .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                    )
                     .cornerRadius(14)
                     .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
                     .overlay(
@@ -57,7 +61,11 @@ struct PhoneLoginView: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 50)
-            .background(Color.asideCardBackground.opacity(0.8))
+            .background(
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 25))
+            )
             .cornerRadius(25)
             .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
             
@@ -93,7 +101,11 @@ struct PhoneLoginView: View {
             .padding(.leading, 16)
             .padding(.trailing, 8)
             .frame(height: 50)
-            .background(Color.asideCardBackground.opacity(0.8))
+            .background(
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 25))
+            )
             .cornerRadius(25)
             .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
             
@@ -116,7 +128,7 @@ struct PhoneLoginView: View {
                     .background(
                         Capsule()
                             .stroke(Color.asideSeparator, lineWidth: 1)
-                            .background(Capsule().fill(Color.asideCardBackground.opacity(0.5)))
+                            .background(Capsule().fill(.clear).glassEffect(.regular, in: .capsule))
                     )
                     .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             }

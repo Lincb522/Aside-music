@@ -166,22 +166,18 @@ struct HomeView: View {
             Spacer()
 
             Button(action: { showPersonalFM = true }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideCardBackground)
-                        .frame(width: 44, height: 44)
-                    AsideIcon(icon: .fm, size: 22, color: .asideTextPrimary)
-                }
+                AsideIcon(icon: .fm, size: 22, color: .asideTextPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(.clear)
+                    .glassEffect(.regular, in: .circle)
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
             NavigationLink(value: HomeDestination.search) {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideCardBackground)
-                        .frame(width: 44, height: 44)
-                    AsideIcon(icon: .search, size: 20, color: .asideTextPrimary)
-                }
+                AsideIcon(icon: .search, size: 20, color: .asideTextPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(.clear)
+                    .glassEffect(.regular, in: .circle)
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
@@ -670,15 +666,14 @@ struct PlaylistVerticalCard: View {
 
                 if let count = playlist.playCount, count > 0 {
                     HStack(spacing: 3) {
-                        AsideIcon(icon: .play, size: 7, color: .white)
+                        AsideIcon(icon: .play, size: 7, color: .primary)
                         Text(formatCount(count))
                             .font(.system(size: 10, weight: .bold, design: .rounded))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                    .clipShape(Capsule())
+                    .background(.ultraThinMaterial, in: Capsule())
                     .padding(8)
                 }
             }

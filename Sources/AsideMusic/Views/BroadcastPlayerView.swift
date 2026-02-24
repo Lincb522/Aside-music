@@ -136,15 +136,16 @@ struct BroadcastPlayerView: View {
         VStack(spacing: 14) {
             if let url = channel.coverImageUrl {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 16).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 16).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
                 }
                 .frame(width: 80, height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             } else {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.asideCardBackground)
+                    .fill(.clear)
                     .frame(width: 80, height: 80)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .overlay(AsideIcon(icon: .radio, size: 32, color: .asideTextSecondary, lineWidth: 1.4))
             }
 
@@ -174,8 +175,9 @@ struct BroadcastPlayerView: View {
         Button { viewModel.togglePlay() } label: {
             ZStack {
                 Circle()
-                    .fill(Color.asideIconBackground)
+                    .fill(.clear)
                     .frame(width: 72, height: 72)
+                    .glassEffect(.regular, in: .circle)
                     .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
                 if viewModel.isLoading {
                     ProgressView()

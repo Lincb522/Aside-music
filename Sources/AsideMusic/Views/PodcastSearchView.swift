@@ -62,7 +62,11 @@ struct PodcastSearchView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color.asideCardBackground)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
+            )
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Button(String(localized: "podcast_search_cancel")) {
@@ -156,7 +160,8 @@ struct PodcastSearchView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideCardBackground)
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 10))
             }
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 10))

@@ -73,7 +73,11 @@ struct AsideAlertView: View {
                 }
             }
             .padding(24)
-            .background(Color.asideCardBackground)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 20))
+            )
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
             .padding(.horizontal, 40)

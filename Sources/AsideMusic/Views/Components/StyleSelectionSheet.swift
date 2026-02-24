@@ -137,12 +137,20 @@ struct StyleSelectionMorphView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(
-                    Capsule()
-                        .fill(isSelected ? Color.asideIconBackground.opacity(0.85) : Color.asideCardBackground)
-                        .overlay(
+                    Group {
+                        if isSelected {
                             Capsule()
-                                .stroke(Color.asideSeparator, lineWidth: isSelected ? 0 : 1)
-                        )
+                                .fill(Color.asideIconBackground.opacity(0.85))
+                        } else {
+                            Capsule()
+                                .fill(.clear)
+                                .glassEffect(.regular, in: .capsule)
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.asideSeparator, lineWidth: 1)
+                                )
+                        }
+                    }
                 )
         }
         .buttonStyle(ScaleButtonStyle())

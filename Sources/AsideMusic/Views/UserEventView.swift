@@ -170,7 +170,11 @@ private struct EventCard: View {
             }
         }
         .padding(16)
-        .background(Color.asideCardBackground)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

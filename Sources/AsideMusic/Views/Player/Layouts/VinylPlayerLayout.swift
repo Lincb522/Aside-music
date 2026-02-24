@@ -631,12 +631,12 @@ extension VinylPlayerLayout {
                         AsideIcon(
                             icon: player.isPlaying ? .pause : .play,
                             size: 18,
-                            color: .asideIconForeground
+                            color: .asideTextPrimary
                         )
                     }
                     Text(player.isPlaying ? "PAUSE" : "PLAY")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.asideIconForeground)
+                        .foregroundColor(.asideTextPrimary)
                         .tracking(1)
                 }
                 .frame(maxWidth: .infinity)

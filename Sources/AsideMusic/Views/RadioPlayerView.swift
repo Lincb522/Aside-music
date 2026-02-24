@@ -169,15 +169,17 @@ struct RadioPlayerView: View {
 
             // 中圈
             Circle()
-                .fill(Color.asideCardBackground)
+                .fill(.clear)
                 .frame(width: 240, height: 240)
+                .glassEffect(.regular, in: .circle)
                 .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 8)
 
             // 封面图
             if let radio = viewModel.radioDetail {
                 CachedAsyncImage(url: radio.coverUrl) {
                     Circle()
-                        .fill(Color.asideCardBackground)
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .circle)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 220, height: 220)
@@ -185,8 +187,9 @@ struct RadioPlayerView: View {
                 .rotationEffect(.degrees(isRadioPlaying ? dialRotation : 0))
             } else {
                 Circle()
-                    .fill(Color.asideCardBackground)
+                    .fill(.clear)
                     .frame(width: 220, height: 220)
+                    .glassEffect(.regular, in: .circle)
                     .overlay(
                         AsideIcon(icon: .radio, size: 56, color: .asideTextSecondary.opacity(0.3), lineWidth: 1.2)
                     )
@@ -339,7 +342,7 @@ struct RadioPlayerView: View {
                 AsideIcon(icon: .skipBack, size: 22, color: .asideTextPrimary, lineWidth: 1.6)
             }
             .frame(width: 50, height: 50)
-            .background(Color.asideCardBackground)
+            .background(Circle().fill(.clear).glassEffect(.regular, in: .circle))
             .clipShape(Circle())
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -360,8 +363,9 @@ struct RadioPlayerView: View {
             Button(action: { handlePlayPause() }) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideIconBackground)
+                        .fill(.clear)
                         .frame(width: 72, height: 72)
+                        .glassEffect(.regular, in: .circle)
                         .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
 
                     if isRadioLoading {
@@ -394,7 +398,7 @@ struct RadioPlayerView: View {
                 AsideIcon(icon: .skipForward, size: 22, color: .asideTextPrimary, lineWidth: 1.6)
             }
             .frame(width: 50, height: 50)
-            .background(Color.asideCardBackground)
+            .background(Circle().fill(.clear).glassEffect(.regular, in: .circle))
             .clipShape(Circle())
             .buttonStyle(AsideBouncingButtonStyle())
         }
@@ -464,7 +468,6 @@ struct RadioPlayerView: View {
             Rectangle()
                 .fill(.clear)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                .overlay(Color.asideCardBackground.opacity(0.55))
         }
         .ignoresSafeArea(edges: .bottom)
     }

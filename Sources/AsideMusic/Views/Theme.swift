@@ -37,16 +37,19 @@ extension Color {
         Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
     }
     
+    @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var asideCardBackground: Color {
         Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5))
     }
     
     /// 毛玻璃卡片叠加色（浅色白色半透明，深色浅灰半透明）
+    @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var asideGlassOverlay: Color {
         Color(light: Color.white.opacity(0.55), dark: Color(hex: "3A3A3C").opacity(0.4))
     }
     
     /// Sheet 面板背景叠加色
+    @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var asideSheetOverlay: Color {
         Color(light: Color.white.opacity(0.45), dark: Color(hex: "2C2C2E").opacity(0.45))
     }
@@ -121,18 +124,10 @@ extension Color {
 struct AsideGlassCardBackground: View {
     var cornerRadius: CGFloat = 16
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(.clear)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(colorScheme == .dark
-                          ? Color.white.opacity(0.06)
-                          : Color.white.opacity(0.55))
-            )
+            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }
 
