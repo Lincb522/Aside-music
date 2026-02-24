@@ -21,19 +21,28 @@ struct VisualEffectBlur: UIViewRepresentable {
     }
 }
 
-// MARK: - Liquid Glass 背景（iOS 26 原生）
+// MARK: - Liquid Glass 背景（iOS 26 原生，低版本 fallback ultraThinMaterial）
 struct LiquidGlassBlur: View {
     var cornerRadius: CGFloat = 0
     var useFloatingBarFill: Bool = false
     
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(useFloatingBarFill ? Color.asideFloatingBarFill : Color.asideMilk)
-            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if #available(iOS 26, *) {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(useFloatingBarFill ? Color.asideFloatingBarFill : Color.asideMilk)
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(useFloatingBarFill ? Color.asideFloatingBarFill : Color.asideMilk)
+                )
+        }
     }
 }
 
-// MARK: - Aside Liquid Card（iOS 26 原生 glassEffect）
+// MARK: - Aside Liquid Card（iOS 26 原生 glassEffect，低版本 fallback）
 struct AsideLiquidCard<Content: View>: View {
     let cornerRadius: CGFloat
     let content: Content
@@ -44,31 +53,130 @@ struct AsideLiquidCard<Content: View>: View {
     }
     
     var body: some View {
-        content
-            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if #available(iOS 26, *) {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .fill(Color.asideMilk)
+                        )
+                )
+        }
     }
 }
 
 // MARK: - View Extensions
 extension View {
-    /// Aside 统一液态玻璃效果（iOS 26 原生）
-    /// 替代之前的 .ultraThinMaterial + asideGlassOverlay 组合
+    /// Aside 统一液态玻璃效果（iOS 26+: glassEffect，低版本: ultraThinMaterial）
+    @ViewBuilder
     func asideGlass(cornerRadius: CGFloat = 16) -> some View {
-        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self.background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(Color.asideMilk)
+                    )
+            )
+        }
     }
     
     /// 圆形液态玻璃效果
+    @ViewBuilder
     func asideGlassCircle() -> some View {
-        self.glassEffect(.regular, in: .circle)
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: .circle)
+        } else {
+            self.background(
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Circle().fill(Color.asideMilk))
+            )
+        }
+    }
+    
+    /// 胶囊形液态玻璃效果
+    @ViewBuilder
+    func asideGlassCapsule() -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: .capsule)
+        } else {
+            self.background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().fill(Color.asideMilk))
+            )
+        }
     }
     
     /// 毛玻璃背景（兼容旧调用）
+    @ViewBuilder
     func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
-        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self.background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(Color.asideMilk)
+                    )
+            )
+        }
     }
     
     /// 液态玻璃样式（兼容旧调用）
+    @ViewBuilder
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = false) -> some View {
-        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self.background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(Color.asideMilk)
+                    )
+            )
+        }
+    }
+}
+
+// MARK: - Shape 扩展：兼容 glassEffect 的 fill
+extension Shape {
+    /// Shape.fill(color).asideGlass(shape) — 低版本 fallback 到 material + 颜色叠加
+    @ViewBuilder
+    func fillWithGlass(_ color: Color = .asideMilk, cornerRadius: CGFloat = 16) -> some View {
+        if #available(iOS 26, *) {
+            self.fill(color).glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            ZStack {
+                self.fill(.ultraThinMaterial)
+                self.fill(color)
+            }
+        }
+    }
+    
+    /// Shape.fill(color).glassEffect(.regular, in: .circle) 的兼容版
+    @ViewBuilder
+    func fillWithGlassCircle(_ color: Color = .asideMilk) -> some View {
+        if #available(iOS 26, *) {
+            self.fill(color).glassEffect(.regular, in: .circle)
+        } else {
+            ZStack {
+                self.fill(.ultraThinMaterial)
+                self.fill(color)
+            }
+        }
     }
 }

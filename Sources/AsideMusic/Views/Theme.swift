@@ -124,15 +124,23 @@ extension Color {
 
 // MARK: - 毛玻璃卡片背景
 
-/// 毛玻璃卡片背景 — .ultraThinMaterial + 颜色叠加
-/// 浅色：白色磨砂半透明；深色：浅灰色磨砂半透明
+/// 毛玻璃卡片背景 — iOS 26: glassEffect，低版本: ultraThinMaterial + 颜色叠加
 struct AsideGlassCardBackground: View {
     var cornerRadius: CGFloat = 16
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.asideMilk)
-            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if #available(iOS 26, *) {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.asideMilk)
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color.asideMilk)
+                )
+        }
     }
 }
 
