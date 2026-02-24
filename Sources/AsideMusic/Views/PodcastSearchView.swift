@@ -64,7 +64,7 @@ struct PodcastSearchView: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 12))
             )
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -160,7 +160,7 @@ struct PodcastSearchView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 10))
             }
             .frame(width: 56, height: 56)

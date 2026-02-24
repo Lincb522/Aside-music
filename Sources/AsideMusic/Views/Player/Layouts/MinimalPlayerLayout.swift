@@ -130,11 +130,12 @@ extension MinimalPlayerLayout {
             Button(action: { dismiss() }) {
                 ZStack {
                     Circle()
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .asideGlassCircle()
                         .frame(width: 40, height: 40)
                     AsideIcon(icon: .back, size: 16, color: contentColor)
                 }
+                .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -178,11 +179,12 @@ extension MinimalPlayerLayout {
             }) {
                 ZStack {
                     Circle()
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .asideGlassCircle()
                         .frame(width: 40, height: 40)
                     AsideIcon(icon: .more, size: 18, color: contentColor)
                 }
+                .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }

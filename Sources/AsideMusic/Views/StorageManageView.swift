@@ -134,7 +134,7 @@ struct StorageManageView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         )
@@ -225,7 +225,7 @@ struct StorageManageView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 20))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
@@ -321,7 +321,7 @@ struct StorageManageView: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )

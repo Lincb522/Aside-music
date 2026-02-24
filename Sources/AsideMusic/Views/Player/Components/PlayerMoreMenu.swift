@@ -39,7 +39,7 @@ struct PlayerMoreMenu: View {
             .frame(width: 170)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 14))
                     .shadow(color: .black.opacity(0.25), radius: 20, x: 0, y: 8)
             )

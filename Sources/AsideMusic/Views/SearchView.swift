@@ -912,7 +912,7 @@ struct SearchView: View {
             .frame(width: 220)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))

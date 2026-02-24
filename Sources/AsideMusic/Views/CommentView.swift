@@ -238,7 +238,11 @@ struct CommentView: View {
                 }
             }
             .padding(.vertical, 4)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideMilk)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
@@ -281,7 +285,11 @@ struct CommentView: View {
                 }
             }
             .padding(.vertical, 4)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideMilk)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
@@ -342,7 +350,11 @@ struct CommentView: View {
             }
         }
         .padding(.vertical, 4)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.asideMilk)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shimmer()
     }

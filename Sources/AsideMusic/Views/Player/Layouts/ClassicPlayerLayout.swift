@@ -32,7 +32,7 @@ struct ClassicPlayerLayout: View {
 
                 if showLyrics {
                     Rectangle()
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .glassEffect(.regular, in: .rect(cornerRadius: 16))
                         .ignoresSafeArea()
                         .transition(.opacity)
@@ -170,6 +170,7 @@ struct ClassicPlayerLayout: View {
     private var headerView: some View {
         HStack {
             AsideBackButton(style: .dismiss, isDarkBackground: false)
+                .contentShape(Circle())
 
             Spacer()
 
@@ -205,11 +206,12 @@ struct ClassicPlayerLayout: View {
             Button(action: { withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() } }) {
                 ZStack {
                     Circle()
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .frame(width: 44, height: 44)
                         .glassEffect(.regular, in: .circle)
                     AsideIcon(icon: .more, size: 20, color: contentColor)
                 }
+                .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
@@ -381,7 +383,7 @@ struct ClassicPlayerLayout: View {
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
                         Circle()
-                            .fill(.clear)
+                            .fill(Color.asideMilk)
                             .frame(width: 72, height: 72)
                             .glassEffect(.regular, in: .circle)
                             .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)

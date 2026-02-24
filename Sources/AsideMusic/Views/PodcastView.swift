@@ -156,10 +156,14 @@ struct PodcastView: View {
             Spacer()
 
             NavigationLink(value: PodcastDestination.search) {
-                AsideIcon(icon: .magnifyingGlass, size: 18, color: .asideTextPrimary, lineWidth: 1.4)
-                    .frame(width: 40, height: 40)
-                    .background(Color.asideCardBackground)
-                    .clipShape(Circle())
+                ZStack {
+                    Circle()
+                        .fill(Color.asideMilk)
+                        .frame(width: 40, height: 40)
+                        .glassEffect(.regular, in: .circle)
+                    AsideIcon(icon: .magnifyingGlass, size: 18, color: .asideTextPrimary, lineWidth: 1.4)
+                }
+                .contentShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
         }
@@ -207,8 +211,7 @@ struct PodcastView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.asideCardBackground)
-                    .clipShape(Capsule())
+                    .glassEffect(.regular, in: .capsule)
                 }
                 .buttonStyle(ScaleButtonStyle())
 
@@ -222,8 +225,7 @@ struct PodcastView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Color.asideCardBackground)
-                        .clipShape(Capsule())
+                        .glassEffect(.regular, in: .capsule)
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }

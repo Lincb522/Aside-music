@@ -880,10 +880,7 @@ struct ArtistLibraryView: View {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(hasActiveFilter ? Color.asideIconBackground : Color.clear)
-                                .background(
-                                    Color.clear // glassEffect applied via modifier
-                                )
-                                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                                .glassEffect(.regular, in: .rect(cornerRadius: 14))
                             
                             AsideIcon(
                                 icon: .filter,
@@ -893,6 +890,7 @@ struct ArtistLibraryView: View {
                             .rotationEffect(.degrees(showFilters ? 90 : 0))
                         }
                         .frame(width: 46, height: 46)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(AsideBouncingButtonStyle())
                 }

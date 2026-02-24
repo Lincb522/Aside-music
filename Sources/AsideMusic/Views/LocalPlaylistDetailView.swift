@@ -247,7 +247,7 @@ struct LocalPlaylistDetailView: View {
     private var coverPlaceholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
             AsideIcon(icon: .musicNoteList, size: 36, color: .asideTextSecondary.opacity(0.3))
         }

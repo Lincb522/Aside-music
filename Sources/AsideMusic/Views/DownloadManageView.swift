@@ -140,13 +140,13 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 10))
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .frame(width: 48, height: 48)
                     .glassEffect(.regular, in: .rect(cornerRadius: 10))
                     .overlay(AsideIcon(icon: .musicNote, size: 20, color: .asideTextSecondary, lineWidth: 1.4))
@@ -231,13 +231,13 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 10))
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .frame(width: 48, height: 48)
                     .glassEffect(.regular, in: .rect(cornerRadius: 10))
             }

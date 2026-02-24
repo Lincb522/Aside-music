@@ -182,7 +182,7 @@ extension VinylPlayerLayout {
                 AsideIcon(icon: .chevronRight, size: 18, color: contentColor.opacity(0.5))
                     .rotationEffect(.degrees(90))
                     .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+                    .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -195,7 +195,7 @@ extension VinylPlayerLayout {
             }) {
                 AsideIcon(icon: .more, size: 18, color: contentColor.opacity(0.5))
                     .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+                    .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }

@@ -145,7 +145,7 @@ struct EQSettingsView: View {
                     .foregroundColor(.asideTextSecondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(.clear).glassEffect(.regular, in: .capsule))
+                    .background(Capsule().fill(Color.asideMilk).glassEffect(.regular, in: .capsule))
                     .clipShape(Capsule())
             }
             .opacity(eqManager.isEnabled ? 1 : 0)
@@ -247,7 +247,7 @@ struct EQSettingsView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .overlay(
@@ -670,7 +670,7 @@ struct EQSettingsView: View {
             .frame(width: 72, height: 72)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .overlay(
@@ -775,7 +775,7 @@ struct EQSettingsView: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.clear)
+                                .fill(Color.asideMilk)
                                 .glassEffect(.regular, in: .rect(cornerRadius: 12))
                         )
 

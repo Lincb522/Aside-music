@@ -13,7 +13,7 @@ struct QRLoginView: View {
                     .padding(10)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.clear)
+                            .fill(Color.asideMilk)
                             .glassEffect(.regular, in: .rect(cornerRadius: 14))
                     )
                     .cornerRadius(14)
@@ -63,7 +63,7 @@ struct PhoneLoginView: View {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 25, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 25))
             )
             .cornerRadius(25)
@@ -103,7 +103,7 @@ struct PhoneLoginView: View {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 25, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 25))
             )
             .cornerRadius(25)
@@ -128,7 +128,7 @@ struct PhoneLoginView: View {
                     .background(
                         Capsule()
                             .stroke(Color.asideSeparator, lineWidth: 1)
-                            .background(Capsule().fill(.clear).glassEffect(.regular, in: .capsule))
+                            .background(Capsule().fill(Color.asideMilk).glassEffect(.regular, in: .capsule))
                     )
                     .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             }

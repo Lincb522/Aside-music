@@ -161,6 +161,7 @@ extension PosterPlayerLayout {
                     Text("返回")
                         .font(.custom(posterFont, size: 16))
                         .foregroundColor(fg)
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -173,6 +174,7 @@ extension PosterPlayerLayout {
                     Text("更多")
                         .font(.custom(posterFont, size: 16))
                         .foregroundColor(fg)
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
@@ -377,6 +379,7 @@ extension PosterPlayerLayout {
                 Text("返回")
                     .font(.custom(posterFont, size: 16))
                     .foregroundColor(fg)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
@@ -397,6 +400,7 @@ extension PosterPlayerLayout {
                 Text("更多")
                     .font(.custom(posterFont, size: 16))
                     .foregroundColor(fg)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AsideBouncingButtonStyle())

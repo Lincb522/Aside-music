@@ -759,7 +759,7 @@ struct MVSublistSheet: View {
         }
         .background {
             Rectangle()
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .overlay(Color.asideCardBackground.opacity(0.55))
         }

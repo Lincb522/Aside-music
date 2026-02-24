@@ -115,7 +115,7 @@ struct SoundQualitySheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
@@ -160,7 +160,7 @@ struct SoundQualitySheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )

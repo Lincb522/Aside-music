@@ -138,7 +138,7 @@ struct QQLoginView: View {
             // 二维码显示区域
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 24))
                     .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
                 

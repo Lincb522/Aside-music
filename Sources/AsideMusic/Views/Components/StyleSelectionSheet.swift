@@ -69,7 +69,7 @@ struct StyleSelectionMorphView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 20))
                     .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
                     .matchedGeometryEffect(id: "filter_bg", in: namespace)
@@ -143,7 +143,7 @@ struct StyleSelectionMorphView: View {
                                 .fill(Color.asideIconBackground.opacity(0.85))
                         } else {
                             Capsule()
-                                .fill(.clear)
+                                .fill(Color.asideMilk)
                                 .glassEffect(.regular, in: .capsule)
                                 .overlay(
                                     Capsule()

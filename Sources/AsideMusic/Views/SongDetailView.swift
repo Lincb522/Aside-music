@@ -154,7 +154,7 @@ struct SongDetailView: View {
                     AsideIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(.clear).glassEffect(.regular, in: .circle)
+                            Circle().fill(Color.asideMilk).glassEffect(.regular, in: .circle)
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -167,7 +167,7 @@ struct SongDetailView: View {
                     AsideIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(.clear).glassEffect(.regular, in: .circle)
+                            Circle().fill(Color.asideMilk).glassEffect(.regular, in: .circle)
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -239,7 +239,7 @@ struct SongDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
@@ -266,7 +266,7 @@ struct SongDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(.clear)
+                                        .fill(Color.asideMilk)
                                         .glassEffect(.regular, in: .rect(cornerRadius: 12))
                                 }
                                 .frame(width: 120, height: 120)

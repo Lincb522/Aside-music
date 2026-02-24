@@ -506,6 +506,7 @@ extension NeumorphicPlayerLayout {
                 
                 content()
             }
+            .contentShape(Circle())
         }
         .buttonStyle(NeumorphicButtonStyle(bgColor: raisedColor, darkShadow: darkShadow, lightShadow: lightShadow))
     }

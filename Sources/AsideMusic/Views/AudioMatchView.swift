@@ -295,7 +295,7 @@ struct AudioMatchView: View {
                     
                     // 主圆
                     Circle()
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .frame(width: 150, height: 150)
                         .glassEffect(.regular, in: .circle)
                         .shadow(color: .black.opacity(0.08), radius: 24, x: 0, y: 10)
@@ -357,7 +357,7 @@ struct AudioMatchView: View {
                     
                     // 主圆
                     Circle()
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .frame(width: 150, height: 150)
                         .glassEffect(.regular, in: .circle)
                         .shadow(color: .black.opacity(0.08), radius: 24, x: 0, y: 10)
@@ -392,7 +392,7 @@ struct AudioMatchView: View {
         VStack(spacing: 28) {
             if let artworkURL = viewModel.shazamArtworkURL {
                 CachedAsyncImage(url: artworkURL) {
-                    RoundedRectangle(cornerRadius: 24).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 24))
+                    RoundedRectangle(cornerRadius: 24).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 24))
                 }
                 .frame(width: 160, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 24))
@@ -431,7 +431,7 @@ struct AudioMatchView: View {
         VStack(spacing: 24) {
             if let artworkURL = viewModel.shazamArtworkURL {
                 CachedAsyncImage(url: artworkURL) {
-                    RoundedRectangle(cornerRadius: 24).fill(.clear).glassEffect(.regular, in: .rect(cornerRadius: 24))
+                    RoundedRectangle(cornerRadius: 24).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 24))
                 }
                 .frame(width: 140, height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: 24))
@@ -467,7 +467,7 @@ struct AudioMatchView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
-                .background(Capsule().fill(.clear).glassEffect(.regular, in: .capsule))
+                .background(Capsule().fill(Color.asideMilk).glassEffect(.regular, in: .capsule))
             }
             .buttonStyle(PlainButtonStyle())
         }
@@ -479,7 +479,7 @@ struct AudioMatchView: View {
         VStack(spacing: 28) {
             ZStack {
                 Circle()
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .frame(width: 120, height: 120)
                     .glassEffect(.regular, in: .circle)
                     .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 6)
@@ -524,7 +524,7 @@ struct AudioMatchView: View {
         VStack(spacing: 28) {
             ZStack {
                 Circle()
-                    .fill(.clear)
+                    .fill(Color.asideMilk)
                     .frame(width: 120, height: 120)
                     .glassEffect(.regular, in: .circle)
                     .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 6)
@@ -595,7 +595,7 @@ struct AudioMatchView: View {
                 // 封面
                 CachedAsyncImage(url: song.coverUrl) {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(.clear)
+                        .fill(Color.asideMilk)
                         .glassEffect(.regular, in: .rect(cornerRadius: 12))
                 }
                 .frame(width: 52, height: 52)

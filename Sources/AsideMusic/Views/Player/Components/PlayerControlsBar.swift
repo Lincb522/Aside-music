@@ -33,7 +33,7 @@ struct PlayerControlsBar: View {
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
                         Circle()
-                            .fill(.clear)
+                            .fill(Color.asideMilk)
                             .frame(width: 72, height: 72)
                             .glassEffect(.regular, in: .circle)
                             .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)

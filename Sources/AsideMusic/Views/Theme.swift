@@ -126,7 +126,7 @@ struct AsideGlassCardBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.clear)
+            .fill(Color.asideMilk)
             .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }

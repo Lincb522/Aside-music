@@ -204,11 +204,13 @@ struct ProfileView: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .background(Color.asideCardBackground)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.asideMilk)
+                .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(alignment: .topTrailing) {
-            EmptyView()
-        }
     }
     
     // MARK: - 听歌数据概览
@@ -393,7 +395,8 @@ struct ProfileView: View {
             VStack(spacing: 28) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideMilk)
+                        .glassEffect(.regular, in: .circle)
                         .frame(width: 100, height: 100)
                     
                     AsideIcon(icon: .profile, size: 40, color: .asideTextSecondary.opacity(0.3))
@@ -432,7 +435,12 @@ struct ProfileView: View {
                     showSettingsView = true
                 }
             }
-            .background(Color.asideCardBackground)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideMilk)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(.horizontal, 20)
             .padding(.bottom, 140)
@@ -554,7 +562,12 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Color.asideCardBackground)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.asideMilk)
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
@@ -589,7 +602,12 @@ struct QuickActionCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .frame(height: 100)
-            .background(Color.asideCardBackground)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.asideMilk)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }

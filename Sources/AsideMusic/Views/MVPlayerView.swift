@@ -623,7 +623,7 @@ struct MVPlayerView: View {
         }
         .background {
             Rectangle()
-                .fill(.clear)
+                .fill(Color.asideMilk)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .ignoresSafeArea(edges: .bottom)

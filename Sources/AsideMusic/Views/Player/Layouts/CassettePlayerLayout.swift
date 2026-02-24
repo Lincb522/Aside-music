@@ -419,6 +419,7 @@ extension CassettePlayerLayout {
                     .background(shellColor)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(strokeColor, lineWidth: 1))
+                    .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -433,6 +434,7 @@ extension CassettePlayerLayout {
                     .padding(.vertical, 5)
                     .asideGlass(cornerRadius: 15)
                     .overlay(Capsule().stroke(strokeColor, lineWidth: 1))
+                    .contentShape(Capsule())
             }
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -452,6 +454,7 @@ extension CassettePlayerLayout {
                     .background(shellColor)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(strokeColor, lineWidth: 1))
+                    .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
         }
