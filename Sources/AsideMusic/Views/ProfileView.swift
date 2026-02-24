@@ -24,6 +24,7 @@ struct ProfileView: View {
     
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @Namespace private var statsGlassNS
     
     var body: some View {
         ZStack {
@@ -218,30 +219,36 @@ struct ProfileView: View {
     private var listeningStatsSection: some View {
         let profile = cachedProfile ?? viewModel.userProfile
         
-        return HStack(spacing: 12) {
-            StatCard(
-                value: formatNumber(listenSongs ?? 0),
-                label: String(localized: "profile_total_songs"),
-                icon: .headphones
-            )
-            
-            StatCard(
-                value: "\(profile?.follows ?? 0)",
-                label: NSLocalizedString("profile_following", comment: ""),
-                icon: .personCircle
-            )
-            
-            StatCard(
-                value: "\(profile?.followeds ?? 0)",
-                label: NSLocalizedString("profile_followers", comment: ""),
-                icon: .liked
-            )
-            
-            StatCard(
-                value: "\(profile?.eventCount ?? 0)",
-                label: NSLocalizedString("profile_dynamic", comment: ""),
-                icon: .send
-            )
+        return GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                StatCard(
+                    value: formatNumber(listenSongs ?? 0),
+                    label: String(localized: "profile_total_songs"),
+                    icon: .headphones
+                )
+                .glassEffectID("stat_songs", in: statsGlassNS)
+                
+                StatCard(
+                    value: "\(profile?.follows ?? 0)",
+                    label: NSLocalizedString("profile_following", comment: ""),
+                    icon: .personCircle
+                )
+                .glassEffectID("stat_following", in: statsGlassNS)
+                
+                StatCard(
+                    value: "\(profile?.followeds ?? 0)",
+                    label: NSLocalizedString("profile_followers", comment: ""),
+                    icon: .liked
+                )
+                .glassEffectID("stat_followers", in: statsGlassNS)
+                
+                StatCard(
+                    value: "\(profile?.eventCount ?? 0)",
+                    label: NSLocalizedString("profile_dynamic", comment: ""),
+                    icon: .send
+                )
+                .glassEffectID("stat_dynamic", in: statsGlassNS)
+            }
         }
     }
     

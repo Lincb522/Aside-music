@@ -204,16 +204,11 @@ struct ClassicPlayerLayout: View {
 
             // 三点菜单按钮
             Button(action: { withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() } }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideMilk)
-                        .frame(width: 44, height: 44)
-                        .glassEffect(.regular, in: .circle)
-                    AsideIcon(icon: .more, size: 20, color: contentColor)
-                }
-                .contentShape(Circle())
+                AsideIcon(icon: .more, size: 20, color: contentColor)
+                    .frame(width: 44, height: 44)
             }
-            .buttonStyle(AsideBouncingButtonStyle())
+            .buttonStyle(.glass)
+            .clipShape(Circle())
         }
         .padding(.horizontal, 24)
     }
@@ -230,6 +225,7 @@ struct ClassicPlayerLayout: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: artSize, height: artSize)
                 .cornerRadius(24)
+                .backgroundExtensionEffect()
                 .shadow(color: Color.black.opacity(0.25), radius: 30, x: 0, y: 15)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24)
@@ -382,12 +378,6 @@ struct ClassicPlayerLayout: View {
 
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
-                        Circle()
-                            .fill(Color.asideMilk)
-                            .frame(width: 72, height: 72)
-                            .glassEffect(.regular, in: .circle)
-                            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-
                         if player.isLoading {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: Color.asideTextPrimary))
@@ -396,8 +386,11 @@ struct ClassicPlayerLayout: View {
                             AsideIcon(icon: player.isPlaying ? .pause : .play, size: 32, color: .asideTextPrimary)
                         }
                     }
+                    .frame(width: 72, height: 72)
                 }
-                .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
+                .buttonStyle(.glass)
+                .clipShape(Circle())
+                .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
 
                 Spacer()
 

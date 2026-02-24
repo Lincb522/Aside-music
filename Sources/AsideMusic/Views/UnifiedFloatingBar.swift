@@ -212,28 +212,34 @@ struct AsideTabBar: View {
 struct UnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
+    @Namespace private var glassNS
     
     var body: some View {
-        VStack(spacing: 0) {
-            if let song = player.currentSong {
-                MiniPlayerSection(
-                    song: song,
-                    isPlaying: player.isPlaying,
-                    togglePlayPause: { player.togglePlayPause() }
-                )
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)),
-                    removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
+        GlassEffectContainer(spacing: 0) {
+            VStack(spacing: 0) {
+                if let song = player.currentSong {
+                    MiniPlayerSection(
+                        song: song,
+                        isPlaying: player.isPlaying,
+                        togglePlayPause: { player.togglePlayPause() }
+                    )
+                    .glassEffectID("miniPlayer", in: glassNS)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)),
+                        removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
+                    ))
+                }
+                
+                AsideTabBar(selectedIndex: Binding(
+                    get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
+                    set: { currentTab = Tab.allCases[$0] }
                 ))
+                .glassEffectID("tabBar", in: glassNS)
             }
-            
-            AsideTabBar(selectedIndex: Binding(
-                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
-                set: { currentTab = Tab.allCases[$0] }
-            ))
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
+            .glassEffectID("floatingBar", in: glassNS)
         }
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
         .animation(AsideAnimation.floatingBar, value: player.currentSong != nil)
         .animation(AsideAnimation.tabSwitch, value: currentTab)
         .gesture(

@@ -18,6 +18,7 @@ struct ArtistDetailView: View {
     @State private var showAlbumDetail = false
     @State private var selectedMV: MVIdItem?
     @State private var headerImageHeight: CGFloat = 320
+    @State private var scrollOffset: CGFloat = 0
 
     // 从封面提取的颜色
     @State private var dominantColor: Color = .clear
@@ -31,7 +32,7 @@ struct ArtistDetailView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    // Hero 大图区域
+                    // Hero 大图区域（弹性拉伸）
                     heroSection
 
                     // 信息区域（名字、粉丝、关注按钮、播放按钮）
@@ -48,6 +49,11 @@ struct ArtistDetailView: View {
                         .padding(.top, 8)
                         .padding(.bottom, 120)
                 }
+            }
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                min(geometry.contentOffset.y + geometry.contentInsets.top, 0)
+            } action: { _, offset in
+                scrollOffset = offset
             }
             .ignoresSafeArea(edges: .top)
 
@@ -102,19 +108,22 @@ struct ArtistDetailView: View {
 extension ArtistDetailView {
 
     private var heroSection: some View {
-        ZStack(alignment: .bottom) {
-            // 歌手大图
+        let stretchHeight = headerImageHeight - scrollOffset
+        
+        return ZStack(alignment: .bottom) {
+            // 歌手大图（弹性拉伸）
             if let artist = viewModel.artist, let coverUrl = artist.coverUrl?.sized(800) {
                 CachedAsyncImage(url: coverUrl) {
                     Rectangle().fill(Color.asideCardBackground)
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(height: headerImageHeight)
+                .frame(height: stretchHeight)
                 .clipped()
+                .backgroundExtensionEffect()
             } else {
                 Rectangle()
                     .fill(Color.asideCardBackground)
-                    .frame(height: headerImageHeight)
+                    .frame(height: stretchHeight)
             }
 
             // 底部渐变遮罩
@@ -128,9 +137,11 @@ extension ArtistDetailView {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: headerImageHeight)
+            .frame(height: stretchHeight)
         }
-        .frame(height: headerImageHeight)
+        .frame(height: stretchHeight)
+        .padding(.bottom, scrollOffset)
+        .offset(y: scrollOffset)
     }
 }
 
