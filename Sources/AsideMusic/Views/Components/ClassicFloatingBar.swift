@@ -34,7 +34,7 @@ struct ClassicFloatingBar: View {
             }
             .background {
                 Rectangle()
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideFloatingBarFill)
                     .glassEffect(.regular, in: .rect)
                     .ignoresSafeArea(.container, edges: .bottom)
             }

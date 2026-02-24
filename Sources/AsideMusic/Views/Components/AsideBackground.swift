@@ -16,16 +16,22 @@ struct AsideBackButton: View {
         Button(action: {
             dismiss()
         }) {
-            AsideIcon(
-                icon: style == .back ? .back : .chevronRight,
-                size: 20,
-                color: isDarkBackground ? .white : .asideTextPrimary
-            )
-            .rotationEffect(style == .dismiss ? .degrees(90) : .zero)
-            .frame(width: 40, height: 40)
+            ZStack {
+                Circle()
+                    .fill(Color.asideMilk)
+                    .frame(width: 40, height: 40)
+                    .glassEffect(.regular, in: .circle)
+
+                AsideIcon(
+                    icon: style == .back ? .back : .chevronRight,
+                    size: 20,
+                    color: isDarkBackground ? .white : .asideTextPrimary
+                )
+                .rotationEffect(style == .dismiss ? .degrees(90) : .zero)
+            }
+            .contentShape(Circle())
         }
-        .buttonStyle(.glass)
-        .clipShape(Circle())
+        .buttonStyle(AsideBouncingButtonStyle())
     }
 }
 

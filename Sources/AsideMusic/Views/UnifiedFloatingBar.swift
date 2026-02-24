@@ -237,6 +237,10 @@ struct UnifiedFloatingBar: View {
                 .glassEffectID("tabBar", in: glassNS)
             }
             .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.asideFloatingBarFill)
+            )
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
             .glassEffectID("floatingBar", in: glassNS)
         }

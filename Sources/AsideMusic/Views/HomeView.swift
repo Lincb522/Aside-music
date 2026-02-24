@@ -168,16 +168,18 @@ struct HomeView: View {
             Button(action: { showPersonalFM = true }) {
                 AsideIcon(icon: .fm, size: 22, color: .asideTextPrimary)
                     .frame(width: 44, height: 44)
+                    .background(.clear)
+                    .glassEffect(.regular, in: .circle)
             }
-            .buttonStyle(.glass)
-            .clipShape(Circle())
+            .buttonStyle(AsideBouncingButtonStyle())
 
             NavigationLink(value: HomeDestination.search) {
                 AsideIcon(icon: .search, size: 20, color: .asideTextPrimary)
                     .frame(width: 44, height: 44)
+                    .background(.clear)
+                    .glassEffect(.regular, in: .circle)
             }
-            .buttonStyle(.glass)
-            .clipShape(Circle())
+            .buttonStyle(AsideBouncingButtonStyle())
         }
         .padding(.horizontal, 24)
         .padding(.top, DeviceLayout.headerTopPadding)
@@ -539,7 +541,9 @@ struct HomeView: View {
         }
         .padding(16)
         .background(
-            Color.clear // glassEffect applied via modifier
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.asideMilk)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

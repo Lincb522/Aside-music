@@ -24,10 +24,11 @@ struct VisualEffectBlur: UIViewRepresentable {
 // MARK: - Liquid Glass 背景（iOS 26 原生）
 struct LiquidGlassBlur: View {
     var cornerRadius: CGFloat = 0
+    var useFloatingBarFill: Bool = false
     
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.asideMilk)
+            .fill(useFloatingBarFill ? Color.asideFloatingBarFill : Color.asideMilk)
             .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }

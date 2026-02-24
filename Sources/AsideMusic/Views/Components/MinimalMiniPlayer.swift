@@ -27,6 +27,10 @@ struct MinimalMiniPlayer: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.asideFloatingBarFill)
+        )
         .glassEffect(.regular, in: .rect(cornerRadius: 18))
         .contentShape(Rectangle())
         .gesture(

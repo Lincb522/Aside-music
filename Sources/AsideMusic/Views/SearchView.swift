@@ -571,7 +571,7 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                    Circle().fill(Color.asideCardBackground)
+                    Circle().fill(Color.asideSeparator)
                 }
                 .frame(width: 52, height: 52)
                 .clipShape(Circle())
@@ -619,7 +619,7 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 12).fill(Color.asideSeparator)
                 }
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -668,7 +668,7 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 12).fill(Color.asideSeparator)
                 }
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -887,7 +887,7 @@ struct SearchView: View {
             HStack(spacing: 12) {
                 CachedAsyncImage(url: imageUrl) {
                     RoundedRectangle(cornerRadius: isCircle ? 25 : 10)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideSeparator)
                 }
                 .frame(width: 50, height: 50)
                 .clipShape(isCircle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 10)))

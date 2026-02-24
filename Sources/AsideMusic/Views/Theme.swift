@@ -37,6 +37,11 @@ extension Color {
         Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
     }
     
+    /// 悬浮栏专用填充色 — 深色模式下使用深色底，让 glassEffect 渲染为深色玻璃
+    static var asideFloatingBarFill: Color {
+        Color(light: Color.white.opacity(0.8), dark: Color(hex: "2C2C2E").opacity(0.6))
+    }
+    
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var asideCardBackground: Color {
         Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5))

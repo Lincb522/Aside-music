@@ -98,7 +98,7 @@ struct FloatingBallView: View {
         }
         .background(
             Circle()
-                .fill(Color.asideMilk)
+                .fill(Color.asideFloatingBarFill)
                 .frame(width: ballSize + 4, height: ballSize + 4)
         )
         .glassEffect(.regular, in: .circle)
@@ -211,7 +211,7 @@ struct FloatingBallView: View {
                         Group {
                             if currentTab == item.tab {
                                 Circle()
-                                    .fill(Color.asideMilk)
+                                    .fill(Color.asideFloatingBarFill)
                                     .glassEffect(Glass.regular.tint(Color.asideAccent.opacity(0.2)), in: .circle)
                             }
                         }
