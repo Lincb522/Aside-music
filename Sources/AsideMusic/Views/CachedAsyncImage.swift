@@ -3,9 +3,10 @@ import Combine
 
 // MARK: - 图片缓存配置
 private struct ImageCacheConfig {
-    static let maxMemoryCost = 50 * 1024 * 1024   // 50MB 内存限制（降低以防 OOM）
+    static let maxMemoryCost = 80 * 1024 * 1024   // 80MB 内存限制
     static let maxCount = 150                      // 最多缓存 150 张图片
     static let maxConcurrentLoads = 6              // 最大并发加载数
+    static let screenScale: CGFloat = 3.0          // 现代 iPhone 均为 3x Retina
 }
 
 // MARK: - 图片内存缓存
@@ -65,8 +66,7 @@ private actor ImageLoadCoordinator {
             return UIImage(data: data)
         }
         
-        // 使用 scale 2.0 平衡清晰度和内存占用（3.0 导致单张图 ~1.5MB）
-        let scale: CGFloat = 2.0
+        let scale = ImageCacheConfig.screenScale
         let downsampleOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
@@ -152,7 +152,7 @@ class ImageLoader: ObservableObject {
                 // 异步保存到磁盘
                 let saveKey = cacheKeyStr
                 Task.detached(priority: .background) {
-                    if let data = image.jpegData(compressionQuality: 0.7) {
+                    if let data = image.jpegData(compressionQuality: 0.85) {
                         CacheManager.shared.setImageData(data, forKey: saveKey)
                     }
                 }
@@ -167,8 +167,7 @@ class ImageLoader: ObservableObject {
             return UIImage(data: data)
         }
         
-        // 使用 scale 2.0 平衡清晰度和内存占用（3.0 导致单张图 ~1.5MB）
-        let scale: CGFloat = 2.0
+        let scale = ImageCacheConfig.screenScale
         let downsampleOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,

@@ -20,13 +20,6 @@ extension PlayerManager {
         }
         updateNowPlayingTime()
         
-        // 同步灵动岛播放状态
-        LiveActivityManager.shared.updateActivity(
-            isPlaying: isPlaying,
-            currentTime: currentTime,
-            duration: duration,
-            artistName: currentSong?.artistName ?? ""
-        )
     }
     
     func next() {
@@ -59,15 +52,37 @@ extension PlayerManager {
     func previous() {
         consecutiveFailures = 0
         retryDelay = 1.0
-        
+
+        // 先按“真实播放历史”回退，行为更符合主流播放器
+        if let previousSong = playbackBackStack.popLast() {
+            isApplyingBackNavigation = true
+            defer { isApplyingBackNavigation = false }
+
+            if let index = currentContextList.firstIndex(where: { $0.id == previousSong.id }) {
+                contextIndex = index
+            } else {
+                let insertAt = min(contextIndex + 1, context.count)
+                context.insert(previousSong, at: insertAt)
+                if mode == .shuffle {
+                    let shuffleInsert = min(contextIndex + 1, shuffledContext.count)
+                    shuffledContext.insert(previousSong, at: shuffleInsert)
+                }
+                contextIndex = insertAt
+            }
+
+            loadAndPlay(song: previousSong)
+            return
+        }
+
+        // 历史为空时，回退到原有索引逻辑（兜底）
         let list = currentContextList
         guard !list.isEmpty else { return }
-        
+
         var prevIndex = contextIndex - 1
         if prevIndex < 0 {
             prevIndex = list.count - 1
         }
-        
+
         contextIndex = prevIndex
         loadAndPlay(song: list[prevIndex])
     }
@@ -92,10 +107,12 @@ extension PlayerManager {
         isPlaying = false
         currentSong = nil
         streamInfo = nil
+        context.removeAll()
+        shuffledContext.removeAll()
+        userQueue.removeAll()
+        playbackBackStack.removeAll()
+        contextIndex = 0
         isUserStopping = false
-        
-        // 结束灵动岛
-        LiveActivityManager.shared.stopActivity()
         
         saveState()
     }
@@ -105,9 +122,11 @@ extension PlayerManager {
         
         if let current = currentSong {
             let time = currentTime
+            qualitySwitchCancellable?.cancel()
+            qualitySwitchPollWorkItem?.cancel()
             
             Task { @MainActor in
-                APIService.shared.fetchSongUrl(
+                self.qualitySwitchCancellable = APIService.shared.fetchSongUrl(
                     id: current.id,
                     level: quality.rawValue,
                     kugouQuality: self.kugouQuality.rawValue
@@ -128,14 +147,10 @@ extension PlayerManager {
                         self.soundQuality = quality
                         self.isCurrentSongUnblocked = result.isUnblocked
                         self.streamInfo = nil
-                        // 记录这是音质切换（不是切歌），seek 位置
                         self.pendingQualitySwitchSeek = time
-                        // 用 prepareNext 预加载新音质的 URL
                         self.streamPlayer.prepareNext(url: url.absoluteString)
-                        // prepareNext 完成后，用 switchToNext 触发切换
                         self.pollAndSwitch(seekTo: time, attempts: 0)
                     })
-                    .store(in: &self.cancellables)
             }
         } else {
             soundQuality = quality
@@ -148,14 +163,15 @@ extension PlayerManager {
         
         if let current = currentSong, isCurrentSongUnblocked {
             let time = currentTime
+            qualitySwitchCancellable?.cancel()
+            qualitySwitchPollWorkItem?.cancel()
             
             #if DEBUG
             print("[PlayerManager] switchKugouQuality: \(kugouQuality.rawValue) → \(quality.rawValue)")
             #endif
             
             Task { @MainActor in
-                // 已解灰歌曲直接走酷狗解灰源，不尝试网易云
-                APIService.shared.fetchUnblockedSongUrl(
+                self.qualitySwitchCancellable = APIService.shared.fetchUnblockedSongUrl(
                     id: current.id,
                     kugouQuality: quality.rawValue
                 )
@@ -178,7 +194,6 @@ extension PlayerManager {
                         self.streamPlayer.prepareNext(url: url.absoluteString)
                         self.pollAndSwitch(seekTo: time, attempts: 0)
                     })
-                    .store(in: &self.cancellables)
             }
         } else {
             kugouQuality = quality
@@ -191,9 +206,11 @@ extension PlayerManager {
         
         if let current = currentSong, current.isQQMusic, let mid = current.qqMid {
             let time = currentTime
+            qualitySwitchCancellable?.cancel()
+            qualitySwitchPollWorkItem?.cancel()
             
             Task { @MainActor in
-                APIService.shared.fetchQQSongUrl(mid: mid, quality: quality)
+                self.qualitySwitchCancellable = APIService.shared.fetchQQSongUrl(mid: mid, quality: quality)
                     .receive(on: DispatchQueue.main)
                     .sink(receiveCompletion: { completion in
                         if case .failure(let error) = completion {
@@ -213,19 +230,18 @@ extension PlayerManager {
                         self.streamPlayer.prepareNext(url: url.absoluteString)
                         self.pollAndSwitch(seekTo: time, attempts: 0)
                     })
-                    .store(in: &self.cancellables)
             }
         } else {
             qqMusicQuality = quality
         }
     }
     
-    /// 轮询预加载状态，就绪后触发切换
+    /// 轮询预加载状态，就绪后触发切换（使用可取消的 DispatchWorkItem）
     func pollAndSwitch(seekTo time: Double, attempts: Int) {
         guard attempts < 200 else {
-            // 超时降级（200 * 0.05s = 10s）
             AppLogger.warning("音质切换预加载超时，降级为重新播放")
             pendingQualitySwitchSeek = nil
+            qualitySwitchPollWorkItem = nil
             streamPlayer.cancelNextPreparation()
             if let song = currentSong {
                 loadAndPlay(song: song, startTime: time)
@@ -233,17 +249,17 @@ extension PlayerManager {
             return
         }
         
-        // 每次只尝试触发 switchToNext，如果预加载还没就绪会直接返回
         streamPlayer.switchToNext(seekTo: time)
         
-        // 短暂延迟后检查是否已切换
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             if self.pendingQualitySwitchSeek == nil {
-                // 已在 delegate 回调中清除，说明切换成功
+                self.qualitySwitchPollWorkItem = nil
                 return
             }
             self.pollAndSwitch(seekTo: time, attempts: attempts + 1)
         }
+        qualitySwitchPollWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
     }
 }

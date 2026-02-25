@@ -101,7 +101,7 @@ final class MVStreamPlayerWrapper: ObservableObject {
 
 struct MVPlayerView: View {
     let mvId: Int
-    @StateObject private var viewModel: MVPlayerViewModel
+    @State private var viewModel: MVPlayerViewModel
     @StateObject private var commentVM: CommentViewModel
     @ObservedObject private var player = PlayerManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -127,7 +127,7 @@ struct MVPlayerView: View {
 
     init(mvId: Int) {
         self.mvId = mvId
-        _viewModel = StateObject(wrappedValue: MVPlayerViewModel(mvId: mvId))
+        _viewModel = State(initialValue: MVPlayerViewModel(mvId: mvId))
         _commentVM = StateObject(wrappedValue: CommentViewModel(resourceId: mvId, resourceType: .mv))
     }
 
@@ -208,7 +208,7 @@ struct MVPlayerView: View {
                 videoSection
 
                 // 下方信息 + 评论区域
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 20) {
                         // MV 信息 + 收藏
                         infoSection
@@ -393,7 +393,7 @@ struct MVPlayerView: View {
             .padding(.horizontal, 24)
 
             // 横向滚动展示
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     let allRelated = viewModel.simiMVs + viewModel.relatedMVs
                     ForEach(allRelated.prefix(8)) { mv in
@@ -594,7 +594,7 @@ struct MVPlayerView: View {
                 .fill(Color.asideSeparator)
                 .frame(height: 0.5)
 
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 LazyVStack(spacing: 10) {
                     if !viewModel.simiMVs.isEmpty {
                         simiSectionLabel(String(localized: "mv_similar"))
@@ -623,7 +623,7 @@ struct MVPlayerView: View {
         }
         .background {
             Rectangle()
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .ignoresSafeArea(edges: .bottom)

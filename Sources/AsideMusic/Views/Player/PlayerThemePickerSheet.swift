@@ -21,7 +21,7 @@ struct PlayerThemePickerSheet: View {
                 .padding(.bottom, 4)
 
             // 主题卡片网格 - 使用 ScrollView 确保内容可滚动
-            ScrollView(.vertical, showsIndicators: false) {
+            ScrollView(.vertical) {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 14),
                     GridItem(.flexible(), spacing: 14)

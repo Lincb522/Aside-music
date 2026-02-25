@@ -27,7 +27,7 @@ struct DownloadManageView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { updateTotalSize() }
         .alert("确认删除", isPresented: $showDeleteAllAlert) {
             Button("删除全部", role: .destructive) {
@@ -122,7 +122,7 @@ struct DownloadManageView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                     
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(songs, id: \.id) { song in
                                 downloadedRow(song: song)
@@ -140,13 +140,13 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 10))
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideGlassTint).glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 48, height: 48)
                     .glassEffect(.regular, in: .rect(cornerRadius: 10))
                     .overlay(AsideIcon(icon: .musicNote, size: 20, color: .asideTextSecondary, lineWidth: 1.4))
@@ -212,7 +212,7 @@ struct DownloadManageView: View {
                 }
                 Spacer()
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(tasks, id: \.id) { song in
                             downloadingRow(song: song)
@@ -231,13 +231,13 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 10))
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideGlassTint).glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 48, height: 48)
                     .glassEffect(.regular, in: .rect(cornerRadius: 10))
             }

@@ -55,6 +55,7 @@ struct PlayerHeaderBar: View {
             .frame(width: 44, height: 44)
             .background(contentColor.opacity(0.1))
             .clipShape(Circle())
+            .glassEffect(.regular, in: .circle)
         }
         .padding(.horizontal, 24)
     }

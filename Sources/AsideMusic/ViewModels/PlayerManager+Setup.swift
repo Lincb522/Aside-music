@@ -177,14 +177,6 @@ extension PlayerManager {
                 }
                 self.updateNowPlayingTime()
                 
-                // 更新灵动岛进度
-                LiveActivityManager.shared.updateActivity(
-                    isPlaying: self.isPlaying,
-                    currentTime: self.currentTime,
-                    duration: self.duration,
-                    artistName: self.currentSong?.artistName ?? ""
-                )
-                
                 // 全局歌词同步
                 LyricViewModel.shared.updateCurrentTime(self.currentTime)
             }

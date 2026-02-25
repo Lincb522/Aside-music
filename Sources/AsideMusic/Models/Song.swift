@@ -2,7 +2,10 @@ import Foundation
 
 // MARK: - Core Song Models
 
-struct Song: Identifiable, Codable {
+struct Song: Identifiable, Codable, Hashable, Equatable {
+    static func == (lhs: Song, rhs: Song) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    
     let id: Int
     let name: String
     let ar: [Artist]?
@@ -219,9 +222,13 @@ struct SongDetail: Codable {
 
 extension URL {
     func sized(_ size: Int) -> URL {
-        let absoluteString = self.absoluteString
-        let separator = absoluteString.contains("?") ? "&" : "?"
-        return URL(string: absoluteString + "\(separator)param=\(size)y\(size)") ?? self
+        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
+            return self
+        }
+        var items = (components.queryItems ?? []).filter { $0.name != "param" && $0.name != "thumbnail" }
+        items.append(URLQueryItem(name: "param", value: "\(size)y\(size)"))
+        components.queryItems = items.isEmpty ? nil : items
+        return components.url ?? self
     }
 }
 

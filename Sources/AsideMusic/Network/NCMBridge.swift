@@ -161,30 +161,29 @@ extension Publisher where Failure == Error {
     /// 等待第一个值或抛出错误
     func async() async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
-            let state = UnsafeSendableBox(ContinuationState(continuation: continuation))
+            let state = ContinuationState(continuation: continuation)
             var cancellable: AnyCancellable?
             
             cancellable = self.first()
                 .sink(
                     receiveCompletion: { completion in
-                        guard !state.value.didResume else { return }
                         switch completion {
                         case .finished:
-                            if !state.value.didResume {
-                                state.value.didResume = true
-                                state.value.continuation.resume(throwing: NCMBridgeError.invalidResponse)
+                            if state.tryMarkResumed() {
+                                state.continuation.resume(throwing: NCMBridgeError.invalidResponse)
                             }
                         case .failure(let error):
-                            state.value.didResume = true
-                            state.value.continuation.resume(throwing: error)
+                            if state.tryMarkResumed() {
+                                state.continuation.resume(throwing: error)
+                            }
                         }
                         cancellable?.cancel()
                     },
                     receiveValue: { value in
-                        guard !state.value.didResume else { return }
-                        state.value.didResume = true
-                        let sendableValue = UnsafeSendableBox(value)
-                        state.value.continuation.resume(returning: sendableValue.value)
+                        if state.tryMarkResumed() {
+                            let sendableValue = UnsafeSendableBox(value)
+                            state.continuation.resume(returning: sendableValue.value)
+                        }
                         cancellable?.cancel()
                     }
                 )
@@ -192,11 +191,22 @@ extension Publisher where Failure == Error {
     }
 }
 
-/// 内部状态容器，用于 Publisher.async() 的 continuation 管理
-private class ContinuationState<T> {
-    var didResume = false
+/// 线程安全的 continuation 状态容器，使用 NSLock 保证 check-and-set 的原子性
+private final class ContinuationState<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _resumed = false
     let continuation: CheckedContinuation<T, Error>
+    
     init(continuation: CheckedContinuation<T, Error>) {
         self.continuation = continuation
+    }
+    
+    /// 原子性地标记为已恢复。仅首次调用返回 true，后续返回 false。
+    func tryMarkResumed() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if _resumed { return false }
+        _resumed = true
+        return true
     }
 }

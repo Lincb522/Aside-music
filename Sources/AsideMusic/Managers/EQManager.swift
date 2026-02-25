@@ -15,27 +15,28 @@ class EQManager: ObservableObject {
     /// 恢复状态时跳过 didSet 副作用
     private var isRestoring = false
     
+    /// 当前前级补偿值 (dB)，由安全系统自动管理
+    @Published private(set) var preampDB: Float = 0
+    
     // MARK: - Published
     
     @Published var isEnabled: Bool = false {
         didSet {
             guard !isRestoring else { return }
             if !isEnabled {
-                // 重置 EQ 10 段增益
                 PlayerManager.shared.equalizer.reset()
-                // 重置音效（低音/高音/环绕/混响）
                 PlayerManager.shared.audioEffects.setBassGain(0)
                 PlayerManager.shared.audioEffects.setTrebleGain(0)
                 PlayerManager.shared.audioEffects.setSurroundLevel(0)
                 PlayerManager.shared.audioEffects.setReverbLevel(0)
-                // 重置变调
                 PlayerManager.shared.setPitch(0)
-                // 保存音效状态
+                disableSafetyMeasures()
                 saveAudioEffectsState()
             } else {
                 if let preset = currentPreset {
                     preset.apply(to: PlayerManager.shared.equalizer)
                 }
+                updateSafetyLimiter()
             }
             saveState()
         }
@@ -112,10 +113,10 @@ class EQManager: ObservableObject {
     /// 内嵌兜底预设（当 JSON 文件无法加载时使用）
     private static let embeddedFallbackPresets: [EQPreset] = [
         EQPreset(id: "flat", name: "平坦", category: .flat, description: "无修饰的原始音频", gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        EQPreset(id: "pop", name: "流行", category: .genre, description: "增强低频和高频", gains: [1.5, 2.5, 2.8, 1.2, -0.5, -0.8, 0.8, 1.8, 2.2, 1.5]),
-        EQPreset(id: "rock", name: "摇滚", category: .genre, description: "强劲的中低频和明亮的高频", gains: [2.5, 3.0, 2.2, 0.8, -0.6, 0.6, 1.8, 2.4, 2.0, 1.0]),
-        EQPreset(id: "vocal_enhance", name: "人声增强", category: .vocal, description: "突出人声清晰度", gains: [-2.0, -1.5, -1.0, -0.5, 0.8, 2.5, 3.5, 2.8, 1.5, 0.8]),
-        EQPreset(id: "bass_boost", name: "低音增强", category: .scene, description: "增强低频冲击力", gains: [5.0, 4.5, 3.0, 1.5, 0.2, 0, 0, 0, 0, 0]),
+        EQPreset(id: "pop", name: "流行", category: .genre, description: "增强低频和高频", gains: [1.0, 1.5, 1.2, 0.3, -1.0, -1.2, 0.5, 1.5, 2.0, 1.2]),
+        EQPreset(id: "rock", name: "摇滚", category: .genre, description: "强劲的中低频和明亮的高频", gains: [2.0, 2.5, 1.5, 0.3, -1.2, 0.0, 1.2, 2.0, 1.5, 0.5]),
+        EQPreset(id: "vocal_enhance", name: "人声增强", category: .vocal, description: "突出人声清晰度", gains: [-2.0, -1.5, -0.8, -0.3, 0.5, 2.0, 3.0, 2.2, 1.0, 0.5]),
+        EQPreset(id: "bass_boost", name: "低音增强", category: .scene, description: "增强低频冲击力", gains: [4.0, 3.5, 2.2, 1.0, 0.0, -0.3, 0.0, 0.0, 0.0, 0.0]),
     ]
     
     // MARK: - Init
@@ -142,20 +143,30 @@ class EQManager: ObservableObject {
     // MARK: - 应用预设
     
     func applyPreset(_ preset: EQPreset) {
+        // 环绕类切到非环绕类时，自动归零空间参数
+        if let oldPreset = currentPreset,
+           oldPreset.category == .surround && preset.category != .surround {
+            let effects = PlayerManager.shared.audioEffects
+            effects.setSurroundLevel(0)
+            effects.setReverbLevel(0)
+            effects.setStereoWidth(1.0)
+        }
+        
         currentPreset = preset
         if !isEnabled {
             isEnabled = true
         }
-        // 如果是环绕类预设，自动应用环绕音效参数
         if preset.category == .surround {
             preset.applySurroundEffects(to: PlayerManager.shared.audioEffects)
-            saveAudioEffectsState()
         }
+        updateSafetyLimiter()
+        saveAudioEffectsState()
     }
     
     func applyFlat() {
         currentPreset = builtInPresets.first { $0.id == "flat" }
         PlayerManager.shared.equalizer.reset()
+        updateSafetyLimiter()
     }
     
     // MARK: - 自定义增益
@@ -166,6 +177,7 @@ class EQManager: ObservableObject {
         if isEnabled {
             let band = EQBand.allCases[index]
             PlayerManager.shared.equalizer.setGain(customGains[index], for: band)
+            updateSafetyLimiter()
         }
     }
     
@@ -175,6 +187,60 @@ class EQManager: ObservableObject {
                 PlayerManager.shared.equalizer.setGain(customGains[index], for: band)
             }
         }
+        updateSafetyLimiter()
+    }
+    
+    // MARK: - 安全增益管理（前级补偿 + 限幅器）
+    
+    /// 根据当前 EQ 增益峰值和旋钮状态，自动调整前级补偿并启用安全限幅器
+    func updateSafetyLimiter() {
+        let effects = PlayerManager.shared.audioEffects
+        guard isEnabled else {
+            disableSafetyMeasures()
+            return
+        }
+        
+        let gains: [Float]
+        if let preset = currentPreset, preset.id != "custom" {
+            gains = preset.gains
+        } else {
+            gains = customGains
+        }
+        
+        let maxEQGain = gains.max() ?? 0
+        let bassKnob = max(effects.bassGain, 0)
+        let trebleKnob = max(effects.trebleGain, 0)
+        let peakGain = max(maxEQGain, max(bassKnob, trebleKnob))
+        
+        // 前级补偿：峰值正增益超过 1.5 dB 时按比例衰减，防止输出削波
+        let newPreamp: Float
+        if peakGain > 1.5 {
+            newPreamp = -(peakGain - 1.5) * 0.65
+        } else {
+            newPreamp = 0
+        }
+        
+        if abs(newPreamp - preampDB) > 0.05 {
+            preampDB = newPreamp
+            effects.setVolume(newPreamp)
+        }
+        
+        // 安全限幅器：任何正增益超过 0.5 dB 即启用，阈值 -0.5 dBFS
+        if peakGain > 0.5 {
+            effects.setLimiterEnabled(true)
+            effects.setLimiterLimit(-0.5)
+        } else {
+            effects.setLimiterEnabled(false)
+        }
+    }
+    
+    private func disableSafetyMeasures() {
+        let effects = PlayerManager.shared.audioEffects
+        if preampDB != 0 {
+            preampDB = 0
+            effects.setVolume(0)
+        }
+        effects.setLimiterEnabled(false)
     }
     
     // MARK: - 自定义预设管理
@@ -263,6 +329,7 @@ class EQManager: ObservableObject {
             if isEnabled, let preset = currentPreset {
                 preset.apply(to: PlayerManager.shared.equalizer)
             }
+            updateSafetyLimiter()
             return
         }
         // 兼容旧版本（v1/v2/v3），只恢复 10 段数据
@@ -286,6 +353,7 @@ class EQManager: ObservableObject {
                 if isEnabled, let preset = currentPreset {
                     preset.apply(to: PlayerManager.shared.equalizer)
                 }
+                updateSafetyLimiter()
                 // 迁移到 v4
                 saveState()
                 return

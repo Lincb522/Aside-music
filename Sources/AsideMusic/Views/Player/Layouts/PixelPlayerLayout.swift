@@ -553,7 +553,7 @@ extension PixelPlayerLayout {
             // 歌词内容
             if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
                 ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(spacing: 10) {
                             Color.clear.frame(height: 20)
                             ForEach(Array(lyricVM.lyrics.enumerated()), id: \.offset) { index, line in

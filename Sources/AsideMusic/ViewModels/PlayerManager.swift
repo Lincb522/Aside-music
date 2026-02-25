@@ -180,9 +180,19 @@ class PlayerManager: ObservableObject {
     @Published var shuffledContext: [Song] = []
     @Published var userQueue: [Song] = []
     @Published var history: [Song] = []
+    /// 运行时回退栈：驱动 previous() 的“真实上一首”行为
+    @Published var playbackBackStack: [Song] = []
     
     // MARK: - Internal Properties (供扩展文件访问)
     var cancellables = Set<AnyCancellable>()
+    /// 当前播放 URL 获取的订阅（切歌时自动取消上一次）
+    var playbackURLCancellable: AnyCancellable?
+    /// 音质切换 URL 获取的订阅
+    var qualitySwitchCancellable: AnyCancellable?
+    /// 下一首预加载的订阅
+    var nextTrackCancellable: AnyCancellable?
+    /// 音质切换轮询任务（可取消）
+    var qualitySwitchPollWorkItem: DispatchWorkItem?
     var saveStateWorkItem: DispatchWorkItem?
     let saveStateDebounceInterval: TimeInterval = AppConfig.Player.saveStateDebounceInterval
     /// 标记是否为用户主动停止（区分 EOF 自然结束 vs 手动 stop）
@@ -234,6 +244,10 @@ class PlayerManager: ObservableObject {
     
     /// 持久化时的最大 context 大小（防止序列化过大）
     let maxPersistContextSize = 200
+    /// 回退栈最大长度（防止无限增长）
+    let maxBackStackSize = 200
+    /// 正在执行“上一首回退”，用于避免 loadAndPlay 再次把当前歌压入回退栈
+    var isApplyingBackNavigation: Bool = false
     
     var isAppLoggedIn: Bool {
         UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
@@ -290,6 +304,10 @@ class PlayerManager: ObservableObject {
         MainActor.assumeIsolated {
             timeUpdateTimer?.invalidate()
             cancellables.removeAll()
+            playbackURLCancellable?.cancel()
+            qualitySwitchCancellable?.cancel()
+            nextTrackCancellable?.cancel()
+            qualitySwitchPollWorkItem?.cancel()
             saveStateWorkItem?.cancel()
         }
     }

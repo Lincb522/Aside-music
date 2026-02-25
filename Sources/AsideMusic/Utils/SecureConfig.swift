@@ -20,9 +20,13 @@ enum SecureConfig {
            !plistURL.hasPrefix("$(") {
             return plistURL
         }
-        // 兜底默认值
-        AppLogger.warning("API_BASE_URL 未配置，使用默认值")
+        AppLogger.error("API_BASE_URL 未配置，请在 Secrets.xcconfig 中设置")
+        #if DEBUG
         return "http://localhost:3000"
+        #else
+        assertionFailure("API_BASE_URL 未配置")
+        return "http://localhost:3000"
+        #endif
     }
     
     /// QQ 音乐 API 服务器地址
@@ -36,7 +40,13 @@ enum SecureConfig {
            !plistURL.hasPrefix("$(") {
             return plistURL
         }
+        AppLogger.error("QQ_MUSIC_BASE_URL 未配置，请在 Secrets.xcconfig 中设置")
+        #if DEBUG
         return "http://localhost:8000"
+        #else
+        assertionFailure("QQ_MUSIC_BASE_URL 未配置")
+        return "http://localhost:8000"
+        #endif
     }
     
     /// 解灰源服务器地址
@@ -50,6 +60,12 @@ enum SecureConfig {
            !plistURL.hasPrefix("$(") {
             return plistURL
         }
+        AppLogger.error("UNBLOCK_SERVER_URL 未配置，请在 Secrets.xcconfig 中设置")
+        #if DEBUG
         return "http://localhost:4000"
+        #else
+        assertionFailure("UNBLOCK_SERVER_URL 未配置")
+        return "http://localhost:4000"
+        #endif
     }
 }

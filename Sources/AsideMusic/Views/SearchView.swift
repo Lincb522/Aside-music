@@ -35,7 +35,7 @@ struct SearchView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -222,7 +222,7 @@ struct SearchView: View {
     // MARK: - 双平台并列结果
     
     private var dualPlatformResultsView: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             VStack(spacing: 16) {
                 // 最佳匹配卡片（暂时隐藏）
                 // if let match = viewModel.multimatchResult {
@@ -437,7 +437,7 @@ struct SearchView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
             
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 LazyVStack(spacing: 0) {
                     switch viewModel.currentTab {
                     case .songs:
@@ -832,7 +832,7 @@ struct SearchView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 10)
             
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     if let artist = match.artist {
                         bestMatchCard(
@@ -912,7 +912,7 @@ struct SearchView: View {
             .frame(width: 220)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -923,18 +923,13 @@ struct SearchView: View {
     // MARK: - 空结果提示
     
     private var emptyResultsView: some View {
-        VStack(spacing: 16) {
-            AsideIcon(icon: .musicNoteList, size: 50, color: .gray.opacity(0.3))
-            Text(LocalizedStringKey("empty_no_results"))
-                .font(.rounded(size: 16, weight: .medium))
-                .foregroundColor(.asideTextSecondary)
-        }
+        ContentUnavailableView.search(text: viewModel.query)
     }
 
     // MARK: - 搜索历史 & 热搜
     
     private var emptySearchView: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 // 搜索历史
                 if !viewModel.searchHistory.isEmpty {

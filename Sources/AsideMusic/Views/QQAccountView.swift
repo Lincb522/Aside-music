@@ -31,7 +31,7 @@ struct QQAccountView: View {
             VStack(spacing: 0) {
                 headerView
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 28) {
                         if isChecking {
                             loadingView
@@ -47,7 +47,7 @@ struct QQAccountView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             await checkStatus()
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
@@ -213,7 +213,7 @@ struct QQAccountView: View {
         .padding(.vertical, 32)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
                 .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
         )
@@ -229,7 +229,7 @@ struct QQAccountView: View {
             
             ZStack {
                 Circle()
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 52, height: 52)
                     .glassEffect(.regular, in: .circle)
                 AsideIcon(icon: .musicNote, size: 24, color: .asideIconForeground)
@@ -277,7 +277,7 @@ struct QQAccountView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -357,7 +357,7 @@ struct QQAccountView: View {
                 .padding(.vertical, 15)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .glassEffect(.regular, in: .rect(cornerRadius: 14))
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -435,7 +435,7 @@ struct QQAccountView: View {
                 .padding(.vertical, 16)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -463,7 +463,7 @@ struct QQAccountView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

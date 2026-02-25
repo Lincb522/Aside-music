@@ -1,16 +1,17 @@
 import Foundation
+import Observation
 import Combine
 
 // MARK: - PlaylistDetailViewModel
 
 @MainActor
-class PlaylistDetailViewModel: ObservableObject {
-    @Published var songs: [Song] = []
-    @Published var playlistDetail: Playlist?
-    @Published var isLoading = true
-    @Published var isLoadingMore = false
-    @Published var hasMore = true
-    @Published var relatedPlaylists: [RelatedPlaylist] = []
+@Observable class PlaylistDetailViewModel {
+    var songs: [Song] = []
+    var playlistDetail: Playlist?
+    var isLoading = true
+    var isLoadingMore = false
+    var hasMore = true
+    var relatedPlaylists: [RelatedPlaylist] = []
     
     private var cancellables = Set<AnyCancellable>()
     private var currentOffset = 0

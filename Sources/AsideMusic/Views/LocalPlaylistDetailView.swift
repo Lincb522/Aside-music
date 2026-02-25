@@ -33,13 +33,13 @@ struct LocalPlaylistDetailView: View {
             VStack(spacing: 0) {
                 headerView
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     songListSection
                         .padding(.bottom, 100)
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -247,7 +247,7 @@ struct LocalPlaylistDetailView: View {
     private var coverPlaceholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
             AsideIcon(icon: .musicNoteList, size: 36, color: .asideTextSecondary.opacity(0.3))
         }

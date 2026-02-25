@@ -1,15 +1,16 @@
 import Foundation
+import Observation
 import Combine
 
 /// 电台详情 ViewModel，管理电台信息和节目列表的加载
 @MainActor
-class RadioDetailViewModel: ObservableObject {
-    @Published var radioDetail: RadioStation?
-    @Published var programs: [RadioProgram] = []
-    @Published var isLoading = true
-    @Published var isLoadingMore = false
-    @Published var hasMore = true
-    @Published var errorMessage: String?
+@Observable class RadioDetailViewModel {
+    var radioDetail: RadioStation?
+    var programs: [RadioProgram] = []
+    var isLoading = true
+    var isLoadingMore = false
+    var hasMore = true
+    var errorMessage: String?
 
     let radioId: Int
     private var offset = 0

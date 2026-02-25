@@ -40,7 +40,7 @@ struct MessageListView: View {
                     }
                     Spacer()
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(viewModel.messages) { msg in
                                 NavigationLink(destination: ChatDetailView(userId: msg.userId, nickname: msg.nickname, avatarUrl: msg.avatarUrl)) {
@@ -56,7 +56,7 @@ struct MessageListView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchMessages() }
     }
 }

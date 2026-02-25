@@ -56,6 +56,7 @@ struct CommentView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(Color.red.opacity(0.9)))
+                        .glassEffect(.regular, in: .capsule)
                         .padding(.bottom, 100)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -145,7 +146,7 @@ struct CommentView: View {
     // MARK: - 评论内容
     
     private var commentContent: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             LazyVStack(spacing: 16) {
                 // 排序选择器
                 sortTabBar
@@ -240,7 +241,7 @@ struct CommentView: View {
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -287,7 +288,7 @@ struct CommentView: View {
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -352,7 +353,7 @@ struct CommentView: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

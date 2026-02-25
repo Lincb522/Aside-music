@@ -182,7 +182,7 @@ struct QQMVPlayerView: View {
                 videoSection
                 
                 // 下方内容（可滚动）
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 20) {
                         // MV 信息
                         mvInfoSection
@@ -349,7 +349,7 @@ struct QQMVPlayerView: View {
             .padding(.horizontal, 24)
             
             // 横向滚动
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.relatedMVs.prefix(10)) { mv in
                         Button(action: { switchToMV(mv) }) {

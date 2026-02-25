@@ -5,7 +5,7 @@ struct TopRadioListView: View {
     let title: String
     let listType: ListType
 
-    @StateObject private var viewModel: TopRadioListViewModel
+    @State private var viewModel: TopRadioListViewModel
     @Environment(\.dismiss) private var dismiss
 
     enum ListType {
@@ -16,7 +16,7 @@ struct TopRadioListView: View {
     init(title: String, listType: ListType) {
         self.title = title
         self.listType = listType
-        _viewModel = StateObject(wrappedValue: TopRadioListViewModel(listType: listType))
+        _viewModel = State(initialValue: TopRadioListViewModel(listType: listType))
     }
 
     var body: some View {
@@ -34,7 +34,7 @@ struct TopRadioListView: View {
                         .foregroundColor(.asideTextSecondary)
                 }
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {

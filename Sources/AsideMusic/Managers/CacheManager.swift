@@ -24,9 +24,10 @@ class CacheManager: @unchecked Sendable {
     private let diskLimit = AppConfig.Cache.diskLimit
     private let defaultExpiration: TimeInterval = AppConfig.Cache.defaultTTL
     
-    /// 磁盘缓存命中/未命中统计（用于调优）
-    private var diskHitCount: Int = 0
-    private var diskMissCount: Int = 0
+    /// 磁盘缓存命中/未命中统计（用于调优，使用锁保护线程安全）
+    private let statsLock = NSLock()
+    private var _diskHitCount: Int = 0
+    private var _diskMissCount: Int = 0
     
     init() {
         memoryCache.totalCostLimit = memoryLimit
@@ -56,14 +57,14 @@ class CacheManager: @unchecked Sendable {
         }
         
         if let data = loadFromDisk(key: key) {
-            diskHitCount += 1
+            statsLock.lock(); _diskHitCount += 1; statsLock.unlock()
             memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
             
             if let object = try? JSONDecoder().decode(T.self, from: data) {
                 return object
             }
         } else {
-            diskMissCount += 1
+            statsLock.lock(); _diskMissCount += 1; statsLock.unlock()
         }
         
         return nil
@@ -165,9 +166,13 @@ class CacheManager: @unchecked Sendable {
     
     /// 获取缓存命中率（用于调优）
     var hitRate: Double {
-        let total = diskHitCount + diskMissCount
+        statsLock.lock()
+        let hits = _diskHitCount
+        let misses = _diskMissCount
+        statsLock.unlock()
+        let total = hits + misses
         guard total > 0 else { return 0 }
-        return Double(diskHitCount) / Double(total)
+        return Double(hits) / Double(total)
     }
     
     // MARK: - 磁盘操作

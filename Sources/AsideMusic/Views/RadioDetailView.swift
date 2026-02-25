@@ -3,7 +3,7 @@ import SwiftUI
 /// 电台详情页面，展示电台信息和节目列表
 struct RadioDetailView: View {
     let radioId: Int
-    @StateObject private var viewModel: RadioDetailViewModel
+    @State private var viewModel: RadioDetailViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -11,7 +11,7 @@ struct RadioDetailView: View {
 
     init(radioId: Int) {
         self.radioId = radioId
-        _viewModel = StateObject(wrappedValue: RadioDetailViewModel(radioId: radioId))
+        _viewModel = State(initialValue: RadioDetailViewModel(radioId: radioId))
     }
 
     var body: some View {
@@ -24,7 +24,7 @@ struct RadioDetailView: View {
             } else if let error = viewModel.errorMessage, viewModel.radioDetail == nil {
                 errorView(error)
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 0) {
                         headerSection
                         programListSection

@@ -2,10 +2,11 @@
 // 新歌速递 ViewModel
 
 import Foundation
+import Observation
 import Combine
 
 @MainActor
-class NewSongExpressViewModel: ObservableObject {
+@Observable class NewSongExpressViewModel {
     // type: 0=全部, 7=华语, 96=欧美, 16=韩国, 8=日本
     struct SongType: Identifiable, Hashable {
         let id: Int
@@ -20,9 +21,9 @@ class NewSongExpressViewModel: ObservableObject {
         SongType(id: 8, nameKey: "new_song_japanese"),
     ]
     
-    @Published var songs: [Song] = []
-    @Published var isLoading = false
-    @Published var selectedType: Int = 0
+    var songs: [Song] = []
+    var isLoading = false
+    var selectedType: Int = 0
     
     private var cancellables = Set<AnyCancellable>()
     private var currentRequest: AnyCancellable?

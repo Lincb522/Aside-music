@@ -23,7 +23,7 @@ struct AudioLabView: View {
                     .padding(.top, DeviceLayout.headerTopPadding)
                     .padding(.bottom, 16)
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 24) {
                         // 智能音效开关
                         smartEffectsToggle
@@ -69,7 +69,7 @@ struct AudioLabView: View {
                 .zIndex(100)
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
     
     // MARK: - 顶部导航
@@ -129,7 +129,7 @@ struct AudioLabView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
@@ -197,7 +197,7 @@ struct AudioLabView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
@@ -422,7 +422,7 @@ struct AudioLabView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
@@ -615,7 +615,7 @@ struct AudioLabView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }
@@ -669,7 +669,7 @@ struct AudioLabView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
         )
     }

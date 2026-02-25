@@ -9,18 +9,10 @@ final class SettingsManager: ObservableObject {
     // MARK: - 外观设置
     
     /// 是否启用液态玻璃效果
-    @AppStorage("liquidGlassEnabled") var liquidGlassEnabled: Bool = false {
-        didSet {
-            objectWillChange.send()
-        }
-    }
+    @AppStorage("liquidGlassEnabled") var liquidGlassEnabled: Bool = false
     
     /// 悬浮栏样式
-    @AppStorage("floatingBarStyle") var floatingBarStyleRaw: String = FloatingBarStyle.unified.rawValue {
-        didSet {
-            objectWillChange.send()
-        }
-    }
+    @AppStorage("floatingBarStyle") var floatingBarStyleRaw: String = FloatingBarStyle.unified.rawValue
     
     /// 悬浮栏样式（类型安全访问）
     var floatingBarStyle: FloatingBarStyle {
@@ -31,7 +23,6 @@ final class SettingsManager: ObservableObject {
     /// 主题模式: "system" 跟随系统, "light" 浅色, "dark" 深色
     @AppStorage("themeMode") var themeMode: String = "system" {
         didSet {
-            objectWillChange.send()
             applyTheme()
         }
     }
@@ -87,18 +78,10 @@ final class SettingsManager: ObservableObject {
     @AppStorage("soundQuality") var soundQuality: String = "standard"
     
     /// 默认播放音质
-    @AppStorage("defaultPlaybackQuality") var defaultPlaybackQuality: String = "standard" {
-        didSet {
-            objectWillChange.send()
-        }
-    }
+    @AppStorage("defaultPlaybackQuality") var defaultPlaybackQuality: String = "standard"
     
     /// 默认下载音质
-    @AppStorage("defaultDownloadQuality") var defaultDownloadQuality: String = "standard" {
-        didSet {
-            objectWillChange.send()
-        }
-    }
+    @AppStorage("defaultDownloadQuality") var defaultDownloadQuality: String = "standard"
     
     /// 自动播放下一首
     @AppStorage("autoPlayNext") var autoPlayNext: Bool = true
@@ -114,18 +97,10 @@ final class SettingsManager: ObservableObject {
     @AppStorage("hapticFeedback") var hapticFeedback: Bool = true
     
     /// 解灰功能开关（使用第三方音源解锁灰色歌曲）
-    @AppStorage("unblockEnabled") var unblockEnabled: Bool = false {
-        didSet {
-            objectWillChange.send()
-        }
-    }
+    @AppStorage("unblockEnabled") var unblockEnabled: Bool = false
     
     /// 边听边存（播放时自动下载保存）
-    @AppStorage("listenAndSave") var listenAndSave: Bool = false {
-        didSet {
-            objectWillChange.send()
-        }
-    }
+    @AppStorage("listenAndSave") var listenAndSave: Bool = false
     
     private init() {
         // 启动时应用一次主题

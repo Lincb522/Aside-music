@@ -139,6 +139,9 @@ trap cleanup_on_error ERR
 main() {
     print_header
     
+    # 强制使用 Xcode 内置工具链，不使用自定义安装的工具链
+    unset TOOLCHAINS
+    
     # 从 .env 文件加载环境变量
     if [ -f .env ]; then
         print_info "加载 .env 配置..."
@@ -171,6 +174,7 @@ main() {
         "xcodebuild -project AsideMusic.xcodeproj \
             -scheme $SCHEME \
             -configuration $CONFIGURATION \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \

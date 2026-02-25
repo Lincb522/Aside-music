@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PodcastView: View {
-    @StateObject private var viewModel = PodcastViewModel()
+    @State private var viewModel = PodcastViewModel()
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen: Int = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?
@@ -47,7 +47,7 @@ struct PodcastView: View {
                 if viewModel.isLoading && viewModel.personalizedRadios.isEmpty {
                     AsideLoadingView(text: "LOADING")
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(alignment: .leading, spacing: 28) {
                             headerSection
 
@@ -103,7 +103,7 @@ struct PodcastView: View {
                     }
                 }
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: PodcastDestination.self) { destination in
                 switch destination {
                 case .category(let cat):
@@ -158,7 +158,7 @@ struct PodcastView: View {
             NavigationLink(value: PodcastDestination.search) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .frame(width: 40, height: 40)
                         .glassEffect(.regular, in: .circle)
                     AsideIcon(icon: .magnifyingGlass, size: 18, color: .asideTextPrimary, lineWidth: 1.4)
@@ -199,7 +199,7 @@ struct PodcastView: View {
     // MARK: - 分类标签
 
     private var categoriesSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 // 分类浏览入口
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
@@ -211,7 +211,7 @@ struct PodcastView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Capsule().fill(Color.asideMilk))
+                    .background(Capsule().fill(Color(.systemBackground)))
                 }
                 .buttonStyle(ScaleButtonStyle())
 
@@ -225,7 +225,7 @@ struct PodcastView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Capsule().fill(Color.asideMilk))
+                        .background(Capsule().fill(Color(.systemBackground)))
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -283,7 +283,7 @@ struct PodcastView: View {
                 .foregroundColor(.asideTextPrimary)
                 .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.todayPerfered) { radio in
                         radioCompactCard(radio: radio)
@@ -340,7 +340,7 @@ struct PodcastView: View {
                 .foregroundColor(.asideTextPrimary)
                 .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.paygiftRadios) { radio in
                         radioCompactCard(radio: radio)
@@ -363,7 +363,7 @@ struct PodcastView: View {
                 .foregroundColor(.asideTextPrimary)
                 .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.newcomerRadios) { radio in
                         radioCompactCard(radio: radio)
@@ -583,7 +583,7 @@ struct PodcastView: View {
             }
             .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.broadcastChannels) { channel in
                         broadcastCard(channel: channel)

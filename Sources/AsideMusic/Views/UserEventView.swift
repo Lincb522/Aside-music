@@ -41,7 +41,7 @@ struct UserEventView: View {
                     }
                     Spacer()
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         LazyVStack(spacing: 16) {
                             ForEach(viewModel.events) { event in
                                 EventCard(event: event) {
@@ -71,7 +71,7 @@ struct UserEventView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchEvents() }
     }
 }
@@ -172,7 +172,7 @@ private struct EventCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

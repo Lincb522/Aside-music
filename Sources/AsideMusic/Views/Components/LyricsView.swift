@@ -618,7 +618,7 @@ struct LyricsView: View {
                     }
             } else {
                 ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(spacing: 24) {
                             Color.clear.frame(height: 200)
                             

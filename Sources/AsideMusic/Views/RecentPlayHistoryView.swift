@@ -47,8 +47,9 @@ struct RecentPlayHistoryView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(Color.asideMilk)
+                                .fill(Color.asideGlassTint)
                                 .frame(width: 40, height: 40)
+                                .glassEffect(.regular, in: .circle)
                                 .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
                             AsideIcon(icon: .play, size: 16, color: .asideTextPrimary)
                         }
@@ -60,7 +61,7 @@ struct RecentPlayHistoryView: View {
                 .padding(.bottom, 16)
                 
                 // 歌曲列表
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                             SongListRow(
@@ -80,6 +81,6 @@ struct RecentPlayHistoryView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

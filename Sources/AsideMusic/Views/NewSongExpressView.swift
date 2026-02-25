@@ -4,7 +4,7 @@
 import SwiftUI
 
 struct NewSongExpressView: View {
-    @StateObject private var viewModel = NewSongExpressViewModel()
+    @State private var viewModel = NewSongExpressViewModel()
     @ObservedObject private var playerManager = PlayerManager.shared
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
@@ -32,7 +32,7 @@ struct NewSongExpressView: View {
                     emptyState
                     Spacer()
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(spacing: 24) {
                             // 完整列表
                             fullListSection
@@ -42,7 +42,7 @@ struct NewSongExpressView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let id = selectedArtistId { ArtistDetailView(artistId: id) }
         }
@@ -90,7 +90,7 @@ struct NewSongExpressView: View {
     // MARK: - 语种选择
     
     private var typeSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 ForEach(NewSongExpressViewModel.songTypes) { type in
                     Button {
@@ -104,8 +104,9 @@ struct NewSongExpressView: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(
-                                Capsule().fill(viewModel.selectedType == type.id ? Color.asideIconBackground : Color.asideCardBackground)
+                                Capsule().fill(Color.asideGlassTint)
                             )
+                            .glassEffect(.regular, in: .capsule)
                             .contentShape(Capsule())
                     }
                     .buttonStyle(ScaleButtonStyle())
@@ -146,8 +147,9 @@ struct NewSongExpressView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color.asideIconBackground)
+                    .background(Color.asideGlassTint)
                     .clipShape(Capsule())
+                    .glassEffect(.regular, in: .capsule)
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 

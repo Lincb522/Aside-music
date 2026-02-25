@@ -158,7 +158,7 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
 // MARK: - MV 发现页
 
 struct MVDiscoverView: View {
-    @StateObject private var viewModel = MVDiscoverViewModel()
+    @State private var viewModel = MVDiscoverViewModel()
     @State private var selectedMV: MVIdItem?
     @State private var selectedMlog: MlogItem?
     @State private var showSublist = false
@@ -183,7 +183,7 @@ struct MVDiscoverView: View {
                 .padding(.top, DeviceLayout.headerTopPadding)
                 .padding(.bottom, 8)
 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 0) {
                         // Hero 区域
                         if let heroMV = viewModel.latestMVs.first {
@@ -235,7 +235,7 @@ struct MVDiscoverView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if viewModel.latestMVs.isEmpty {
                 viewModel.fetchAll()
@@ -383,7 +383,7 @@ struct MVDiscoverView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(title: title, subtitle: subtitle, listType: listType)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(mvs.prefix(8)) { mv in
                         Button(action: { selectedMV = MVIdItem(id: mv.id) }) {
@@ -480,7 +480,7 @@ struct MVDiscoverView: View {
             }
             .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.mlogItems) { mlog in
                         Button(action: { selectedMlog = mlog }) {
@@ -592,13 +592,13 @@ struct MVListDestination: Hashable {
 // MARK: - MV 完整列表页
 
 struct MVFullListView: View {
-    @StateObject private var viewModel: MVListViewModel
+    @State private var viewModel: MVListViewModel
     @State private var selectedMV: MVIdItem?
 
     let title: String
 
     init(listType: MVListViewModel.ListType, title: String) {
-        _viewModel = StateObject(wrappedValue: MVListViewModel(listType: listType))
+        _viewModel = State(initialValue: MVListViewModel(listType: listType))
         self.title = title
     }
 
@@ -621,7 +621,7 @@ struct MVFullListView: View {
                 .padding(.top, DeviceLayout.headerTopPadding)
                 .padding(.bottom, 8)
 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     let columns = [
                         GridItem(.flexible(), spacing: 14),
                         GridItem(.flexible(), spacing: 14)
@@ -659,7 +659,7 @@ struct MVFullListView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if viewModel.mvs.isEmpty {
                 viewModel.fetchInitial()
@@ -680,7 +680,7 @@ struct MVFullListView: View {
 // MARK: - 已收藏 MV Sheet
 
 struct MVSublistSheet: View {
-    @StateObject private var viewModel = MVSublistViewModel()
+    @State private var viewModel = MVSublistViewModel()
     @State private var selectedMV: MVIdItem?
     @Environment(\.dismiss) private var dismiss
 
@@ -726,7 +726,7 @@ struct MVSublistSheet: View {
                 }
                 Spacer()
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     LazyVStack(spacing: 10) {
                         ForEach(viewModel.items) { item in
                             sublistRow(item: item)
@@ -759,7 +759,7 @@ struct MVSublistSheet: View {
         }
         .background {
             Rectangle()
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .overlay(Color.asideCardBackground.opacity(0.55))
         }

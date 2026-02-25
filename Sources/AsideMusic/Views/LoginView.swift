@@ -30,7 +30,7 @@ struct LoginView: View {
                 footerView
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: viewModel.isLoggedIn) { _, loggedIn in
             if loggedIn {
                 handleLoginSuccess()
@@ -137,7 +137,7 @@ struct LoginView: View {
         VStack(spacing: 24) {
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 24))
                     .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
                 

@@ -55,7 +55,7 @@ struct HomeView: View {
                 if viewModel.isLoading {
                     AsideLoadingView(text: "LOADING HOME")
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(spacing: 24) {
                             // 顶部栏
                             headerSection
@@ -102,7 +102,7 @@ struct HomeView: View {
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: HomeDestination.self) { destination in
                 switch destination {
                 case .search:
@@ -293,7 +293,7 @@ struct HomeView: View {
             }
             .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 16) {
                     ForEach(viewModel.dailySongs) { song in
                         SongCard(song: song) {
@@ -318,7 +318,7 @@ struct HomeView: View {
                 }
             )
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 16) {
                     ForEach(viewModel.recommendPlaylists) { playlist in
                         Button(action: {
@@ -344,7 +344,7 @@ struct HomeView: View {
                 action: { navigationPath.append(HomeDestination.newSongExpress) }
             )
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     // 第一首大卡片
                     if let first = viewModel.popularSongs.first {
@@ -461,7 +461,7 @@ struct HomeView: View {
                 subtitle: NSLocalizedString("qq_recommend_playlists_desc", comment: "")
             )
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 16) {
                     ForEach(viewModel.qqRecommendPlaylists.prefix(10)) { playlist in
                         Button(action: {
@@ -486,7 +486,7 @@ struct HomeView: View {
                 subtitle: NSLocalizedString("qq_new_songs_desc", comment: "")
             )
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 16) {
                     ForEach(viewModel.qqNewSongs.prefix(10)) { song in
                         SongCard(song: song) {
@@ -542,7 +542,7 @@ struct HomeView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
         )
@@ -676,7 +676,8 @@ struct PlaylistVerticalCard: View {
                     .foregroundColor(.primary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .background(Capsule().fill(Color.asideGlassTint))
+                    .glassEffect(.regular, in: .capsule)
                     .padding(8)
                 }
             }
@@ -745,7 +746,7 @@ struct MiniSongRow: View {
 
                 AsideIcon(icon: .play, size: 14, color: .asideTextPrimary)
                     .padding(8)
-                    .background(Circle().fill(Color.asideMilk))
+                    .background(Circle().fill(Color.asideGlassTint))
             }
             .padding(8)
             .glassEffect(.regular, in: .rect(cornerRadius: 16))

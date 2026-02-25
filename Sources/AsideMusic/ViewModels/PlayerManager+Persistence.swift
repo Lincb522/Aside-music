@@ -20,6 +20,8 @@ extension PlayerManager {
         let context: [Song]?
         let contextIndex: Int?
         let shuffledContext: [Song]?
+        // v3: 上一首回退栈
+        let playbackBackStack: [Song]?
     }
     
     func saveState() {
@@ -30,7 +32,8 @@ extension PlayerManager {
             // 截断 context 以防过大
             let trimmedContext = Array(self.context.prefix(self.maxPersistContextSize))
             let trimmedShuffled = Array(self.shuffledContext.prefix(self.maxPersistContextSize))
-            let safeIndex = min(self.contextIndex, trimmedContext.count - 1)
+            let trimmedBackStack = Array(self.playbackBackStack.suffix(self.maxBackStackSize))
+            let safeIndex = max(0, min(self.contextIndex, trimmedContext.count - 1))
             
             let state = PlayerState(
                 currentSong: self.currentSong,
@@ -40,7 +43,8 @@ extension PlayerManager {
                 playSource: self.playSource,
                 context: trimmedContext,
                 contextIndex: safeIndex,
-                shuffledContext: trimmedShuffled
+                shuffledContext: trimmedShuffled,
+                playbackBackStack: trimmedBackStack
             )
             OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
         }
@@ -53,7 +57,8 @@ extension PlayerManager {
         saveStateWorkItem?.cancel()
         let trimmedContext = Array(context.prefix(maxPersistContextSize))
         let trimmedShuffled = Array(shuffledContext.prefix(maxPersistContextSize))
-        let safeIndex = min(contextIndex, trimmedContext.count - 1)
+        let trimmedBackStack = Array(playbackBackStack.suffix(maxBackStackSize))
+        let safeIndex = max(0, min(contextIndex, trimmedContext.count - 1))
         
         let state = PlayerState(
             currentSong: currentSong,
@@ -63,7 +68,8 @@ extension PlayerManager {
             playSource: playSource,
             context: trimmedContext,
             contextIndex: safeIndex,
-            shuffledContext: trimmedShuffled
+            shuffledContext: trimmedShuffled,
+            playbackBackStack: trimmedBackStack
         )
         OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
     }
@@ -74,6 +80,7 @@ extension PlayerManager {
             self.mode = state.mode
             self.history = state.history
             self.playSource = state.playSource ?? .normal
+            self.playbackBackStack = state.playbackBackStack ?? []
             
             if let song = state.currentSong {
                 self.currentSong = song
@@ -84,6 +91,9 @@ extension PlayerManager {
                     self.contextIndex = state.contextIndex ?? 0
                     if let savedShuffled = state.shuffledContext, !savedShuffled.isEmpty {
                         self.shuffledContext = savedShuffled
+                    } else if self.mode == .shuffle {
+                        // 兜底：随机模式下若随机列表丢失，重建随机队列，避免 currentContextList 为空
+                        self.generateShuffledContext()
                     }
                 } else {
                     // 兼容旧版：只有 currentSong，没有完整 context

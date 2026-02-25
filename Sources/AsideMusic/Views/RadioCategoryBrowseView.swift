@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 电台分类浏览页面 — 顶部分类标签，选中后展示该分类下的电台列表，无限加载
 struct RadioCategoryBrowseView: View {
-    @StateObject private var viewModel = RadioCategoryBrowseViewModel()
+    @State private var viewModel = RadioCategoryBrowseViewModel()
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -31,7 +31,7 @@ struct RadioCategoryBrowseView: View {
                     }
                     Spacer()
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                                 NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
@@ -78,7 +78,7 @@ struct RadioCategoryBrowseView: View {
     // MARK: - 分类标签栏
 
     private var categoryBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(viewModel.categories) { cat in
                     let isSelected = viewModel.selectedCategory?.id == cat.id

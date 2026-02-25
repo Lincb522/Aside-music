@@ -4,7 +4,7 @@ import SwiftUI
 
 struct ArtistDetailView: View {
     let artistId: Int
-    @StateObject private var viewModel = ArtistDetailViewModel()
+    @State private var viewModel = ArtistDetailViewModel()
     @ObservedObject var playerManager = PlayerManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
@@ -30,7 +30,7 @@ struct ArtistDetailView: View {
             (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
                 .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(spacing: 0) {
                     // Hero 大图区域（弹性拉伸）
                     heroSection
@@ -68,7 +68,7 @@ struct ArtistDetailView: View {
                 Spacer()
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -227,8 +227,9 @@ extension ArtistDetailView {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                     .background(
-                        Capsule().fill(Color.asideIconBackground)
+                        Capsule().fill(Color.asideGlassTint)
                     )
+                    .glassEffect(.regular, in: .capsule)
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
@@ -401,7 +402,7 @@ extension ArtistDetailView {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -513,7 +514,7 @@ extension ArtistDetailView {
 // MARK: - 歌手简介 Sheet
 
 struct ArtistBioSheet: View {
-    @ObservedObject var viewModel: ArtistDetailViewModel
+    var viewModel: ArtistDetailViewModel
     let artistId: Int
     @Environment(\.dismiss) private var dismiss
 
@@ -584,7 +585,7 @@ struct ArtistBioSheet: View {
                 AsideLoadingView(text: "LOADING")
                 Spacer()
             } else if let desc = viewModel.descResult {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if let brief = desc.briefDesc, !brief.isEmpty {
                             bioCard {
@@ -618,7 +619,7 @@ struct ArtistBioSheet: View {
                     .padding(.bottom, 40)
                 }
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if let brief = viewModel.artist?.briefDesc, !brief.isEmpty {
                             bioCard {
@@ -653,7 +654,7 @@ struct ArtistBioSheet: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

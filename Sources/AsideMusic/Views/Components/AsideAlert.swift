@@ -75,7 +75,7 @@ struct AsideAlertView: View {
             .padding(24)
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 20))
             )
             .cornerRadius(20)

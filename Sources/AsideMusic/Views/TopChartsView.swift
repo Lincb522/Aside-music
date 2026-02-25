@@ -44,7 +44,7 @@ struct TopChartsView: View {
                     .padding(.top, DeviceLayout.headerTopPadding)
                     .padding(.bottom, 16)
                     
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         LazyVGrid(columns: columns, spacing: 20) {
                             ForEach(topLists) { list in
                                 NavigationLink(destination: PlaylistDetailView(playlist: Playlist(id: list.id, name: list.name, coverImgUrl: list.coverImgUrl, picUrl: nil, trackCount: nil, playCount: nil, subscribedCount: nil, shareCount: nil, commentCount: nil, creator: nil, description: nil, tags: nil))) {
@@ -76,7 +76,7 @@ struct TopChartsView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             loadData()
         }

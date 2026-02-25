@@ -173,7 +173,7 @@ struct QQArtistDetailView: View {
             (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
                 .ignoresSafeArea()
             
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(spacing: 0) {
                     heroSection
                     infoSection
@@ -196,7 +196,7 @@ struct QQArtistDetailView: View {
                 Spacer()
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
@@ -319,7 +319,8 @@ struct QQArtistDetailView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Capsule().fill(Color.asideIconBackground))
+                    .background(Capsule().fill(Color.asideGlassTint))
+                    .glassEffect(.regular, in: .capsule)
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
@@ -693,12 +694,12 @@ struct QQAlbumDetailView: View {
             VStack(spacing: 0) {
                 headerView
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     songListSection.padding(.bottom, 100)
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail { SongDetailView(song: song) }
         }
@@ -902,7 +903,7 @@ struct QQAlbumDescSheet: View {
             
             Rectangle().fill(Color.asideSeparator).frame(height: 0.5)
             
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 Text(desc)
                     .font(.rounded(size: 15, weight: .regular))
                     .foregroundColor(.asideTextPrimary)
@@ -1034,7 +1035,7 @@ struct QQPlaylistDetailView: View {
                 .padding(.top, DeviceLayout.headerTopPadding)
                 .padding(.bottom, 8)
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 0) {
                         headerSection
                         if !viewModel.songs.isEmpty { playAllButton }
@@ -1044,7 +1045,7 @@ struct QQPlaylistDetailView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if viewModel.songs.isEmpty {
                 viewModel.fetchSongs()

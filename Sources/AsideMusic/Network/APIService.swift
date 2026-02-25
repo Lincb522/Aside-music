@@ -680,6 +680,7 @@ class APIService: @unchecked Sendable {
         guard let url = URL(string: base + route) else { throw PlaybackError.networkError }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 15
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         // 优先使用传入的 cookie，回退到 APIService 存储的 cookie
         let effectiveCookie = cookie ?? APIService.shared.currentCookie

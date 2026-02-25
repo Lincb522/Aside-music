@@ -29,7 +29,7 @@ struct LiquidGlassBlur: View {
     var body: some View {
         if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(useFloatingBarFill ? Color.asideFloatingBarFill : Color.asideMilk)
+                .fill(useFloatingBarFill ? Color.asideFloatingBarFill : Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -156,7 +156,7 @@ extension View {
 extension Shape {
     /// Shape.fill(color).asideGlass(shape) — 低版本 fallback 到 material + 颜色叠加
     @ViewBuilder
-    func fillWithGlass(_ color: Color = .asideMilk, cornerRadius: CGFloat = 16) -> some View {
+    func fillWithGlass(_ color: Color = .asideGlassTint, cornerRadius: CGFloat = 16) -> some View {
         if #available(iOS 26, *) {
             self.fill(color).glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
@@ -169,7 +169,7 @@ extension Shape {
     
     /// Shape.fill(color).glassEffect(.regular, in: .circle) 的兼容版
     @ViewBuilder
-    func fillWithGlassCircle(_ color: Color = .asideMilk) -> some View {
+    func fillWithGlassCircle(_ color: Color = .asideGlassTint) -> some View {
         if #available(iOS 26, *) {
             self.fill(color).glassEffect(.regular, in: .circle)
         } else {

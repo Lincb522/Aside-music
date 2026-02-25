@@ -42,7 +42,7 @@ struct CloudDiskView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { loadFirstPage() }
         .alert(NSLocalizedString("cloud_delete_title", comment: ""), isPresented: $showDeleteConfirm) {
             Button(NSLocalizedString("cloud_delete_action", comment: ""), role: .destructive) {
@@ -125,15 +125,16 @@ struct CloudDiskView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
-                .background(Color.asideIconBackground)
+                .background(Color.asideGlassTint)
                 .clipShape(Capsule())
+                .glassEffect(.regular, in: .capsule)
             }
             .buttonStyle(AsideBouncingButtonStyle())
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(songs) { song in
                         cloudSongRow(song)

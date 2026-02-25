@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SongDetailView: View {
     let song: Song
-    @StateObject private var viewModel = SongDetailViewModel()
+    @State private var viewModel = SongDetailViewModel()
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var playerManager = PlayerManager.shared
     @State private var selectedArtistId: Int?
@@ -26,7 +26,7 @@ struct SongDetailView: View {
             VStack(spacing: 0) {
                 headerView
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 0) {
                         // 音乐百科
                         if !viewModel.wikiBlocks.isEmpty {
@@ -49,7 +49,7 @@ struct SongDetailView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -154,7 +154,7 @@ struct SongDetailView: View {
                     AsideIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(Color.asideMilk).glassEffect(.regular, in: .circle)
+                            Circle().fill(Color.asideGlassTint).glassEffect(.regular, in: .circle)
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -167,7 +167,7 @@ struct SongDetailView: View {
                     AsideIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(Color.asideMilk).glassEffect(.regular, in: .circle)
+                            Circle().fill(Color.asideGlassTint).glassEffect(.regular, in: .circle)
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -239,7 +239,7 @@ struct SongDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
@@ -257,7 +257,7 @@ struct SongDetailView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
             
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.simiSongs.prefix(10)) { simiSong in
                         Button(action: {
@@ -266,7 +266,7 @@ struct SongDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.asideMilk)
+                                        .fill(Color.asideGlassTint)
                                         .glassEffect(.regular, in: .rect(cornerRadius: 12))
                                 }
                                 .frame(width: 120, height: 120)

@@ -1,15 +1,16 @@
 import Foundation
+import Observation
 import Combine
 
 // MARK: - AlbumDetailViewModel
 
 @MainActor
-class AlbumDetailViewModel: ObservableObject {
-    @Published var albumInfo: AlbumInfo?
-    @Published var songs: [Song] = []
-    @Published var isLoading = true
-    @Published var isSubscribed = false
-    @Published var isTogglingSubscription = false
+@Observable class AlbumDetailViewModel {
+    var albumInfo: AlbumInfo?
+    var songs: [Song] = []
+    var isLoading = true
+    var isSubscribed = false
+    var isTogglingSubscription = false
     
     private var cancellables = Set<AnyCancellable>()
     

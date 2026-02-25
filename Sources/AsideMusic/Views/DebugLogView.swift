@@ -69,7 +69,7 @@ struct DebugLogView: View {
                     logsList
                 }
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 loadLogs()
                 recomputeFilteredLogs()
@@ -94,7 +94,7 @@ struct DebugLogView: View {
             Button(action: { dismiss() }) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .glassEffect(.regular, in: .circle)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
@@ -145,7 +145,7 @@ struct DebugLogView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .glassEffect(.regular, in: .circle)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
@@ -188,7 +188,7 @@ struct DebugLogView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 6)
         )
@@ -214,7 +214,7 @@ struct DebugLogView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 12))
         )
     }
@@ -222,7 +222,7 @@ struct DebugLogView: View {
     // MARK: - 过滤标签
     
     private var filterTags: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 FilterChip(
                     title: NSLocalizedString("filter_all", comment: ""),
@@ -445,7 +445,7 @@ struct LogRowView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 12))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)

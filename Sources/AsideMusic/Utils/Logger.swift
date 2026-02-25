@@ -78,59 +78,59 @@ enum AppLogger {
     
     /// 普通信息日志
     static func info(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
+        #if DEBUG
         let msg = message()
         let fileName = (file as NSString).lastPathComponent
-        #if DEBUG
         print("INFO [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .info, message: msg, file: file, line: line))
+        #endif
     }
     
     /// 调试日志
     static func debug(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
+        #if DEBUG
         let msg = message()
         let fileName = (file as NSString).lastPathComponent
-        #if DEBUG
         print("DEBUG [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .debug, message: msg, file: file, line: line))
+        #endif
     }
     
     /// 警告日志
     static func warning(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
+        #if DEBUG
         let msg = message()
         let fileName = (file as NSString).lastPathComponent
-        #if DEBUG
         print("WARNING [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .warning, message: msg, file: file, line: line))
+        #endif
     }
     
-    /// 错误日志（Release 下也输出，但不包含敏感信息）
+    /// 错误日志
     static func error(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
+        #if DEBUG
         let msg = message()
         let fileName = (file as NSString).lastPathComponent
-        #if DEBUG
         print("ERROR [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .error, message: msg, file: file, line: line))
+        #endif
     }
     
-    /// 网络请求日志（仅 DEBUG，避免泄露 URL 中的 API Key）
+    /// 网络请求日志
     static func network(_ message: @autoclosure () -> String) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         print("NETWORK \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .network, message: msg, file: "", line: 0))
+        #endif
     }
     
     /// 成功日志
     static func success(_ message: @autoclosure () -> String) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         print("SUCCESS \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .success, message: msg, file: "", line: 0))
+        #endif
     }
 }

@@ -3,12 +3,12 @@ import SwiftUI
 /// 分类电台列表页面
 struct CategoryRadioView: View {
     let category: RadioCategory
-    @StateObject private var viewModel: CategoryRadioViewModel
+    @State private var viewModel: CategoryRadioViewModel
     @Environment(\.dismiss) private var dismiss
 
     init(category: RadioCategory) {
         self.category = category
-        _viewModel = StateObject(wrappedValue: CategoryRadioViewModel(category: category))
+        _viewModel = State(initialValue: CategoryRadioViewModel(category: category))
     }
 
     var body: some View {
@@ -27,7 +27,7 @@ struct CategoryRadioView: View {
                         .foregroundColor(.asideTextSecondary)
                 }
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.radios) { radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {

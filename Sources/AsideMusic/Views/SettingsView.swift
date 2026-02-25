@@ -21,7 +21,7 @@ struct SettingsView: View {
                 AsideBackground()
                     .ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 24) {
                         headerSection
                             .padding(.top, DeviceLayout.headerTopPadding)
@@ -43,7 +43,7 @@ struct SettingsView: View {
                     .padding(.horizontal, 20)
                 }
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 updateCacheSize()
             }
@@ -532,7 +532,7 @@ struct SettingsSection<Content: View>: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .allowsHitTesting(false)

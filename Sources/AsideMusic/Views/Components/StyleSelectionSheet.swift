@@ -48,7 +48,7 @@ struct StyleSelectionMorphView: View {
                 tabBar
                     .padding(.bottom, 20)
                 
-                ScrollView(.vertical, showsIndicators: false) {
+                ScrollView(.vertical) {
                     VStack(spacing: 20) {
                         if styleManager.isLoadingStyles {
                             ProgressView()
@@ -69,7 +69,7 @@ struct StyleSelectionMorphView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 20))
                     .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
                     .matchedGeometryEffect(id: "filter_bg", in: namespace)
@@ -88,7 +88,7 @@ struct StyleSelectionMorphView: View {
     // MARK: - Subviews
     
     private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 20) {
                 ForEach(tabs, id: \.self) { tab in
                     Button(action: {
@@ -143,7 +143,7 @@ struct StyleSelectionMorphView: View {
                                 .fill(Color.asideIconBackground.opacity(0.85))
                         } else {
                             Capsule()
-                                .fill(Color.asideMilk)
+                                .fill(Color.asideGlassTint)
                                 .glassEffect(.regular, in: .capsule)
                                 .overlay(
                                     Capsule()

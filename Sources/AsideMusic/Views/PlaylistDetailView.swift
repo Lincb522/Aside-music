@@ -5,7 +5,7 @@ struct PlaylistDetailView: View {
     let playlist: Playlist
     let initialSongs: [Song]?
     
-    @StateObject private var viewModel = PlaylistDetailViewModel()
+    @State private var viewModel = PlaylistDetailViewModel()
     
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
@@ -42,13 +42,13 @@ struct PlaylistDetailView: View {
             VStack(spacing: 0) {
                 cleanHeader
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     songListSection
                         .padding(.bottom, 100)
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -143,6 +143,7 @@ struct PlaylistDetailView: View {
                             .padding(.vertical, 8)
                             .background(Theme.accent)
                             .cornerRadius(20)
+                            .glassEffect(.regular, in: .capsule)
                             .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
                         }
                         .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
@@ -221,7 +222,7 @@ struct PlaylistDetailView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
             
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(viewModel.relatedPlaylists) { rp in
                         Button(action: {
@@ -245,7 +246,7 @@ struct PlaylistDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: rp.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.asideMilk)
+                                        .fill(Color.asideGlassTint)
                                         .glassEffect(.regular, in: .rect(cornerRadius: 12))
                                 }
                                 .frame(width: 130, height: 130)

@@ -36,6 +36,11 @@ extension Color {
     static var asideMilk: Color {
         Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
     }
+
+    /// Liquid Glass 专用染色 — 兼顾玻璃效果与无 glassEffect 时的可见兜底
+    static var asideGlassTint: Color {
+        Color(light: Color.white.opacity(0.45), dark: Color.white.opacity(0.12))
+    }
     
     /// 悬浮栏专用填充色 — 降低白色叠加，让 glassEffect 液态玻璃更通透
     static var asideFloatingBarFill: Color {
@@ -131,7 +136,7 @@ struct AsideGlassCardBackground: View {
     var body: some View {
         if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

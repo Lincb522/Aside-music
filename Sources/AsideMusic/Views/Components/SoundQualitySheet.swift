@@ -55,12 +55,13 @@ struct SoundQualitySheet: View {
                             .padding(10)
                             .background(Color.asideSeparator)
                             .clipShape(Circle())
+                            .glassEffect(.regular, in: .circle)
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 16) {
                         if isQQMusic {
                             // QQ 音乐歌曲：分组显示音质
@@ -115,7 +116,7 @@ struct SoundQualitySheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
@@ -160,7 +161,7 @@ struct SoundQualitySheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )

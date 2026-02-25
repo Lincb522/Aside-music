@@ -1,22 +1,23 @@
 import Foundation
+import Observation
 import Combine
 
 @MainActor
-class PodcastViewModel: ObservableObject {
-    @Published var personalizedRadios: [RadioStation] = []
-    @Published var categories: [RadioCategory] = []
-    @Published var recommendRadios: [RadioStation] = []
-    @Published var broadcastChannels: [BroadcastChannel] = []
+@Observable class PodcastViewModel {
+    var personalizedRadios: [RadioStation] = []
+    var categories: [RadioCategory] = []
+    var recommendRadios: [RadioStation] = []
+    var broadcastChannels: [BroadcastChannel] = []
     
     // DJ 扩展数据
-    @Published var djBanners: [Banner] = []
-    @Published var paygiftRadios: [RadioStation] = []
-    @Published var newcomerRadios: [RadioStation] = []
-    @Published var programToplist: [RadioProgram] = []
-    @Published var todayPerfered: [RadioStation] = []
+    var djBanners: [Banner] = []
+    var paygiftRadios: [RadioStation] = []
+    var newcomerRadios: [RadioStation] = []
+    var programToplist: [RadioProgram] = []
+    var todayPerfered: [RadioStation] = []
     
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+    var isLoading = false
+    var errorMessage: String?
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared

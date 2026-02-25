@@ -66,7 +66,7 @@ struct LibraryView: View {
                 .ignoresSafeArea(edges: .bottom)
             }
             .toolbarBackground(.hidden, for: .navigationBar)
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: LibraryViewModel.NavigationDestination.self) { destination in
                 switch destination {
                 case .playlist(let playlist):
@@ -228,7 +228,7 @@ struct LocalPlaylistsView: View {
     var body: some View {
         Group {
             if manager.playlists.isEmpty {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
                         Text(LocalizedStringKey("lib_no_local_playlists"))
@@ -515,7 +515,7 @@ struct MyPodcastsView: View {
     var body: some View {
         Group {
             if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text(LocalizedStringKey("lib_loading"))
@@ -525,7 +525,7 @@ struct MyPodcastsView: View {
                     .padding(.top, 50)
                 }
             } else if subManager.subscribedRadios.isEmpty {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .radio, size: 40, color: .asideTextSecondary.opacity(0.3))
                         Text(LocalizedStringKey("lib_no_podcasts"))
@@ -653,7 +653,7 @@ struct NetEasePlaylistsView: View {
     var body: some View {
         Group {
             if viewModel.userPlaylists.isEmpty {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 16) {
                         AsideIcon(icon: .musicNoteList, size: 40, color: .asideTextSecondary.opacity(0.3))
                         Text(LocalizedStringKey("library_playlists_empty"))
@@ -700,6 +700,11 @@ struct NetEasePlaylistsView: View {
             }
         }
         .background(Color.clear)
+        .onAppear {
+            if viewModel.userPlaylists.isEmpty {
+                viewModel.fetchPlaylists()
+            }
+        }
         .alert(isOwnPlaylist ? String(localized: "lib_delete_playlist") : String(localized: "lib_uncollect"), isPresented: $showRemoveAlert) {
             Button(String(localized: "alert_cancel"), role: .cancel) {
                 playlistToRemove = nil
@@ -749,75 +754,54 @@ struct NetEasePlaylistsView: View {
 struct PlaylistSquareView: View {
     @ObservedObject var viewModel: LibraryViewModel
     typealias Theme = PlaylistDetailView.Theme
+    @Namespace private var categoryNS
 
-    let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
-    ]
+    private struct MosaicRow: Identifiable {
+        let id: Int
+        let playlists: [Playlist]
+        let isWide: Bool
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(viewModel.playlistCategories, id: \.idString) { cat in
-                        Button(action: {
-                            if viewModel.selectedCategory != cat.name {
-                                viewModel.selectedCategory = cat.name
-                                viewModel.loadSquarePlaylists(cat: cat.name, reset: true)
-                            }
-                        }) {
-                            Text(cat.name)
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(viewModel.selectedCategory == cat.name ? Color.asideIconBackground : Color.asideCardBackground)
-                                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                                )
-                                .foregroundColor(viewModel.selectedCategory == cat.name ? .asideIconForeground : Theme.text)
-                        }
-                        .buttonStyle(AsideBouncingButtonStyle())
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
-            }
-            .scrollContentBackground(.hidden)
-            
-            // 分隔线
-            Rectangle()
-                .fill(Color.asideSeparator.opacity(0.5))
-                .frame(height: 0.5)
-                .padding(.horizontal, 24)
+            categoryBar
 
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 if viewModel.isLoadingSquare && viewModel.squarePlaylists.isEmpty {
                     AsideLoadingView()
                 } else {
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(Array(viewModel.squarePlaylists.enumerated()), id: \.element.id) { index, playlist in
-                            NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
-                                PlaylistVerticalCard(playlist: playlist)
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(AsideBouncingButtonStyle(scale: 0.96))
-                            .onAppear {
-                                if index == viewModel.squarePlaylists.count - 1 {
-                                    viewModel.loadMoreSquarePlaylists()
+                    LazyVStack(spacing: 14) {
+                        ForEach(buildRows()) { row in
+                            if row.isWide, let playlist = row.playlists.first {
+                                NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                    CinematicCard(playlist: playlist, height: 220)
                                 }
+                                .buttonStyle(CinematicPressStyle())
+                                .modifier(CinematicStaggerIn(order: row.id))
+                                .onAppear { loadMoreIfLast(playlist) }
+                            } else {
+                                HStack(spacing: 12) {
+                                    ForEach(row.playlists) { p in
+                                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(p)) {
+                                            CinematicCard(playlist: p, height: 175)
+                                        }
+                                        .buttonStyle(CinematicPressStyle())
+                                        .onAppear { loadMoreIfLast(p) }
+                                    }
+                                }
+                                .modifier(CinematicStaggerIn(order: row.id))
                             }
                         }
-                    }
-                    .padding(24)
 
-                    if viewModel.isLoadingMoreSquare && viewModel.hasMoreSquarePlaylists {
-                        AsideLoadingView(centered: false)
-                            .padding()
+                        if viewModel.isLoadingMoreSquare && viewModel.hasMoreSquarePlaylists {
+                            AsideLoadingView(centered: false).padding()
+                        }
+                        if !viewModel.hasMoreSquarePlaylists && !viewModel.squarePlaylists.isEmpty {
+                            NoMoreDataView()
+                        }
                     }
-                    if !viewModel.hasMoreSquarePlaylists && !viewModel.squarePlaylists.isEmpty {
-                        NoMoreDataView()
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
                 }
 
                 Color.clear.frame(height: 120)
@@ -825,6 +809,179 @@ struct PlaylistSquareView: View {
             .scrollContentBackground(.hidden)
         }
         .background(Color.clear)
+    }
+
+    // MARK: - Animated Category Selector
+
+    private var categoryBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(viewModel.playlistCategories, id: \.idString) { cat in
+                    let selected = viewModel.selectedCategory == cat.name
+                    Button {
+                        guard !selected else { return }
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+                            viewModel.selectedCategory = cat.name
+                            viewModel.loadSquarePlaylists(cat: cat.name, reset: true)
+                        }
+                    } label: {
+                        Text(cat.name)
+                            .font(.system(size: 14, weight: selected ? .bold : .medium, design: .rounded))
+                            .foregroundColor(selected ? .white : Theme.text.opacity(0.6))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background {
+                                if selected {
+                                    Capsule()
+                                        .fill(Color.asideAccent)
+                                        .matchedGeometryEffect(id: "squareCatPill", in: categoryNS)
+                                }
+                            }
+                            .background(Capsule().fill(Color.asideTextPrimary.opacity(selected ? 0 : 0.05)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    // MARK: - Mosaic Layout (Hero → Duo → Duo → repeat)
+
+    private func buildRows() -> [MosaicRow] {
+        let items = viewModel.squarePlaylists
+        var rows: [MosaicRow] = []
+        var i = 0
+        while i < items.count {
+            if rows.count % 3 == 0 {
+                rows.append(.init(id: rows.count, playlists: [items[i]], isWide: true))
+                i += 1
+            } else if i + 1 < items.count {
+                rows.append(.init(id: rows.count, playlists: [items[i], items[i + 1]], isWide: false))
+                i += 2
+            } else {
+                rows.append(.init(id: rows.count, playlists: [items[i]], isWide: true))
+                i += 1
+            }
+        }
+        return rows
+    }
+
+    private func loadMoreIfLast(_ playlist: Playlist) {
+        if playlist.id == viewModel.squarePlaylists.last?.id {
+            viewModel.loadMoreSquarePlaylists()
+        }
+    }
+}
+
+// MARK: - Cinematic Full-Bleed Card
+
+private struct CinematicCard: View {
+    let playlist: Playlist
+    let height: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            CachedAsyncImage(url: playlist.coverUrl?.sized(height > 200 ? 1200 : 800)) {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.asideSeparator)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .clipped()
+
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0.3),
+                    .init(color: .black.opacity(0.25), location: 0.55),
+                    .init(color: .black.opacity(0.82), location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(playlist.name)
+                        .font(.system(size: height > 200 ? 18 : 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .shadow(color: .black.opacity(0.5), radius: 4)
+
+                    if let count = playlist.playCount, count > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 7))
+                            Text(cinematicFormatCount(count))
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.white.opacity(0.75))
+                    }
+                }
+
+                Spacer()
+
+                if height > 200 {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(13)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+            }
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+    }
+}
+
+private func cinematicFormatCount(_ count: Int) -> String {
+    let lang = Locale.current.language.languageCode?.identifier
+    if lang == "zh" {
+        if count >= 100_000_000 { return String(format: NSLocalizedString("count_hundred_million", comment: ""), Double(count) / 100_000_000) }
+        if count >= 10_000 { return String(format: NSLocalizedString("count_ten_thousand", comment: ""), Double(count) / 10_000) }
+    } else {
+        if count >= 1_000_000_000 { return String(format: "%.1fB", Double(count) / 1_000_000_000) }
+        if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
+        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
+    }
+    return "\(count)"
+}
+
+// MARK: - Staggered Entrance Animation
+
+private struct CinematicStaggerIn: ViewModifier {
+    let order: Int
+    @State private var visible = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(visible ? 1 : 0)
+            .offset(y: visible ? 0 : 28)
+            .scaleEffect(visible ? 1 : 0.92, anchor: .bottom)
+            .onAppear {
+                guard !visible else { return }
+                let delay = order < 8 ? Double(order) * 0.065 : 0.03
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.8).delay(delay)) {
+                    visible = true
+                }
+            }
+    }
+}
+
+// MARK: - Cinematic Press Style
+
+private struct CinematicPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.965 : 1)
+            .brightness(configuration.isPressed ? -0.04 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
@@ -879,7 +1036,7 @@ struct ArtistLibraryView: View {
                     }) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(hasActiveFilter ? Color.asideIconBackground : Color.clear)
+                                .fill(hasActiveFilter ? Color.asideGlassTint : Color.clear)
                                 .glassEffect(.regular, in: .rect(cornerRadius: 14))
                             
                             AsideIcon(
@@ -901,15 +1058,15 @@ struct ArtistLibraryView: View {
 
             if !viewModel.isSearchingArtists && showFilters {
                 VStack(alignment: .leading, spacing: 12) {
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea)
                             .padding(.horizontal, 24)
                     }
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType)
                             .padding(.horizontal, 24)
                     }
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial)
                             .padding(.horizontal, 24)
                     }
@@ -918,7 +1075,7 @@ struct ArtistLibraryView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 if viewModel.isLoadingArtists && viewModel.topArtists.isEmpty {
                     AsideLoadingView()
                 } else if viewModel.topArtists.isEmpty {
@@ -1024,7 +1181,7 @@ struct ChartsLibraryView: View {
     ]
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             if viewModel.isLoadingCharts && viewModel.topLists.isEmpty {
                 AsideLoadingView()
             } else if viewModel.topLists.isEmpty {
@@ -1045,7 +1202,7 @@ struct ChartsLibraryView: View {
                                 .foregroundColor(Theme.text)
                                 .padding(.horizontal, 24)
 
-                            ScrollView(.horizontal, showsIndicators: false) {
+                            ScrollView(.horizontal) {
                                 HStack(spacing: 14) {
                                     ForEach(officialCharts) { list in
                                         NavigationLink(value: chartDestination(list)) {

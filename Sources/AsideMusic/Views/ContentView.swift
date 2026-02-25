@@ -13,46 +13,37 @@ public struct ContentView: View {
     @State private var showRadioPlayer = false
     @State private var radioPlayerRadioId: Int? = nil
     @StateObject private var alertManager = AlertManager.shared
-    @Namespace private var animation
 
-    public init() {
-        // TabBar 外观配置已在 AsideMusicApp.init() 中统一设置
-        // 根据悬浮栏样式决定是否隐藏系统 TabBar
-    }
+    public init() {}
 
     public var body: some View {
         ZStack {
             AsideBackground()
                 .ignoresSafeArea()
 
-            ZStack(alignment: .bottom) {
-                // 预加载所有视图，使用 opacity + offset 控制显示
-                // 极简/悬浮球模式下滑动切换带水平位移动画
-                let useSlide = settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall
-                let currentIndex = Tab.allCases.firstIndex(of: currentTab) ?? 0
-                
-                ZStack {
-                    ForEach(Array(Tab.allCases.enumerated()), id: \.element) { index, tab in
-                        tabView(for: tab)
-                            .opacity(currentTab == tab ? 1 : 0)
-                            .offset(x: useSlide ? CGFloat(index - currentIndex) * UIScreen.main.bounds.width : 0)
-                            .zIndex(currentTab == tab ? 1 : 0)
-                    }
-                }
-                .ignoresSafeArea()
-                .animation(AsideAnimation.tabSwitch, value: currentTab)
-                // 极简模式和悬浮球模式下添加滑动手势切换页面
-                .gesture((settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall) ? swipeGesture : nil)
-
-                if !player.isTabBarHidden {
-                    floatingBarView
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .zIndex(1)
-                }
+            TabView(selection: $currentTab) {
+                HomeView()
+                    .toolbar(.hidden, for: .tabBar)
+                    .tabItem { Label("tabbar_home", systemImage: "house.fill") }
+                    .tag(Tab.home)
+                PodcastView()
+                    .toolbar(.hidden, for: .tabBar)
+                    .tabItem { Label("tabbar_podcast", systemImage: "mic.fill") }
+                    .tag(Tab.podcast)
+                LibraryView()
+                    .toolbar(.hidden, for: .tabBar)
+                    .tabItem { Label("tabbar_library", systemImage: "square.stack.3d.up.fill") }
+                    .tag(Tab.library)
+                ProfileView()
+                    .toolbar(.hidden, for: .tabBar)
+                    .tabItem { Label("tabbar_profile", systemImage: "person.fill") }
+                    .tag(Tab.profile)
             }
-            .animation(AsideAnimation.floatingBar, value: player.isTabBarHidden)
-            .animation(AsideAnimation.panelToggle, value: settings.floatingBarStyle)
             .ignoresSafeArea(.keyboard)
+            .gesture(
+                (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
+                    ? swipeGesture : nil
+            )
             .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
                 showPersonalFM = true
             }
@@ -80,6 +71,13 @@ public struct ContentView: View {
                 }
             }
 
+            // MARK: - 自定义悬浮栏（所有样式）
+            if !player.isTabBarHidden {
+                floatingBarView
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(10)
+            }
+
             if showWelcome {
                 WelcomeView(isPresented: $showWelcome)
                     .transition(.opacity.animation(.easeOut(duration: 0.8)))
@@ -92,9 +90,7 @@ public struct ContentView: View {
                     message: alertManager.message,
                     primaryButtonTitle: alertManager.primaryButtonTitle,
                     secondaryButtonTitle: alertManager.secondaryButtonTitle,
-                    primaryAction: {
-                        alertManager.primaryAction?()
-                    },
+                    primaryAction: { alertManager.primaryAction?() },
                     secondaryAction: {
                         alertManager.secondaryAction?()
                         alertManager.dismiss()
@@ -104,106 +100,75 @@ public struct ContentView: View {
                 .zIndex(999)
             }
         }
-        // SwipeBackInjector 已在 AsideMusicApp 层注入
-        .onAppear {
-            updateTabBarVisibility()
-        }
-        .onChange(of: settings.floatingBarStyle) { _, _ in
-            updateTabBarVisibility()
-        }
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: player.isTabBarHidden)
+        .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
         .onChange(of: systemColorScheme) { _, newScheme in
-            // 系统深浅色切换时，自动模式下直接用 SwiftUI 传入的值更新
             if settings.themeMode == "system" {
                 settings.activeColorScheme = newScheme
             }
         }
     }
-    
+
     // MARK: - 悬浮栏视图
-    
+
     @ViewBuilder
     private var floatingBarView: some View {
         switch settings.floatingBarStyle {
         case .unified:
-            // 统一悬浮栏：MiniPlayer + TabBar 合一
             VStack {
                 Spacer()
                 UnifiedFloatingBar(currentTab: $currentTab)
                     .padding(.horizontal, 24)
                     .padding(.bottom, 0)
             }
-            
+
         case .classic:
-            // 经典模式：MiniPlayer + TabBar 合一，贴底不悬浮
             ClassicFloatingBar(currentTab: $currentTab)
-            
+
         case .minimal:
-            // 极简模式：仅 MiniPlayer
             VStack {
                 Spacer()
                 MinimalMiniPlayer(currentTab: $currentTab)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             }
-            
+
         case .floatingBall:
-            // 悬浮球模式
             FloatingBallView(currentTab: $currentTab)
         }
     }
-    
-    // MARK: - 滑动手势（极简模式）
-    
+
+    // MARK: - 滑动手势（极简/悬浮球模式）
+
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 50, coordinateSpace: .local)
             .onEnded { value in
                 guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                
+
                 let allTabs = Tab.allCases
                 guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
-                
+
                 if value.translation.width < 0 {
-                    // 向左滑 -> 下一个 tab
                     let nextIndex = currentIndex + 1
                     if nextIndex < allTabs.count {
-                        withAnimation(AsideAnimation.tabSwitch) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             currentTab = allTabs[nextIndex]
                         }
                     }
                 } else {
-                    // 向右滑 -> 上一个 tab
                     let prevIndex = currentIndex - 1
                     if prevIndex >= 0 {
-                        withAnimation(AsideAnimation.tabSwitch) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             currentTab = allTabs[prevIndex]
                         }
                     }
                 }
             }
     }
-    
-    // MARK: - Tab 页面视图
-    
-    @ViewBuilder
-    private func tabView(for tab: Tab) -> some View {
-        switch tab {
-        case .home: HomeView()
-        case .podcast: PodcastView()
-        case .library: LibraryView()
-        case .profile: ProfileView()
-        }
-    }
-    
-    // MARK: - 更新 TabBar 可见性
-    
-    private func updateTabBarVisibility() {
-        // 经典模式使用自定义 TabBar，其他模式隐藏系统 TabBar
-        UITabBar.appearance().isHidden = true
-    }
 }
 
 // MARK: - Tab Enum
-enum Tab: Int, CaseIterable {
+enum Tab: Int, CaseIterable, Hashable {
     case home = 0
     case podcast = 1
     case library = 2

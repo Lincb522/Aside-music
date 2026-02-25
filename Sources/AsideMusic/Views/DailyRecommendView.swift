@@ -57,7 +57,7 @@ struct DailyRecommendView: View {
         } message: {
             Text(viewModel.noHistoryMessage ?? "")
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -191,7 +191,7 @@ struct DailyRecommendView: View {
     }
 
     private var songList: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
                     SongListRow(song: song, index: index, onArtistTap: { artistId in
@@ -328,7 +328,7 @@ struct DailyHistoryView: View {
     // MARK: - Date Selector
 
     private var dateSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 ForEach(dates, id: \.self) { date in
                     dateButton(for: date)
@@ -382,7 +382,7 @@ struct DailyHistoryView: View {
     }
 
     private var songList: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             LazyVStack(spacing: 0) {
                 if let date = selectedDate {
                     HStack {

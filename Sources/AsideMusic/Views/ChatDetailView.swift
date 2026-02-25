@@ -40,7 +40,7 @@ struct ChatDetailView: View {
                     Spacer()
                 } else {
                     ScrollViewReader { proxy in
-                        ScrollView(showsIndicators: false) {
+                        ScrollView {
                             LazyVStack(spacing: 12) {
                                 ForEach(viewModel.messages) { msg in
                                     ChatBubble(
@@ -85,7 +85,7 @@ struct ChatDetailView: View {
                 .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchHistory(uid: userId) }
     }
     
@@ -128,8 +128,9 @@ private struct ChatBubble: View {
                     .foregroundColor(isMe ? .white : .asideTextPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(isMe ? Color.asideIconBackground : Color.asideCardBackground)
+                    .background(isMe ? Color.asideAccent.opacity(0.15) : Color.asideGlassTint)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
                 
                 Text(message.timeText)
                     .font(.system(size: 10, weight: .medium, design: .rounded))

@@ -4,7 +4,7 @@ import Combine
 /// 收音机风格的播客播放器
 struct RadioPlayerView: View {
     let radioId: Int
-    @StateObject private var viewModel: RadioDetailViewModel
+    @State private var viewModel: RadioDetailViewModel
     @ObservedObject private var player = PlayerManager.shared
     @Environment(\.dismiss) private var dismiss
 
@@ -16,7 +16,7 @@ struct RadioPlayerView: View {
 
     init(radioId: Int) {
         self.radioId = radioId
-        _viewModel = StateObject(wrappedValue: RadioDetailViewModel(radioId: radioId))
+        _viewModel = State(initialValue: RadioDetailViewModel(radioId: radioId))
     }
 
     var body: some View {
@@ -169,7 +169,7 @@ struct RadioPlayerView: View {
 
             // 中圈
             Circle()
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .frame(width: 240, height: 240)
                 .glassEffect(.regular, in: .circle)
                 .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 8)
@@ -178,7 +178,7 @@ struct RadioPlayerView: View {
             if let radio = viewModel.radioDetail {
                 CachedAsyncImage(url: radio.coverUrl) {
                     Circle()
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .glassEffect(.regular, in: .circle)
                 }
                 .aspectRatio(contentMode: .fill)
@@ -187,7 +187,7 @@ struct RadioPlayerView: View {
                 .rotationEffect(.degrees(isRadioPlaying ? dialRotation : 0))
             } else {
                 Circle()
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 220, height: 220)
                     .glassEffect(.regular, in: .circle)
                     .overlay(
@@ -342,7 +342,7 @@ struct RadioPlayerView: View {
                 AsideIcon(icon: .skipBack, size: 22, color: .asideTextPrimary, lineWidth: 1.6)
             }
             .frame(width: 50, height: 50)
-            .background(Circle().fill(Color.asideMilk).glassEffect(.regular, in: .circle))
+            .background(Circle().fill(Color.asideGlassTint).glassEffect(.regular, in: .circle))
             .clipShape(Circle())
             .buttonStyle(AsideBouncingButtonStyle())
 
@@ -363,7 +363,7 @@ struct RadioPlayerView: View {
             Button(action: { handlePlayPause() }) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .frame(width: 72, height: 72)
                         .glassEffect(.regular, in: .circle)
                         .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
@@ -398,7 +398,7 @@ struct RadioPlayerView: View {
                 AsideIcon(icon: .skipForward, size: 22, color: .asideTextPrimary, lineWidth: 1.6)
             }
             .frame(width: 50, height: 50)
-            .background(Circle().fill(Color.asideMilk).glassEffect(.regular, in: .circle))
+            .background(Circle().fill(Color.asideGlassTint).glassEffect(.regular, in: .circle))
             .clipShape(Circle())
             .buttonStyle(AsideBouncingButtonStyle())
         }
@@ -466,7 +466,7 @@ struct RadioPlayerView: View {
         }
         .background {
             Rectangle()
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .ignoresSafeArea(edges: .bottom)

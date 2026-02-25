@@ -1,14 +1,15 @@
 import Foundation
+import Observation
 import Combine
 
 // MARK: - BroadcastListViewModel
 
 @MainActor
-class BroadcastListViewModel: ObservableObject {
-    @Published var channels: [BroadcastChannel] = []
-    @Published var regions: [BroadcastRegion] = []
-    @Published var selectedRegionId: String = "0"
-    @Published var isLoading = false
+@Observable class BroadcastListViewModel {
+    var channels: [BroadcastChannel] = []
+    var regions: [BroadcastRegion] = []
+    var selectedRegionId: String = "0"
+    var isLoading = false
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared

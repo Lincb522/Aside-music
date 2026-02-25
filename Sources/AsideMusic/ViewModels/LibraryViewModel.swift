@@ -94,6 +94,8 @@ class LibraryViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
+    private var playlistRetryCount = 0
+    private let maxPlaylistRetries = 2
 
     init() {
         // 订阅 GlobalRefreshManager 的刷新事件
@@ -101,6 +103,14 @@ class LibraryViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] force in
                 self?.fetchPlaylists(force: force)
+            }
+            .store(in: &cancellables)
+        
+        // 监听登录成功，强制刷新歌单
+        NotificationCenter.default.publisher(for: .didLogin)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.fetchPlaylists(force: true)
             }
             .store(in: &cancellables)
         
@@ -209,22 +219,33 @@ class LibraryViewModel: ObservableObject {
                     #if DEBUG
                     print("[Library] ❌ 歌单获取失败: \(error)")
                     #endif
+                    self?.retryLoadPlaylistsIfNeeded(uid: uid)
                 }
                 GlobalRefreshManager.shared.markLibraryDataReady()
             }, receiveValue: { [weak self] playlists in
                 #if DEBUG
                 print("[Library] ✅ 获取到 \(playlists.count) 个歌单")
                 #endif
-                // 过滤掉系统临时歌单（如 test_audit_tmp）
+                self?.playlistRetryCount = 0
                 let filtered = playlists.filter { !$0.name.hasPrefix("test_audit") && $0.name != "test_audit_tmp" }
                 self?.userPlaylists = filtered
-                // 初始化歌单收藏状态
                 SubscriptionManager.shared.updatePlaylistSubscriptions(from: playlists, userId: uid)
-                // 使用优化的缓存管理器
                 OptimizedCacheManager.shared.setObject(playlists, forKey: "user_playlists")
                 OptimizedCacheManager.shared.cachePlaylists(playlists)
             })
             .store(in: &cancellables)
+    }
+    
+    private func retryLoadPlaylistsIfNeeded(uid: Int) {
+        guard playlistRetryCount < maxPlaylistRetries, userPlaylists.isEmpty else { return }
+        playlistRetryCount += 1
+        let delay = Double(playlistRetryCount) * 3.0
+        #if DEBUG
+        print("[Library] 🔄 歌单加载失败，\(delay)秒后第\(playlistRetryCount)次重试")
+        #endif
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.loadUserPlaylists(uid: uid)
+        }
     }
 
     // MARK: - Playlist Square

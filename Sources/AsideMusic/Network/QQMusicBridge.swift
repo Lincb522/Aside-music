@@ -404,14 +404,9 @@ extension APIService {
         }
     }
     
-    /// QQ 音乐日期字符串转时间戳
+    /// QQ 音乐日期字符串转时间戳（复用 APIService+QQMusic 中的缓存 DateFormatter）
     private static func qqDateToTimestamp(_ dateStr: String) -> Int? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        if let date = formatter.date(from: dateStr) {
-            return Int(date.timeIntervalSince1970 * 1000)
-        }
-        return nil
+        qqDateStringToTimestamp(dateStr)
     }
 }
 

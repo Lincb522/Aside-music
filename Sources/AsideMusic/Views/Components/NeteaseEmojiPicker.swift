@@ -198,7 +198,7 @@ struct NeteaseEmojiPicker: View {
     // MARK: - 表情网格
     
     private var emojiGrid: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(selectedCategory.emojis) { emoji in
                     Button {

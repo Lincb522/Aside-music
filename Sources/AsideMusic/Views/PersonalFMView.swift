@@ -140,22 +140,15 @@ struct PersonalFMView: View {
                 ZStack {
                     if let song = currentFMSong {
                         VStack(spacing: 0) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 32)
-                                    .fill(Theme.cardBackground)
-                                    .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
-
-                                CachedAsyncImage(url: song.coverUrl) {
-                                    Color.gray.opacity(0.05).overlay(
-                                        AsideIcon(icon: .fm, size: 80, color: .asideTextPrimary.opacity(0.1))
-                                    )
-                                }
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 280, height: 280)
-                                .cornerRadius(24)
-                                .padding(12)
+                            CachedAsyncImage(url: song.coverUrl) {
+                                Color.gray.opacity(0.05).overlay(
+                                    AsideIcon(icon: .fm, size: 80, color: .asideTextPrimary.opacity(0.1))
+                                )
                             }
-                            .frame(width: 304, height: 304)
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 300, height: 300)
+                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
                             .padding(.bottom, 40)
 
                         WaveformProgressBar(
@@ -200,9 +193,10 @@ struct PersonalFMView: View {
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             }
                         }
+                        .compositingGroup()
+                        .scaleEffect(cardScale)
                         .offset(x: dragOffset.width, y: dragOffset.height * 0.1)
                         .rotationEffect(.degrees(Double(dragOffset.width / 20)))
-                        .scaleEffect(cardScale)
                         .overlay(
                             ZStack {
                                 if dragOffset.width < -50 {
@@ -240,32 +234,37 @@ struct PersonalFMView: View {
                                     }
                                 }
                                 .onEnded { value in
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                                        cardScale = 1.0
-
-                                        if value.translation.width < -120 {
+                                    if value.translation.width < -120 {
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                                             dragOffset = CGSize(width: -600, height: 200)
-                                            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                                trashCurrentSong()
-                                                dragOffset = .zero
-                                            }
                                         }
-                                        else if value.translation.width > 120 {
+                                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            trashCurrentSong()
+                                            cardScale = 1.0
+                                            dragOffset = .zero
+                                        }
+                                    }
+                                    else if value.translation.width > 120 {
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                                             dragOffset = CGSize(width: 600, height: 0)
-                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-
-                                            if let id = currentFMSong?.id {
-                                                LikeManager.shared.toggleLike(songId: id)
-                                            }
-
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                                nextSong()
-                                                dragOffset = .zero
-                                            }
                                         }
-                                        else {
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+                                        if let id = currentFMSong?.id {
+                                            LikeManager.shared.toggleLike(songId: id)
+                                        }
+
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            nextSong()
+                                            cardScale = 1.0
+                                            dragOffset = .zero
+                                        }
+                                    }
+                                    else {
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            cardScale = 1.0
                                             dragOffset = .zero
                                         }
                                     }
@@ -285,14 +284,14 @@ struct PersonalFMView: View {
                     if let song = currentFMSong {
                         LikeButton(songId: song.id, isQQMusic: song.isQQMusic, size: 24, activeColor: .red, inactiveColor: .asideTextPrimary)
                             .frame(width: 50, height: 50)
-                            .background(Circle().fill(Color.asideCardBackground))
-                            .overlay(Circle().stroke(Color.asideSeparator, lineWidth: 1))
+                            .background(Circle().fill(Color.asideGlassTint))
+                            .glassEffect(.regular, in: .circle)
                     } else {
                         Button(action: {}) {
                             AsideIcon(icon: .like, size: 24, color: .asideTextPrimary)
                                 .frame(width: 50, height: 50)
-                                .background(Circle().fill(Color.asideCardBackground))
-                                .overlay(Circle().stroke(Color.asideSeparator, lineWidth: 1))
+                                .background(Circle().fill(Color.asideGlassTint))
+                                .glassEffect(.regular, in: .circle)
                         }
                     }
 
@@ -307,11 +306,12 @@ struct PersonalFMView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(Color.asideIconBackground)
+                                .fill(Color.asideGlassTint)
                                 .frame(width: 72, height: 72)
+                                .glassEffect(.regular, in: .circle)
                                 .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
 
-                            AsideIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: .asideIconForeground)
+                            AsideIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: .asideTextPrimary)
                                 .offset(x: isFMPlaying ? 0 : 2)
                         }
                     }
@@ -324,8 +324,8 @@ struct PersonalFMView: View {
                     }) {
                         AsideIcon(icon: .next, size: 24, color: .asideTextPrimary)
                             .frame(width: 50, height: 50)
-                            .background(Circle().fill(Color.asideCardBackground))
-                            .overlay(Circle().stroke(Color.asideSeparator, lineWidth: 1))
+                            .background(Circle().fill(Color.asideGlassTint))
+                            .glassEffect(.regular, in: .circle)
                     }
                 }
                 .padding(.bottom, 50)

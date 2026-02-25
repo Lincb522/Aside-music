@@ -143,9 +143,13 @@ struct SongListRow: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
-        .background(
-            isCurrent ? Theme.accent.opacity(0.05) : Color.clear
-        )
+        .background {
+            if isCurrent {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Theme.accent.opacity(0.05))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
+            }
+        }
         .contentShape(Rectangle())
         .contextMenu {
             Button {

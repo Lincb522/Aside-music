@@ -44,7 +44,7 @@ struct EQSettingsView: View {
                     .padding(.top, DeviceLayout.headerTopPadding)
                     .padding(.bottom, 16)
 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 28) {
                         // 开关
                         toggleCard
@@ -112,7 +112,7 @@ struct EQSettingsView: View {
                 .zIndex(100)
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showSaveSheet) {
             savePresetSheet
         }
@@ -145,7 +145,7 @@ struct EQSettingsView: View {
                     .foregroundColor(.asideTextSecondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.asideMilk).glassEffect(.regular, in: .capsule))
+                    .background(Capsule().fill(Color.asideGlassTint).glassEffect(.regular, in: .capsule))
                     .clipShape(Capsule())
             }
             .opacity(eqManager.isEnabled ? 1 : 0)
@@ -247,7 +247,7 @@ struct EQSettingsView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
             )
             .overlay(
@@ -602,7 +602,7 @@ struct EQSettingsView: View {
     private var presetScrollSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             // 分类标签
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach([EQPresetCategory.genre, .surround, .scene, .vocal], id: \.rawValue) { category in
                         categoryTab(category)
@@ -611,7 +611,7 @@ struct EQSettingsView: View {
             }
 
             // 预设卡片横向滚动
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     ForEach(eqManager.presets(for: selectedCategory)) { preset in
                         presetCard(preset)
@@ -641,8 +641,7 @@ struct EQSettingsView: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.asideAccent : .clear)
-                    .glassEffect(isSelected ? .identity : .regular, in: .capsule)
+                    .fill(isSelected ? Color.asideAccent : Color.asideTextPrimary.opacity(0.06))
             )
         }
         .buttonStyle(.plain)
@@ -670,12 +669,11 @@ struct EQSettingsView: View {
             .frame(width: 72, height: 72)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                    .fill(Color.asideTextPrimary.opacity(isSelected ? 0.08 : 0.04))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? Color.asideAccent : Color.asideSeparator.opacity(0.5), lineWidth: isSelected ? 1.5 : 0.5)
+                    .stroke(isSelected ? Color.asideAccent : Color.asideSeparator.opacity(0.3), lineWidth: isSelected ? 1.5 : 0.5)
             )
             .shadow(color: isSelected ? Color.asideAccent.opacity(0.15) : .clear, radius: 8, y: 4)
         }
@@ -775,7 +773,7 @@ struct EQSettingsView: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.asideMilk)
+                                .fill(Color.asideGlassTint)
                                 .glassEffect(.regular, in: .rect(cornerRadius: 12))
                         )
 
@@ -838,27 +836,25 @@ struct EQSettingsView: View {
         syncKnobsFromGains()
     }
 
-    /// 低音旋钮 → AudioEffects.bass
     private func applyBassKnob(_ val: CGFloat) {
-        let db = Float(val) * 24 - 12 // 0~1 → -12~+12
+        let db = Float(val) * 24 - 12
         PlayerManager.shared.audioEffects.setBassGain(db)
+        EQManager.shared.updateSafetyLimiter()
         EQManager.shared.saveAudioEffectsState()
     }
 
-    /// 高音旋钮 → AudioEffects.treble
     private func applyTrebleKnob(_ val: CGFloat) {
         let db = Float(val) * 24 - 12
         PlayerManager.shared.audioEffects.setTrebleGain(db)
+        EQManager.shared.updateSafetyLimiter()
         EQManager.shared.saveAudioEffectsState()
     }
 
-    /// 环绕旋钮 → AudioEffects.surround
     private func applySurroundKnob(_ val: CGFloat) {
         PlayerManager.shared.audioEffects.setSurroundLevel(Float(val))
         EQManager.shared.saveAudioEffectsState()
     }
 
-    /// 混响旋钮 → AudioEffects.reverb
     private func applyReverbKnob(_ val: CGFloat) {
         PlayerManager.shared.audioEffects.setReverbLevel(Float(val))
         EQManager.shared.saveAudioEffectsState()

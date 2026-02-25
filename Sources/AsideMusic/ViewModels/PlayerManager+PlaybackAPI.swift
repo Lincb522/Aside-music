@@ -29,7 +29,7 @@ extension PlayerManager {
             }
         } else if newContext.contains(where: { $0.id == song.id }) &&
                   newContext.count == self.context.count &&
-                  newContext.first?.id == self.context.first?.id {
+                  zip(newContext, self.context).allSatisfy({ $0.id == $1.id }) {
             // 同一个列表内切歌，直接替换（避免重复插入）
             self.context = newContext
             if let index = self.context.firstIndex(where: { $0.id == song.id }) {

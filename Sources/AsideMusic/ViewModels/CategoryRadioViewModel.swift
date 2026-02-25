@@ -1,13 +1,14 @@
 import Foundation
+import Observation
 import Combine
 
 /// 分类电台列表 ViewModel，支持分页加载和去重
 @MainActor
-class CategoryRadioViewModel: ObservableObject {
-    @Published var radios: [RadioStation] = []
-    @Published var isLoading = false
-    @Published var isLoadingMore = false
-    @Published var hasMore = true
+@Observable class CategoryRadioViewModel {
+    var radios: [RadioStation] = []
+    var isLoading = false
+    var isLoadingMore = false
+    var hasMore = true
 
     let category: RadioCategory
     private var offset = 0

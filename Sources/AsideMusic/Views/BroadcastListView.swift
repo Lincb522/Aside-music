@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 广播电台列表页（支持地区/分类筛选）
 struct BroadcastListView: View {
-    @StateObject private var viewModel = BroadcastListViewModel()
+    @State private var viewModel = BroadcastListViewModel()
     @State private var selectedChannel: BroadcastChannel?
     @Environment(\.dismiss) private var dismiss
 
@@ -27,7 +27,7 @@ struct BroadcastListView: View {
                         .foregroundColor(.asideTextSecondary)
                     Spacer()
                 } else {
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(viewModel.channels) { channel in
                                 channelRow(channel: channel)
@@ -56,7 +56,7 @@ struct BroadcastListView: View {
     // MARK: - 地区筛选
 
     private var regionFilter: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 // "全部"按钮
                 filterCapsule(title: NSLocalizedString("broadcast_all", comment: ""), isSelected: viewModel.selectedRegionId == "0") {

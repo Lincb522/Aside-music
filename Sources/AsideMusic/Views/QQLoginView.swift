@@ -27,7 +27,7 @@ struct QQLoginView: View {
                 Spacer()
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: viewModel.isLoggedIn) { _, loggedIn in
             if loggedIn {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -138,7 +138,7 @@ struct QQLoginView: View {
             // 二维码显示区域
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 24))
                     .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
                 

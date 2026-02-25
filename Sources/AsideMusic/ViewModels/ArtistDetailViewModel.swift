@@ -1,23 +1,24 @@
 import Foundation
+import Observation
 import Combine
 
 // MARK: - ArtistDetailViewModel
 
 @MainActor
-class ArtistDetailViewModel: ObservableObject {
-    @Published var artist: ArtistInfo?
-    @Published var songs: [Song] = []
-    @Published var albums: [AlbumInfo] = []
-    @Published var mvs: [MV] = []
-    @Published var simiArtists: [ArtistInfo] = []
-    @Published var fansCount: Int = 0
-    @Published var isFollowed: Bool = false
-    @Published var isLoading = true
-    @Published var isLoadingAlbums = false
-    @Published var isLoadingMVs = false
-    @Published var isLoadingSimi = false
-    @Published var descResult: ArtistDescResult?
-    @Published var isLoadingDesc = false
+@Observable class ArtistDetailViewModel {
+    var artist: ArtistInfo?
+    var songs: [Song] = []
+    var albums: [AlbumInfo] = []
+    var mvs: [MV] = []
+    var simiArtists: [ArtistInfo] = []
+    var fansCount: Int = 0
+    var isFollowed: Bool = false
+    var isLoading = true
+    var isLoadingAlbums = false
+    var isLoadingMVs = false
+    var isLoadingSimi = false
+    var descResult: ArtistDescResult?
+    var isLoadingDesc = false
     private var cancellables = Set<AnyCancellable>()
 
     func loadData(artistId: Int) {

@@ -10,7 +10,7 @@ struct AlbumDetailView: View {
     let albumName: String?
     let albumCoverUrl: URL?
     
-    @StateObject private var viewModel = AlbumDetailViewModel()
+    @State private var viewModel = AlbumDetailViewModel()
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
     
@@ -36,13 +36,13 @@ struct AlbumDetailView: View {
             VStack(spacing: 0) {
                 headerView
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     songListSection
                         .padding(.bottom, 100)
                 }
             }
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -310,7 +310,7 @@ struct AlbumDescSheet: View {
                 .frame(height: 0.5)
             
             // 内容
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if let desc = album.description, !desc.isEmpty {
                         Text(desc)

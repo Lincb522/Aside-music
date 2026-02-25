@@ -34,7 +34,7 @@ struct PodcastSearchView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             isSearchFocused = true
             viewModel.fetchHotRadios()
@@ -64,7 +64,7 @@ struct PodcastSearchView: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 12))
             )
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -82,7 +82,7 @@ struct PodcastSearchView: View {
     // MARK: - 热门电台
 
     private var hotRadiosSection: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("podcast_hot_radios")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
@@ -115,7 +115,7 @@ struct PodcastSearchView: View {
     // MARK: - 搜索结果
 
     private var searchResultsList: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(viewModel.results) { radio in
                     NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
@@ -160,7 +160,7 @@ struct PodcastSearchView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 10))
             }
             .frame(width: 56, height: 56)

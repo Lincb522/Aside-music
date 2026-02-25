@@ -20,14 +20,9 @@ struct AsideMusicApp: App {
         // 注册 SPM 包中的自定义字体
         Self.registerBundledFonts()
         
-        // 预初始化 EQManager，避免在 view body 中首次访问时触发 @Published 变更
         _ = EQManager.shared
         
-        let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithTransparentBackground()
-        tabBarAppearance.backgroundColor = .clear
-        UITabBar.appearance().standardAppearance = tabBarAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
+        // iOS 26: 系统 TabView 自动使用 Liquid Glass 浮动标签栏，不再需要自定义外观
         
         let navBarAppearance = UINavigationBarAppearance()
         navBarAppearance.configureWithTransparentBackground()
@@ -41,6 +36,8 @@ struct AsideMusicApp: App {
         UIPageControl.appearance().currentPageIndicatorTintColor = .clear
         
         UIScrollView.appearance().backgroundColor = .clear
+        UIScrollView.appearance().showsVerticalScrollIndicator = false
+        UIScrollView.appearance().showsHorizontalScrollIndicator = false
         
         UICollectionView.appearance().backgroundColor = .clear
     }
@@ -53,9 +50,6 @@ struct AsideMusicApp: App {
                 .background(SwipeBackInjector())
                 .onAppear {
                     GlobalRefreshManager.shared.triggerAppLaunchRefresh()
-                    
-                    // 清理可能残留的灵动岛
-                    LiveActivityManager.shared.cleanupStaleActivities()
                     
                     Task { @MainActor in
                         await OptimizedCacheManager.shared.cleanupExpiredData()

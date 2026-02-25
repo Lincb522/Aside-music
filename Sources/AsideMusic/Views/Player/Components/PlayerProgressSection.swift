@@ -71,8 +71,16 @@ struct PlayerProgressSection: View {
             
             HStack {
                 Text(formatTime(isDragging ? dragValue : player.currentTime))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(secondaryColor.opacity(0.08)))
+                    .glassEffect(.regular, in: .capsule)
                 Spacer()
                 Text(formatTime(player.duration))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(secondaryColor.opacity(0.08)))
+                    .glassEffect(.regular, in: .capsule)
             }
             .font(.rounded(size: 11, weight: .medium))
             .foregroundColor(secondaryColor)

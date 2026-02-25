@@ -27,13 +27,14 @@ struct PlayerControlsBar: View {
                     AsideIcon(icon: .previous, size: 32, color: contentColor)
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
+                .sensoryFeedback(.impact(weight: .light), trigger: player.currentSong?.id)
                 
                 Spacer()
                 
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
                         Circle()
-                            .fill(Color.asideMilk)
+                            .fill(Color.asideGlassTint)
                             .frame(width: 72, height: 72)
                             .glassEffect(.regular, in: .circle)
                             .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
@@ -48,6 +49,7 @@ struct PlayerControlsBar: View {
                     }
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
+                .sensoryFeedback(.impact(weight: .medium), trigger: player.isPlaying)
                 
                 Spacer()
                 

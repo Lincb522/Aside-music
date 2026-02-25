@@ -109,7 +109,7 @@ struct ProfileView: View {
                 AsideBackground()
                     .ignoresSafeArea()
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 24) {
                         // 用户卡片
                         profileCard
@@ -136,7 +136,7 @@ struct ProfileView: View {
                     .padding(.top, DeviceLayout.headerTopPadding)
                 }
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
@@ -207,7 +207,7 @@ struct ProfileView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 20))
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
         )
@@ -275,7 +275,7 @@ struct ProfileView: View {
             }
             .padding(.horizontal, 24)
             
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(recentSongs.prefix(15)) { song in
                         Button(action: {
@@ -402,7 +402,7 @@ struct ProfileView: View {
             VStack(spacing: 28) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideMilk)
+                        .fill(Color.asideGlassTint)
                         .glassEffect(.regular, in: .circle)
                         .frame(width: 100, height: 100)
                     
@@ -444,7 +444,7 @@ struct ProfileView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
@@ -605,7 +605,7 @@ struct QuickActionCard: View {
             .frame(height: 100)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideMilk)
+                    .fill(Color.asideGlassTint)
                     .glassEffect(.regular, in: .rect(cornerRadius: 16))
                     .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
             )

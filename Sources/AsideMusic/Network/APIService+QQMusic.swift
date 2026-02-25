@@ -421,11 +421,16 @@ extension APIService {
         }
     }
     
-    /// QQ 日期字符串 → 毫秒时间戳
-    static func qqDateStringToTimestamp(_ dateStr: String) -> Int? {
+    private static let qqDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        if let date = formatter.date(from: dateStr) {
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+    
+    /// QQ 日期字符串 → 毫秒时间戳
+    static func qqDateStringToTimestamp(_ dateStr: String) -> Int? {
+        if let date = qqDateFormatter.date(from: dateStr) {
             return Int(date.timeIntervalSince1970 * 1000)
         }
         return nil

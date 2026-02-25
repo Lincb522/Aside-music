@@ -284,7 +284,7 @@ extension CardPlayerLayout {
             
             if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
                 ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(spacing: 20) {
                             Color.clear.frame(height: 20)
                             ForEach(Array(lyricVM.lyrics.enumerated()), id: \.offset) { index, line in

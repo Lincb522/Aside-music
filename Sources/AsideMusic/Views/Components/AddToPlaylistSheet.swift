@@ -25,12 +25,12 @@ struct AddToPlaylistSheet: View {
             ZStack {
                 AsideBackground().ignoresSafeArea()
                 
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     VStack(spacing: 16) {
                         // 歌曲信息
                         HStack(spacing: 12) {
                             CachedAsyncImage(url: song.coverUrl?.sized(200)) {
-                                RoundedRectangle(cornerRadius: 8).fill(Color.asideMilk).glassEffect(.regular, in: .rect(cornerRadius: 8))
+                                RoundedRectangle(cornerRadius: 8).fill(Color.asideGlassTint).glassEffect(.regular, in: .rect(cornerRadius: 8))
                             }
                             .frame(width: 48, height: 48)
                             .cornerRadius(8)
@@ -308,7 +308,7 @@ struct AddToPlaylistSheet: View {
     private var playlistPlaceholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 10))
             AsideIcon(icon: .musicNoteList, size: 18, color: .asideTextSecondary.opacity(0.4))
         }
@@ -317,7 +317,7 @@ struct AddToPlaylistSheet: View {
     private var neteasePlaylistPlaceholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.asideMilk)
+                .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 10))
             AsideIcon(icon: .cloud, size: 18, color: .asideTextSecondary.opacity(0.4))
         }

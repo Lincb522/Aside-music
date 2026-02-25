@@ -220,7 +220,7 @@ extension MinimalPlayerLayout {
                 }
             } else {
                 ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
                             // 顶部留白
                             Color.clear.frame(height: 120)

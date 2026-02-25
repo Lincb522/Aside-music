@@ -1,12 +1,13 @@
 import Foundation
+import Observation
 import Combine
 
 @MainActor
-class SongDetailViewModel: ObservableObject {
-    @Published var relatedSongs: [Song] = []
-    @Published var simiSongs: [Song] = []
-    @Published var wikiBlocks: [SongWikiBlock] = []
-    @Published var isLoading = true
+@Observable class SongDetailViewModel {
+    var relatedSongs: [Song] = []
+    var simiSongs: [Song] = []
+    var wikiBlocks: [SongWikiBlock] = []
+    var isLoading = true
     private var cancellables = Set<AnyCancellable>()
     
     func loadRelatedSongs(artistId: Int) {
