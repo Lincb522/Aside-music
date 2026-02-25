@@ -159,7 +159,6 @@ struct AsideTabBar: View {
     @Binding var selectedIndex: Int
     @Namespace private var tabNS
     
-    private let itemWidth: CGFloat = 64
     private let itemHeight: CGFloat = 42
     private let padding: CGFloat = 4
     
@@ -171,6 +170,7 @@ struct AsideTabBar: View {
             tabButton(index: 3, icon: .profile, label: NSLocalizedString("tabbar_profile", comment: ""))
         }
         .padding(.vertical, padding)
+        .padding(.horizontal, 8)
     }
     
     @ViewBuilder
@@ -193,13 +193,14 @@ struct AsideTabBar: View {
                     .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
                     .foregroundColor(isSelected ? .asideTextPrimary : .asideTextPrimary.opacity(0.35))
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 6)
             .padding(.vertical, 4)
-            .frame(width: itemWidth, height: itemHeight)
+            .frame(width: 64, height: itemHeight)
             .background {
                 if isSelected {
                     Capsule()
                         .fill(Color.asideTextPrimary.opacity(0.1))
+                        .padding(.horizontal, 4)
                         .matchedGeometryEffect(id: "tabHighlight", in: tabNS)
                 }
             }

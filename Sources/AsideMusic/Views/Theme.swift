@@ -37,9 +37,9 @@ extension Color {
         Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
     }
     
-    /// 悬浮栏专用填充色 — 深色模式下使用深色底，让 glassEffect 渲染为深色玻璃
+    /// 悬浮栏专用填充色 — 降低白色叠加，让 glassEffect 液态玻璃更通透
     static var asideFloatingBarFill: Color {
-        Color(light: Color.white.opacity(0.8), dark: Color(hex: "2C2C2E").opacity(0.6))
+        Color(light: Color.white.opacity(0.35), dark: Color(hex: "2C2C2E").opacity(0.4))
     }
     
     @available(*, deprecated, message: "使用 .glassEffect() 替代")

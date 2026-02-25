@@ -16,16 +16,24 @@ class PlaylistDetailViewModel: ObservableObject {
     private var currentOffset = 0
     private let limit = 30
     private var playlistId: Int?
+    private var musicSource: MusicSource?
     private var isFirstPageLoaded = false
     private var retryCount = 0
     private let maxRetries = 2
     
+    /// 是否为 QQ 音乐歌单
+    private var isQQMusic: Bool { musicSource == .qqmusic }
+    
+    /// QQ 音乐分页页码（从 1 开始）
+    private var qqPage: Int { (currentOffset / limit) + 1 }
+    
     /// 缓存 key 前缀
     private func cacheKey(for id: Int) -> String {
-        "playlist_tracks_\(id)"
+        let prefix = isQQMusic ? "qq_" : ""
+        return "\(prefix)playlist_tracks_\(id)"
     }
     
-    func fetchSongs(playlistId: Int) {
+    func fetchSongs(playlistId: Int, source: MusicSource? = nil) {
         // 如果已经加载过同一个歌单，做静默刷新（不清空列表）
         if self.playlistId == playlistId && !songs.isEmpty {
             silentRefresh(playlistId: playlistId)
@@ -33,6 +41,7 @@ class PlaylistDetailViewModel: ObservableObject {
         }
         
         self.playlistId = playlistId
+        self.musicSource = source
         currentOffset = 0
         hasMore = true
         isLoadingMore = false
@@ -57,21 +66,30 @@ class PlaylistDetailViewModel: ObservableObject {
             loadMore()
         }
         
-        // 加载歌单元数据
-        APIService.shared.fetchPlaylistDetail(id: playlistId, cachePolicy: .staleWhileRevalidate, ttl: 3600)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] detail in
-                self?.playlistDetail = detail
-            })
-            .store(in: &cancellables)
-        
-        // 加载相关歌单推荐
-        loadRelatedPlaylists(playlistId: playlistId)
+        // 加载歌单元数据（仅网易云）
+        if !isQQMusic {
+            APIService.shared.fetchPlaylistDetail(id: playlistId, cachePolicy: .staleWhileRevalidate, ttl: 3600)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] detail in
+                    self?.playlistDetail = detail
+                })
+                .store(in: &cancellables)
+            
+            // 加载相关歌单推荐
+            loadRelatedPlaylists(playlistId: playlistId)
+        }
     }
     
     /// 静默刷新第一页 — 不清空列表，不显示 loading
     private func silentRefresh(playlistId: Int) {
-        APIService.shared.fetchPlaylistTracks(id: playlistId, limit: limit, offset: 0)
+        let publisher: AnyPublisher<[Song], Error>
+        if isQQMusic {
+            publisher = APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: 1, num: limit)
+        } else {
+            publisher = APIService.shared.fetchPlaylistTracks(id: playlistId, limit: limit, offset: 0)
+        }
+        
+        publisher
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
                 if case .failure(let error) = completion {
@@ -112,9 +130,16 @@ class PlaylistDetailViewModel: ObservableObject {
             isLoadingMore = true
         }
         
-        AppLogger.debug("[PlaylistDetail] 开始加载: offset=\(currentOffset), limit=\(limit)")
+        AppLogger.debug("[PlaylistDetail] 开始加载: offset=\(currentOffset), limit=\(limit), source=\(isQQMusic ? "QQ" : "NCM")")
         
-        APIService.shared.fetchPlaylistTracks(id: id, limit: limit, offset: currentOffset)
+        let publisher: AnyPublisher<[Song], Error>
+        if isQQMusic {
+            publisher = APIService.shared.fetchQQPlaylistSongs(playlistId: id, page: qqPage, num: limit)
+        } else {
+            publisher = APIService.shared.fetchPlaylistTracks(id: id, limit: limit, offset: currentOffset)
+        }
+        
+        publisher
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 guard let self = self else { return }

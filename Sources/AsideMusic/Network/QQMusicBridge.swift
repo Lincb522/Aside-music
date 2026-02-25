@@ -257,6 +257,67 @@ extension APIService {
         )
     }
     
+    /// 将 QQ 音乐推荐歌单（新版 basic 结构）转换为 Playlist
+    /// API 结构: { tid, title, desc, cover: { small_url, medium_url }, play_cnt, song_cnt, creator: { nick, uin, avatar } }
+    static func convertQQRecommendPlaylist(_ basic: JSON) -> Playlist? {
+        // tid 可能是 Int 或 String
+        let idValue: Int?
+        if let tid = basic["tid"]?.intValue {
+            idValue = tid
+        } else if let tidStr = basic["tid"]?.stringValue, let parsed = Int(tidStr) {
+            idValue = parsed
+        } else {
+            idValue = nil
+        }
+        
+        guard let id = idValue else {
+            AppLogger.warning("[QQBridge] 推荐歌单转换失败: 无法获取 tid")
+            return nil
+        }
+        
+        let name = basic["title"]?.stringValue ?? ""
+        
+        // 封面：从 cover 对象中提取
+        let coverUrl = basic["cover"]?["medium_url"]?.stringValue
+            ?? basic["cover"]?["small_url"]?.stringValue
+            ?? basic["cover"]?["big_url"]?.stringValue
+            ?? basic["cover"]?["default_url"]?.stringValue
+        
+        let playCount = basic["play_cnt"]?.intValue ?? 0
+        let trackCount = basic["song_cnt"]?.intValue ?? 0
+        
+        // 创建者
+        var creator: PlaylistCreator?
+        if let creatorObj = basic["creator"] {
+            let creatorName = creatorObj["nick"]?.stringValue
+                ?? creatorObj["name"]?.stringValue
+            if let creatorName = creatorName, !creatorName.isEmpty {
+                let creatorUin = creatorObj["uin"]?.intValue ?? 0
+                creator = PlaylistCreator(
+                    userId: creatorUin,
+                    nickname: creatorName,
+                    avatarUrl: creatorObj["avatar"]?.stringValue
+                )
+            }
+        }
+        
+        return Playlist(
+            id: id,
+            name: name,
+            coverImgUrl: coverUrl,
+            picUrl: nil,
+            trackCount: trackCount,
+            playCount: playCount,
+            subscribedCount: nil,
+            shareCount: nil,
+            commentCount: nil,
+            creator: creator,
+            description: basic["desc"]?.stringValue,
+            tags: nil,
+            source: .qqmusic
+        )
+    }
+    
     /// 将 QQ 音乐专辑转换为 SearchAlbum
     static func convertQQAlbumToSearchAlbum(_ json: JSON) -> SearchAlbum? {
         AppLogger.debug("[QQBridge] 专辑原始JSON: \(json)")

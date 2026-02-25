@@ -211,7 +211,7 @@ struct PodcastView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .glassEffect(.regular, in: .capsule)
+                    .background(Capsule().fill(Color.asideMilk))
                 }
                 .buttonStyle(ScaleButtonStyle())
 
@@ -225,7 +225,7 @@ struct PodcastView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .glassEffect(.regular, in: .capsule)
+                        .background(Capsule().fill(Color.asideMilk))
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }

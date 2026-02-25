@@ -198,20 +198,32 @@ extension APIService {
             guard let self = self else { return [] }
             let result = try await self.qqClient.recommendSonglist()
             AppLogger.debug("[QQMusic] 推荐歌单原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
-            // 尝试多种字段名提取歌单数组
+            
+            // API 返回结构: { List: [{ Playlist: { basic: { tid, title, cover, ... } } }] }
             let listArray: [JSON]
-            if let arr = result["Playlist"]?.arrayValue, !arr.isEmpty {
-                listArray = arr
-            } else if let arr = result["playlist"]?.arrayValue, !arr.isEmpty {
+            if let arr = result["List"]?.arrayValue, !arr.isEmpty {
                 listArray = arr
             } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else if let arr = result["Playlist"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else if let arr = result["playlist"]?.arrayValue, !arr.isEmpty {
                 listArray = arr
             } else if let arr = result["data"]?.arrayValue, !arr.isEmpty {
                 listArray = arr
             } else {
                 listArray = Self.extractJSONArray(from: result)
             }
-            let playlists = listArray.compactMap { Self.convertQQPlaylistToPlaylist($0) }
+            
+            // 每个元素可能是 { Playlist: { basic: {...} } } 嵌套结构，需要展开到 basic 层
+            let playlists = listArray.compactMap { item -> Playlist? in
+                // 新版 API: item.Playlist.basic 包含歌单信息
+                if let basic = item["Playlist"]?["basic"] {
+                    return Self.convertQQRecommendPlaylist(basic)
+                }
+                // 兜底：直接尝试旧的扁平结构
+                return Self.convertQQPlaylistToPlaylist(item)
+            }
             AppLogger.info("[QQMusic] 推荐歌单: 原始\(listArray.count)条, 转换\(playlists.count)条")
             return playlists
         }

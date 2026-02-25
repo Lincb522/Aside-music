@@ -4,7 +4,6 @@ import Combine
 struct WelcomeView: View {
     @Binding var isPresented: Bool
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
-    @Environment(\.colorScheme) private var colorScheme
     
     // 动画状态
     @State private var logoScale: CGFloat = 0.3
@@ -14,8 +13,6 @@ struct WelcomeView: View {
     @State private var textOpacity: Double = 0
     @State private var copyrightOpacity: Double = 0
     @State private var glowOpacity: Double = 0
-    @State private var ringScale: CGFloat = 0.5
-    @State private var ringOpacity: Double = 0
     
     var body: some View {
         ZStack {
@@ -37,16 +34,6 @@ struct WelcomeView: View {
                 .frame(width: 400, height: 400)
                 .opacity(glowOpacity)
                 .blur(radius: 60)
-            
-            // 扩散光环 — 中性色调
-            Circle()
-                .stroke(
-                    Color.asideTextPrimary.opacity(0.08),
-                    lineWidth: 1.5
-                )
-                .frame(width: 200, height: 200)
-                .scaleEffect(ringScale)
-                .opacity(ringOpacity)
             
             VStack {
                 Spacer()
@@ -84,9 +71,7 @@ struct WelcomeView: View {
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: colorScheme == .dark 
-                                        ? [Color(white: 0.15), Color(white: 0.1)]
-                                        : [Color.white, Color(white: 0.92)],
+                                    colors: [Color.white, Color(white: 0.92)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -97,7 +82,7 @@ struct WelcomeView: View {
                             .stroke(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(colorScheme == .dark ? 0.2 : 0.8),
+                                        Color.white.opacity(0.8),
                                         Color.white.opacity(0.1)
                                     ],
                                     startPoint: .topLeading,
@@ -143,16 +128,7 @@ struct WelcomeView: View {
             glowOpacity = 1.0
         }
         
-        // 阶段 3: 扩散光环
-        withAnimation(.easeOut(duration: 1.2).delay(0.2)) {
-            ringScale = 2.5
-            ringOpacity = 0.6
-        }
-        withAnimation(.easeOut(duration: 0.5).delay(1.0)) {
-            ringOpacity = 0
-        }
-        
-        // 阶段 4: 文字滑入
+        // 阶段 3: 文字滑入
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(AsideAnimation.smooth) {
                 textOffset = 0
@@ -160,7 +136,7 @@ struct WelcomeView: View {
             }
         }
         
-        // 阶段 5: 版权信息淡入
+        // 阶段 4: 版权信息淡入
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation(AsideAnimation.contentAppear) {
                 copyrightOpacity = 1.0
@@ -172,8 +148,8 @@ struct WelcomeView: View {
             await loadDataInBackground()
         }
         
-        // 展示 2.5 秒后消失
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        // 展示 3.5 秒后消失
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
             dismissWelcome()
         }
     }
