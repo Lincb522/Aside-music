@@ -58,10 +58,15 @@ final class SettingsManager: ObservableObject {
         }
         
         // 遍历所有窗口场景，强制刷新 overrideUserInterfaceStyle
+        var resolvedStyle: UIUserInterfaceStyle = style
         for scene in UIApplication.shared.connectedScenes {
             if let windowScene = scene as? UIWindowScene {
                 for window in windowScene.windows {
                     window.overrideUserInterfaceStyle = style
+                    // 从窗口的 traitCollection 读取实际生效值（比 UITraitCollection.current 更可靠）
+                    if style == .unspecified {
+                        resolvedStyle = window.traitCollection.userInterfaceStyle
+                    }
                 }
             }
         }
@@ -72,9 +77,7 @@ final class SettingsManager: ObservableObject {
         } else if style == .light {
             activeColorScheme = .light
         } else {
-            // 跟随系统：读取当前系统实际值
-            let systemIsDark = UITraitCollection.current.userInterfaceStyle == .dark
-            activeColorScheme = systemIsDark ? .dark : .light
+            activeColorScheme = (resolvedStyle == .dark) ? .dark : .light
         }
     }
     

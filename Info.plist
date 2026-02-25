@@ -59,5 +59,7 @@
         <string>WenDaoPaoPaoTi-2.ttf</string>
         <string>k8x12S-4.ttf</string>
     </array>
+    <key>NSSupportsLiveActivities</key>
+    <true/>
 </dict>
 </plist>

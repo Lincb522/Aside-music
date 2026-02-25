@@ -168,6 +168,14 @@ extension PlayerManager {
         updateNowPlayingInfo()
         updateNowPlayingArtwork(for: song)
         
+        // 无缝切歌时重建灵动岛
+        LiveActivityManager.shared.switchSong(
+            song: song,
+            isPlaying: true,
+            currentTime: 0,
+            duration: duration
+        )
+        
         // 预加载下一首
         prepareNextTrackURL()
     }
@@ -412,6 +420,16 @@ extension PlayerManager {
         
         updateNowPlayingInfo()
         updateNowPlayingArtwork(for: currentSong)
+        
+        // 启动/重建灵动岛
+        if let song = currentSong {
+            LiveActivityManager.shared.switchSong(
+                song: song,
+                isPlaying: autoPlay,
+                currentTime: startTime,
+                duration: duration
+            )
+        }
         
         // 预加载下一首（无缝切歌）
         if autoPlay {

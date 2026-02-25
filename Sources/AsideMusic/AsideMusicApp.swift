@@ -14,7 +14,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct AsideMusicApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var styleManager = StyleManager.shared
-    @ObservedObject private var settings = SettingsManager.shared
+    @StateObject private var settings = SettingsManager.shared
     
     init() {
         // 注册 SPM 包中的自定义字体
@@ -54,6 +54,9 @@ struct AsideMusicApp: App {
                 .onAppear {
                     GlobalRefreshManager.shared.triggerAppLaunchRefresh()
                     
+                    // 清理可能残留的灵动岛
+                    LiveActivityManager.shared.cleanupStaleActivities()
+                    
                     Task { @MainActor in
                         await OptimizedCacheManager.shared.cleanupExpiredData()
                     }
@@ -74,9 +77,11 @@ struct AsideMusicApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    // 从后台回来时，如果是跟随系统模式，重新应用主题
+                    // 从后台回来时，如果是跟随系统模式，延迟一帧确保 trait 已更新
                     if settings.themeMode == "system" {
-                        settings.applyTheme()
+                        DispatchQueue.main.async {
+                            settings.applyTheme()
+                        }
                     }
                 }
                 .modelContainer(DatabaseManager.shared.container)

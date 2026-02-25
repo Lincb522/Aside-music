@@ -112,10 +112,9 @@ public struct ContentView: View {
             updateTabBarVisibility()
         }
         .onChange(of: systemColorScheme) { _, newScheme in
-            // 系统深浅色切换时，自动模式下同步更新
+            // 系统深浅色切换时，自动模式下直接用 SwiftUI 传入的值更新
             if settings.themeMode == "system" {
                 settings.activeColorScheme = newScheme
-                settings.applyTheme()
             }
         }
     }

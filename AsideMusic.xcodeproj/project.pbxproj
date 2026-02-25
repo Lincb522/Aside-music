@@ -7,18 +7,57 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F40957822F4E8A7E006EA119 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
+		F40957842F4E8A7E006EA119 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957832F4E8A7E006EA119 /* SwiftUI.framework */; };
+		F40957952F4E8A84006EA119 /* musicExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F409577F2F4E8A7D006EA119 /* musicExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F4096B1E2F457B85006F9554 /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */; };
 		F48E9C452F3B4F060060F4D4 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */; };
 		F4DE904E2F42439900F27065 /* QQMusicKit in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE904D2F42439900F27065 /* QQMusicKit */; };
 		F4DE905F2F42E31F00F27065 /* FFmpegSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		F40957932F4E8A84006EA119 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F4CCFD702F320B5900FC36CA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F409577E2F4E8A7D006EA119;
+			remoteInfo = musicExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F409579A2F4E8A84006EA119 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F40957952F4E8A84006EA119 /* musicExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		F409577F2F4E8A7D006EA119 /* musicExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = musicExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F40957812F4E8A7E006EA119 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		F40957832F4E8A7E006EA119 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		F40957A12F4EE248006EA119 /* AsideMusicDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AsideMusicDebug.entitlements; sourceTree = "<group>"; };
+		F40957A22F4EE28E006EA119 /* musicExtensionDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = musicExtensionDebug.entitlements; sourceTree = "<group>"; };
 		F4096B1D2F457B85006F9554 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		F4CCFD782F320B5900FC36CA /* AsideMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AsideMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F40957992F4E8A84006EA119 /* Exceptions for "music" folder in "musicExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F409577E2F4E8A7D006EA119 /* musicExtension */;
+		};
 		F4CCFD7B2F320B5900FC36CA /* Exceptions for "Sources/AsideMusic" folder in "AsideMusic" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -29,6 +68,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		F40957852F4E8A7E006EA119 /* music */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F40957992F4E8A84006EA119 /* Exceptions for "music" folder in "musicExtension" target */,
+			);
+			path = music;
+			sourceTree = "<group>";
+		};
 		F4CCFD7A2F320B5900FC36CA /* Sources/AsideMusic */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -40,6 +87,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		F409577C2F4E8A7D006EA119 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F40957842F4E8A7E006EA119 /* SwiftUI.framework in Frameworks */,
+				F40957822F4E8A7E006EA119 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F4CCFD752F320B5900FC36CA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -53,10 +109,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F40957802F4E8A7E006EA119 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F40957812F4E8A7E006EA119 /* WidgetKit.framework */,
+				F40957832F4E8A7E006EA119 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		F4CCFD6F2F320B5900FC36CA = {
 			isa = PBXGroup;
 			children = (
+				F40957A22F4EE28E006EA119 /* musicExtensionDebug.entitlements */,
+				F40957A12F4EE248006EA119 /* AsideMusicDebug.entitlements */,
 				F4CCFD7A2F320B5900FC36CA /* Sources/AsideMusic */,
+				F40957852F4E8A7E006EA119 /* music */,
+				F40957802F4E8A7E006EA119 /* Frameworks */,
 				F4CCFD792F320B5900FC36CA /* Products */,
 				F4096B1D2F457B85006F9554 /* Secrets.xcconfig */,
 			);
@@ -66,6 +135,7 @@
 			isa = PBXGroup;
 			children = (
 				F4CCFD782F320B5900FC36CA /* AsideMusic.app */,
+				F409577F2F4E8A7D006EA119 /* musicExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,6 +143,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		F409577E2F4E8A7D006EA119 /* musicExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F40957962F4E8A84006EA119 /* Build configuration list for PBXNativeTarget "musicExtension" */;
+			buildPhases = (
+				F409577B2F4E8A7D006EA119 /* Sources */,
+				F409577C2F4E8A7D006EA119 /* Frameworks */,
+				F409577D2F4E8A7D006EA119 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F40957852F4E8A7E006EA119 /* music */,
+			);
+			name = musicExtension;
+			packageProductDependencies = (
+			);
+			productName = musicExtension;
+			productReference = F409577F2F4E8A7D006EA119 /* musicExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		F4CCFD772F320B5900FC36CA /* AsideMusic */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F4CCFD9C2F320B5D00FC36CA /* Build configuration list for PBXNativeTarget "AsideMusic" */;
@@ -80,10 +172,12 @@
 				F4CCFD742F320B5900FC36CA /* Sources */,
 				F4CCFD752F320B5900FC36CA /* Frameworks */,
 				F4CCFD762F320B5900FC36CA /* Resources */,
+				F409579A2F4E8A84006EA119 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				F40957942F4E8A84006EA119 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				F4CCFD7A2F320B5900FC36CA /* Sources/AsideMusic */,
@@ -105,9 +199,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1630;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 1630;
 				TargetAttributes = {
+					F409577E2F4E8A7D006EA119 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					F4CCFD772F320B5900FC36CA = {
 						CreatedOnToolsVersion = 16.3;
 					};
@@ -134,11 +231,19 @@
 			projectRoot = "";
 			targets = (
 				F4CCFD772F320B5900FC36CA /* AsideMusic */,
+				F409577E2F4E8A7D006EA119 /* musicExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		F409577D2F4E8A7D006EA119 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F4CCFD762F320B5900FC36CA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -150,6 +255,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		F409577B2F4E8A7D006EA119 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F4CCFD742F320B5900FC36CA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -159,7 +271,80 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		F40957942F4E8A84006EA119 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F409577E2F4E8A7D006EA119 /* musicExtension */;
+			targetProxy = F40957932F4E8A84006EA119 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		F40957972F4E8A84006EA119 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T63A78YFJY;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = music/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = music;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = zijiu.Aside.com.music;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F40957982F4E8A84006EA119 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T63A78YFJY;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = music/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = music;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = zijiu.Aside.com.music;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		F4CCFD9A2F320B5D00FC36CA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
@@ -292,7 +477,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = Sources/AsideMusic/AsideMusic.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AsideMusicDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -365,6 +550,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		F40957962F4E8A84006EA119 /* Build configuration list for PBXNativeTarget "musicExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F40957972F4E8A84006EA119 /* Debug */,
+				F40957982F4E8A84006EA119 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		F4CCFD732F320B5900FC36CA /* Build configuration list for PBXProject "AsideMusic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

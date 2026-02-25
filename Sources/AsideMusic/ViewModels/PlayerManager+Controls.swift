@@ -19,6 +19,14 @@ extension PlayerManager {
             isPlaying = true
         }
         updateNowPlayingTime()
+        
+        // 同步灵动岛播放状态
+        LiveActivityManager.shared.updateActivity(
+            isPlaying: isPlaying,
+            currentTime: currentTime,
+            duration: duration,
+            artistName: currentSong?.artistName ?? ""
+        )
     }
     
     func next() {
@@ -85,6 +93,10 @@ extension PlayerManager {
         currentSong = nil
         streamInfo = nil
         isUserStopping = false
+        
+        // 结束灵动岛
+        LiveActivityManager.shared.stopActivity()
+        
         saveState()
     }
     
