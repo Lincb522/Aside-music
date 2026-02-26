@@ -62,7 +62,11 @@ private actor ImageLoadCoordinator {
     /// 图片降采样 - 减少内存占用
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
         let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions) else {
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
+              CGImageSourceGetCount(imageSource) > 0,
+              CGImageSourceGetStatus(imageSource) == .statusComplete ||
+              CGImageSourceGetStatus(imageSource) == .statusIncomplete else {
+            // 数据不是有效图片，直接跳过降采样
             return UIImage(data: data)
         }
         
@@ -163,7 +167,10 @@ class ImageLoader: ObservableObject {
     /// 图片降采样 - 减少内存占用
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
         let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions) else {
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
+              CGImageSourceGetCount(imageSource) > 0,
+              CGImageSourceGetStatus(imageSource) == .statusComplete ||
+              CGImageSourceGetStatus(imageSource) == .statusIncomplete else {
             return UIImage(data: data)
         }
         

@@ -225,9 +225,9 @@ extension URL {
         guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
             return self
         }
-        var items = (components.queryItems ?? []).filter { $0.name != "param" && $0.name != "thumbnail" }
-        items.append(URLQueryItem(name: "param", value: "\(size)y\(size)"))
-        components.queryItems = items.isEmpty ? nil : items
+        // 网易云 CDN 某些分类返回的 coverImgUrl 自带 imageView/thumbnail/watermark 等参数，
+        // 与我们追加的 param 冲突会导致 CDN 返回错误数据。直接清除所有已有参数，只保留 param。
+        components.queryItems = [URLQueryItem(name: "param", value: "\(size)y\(size)")]
         return components.url ?? self
     }
 }
