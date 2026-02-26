@@ -44,7 +44,7 @@ final class DownloadManager: NSObject, ObservableObject {
     private override init() {
         super.init()
         // 启动时加载已下载歌曲 ID
-        Task { await loadDownloadedIds() }
+        Task { loadDownloadedIds() }
     }
 
     /// 生成 uniqueKey
@@ -134,7 +134,26 @@ final class DownloadManager: NSObject, ObservableObject {
         
         // 删除本地文件
         if let url = localFileURL(songId: songId, isQQ: isQQ) {
-            try? FileManager.default.removeItem(at: url)
+            do {
+                try FileManager.default.removeItem(at: url)
+                #if DEBUG
+                print("[DownloadManager] ✅ 已删除文件: \(url.lastPathComponent)")
+                #endif
+            } catch {
+                AppLogger.error("删除下载文件失败: \(url.lastPathComponent), error=\(error)")
+            }
+        } else {
+            // localFileURL 找不到记录时，尝试按 key 直接扫描文件
+            let dir = DownloadedSong.downloadsDirectory
+            let fm = FileManager.default
+            if let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                for file in files where file.lastPathComponent.hasPrefix(key) {
+                    try? fm.removeItem(at: file)
+                    #if DEBUG
+                    print("[DownloadManager] ✅ 按 key 前缀删除文件: \(file.lastPathComponent)")
+                    #endif
+                }
+            }
         }
         
         // 从数据库删除
@@ -153,20 +172,48 @@ final class DownloadManager: NSObject, ObservableObject {
         downloadingTasks.removeAll()
         waitingQueue.removeAll()
         
-        // 删除下载目录
+        // 删除下载目录（包含所有音频文件）
         let dir = DownloadedSong.downloadsDirectory
-        try? FileManager.default.removeItem(at: dir)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fm = FileManager.default
         
-        // 清空数据库
+        // 先逐个删除文件（确保即使目录删除失败，文件也被清理）
+        if let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            for file in files {
+                do {
+                    try fm.removeItem(at: file)
+                } catch {
+                    AppLogger.error("删除下载文件失败: \(file.lastPathComponent), error=\(error)")
+                }
+            }
+        }
+        
+        // 再删除整个目录并重建
+        do {
+            if fm.fileExists(atPath: dir.path) {
+                try fm.removeItem(at: dir)
+            }
+        } catch {
+            AppLogger.error("删除下载目录失败: \(error)")
+        }
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        
+        // 清空数据库中的下载记录
         let context = DatabaseManager.shared.context
-        let descriptor = FetchDescriptor<DownloadedSong>()
-        if let all = try? context.fetch(descriptor) {
-            for item in all { context.delete(item) }
-            try? context.save()
+        do {
+            try context.delete(model: DownloadedSong.self)
+            try context.save()
+        } catch {
+            AppLogger.error("清空下载数据库失败: \(error)")
         }
         
         downloadedSongIds.removeAll()
+        
+        // 验证清理结果
+        #if DEBUG
+        let remaining = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?.count ?? 0
+        print("[DownloadManager] 清理完成，下载目录剩余文件: \(remaining)")
+        #endif
+        
         AppLogger.info("已清除所有下载")
     }
     
@@ -342,7 +389,6 @@ final class DownloadManager: NSObject, ObservableObject {
             processQueue()
             return
         }
-        let songId = record.id
         let ext = inferFileExtension(key: key)
         // 文件名用 uniqueKey 避免冲突
         let fileName = "\(key).\(ext)"

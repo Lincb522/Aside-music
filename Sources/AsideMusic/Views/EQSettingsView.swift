@@ -117,13 +117,13 @@ struct EQSettingsView: View {
             savePresetSheet
         }
         .onAppear { syncKnobsFromGains() }
-        .onChange(of: eqManager.isEnabled) { enabled in
+        .onChange(of: eqManager.isEnabled) {
             // 当均衡器关闭时，同步 UI 旋钮到重置状态
-            if !enabled {
+            if !eqManager.isEnabled {
                 syncKnobsFromGains()
             }
         }
-        .onChange(of: eqManager.currentPreset?.id) { _ in
+        .onChange(of: eqManager.currentPreset?.id) {
             // 当预设变化时，同步旋钮（环绕预设会自动设置环绕参数）
             syncKnobsFromGains()
         }

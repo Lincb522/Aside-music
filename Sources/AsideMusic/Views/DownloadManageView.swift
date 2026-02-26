@@ -274,7 +274,7 @@ struct DownloadManageView: View {
             } label: {
                 AsideIcon(icon: .close, size: 14, color: .asideTextSecondary, lineWidth: 1.4)
                     .frame(width: 32, height: 32)
-                    .background(Color.asideCardBackground)
+                    .background(Color.asideGlassTint)
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())

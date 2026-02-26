@@ -95,7 +95,9 @@
 "queue_tab_now_playing" = "Now Playing";
 "queue_tab_history" = "History";
 "queue_playing" = "PLAYING";
-"queue_up_next" = "UP NEXT · %d";
+"queue_user_next" = "QUEUED · %d";
+"queue_up_next" = "PLAYLIST · %d";
+"queue_clear" = "Clear";
 "queue_empty" = "No songs in queue";
 "queue_history_empty" = "No history yet";
 "mode_sequence" = "Sequence";

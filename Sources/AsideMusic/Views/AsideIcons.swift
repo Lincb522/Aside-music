@@ -2617,7 +2617,7 @@ private struct EmojiPath: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let s = rect.width / 24.0
-        let center = CGPoint(x: 12*s, y: 12*s)
+        _ = CGPoint(x: 12*s, y: 12*s)
         
         // 外圆
         path.addEllipse(in: CGRect(x: 3*s, y: 3*s, width: 18*s, height: 18*s))

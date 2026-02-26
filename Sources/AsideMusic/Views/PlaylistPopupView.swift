@@ -13,15 +13,15 @@ struct PlaylistPopupView: View {
                 .padding(.top, 24)
                 .padding(.bottom, 16)
 
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if selectedTab == 0 {
-                        currentQueueView
-                    } else {
+            if selectedTab == 0 {
+                currentQueueView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
                         historyView
                     }
+                    .padding(.bottom, 30)
                 }
-                .padding(.bottom, 30)
             }
         }
         .background(sheetBackground.ignoresSafeArea(edges: .bottom))
@@ -101,32 +101,67 @@ struct PlaylistPopupView: View {
                     .padding(.vertical, 12)
             }
 
-            if !player.upcomingSongs.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(String(format: NSLocalizedString("queue_up_next", comment: ""), player.upcomingSongs.count))
+            // 即将播放的歌曲
+            let upcoming = player.contextRemainingSongs
+            if !upcoming.isEmpty {
+                HStack {
+                    Text(String(format: NSLocalizedString("queue_up_next", comment: ""), upcoming.count))
                         .font(.rounded(size: 11, weight: .bold))
                         .foregroundColor(.asideTextSecondary)
                         .tracking(1.5)
-                        .padding(.horizontal, 24)
-
-                    ForEach(Array(player.upcomingSongs.enumerated()), id: \.offset) { index, song in
-                        let canRemove = player.isUpcomingIndexInUserQueue(at: index)
-
-                        QueueRow(
-                            song: song,
-                            isCurrent: false,
-                            isFromUserQueue: canRemove,
-                            action: {
-                                player.playFromQueue(song: song)
-                            },
-                            removeAction: canRemove ? {
-                                withAnimation {
-                                    player.removeFromUpcoming(at: index)
-                                }
-                            } : nil
-                        )
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        withAnimation { player.clearUpcoming() }
+                    }) {
+                        Text(LocalizedStringKey("queue_clear"))
+                            .font(.rounded(size: 12, weight: .medium))
+                            .foregroundColor(.asideTextSecondary)
                     }
                 }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+
+                // 使用 List 支持原生拖拽排序和滑动删除
+                List {
+                    ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, song in
+                        Button(action: {
+                            player.playFromQueue(song: song)
+                        }) {
+                            HStack(spacing: 12) {
+                                CachedAsyncImage(url: song.coverUrl) {
+                                    Color.gray.opacity(0.2)
+                                }
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 44, height: 44)
+                                .cornerRadius(8)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(song.name)
+                                        .font(.rounded(size: 15, weight: .medium))
+                                        .foregroundColor(.asideTextPrimary)
+                                        .lineLimit(1)
+                                    Text(song.artistName)
+                                        .font(.rounded(size: 12, weight: .regular))
+                                        .foregroundColor(.asideTextSecondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+                    }
+                    .onMove { source, destination in
+                        player.moveUpcoming(from: source, to: destination)
+                    }
+                    .deleteDisabled(true)
+                }
+                .listStyle(.plain)
+                .environment(\.editMode, .constant(.active))
+                .scrollContentBackground(.hidden)
             } else if player.currentSong == nil {
                 EmptyStateView(text: "queue_empty", icon: .musicNoteList)
             }
@@ -138,7 +173,7 @@ struct PlaylistPopupView: View {
             if player.history.isEmpty {
                 EmptyStateView(text: "queue_history_empty", icon: .clock)
             } else {
-                ForEach(player.history) { song in
+                ForEach(Array(player.history.enumerated()), id: \.offset) { index, song in
                     HistoryRow(song: song) {
                         player.playFromQueue(song: song)
                     }
@@ -213,7 +248,6 @@ struct NowPlayingRow: View {
 struct QueueRow: View {
     let song: Song
     let isCurrent: Bool
-    var isFromUserQueue: Bool = false
     let action: () -> Void
     var removeAction: (() -> Void)? = nil
 
@@ -228,22 +262,10 @@ struct QueueRow: View {
                 .cornerRadius(8)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(song.name)
-                            .font(.rounded(size: 15, weight: .medium))
-                            .foregroundColor(.asideTextPrimary)
-                            .lineLimit(1)
-
-                        if isFromUserQueue {
-                            Text(LocalizedStringKey("player_queue"))
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.asideIconForeground)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(Color.asideIconBackground.opacity(0.6))
-                                .cornerRadius(3)
-                        }
-                    }
+                    Text(song.name)
+                        .font(.rounded(size: 15, weight: .medium))
+                        .foregroundColor(.asideTextPrimary)
+                        .lineLimit(1)
                     Text(song.artistName)
                         .font(.rounded(size: 12, weight: .regular))
                         .foregroundColor(.asideTextSecondary)

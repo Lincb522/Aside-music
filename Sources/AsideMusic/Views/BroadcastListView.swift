@@ -84,7 +84,7 @@ struct BroadcastListView: View {
                 .foregroundColor(isSelected ? .white : .asideTextPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.asideAccentBlue : Color.asideCardBackground)
+                .background(isSelected ? Color.asideAccentBlue : Color.asideGlassTint)
                 .clipShape(Capsule())
         }
         .buttonStyle(ScaleButtonStyle())
@@ -98,13 +98,13 @@ struct BroadcastListView: View {
             if let url = channel.coverImageUrl {
                 CachedAsyncImage(url: url) {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                 }
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             } else {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 56, height: 56)
                     .overlay(
                         AsideIcon(icon: .radio, size: 22, color: .asideTextSecondary, lineWidth: 1.4)

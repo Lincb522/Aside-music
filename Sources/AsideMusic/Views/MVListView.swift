@@ -136,6 +136,7 @@ struct MVRowCard: View {
 
 // MARK: - 封面图片辅助
 
+@MainActor
 @ViewBuilder
 private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, cornerRadius: CGFloat) -> some View {
     if let urlStr = url, let imageUrl = URL(string: urlStr) {
@@ -761,7 +762,7 @@ struct MVSublistSheet: View {
             Rectangle()
                 .fill(Color.asideGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                .overlay(Color.asideCardBackground.opacity(0.55))
+                .overlay(Color.asideGlassTint.opacity(0.55))
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {

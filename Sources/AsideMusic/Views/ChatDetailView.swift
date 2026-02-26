@@ -53,7 +53,7 @@ struct ChatDetailView: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
                         }
-                        .onChange(of: viewModel.messages.count) { _ in
+                        .onChange(of: viewModel.messages.count) {
                             if let last = viewModel.messages.last {
                                 withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                             }
@@ -67,14 +67,14 @@ struct ChatDetailView: View {
                         .font(.system(size: 15, design: .rounded))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Color.asideCardBackground)
+                        .background(Color.asideGlassTint)
                         .clipShape(Capsule())
                         .focused($isInputFocused)
                     
                     Button(action: sendMessage) {
                         AsideIcon(icon: .send, size: 20, color: inputText.isEmpty ? .asideTextSecondary.opacity(0.4) : .asideTextPrimary)
                             .frame(width: 40, height: 40)
-                            .background(Color.asideCardBackground)
+                            .background(Color.asideGlassTint)
                             .clipShape(Circle())
                     }
                     .disabled(inputText.isEmpty)

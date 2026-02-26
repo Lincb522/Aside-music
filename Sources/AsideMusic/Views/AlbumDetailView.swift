@@ -265,7 +265,7 @@ struct AlbumDescSheet: View {
             // 头部：专辑封面 + 名字
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)

@@ -114,7 +114,7 @@ extension ArtistDetailView {
             // 歌手大图（弹性拉伸）
             if let artist = viewModel.artist, let coverUrl = artist.coverUrl?.sized(800) {
                 CachedAsyncImage(url: coverUrl) {
-                    Rectangle().fill(Color.asideCardBackground)
+                    Rectangle().fill(Color.asideGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(height: stretchHeight)
@@ -122,7 +122,7 @@ extension ArtistDetailView {
                 .backgroundExtensionEffect()
             } else {
                 Rectangle()
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
                     .frame(height: stretchHeight)
             }
 
@@ -219,10 +219,10 @@ extension ArtistDetailView {
                     }
                 }) {
                     HStack(spacing: 8) {
-                        AsideIcon(icon: .play, size: 14, color: .asideIconForeground)
+                        AsideIcon(icon: .play, size: 14, color: .asideTextPrimary)
                         Text(LocalizedStringKey("artist_play_all"))
                             .font(.rounded(size: 14, weight: .bold))
-                            .foregroundColor(.asideIconForeground)
+                            .foregroundColor(.asideTextPrimary)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -363,14 +363,14 @@ extension ArtistDetailView {
                 // 专辑封面
                 if let coverUrl = album.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                        RoundedRectangle(cornerRadius: 10).fill(Color.asideGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                         .frame(width: 72, height: 72)
                         .overlay(AsideIcon(icon: .album, size: 24, color: .asideTextSecondary.opacity(0.3)))
                 }
@@ -459,14 +459,14 @@ extension ArtistDetailView {
                             VStack(spacing: 10) {
                                 if let coverUrl = artist.coverUrl?.sized(300) {
                                     CachedAsyncImage(url: coverUrl) {
-                                        Circle().fill(Color.asideCardBackground)
+                                        Circle().fill(Color.asideGlassTint)
                                     }
                                     .aspectRatio(contentMode: .fill)
                                     .frame(width: 90, height: 90)
                                     .clipShape(Circle())
                                 } else {
                                     Circle()
-                                        .fill(Color.asideCardBackground)
+                                        .fill(Color.asideGlassTint)
                                         .frame(width: 90, height: 90)
                                         .overlay(AsideIcon(icon: .personCircle, size: 32, color: .asideTextSecondary.opacity(0.3)))
                                 }
@@ -530,7 +530,7 @@ struct ArtistBioSheet: View {
             HStack(spacing: 14) {
                 if let artist = viewModel.artist {
                     CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                        Circle().fill(Color.asideCardBackground)
+                        Circle().fill(Color.asideGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)

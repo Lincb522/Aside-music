@@ -78,7 +78,7 @@ struct RadioDetailView: View {
             if let radio = viewModel.radioDetail {
                 CachedAsyncImage(url: radio.coverUrl) {
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                 }
                 .frame(width: 160, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -205,7 +205,7 @@ struct RadioDetailView: View {
         return HStack(spacing: 14) {
             CachedAsyncImage(url: program.programCoverUrl) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 48, height: 48)
             .clipShape(RoundedRectangle(cornerRadius: 8))

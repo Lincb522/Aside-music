@@ -409,7 +409,12 @@ struct StorageManageView: View {
     
     private func clearSongCache() {
         HapticManager.shared.success()
+        // 清内存 + 磁盘文件缓存
         CacheManager.shared.clearAll()
+        // 同步清 OptimizedCacheManager 的内存层
+        OptimizedCacheManager.shared.clearAll()
+        // 清 URLSession 缓存（网络请求缓存）
+        URLCache.shared.removeAllCachedResponses()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             calculateSizes()
         }
@@ -418,6 +423,9 @@ struct StorageManageView: View {
     private func clearDatabase() {
         HapticManager.shared.success()
         DatabaseManager.shared.clearAllData()
+        // 清除数据库相关的时间戳
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.lastSyncTimestamp)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             calculateSizes()
         }
@@ -433,7 +441,11 @@ struct StorageManageView: View {
     
     private func clearImageCache() {
         HapticManager.shared.success()
+        // 清内存图片缓存
         CachedAsyncImage<EmptyView>.clearMemoryCache()
+        // 清 URLSession 图片缓存
+        URLCache.shared.removeAllCachedResponses()
+        // 清磁盘图片目录
         let fm = FileManager.default
         let cacheDir = fm.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         for dir in ["ImageCache", "com.aside.images", "fsCachedData"] {
@@ -447,9 +459,34 @@ struct StorageManageView: View {
     
     private func clearAll() {
         HapticManager.shared.success()
+        // 1. 清三级缓存（内存 + SwiftData + 磁盘文件）
         OptimizedCacheManager.shared.clearAll()
+        // 2. 清下载
         downloadManager.deleteAll()
-        clearImageCache()
+        // 3. 清图片（内存 + 磁盘目录）
+        CachedAsyncImage<EmptyView>.clearMemoryCache()
+        let fm = FileManager.default
+        let cacheDir = fm.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        for dir in ["ImageCache", "com.aside.images", "fsCachedData"] {
+            let path = cacheDir.appendingPathComponent(dir)
+            try? fm.removeItem(at: path)
+        }
+        // 4. 清 URLSession 网络缓存
+        URLCache.shared.removeAllCachedResponses()
+        // 5. 清 tmp 目录
+        let tmpDir = fm.temporaryDirectory
+        if let tmpFiles = try? fm.contentsOfDirectory(at: tmpDir, includingPropertiesForKeys: nil) {
+            for file in tmpFiles {
+                try? fm.removeItem(at: file)
+            }
+        }
+        // 6. 清缓存时间戳
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.lastSyncTimestamp)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.calculateSizes()
+        }
     }
     
     // MARK: - 格式化

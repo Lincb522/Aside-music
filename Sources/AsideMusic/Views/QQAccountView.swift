@@ -73,7 +73,7 @@ struct QQAccountView: View {
             Button(action: { dismiss() }) {
                 ZStack {
                     Circle()
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 4)
                     AsideIcon(icon: .back, size: 16, color: .asideTextPrimary)
@@ -105,7 +105,7 @@ struct QQAccountView: View {
         VStack(spacing: 20) {
             ZStack {
                 Circle()
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 80, height: 80)
                 ProgressView()
                     .scaleEffect(1.3)
@@ -223,7 +223,7 @@ struct QQAccountView: View {
     private var avatarPlaceholder: some View {
         ZStack {
             Circle()
-                .fill(Color.asideCardBackground)
+                .fill(Color.asideGlassTint)
                 .frame(width: 92, height: 92)
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
             
@@ -348,11 +348,11 @@ struct QQAccountView: View {
         VStack(spacing: 12) {
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 8) {
-                    AsideIcon(icon: .refresh, size: 15, color: .asideIconForeground)
+                    AsideIcon(icon: .refresh, size: 15, color: .asideTextPrimary)
                     Text(LocalizedStringKey("qq_relogin"))
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.asideIconForeground)
+                .foregroundColor(.asideTextPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
                 .background(
@@ -392,7 +392,7 @@ struct QQAccountView: View {
             
             ZStack {
                 Circle()
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 120, height: 120)
                     .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
                 
@@ -426,11 +426,11 @@ struct QQAccountView: View {
             
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 10) {
-                    AsideIcon(icon: .qr, size: 18, color: .asideIconForeground)
+                    AsideIcon(icon: .qr, size: 18, color: .asideTextPrimary)
                     Text(LocalizedStringKey("qq_login_action"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.asideIconForeground)
+                .foregroundColor(.asideTextPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(

@@ -48,7 +48,7 @@ struct QQLoginView: View {
                 Button(action: { dismiss() }) {
                     AsideIcon(icon: .back, size: 20, color: .asideTextPrimary)
                         .frame(width: 44, height: 44)
-                        .background(Color.asideCardBackground)
+                        .background(Color.asideGlassTint)
                         .cornerRadius(12)
                         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                 }
@@ -100,7 +100,7 @@ struct QQLoginView: View {
             tabButton(title: NSLocalizedString("qq_tab_phone", comment: ""), icon: .phone, tab: .phone)
         }
         .padding(4)
-        .background(Color.asideCardBackground)
+        .background(Color.asideGlassTint)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
@@ -115,14 +115,14 @@ struct QQLoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                AsideIcon(icon: icon, size: 18, color: selectedTab == tab ? .white : .asideTextSecondary)
+                AsideIcon(icon: icon, size: 18, color: selectedTab == tab ? .asideIconForeground : .asideTextSecondary)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? .white : .asideTextSecondary)
+                    .foregroundColor(selectedTab == tab ? .asideIconForeground : .asideTextSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(selectedTab == tab ? Color.black : Color.clear)
+            .background(selectedTab == tab ? Color.asideIconBackground : Color.clear)
             .cornerRadius(12)
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
@@ -162,7 +162,7 @@ struct QQLoginView: View {
                 // 过期遮罩
                 if viewModel.isQRExpired {
                     ZStack {
-                        Color.asideCardBackground.opacity(0.9)
+                        Color.asideGlassTint.opacity(0.9)
                         
                         VStack(spacing: 16) {
                             AsideIcon(icon: .refresh, size: 32, color: .asideTextPrimary)
@@ -173,10 +173,10 @@ struct QQLoginView: View {
                             Button(action: { viewModel.refreshQR() }) {
                                 Text(LocalizedStringKey("qq_qr_refresh"))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.asideIconForeground)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 10)
-                                    .background(Color.black)
+                                    .background(Color.asideIconBackground)
                                     .cornerRadius(20)
                             }
                             .buttonStyle(AsideBouncingButtonStyle())
@@ -226,7 +226,7 @@ struct QQLoginView: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(viewModel.qrLoginType == type ? Color.asideCardBackground : Color.clear)
+                        .fill(viewModel.qrLoginType == type ? Color.asideGlassTint : Color.clear)
                         .shadow(color: viewModel.qrLoginType == type ? Color.black.opacity(0.05) : .clear, radius: 4, x: 0, y: 2)
                 )
         }
@@ -237,9 +237,9 @@ struct QQLoginView: View {
         HStack(spacing: 12) {
             Text(number)
                 .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .foregroundColor(.asideTextSecondary)
                 .frame(width: 20, height: 20)
-                .background(Color.black.opacity(0.2))
+                .background(Color.asideSeparator)
                 .cornerRadius(10)
             
             Text(text)
@@ -275,7 +275,7 @@ struct QQLoginView: View {
                         .padding(.leading, 8)
                 }
                 .padding(16)
-                .background(Color.asideCardBackground)
+                .background(Color.asideGlassTint)
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
@@ -304,7 +304,7 @@ struct QQLoginView: View {
                     .disabled(viewModel.phoneNumber.count != 11 || (viewModel.isLoading && !viewModel.isCaptchaSent))
                 }
                 .padding(16)
-                .background(Color.asideCardBackground)
+                .background(Color.asideGlassTint)
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
@@ -327,13 +327,13 @@ struct QQLoginView: View {
                     Text(LocalizedStringKey("qq_login_btn"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.asideIconForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
                     (viewModel.phoneNumber.count == 11 && viewModel.captchaCode.count >= 4)
-                    ? Color.black
-                    : Color.gray.opacity(0.3)
+                    ? Color.asideIconBackground
+                    : Color.asideSeparator
                 )
                 .cornerRadius(16)
             }

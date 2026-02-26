@@ -235,13 +235,13 @@ struct QQArtistDetailView: View {
         ZStack(alignment: .bottom) {
             if let url = displayCoverUrl {
                 CachedAsyncImage(url: url) {
-                    Rectangle().fill(Color.asideCardBackground)
+                    Rectangle().fill(Color.asideGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(height: headerImageHeight)
                 .clipped()
             } else {
-                Rectangle().fill(Color.asideCardBackground).frame(height: headerImageHeight)
+                Rectangle().fill(Color.asideGlassTint).frame(height: headerImageHeight)
             }
             
             LinearGradient(
@@ -427,14 +427,14 @@ struct QQArtistDetailView: View {
             HStack(spacing: 14) {
                 if let coverUrl = album.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                        RoundedRectangle(cornerRadius: 10).fill(Color.asideGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                         .frame(width: 72, height: 72)
                         .overlay(AsideIcon(icon: .album, size: 24, color: .asideTextSecondary.opacity(0.3)))
                 }
@@ -872,7 +872,7 @@ struct QQAlbumDescSheet: View {
             
             HStack(spacing: 14) {
                 CachedAsyncImage(url: coverUrl) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 10).fill(Color.asideGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)
@@ -1066,13 +1066,13 @@ struct QQPlaylistDetailView: View {
         HStack(spacing: 16) {
             if let url = displayCoverUrl {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 16).fill(Color.asideCardBackground)
+                    RoundedRectangle(cornerRadius: 16).fill(Color.asideGlassTint)
                 }
                 .frame(width: 100, height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
                     .frame(width: 100, height: 100)
                     .overlay { AsideIcon(icon: .musicNote, size: 32, color: .asideTextSecondary.opacity(0.3)) }
             }

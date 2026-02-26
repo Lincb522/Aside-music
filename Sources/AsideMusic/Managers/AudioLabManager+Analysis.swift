@@ -192,9 +192,14 @@ extension AudioLabManager {
     
     /// 下载歌曲源文件进行分析，分析完成后自动删除临时文件
     func analyzeByDownloading(song: Song) async throws -> AudioAnalysisResult {
-        AppLogger.info("开始下载歌曲进行分析: \(song.name)")
+        AppLogger.info("开始下载歌曲进行分析: \(song.name) [\(song.isQQMusic ? "QQ" : "NCM")]")
         
-        let songUrl = try await fetchSongUrlAsync(songId: song.id)
+        let songUrl: String
+        if song.isQQMusic {
+            songUrl = try await fetchQQSongUrlAsync(song: song)
+        } else {
+            songUrl = try await fetchSongUrlAsync(songId: song.id)
+        }
         guard let url = URL(string: songUrl) else {
             throw AnalysisError.invalidUrl
         }
@@ -214,11 +219,39 @@ extension AudioLabManager {
         return analysis
     }
     
-    /// 异步获取歌曲 URL
+    /// 异步获取网易云歌曲 URL
     func fetchSongUrlAsync(songId: Int) async throws -> String {
         return try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
             cancellable = APIService.shared.fetchSongUrl(id: songId, level: "exhigh")
+                .sink(receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        continuation.resume(throwing: error)
+                    }
+                    cancellable?.cancel()
+                }, receiveValue: { result in
+                    if result.url.isEmpty {
+                        continuation.resume(throwing: AnalysisError.urlNotAvailable)
+                    } else {
+                        continuation.resume(returning: result.url)
+                    }
+                })
+        }
+    }
+    
+    /// 异步获取 QQ 音乐歌曲 URL
+    func fetchQQSongUrlAsync(song: Song) async throws -> String {
+        guard let mid = song.qqMid, !mid.isEmpty else {
+            AppLogger.error("QQ 音乐歌曲缺少 mid: \(song.name)")
+            throw AnalysisError.urlNotAvailable
+        }
+        
+        // 使用当前用户设置的 QQ 音质，回退到 320k MP3
+        let quality = PlayerManager.shared.qqMusicQuality
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = APIService.shared.fetchQQSongUrl(mid: mid, quality: quality)
                 .sink(receiveCompletion: { completion in
                     if case .failure(let error) = completion {
                         continuation.resume(throwing: error)

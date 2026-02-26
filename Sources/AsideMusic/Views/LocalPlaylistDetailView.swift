@@ -210,7 +210,7 @@ struct LocalPlaylistDetailView: View {
                             }) {
                                 AsideIcon(icon: .settings, size: 14, color: Theme.secondaryText)
                                     .frame(width: 32, height: 32)
-                                    .background(Color.asideCardBackground)
+                                    .background(Color.asideGlassTint)
                                     .cornerRadius(16)
                             }
                             .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
@@ -219,7 +219,7 @@ struct LocalPlaylistDetailView: View {
                             Button(action: { exportPlaylist(p) }) {
                                 AsideIcon(icon: .download, size: 14, color: Theme.secondaryText)
                                     .frame(width: 32, height: 32)
-                                    .background(Color.asideCardBackground)
+                                    .background(Color.asideGlassTint)
                                     .cornerRadius(16)
                             }
                             .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
@@ -230,7 +230,7 @@ struct LocalPlaylistDetailView: View {
                             }) {
                                 AsideIcon(icon: .trash, size: 14, color: Theme.secondaryText)
                                     .frame(width: 32, height: 32)
-                                    .background(Color.asideCardBackground)
+                                    .background(Color.asideGlassTint)
                                     .cornerRadius(16)
                             }
                             .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))

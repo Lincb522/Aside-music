@@ -253,13 +253,7 @@ extension PosterPlayerLayout {
                 .buttonStyle(AsideBouncingButtonStyle())
                 
                 // 时间
-                Text(formatTime(isDragging ? dragValue : player.currentTime))
-                    .font(.custom(posterFont, size: 32))
-                    .foregroundColor(fg)
-                +
-                Text(" / " + formatTime(player.duration))
-                    .font(.custom(posterFont, size: 16))
-                    .foregroundColor(muted)
+                Text("\(Text(formatTime(isDragging ? dragValue : player.currentTime)).font(.custom(posterFont, size: 32)).foregroundColor(fg))\(Text(" / " + formatTime(player.duration)).font(.custom(posterFont, size: 16)).foregroundColor(muted))")
             }
             .padding(.top, 20)
             

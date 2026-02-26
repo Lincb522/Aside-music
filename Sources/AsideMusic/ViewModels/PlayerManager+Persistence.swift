@@ -37,7 +37,7 @@ extension PlayerManager {
             
             let state = PlayerState(
                 currentSong: self.currentSong,
-                userQueue: self.userQueue,
+                userQueue: [],
                 mode: self.mode,
                 history: self.history,
                 playSource: self.playSource,
@@ -62,7 +62,7 @@ extension PlayerManager {
         
         let state = PlayerState(
             currentSong: currentSong,
-            userQueue: userQueue,
+            userQueue: [],
             mode: mode,
             history: history,
             playSource: playSource,
@@ -76,7 +76,6 @@ extension PlayerManager {
     
     func restoreState() {
         if let state = OptimizedCacheManager.shared.getObject(forKey: AppConfig.StorageKeys.playerState, type: PlayerState.self) {
-            self.userQueue = state.userQueue
             self.mode = state.mode
             self.history = state.history
             self.playSource = state.playSource ?? .normal
@@ -106,7 +105,6 @@ extension PlayerManager {
         
         // 兼容旧版本
         if let state = CacheManager.shared.getObject(forKey: "player_state_v4", type: PlayerState.self) {
-            self.userQueue = state.userQueue
             self.mode = state.mode
             self.history = state.history
             self.playSource = state.playSource ?? .normal

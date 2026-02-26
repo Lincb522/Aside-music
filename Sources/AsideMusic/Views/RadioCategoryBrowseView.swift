@@ -90,7 +90,7 @@ struct RadioCategoryBrowseView: View {
                             .foregroundColor(isSelected ? .asideIconForeground : .asideTextPrimary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(isSelected ? Color.asideIconBackground : Color.asideCardBackground)
+                            .background(isSelected ? Color.asideIconBackground : Color.asideGlassTint)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -107,7 +107,7 @@ struct RadioCategoryBrowseView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 10))

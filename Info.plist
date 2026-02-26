@@ -50,6 +50,10 @@
     </dict>
     <key>API_BASE_URL</key>
     <string>$(API_BASE_URL)</string>
+    <key>QQ_MUSIC_BASE_URL</key>
+    <string>$(QQ_MUSIC_BASE_URL)</string>
+    <key>UNBLOCK_SERVER_URL</key>
+    <string>$(UNBLOCK_SERVER_URL)</string>
     <key>UIAppFonts</key>
     <array>
         <string>SanJiPoMoTi.ttf</string>

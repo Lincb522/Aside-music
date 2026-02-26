@@ -630,7 +630,7 @@ struct AudioMatchView: View {
                 
                 AsideIcon(icon: .play, size: 14, color: .asideTextSecondary)
                     .frame(width: 32, height: 32)
-                    .background(Color.asideCardBackground)
+                    .background(Color.asideGlassTint)
                     .clipShape(Circle())
             }
             .padding(.horizontal, 24)

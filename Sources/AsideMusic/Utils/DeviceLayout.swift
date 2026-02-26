@@ -1,5 +1,6 @@
 import UIKit
 
+@MainActor
 struct DeviceLayout {
     /// 获取当前设备的顶部安全区域高度
     static var safeAreaTop: CGFloat {
@@ -30,7 +31,13 @@ struct DeviceLayout {
     
     /// 播放器封面最大尺寸（屏幕宽度 - 两侧间距）
     static var playerArtworkMaxSize: CGFloat {
-        let screenWidth = UIScreen.main.bounds.width
+        let screenWidth: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first {
+            screenWidth = windowScene.screen.bounds.width
+        } else {
+            screenWidth = 375
+        }
         return min(screenWidth - 64, 360)
     }
     

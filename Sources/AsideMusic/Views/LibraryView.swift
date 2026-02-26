@@ -258,7 +258,7 @@ struct LocalPlaylistsView: View {
                             .foregroundColor(Theme.secondaryText)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
-                            .background(Color.asideCardBackground)
+                            .background(Color.asideGlassTint)
                             .cornerRadius(20)
                         }
                         .buttonStyle(AsideBouncingButtonStyle())
@@ -295,7 +295,7 @@ struct LocalPlaylistsView: View {
                         HStack(spacing: 14) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color.asideCardBackground)
+                                    .fill(Color.asideGlassTint)
                                     .frame(width: 60, height: 60)
                                 AsideIcon(icon: .download, size: 22, color: Theme.secondaryText)
                             }
@@ -498,7 +498,7 @@ struct LocalPlaylistRow: View {
     private var localCoverPlaceholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.asideCardBackground)
+                .fill(Color.asideGlassTint)
             AsideIcon(icon: .musicNoteList, size: 24, color: .asideTextSecondary.opacity(0.3))
         }
     }
@@ -607,7 +607,7 @@ struct MyPodcastsView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -1147,7 +1147,7 @@ struct ArtistLibraryView: View {
                         .padding(.vertical, 8)
                         .background(
                             Capsule()
-                                .fill(selected.wrappedValue == option.1 ? Color.asideIconBackground : Color.asideCardBackground)
+                                .fill(selected.wrappedValue == option.1 ? Color.asideIconBackground : Color.asideGlassTint)
                                 .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                         )
                         .foregroundColor(selected.wrappedValue == option.1 ? .asideIconForeground : Theme.text)

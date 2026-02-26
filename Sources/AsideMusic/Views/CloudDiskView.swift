@@ -172,14 +172,14 @@ struct CloudDiskView: View {
                 if let coverUrl = song.simpleSong?.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.asideCardBackground)
+                            .fill(Color.asideGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 } else {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                         .frame(width: 48, height: 48)
                         .overlay(
                             AsideIcon(icon: .cloud, size: 20, color: .asideTextSecondary.opacity(0.4), lineWidth: 1.4)

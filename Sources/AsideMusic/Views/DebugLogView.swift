@@ -484,7 +484,7 @@ struct FilterChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? color : Color.asideCardBackground)
+                    .fill(isSelected ? color : Color.asideGlassTint)
                     .shadow(color: isSelected ? color.opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
             )
         }

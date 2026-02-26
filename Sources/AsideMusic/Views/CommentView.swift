@@ -547,12 +547,7 @@ struct CommentRow: View {
                 if let replies = comment.beReplied, let first = replies.first,
                    let user = first.user, let content = first.content {
                     HStack(alignment: .top, spacing: 0) {
-                        Text("@\(user.nickname)")
-                            .font(.rounded(size: 13, weight: .medium))
-                            .foregroundColor(.asideTextSecondary)
-                        + Text("：\(content)")
-                            .font(.rounded(size: 13))
-                            .foregroundColor(.asideTextSecondary.opacity(0.8))
+                        Text("\(Text("@\(user.nickname)").font(.rounded(size: 13, weight: .medium)).foregroundColor(.asideTextSecondary))\(Text("：\(content)").font(.rounded(size: 13)).foregroundColor(.asideTextSecondary.opacity(0.8)))")
                     }
                     .lineLimit(3)
                     .padding(.horizontal, 10)

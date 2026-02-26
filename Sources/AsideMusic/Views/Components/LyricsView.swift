@@ -702,8 +702,10 @@ struct LyricsView: View {
     private func resetScrollTimer() {
         userScrollTimer?.invalidate()
         userScrollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
-            withAnimation {
-                isUserScrolling = false
+            Task { @MainActor in
+                withAnimation {
+                    isUserScrolling = false
+                }
             }
         }
     }

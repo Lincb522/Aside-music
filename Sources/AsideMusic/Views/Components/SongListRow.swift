@@ -198,7 +198,7 @@ struct SongListRow: View {
             if song.isQQMusic {
                 // QQ 音乐歌曲：跳转到 QQ 歌手详情页
                 if let artistMid = song.qqArtistMid, !artistMid.isEmpty,
-                   let artistName = song.ar?.first?.name {
+                   song.ar?.first?.name != nil {
                     Button {
                         showQQArtistDetail = true
                     } label: {

@@ -26,17 +26,6 @@ extension PlayerManager {
         consecutiveFailures = 0
         retryDelay = 1.0
         
-        if let nextSong = userQueue.first {
-            userQueue.removeFirst()
-            // 如果歌曲在 context 中，更新索引；否则保持当前索引不变
-            // 这样下次从 context 继续时，会从正确的位置接着播
-            if let index = currentContextList.firstIndex(where: { $0.id == nextSong.id }) {
-                contextIndex = index
-            }
-            loadAndPlay(song: nextSong)
-            return
-        }
-        
         let list = currentContextList
         guard !list.isEmpty else { return }
         
@@ -109,7 +98,6 @@ extension PlayerManager {
         streamInfo = nil
         context.removeAll()
         shuffledContext.removeAll()
-        userQueue.removeAll()
         playbackBackStack.removeAll()
         contextIndex = 0
         isUserStopping = false

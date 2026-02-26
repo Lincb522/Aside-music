@@ -76,9 +76,9 @@ final class VideoContainerView: UIView {
     /// 启动状态监控，自动处理 displayLayer 错误状态
     private func startStatusMonitor() {
         statusCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self, let layer = self.displayLayer else { return }
-            DispatchQueue.main.async {
-                // 检查是否需要 flush 才能恢复解码
+            Task { @MainActor in
+                guard let self, let layer = self.displayLayer else { return }
+                // 检查是否需要 flush 才能恢复解码（FFmpeg 手动喂帧场景，仍需使用 displayLayer 自身的 API）
                 if layer.status == .failed || layer.requiresFlushToResumeDecoding {
                     AppLogger.warning("[VideoContainerView] displayLayer 需要 flush，正在恢复...")
                     layer.flush()

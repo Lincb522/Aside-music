@@ -288,7 +288,7 @@ struct DailyHistoryView: View {
             Button(action: { dismiss() }) {
                 AsideIcon(icon: .close, size: 20, color: Theme.text)
                     .padding(10)
-                    .background(Color.asideCardBackground.opacity(0.6))
+                    .background(Color.asideGlassTint.opacity(0.6))
                     .clipShape(Circle())
             }
 
@@ -355,7 +355,7 @@ struct DailyHistoryView: View {
                 .padding(.vertical, 10)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.asideIconBackground.opacity(0.85) : Color.asideCardBackground)
+                        .fill(isSelected ? Color.asideIconBackground.opacity(0.85) : Color.asideGlassTint)
                         .overlay(
                             Capsule()
                                 .stroke(Color.asideSeparator, lineWidth: isSelected ? 0 : 1)

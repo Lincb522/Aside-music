@@ -68,31 +68,17 @@ extension PlayerManager {
         consecutiveFailures = 0
         retryDelay = 1.0
         
-        // 确定下一首歌曲
-        var nextSong: Song?
+        // 从 context 列表取下一首
+        let list = currentContextList
+        guard !list.isEmpty else { return }
         
-        // 从用户队列取下一首
-        if let queueFirst = userQueue.first {
-            userQueue.removeFirst()
-            nextSong = queueFirst
-            if let index = currentContextList.firstIndex(where: { $0.id == queueFirst.id }) {
-                contextIndex = index
-            }
-        } else {
-            // 从 context 列表取下一首
-            let list = currentContextList
-            guard !list.isEmpty else { return }
-            
-            var nextIndex = contextIndex + 1
-            if nextIndex >= list.count {
-                nextIndex = 0
-            }
-            
-            contextIndex = nextIndex
-            nextSong = list[nextIndex]
+        var nextIndex = contextIndex + 1
+        if nextIndex >= list.count {
+            nextIndex = 0
         }
         
-        guard let song = nextSong else { return }
+        contextIndex = nextIndex
+        let song = list[nextIndex]
         
         // 立即更新 UI（SDK 已经在播放下一首了）
         currentSong = song
@@ -108,18 +94,14 @@ extension PlayerManager {
     func preparePendingNextTrack() {
         guard mode != .loopSingle else { return }
         
-        if let queueFirst = userQueue.first {
-            pendingNextSong = queueFirst
-        } else {
-            let list = currentContextList
-            guard !list.isEmpty else { return }
-            
-            var nextIndex = contextIndex + 1
-            if nextIndex >= list.count {
-                nextIndex = 0
-            }
-            pendingNextSong = list[nextIndex]
+        let list = currentContextList
+        guard !list.isEmpty else { return }
+        
+        var nextIndex = contextIndex + 1
+        if nextIndex >= list.count {
+            nextIndex = 0
         }
+        pendingNextSong = list[nextIndex]
     }
     
     /// 当前歌曲真正结束后，应用待切换的下一首
@@ -140,9 +122,6 @@ extension PlayerManager {
         retryDelay = 1.0
         
         // 更新队列索引
-        if userQueue.first?.id == song.id {
-            userQueue.removeFirst()
-        }
         if let index = currentContextList.firstIndex(where: { $0.id == song.id }) {
             contextIndex = index
         }
@@ -176,20 +155,13 @@ extension PlayerManager {
     func prepareNextTrackURL() {
         guard mode != .loopSingle else { return }
         
-        let nextSong: Song?
-        if let queueFirst = userQueue.first {
-            nextSong = queueFirst
-        } else {
-            let list = currentContextList
-            guard !list.isEmpty else { return }
-            var nextIndex = contextIndex + 1
-            if nextIndex >= list.count {
-                nextIndex = 0
-            }
-            nextSong = list[nextIndex]
+        let list = currentContextList
+        guard !list.isEmpty else { return }
+        var nextIndex = contextIndex + 1
+        if nextIndex >= list.count {
+            nextIndex = 0
         }
-        
-        guard let song = nextSong else { return }
+        let song = list[nextIndex]
         
         // 优先使用本地文件
         if let localURL = DownloadManager.shared.localFileURL(songId: song.id) {
@@ -362,15 +334,6 @@ extension PlayerManager {
     
     func autoNext() {
         // 自动下一首（播放失败时调用），不重置 consecutiveFailures
-        if let nextSong = userQueue.first {
-            userQueue.removeFirst()
-            if let index = currentContextList.firstIndex(where: { $0.id == nextSong.id }) {
-                contextIndex = index
-            }
-            loadAndPlay(song: nextSong)
-            return
-        }
-        
         let list = currentContextList
         guard !list.isEmpty else { return }
         

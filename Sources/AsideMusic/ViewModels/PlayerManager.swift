@@ -263,11 +263,12 @@ class PlayerManager: ObservableObject {
     }
     
     var upcomingSongs: [Song] {
-        let contextRemaining = Array(currentContextList.dropFirst(contextIndex + 1))
-        // userQueue 中的歌优先显示，context 后续列表去掉 userQueue 中已有的
-        let queueIds = Set(userQueue.map { $0.id })
-        let filteredRemaining = contextRemaining.filter { !queueIds.contains($0.id) }
-        return userQueue + filteredRemaining
+        return Array(currentContextList.dropFirst(contextIndex + 1))
+    }
+    
+    /// 播放上下文中剩余的歌曲
+    var contextRemainingSongs: [Song] {
+        return Array(currentContextList.dropFirst(contextIndex + 1))
     }
     
     /// 当前音质按钮显示文字（根据歌曲来源区分）

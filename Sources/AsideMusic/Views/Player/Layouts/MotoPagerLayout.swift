@@ -701,7 +701,7 @@ struct ReceiptEntryView: View {
                 .overlay(
                     Path { path in
                         path.move(to: CGPoint(x: 0, y: 5))
-                        path.addLine(to: CGPoint(x: UIScreen.main.bounds.width, y: 5))
+                        path.addLine(to: CGPoint(x: 280, y: 5))
                     }
                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
                     .foregroundColor(dashColor)

@@ -95,7 +95,9 @@
 "queue_tab_now_playing" = "播放队列";
 "queue_tab_history" = "历史记录";
 "queue_playing" = "正在播放";
-"queue_up_next" = "即将播放 · %d";
+"queue_user_next" = "手动队列 · %d";
+"queue_up_next" = "播放列表 · %d";
+"queue_clear" = "清空";
 "queue_empty" = "队列为空";
 "queue_history_empty" = "暂无历史记录";
 "mode_sequence" = "顺序播放";

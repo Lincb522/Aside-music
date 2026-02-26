@@ -82,7 +82,7 @@ struct CategoryRadioView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 10))

@@ -52,7 +52,7 @@ struct LoginView: View {
                 Button(action: { dismiss() }) {
                     AsideIcon(icon: .back, size: 20, color: .asideTextPrimary)
                         .frame(width: 44, height: 44)
-                        .background(Color.asideCardBackground)
+                        .background(Color.asideGlassTint)
                         .cornerRadius(12)
                         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                 }
@@ -103,7 +103,7 @@ struct LoginView: View {
             tabButton(title: String(localized: "phone_login"), icon: .phone, tab: .phone)
         }
         .padding(4)
-        .background(Color.asideCardBackground)
+        .background(Color.asideGlassTint)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
@@ -160,7 +160,7 @@ struct LoginView: View {
                 
                 if viewModel.isQRExpired {
                     ZStack {
-                        Color.asideCardBackground.opacity(0.9)
+                        Color.asideGlassTint.opacity(0.9)
                         
                         VStack(spacing: 16) {
                             AsideIcon(icon: .refresh, size: 32, color: .asideTextPrimary)
@@ -243,7 +243,7 @@ struct LoginView: View {
                         .padding(.leading, 8)
                 }
                 .padding(16)
-                .background(Color.asideCardBackground)
+                .background(Color.asideGlassTint)
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
@@ -266,7 +266,7 @@ struct LoginView: View {
                     .disabled(viewModel.phoneNumber.count != 11)
                 }
                 .padding(16)
-                .background(Color.asideCardBackground)
+                .background(Color.asideGlassTint)
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }

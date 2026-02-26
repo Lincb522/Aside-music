@@ -16,7 +16,7 @@ struct PersonalFMView: View {
         static let text = Color.asideTextPrimary
         static let secondaryText = Color.asideTextSecondary
         static let accent = Color.asideTextPrimary
-        static let cardBackground = Color.asideCardBackground.opacity(0.8)
+        static let cardBackground = Color.asideGlassTint.opacity(0.8)
     }
 
     // MARK: - Waveform Component

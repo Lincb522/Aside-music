@@ -7,6 +7,8 @@ struct PodcastView: View {
     @State private var selectedBroadcastChannel: BroadcastChannel?
     @State private var bannerIndex: Int = 0
 
+    @State private var bannerWebURL: URL?
+
     enum PodcastDestination: Hashable {
         case category(RadioCategory)
         case radioDetail(Int)
@@ -134,6 +136,9 @@ struct PodcastView: View {
         .fullScreenCover(item: $selectedBroadcastChannel) { channel in
             BroadcastPlayerView(channel: channel)
         }
+        .fullScreenCover(item: $bannerWebURL) { url in
+            AsideWebView(url: url, title: nil)
+        }
         .onChange(of: radioIdToOpen) { _, newId in
             if newId > 0 {
                 showRadioPlayer = true
@@ -176,24 +181,50 @@ struct PodcastView: View {
     private var bannerSection: some View {
         TabView(selection: $bannerIndex) {
             ForEach(Array(viewModel.djBanners.enumerated()), id: \.element.id) { index, banner in
-                CachedAsyncImage(url: banner.imageUrl) {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.asideCardBackground)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 24)
-                .tag(index)
-                .onTapWithHaptic {
-                    if banner.targetId > 0 {
-                        radioIdToOpen = banner.targetId
+                Button(action: { handleBannerTap(banner) }) {
+                    CachedAsyncImage(url: banner.imageUrl) {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.asideGlassTint)
                     }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 24)
                 }
+                .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
+                .tag(index)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .automatic))
         .frame(height: 140)
+    }
+
+    /// 处理 DJ Banner 点击 — 参照首页 banner 逻辑，根据 targetType 跳转
+    private func handleBannerTap(_ banner: Banner) {
+        HapticStyle.light.trigger()
+        switch banner.targetType {
+        case 1:
+            // 单曲
+            Task {
+                do {
+                    let songs = try await APIService.shared.fetchSongDetails(ids: [banner.targetId]).async()
+                    if let song = songs.first {
+                        await MainActor.run {
+                            PlayerManager.shared.playSingle(song: song)
+                        }
+                    }
+                } catch {
+                    AppLogger.error("Banner 歌曲加载失败: \(error)")
+                }
+            }
+        default:
+            // DJ Banner 默认当电台处理
+            if banner.targetId > 0 {
+                radioIdToOpen = banner.targetId
+            } else if let urlStr = banner.url, let url = URL(string: urlStr) {
+                bannerWebURL = url
+            }
+        }
     }
 
     // MARK: - 分类标签
@@ -406,7 +437,7 @@ struct PodcastView: View {
             // 封面
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .aspectRatio(1, contentMode: .fill)
             .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -448,7 +479,7 @@ struct PodcastView: View {
         VStack(alignment: .leading, spacing: 8) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 130, height: 130)
             .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -480,7 +511,7 @@ struct PodcastView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 60, height: 60)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -528,7 +559,7 @@ struct PodcastView: View {
 
             CachedAsyncImage(url: program.programCoverUrl) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.asideCardBackground)
+                    .fill(Color.asideGlassTint)
             }
             .frame(width: 50, height: 50)
             .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -604,13 +635,13 @@ struct PodcastView: View {
                 if let url = channel.coverImageUrl {
                     CachedAsyncImage(url: url) {
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.asideCardBackground)
+                            .fill(Color.asideGlassTint)
                     }
                     .aspectRatio(1, contentMode: .fill)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.asideCardBackground)
+                        .fill(Color.asideGlassTint)
                         .aspectRatio(1, contentMode: .fill)
                         .overlay(
                             AsideIcon(icon: .radio, size: 30, color: .asideTextSecondary, lineWidth: 1.4)
