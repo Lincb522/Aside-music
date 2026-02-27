@@ -195,6 +195,7 @@ struct QQMVPlayerView: View {
                     .padding(.top, 16)
                     .padding(.bottom, 80)
                 }
+                .scrollIndicators(.hidden)
             }
             
             // 加载覆盖
@@ -375,11 +376,10 @@ struct QQMVPlayerView: View {
                                     if !mv.durationText.isEmpty {
                                         Text(mv.durationText)
                                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                            .background(.clear).glassEffect(.regular, in: .capsule)
                                             .padding(6)
                                     }
                                 }
@@ -400,6 +400,7 @@ struct QQMVPlayerView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 

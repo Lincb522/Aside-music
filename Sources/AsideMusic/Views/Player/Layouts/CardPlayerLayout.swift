@@ -302,6 +302,7 @@ extension CardPlayerLayout {
                         }
                         .padding(.horizontal, 24)
                     }
+                    .scrollIndicators(.hidden)
                     .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
                         withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
                     }

@@ -183,6 +183,7 @@ struct QQArtistDetailView: View {
                     tabContent.padding(.top, 8).padding(.bottom, 120)
                 }
             }
+            .scrollIndicators(.hidden)
             .ignoresSafeArea(edges: .top)
             
             // 悬浮返回按钮
@@ -697,6 +698,7 @@ struct QQAlbumDetailView: View {
                 ScrollView {
                     songListSection.padding(.bottom, 100)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -918,6 +920,7 @@ struct QQAlbumDescSheet: View {
                     .padding(.top, 20)
                     .padding(.bottom, 40)
             }
+            .scrollIndicators(.hidden)
         }
         .background { AsideBackground() }
         .presentationDetents([.medium, .large])
@@ -1043,6 +1046,7 @@ struct QQPlaylistDetailView: View {
                     }
                     .padding(.bottom, 120)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)

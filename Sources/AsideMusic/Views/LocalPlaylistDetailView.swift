@@ -37,6 +37,7 @@ struct LocalPlaylistDetailView: View {
                     songListSection
                         .padding(.bottom, 100)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)

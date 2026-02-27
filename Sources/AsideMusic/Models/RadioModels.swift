@@ -52,7 +52,7 @@ struct RadioProgram: Identifiable, Codable {
     }
 
     var durationText: String {
-        guard let duration = duration else { return "" }
+        guard let duration = duration, duration > 0 else { return "" }
         let seconds = duration / 1000
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60

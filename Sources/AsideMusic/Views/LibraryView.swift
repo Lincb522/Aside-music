@@ -265,6 +265,7 @@ struct LocalPlaylistsView: View {
                     }
                     .padding(.top, 50)
                 }
+                .scrollIndicators(.hidden)
             } else {
                 List {
                     // 新建歌单按钮
@@ -350,6 +351,7 @@ struct LocalPlaylistsView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
             }
         }
         .alert(String(localized: "lib_create_playlist"), isPresented: $showCreateAlert) {
@@ -524,6 +526,7 @@ struct MyPodcastsView: View {
                     }
                     .padding(.top, 50)
                 }
+                .scrollIndicators(.hidden)
             } else if subManager.subscribedRadios.isEmpty {
                 ScrollView {
                     VStack(spacing: 16) {
@@ -537,6 +540,7 @@ struct MyPodcastsView: View {
                     }
                     .padding(.top, 50)
                 }
+                .scrollIndicators(.hidden)
             } else {
                 List {
                     ForEach(subManager.subscribedRadios) { radio in
@@ -575,6 +579,7 @@ struct MyPodcastsView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
                 .refreshable {
                     subManager.fetchSubscribedRadios()
                 }
@@ -662,6 +667,7 @@ struct NetEasePlaylistsView: View {
                     }
                     .padding(.top, 50)
                 }
+                .scrollIndicators(.hidden)
             } else {
                 List {
                     ForEach(viewModel.userPlaylists) { playlist in
@@ -694,6 +700,7 @@ struct NetEasePlaylistsView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
                 .refreshable {
                     viewModel.fetchPlaylists(force: true)
                 }
@@ -806,6 +813,7 @@ struct PlaylistSquareView: View {
 
                 Color.clear.frame(height: 120)
             }
+            .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
         }
         .background(Color.clear)
@@ -1062,14 +1070,17 @@ struct ArtistLibraryView: View {
                         filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea)
                             .padding(.horizontal, 24)
                     }
+                    .scrollIndicators(.hidden)
                     ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType)
                             .padding(.horizontal, 24)
                     }
+                    .scrollIndicators(.hidden)
                     ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial)
                             .padding(.horizontal, 24)
                     }
+                    .scrollIndicators(.hidden)
                 }
                 .padding(.bottom, 16)
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -1126,6 +1137,7 @@ struct ArtistLibraryView: View {
 
                 Color.clear.frame(height: 120)
             }
+            .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
             .background(Color.clear)
         }
@@ -1213,6 +1225,7 @@ struct ChartsLibraryView: View {
                                 }
                                 .padding(.horizontal, 24)
                             }
+                            .scrollIndicators(.hidden)
                         }
                     }
 
@@ -1241,6 +1254,7 @@ struct ChartsLibraryView: View {
 
             Color.clear.frame(height: 120)
         }
+        .scrollIndicators(.hidden)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
         .refreshable {

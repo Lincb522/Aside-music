@@ -75,3 +75,7 @@ ffmpeg-swift/
 QQMusicKit/
 patch_capturer.py
 123-iOS-Default-1024x1024@1x.png
+scripts/fix_scroll_indicators.py
+scripts/test_mv_api.py
+scripts/test_mv_detail.py
+scripts/fix_onchange.py

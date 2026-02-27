@@ -46,6 +46,7 @@ struct AudioLabView: View {
                     }
                     .padding(.horizontal, 20)
                 }
+                .scrollIndicators(.hidden)
             }
             
             // 应用成功提示

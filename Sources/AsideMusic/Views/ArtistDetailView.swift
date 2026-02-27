@@ -50,6 +50,7 @@ struct ArtistDetailView: View {
                         .padding(.bottom, 120)
                 }
             }
+            .scrollIndicators(.hidden)
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 min(geometry.contentOffset.y + geometry.contentInsets.top, 0)
             } action: { _, offset in
@@ -618,6 +619,7 @@ struct ArtistBioSheet: View {
                     .padding(.top, 20)
                     .padding(.bottom, 40)
                 }
+                .scrollIndicators(.hidden)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -636,6 +638,7 @@ struct ArtistBioSheet: View {
                     .padding(.top, 20)
                     .padding(.bottom, 40)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .background { AsideBackground() }

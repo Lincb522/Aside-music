@@ -46,6 +46,7 @@ struct PlaylistDetailView: View {
                     songListSection
                         .padding(.bottom, 100)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -270,6 +271,7 @@ struct PlaylistDetailView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 }

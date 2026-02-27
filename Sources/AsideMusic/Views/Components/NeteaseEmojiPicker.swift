@@ -218,6 +218,7 @@ struct NeteaseEmojiPicker: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        .scrollIndicators(.hidden)
     }
 }
 

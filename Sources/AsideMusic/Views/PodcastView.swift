@@ -100,6 +100,7 @@ struct PodcastView: View {
                         }
                         .padding(.bottom, 120)
                     }
+                    .scrollIndicators(.hidden)
                     .refreshable {
                         viewModel.refreshData()
                     }
@@ -263,6 +264,7 @@ struct PodcastView: View {
             }
             .padding(.horizontal, 24)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 为你推荐（2列网格）
@@ -325,6 +327,7 @@ struct PodcastView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -382,6 +385,7 @@ struct PodcastView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -405,6 +409,7 @@ struct PodcastView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -625,6 +630,7 @@ struct PodcastView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 

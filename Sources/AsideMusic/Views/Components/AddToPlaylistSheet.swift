@@ -63,6 +63,7 @@ struct AddToPlaylistSheet: View {
                     .padding(20)
                     .padding(.bottom, 40)
                 }
+                .scrollIndicators(.hidden)
             }
             .navigationTitle(NSLocalizedString("add_to_playlist_title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)

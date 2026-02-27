@@ -593,6 +593,7 @@ extension PixelPlayerLayout {
                         }
                         .padding(.horizontal, 8)
                     }
+                    .scrollIndicators(.hidden)
                     .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
                         withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
                     }

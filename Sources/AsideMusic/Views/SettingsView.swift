@@ -42,6 +42,7 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 20)
                 }
+                .scrollIndicators(.hidden)
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {

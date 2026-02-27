@@ -277,6 +277,7 @@ extension MinimalPlayerLayout {
                         }
                         .padding(.horizontal, 36)
                     }
+                    .scrollIndicators(.hidden)
                     .simultaneousGesture(
                         DragGesture().onChanged { _ in
                             isUserScrolling = true

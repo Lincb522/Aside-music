@@ -39,6 +39,7 @@ struct NewSongExpressView: View {
                         }
                         .padding(.bottom, 120)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
@@ -98,15 +99,20 @@ struct NewSongExpressView: View {
                             viewModel.loadSongs(type: type.id)
                         }
                     } label: {
+                        let isSelected = viewModel.selectedType == type.id
                         Text(LocalizedStringKey(type.nameKey))
-                            .font(.system(size: 14, weight: viewModel.selectedType == type.id ? .bold : .medium, design: .rounded))
-                            .foregroundColor(viewModel.selectedType == type.id ? .asideIconForeground : .asideTextSecondary)
+                            .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
+                            .foregroundColor(isSelected ? .white : .asideTextSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(
-                                Capsule().fill(Color.asideGlassTint)
-                            )
-                            .glassEffect(.regular, in: .capsule)
+                            .background {
+                                if isSelected {
+                                    Capsule().fill(Color.accentColor)
+                                } else {
+                                    Capsule().fill(Color.asideGlassTint)
+                                        .glassEffect(.regular, in: .capsule)
+                                }
+                            }
                             .contentShape(Capsule())
                     }
                     .buttonStyle(ScaleButtonStyle())
@@ -115,6 +121,7 @@ struct NewSongExpressView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
         }
+        .scrollIndicators(.hidden)
     }
     
     // MARK: - 空状态
@@ -140,16 +147,15 @@ struct NewSongExpressView: View {
                     }
                 }) {
                     HStack(spacing: 6) {
-                        AsideIcon(icon: .play, size: 12, color: .asideIconForeground)
+                        AsideIcon(icon: .play, size: 12, color: .white)
                         Text(LocalizedStringKey("artist_play_all"))
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.asideIconForeground)
+                            .foregroundColor(.white)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color.asideGlassTint)
+                    .background(Color.accentColor)
                     .clipShape(Capsule())
-                    .glassEffect(.regular, in: .capsule)
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 

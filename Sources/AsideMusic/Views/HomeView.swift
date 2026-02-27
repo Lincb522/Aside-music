@@ -91,6 +91,7 @@ struct HomeView: View {
                             Color.clear.frame(height: 120)
                         }
                     }
+                    .scrollIndicators(.hidden)
                     .refreshable {
                         viewModel.fetchData()
                     }
@@ -303,6 +304,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -331,6 +333,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -449,6 +452,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -474,6 +478,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -496,6 +501,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 

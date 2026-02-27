@@ -68,6 +68,7 @@ struct UserEventView: View {
                         
                         Color.clear.frame(height: 100)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }

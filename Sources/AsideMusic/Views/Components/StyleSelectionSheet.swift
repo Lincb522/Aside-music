@@ -60,6 +60,7 @@ struct StyleSelectionMorphView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
                 }
+                .scrollIndicators(.hidden)
                 .frame(maxHeight: 320)
                 
                 actionBar
@@ -113,6 +114,7 @@ struct StyleSelectionMorphView: View {
             }
             .padding(.horizontal, 20)
         }
+        .scrollIndicators(.hidden)
     }
     
     private var styleGrid: some View {

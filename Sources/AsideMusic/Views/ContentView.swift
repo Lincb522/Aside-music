@@ -141,23 +141,25 @@ public struct ContentView: View {
     // MARK: - 滑动手势（极简/悬浮球模式）
 
     private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+        DragGesture(minimumDistance: 20, coordinateSpace: .local)
             .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
 
                 let allTabs = Tab.allCases
                 guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
 
-                if value.translation.width < 0 {
+                if value.translation.width < -20 {
                     let nextIndex = currentIndex + 1
                     if nextIndex < allTabs.count {
+                        HapticManager.shared.light()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             currentTab = allTabs[nextIndex]
                         }
                     }
-                } else {
+                } else if value.translation.width > 20 {
                     let prevIndex = currentIndex - 1
                     if prevIndex >= 0 {
+                        HapticManager.shared.light()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             currentTab = allTabs[prevIndex]
                         }

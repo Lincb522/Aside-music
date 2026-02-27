@@ -40,6 +40,7 @@ struct AlbumDetailView: View {
                     songListSection
                         .padding(.bottom, 100)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -335,6 +336,7 @@ struct AlbumDescSheet: View {
                 .padding(.top, 20)
                 .padding(.bottom, 40)
             }
+            .scrollIndicators(.hidden)
         }
         .background {
             AsideBackground()

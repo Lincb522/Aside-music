@@ -22,6 +22,7 @@ struct PlaylistPopupView: View {
                     }
                     .padding(.bottom, 30)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .background(sheetBackground.ignoresSafeArea(edges: .bottom))
@@ -162,6 +163,7 @@ struct PlaylistPopupView: View {
                 .listStyle(.plain)
                 .environment(\.editMode, .constant(.active))
                 .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
             } else if player.currentSong == nil {
                 EmptyStateView(text: "queue_empty", icon: .musicNoteList)
             }

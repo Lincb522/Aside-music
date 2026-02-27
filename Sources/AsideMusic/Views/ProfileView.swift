@@ -135,6 +135,7 @@ struct ProfileView: View {
                     }
                     .padding(.top, DeviceLayout.headerTopPadding)
                 }
+                .scrollIndicators(.hidden)
             }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -309,6 +310,7 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 

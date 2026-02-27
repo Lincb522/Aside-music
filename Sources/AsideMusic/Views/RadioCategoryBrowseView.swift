@@ -56,6 +56,7 @@ struct RadioCategoryBrowseView: View {
                         }
                         .padding(.bottom, 120)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
@@ -99,6 +100,7 @@ struct RadioCategoryBrowseView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 电台行

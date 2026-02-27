@@ -242,6 +242,7 @@ struct DebugLogView: View {
                 }
             }
         }
+        .scrollIndicators(.hidden)
     }
     
     // MARK: - 日志列表
@@ -257,6 +258,7 @@ struct DebugLogView: View {
                 }
                 .padding(20)
             }
+            .scrollIndicators(.hidden)
             .onChange(of: logs.count) { _, _ in
                 if autoScroll, let lastLog = filteredLogs.last {
                     withAnimation(.easeOut(duration: 0.3)) {

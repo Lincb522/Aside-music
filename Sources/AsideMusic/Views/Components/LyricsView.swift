@@ -648,6 +648,7 @@ struct LyricsView: View {
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
                     }
+                    .scrollIndicators(.hidden)
 
                     .simultaneousGesture(
                         DragGesture().onChanged { _ in

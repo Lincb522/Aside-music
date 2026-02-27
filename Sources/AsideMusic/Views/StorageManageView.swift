@@ -54,6 +54,7 @@ struct StorageManageView: View {
                         }
                         .padding(.horizontal, 20)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }

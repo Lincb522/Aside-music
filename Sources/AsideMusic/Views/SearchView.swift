@@ -251,6 +251,7 @@ struct SearchView: View {
             }
             .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
         .simultaneousGesture(DragGesture().onChanged { _ in
             isFocused = false
         })
@@ -458,6 +459,7 @@ struct SearchView: View {
                 }
                 .padding(.bottom, 120)
             }
+            .scrollIndicators(.hidden)
             .simultaneousGesture(DragGesture().onChanged { _ in
                 isFocused = false
             })
@@ -872,6 +874,7 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
         .padding(.top, 4)
     }
@@ -1011,6 +1014,7 @@ struct SearchView: View {
             }
             .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 搜索建议浮层
@@ -1048,6 +1052,7 @@ struct SearchView: View {
                 }
                 .padding(.top, 10)
             }
+            .scrollIndicators(.hidden)
             .asideBackground()
         }
     }

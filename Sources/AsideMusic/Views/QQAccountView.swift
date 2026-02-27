@@ -45,6 +45,7 @@ struct QQAccountView: View {
                     .padding(.top, 32)
                     .padding(.bottom, 120)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)

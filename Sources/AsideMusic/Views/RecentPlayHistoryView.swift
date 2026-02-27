@@ -79,6 +79,7 @@ struct RecentPlayHistoryView: View {
                     
                     Color.clear.frame(height: 120)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)

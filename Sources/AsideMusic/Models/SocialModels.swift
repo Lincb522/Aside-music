@@ -105,6 +105,7 @@ struct MlogItem: Identifiable {
     }
     
     var durationText: String {
+        guard duration > 0 else { return "" }
         let seconds = duration / 1000
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }

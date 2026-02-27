@@ -227,6 +227,7 @@ struct MVPlayerView: View {
                     .padding(.top, 20)
                     .padding(.bottom, 80)
                 }
+                .scrollIndicators(.hidden)
 
                 // 底部评论输入栏
                 MVCommentInputBar(
@@ -417,11 +418,10 @@ struct MVPlayerView: View {
                                     if !mv.durationText.isEmpty {
                                         Text(mv.durationText)
                                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                            .background(.clear).glassEffect(.regular, in: .capsule)
                                             .padding(6)
                                     }
                                 }
@@ -442,6 +442,7 @@ struct MVPlayerView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -620,6 +621,7 @@ struct MVPlayerView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 30)
             }
+            .scrollIndicators(.hidden)
         }
         .background {
             Rectangle()

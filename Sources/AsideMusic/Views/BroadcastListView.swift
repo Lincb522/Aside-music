@@ -38,6 +38,7 @@ struct BroadcastListView: View {
                         }
                         .padding(.bottom, 100)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
@@ -75,6 +76,7 @@ struct BroadcastListView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
+        .scrollIndicators(.hidden)
     }
 
     private func filterCapsule(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {

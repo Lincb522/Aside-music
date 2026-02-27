@@ -34,11 +34,11 @@ struct MinimalMiniPlayer: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 18))
         .contentShape(Rectangle())
         .gesture(
-            DragGesture(minimumDistance: 30)
+            DragGesture(minimumDistance: 15)
                 .onEnded { value in
-                    let threshold: CGFloat = 30
-                    // 只处理水平滑动
-                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    let threshold: CGFloat = 15
+                    // 只处理水平滑动（宽度大于高度的 1.5 倍）
+                    guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
                     
                     withAnimation(AsideAnimation.panelToggle) {
                         if value.translation.width < -threshold {
@@ -186,8 +186,9 @@ struct MinimalMiniPlayer: View {
                             .foregroundColor(currentTab == tab ? .asideAccent : .asideTextSecondary.opacity(0.4))
                     }
                     .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(AsideBouncingButtonStyle())
             }
         }
     }

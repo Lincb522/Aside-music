@@ -39,6 +39,12 @@ struct AsideMusicApp: App {
         UIScrollView.appearance().showsVerticalScrollIndicator = false
         UIScrollView.appearance().showsHorizontalScrollIndicator = false
         
+        // List 内部的 UITableView / UICollectionView 也隐藏滚动条
+        UITableView.appearance().showsVerticalScrollIndicator = false
+        UITableView.appearance().showsHorizontalScrollIndicator = false
+        UICollectionView.appearance().showsVerticalScrollIndicator = false
+        UICollectionView.appearance().showsHorizontalScrollIndicator = false
+        
         UICollectionView.appearance().backgroundColor = .clear
     }
     

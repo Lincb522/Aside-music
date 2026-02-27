@@ -130,6 +130,7 @@ struct DownloadManageView: View {
                         }
                         .padding(.bottom, 120)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
@@ -220,6 +221,7 @@ struct DownloadManageView: View {
                     }
                     .padding(.bottom, 120)
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }

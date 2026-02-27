@@ -80,7 +80,7 @@ struct MV: Codable, Identifiable, Hashable {
 
     /// 格式化时长
     var durationText: String {
-        guard let ms = duration else { return "" }
+        guard let ms = duration, ms > 0 else { return "" }
         let totalSeconds = ms / 1000
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
@@ -150,7 +150,7 @@ struct MVDetail: Codable {
     var coverUrl: String? { cover }
 
     var durationText: String {
-        guard let ms = duration else { return "" }
+        guard let ms = duration, ms > 0 else { return "" }
         let totalSeconds = ms / 1000
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
@@ -220,7 +220,7 @@ struct MVSubItem: Codable, Identifiable {
     }
 
     var durationText: String {
-        guard let ms = durationms else { return "" }
+        guard let ms = durationms, ms > 0 else { return "" }
         let totalSeconds = ms / 1000
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60

@@ -211,6 +211,7 @@ struct DailyRecommendView: View {
             }
             .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
     }
 
     private func errorView(msg: String) -> some View {
@@ -337,6 +338,7 @@ struct DailyHistoryView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
         }
+        .scrollIndicators(.hidden)
     }
 
     private func dateButton(for date: String) -> some View {
@@ -409,6 +411,7 @@ struct DailyHistoryView: View {
             }
             .padding(.bottom, 100)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - Helpers

@@ -80,6 +80,7 @@ struct SoundQualitySheet: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }

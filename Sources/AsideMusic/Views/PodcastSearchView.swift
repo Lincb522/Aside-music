@@ -110,6 +110,7 @@ struct PodcastSearchView: View {
             .padding(.top, 8)
             .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 搜索结果
@@ -141,6 +142,7 @@ struct PodcastSearchView: View {
             }
             .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 空结果

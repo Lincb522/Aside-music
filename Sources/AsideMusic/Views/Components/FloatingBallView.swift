@@ -179,6 +179,7 @@ struct FloatingBallView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .contentShape(Rectangle())
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
         .padding(.trailing, 8)
     }
@@ -200,6 +201,10 @@ struct FloatingBallView: View {
                     withAnimation(AsideAnimation.tabSwitch) {
                         currentTab = item.tab
                     }
+                    // 切换 Tab 后自动收起面板
+                    withAnimation(AsideAnimation.panelToggle) {
+                        isPanelOpen = false
+                    }
                 } label: {
                     AsideIcon(
                         icon: item.icon,
@@ -207,6 +212,7 @@ struct FloatingBallView: View {
                         color: currentTab == item.tab ? .asideAccent : .asideTextSecondary
                     )
                     .frame(width: 36, height: 36)
+                    .contentShape(Circle())
                     .background(
                         Group {
                             if currentTab == item.tab {
@@ -217,7 +223,7 @@ struct FloatingBallView: View {
                         }
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(AsideBouncingButtonStyle())
             }
         }
     }

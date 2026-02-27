@@ -231,6 +231,7 @@ struct AudioMatchView: View {
                         Spacer().frame(height: 100)
                     }
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)

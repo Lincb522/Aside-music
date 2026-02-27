@@ -73,6 +73,7 @@ struct TopChartsView: View {
                         .padding(.horizontal, 24)
                         .padding(.bottom, 120)
                     }
+                    .scrollIndicators(.hidden)
                 }
             }
         }

@@ -462,6 +462,7 @@ struct RadioPlayerView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 30)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .background {

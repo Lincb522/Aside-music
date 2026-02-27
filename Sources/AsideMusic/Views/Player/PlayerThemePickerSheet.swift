@@ -33,6 +33,7 @@ struct PlayerThemePickerSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
             }
+            .scrollIndicators(.hidden)
         }
         .background(sheetBackground.ignoresSafeArea())
         .presentationDetents([.medium, .large])

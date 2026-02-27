@@ -32,11 +32,10 @@ struct MVGridCard: View {
                     if !mv.durationText.isEmpty {
                         Text(mv.durationText)
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .background(.clear).glassEffect(.regular, in: .capsule)
                             .padding(8)
                     }
                 }
@@ -95,11 +94,10 @@ struct MVRowCard: View {
                     if !mv.durationText.isEmpty {
                         Text(mv.durationText)
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .background(.clear).glassEffect(.regular, in: .capsule)
                             .padding(6)
                     }
                 }
@@ -234,6 +232,7 @@ struct MVDiscoverView: View {
                         .padding(.bottom, 120)
                     }
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -395,11 +394,10 @@ struct MVDiscoverView: View {
                                     if !mv.durationText.isEmpty {
                                         Text(mv.durationText)
                                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                            .background(.clear).glassEffect(.regular, in: .capsule)
                                             .padding(8)
                                     }
                                 }
@@ -423,6 +421,7 @@ struct MVDiscoverView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -505,11 +504,10 @@ struct MVDiscoverView: View {
                                     if !mlog.durationText.isEmpty {
                                         Text(mlog.durationText)
                                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                            .background(.clear).glassEffect(.regular, in: .capsule)
                                             .padding(8)
                                     }
 
@@ -543,6 +541,7 @@ struct MVDiscoverView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -658,6 +657,7 @@ struct MVFullListView: View {
 
                     Color.clear.frame(height: 100)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -756,6 +756,7 @@ struct MVSublistSheet: View {
                     .padding(.top, 14)
                     .padding(.bottom, 30)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .background {
@@ -787,11 +788,10 @@ struct MVSublistSheet: View {
                     if !item.durationText.isEmpty {
                         Text(item.durationText)
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(.clear).glassEffect(.regular, in: .rect(cornerRadius: 16))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .background(.clear).glassEffect(.regular, in: .capsule)
                             .padding(6)
                     }
                 }

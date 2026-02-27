@@ -80,6 +80,7 @@ struct EQSettingsView: View {
                     }
                     .padding(.horizontal, 20)
                 }
+                .scrollIndicators(.hidden)
             }
             
             // Toast 提示
@@ -609,6 +610,7 @@ struct EQSettingsView: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
 
             // 预设卡片横向滚动
             ScrollView(.horizontal) {
@@ -618,6 +620,7 @@ struct EQSettingsView: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
         }
     }
 

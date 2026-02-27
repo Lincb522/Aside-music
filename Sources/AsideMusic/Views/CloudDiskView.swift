@@ -154,6 +154,7 @@ struct CloudDiskView: View {
                 }
                 .padding(.bottom, 120)
             }
+            .scrollIndicators(.hidden)
         }
     }
     
