@@ -458,11 +458,32 @@ struct SettingsView: View {
     private var aboutSection: some View {
         SettingsSection(title: String(localized: "settings_about")) {
             VStack(spacing: 0) {
-                SettingsInfoRow(
-                    icon: .info,
-                    title: String(localized: "settings_version"),
-                    value: appVersion
-                )
+                NavigationLink(destination: AboutView()) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.asideIconBackground)
+                                .frame(width: 32, height: 32)
+                            AsideIcon(icon: .info, size: 16, color: .asideIconForeground)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(localized: "settings_about"))
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .foregroundColor(.asideTextPrimary)
+                            Text("v\(appVersion)")
+                                .font(.system(size: 12, design: .rounded))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        AsideIcon(icon: .chevronRight, size: 12, color: .asideTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
