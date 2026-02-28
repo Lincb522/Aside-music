@@ -252,6 +252,202 @@ extension APIService {
             return songs
         }
     }
+    
+    /// 获取 QQ 音乐歌单分类标签
+    func fetchQQPlaylistCategories() -> AnyPublisher<[(id: Int, name: String)], Error> {
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.songlistCategories()
+            AppLogger.debug("[QQMusic] 歌单分类原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
+            
+            var categories: [(id: Int, name: String)] = []
+            var addedIds = Set<Int>()
+            
+            let hiddenCategories: Set<String> = [
+                "全部", "AI歌单", "私藏", "音乐人在听", "chill vibes", "AI 歌单"
+            ]
+            
+            // API 返回: { v_group: [{ group_name, v_item: [{ id, name }] }] }
+            let groups = result["v_group"]?.arrayValue
+                ?? result["data"]?["v_group"]?.arrayValue
+                ?? []
+            
+            for group in groups {
+                if let items = group["v_item"]?.arrayValue {
+                    for item in items {
+                        if let id = item["id"]?.intValue,
+                           let name = item["name"]?.stringValue, !name.isEmpty {
+                            if !addedIds.contains(id) && !hiddenCategories.contains(name) {
+                                categories.append((id: id, name: name))
+                                addedIds.insert(id)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            AppLogger.info("[QQMusic] 歌单分类: \(categories.count)个")
+            return categories
+        }
+    }
+    
+    /// 按分类获取 QQ 音乐歌单列表（支持分页）
+    func fetchQQPlaylistsByCategory(categoryId: Int, sortId: Int = 5, page: Int = 0, size: Int = 30) -> AnyPublisher<(playlists: [Playlist], hasMore: Bool), Error> {
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return (playlists: [], hasMore: false) }
+            let result = try await self.qqClient.songlistByCategory(
+                categoryId: categoryId,
+                sortId: sortId,
+                page: page,
+                size: size
+            )
+            AppLogger.debug("[QQMusic] 分类歌单原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? "非对象")")
+            
+            // API 返回: { v_playlist: [...], total: Int }
+            let listArray = result["v_playlist"]?.arrayValue
+                ?? result["data"]?["v_playlist"]?.arrayValue
+                ?? result["list"]?.arrayValue
+                ?? result["data"]?["list"]?.arrayValue
+                ?? Self.extractJSONArray(from: result)
+            
+            let total = result["total"]?.intValue
+                ?? result["data"]?["total"]?.intValue
+                ?? 0
+            
+            let playlists = listArray.compactMap { Self.convertQQPlaylistToPlaylist($0) }
+            let hasMore = (page + 1) * size < total
+            
+            AppLogger.info("[QQMusic] 分类歌单: 原始\(listArray.count)条, 转换\(playlists.count)条, 总计\(total), hasMore=\(hasMore)")
+            return (playlists: playlists, hasMore: hasMore)
+        }
+    }
+}
+
+// MARK: - QQ 音乐歌手列表
+
+extension APIService {
+    
+    /// 获取 QQ 音乐歌手列表（热门）
+    func fetchQQSingerList(area: AreaType = .all, sex: SexType = .all, genre: GenreType = .all) -> AnyPublisher<[ArtistInfo], Error> {
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.singerList(area: area, sex: sex, genre: genre)
+            let artists = results.compactMap { Self.convertQQArtistToArtistInfo($0) }
+            AppLogger.info("[QQMusic] 歌手列表: 原始\(results.count)条, 转换\(artists.count)条")
+            return artists
+        }
+    }
+    
+    /// 获取 QQ 音乐歌手列表（分页，支持首字母索引）
+    func fetchQQSingerListIndex(
+        area: AreaType = .all,
+        sex: SexType = .all,
+        genre: GenreType = .all,
+        index: Int = -100,
+        sin: Int = 0,
+        curPage: Int = 1
+    ) -> AnyPublisher<(artists: [ArtistInfo], total: Int), Error> {
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return ([], 0) }
+            let result = try await self.qqClient.singerListIndex(
+                area: area, sex: sex, genre: genre,
+                index: index, sin: sin, curPage: curPage
+            )
+            let singerArray = Self.extractJSONArray(from: result)
+            let total = result["total"]?.intValue ?? singerArray.count
+            let artists = singerArray.compactMap { Self.convertQQArtistToArtistInfo($0) }
+            AppLogger.info("[QQMusic] 歌手列表(分页): 原始\(singerArray.count)条, 转换\(artists.count)条, total=\(total)")
+            return (artists, total)
+        }
+    }
+}
+
+// MARK: - QQ 音乐排行榜
+
+extension APIService {
+    
+    /// 获取 QQ 音乐排行榜分类
+    /// API 返回分组结构: [{ groupId, groupName, toplist: [{topId, title, ...}] }]
+    func fetchQQTopCategory() -> AnyPublisher<[QQTopListGroup], Error> {
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let results = try await self.qqClient.topCategory()
+            AppLogger.debug("[QQMusic] 排行榜原始: \(results.count)组")
+            
+            var groups: [QQTopListGroup] = []
+            for (index, group) in results.enumerated() {
+                let groupId = group["groupId"]?.intValue ?? group["group_id"]?.intValue ?? index
+                let groupName = group["groupName"]?.stringValue ?? group["group_name"]?.stringValue ?? "排行榜"
+                
+                var items: [QQTopListItem] = []
+                if let toplist = group["toplist"]?.arrayValue ?? group["list"]?.arrayValue {
+                    items = toplist.compactMap { Self.convertQQTopListItem($0) }
+                } else if let item = Self.convertQQTopListItem(group) {
+                    items.append(item)
+                }
+                
+                if !items.isEmpty {
+                    groups.append(QQTopListGroup(groupId: groupId, groupName: groupName, items: items))
+                }
+            }
+            AppLogger.info("[QQMusic] 排行榜分类: \(groups.count)组, 共\(groups.flatMap(\.items).count)条")
+            return groups
+        }
+    }
+    
+    
+    /// 将 QQ 排行榜 JSON 转为模型
+    static func convertQQTopListItem(_ json: JSON) -> QQTopListItem? {
+        let topId = json["topId"]?.intValue ?? json["topID"]?.intValue
+            ?? json["top_id"]?.intValue ?? json["id"]?.intValue
+        guard let topId = topId else { return nil }
+        
+        let title = json["title"]?.stringValue ?? json["name"]?.stringValue
+            ?? json["ListName"]?.stringValue ?? ""
+        
+        var coverUrl = json["headPicUrl"]?.stringValue ?? json["frontPicUrl"]?.stringValue
+        if coverUrl == nil || coverUrl?.isEmpty == true {
+            coverUrl = json["cover"]?.stringValue ?? json["pic"]?.stringValue
+        }
+        
+        let intro = json["intro"]?.stringValue ?? json["updateTips"]?.stringValue ?? ""
+        let period = json["period"]?.stringValue ?? ""
+        let updateTime = json["updateTime"]?.stringValue ?? ""
+        
+        return QQTopListItem(
+            topId: topId,
+            title: title,
+            coverUrl: coverUrl,
+            intro: intro,
+            period: period,
+            updateTime: updateTime
+        )
+    }
+}
+
+/// QQ 音乐排行榜项
+struct QQTopListItem: Identifiable, Codable, Hashable {
+    let topId: Int
+    let title: String
+    let coverUrl: String?
+    let intro: String
+    let period: String
+    let updateTime: String
+    
+    var id: Int { topId }
+    
+    var coverURL: URL? {
+        guard let str = coverUrl, !str.isEmpty else { return nil }
+        return URL(string: str)
+    }
+}
+
+struct QQTopListGroup: Identifiable, Codable, Hashable {
+    let groupId: Int
+    let groupName: String
+    let items: [QQTopListItem]
+    
+    var id: Int { groupId }
 }
 
 // MARK: - QQ 音乐歌词
@@ -670,6 +866,27 @@ extension APIService {
             return try await self.qqClient.songlistDetail(
                 songlistId: playlistId, num: 0, page: 1, onlySong: false
             )
+        }
+    }
+    
+    /// 获取 QQ 音乐排行榜歌曲
+    func fetchQQTopSongs(topId: Int, page: Int = 1, num: Int = 100) -> AnyPublisher<[Song], Error> {
+        asyncToPublisher { [weak self] in
+            guard let self = self else { return [] }
+            let result = try await self.qqClient.topSongs(topId: topId, num: num, page: page)
+            let songArray: [JSON]
+            if let arr = result.arrayValue {
+                songArray = arr
+            } else if let songs = result["songInfoList"]?.arrayValue {
+                songArray = songs
+            } else if let songs = result["songlist"]?.arrayValue {
+                songArray = songs
+            } else {
+                songArray = []
+            }
+            let songs = songArray.compactMap { Self.convertQQSongToSong($0) }
+            AppLogger.info("[QQMusic] 排行榜歌曲: 原始\(songArray.count)条, 转换\(songs.count)条")
+            return songs
         }
     }
 }

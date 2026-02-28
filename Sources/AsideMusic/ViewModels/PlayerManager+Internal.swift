@@ -118,6 +118,7 @@ extension PlayerManager {
         
         hasPendingTrackTransition = false
         pendingNextSong = nil
+        pendingTransitionStartedAt = nil
         consecutiveFailures = 0
         retryDelay = 1.0
         
@@ -225,6 +226,11 @@ extension PlayerManager {
         // 清除待切换状态（用户手动切歌）
         hasPendingTrackTransition = false
         pendingNextSong = nil
+        pendingTransitionStartedAt = nil
+        // 清除 seek 状态
+        isSeeking = false
+        seekTargetTime = nil
+        seekStartedAt = nil
         
         isLoading = true
         currentSong = song

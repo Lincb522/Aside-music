@@ -18,6 +18,7 @@ import Combine
     private let limit = 30
     private var playlistId: Int?
     private var musicSource: MusicSource?
+    private var isTopList: Bool = false
     private var isFirstPageLoaded = false
     private var retryCount = 0
     private let maxRetries = 2
@@ -34,7 +35,7 @@ import Combine
         return "\(prefix)playlist_tracks_\(id)"
     }
     
-    func fetchSongs(playlistId: Int, source: MusicSource? = nil) {
+    func fetchSongs(playlistId: Int, source: MusicSource? = nil, playlist: Playlist? = nil) {
         // 如果已经加载过同一个歌单，做静默刷新（不清空列表）
         if self.playlistId == playlistId && !songs.isEmpty {
             silentRefresh(playlistId: playlistId)
@@ -43,6 +44,7 @@ import Combine
         
         self.playlistId = playlistId
         self.musicSource = source
+        self.isTopList = playlist?.isTopList ?? false
         currentOffset = 0
         hasMore = true
         isLoadingMore = false
@@ -85,7 +87,11 @@ import Combine
     private func silentRefresh(playlistId: Int) {
         let publisher: AnyPublisher<[Song], Error>
         if isQQMusic {
-            publisher = APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: 1, num: limit)
+            if isTopList {
+                publisher = APIService.shared.fetchQQTopSongs(topId: playlistId, page: 1, num: limit)
+            } else {
+                publisher = APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: 1, num: limit)
+            }
         } else {
             publisher = APIService.shared.fetchPlaylistTracks(id: playlistId, limit: limit, offset: 0)
         }
@@ -135,7 +141,11 @@ import Combine
         
         let publisher: AnyPublisher<[Song], Error>
         if isQQMusic {
-            publisher = APIService.shared.fetchQQPlaylistSongs(playlistId: id, page: qqPage, num: limit)
+            if isTopList {
+                publisher = APIService.shared.fetchQQTopSongs(topId: id, page: qqPage, num: limit)
+            } else {
+                publisher = APIService.shared.fetchQQPlaylistSongs(playlistId: id, page: qqPage, num: limit)
+            }
         } else {
             publisher = APIService.shared.fetchPlaylistTracks(id: id, limit: limit, offset: currentOffset)
         }

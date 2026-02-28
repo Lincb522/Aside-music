@@ -206,17 +206,11 @@ extension APIService {
             ?? json["name"]?.stringValue
             ?? ""
         
-        let coverUrl = json["imgurl"]?.stringValue
-            ?? json["logo"]?.stringValue
-            ?? json["cover"]?.stringValue
-            ?? json["pic_url"]?.stringValue
-            ?? json["coverImgUrl"]?.stringValue
+        let urlKeys = ["imgurl", "logo", "cover", "cover_url_big", "cover_url_medium", "pic_url", "coverImgUrl"]
+        let coverUrl = urlKeys.compactMap { json[$0]?.stringValue }.first
         
-        let playCount = json["listennum"]?.intValue
-            ?? json["listen_num"]?.intValue
-            ?? json["accessnum"]?.intValue
-            ?? json["play_count"]?.intValue
-            ?? 0
+        let playCountKeys = ["listennum", "listen_num", "accessnum", "access_num", "play_count"]
+        let playCount = playCountKeys.compactMap { json[$0]?.intValue }.first ?? 0
         let trackCount = json["song_count"]?.intValue
             ?? json["songcount"]?.intValue
             ?? json["total_song_num"]?.intValue
@@ -224,7 +218,7 @@ extension APIService {
         
         // 创建者
         var creator: PlaylistCreator?
-        if let creatorObj = json["creator"] {
+        if let creatorObj = json["creator"] ?? json["creator_info"] {
             let creatorName = creatorObj["name"]?.stringValue
                 ?? creatorObj["nick"]?.stringValue
                 ?? creatorObj["nickname"]?.stringValue

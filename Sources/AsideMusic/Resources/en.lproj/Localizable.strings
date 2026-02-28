@@ -46,6 +46,8 @@
 "view_all" = "View All";
 "playlists_love" = "Playlists You'll Love";
 "based_on_taste" = "Based on your taste";
+"playlists_unit" = "playlists";
+"songs_unit" = "songs";
 "top_charts" = "Top Charts";
 "trending_now" = "Trending now";
 "jump_back_in" = "Jump Back In";

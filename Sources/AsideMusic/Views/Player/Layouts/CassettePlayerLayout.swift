@@ -148,13 +148,7 @@ struct CassettePlayerLayout: View {
     }
 
     private func loadLyricsIfNeeded() {
-        if let song = player.currentSong, lyricVM.currentSongId != song.id {
-            if song.isQQMusic, let mid = song.qqMid {
-                lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-            } else {
-                lyricVM.fetchLyrics(for: song.id)
-            }
-        }
+        // 歌词由 PlayerManager 统一管理
     }
 }
 

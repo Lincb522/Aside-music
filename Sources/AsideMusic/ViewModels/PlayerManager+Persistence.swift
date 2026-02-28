@@ -91,11 +91,9 @@ extension PlayerManager {
                     if let savedShuffled = state.shuffledContext, !savedShuffled.isEmpty {
                         self.shuffledContext = savedShuffled
                     } else if self.mode == .shuffle {
-                        // 兜底：随机模式下若随机列表丢失，重建随机队列，避免 currentContextList 为空
                         self.generateShuffledContext()
                     }
                 } else {
-                    // 兼容旧版：只有 currentSong，没有完整 context
                     self.context = [song]
                     self.contextIndex = 0
                 }

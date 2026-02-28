@@ -320,8 +320,7 @@ struct QQArtistDetailView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Capsule().fill(Color.asideGlassTint))
-                    .glassEffect(.regular, in: .capsule)
+                    .background(Capsule().fill(Color.asideIconBackground))
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.5 : 1)

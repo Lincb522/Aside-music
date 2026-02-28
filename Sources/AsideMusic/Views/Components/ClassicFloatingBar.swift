@@ -133,7 +133,7 @@ private struct ClassicMiniPlayerSection: View {
                         }) {
                             AsideIcon(icon: .close, size: 10, color: .asideTextSecondary)
                                 .frame(width: 28, height: 28)
-                                .background(Color.gray.opacity(0.08))
+                                .background(Color.asideTextPrimary.opacity(0.08))
                                 .clipShape(Circle())
                         }
                         .buttonStyle(AsideBouncingButtonStyle())

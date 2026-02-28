@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+@preconcurrency import QQMusicKit
 
 // MARK: - LibraryViewModel (extracted from LibraryView.swift)
 
@@ -27,6 +28,7 @@ class LibraryViewModel: ObservableObject {
         case playlist(Playlist)
         case artist(Int)
         case artistInfo(ArtistInfo)
+        case qqArtist(mid: String, name: String, coverUrl: String?)
         case radioDetail(Int)
         case localPlaylist(String)
 
@@ -35,6 +37,7 @@ class LibraryViewModel: ObservableObject {
             case .playlist(let p): hasher.combine("p_\(p.id)")
             case .artist(let id): hasher.combine("a_\(id)")
             case .artistInfo(let a): hasher.combine("a_\(a.id)")
+            case .qqArtist(let mid, _, _): hasher.combine("qa_\(mid)")
             case .radioDetail(let id): hasher.combine("r_\(id)")
             case .localPlaylist(let id): hasher.combine("lp_\(id)")
             }
@@ -45,6 +48,7 @@ class LibraryViewModel: ObservableObject {
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
             case (.artist(let l), .artist(let r)): return l == r
             case (.artistInfo(let l), .artistInfo(let r)): return l.id == r.id
+            case (.qqArtist(let lm, _, _), .qqArtist(let rm, _, _)): return lm == rm
             case (.radioDetail(let l), .radioDetail(let r)): return l == r
             case (.localPlaylist(let l), .localPlaylist(let r)): return l == r
             default: return false
@@ -52,10 +56,17 @@ class LibraryViewModel: ObservableObject {
         }
     }
 
+    /// 歌单广场/歌手/榜单的音源选择
+    enum MusicSource: String, CaseIterable {
+        case ncm = "NCM"
+        case qq = "QQ"
+    }
+
     @Published var currentTab: LibraryTab = .my
 
     @Published var userPlaylists: [Playlist] = []
 
+    // MARK: - Playlist Square (NCM)
     @Published var squarePlaylists: [Playlist] = []
     @Published var playlistCategories: [PlaylistCategory] = []
     @Published var selectedCategory: String = NSLocalizedString("filter_all", comment: "")
@@ -63,17 +74,57 @@ class LibraryViewModel: ObservableObject {
     @Published var hasMoreSquarePlaylists: Bool = true
     @Published var isLoadingMoreSquare: Bool = false
     @Published var isLoadingSquare: Bool = false
+    @Published var squareSource: MusicSource = .ncm
 
-    // MARK: - Artists
+    // MARK: - Playlist Square (QQ)
+    @Published var qqSquarePlaylists: [Playlist] = []
+    @Published var isLoadingQQSquare: Bool = false
+    @Published var qqPlaylistCategories: [(id: Int, name: String)] = []
+    @Published var selectedQQCategoryId: Int = 3317
+    @Published var selectedQQCategoryName: String = "官方歌单"
+    @Published var qqSquarePage: Int = 0
+    @Published var hasMoreQQSquare: Bool = true
+    @Published var isLoadingMoreQQSquare: Bool = false
+    @Published var qqSquareSortId: Int = 5
 
+    // MARK: - Artists (NCM)
     @Published var topArtists: [ArtistInfo] = []
     @Published var artistOffset: Int = 0
     @Published var hasMoreArtists: Bool = true
     @Published var isLoadingArtists: Bool = false
+    @Published var artistSource: MusicSource = .ncm
 
-    // MARK: - Charts
+    // MARK: - Artists (QQ)
+    @Published var qqArtists: [ArtistInfo] = []
+    @Published var qqArtistPage: Int = 1
+    @Published var qqArtistSin: Int = 0
+    @Published var hasMoreQQArtists: Bool = true
+    @Published var isLoadingQQArtists: Bool = false
+    @Published var qqArtistArea: AreaType = .all
+    @Published var qqArtistSex: SexType = .all
+    @Published var qqArtistGenre: GenreType = .all
+    @Published var qqArtistSearchText: String = ""
+    @Published var isSearchingQQArtists: Bool = false
 
+    let qqArtistAreas: [(name: String, value: AreaType)] = [
+        ("filter_all", .all), ("filter_chinese", .china), ("filter_western", .america),
+        ("filter_japanese", .japan), ("filter_korean", .korea), ("台湾", .taiwan)
+    ]
+    let qqArtistSexes: [(name: String, value: SexType)] = [
+        ("filter_all", .all), ("filter_male", .male), ("filter_female", .female), ("filter_band", .group)
+    ]
+    let qqArtistGenres: [(name: String, value: GenreType)] = [
+        ("filter_all", .all), ("流行", .pop), ("说唱", .rap), ("摇滚", .rock),
+        ("电子", .electronic), ("民谣", .folk), ("R&B", .rnb), ("爵士", .jazz), ("古典", .classical)
+    ]
+
+    // MARK: - Charts (NCM)
     @Published var topLists: [TopList] = []
+    @Published var chartsSource: MusicSource = .ncm
+
+    // MARK: - Charts (QQ)
+    @Published var qqTopLists: [QQTopListGroup] = []
+    @Published var isLoadingQQCharts: Bool = false
 
     @Published var artistArea: Int = -1
     @Published var artistType: Int = -1
@@ -90,7 +141,7 @@ class LibraryViewModel: ObservableObject {
     let artistInitials: [String] = ["-1"] + (65...90).map { String(UnicodeScalar($0)) } + ["#"]
 
     @Published var isLoadingCharts: Bool = false
-    @Published var isLoading = false // 保留用于兼容，但不再使用
+    @Published var isLoading = false
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
@@ -135,6 +186,19 @@ class LibraryViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        $qqArtistSearchText
+            .dropFirst()
+            .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
+            .sink { [weak self] text in
+                if !text.isEmpty {
+                    self?.searchQQArtists(keyword: text)
+                } else {
+                    self?.isSearchingQQArtists = false
+                    self?.fetchQQArtistData(reset: true)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - My Library
@@ -146,6 +210,9 @@ class LibraryViewModel: ObservableObject {
         squarePlaylists = []
         topArtists = []
         topLists = []
+        qqSquarePlaylists = []
+        qqArtists = []
+        qqTopLists = []
     }
 
     func fetchPlaylists(force: Bool = false) {
@@ -415,6 +482,179 @@ class LibraryViewModel: ObservableObject {
             }, receiveValue: { [weak self] lists in
                 self?.topLists = lists
                 OptimizedCacheManager.shared.setObject(lists, forKey: "top_charts_lists")
+            })
+            .store(in: &cancellables)
+    }
+
+    // MARK: - QQ Playlist Square
+
+    func fetchQQSquareData() {
+        // 加载分类（只加载一次）
+        if qqPlaylistCategories.isEmpty {
+            fetchQQCategories()
+        }
+        // 加载歌单
+        if !qqSquarePlaylists.isEmpty { return }
+        loadQQSquarePlaylists(reset: true)
+    }
+
+    func refreshQQSquare() {
+        loadQQSquarePlaylists(reset: true)
+    }
+    
+    func fetchQQCategories() {
+        apiService.fetchQQPlaylistCategories()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] categories in
+                self?.qqPlaylistCategories = categories
+            })
+            .store(in: &cancellables)
+    }
+    
+    func loadQQSquarePlaylists(categoryId: Int? = nil, reset: Bool = false) {
+        let catId = categoryId ?? selectedQQCategoryId
+        
+        if reset {
+            qqSquarePlaylists = []
+            qqSquarePage = 0
+            hasMoreQQSquare = true
+            isLoadingQQSquare = true
+        } else {
+            guard hasMoreQQSquare, !isLoadingMoreQQSquare else { return }
+            isLoadingMoreQQSquare = true
+        }
+        
+        apiService.fetchQQPlaylistsByCategory(
+            categoryId: catId,
+            sortId: qqSquareSortId,
+            page: qqSquarePage,
+            size: 30
+        )
+        .receive(on: DispatchQueue.main)
+        .sink(receiveCompletion: { [weak self] _ in
+            self?.isLoadingQQSquare = false
+            self?.isLoadingMoreQQSquare = false
+        }, receiveValue: { [weak self] result in
+            guard let self = self else { return }
+            if reset {
+                self.qqSquarePlaylists = result.playlists
+            } else {
+                self.qqSquarePlaylists.append(contentsOf: result.playlists)
+            }
+            self.hasMoreQQSquare = result.hasMore
+            self.qqSquarePage += 1
+            let cacheKey = "qq_square_playlists_\(catId)"
+            OptimizedCacheManager.shared.setObject(self.qqSquarePlaylists, forKey: cacheKey)
+        })
+        .store(in: &cancellables)
+    }
+    
+    func loadMoreQQSquarePlaylists() {
+        loadQQSquarePlaylists(reset: false)
+    }
+    
+    func selectQQCategory(id: Int, name: String) {
+        guard id != selectedQQCategoryId else { return }
+        selectedQQCategoryId = id
+        selectedQQCategoryName = name
+        loadQQSquarePlaylists(categoryId: id, reset: true)
+    }
+
+    // MARK: - QQ Artists
+
+    func fetchQQArtistData(reset: Bool = false) {
+        if reset {
+            qqArtists = []
+            qqArtistPage = 1
+            qqArtistSin = 0
+            hasMoreQQArtists = true
+            isLoadingQQArtists = false
+            isSearchingQQArtists = false
+        }
+
+        if !qqArtistSearchText.isEmpty { return }
+        if isLoadingQQArtists || !hasMoreQQArtists { return }
+
+        let cacheKey = "qq_artists_\(qqArtistArea)_\(qqArtistSex)_\(qqArtistGenre)_0"
+        if qqArtists.isEmpty && qqArtistSin == 0 {
+            if let cached = OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: [ArtistInfo].self), !cached.isEmpty {
+                self.qqArtists = cached
+                self.qqArtistSin = cached.count
+                return
+            }
+        }
+
+        isLoadingQQArtists = true
+
+        let pageSize = 80
+        apiService.fetchQQSingerListIndex(
+            area: qqArtistArea,
+            sex: qqArtistSex,
+            genre: qqArtistGenre,
+            index: -100,
+            sin: qqArtistSin,
+            curPage: qqArtistPage
+        )
+        .receive(on: DispatchQueue.main)
+        .sink(receiveCompletion: { [weak self] _ in
+            self?.isLoadingQQArtists = false
+        }, receiveValue: { [weak self] result in
+            guard let self = self else { return }
+            let (artists, total) = result
+            if self.qqArtistSin == 0 {
+                self.qqArtists = artists
+                OptimizedCacheManager.shared.setObject(artists, forKey: cacheKey)
+            } else {
+                let existingIds = Set(self.qqArtists.map { $0.id })
+                let newArtists = artists.filter { !existingIds.contains($0.id) }
+                self.qqArtists.append(contentsOf: newArtists)
+            }
+            self.qqArtistSin += artists.count
+            self.qqArtistPage += 1
+            self.hasMoreQQArtists = self.qqArtists.count < total && artists.count >= pageSize
+        })
+        .store(in: &cancellables)
+    }
+
+    func loadMoreQQArtists() {
+        if !isSearchingQQArtists {
+            fetchQQArtistData(reset: false)
+        }
+    }
+
+    func searchQQArtists(keyword: String) {
+        isLoadingQQArtists = true
+        isSearchingQQArtists = true
+
+        apiService.searchQQArtists(keyword: keyword, page: 1, num: 30)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] _ in
+                self?.isLoadingQQArtists = false
+            }, receiveValue: { [weak self] artists in
+                self?.qqArtists = artists
+                self?.hasMoreQQArtists = false
+            })
+            .store(in: &cancellables)
+    }
+
+    // MARK: - QQ Charts
+
+    func fetchQQTopLists() {
+        if !qqTopLists.isEmpty { return }
+
+        if let cached = OptimizedCacheManager.shared.getObject(forKey: "qq_top_charts", type: [QQTopListGroup].self), !cached.isEmpty {
+            self.qqTopLists = cached
+            return
+        }
+
+        isLoadingQQCharts = true
+        apiService.fetchQQTopCategory()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] _ in
+                self?.isLoadingQQCharts = false
+            }, receiveValue: { [weak self] groups in
+                self?.qqTopLists = groups
+                OptimizedCacheManager.shared.setObject(groups, forKey: "qq_top_charts")
             })
             .store(in: &cancellables)
     }

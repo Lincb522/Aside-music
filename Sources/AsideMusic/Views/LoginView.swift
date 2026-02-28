@@ -118,14 +118,14 @@ struct LoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                AsideIcon(icon: icon, size: 18, color: selectedTab == tab ? .white : .asideTextSecondary)
+                AsideIcon(icon: icon, size: 18, color: selectedTab == tab ? .asideIconForeground : .asideTextSecondary)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? .white : .asideTextSecondary)
+                    .foregroundColor(selectedTab == tab ? .asideIconForeground : .asideTextSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(selectedTab == tab ? Color.black : Color.clear)
+            .background(selectedTab == tab ? Color.asideIconBackground : Color.clear)
             .cornerRadius(12)
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))

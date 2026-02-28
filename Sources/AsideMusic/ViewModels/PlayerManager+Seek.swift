@@ -12,6 +12,7 @@ extension PlayerManager {
     func seek(to time: Double) {
         isSeeking = true
         seekTargetTime = time
+        seekStartedAt = Date()
         currentTime = time
         updateNowPlayingTime()
         

@@ -221,7 +221,14 @@ struct AsideBackground: View {
             }
             .ignoresSafeArea()
 
-            // 第三层：极淡噪点纹理（增加质感）
+            // 第三层：浅色模式白色半透明遮罩（柔化弥散，提亮整体）
+            if colorScheme == .light {
+                Color.white.opacity(0.45)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+
+            // 第四层：极淡噪点纹理（增加质感）
             Canvas { context, size in
                 for _ in 0..<150 {
                     let x = CGFloat.random(in: 0...size.width)
@@ -283,36 +290,45 @@ struct AsideLiquidGlassCard<Content: View>: View {
 // MARK: - SwiftUI 毛玻璃回退方案
 struct SwiftUIGlassBackground: View {
     let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let isDark = colorScheme == .dark
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.4))
+                .fill(isDark ? Color.white.opacity(0.06) : Color.white.opacity(0.4))
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.6),
-                            Color.white.opacity(0.2),
-                            Color.white.opacity(0.1),
-                            Color.white.opacity(0.3)
-                        ],
+                        colors: isDark
+                            ? [
+                                Color.white.opacity(0.15),
+                                Color.white.opacity(0.06),
+                                Color.white.opacity(0.03),
+                                Color.white.opacity(0.08)
+                            ]
+                            : [
+                                Color.white.opacity(0.6),
+                                Color.white.opacity(0.2),
+                                Color.white.opacity(0.1),
+                                Color.white.opacity(0.3)
+                            ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1
+                    lineWidth: isDark ? 0.5 : 1
                 )
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.white.opacity(0.15),
+                            Color.white.opacity(isDark ? 0.04 : 0.15),
                             Color.clear
                         ],
                         center: .topLeading,

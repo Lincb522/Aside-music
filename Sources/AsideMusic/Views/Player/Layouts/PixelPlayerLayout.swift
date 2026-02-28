@@ -70,11 +70,6 @@ struct PixelPlayerLayout: View {
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.3)) { isAppeared = true }
-            if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                if song.isQQMusic, let mid = song.qqMid {
-                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-                } else { lyricVM.fetchLyrics(for: song.id) }
-            }
             startBlink()
             startSpectrumAnimation()
         }

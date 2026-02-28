@@ -74,7 +74,7 @@ struct PlaylistDetailView: View {
             if let songs = initialSongs {
                 viewModel.setSongs(songs)
             } else {
-                viewModel.fetchSongs(playlistId: playlist.id, source: playlist.source)
+                viewModel.fetchSongs(playlistId: playlist.id, source: playlist.source, playlist: playlist)
             }
         }
     }

@@ -4,7 +4,6 @@ import FFmpegSwiftSDK
 /// 全屏播放器 - 路由层，根据主题切换不同布局
 struct FullScreenPlayerView: View {
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
     
     // PlayerThemeManager 使用 @Observable，需要用 @State 持有引用以确保观察生效
     @State private var themeManager = PlayerThemeManager.shared
@@ -39,16 +38,6 @@ struct FullScreenPlayerView: View {
         .onAppear {
             withAnimation(AsideAnimation.playerTransition) {
                 player.isTabBarHidden = true
-            }
-            // 确保歌词已加载（包括之前加载失败的情况）
-            if let song = player.currentSong {
-                if lyricVM.currentSongId != song.id || (!lyricVM.hasLyrics && !lyricVM.isLoading) {
-                    if song.isQQMusic, let mid = song.qqMid {
-                        lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-                    } else {
-                        lyricVM.fetchLyrics(for: song.id)
-                    }
-                }
             }
         }
         .onDisappear {

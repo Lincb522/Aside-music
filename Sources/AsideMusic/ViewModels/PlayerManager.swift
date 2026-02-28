@@ -235,6 +235,10 @@ class PlayerManager: ObservableObject {
     var isSeeking: Bool = false
     /// seek 目标时间，用于定时器判断 streamPlayer 是否已到达目标
     var seekTargetTime: Double? = nil
+    /// isSeeking 开始的时间戳，用于超时保护
+    var seekStartedAt: Date?
+    /// hasPendingTrackTransition 开始的时间戳
+    var pendingTransitionStartedAt: Date?
     
     /// 音质切换时的 seek 位置，nil 表示不是音质切换
     var pendingQualitySwitchSeek: Double? = nil
@@ -456,6 +460,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 
                 if pm.pendingNextSong != nil {
                     pm.hasPendingTrackTransition = true
+                    pm.pendingTransitionStartedAt = Date()
                 } else {
                     AppLogger.info("无缝切歌：无待切换歌曲（单曲循环或列表为空），走 finish 逻辑")
                     pm.playerDidFinishPlaying()

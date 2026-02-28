@@ -127,51 +127,63 @@ extension PlayerManager {
             Task { @MainActor in
                 guard let self = self, self.isPlaying, !self.isLoading else { return }
                 
+                // ── isSeeking 超时保护（3 秒） ──
                 if self.isSeeking {
-                    // seek 中：检查 streamPlayer 是否已到达目标位置
                     if let target = self.seekTargetTime {
-                        let sdkTime = self.streamPlayer.currentTime
-                        if sdkTime.isFinite && !sdkTime.isNaN && sdkTime >= target - 1.0 {
-                            // SDK 已到达目标附近，解除 seeking
+                        let st = self.streamPlayer.currentTime
+                        if st.isFinite && !st.isNaN && st >= target - 1.0 {
                             self.isSeeking = false
                             self.seekTargetTime = nil
-                            self.currentTime = sdkTime
+                            self.seekStartedAt = nil
+                            self.currentTime = st
+                        } else if let started = self.seekStartedAt,
+                                  Date().timeIntervalSince(started) > 3.0 {
+                            AppLogger.warning("isSeeking 超时（3s），强制解除")
+                            self.isSeeking = false
+                            self.seekTargetTime = nil
+                            self.seekStartedAt = nil
+                            if st.isFinite && !st.isNaN {
+                                self.currentTime = st
+                            }
                         }
-                        // 否则保持 currentTime 不变（停在用户拖到的位置）
+                    } else {
+                        self.isSeeking = false
+                        self.seekStartedAt = nil
                     }
                     return
                 }
                 
-                // 优先检查是否有待切换的下一首（必须在所有时间过滤逻辑之前）
+                // ── hasPendingTrackTransition 超时保护（5 秒） ──
                 if self.hasPendingTrackTransition {
                     let time = self.streamPlayer.currentTime
-                    // SDK 已经在播放下一首了，此时 streamPlayer.currentTime 是下一首的时间
-                    // 当下一首的时间 > 0.1 秒时，说明当前歌曲已经结束，可以切换 UI
-                    // 也检查 time == 0 的情况：如果 pendingTransition 已经设置超过 1 秒还没切换，强制切换
                     if time.isFinite && !time.isNaN && time > 0.1 {
                         AppLogger.info("检测到下一首已开始播放 (\(String(format: "%.2f", time))s)，切换 UI")
+                        self.pendingTransitionStartedAt = nil
                         self.applyPendingTrackTransition()
                         return
                     }
-                    // 下一首刚开始（time 接近 0 或无效），继续等待，不更新 currentTime
+                    if let started = self.pendingTransitionStartedAt,
+                       Date().timeIntervalSince(started) > 5.0 {
+                        AppLogger.warning("hasPendingTrackTransition 超时（5s），强制重置")
+                        self.hasPendingTrackTransition = false
+                        self.pendingNextSong = nil
+                        self.pendingTransitionStartedAt = nil
+                        // 走正常结束逻辑
+                        self.playerDidFinishPlaying()
+                        return
+                    }
                     return
                 }
                 
+                // ── 正常时间更新 ──
                 let time = self.streamPlayer.currentTime
                 if time.isFinite && !time.isNaN {
-                    // 防止刚开始播放时进度条跳前：
-                    // 如果当前显示接近 0 但 SDK 报告了一个较大的值，忽略它
                     let jump = time - self.currentTime
                     if self.currentTime < 1.0 && jump > 2.0 {
                         // 刚开始播放，SDK 的时间不可信（解码缓冲超前），跳过
-                    } else if self.currentTime > 10.0 && time < self.currentTime - 5.0 && !self.isSeeking {
-                        // 防止无缝切歌时进度条回跳：SDK 已切换到下一首（decodedTime 重置为 0），
-                        // 但 playerDidTransitionToNextTrack 回调还没到达主线程，忽略这次更新
+                    } else if self.currentTime > 10.0 && time < self.currentTime - 5.0 {
+                        // 防止无缝切歌时进度条回跳
                     } else {
-                        // 补偿进度条末尾停滞：SDK 的 currentTime = decodedTime - queuedDuration，
-                        // decodedTime 是最后一个 packet 的 PTS（不含该 packet 的 duration），
-                        // 导致进度条在歌曲末尾差几秒就停住。当 SDK 时间停滞不前且接近结尾时，
-                        // 用线性插值让进度条平滑走到 duration。
                         self.currentTime = time
                     }
                 }

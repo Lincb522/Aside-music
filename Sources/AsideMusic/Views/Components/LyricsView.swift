@@ -39,19 +39,25 @@ class LyricViewModel: ObservableObject {
     private var lyricSessionId: Int = 0
     
     func fetchLyrics(for songId: Int) {
-        // 如果已经加载了同一首歌的歌词且有内容，跳过
-        guard songId != currentSongId || (!hasLyrics && !isLoading) else { return }
+        // 同一首歌且已加载或正在加载，跳过
+        if songId == currentSongId && (hasLyrics || isLoading) { return }
+        
+        let isNewSong = songId != currentSongId
         
         lyricSessionId += 1
         let sessionId = lyricSessionId
         
         currentSongId = songId
         isLoading = true
-        lyrics = []
-        hasLyrics = false
-        currentLineIndex = 0
-        currentLineProgress = 0.0
-        translations = [:]
+        
+        // 仅切换新歌时清空歌词；同一首歌重试时保留旧数据避免闪烁
+        if isNewSong {
+            lyrics = []
+            hasLyrics = false
+            currentLineIndex = 0
+            currentLineProgress = 0.0
+            translations = [:]
+        }
         
         APIService.shared.fetchLyric(id: songId)
             .sink(receiveCompletion: { [weak self] completion in
@@ -86,19 +92,24 @@ class LyricViewModel: ObservableObject {
     
     /// 获取 QQ 音乐歌词
     func fetchQQLyrics(mid: String, songId: Int) {
-        // 用 songId 做去重标识
-        guard songId != currentSongId || (!hasLyrics && !isLoading) else { return }
+        // 同一首歌且已加载或正在加载，跳过
+        if songId == currentSongId && (hasLyrics || isLoading) { return }
+        
+        let isNewSong = songId != currentSongId
         
         lyricSessionId += 1
         let sessionId = lyricSessionId
         
         currentSongId = songId
         isLoading = true
-        lyrics = []
-        hasLyrics = false
-        currentLineIndex = 0
-        currentLineProgress = 0.0
-        translations = [:]
+        
+        if isNewSong {
+            lyrics = []
+            hasLyrics = false
+            currentLineIndex = 0
+            currentLineProgress = 0.0
+            translations = [:]
+        }
         
         APIService.shared.fetchQQLyric(mid: mid)
             .sink(receiveCompletion: { [weak self] completion in
@@ -689,14 +700,7 @@ struct LyricsView: View {
             }
         }
         .onAppear {
-            // 确保歌词已加载（如果还没加载的话），区分来源
-            if viewModel.currentSongId != song.id {
-                if song.isQQMusic, let mid = song.qqMid {
-                    viewModel.fetchQQLyrics(mid: mid, songId: song.id)
-                } else {
-                    viewModel.fetchLyrics(for: song.id)
-                }
-            }
+            // 歌词由 PlayerManager 统一管理加载，视图层仅定位到当前行
         }
     }
     

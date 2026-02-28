@@ -107,16 +107,7 @@ struct ClassicPlayerLayout: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .onAppear {
-            // 预加载歌词，确保切换到歌词视图时已准备好
-            if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                if song.isQQMusic, let mid = song.qqMid {
-                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-                } else {
-                    lyricVM.fetchLyrics(for: song.id)
-                }
-            }
-        }
+        .onAppear { }
         .sheet(isPresented: $showQualitySheet) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,

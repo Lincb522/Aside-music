@@ -59,26 +59,23 @@ private actor ImageLoadCoordinator {
         return await task.value
     }
     
-    /// 图片降采样 - 减少内存占用
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
         let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
-              CGImageSourceGetCount(imageSource) > 0,
-              CGImageSourceGetStatus(imageSource) == .statusComplete ||
-              CGImageSourceGetStatus(imageSource) == .statusIncomplete else {
-            // 数据不是有效图片，直接跳过降采样
+              CGImageSourceGetType(imageSource) != nil,
+              CGImageSourceGetCount(imageSource) > 0 else {
             return UIImage(data: data)
         }
         
-        let scale = ImageCacheConfig.screenScale
-        let downsampleOptions = [
+        let maxPixelSize = maxSize * ImageCacheConfig.screenScale
+        let downsampleOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxSize * scale
-        ] as CFDictionary
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
         
-        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
+        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions as CFDictionary) else {
             return UIImage(data: data)
         }
         
@@ -164,25 +161,23 @@ class ImageLoader: ObservableObject {
         }
     }
     
-    /// 图片降采样 - 减少内存占用
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
         let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
-              CGImageSourceGetCount(imageSource) > 0,
-              CGImageSourceGetStatus(imageSource) == .statusComplete ||
-              CGImageSourceGetStatus(imageSource) == .statusIncomplete else {
+              CGImageSourceGetType(imageSource) != nil,
+              CGImageSourceGetCount(imageSource) > 0 else {
             return UIImage(data: data)
         }
         
-        let scale = ImageCacheConfig.screenScale
-        let downsampleOptions = [
+        let maxPixelSize = maxSize * ImageCacheConfig.screenScale
+        let downsampleOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxSize * scale
-        ] as CFDictionary
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
         
-        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
+        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions as CFDictionary) else {
             return UIImage(data: data)
         }
         

@@ -114,14 +114,6 @@ struct VinylPlayerLayout: View {
             withAnimation(.easeOut(duration: 0.6)) { isAppeared = true }
             updateTonearm()
             lastSongId = player.currentSong?.id
-            // 预加载歌词，确保切换到歌词视图时已准备好
-            if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                if song.isQQMusic, let mid = song.qqMid {
-                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-                } else {
-                    lyricVM.fetchLyrics(for: song.id)
-                }
-            }
         }
         .onChange(of: player.isPlaying) { _, _ in
             updateTonearm()

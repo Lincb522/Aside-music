@@ -106,13 +106,6 @@ struct CardPlayerLayout: View {
     private func setupLifecycle() {
         extractColors()
         withAnimation(.easeOut(duration: 0.6)) { isAppeared = true }
-        if let song = player.currentSong, lyricVM.currentSongId != song.id {
-            if song.isQQMusic, let mid = song.qqMid {
-                lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-            } else {
-                lyricVM.fetchLyrics(for: song.id)
-            }
-        }
     }
 }
 

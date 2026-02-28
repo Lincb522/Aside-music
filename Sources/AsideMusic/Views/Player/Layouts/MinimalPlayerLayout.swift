@@ -70,14 +70,6 @@ struct MinimalPlayerLayout: View {
             withAnimation(.easeOut(duration: 0.5)) { isAppeared = true }
             startCursorBlink()
             songChangeId = player.currentSong?.id.description ?? ""
-            // 确保歌词已加载
-            if let song = player.currentSong, lyricVM.currentSongId != song.id {
-                if song.isQQMusic, let mid = song.qqMid {
-                    lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-                } else {
-                    lyricVM.fetchLyrics(for: song.id)
-                }
-            }
         }
         .onChange(of: player.currentSong?.id) { _, newId in
             animateSongChange(newId: newId?.description ?? "")

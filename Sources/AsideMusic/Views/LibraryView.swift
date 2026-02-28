@@ -74,7 +74,17 @@ struct LibraryView: View {
                 case .artist(let id):
                     ArtistDetailView(artistId: id)
                 case .artistInfo(let artist):
-                    ArtistDetailView(artistId: artist.id)
+                    if artist.source == .qqmusic, let mid = artist.qqMid {
+                        QQMusicDetailView(detailType: .artist(
+                            mid: mid,
+                            name: artist.name,
+                            coverUrl: artist.picUrl ?? artist.img1v1Url
+                        ))
+                    } else {
+                        ArtistDetailView(artistId: artist.id)
+                    }
+                case .qqArtist(let mid, let name, let coverUrl):
+                    QQMusicDetailView(detailType: .artist(mid: mid, name: name, coverUrl: coverUrl))
                 case .radioDetail(let id):
                     RadioDetailView(radioId: id)
                 case .localPlaylist(let id):
@@ -85,16 +95,27 @@ struct LibraryView: View {
                 switchToTab(.square)
             }
             .onChange(of: viewModel.currentTab) { _, newTab in
-                // 外部改变 currentTab 时同步 tabIndex
                 if let idx = allTabs.firstIndex(of: newTab), idx != tabIndex {
                     tabIndex = idx
                 }
                 if newTab == .square {
-                    viewModel.fetchSquareData()
+                    if viewModel.squareSource == .qq {
+                        viewModel.fetchQQSquareData()
+                    } else {
+                        viewModel.fetchSquareData()
+                    }
                 } else if newTab == .artists {
-                    viewModel.fetchArtistData()
+                    if viewModel.artistSource == .qq {
+                        viewModel.fetchQQArtistData()
+                    } else {
+                        viewModel.fetchArtistData()
+                    }
                 } else if newTab == .charts {
-                    viewModel.fetchTopLists()
+                    if viewModel.chartsSource == .qq {
+                        viewModel.fetchQQTopLists()
+                    } else {
+                        viewModel.fetchTopLists()
+                    }
                 }
             }
         }
@@ -758,6 +779,42 @@ struct NetEasePlaylistsView: View {
     }
 }
 
+// MARK: - 音源切换器
+
+struct MusicSourcePicker: View {
+    @Binding var source: LibraryViewModel.MusicSource
+    @Namespace private var ns
+    typealias Theme = PlaylistDetailView.Theme
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(LibraryViewModel.MusicSource.allCases, id: \.self) { s in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        source = s
+                    }
+                } label: {
+                    Text(s == .ncm ? "网易云" : "QQ音乐")
+                        .font(.system(size: 13, weight: source == s ? .bold : .medium, design: .rounded))
+                        .foregroundColor(source == s ? .asideIconForeground : Theme.text.opacity(0.6))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background {
+                            if source == s {
+                                Capsule()
+                                    .fill(Color.asideIconBackground)
+                                    .matchedGeometryEffect(id: "sourcePill", in: ns)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Color.asideTextPrimary.opacity(0.06)))
+    }
+}
+
 struct PlaylistSquareView: View {
     @ObservedObject var viewModel: LibraryViewModel
     typealias Theme = PlaylistDetailView.Theme
@@ -771,6 +828,33 @@ struct PlaylistSquareView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack {
+                MusicSourcePicker(source: $viewModel.squareSource)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+            .onChange(of: viewModel.squareSource) { _, newSource in
+                if newSource == .qq {
+                    viewModel.fetchQQSquareData()
+                } else {
+                    viewModel.fetchSquareData()
+                }
+            }
+
+            if viewModel.squareSource == .ncm {
+                ncmContent
+            } else {
+                qqContent
+            }
+        }
+        .background(Color.clear)
+    }
+
+    // MARK: - NCM Content
+
+    private var ncmContent: some View {
+        VStack(spacing: 0) {
             categoryBar
 
             ScrollView {
@@ -778,7 +862,7 @@ struct PlaylistSquareView: View {
                     AsideLoadingView()
                 } else {
                     LazyVStack(spacing: 14) {
-                        ForEach(buildRows()) { row in
+                        ForEach(buildRows(from: viewModel.squarePlaylists)) { row in
                             if row.isWide, let playlist = row.playlists.first {
                                 NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                                     CinematicCard(playlist: playlist, height: 220)
@@ -816,7 +900,105 @@ struct PlaylistSquareView: View {
             .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
         }
-        .background(Color.clear)
+    }
+
+    // MARK: - QQ Content
+
+    private var qqContent: some View {
+        VStack(spacing: 0) {
+            qqCategoryBar
+
+            ScrollView {
+                if viewModel.isLoadingQQSquare && viewModel.qqSquarePlaylists.isEmpty {
+                    AsideLoadingView()
+                } else if viewModel.qqSquarePlaylists.isEmpty {
+                    VStack(spacing: 16) {
+                        AsideIcon(icon: .musicNoteList, size: 50, color: Theme.secondaryText.opacity(0.5))
+                        Text("暂无QQ音乐推荐歌单")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .padding(.top, 50)
+                } else {
+                    LazyVStack(spacing: 14) {
+                        ForEach(buildRows(from: viewModel.qqSquarePlaylists)) { row in
+                            if row.isWide, let playlist = row.playlists.first {
+                                NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                    CinematicCard(playlist: playlist, height: 220)
+                                }
+                                .buttonStyle(CinematicPressStyle())
+                                .modifier(CinematicStaggerIn(order: row.id))
+                                .onAppear { loadMoreQQIfLast(playlist) }
+                            } else {
+                                HStack(spacing: 12) {
+                                    ForEach(row.playlists) { p in
+                                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(p)) {
+                                            CinematicCard(playlist: p, height: 175)
+                                        }
+                                        .buttonStyle(CinematicPressStyle())
+                                        .onAppear { loadMoreQQIfLast(p) }
+                                    }
+                                }
+                                .modifier(CinematicStaggerIn(order: row.id))
+                            }
+                        }
+
+                        if viewModel.isLoadingMoreQQSquare && viewModel.hasMoreQQSquare {
+                            AsideLoadingView(centered: false).padding()
+                        }
+                        if !viewModel.hasMoreQQSquare && !viewModel.qqSquarePlaylists.isEmpty {
+                            NoMoreDataView()
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                }
+
+                Color.clear.frame(height: 120)
+            }
+            .scrollIndicators(.hidden)
+            .scrollContentBackground(.hidden)
+            .refreshable {
+                viewModel.refreshQQSquare()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
+    // MARK: - QQ Category Bar
+
+    private var qqCategoryBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                let hiddenCategories: Set<String> = ["全部", "AI歌单", "私藏", "音乐人在听", "chill vibes", "AI 歌单"]
+                ForEach(viewModel.qqPlaylistCategories.filter { !hiddenCategories.contains($0.name) }, id: \.id) { cat in
+                    let selected = viewModel.selectedQQCategoryId == cat.id
+                    Button {
+                        guard !selected else { return }
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+                            viewModel.selectQQCategory(id: cat.id, name: cat.name)
+                        }
+                    } label: {
+                        Text(cat.name)
+                            .font(.system(size: 14, weight: selected ? .bold : .medium, design: .rounded))
+                            .foregroundColor(selected ? .asideIconForeground : Theme.text.opacity(0.6))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background {
+                                if selected {
+                                    Capsule()
+                                        .fill(Color.asideIconBackground)
+                                        .matchedGeometryEffect(id: "qqCatPill", in: categoryNS)
+                                }
+                            }
+                            .background(Capsule().fill(Color.asideTextPrimary.opacity(selected ? 0 : 0.05)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
     }
 
     // MARK: - Animated Category Selector
@@ -835,13 +1017,13 @@ struct PlaylistSquareView: View {
                     } label: {
                         Text(cat.name)
                             .font(.system(size: 14, weight: selected ? .bold : .medium, design: .rounded))
-                            .foregroundColor(selected ? .white : Theme.text.opacity(0.6))
+                            .foregroundColor(selected ? .asideIconForeground : Theme.text.opacity(0.6))
                             .padding(.horizontal, 18)
                             .padding(.vertical, 10)
                             .background {
                                 if selected {
                                     Capsule()
-                                        .fill(Color.asideAccent)
+                                        .fill(Color.asideIconBackground)
                                         .matchedGeometryEffect(id: "squareCatPill", in: categoryNS)
                                 }
                             }
@@ -857,8 +1039,7 @@ struct PlaylistSquareView: View {
 
     // MARK: - Mosaic Layout (Hero → Duo → Duo → repeat)
 
-    private func buildRows() -> [MosaicRow] {
-        let items = viewModel.squarePlaylists
+    private func buildRows(from items: [Playlist]) -> [MosaicRow] {
         var rows: [MosaicRow] = []
         var i = 0
         while i < items.count {
@@ -879,6 +1060,12 @@ struct PlaylistSquareView: View {
     private func loadMoreIfLast(_ playlist: Playlist) {
         if playlist.id == viewModel.squarePlaylists.last?.id {
             viewModel.loadMoreSquarePlaylists()
+        }
+    }
+
+    private func loadMoreQQIfLast(_ playlist: Playlist) {
+        if playlist.id == viewModel.qqSquarePlaylists.last?.id {
+            viewModel.loadMoreQQSquarePlaylists()
         }
     }
 }
@@ -996,6 +1183,7 @@ private struct CinematicPressStyle: ButtonStyle {
 struct ArtistLibraryView: View {
     @ObservedObject var viewModel: LibraryViewModel
     @State private var showFilters = false
+    @State private var showQQFilters = false
     typealias Theme = PlaylistDetailView.Theme
 
     let columns = [
@@ -1004,12 +1192,42 @@ struct ArtistLibraryView: View {
         GridItem(.flexible(), spacing: 16)
     ]
     
-    /// 是否有非默认筛选条件（用于高亮筛选按钮）
     private var hasActiveFilter: Bool {
         viewModel.artistArea != -1 || viewModel.artistType != -1 || viewModel.artistInitial != "-1"
     }
 
+    private var hasActiveQQFilter: Bool {
+        viewModel.qqArtistArea != .all || viewModel.qqArtistSex != .all || viewModel.qqArtistGenre != .all
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                MusicSourcePicker(source: $viewModel.artistSource)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 4)
+            .onChange(of: viewModel.artistSource) { _, newSource in
+                if newSource == .qq {
+                    viewModel.fetchQQArtistData()
+                } else {
+                    viewModel.fetchArtistData()
+                }
+            }
+
+            if viewModel.artistSource == .ncm {
+                ncmArtistContent
+            } else {
+                qqArtistContent
+            }
+        }
+        .background(Color.clear)
+    }
+
+    // MARK: - NCM Artists
+
+    private var ncmArtistContent: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 HStack {
@@ -1035,7 +1253,6 @@ struct ArtistLibraryView: View {
                 .padding(.vertical, 14)
                 .glassEffect(.regular, in: .rect(cornerRadius: 20))
                 
-                // 筛选抽屉按钮
                 if !viewModel.isSearchingArtists {
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -1067,17 +1284,110 @@ struct ArtistLibraryView: View {
             if !viewModel.isSearchingArtists && showFilters {
                 VStack(alignment: .leading, spacing: 12) {
                     ScrollView(.horizontal) {
-                        filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea)
+                        filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea) {
+                            viewModel.fetchArtistData(reset: true)
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .scrollIndicators(.hidden)
+                    ScrollView(.horizontal) {
+                        filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType) {
+                            viewModel.fetchArtistData(reset: true)
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .scrollIndicators(.hidden)
+                    ScrollView(.horizontal) {
+                        filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial) {
+                            viewModel.fetchArtistData(reset: true)
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .scrollIndicators(.hidden)
+                }
+                .padding(.bottom, 16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            artistGrid(
+                artists: viewModel.topArtists,
+                isLoading: viewModel.isLoadingArtists,
+                hasMore: viewModel.hasMoreArtists,
+                isSearching: viewModel.isSearchingArtists
+            ) { index in
+                if index == viewModel.topArtists.count - 1 && !viewModel.isSearchingArtists {
+                    viewModel.loadMoreArtists()
+                }
+            }
+        }
+    }
+
+    // MARK: - QQ Artists
+
+    private var qqArtistContent: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                HStack {
+                    AsideIcon(icon: .magnifyingGlass, size: 18, color: Theme.secondaryText)
+
+                    TextField("搜索QQ音乐歌手", text: $viewModel.qqArtistSearchText)
+                        .font(.system(size: 16, design: .rounded))
+                        .foregroundColor(Theme.text)
+
+                    if !viewModel.qqArtistSearchText.isEmpty {
+                        Button(action: {
+                            viewModel.qqArtistSearchText = ""
+                        }) {
+                            AsideIcon(icon: .xmark, size: 18, color: Theme.secondaryText)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .glassEffect(.regular, in: .rect(cornerRadius: 20))
+
+                if !viewModel.isSearchingQQArtists {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showQQFilters.toggle()
+                        }
+                    }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(hasActiveQQFilter ? Color.asideGlassTint : Color.clear)
+                                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                            
+                            AsideIcon(
+                                icon: .filter,
+                                size: 18,
+                                color: hasActiveQQFilter ? .asideIconForeground : Theme.secondaryText
+                            )
+                            .rotationEffect(.degrees(showQQFilters ? 90 : 0))
+                        }
+                        .frame(width: 46, height: 46)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(AsideBouncingButtonStyle())
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 12)
+            .padding(.top, 8)
+
+            if !viewModel.isSearchingQQArtists && showQQFilters {
+                VStack(alignment: .leading, spacing: 12) {
+                    ScrollView(.horizontal) {
+                        qqFilterRow(options: viewModel.qqArtistAreas, selected: $viewModel.qqArtistArea)
                             .padding(.horizontal, 24)
                     }
                     .scrollIndicators(.hidden)
                     ScrollView(.horizontal) {
-                        filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType)
+                        qqFilterRow(options: viewModel.qqArtistSexes, selected: $viewModel.qqArtistSex)
                             .padding(.horizontal, 24)
                     }
                     .scrollIndicators(.hidden)
                     ScrollView(.horizontal) {
-                        filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial)
+                        qqFilterRow(options: viewModel.qqArtistGenres, selected: $viewModel.qqArtistGenre)
                             .padding(.horizontal, 24)
                     }
                     .scrollIndicators(.hidden)
@@ -1086,71 +1396,88 @@ struct ArtistLibraryView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            ScrollView {
-                if viewModel.isLoadingArtists && viewModel.topArtists.isEmpty {
-                    AsideLoadingView()
-                } else if viewModel.topArtists.isEmpty {
-                    VStack(spacing: 16) {
-                        AsideIcon(icon: .personEmpty, size: 50, color: Theme.secondaryText.opacity(0.5))
-                        Text(LocalizedStringKey("empty_no_artists"))
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundColor(Theme.secondaryText)
-                    }
-                    .padding(.top, 50)
-                } else {
-                    LazyVGrid(columns: columns, spacing: 24) {
-                        ForEach(Array(viewModel.topArtists.enumerated()), id: \.element.id) { index, artist in
-                            NavigationLink(value: LibraryViewModel.NavigationDestination.artist(artist.id)) {
-                                VStack(spacing: 12) {
-                                    CachedAsyncImage(url: artist.coverUrl?.sized(400)) {
-                                        Color.gray.opacity(0.1)
-                                    }
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 100, height: 100)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+            artistGrid(
+                artists: viewModel.qqArtists,
+                isLoading: viewModel.isLoadingQQArtists,
+                hasMore: viewModel.hasMoreQQArtists,
+                isSearching: viewModel.isSearchingQQArtists
+            ) { index in
+                if index == viewModel.qqArtists.count - 1 {
+                    viewModel.loadMoreQQArtists()
+                }
+            }
+        }
+    }
 
-                                    Text(artist.name)
-                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        .lineLimit(1)
-                                        .foregroundColor(Theme.text)
+    // MARK: - Shared Artist Grid
+
+    private func artistGrid(
+        artists: [ArtistInfo],
+        isLoading: Bool,
+        hasMore: Bool,
+        isSearching: Bool,
+        onAppear: @escaping (Int) -> Void
+    ) -> some View {
+        ScrollView {
+            if isLoading && artists.isEmpty {
+                AsideLoadingView()
+            } else if artists.isEmpty {
+                VStack(spacing: 16) {
+                    AsideIcon(icon: .personEmpty, size: 50, color: Theme.secondaryText.opacity(0.5))
+                    Text(LocalizedStringKey("empty_no_artists"))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .padding(.top, 50)
+            } else {
+                LazyVGrid(columns: columns, spacing: 24) {
+                    ForEach(Array(artists.enumerated()), id: \.element.id) { index, artist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.artistInfo(artist)) {
+                            VStack(spacing: 12) {
+                                CachedAsyncImage(url: artist.coverUrl?.sized(400)) {
+                                    Color.gray.opacity(0.1)
                                 }
-                            }
-                            .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
-                            .onAppear {
-                                if index == viewModel.topArtists.count - 1 && !viewModel.isSearchingArtists {
-                                    viewModel.loadMoreArtists()
-                                }
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+
+                                Text(artist.name)
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .lineLimit(1)
+                                    .foregroundColor(Theme.text)
                             }
                         }
-                    }
-                    .padding(24)
-
-                    if viewModel.hasMoreArtists && !viewModel.isSearchingArtists {
-                        AsideLoadingView()
-                            .padding()
-                    }
-                    if !viewModel.hasMoreArtists && !viewModel.topArtists.isEmpty && !viewModel.isSearchingArtists {
-                        NoMoreDataView()
+                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.9))
+                        .onAppear { onAppear(index) }
                     }
                 }
+                .padding(24)
 
-                Color.clear.frame(height: 120)
+                if hasMore && !isSearching {
+                    AsideLoadingView().padding()
+                }
+                if !hasMore && !artists.isEmpty && !isSearching {
+                    NoMoreDataView()
+                }
             }
-            .scrollIndicators(.hidden)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
+
+            Color.clear.frame(height: 120)
         }
+        .scrollIndicators(.hidden)
+        .scrollContentBackground(.hidden)
         .background(Color.clear)
     }
 
-    private func filterRow<T: Equatable>(options: [(String, T)], selected: Binding<T>) -> some View {
+    // MARK: - Filter Rows
+
+    private func filterRow<T: Equatable>(options: [(String, T)], selected: Binding<T>, onChange: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
             ForEach(options, id: \.0) { option in
                 Button(action: {
                     if selected.wrappedValue != option.1 {
                         selected.wrappedValue = option.1
-                        viewModel.fetchArtistData(reset: true)
+                        onChange()
                     }
                 }) {
                     Text(LocalizedStringKey(option.0))
@@ -1168,17 +1495,40 @@ struct ArtistLibraryView: View {
             }
         }
     }
+
+    private func qqFilterRow<T: Equatable>(options: [(name: String, value: T)], selected: Binding<T>) -> some View {
+        HStack(spacing: 12) {
+            ForEach(options, id: \.name) { option in
+                Button(action: {
+                    if selected.wrappedValue != option.value {
+                        selected.wrappedValue = option.value
+                        viewModel.fetchQQArtistData(reset: true)
+                    }
+                }) {
+                    Text(LocalizedStringKey(option.name))
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(selected.wrappedValue == option.value ? Color.asideIconBackground : Color.asideGlassTint)
+                                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        )
+                        .foregroundColor(selected.wrappedValue == option.value ? .asideIconForeground : Theme.text)
+                }
+                .buttonStyle(AsideBouncingButtonStyle())
+            }
+        }
+    }
 }
 
 struct ChartsLibraryView: View {
     @ObservedObject var viewModel: LibraryViewModel
     typealias Theme = PlaylistDetailView.Theme
 
-    /// 官方榜单 ID（飙升榜、新歌榜、原创榜、热歌榜）
     private let officialIds: Set<Int> = [19723756, 3779629, 2884035, 3778678]
 
     private var officialCharts: [TopList] {
-        // 保持原始顺序中的官方榜
         viewModel.topLists.filter { officialIds.contains($0.id) }
     }
 
@@ -1193,6 +1543,30 @@ struct ChartsLibraryView: View {
     ]
 
     var body: some View {
+        VStack(spacing: 0) {
+            // HStack {
+            //     MusicSourcePicker(source: $viewModel.chartsSource)
+            //     Spacer()
+            // }
+            // .padding(.horizontal, 24)
+            // .padding(.top, 4)
+            // .onChange(of: viewModel.chartsSource) { _, newSource in
+            //     if newSource == .qq {
+            //         viewModel.fetchQQTopLists()
+            //     } else {
+            //         viewModel.fetchTopLists()
+            //     }
+            // }
+
+            // 暂时隐藏 QQ 榜单选项，直接强制显示 NCM
+            ncmChartsContent
+        }
+        .background(Color.clear)
+    }
+
+    // MARK: - NCM Charts
+
+    private var ncmChartsContent: some View {
         ScrollView {
             if viewModel.isLoadingCharts && viewModel.topLists.isEmpty {
                 AsideLoadingView()
@@ -1206,7 +1580,6 @@ struct ChartsLibraryView: View {
                 .padding(.top, 50)
             } else {
                 VStack(alignment: .leading, spacing: 28) {
-                    // 官方榜单 — 大卡片横向滚动
                     if !officialCharts.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             Text(LocalizedStringKey("charts_official"))
@@ -1229,7 +1602,6 @@ struct ChartsLibraryView: View {
                         }
                     }
 
-                    // 更多榜单 — 紧凑网格
                     if !otherCharts.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             Text(LocalizedStringKey("charts_more"))
@@ -1256,11 +1628,76 @@ struct ChartsLibraryView: View {
         }
         .scrollIndicators(.hidden)
         .scrollContentBackground(.hidden)
-        .background(Color.clear)
         .refreshable {
             await refreshCharts()
         }
     }
+
+    // MARK: - QQ Charts
+
+    private var qqChartsContent: some View {
+        ScrollView {
+            if viewModel.isLoadingQQCharts && viewModel.qqTopLists.isEmpty {
+                AsideLoadingView()
+            } else if viewModel.qqTopLists.isEmpty {
+                VStack(spacing: 16) {
+                    AsideIcon(icon: .chart, size: 50, color: Theme.secondaryText.opacity(0.5))
+                    Text("暂无QQ音乐排行榜")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .padding(.top, 50)
+            } else {
+                VStack(alignment: .leading, spacing: 28) {
+                    ForEach(viewModel.qqTopLists) { group in
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text(group.groupName)
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(Theme.text)
+                                .padding(.horizontal, 24)
+
+                            if group.groupId == 0 || group.items.count <= 4 {
+                                // 官方榜：横向大卡片
+                                ScrollView(.horizontal) {
+                                    HStack(spacing: 14) {
+                                        ForEach(group.items) { item in
+                                            NavigationLink(value: qqChartDestination(item)) {
+                                                QQOfficialChartCard(item: item)
+                                            }
+                                            .buttonStyle(AsideBouncingButtonStyle(scale: 0.96))
+                                        }
+                                    }
+                                    .padding(.horizontal, 24)
+                                }
+                                .scrollIndicators(.hidden)
+                            } else {
+                                // 其他榜：三列网格
+                                LazyVGrid(columns: columns, spacing: 16) {
+                                    ForEach(group.items) { item in
+                                        NavigationLink(value: qqChartDestination(item)) {
+                                            QQChartCard(item: item)
+                                        }
+                                        .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
+                                    }
+                                }
+                                .padding(.horizontal, 24)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            Color.clear.frame(height: 120)
+        }
+        .scrollIndicators(.hidden)
+        .scrollContentBackground(.hidden)
+        .refreshable {
+            await refreshQQCharts()
+        }
+    }
+
+    // MARK: - Helpers
 
     private func chartDestination(_ list: TopList) -> LibraryViewModel.NavigationDestination {
         .playlist(Playlist(
@@ -1271,14 +1708,121 @@ struct ChartsLibraryView: View {
         ))
     }
 
+    private func qqChartDestination(_ item: QQTopListItem) -> LibraryViewModel.NavigationDestination {
+        .playlist(Playlist(
+            id: item.topId, name: item.title, coverImgUrl: item.coverUrl,
+            picUrl: nil, trackCount: nil, playCount: nil,
+            subscribedCount: nil, shareCount: nil, commentCount: nil,
+            creator: nil, description: item.intro.isEmpty ? nil : item.intro,
+            tags: nil, source: .qqmusic, isTopList: true
+        ))
+    }
+
     private func refreshCharts() async {
         viewModel.topLists = []
         viewModel.isLoadingCharts = true
-        // 用空数组覆盖缓存，强制从网络刷新
         OptimizedCacheManager.shared.setObject([TopList](), forKey: "top_charts_lists")
         viewModel.fetchTopLists()
-        // 等待加载完成
         try? await Task.sleep(nanoseconds: 1_500_000_000)
+    }
+
+    private func refreshQQCharts() async {
+        viewModel.qqTopLists = []
+        viewModel.isLoadingQQCharts = true
+        OptimizedCacheManager.shared.setObject([QQTopListGroup](), forKey: "qq_top_charts")
+        viewModel.fetchQQTopLists()
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+    }
+}
+
+// MARK: - QQ 排行榜卡片
+
+private struct QQChartCard: View {
+    let item: QQTopListItem
+    typealias Theme = PlaylistDetailView.Theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let url = item.coverURL {
+                CachedAsyncImage(url: url) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.asideSeparator)
+                }
+                .aspectRatio(1, contentMode: .fill)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+            } else {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.asideSeparator)
+                    .aspectRatio(1, contentMode: .fill)
+            }
+
+            Text(item.title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(Theme.text)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            if !item.intro.isEmpty {
+                Text(item.intro)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(Theme.secondaryText)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+// MARK: - QQ 官方排行榜大卡片
+
+private struct QQOfficialChartCard: View {
+    let item: QQTopListItem
+    typealias Theme = PlaylistDetailView.Theme
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            if let url = item.coverURL {
+                CachedAsyncImage(url: url) {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.asideSeparator)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 200, height: 200)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.asideSeparator)
+                    .frame(width: 200, height: 200)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Spacer()
+                Text(item.title)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                if !item.intro.isEmpty {
+                    Text(item.intro)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+            }
+            .padding(14)
+            .frame(width: 200, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.6)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            )
+        }
+        .frame(width: 200, height: 200)
+        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
     }
 }
 

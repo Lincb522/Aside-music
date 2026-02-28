@@ -227,13 +227,6 @@ struct MotoPagerLayout: View {
     
     private func setupLifecycle() {
         withAnimation(.easeOut(duration: 0.8)) { isAppeared = true }
-        if let song = player.currentSong, lyricVM.currentSongId != song.id {
-            if song.isQQMusic, let mid = song.qqMid {
-                lyricVM.fetchQQLyrics(mid: mid, songId: song.id)
-            } else {
-                lyricVM.fetchLyrics(for: song.id)
-            }
-        }
         // 欢迎信息
         printedLyrics.append(PrintedLyric(text: "MOTO PAGER READY...", time: formatTime(Date())))
         // 启动光标闪烁

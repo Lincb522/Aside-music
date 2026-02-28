@@ -18,6 +18,7 @@ struct Playlist: Identifiable, Codable, Hashable {
     
     // MARK: - 跨平台扩展字段
     var source: MusicSource?
+    var isTopList: Bool = false
     
     var isQQMusic: Bool { source == .qqmusic }
     
@@ -54,10 +55,11 @@ struct Playlist: Identifiable, Codable, Hashable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         tags = try container.decodeIfPresent([String].self, forKey: .tags)
         source = try container.decodeIfPresent(MusicSource.self, forKey: .source)
+        isTopList = try container.decodeIfPresent(Bool.self, forKey: .isTopList) ?? false
     }
     
     // 手动初始化（代码中直接构造用）
-    init(id: Int, name: String, coverImgUrl: String?, picUrl: String?, trackCount: Int?, playCount: Int?, subscribedCount: Int?, shareCount: Int?, commentCount: Int?, creator: PlaylistCreator?, description: String?, tags: [String]?, source: MusicSource? = nil) {
+    init(id: Int, name: String, coverImgUrl: String?, picUrl: String?, trackCount: Int?, playCount: Int?, subscribedCount: Int?, shareCount: Int?, commentCount: Int?, creator: PlaylistCreator?, description: String?, tags: [String]?, source: MusicSource? = nil, isTopList: Bool = false) {
         self.id = id
         self.name = name
         self.coverImgUrl = coverImgUrl
@@ -71,13 +73,14 @@ struct Playlist: Identifiable, Codable, Hashable {
         self.description = description
         self.tags = tags
         self.source = source
+        self.isTopList = isTopList
     }
     
     private enum CodingKeys: String, CodingKey {
         case id, name, coverImgUrl, picUrl, trackCount
         case playCount, playcount
         case subscribedCount, shareCount, commentCount
-        case creator, description, tags, source
+        case creator, description, tags, source, isTopList
     }
     
     func encode(to encoder: Encoder) throws {
@@ -95,6 +98,7 @@ struct Playlist: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(tags, forKey: .tags)
         try container.encodeIfPresent(source, forKey: .source)
+        if isTopList { try container.encode(isTopList, forKey: .isTopList) }
     }
 }
 

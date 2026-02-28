@@ -220,17 +220,14 @@ extension ArtistDetailView {
                     }
                 }) {
                     HStack(spacing: 8) {
-                        AsideIcon(icon: .play, size: 14, color: .asideTextPrimary)
+                        AsideIcon(icon: .play, size: 14, color: .asideIconForeground)
                         Text(LocalizedStringKey("artist_play_all"))
                             .font(.rounded(size: 14, weight: .bold))
-                            .foregroundColor(.asideTextPrimary)
+                            .foregroundColor(.asideIconForeground)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(
-                        Capsule().fill(Color.asideGlassTint)
-                    )
-                    .glassEffect(.regular, in: .capsule)
+                    .background(Capsule().fill(Color.asideIconBackground))
                 }
                 .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.5 : 1)

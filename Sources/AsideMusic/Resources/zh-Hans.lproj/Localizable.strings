@@ -46,6 +46,8 @@
 "view_all" = "查看全部";
 "playlists_love" = "你的专属歌单";
 "based_on_taste" = "基于你的口味推荐";
+"playlists_unit" = "个歌单";
+"songs_unit" = "首";
 "top_charts" = "巅峰榜";
 "trending_now" = "时下最火";
 "jump_back_in" = "继续播放";

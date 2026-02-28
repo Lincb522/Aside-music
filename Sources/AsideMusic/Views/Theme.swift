@@ -42,9 +42,9 @@ extension Color {
         Color(light: Color.white.opacity(0.45), dark: Color.white.opacity(0.12))
     }
     
-    /// 悬浮栏专用填充色 — 降低白色叠加，让 glassEffect 液态玻璃更通透
+    /// 悬浮栏专用填充色 — 浅色半透明白底让玻璃通透；深色用深灰高不透明度保证对比
     static var asideFloatingBarFill: Color {
-        Color(light: Color.white.opacity(0.35), dark: Color(hex: "2C2C2E").opacity(0.4))
+        Color(light: Color.white.opacity(0.35), dark: Color(hex: "1C1C1E").opacity(0.78))
     }
     
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
