@@ -3,6 +3,7 @@ import SwiftUI
 /// 极简顶栏 — 大字号层叠排版，Liquid Glass 风格
 struct HomeHeader: View {
     let userProfile: UserProfile?
+    let hitokoto: String?
     let onPersonalFM: () -> Void
     let onSearch: () -> Void
 
@@ -11,10 +12,14 @@ struct HomeHeader: View {
     var body: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(LocalizedStringKey(greetingKey))
-                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                // 如果有一言，展示一言；否则后备展示“早上好/晚上好”等
+                let topText = (hitokoto?.isEmpty == false) ? hitokoto! : String(localized: LocalizedStringResource(stringLiteral: greetingKey))
+                Text(topText)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundColor(.asideTextSecondary.opacity(0.8))
                     .textCase(.uppercase)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
                     .opacity(greetingVisible ? 1 : 0)
                     .offset(y: greetingVisible ? 0 : 5)
                 

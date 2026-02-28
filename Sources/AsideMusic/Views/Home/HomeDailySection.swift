@@ -40,16 +40,17 @@ struct HomeDailySection: View {
     // MARK: - Header
 
     private var sectionHeader: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(LocalizedStringKey("made_for_you"))
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
+                    .tracking(-0.3)
 
                 HStack(spacing: 0) {
                     Text("\(animatedCount)")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(.asideAccent)
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
                         .contentTransition(.numericText(countsDown: false))
 
                     Text(" " + NSLocalizedString("fresh_tunes_daily", comment: ""))
@@ -63,12 +64,16 @@ struct HomeDailySection: View {
             Button(action: onViewAll) {
                 HStack(spacing: 4) {
                     Text(LocalizedStringKey("view_all"))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    AsideIcon(icon: .chevronRight, size: 10, color: .asideTextSecondary)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                    AsideIcon(icon: .chevronRight, size: 9, color: .asideTextSecondary)
                 }
                 .foregroundColor(.asideTextSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.asideTextSecondary.opacity(0.08)))
             }
             .buttonStyle(AsideBouncingButtonStyle())
+            .padding(.bottom, 2)
         }
         .padding(.horizontal, 20)
         .onAppear {

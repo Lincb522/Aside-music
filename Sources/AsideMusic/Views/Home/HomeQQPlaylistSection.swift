@@ -9,17 +9,16 @@ struct HomeQQPlaylistSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             // 标题行
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("QQ")
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.green.opacity(0.8)))
-
-                Text(NSLocalizedString("qq_recommend_playlists", comment: ""))
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+            HStack(alignment: .center, spacing: 8) {
+                // 可选：QQ 品牌色小圆点
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
+                
+                Text(LocalizedStringKey("QQ音乐·推荐歌单"))
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
+                    .tracking(-0.3)
             }
             .padding(.horizontal, 20)
 

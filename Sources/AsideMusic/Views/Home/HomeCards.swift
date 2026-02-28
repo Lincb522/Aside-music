@@ -8,15 +8,16 @@ struct SectionHeader: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundColor(.asideTextPrimary)
+                    .tracking(-0.3)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.asideTextSecondary)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(.asideTextPrimary)
                 }
             }
             Spacer()
@@ -24,12 +25,16 @@ struct SectionHeader: View {
                 Button(action: action) {
                     HStack(spacing: 4) {
                         Text(LocalizedStringKey("view_all"))
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        AsideIcon(icon: .chevronRight, size: 10, color: .asideTextSecondary)
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                        AsideIcon(icon: .chevronRight, size: 9, color: .asideTextSecondary)
                     }
                     .foregroundColor(.asideTextSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.asideTextSecondary.opacity(0.08)))
                 }
                 .buttonStyle(AsideBouncingButtonStyle())
+                .padding(.bottom, 2)
             }
         }
         .padding(.horizontal, 20)

@@ -71,10 +71,20 @@ struct HomeView: View {
                 // 顶栏
                 HomeHeader(
                     userProfile: viewModel.userProfile,
+                    hitokoto: viewModel.hitokoto,
                     onPersonalFM: { showPersonalFM = true },
                     onSearch: { navigationPath.append(HomeDestination.search) }
                 )
                 .stagger(appeared, order: 0)
+                
+                // 焦点图 (Banners) — 作为头部和内容的视觉过渡缓冲
+                if !viewModel.banners.isEmpty {
+                    HomeBannerSection(
+                        banners: viewModel.banners,
+                        onTap: handleBannerTap
+                    )
+                    .stagger(appeared, order: 1)
+                }
 
                 // 每日推荐 — 大色块卡片（最醒目的位置）
                 if !viewModel.dailySongs.isEmpty {
@@ -83,7 +93,7 @@ struct HomeView: View {
                         onViewAll: { navigationPath.append(HomeDestination.dailyRecommend) },
                         onPlay: { song in playerManager.play(song: song, in: viewModel.dailySongs) }
                     )
-                    .stagger(appeared, order: 1)
+                    .stagger(appeared, order: 2)
                 }
 
                 // NCM 推荐歌单 — 方形封面横滑
@@ -95,7 +105,7 @@ struct HomeView: View {
                         },
                         onTap: { pl in navigationPath.append(HomeDestination.playlist(pl)) }
                     )
-                    .stagger(appeared, order: 2)
+                    .stagger(appeared, order: 3)
                 }
 
                 // QQ 推荐歌单 — 宽封面横滑
@@ -104,7 +114,7 @@ struct HomeView: View {
                         playlists: viewModel.qqRecommendPlaylists,
                         onTap: { pl in navigationPath.append(HomeDestination.playlist(pl)) }
                     )
-                    .stagger(appeared, order: 3)
+                    .stagger(appeared, order: 4)
                 }
 
                 // QQ 新歌 — 大号数字排版
@@ -112,7 +122,7 @@ struct HomeView: View {
                     HomeNewSongsSection(songs: viewModel.qqNewSongs) { song in
                         playerManager.play(song: song, in: viewModel.qqNewSongs)
                     }
-                    .stagger(appeared, order: 4)
+                    .stagger(appeared, order: 5)
                 }
 
                 // 底部入口 — 渐变色块
@@ -120,7 +130,7 @@ struct HomeView: View {
                     onNewSongExpress: { navigationPath.append(HomeDestination.newSongExpress) },
                     onMVDiscover: { navigationPath.append(HomeDestination.mvDiscover) }
                 )
-                .stagger(appeared, order: 5)
+                .stagger(appeared, order: 6)
 
                 Color.clear.frame(height: 120)
             }

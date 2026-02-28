@@ -19,6 +19,7 @@ class HomeViewModel: ObservableObject {
     
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var hitokoto: String?
     
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
@@ -137,6 +138,8 @@ class HomeViewModel: ObservableObject {
         var dailySongsLoaded = false
         var bannersLoaded = false
         var userProfileLoaded = apiService.currentUserId == nil // 未登录时直接标记完成
+        
+        fetchHitokoto()
         
         let checkAndMarkReady = { [weak self] in
             if dailySongsLoaded && bannersLoaded && userProfileLoaded {
@@ -310,12 +313,32 @@ class HomeViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Hitokoto 一言
+    
+    private func fetchHitokoto() {
+        guard let url = URL(string: "https://v1.hitokoto.cn/") else { return }
+        Task {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let hitokotoString = json["hitokoto"] as? String {
+                    await MainActor.run {
+                        self.hitokoto = hitokotoString
+                    }
+                }
+            } catch {
+                AppLogger.error("Hitokoto 加载失败: \(error)")
+            }
+        }
+    }
+
     // MARK: - Actions
     
     /// 退出登录时清除用户相关数据
     private func handleLogout() {
         AppLogger.info("HomeViewModel: 收到退出登录通知，清除数据")
         userProfile = nil
+        hitokoto = nil
         recentSongs = []
         dailySongs = []
         recommendPlaylists = []
