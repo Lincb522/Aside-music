@@ -53,7 +53,7 @@ struct HomeHeader: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, DeviceLayout.headerTopPadding + 8) // 多给一点顶部呼吸感
-        .padding(.bottom, 12)
+        .padding(.bottom, 0)
     }
 
     // MARK: - Private
