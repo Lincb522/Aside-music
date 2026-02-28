@@ -206,13 +206,7 @@ struct ProfileView: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 20))
-                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
     }
     
     // MARK: - 听歌数据概览
@@ -390,6 +384,7 @@ struct ProfileView: View {
                 .foregroundColor(.asideTextSecondary.opacity(0.6))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
         .padding(.horizontal, 20)
@@ -444,13 +439,7 @@ struct ProfileView: View {
                     showSettingsView = true
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
             .padding(.horizontal, 20)
             .padding(.bottom, 140)
         }
@@ -605,13 +594,7 @@ struct QuickActionCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .frame(height: 100)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.97))

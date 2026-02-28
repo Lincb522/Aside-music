@@ -92,13 +92,7 @@ struct RadioPlayerView: View {
             }
         }
         .onAppear {
-            player.isTabBarHidden = true
             viewModel.fetchDetail()
-        }
-        .onDisappear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                player.isTabBarHidden = false
-            }
         }
         .sheet(isPresented: $showProgramList) {
             programListSheet

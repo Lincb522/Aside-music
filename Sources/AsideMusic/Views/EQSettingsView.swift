@@ -146,8 +146,7 @@ struct EQSettingsView: View {
                     .foregroundColor(.asideTextSecondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.asideGlassTint).glassEffect(.regular, in: .capsule))
-                    .clipShape(Capsule())
+                    .glassEffect(.regular, in: .capsule)
             }
             .opacity(eqManager.isEnabled ? 1 : 0)
         }
@@ -246,11 +245,7 @@ struct EQSettingsView: View {
                 AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary)
             }
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            )
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.asideAccent.opacity(0.3), lineWidth: 1)
@@ -774,11 +769,7 @@ struct EQSettingsView: View {
                     TextField(NSLocalizedString("eq_preset_name", comment: ""), text: $customPresetName)
                         .font(.rounded(size: 16))
                         .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.asideGlassTint)
-                                .glassEffect(.regular, in: .rect(cornerRadius: 12))
-                        )
+                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
 
                     Button(action: {
                         guard !customPresetName.isEmpty else { return }

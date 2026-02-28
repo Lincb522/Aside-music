@@ -35,18 +35,7 @@ struct FullScreenPlayerView: View {
                 CassettePlayerLayout()
             }
         }
-        .onAppear {
-            withAnimation(AsideAnimation.playerTransition) {
-                player.isTabBarHidden = true
-            }
-        }
-        .onDisappear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(AsideAnimation.playerTransition) {
-                    player.isTabBarHidden = false
-                }
-            }
-        }
+        
     }
 
     // MARK: - 波形进度条组件（供各布局复用）

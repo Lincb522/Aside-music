@@ -133,12 +133,7 @@ struct StorageManageView: View {
             }
         }
         .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 24))
-                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
     
     private var storageRing: some View {
@@ -224,13 +219,7 @@ struct StorageManageView: View {
                 onClear: { showClearImageAlert = true }
             )
         }
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
     }
     
     private var categoryDivider: some View {
@@ -320,12 +309,7 @@ struct StorageManageView: View {
                 AsideIcon(icon: .chevronRight, size: 14, color: .asideTextSecondary.opacity(0.5))
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-            )
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
         .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
     }

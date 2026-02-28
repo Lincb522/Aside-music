@@ -379,8 +379,6 @@ struct PersonalFMView: View {
     // MARK: - Logic
 
     private func setupFM() {
-        PlayerManager.shared.isTabBarHidden = true
-
         if PlayerManager.shared.isPlayingFM && !PlayerManager.shared.context.isEmpty {
             self.fmSongs = PlayerManager.shared.context
             self.currentFMSong = PlayerManager.shared.currentSong
@@ -392,7 +390,6 @@ struct PersonalFMView: View {
     }
 
     private func teardownFM() {
-        PlayerManager.shared.isTabBarHidden = false
     }
 
     private func syncPlayerState() {

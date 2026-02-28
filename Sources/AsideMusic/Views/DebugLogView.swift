@@ -92,16 +92,10 @@ struct DebugLogView: View {
         HStack(spacing: 16) {
             // 返回按钮
             Button(action: { dismiss() }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideGlassTint)
-                        .glassEffect(.regular, in: .circle)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-                    
-                    AsideIcon(icon: .back, size: 16, color: .asideTextPrimary)
-                }
-                .contentShape(Circle())
+                AsideIcon(icon: .back, size: 16, color: .asideTextPrimary)
+                    .frame(width: 40, height: 40)
+                    .glassEffect(.regular, in: .circle)
+                    .contentShape(Circle())
             }
             .buttonStyle(AsideBouncingButtonStyle())
             
@@ -143,16 +137,10 @@ struct DebugLogView: View {
                     }
                 }
             } label: {
-                ZStack {
-                    Circle()
-                        .fill(Color.asideGlassTint)
-                        .glassEffect(.regular, in: .circle)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-                    
-                    AsideIcon(icon: .more, size: 16, color: .asideTextPrimary)
-                }
-                .contentShape(Circle())
+                AsideIcon(icon: .more, size: 16, color: .asideTextPrimary)
+                    .frame(width: 40, height: 40)
+                    .glassEffect(.regular, in: .circle)
+                    .contentShape(Circle())
             }
         }
     }
@@ -186,12 +174,7 @@ struct DebugLogView: View {
             )
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 6)
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
     
     // MARK: - 搜索框
@@ -212,11 +195,7 @@ struct DebugLogView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 12))
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
     }
     
     // MARK: - 过滤标签
@@ -445,15 +424,11 @@ struct LogRowView: View {
                 Spacer()
             }
             .padding(14)
-            .background(
+            .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(levelColor.opacity(0.2), lineWidth: 1)
-                    )
+                    .strokeBorder(levelColor.opacity(0.2), lineWidth: 1)
             )
+            .glassEffect(.regular, in: .rect(cornerRadius: 12))
             .onTapGesture {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded.toggle()
@@ -484,11 +459,8 @@ struct FilterChip: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? color : Color.asideGlassTint)
-                    .shadow(color: isSelected ? color.opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
-            )
+            .background(isSelected ? AnyShapeStyle(color) : AnyShapeStyle(.clear))
+            .glassEffect(.regular, in: .capsule)
         }
         .buttonStyle(.plain)
     }

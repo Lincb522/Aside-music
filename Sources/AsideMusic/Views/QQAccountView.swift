@@ -212,13 +212,7 @@ struct QQAccountView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 24))
-                .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
     
     private var avatarPlaceholder: some View {
@@ -229,12 +223,10 @@ struct QQAccountView: View {
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
             
             ZStack {
-                Circle()
-                    .fill(Color.asideGlassTint)
-                    .frame(width: 52, height: 52)
-                    .glassEffect(.regular, in: .circle)
                 AsideIcon(icon: .musicNote, size: 24, color: .asideIconForeground)
             }
+            .frame(width: 52, height: 52)
+            .glassEffect(.regular, in: .circle)
         }
     }
     
@@ -276,12 +268,7 @@ struct QQAccountView: View {
                 )
             )
         }
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     private func detailRow(icon: AsideIcon.IconType, title: String, trailing: AnyView) -> some View {
@@ -356,12 +343,7 @@ struct QQAccountView: View {
                 .foregroundColor(.asideTextPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.asideGlassTint)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
             }
             .buttonStyle(AsideBouncingButtonStyle())
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -370,9 +352,11 @@ struct QQAccountView: View {
                 Text(LocalizedStringKey("qq_logout"))
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.asideTextSecondary.opacity(0.5))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
             }
             .buttonStyle(AsideBouncingButtonStyle(scale: 0.98))
-            .contentShape(Rectangle())
             .padding(.top, 4)
             .alert(NSLocalizedString("qq_logout_title", comment: ""), isPresented: $showLogoutConfirm) {
                 Button(NSLocalizedString("alert_cancel", comment: ""), role: .cancel) {}
@@ -434,12 +418,7 @@ struct QQAccountView: View {
                 .foregroundColor(.asideTextPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.asideGlassTint)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
             }
             .buttonStyle(AsideBouncingButtonStyle())
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -462,12 +441,7 @@ struct QQAccountView: View {
             Divider().padding(.leading, 56)
             featureRow(icon: .translate, title: NSLocalizedString("qq_feature_lyrics", comment: ""), subtitle: NSLocalizedString("qq_feature_lyrics_desc", comment: ""))
         }
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     private func featureRow(icon: AsideIcon.IconType, title: String, subtitle: String) -> some View {

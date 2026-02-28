@@ -153,7 +153,7 @@ extension PlayerManager {
                     return
                 }
                 
-                // ── hasPendingTrackTransition 超时保护（5 秒） ──
+                // ── hasPendingTrackTransition：无缝切歌过渡 ──
                 if self.hasPendingTrackTransition {
                     let time = self.streamPlayer.currentTime
                     if time.isFinite && !time.isNaN && time > 0.1 {
@@ -168,9 +168,13 @@ extension PlayerManager {
                         self.hasPendingTrackTransition = false
                         self.pendingNextSong = nil
                         self.pendingTransitionStartedAt = nil
-                        // 走正常结束逻辑
                         self.playerDidFinishPlaying()
                         return
+                    }
+                    // 旧音频仍在 AudioRenderer 缓冲区播放，继续推进进度条避免冻结
+                    if self.duration > 0 && self.currentTime < self.duration {
+                        self.currentTime = min(self.currentTime + 0.5, self.duration)
+                        self.updateNowPlayingTime()
                     }
                     return
                 }

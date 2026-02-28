@@ -100,8 +100,23 @@ public struct ContentView: View {
                 .zIndex(999)
             }
         }
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: player.isTabBarHidden)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
+        .onChange(of: showNormalPlayer) { _, show in
+            withAnimation(AsideAnimation.playerTransition) {
+                player.isTabBarHidden = show
+            }
+        }
+        .onChange(of: showPersonalFM) { _, show in
+            withAnimation(AsideAnimation.playerTransition) {
+                player.isTabBarHidden = show
+            }
+        }
+        .onChange(of: showRadioPlayer) { _, show in
+            withAnimation(AsideAnimation.playerTransition) {
+                player.isTabBarHidden = show
+            }
+        }
         .onChange(of: systemColorScheme) { _, newScheme in
             if settings.themeMode == "system" {
                 settings.activeColorScheme = newScheme

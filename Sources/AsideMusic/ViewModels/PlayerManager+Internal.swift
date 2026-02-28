@@ -147,9 +147,6 @@ extension PlayerManager {
         saveState()
         updateNowPlayingInfo()
         updateNowPlayingArtwork(for: song)
-        
-        // 预加载下一首
-        prepareNextTrackURL()
     }
     
     /// 预加载下一首歌曲的 URL，传给 StreamPlayer.prepareNext
@@ -386,12 +383,6 @@ extension PlayerManager {
         
         updateNowPlayingInfo()
         updateNowPlayingArtwork(for: currentSong)
-        
-        
-        // 预加载下一首（无缝切歌）
-        if autoPlay {
-            prepareNextTrackURL()
-        }
     }
     
     /// 加载并播放 QQ 音乐歌曲

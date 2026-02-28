@@ -128,12 +128,7 @@ struct AudioLabView: View {
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     private func analysisModeButton(_ mode: AudioLabManager.AnalysisMode) -> some View {
@@ -196,11 +191,7 @@ struct AudioLabView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     // MARK: - 分析结果卡片
@@ -421,11 +412,7 @@ struct AudioLabView: View {
             .buttonStyle(.plain)
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     // 音色指标条
@@ -614,11 +601,7 @@ struct AudioLabView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     // MARK: - 功能说明卡片
@@ -668,11 +651,7 @@ struct AudioLabView: View {
             }
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
     
     private func featureRow(icon: AsideIcon.IconType, title: String, description: String) -> some View {

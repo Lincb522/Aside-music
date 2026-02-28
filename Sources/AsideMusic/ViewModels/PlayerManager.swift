@@ -377,7 +377,12 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.isPlaying = false
                 pm.isLoading = false
                 guard sessionAtCallback == pm.playbackSessionId else { return }
+                if pm.hasPendingTrackTransition { return }
                 if !pm.isUserStopping && pm.currentSong != nil {
+                    // 实际音频数据可能比元数据 duration 短，修正以避免进度条看起来没播完
+                    if pm.currentTime > 0 && pm.duration > 0 && pm.currentTime / pm.duration > 0.8 {
+                        pm.duration = pm.currentTime
+                    }
                     let playedRatio = pm.duration > 0 ? pm.currentTime / pm.duration : 0
                     if pm.duration > 0 && playedRatio < 0.5 && pm.currentTime < 30 {
                         pm.abnormalStopRetryCount += 1
@@ -441,6 +446,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
     
     func playerDidTransitionToNextTrack(_ player: StreamPlayer) {
         let streamInfo = player.streamInfo
+        let actualDuration = player.previousTrackActualDuration
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
             
@@ -453,8 +459,13 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.pendingQualitySwitchSeek = nil
                 pm.currentTime = seekTime
                 pm.isSeeking = false
-                pm.prepareNextTrackURL()
             } else {
+                // 用上一首的实际解码时长修正 duration，避免进度条看起来没播完
+                if let actualDur = actualDuration, actualDur > 0, actualDur < pm.duration {
+                    AppLogger.info("无缝切歌：修正 duration \(String(format: "%.1f", pm.duration)) → \(String(format: "%.1f", actualDur))")
+                    pm.duration = actualDur
+                }
+                
                 AppLogger.info("无缝切歌：SDK 已准备好下一首，等待当前歌曲结束")
                 pm.preparePendingNextTrack()
                 

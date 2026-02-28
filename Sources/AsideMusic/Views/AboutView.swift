@@ -191,11 +191,7 @@ struct AboutView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 16))
-        )
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 
     // MARK: - Developer
@@ -219,12 +215,7 @@ struct AboutView: View {
 
                 infoRow(icon: .musicNote, label: "数据源", value: "NCM · QQ Music API")
             }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
     }
 
@@ -266,12 +257,7 @@ struct AboutView: View {
                 Divider().padding(.leading, 16)
                 thankRow(name: "Apple", desc: "SwiftUI · Liquid Glass")
             }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
     }
 

@@ -137,11 +137,6 @@ struct QQLoginView: View {
             
             // 二维码显示区域
             ZStack {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 24))
-                    .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
-                
                 if let qrImage = viewModel.qrCodeImage {
                     Image(uiImage: qrImage)
                         .resizable()
@@ -186,6 +181,7 @@ struct QQLoginView: View {
                 }
             }
             .frame(width: 240, height: 240)
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
             
             Text(viewModel.qrStatusMessage)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
