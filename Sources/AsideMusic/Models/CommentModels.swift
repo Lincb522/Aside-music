@@ -49,17 +49,19 @@ struct Comment: Codable, Identifiable {
     
     var id: Int { commentId }
     
-    /// 格式化时间
+    nonisolated(unsafe) private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.unitsStyle = .short
+        return f
+    }()
+    
     var formattedTime: String {
         if let str = timeStr, !str.isEmpty { return str }
         let date = Date(timeIntervalSince1970: Double(time) / 1000)
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
     
-    /// IP 属地文本
     var locationText: String? {
         ipLocation?.location
     }

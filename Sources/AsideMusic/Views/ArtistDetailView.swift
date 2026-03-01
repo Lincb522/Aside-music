@@ -152,31 +152,10 @@ extension ArtistDetailView {
 
     private var infoSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 歌手名
-            HStack(alignment: .bottom) {
-                Text(viewModel.artist?.name ?? "")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.asideTextPrimary)
-                    .lineLimit(2)
-
-                Spacer()
-
-                // 关注按钮
-                Button(action: { viewModel.toggleFollow(artistId: artistId) }) {
-                    Text(LocalizedStringKey(viewModel.isFollowed ? "artist_followed" : "artist_follow"))
-                        .font(.rounded(size: 14, weight: .semibold))
-                        .foregroundColor(viewModel.isFollowed ? .asideTextSecondary : .asideIconForeground)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(viewModel.isFollowed
-                                      ? Color.asideSeparator
-                                      : Color.asideIconBackground)
-                        )
-                }
-                .buttonStyle(AsideBouncingButtonStyle(scale: 0.95))
-            }
+            Text(viewModel.artist?.name ?? "")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundColor(.asideTextPrimary)
+                .lineLimit(2)
 
             // 粉丝数 + 简介
             HStack(spacing: 16) {
@@ -577,14 +556,13 @@ struct ArtistBioSheet: View {
                 .fill(Color.asideSeparator)
                 .frame(height: 0.5)
 
-            // 内容区域
             if viewModel.isLoadingDesc {
                 Spacer()
                 AsideLoadingView(text: "LOADING")
                 Spacer()
             } else if let desc = viewModel.descResult {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    LazyVStack(alignment: .leading, spacing: 20) {
                         if let brief = desc.briefDesc, !brief.isEmpty {
                             bioCard {
                                 Text(brief)
@@ -619,7 +597,7 @@ struct ArtistBioSheet: View {
                 .scrollIndicators(.hidden)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    LazyVStack(alignment: .leading, spacing: 20) {
                         if let brief = viewModel.artist?.briefDesc, !brief.isEmpty {
                             bioCard {
                                 Text(brief)
@@ -652,12 +630,7 @@ struct ArtistBioSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.asideGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: 16))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 
     private var noContentView: some View {

@@ -147,27 +147,79 @@ struct CommentView: View {
     
     private var commentContent: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
-                // 排序选择器
+            LazyVStack(spacing: 0) {
                 sortTabBar
                     .padding(.top, 12)
+                    .padding(.bottom, 16)
                 
                 if vm.isLoading {
                     loadingView
+                        .padding(.bottom, 16)
                 } else if vm.comments.isEmpty && vm.hotComments.isEmpty {
                     emptyView
                 } else {
-                    // 热门评论区块
                     if !vm.hotComments.isEmpty {
-                        hotCommentsSection
+                        HStack(spacing: 6) {
+                            AsideIcon(icon: .sparkle, size: 14, color: .asideOrange)
+                            Text(LocalizedStringKey("comment_hot_section"))
+                                .font(.rounded(size: 14, weight: .semibold))
+                                .foregroundColor(.asideTextPrimary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 4)
+                        .padding(.bottom, 10)
+                        
+                        ForEach(vm.hotComments) { comment in
+                            CommentRow(
+                                comment: comment,
+                                isHot: true,
+                                onLike: { vm.toggleLike(comment: comment, isHot: true) },
+                                onReply: {
+                                    vm.replyTarget = comment
+                                    isInputFocused = true
+                                }
+                            )
+                            
+                            if comment.id != vm.hotComments.last?.id {
+                                Divider().padding(.leading, 52)
+                            }
+                        }
+                        .padding(.bottom, 20)
                     }
                     
-                    // 全部评论区块
-                    allCommentsSection
+                    HStack(spacing: 6) {
+                        Text(LocalizedStringKey("comment_all_section"))
+                            .font(.rounded(size: 14, weight: .semibold))
+                            .foregroundColor(.asideTextPrimary)
+                        if vm.totalCount > 0 {
+                            Text("\(vm.totalCount)")
+                                .font(.rounded(size: 12, weight: .medium))
+                                .foregroundColor(.asideTextSecondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 4)
+                    .padding(.bottom, 10)
                     
-                    // 加载更多
+                    ForEach(vm.comments) { comment in
+                        CommentRow(
+                            comment: comment,
+                            isHot: false,
+                            onLike: { vm.toggleLike(comment: comment, isHot: false) },
+                            onReply: {
+                                vm.replyTarget = comment
+                                isInputFocused = true
+                            }
+                        )
+                        
+                        if comment.id != vm.comments.last?.id {
+                            Divider().padding(.leading, 52)
+                        }
+                    }
+                    
                     if vm.hasMore {
                         loadMoreButton
+                            .padding(.top, 16)
                     }
                 }
             }
@@ -204,95 +256,6 @@ struct CommentView: View {
             }
             
             Spacer()
-        }
-    }
-    
-    // MARK: - 热门评论区块
-    
-    private var hotCommentsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // 区块标题
-            HStack(spacing: 6) {
-                AsideIcon(icon: .sparkle, size: 14, color: .asideOrange)
-                Text(LocalizedStringKey("comment_hot_section"))
-                    .font(.rounded(size: 14, weight: .semibold))
-                    .foregroundColor(.asideTextPrimary)
-            }
-            .padding(.leading, 4)
-            
-            // 热评卡片
-            VStack(spacing: 0) {
-                ForEach(Array(vm.hotComments.enumerated()), id: \.element.id) { index, comment in
-                    CommentRow(
-                        comment: comment,
-                        isHot: true,
-                        onLike: { vm.toggleLike(comment: comment, isHot: true) },
-                        onReply: {
-                            vm.replyTarget = comment
-                            isInputFocused = true
-                        }
-                    )
-                    
-                    if index < vm.hotComments.count - 1 {
-                        Divider()
-                            .padding(.leading, 52)
-                    }
-                }
-            }
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-    }
-    
-    // MARK: - 全部评论区块
-    
-    private var allCommentsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // 区块标题
-            HStack(spacing: 6) {
-                Text(LocalizedStringKey("comment_all_section"))
-                    .font(.rounded(size: 14, weight: .semibold))
-                    .foregroundColor(.asideTextPrimary)
-                
-                if vm.totalCount > 0 {
-                    Text("\(vm.totalCount)")
-                        .font(.rounded(size: 12, weight: .medium))
-                        .foregroundColor(.asideTextSecondary)
-                }
-            }
-            .padding(.leading, 4)
-            
-            // 评论列表
-            VStack(spacing: 0) {
-                ForEach(Array(vm.comments.enumerated()), id: \.element.id) { index, comment in
-                    CommentRow(
-                        comment: comment,
-                        isHot: false,
-                        onLike: { vm.toggleLike(comment: comment, isHot: false) },
-                        onReply: {
-                            vm.replyTarget = comment
-                            isInputFocused = true
-                        }
-                    )
-                    
-                    if index < vm.comments.count - 1 {
-                        Divider()
-                            .padding(.leading, 52)
-                    }
-                }
-            }
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.asideGlassTint)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
     

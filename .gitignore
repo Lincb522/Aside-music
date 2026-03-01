@@ -83,3 +83,4 @@ scripts/fix_ios16_compat.py
 scripts/fix_remaining_swiftdata.py
 scripts/migrate_to_coredata.py
 scripts/migrate_swiftdata_to_json.py
+.cursor/mcp.json

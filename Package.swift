@@ -1,4 +1,4 @@
-// swift-tools-version:6.1
+// swift-tools-version:6.2
 import PackageDescription
 
 let package = Package(
@@ -20,6 +20,8 @@ let package = Package(
         .package(path: "ffmpeg-swift"),
         // QQMusicKit - QQ 音乐 API 封装库（本地包）
         .package(path: "QQMusicKit"),
+        // HiconIcons - Hicon 图标库（本地包，从 Figma 导出）
+        .package(path: "HiconIcons"),
     ],
     targets: [
         .target(
@@ -28,6 +30,7 @@ let package = Package(
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
                 "FFmpegSwiftSDK",
                 "QQMusicKit",
+                "HiconIcons",
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi.ttf"),
