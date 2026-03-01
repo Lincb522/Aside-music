@@ -595,7 +595,7 @@ struct SettingsToggleRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(Color(light: .black, dark: .white))
+                .tint(Color(light: .black, dark: Color(white: 0.55)))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

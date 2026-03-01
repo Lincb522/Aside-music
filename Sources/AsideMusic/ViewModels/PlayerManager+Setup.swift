@@ -183,8 +183,9 @@ extension PlayerManager {
                 let time = self.streamPlayer.currentTime
                 if time.isFinite && !time.isNaN {
                     let jump = time - self.currentTime
-                    if self.currentTime < 1.0 && jump > 2.0 {
-                        // 刚开始播放，SDK 的时间不可信（解码缓冲超前），跳过
+                    let inBufferWindow = self.playbackStartedAt.map { Date().timeIntervalSince($0) < 3.0 } ?? false
+                    if self.currentTime < 1.0 && jump > 2.0 && inBufferWindow {
+                        // 刚开始播放 3 秒内，SDK 的时间可能因解码缓冲超前，跳过
                     } else if self.currentTime > 10.0 && time < self.currentTime - 5.0 {
                         // 防止无缝切歌时进度条回跳
                     } else {

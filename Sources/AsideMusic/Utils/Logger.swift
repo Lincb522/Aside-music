@@ -44,29 +44,32 @@ struct LogEntry: Identifiable {
 }
 
 /// 统一日志管理器
-/// 仅在 DEBUG 模式下输出日志，Release 构建自动静默
+/// DEBUG 模式：始终收集 + 控制台输出
+/// Release 模式：默认不收集，打开调试日志界面后才开始收集，零额外开销
 enum AppLogger {
     
-    // 日志存储（最多保留 1000 条）
     private nonisolated(unsafe) static var logs: [LogEntry] = []
     private static let maxLogs = 1000
     private static let lock = NSLock()
     
-    /// 获取所有日志
+    #if DEBUG
+    nonisolated(unsafe) static var isCollectionEnabled = true
+    #else
+    nonisolated(unsafe) static var isCollectionEnabled = false
+    #endif
+    
     static func getAllLogs() -> [LogEntry] {
         lock.lock()
         defer { lock.unlock() }
         return logs
     }
     
-    /// 清空日志
     static func clearLogs() {
         lock.lock()
         defer { lock.unlock() }
         logs.removeAll()
     }
     
-    /// 添加日志
     private static func addLog(_ entry: LogEntry) {
         lock.lock()
         defer { lock.unlock() }
@@ -76,61 +79,73 @@ enum AppLogger {
         }
     }
     
-    /// 普通信息日志
     static func info(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         let fileName = (file as NSString).lastPathComponent
         print("INFO [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .info, message: msg, file: file, line: line))
+        #else
+        guard isCollectionEnabled else { return }
+        addLog(LogEntry(timestamp: Date(), level: .info, message: message(), file: file, line: line))
+        #endif
     }
     
-    /// 调试日志
     static func debug(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         let fileName = (file as NSString).lastPathComponent
         print("DEBUG [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .debug, message: msg, file: file, line: line))
+        #else
+        guard isCollectionEnabled else { return }
+        addLog(LogEntry(timestamp: Date(), level: .debug, message: message(), file: file, line: line))
+        #endif
     }
     
-    /// 警告日志
     static func warning(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         let fileName = (file as NSString).lastPathComponent
         print("WARNING [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .warning, message: msg, file: file, line: line))
+        #else
+        guard isCollectionEnabled else { return }
+        addLog(LogEntry(timestamp: Date(), level: .warning, message: message(), file: file, line: line))
+        #endif
     }
     
-    /// 错误日志
     static func error(_ message: @autoclosure () -> String, file: String = #file, line: Int = #line) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         let fileName = (file as NSString).lastPathComponent
         print("ERROR [\(fileName):\(line)] \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .error, message: msg, file: file, line: line))
+        #else
+        guard isCollectionEnabled else { return }
+        addLog(LogEntry(timestamp: Date(), level: .error, message: message(), file: file, line: line))
+        #endif
     }
     
-    /// 网络请求日志
     static func network(_ message: @autoclosure () -> String) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         print("NETWORK \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .network, message: msg, file: "", line: 0))
+        #else
+        guard isCollectionEnabled else { return }
+        addLog(LogEntry(timestamp: Date(), level: .network, message: message(), file: "", line: 0))
+        #endif
     }
     
-    /// 成功日志
     static func success(_ message: @autoclosure () -> String) {
-        let msg = message()
         #if DEBUG
+        let msg = message()
         print("SUCCESS \(msg)")
-        #endif
         addLog(LogEntry(timestamp: Date(), level: .success, message: msg, file: "", line: 0))
+        #else
+        guard isCollectionEnabled else { return }
+        addLog(LogEntry(timestamp: Date(), level: .success, message: message(), file: "", line: 0))
+        #endif
     }
 }

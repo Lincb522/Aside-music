@@ -226,6 +226,9 @@ class PlayerManager: ObservableObject {
     /// 音频中断前是否正在播放（用于中断恢复）
     var wasPlayingBeforeInterruption: Bool = false
     
+    /// 开始播放的时间戳，用于定时器中判断初始缓冲保护窗口
+    var playbackStartedAt: Date?
+    
     // MARK: - Remote Command Center
     let commandCenter = MPRemoteCommandCenter.shared()
     

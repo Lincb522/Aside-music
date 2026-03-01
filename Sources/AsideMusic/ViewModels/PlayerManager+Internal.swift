@@ -364,7 +364,8 @@ extension PlayerManager {
         
         AppLogger.info("startPlayback session=\(playbackSessionId), url=\(url.lastPathComponent)")
         
-        // 使用 StreamPlayer 播放
+        playbackStartedAt = Date()
+        
         streamPlayer.play(url: url.absoluteString)
         
         if !autoPlay {

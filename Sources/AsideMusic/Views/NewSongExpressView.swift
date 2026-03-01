@@ -102,17 +102,14 @@ struct NewSongExpressView: View {
                         let isSelected = viewModel.selectedType == type.id
                         Text(LocalizedStringKey(type.nameKey))
                             .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                            .foregroundColor(isSelected ? .white : .asideTextSecondary)
+                            .foregroundColor(isSelected ? .asideIconForeground : .asideTextSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background {
-                                if isSelected {
-                                    Capsule().fill(Color.accentColor)
-                                } else {
-                                    Capsule().fill(Color.asideGlassTint)
-                                        .glassEffect(.regular, in: .capsule)
-                                }
-                            }
+                            .background(
+                                Capsule().fill(isSelected ? Color.asideAccent : Color.clear)
+                            )
+                            .clipShape(Capsule())
+                            .glassEffect(.regular, in: .capsule)
                             .contentShape(Capsule())
                     }
                     .buttonStyle(ScaleButtonStyle())

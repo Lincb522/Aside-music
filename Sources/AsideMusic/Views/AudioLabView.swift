@@ -115,7 +115,7 @@ struct AudioLabView: View {
                 
                 Toggle("", isOn: $labManager.isSmartEffectsEnabled)
                     .labelsHidden()
-                    .tint(.asideAccent)
+                    .tint(Color(light: .black, dark: Color(white: 0.55)))
             }
             
             // 分析模式选择

@@ -70,5 +70,7 @@
 	</array>
 	<key>UNBLOCK_SERVER_URL</key>
 	<string>$(UNBLOCK_SERVER_URL)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

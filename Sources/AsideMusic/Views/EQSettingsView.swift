@@ -178,7 +178,7 @@ struct EQSettingsView: View {
 
             Toggle("", isOn: $eqManager.isEnabled)
                 .labelsHidden()
-                .tint(.asideAccent)
+                .tint(Color(light: .black, dark: Color(white: 0.55)))
         }
         .padding(16)
         .glassEffect(.regular, in: .rect(cornerRadius: 18))

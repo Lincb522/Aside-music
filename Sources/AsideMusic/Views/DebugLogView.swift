@@ -16,6 +16,7 @@ struct DebugLogView: View {
     @State private var autoScroll = true
     @State private var showShareSheet = false
     @State private var cachedFilteredLogs: [LogEntry] = []
+    @State private var isCollecting = AppLogger.isCollectionEnabled
     
     private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     
@@ -80,6 +81,9 @@ struct DebugLogView: View {
             }
             .onChange(of: filterLevel) { _, _ in recomputeFilteredLogs() }
             .onChange(of: searchText) { _, _ in recomputeFilteredLogs() }
+            .onChange(of: isCollecting) { _, newValue in
+                AppLogger.isCollectionEnabled = newValue
+            }
             .sheet(isPresented: $showShareSheet) {
                 DebugLogShareSheet(items: [exportLogsAsText()])
             }
@@ -127,6 +131,13 @@ struct DebugLogView: View {
                     HStack {
                         AsideIcon(icon: .trash, size: 14, color: .asideTextPrimary)
                         Text(LocalizedStringKey("debug_clear"))
+                    }
+                }
+                
+                Toggle(isOn: $isCollecting) {
+                    HStack {
+                        AsideIcon(icon: .waveform, size: 14, color: isCollecting ? .green : .asideTextPrimary)
+                        Text(isCollecting ? "正在收集日志" : "开启日志收集")
                     }
                 }
                 
@@ -451,15 +462,18 @@ struct FilterChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let icon = icon {
-                    AsideIcon(icon: icon, size: 12, color: isSelected ? .white : color)
+                    AsideIcon(icon: icon, size: 12, color: isSelected ? .asideIconForeground : color)
                 }
                 Text(title)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(isSelected ? .white : .asideTextSecondary)
+                    .foregroundColor(isSelected ? .asideIconForeground : .asideTextSecondary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(isSelected ? AnyShapeStyle(color) : AnyShapeStyle(.clear))
+            .background(
+                Capsule().fill(isSelected ? color : Color.clear)
+            )
+            .clipShape(Capsule())
             .glassEffect(.regular, in: .capsule)
         }
         .buttonStyle(.plain)
