@@ -3057,8 +3057,8 @@ private struct MangaTheme: View {
                                         Text(lyric)
                                             .font(.system(size: 11, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
-                                            .lineLimit(4) // Allows extensive wrapping but puts a hard ceiling constraint
-                                            .minimumScaleFactor(0.85) // Compresses large blocks back into the safety bounds
+                                            .lineLimit(nil) // Absolutely no line limits to show all words
+                                            .minimumScaleFactor(0.5) // Gracefully scale down text size if it fills up the entire layout height
                                     } else {
                                         Spacer(minLength: 0) // Allows bubble to stretch when empty
                                     }
