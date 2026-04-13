@@ -2605,6 +2605,52 @@ struct PosterWidgetTheme: View {
 
 // MARK: - Manga Theme (日漫風)
 
+private struct MangaStarShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.width / 2, y: rect.height / 2)
+        let r = rect.width / 2
+        let sides = 5
+        let angle = -CGFloat.pi / 2
+        for i in 0..<sides * 2 {
+            let radius = i.isMultiple(of: 2) ? r : r * 0.45
+            let theta = angle + CGFloat(i) * .pi / CGFloat(sides)
+            let pt = CGPoint(x: center.x + radius * cos(theta), y: center.y + radius * sin(theta))
+            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct MangaSparkleShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+        path.move(to: CGPoint(x: w/2, y: 0))
+        path.addQuadCurve(to: CGPoint(x: w, y: h/2), control: CGPoint(x: w/2, y: h/2))
+        path.addQuadCurve(to: CGPoint(x: w/2, y: h), control: CGPoint(x: w/2, y: h/2))
+        path.addQuadCurve(to: CGPoint(x: 0, y: h/2), control: CGPoint(x: w/2, y: h/2))
+        path.addQuadCurve(to: CGPoint(x: w/2, y: 0), control: CGPoint(x: w/2, y: h/2))
+        return path
+    }
+}
+
+private struct MangaHeartShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+        path.move(to: CGPoint(x: w/2, y: h * 0.25))
+        path.addCurve(to: CGPoint(x: 0, y: h * 0.3), control1: CGPoint(x: w * 0.25, y: -0.15 * h), control2: CGPoint(x: 0, y: 0))
+        path.addCurve(to: CGPoint(x: w/2, y: h * 0.95), control1: CGPoint(x: 0, y: h * 0.7), control2: CGPoint(x: w * 0.25, y: h * 0.85))
+        path.addCurve(to: CGPoint(x: w, y: h * 0.3), control1: CGPoint(x: w * 0.75, y: h * 0.85), control2: CGPoint(x: w, y: h * 0.7))
+        path.addCurve(to: CGPoint(x: w/2, y: h * 0.25), control1: CGPoint(x: w, y: 0), control2: CGPoint(x: w * 0.75, y: -0.15 * h))
+        return path
+    }
+}
+
 private struct MangaTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
@@ -2759,22 +2805,28 @@ private struct MangaTheme: View {
     private var bpmFooter: some View {
         Group {
             if let b = entry.tempoBPM, b > 0 {
-                HStack(spacing: 2) {
+                HStack(spacing: 4) {
                     Text("\(b)")
                         .font(.system(size: 12, weight: .heavy, design: .rounded))
-                        .foregroundStyle(inkSub.opacity(0.7))
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(accentPink)
-                        .offset(y: -1)
+                        .foregroundStyle(inkSub.opacity(0.8))
+                    
+                    ZStack {
+                        MangaHeartShape().fill(accentPink)
+                        MangaHeartShape().stroke(ink, lineWidth: 1.5)
+                    }
+                    .frame(width: 12, height: 10)
+                    .offset(y: -1)
+                    
                     Text("bpm")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(inkSub.opacity(0.7))
+                        .foregroundStyle(inkSub.opacity(0.8))
                 }
             } else {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(accentPink)
+                ZStack {
+                    MangaHeartShape().fill(accentPink)
+                    MangaHeartShape().stroke(ink, lineWidth: 1.5)
+                }
+                .frame(width: 16, height: 14)
             }
         }
     }
@@ -2790,33 +2842,36 @@ private struct MangaTheme: View {
 
                 // 漫画风背景点缀装饰
                 ZStack {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 14))
-                        .foregroundStyle(accentPink)
-                        .rotationEffect(.degrees(10))
-                        .position(x: 20, y: 26) // Hugging top-left of cover
+                    ZStack {
+                        MangaSparkleShape().fill(accentPink)
+                        MangaSparkleShape().stroke(ink, lineWidth: 2)
+                    }
+                    .frame(width: 14, height: 14)
+                    .rotationEffect(.degrees(10))
+                    .position(x: 20, y: 26) // Hugging top-left of cover
                     
                     ZStack {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(labelYellow)
-                        Image(systemName: "star")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(ink)
+                        MangaStarShape().fill(labelYellow)
+                        MangaStarShape().stroke(ink, lineWidth: 2)
                     }
+                    .frame(width: 16, height: 16)
                     .rotationEffect(.degrees(20))
                     .position(x: g.size.width - 24, y: 20)
                         
-                    Circle()
-                        .fill(Color(hex: "CEF09D")) // Lime green dot
-                        .frame(width: 8, height: 8)
-                        .position(x: 26, y: g.size.height - 24)
+                    ZStack {
+                        Circle().fill(Color(hex: "CEF09D")) // Lime green dot
+                        Circle().stroke(ink, lineWidth: 2)
+                    }
+                    .frame(width: 8, height: 8)
+                    .position(x: 26, y: g.size.height - 24)
                         
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(accentPink)
-                        .rotationEffect(.degrees(-15))
-                        .position(x: g.size.width - 20, y: g.size.height - 24)
+                    ZStack {
+                        MangaHeartShape().fill(accentPink)
+                        MangaHeartShape().stroke(ink, lineWidth: 1.5)
+                    }
+                    .frame(width: 14, height: 12)
+                    .rotationEffect(.degrees(-15))
+                    .position(x: g.size.width - 20, y: g.size.height - 24)
                 }
                 .allowsHitTesting(false)
 
@@ -2876,27 +2931,28 @@ private struct MangaTheme: View {
 
                 // Background decorations
                 ZStack {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(accentPink)
-                        .rotationEffect(.degrees(10))
-                        .position(x: 28, y: 30)
+                    ZStack {
+                        MangaSparkleShape().fill(accentPink)
+                        MangaSparkleShape().stroke(ink, lineWidth: 2)
+                    }
+                    .frame(width: 16, height: 16)
+                    .rotationEffect(.degrees(10))
+                    .position(x: 28, y: 30)
                     
                     ZStack {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(labelYellow)
-                        Image(systemName: "star")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(ink)
+                        MangaStarShape().fill(labelYellow)
+                        MangaStarShape().stroke(ink, lineWidth: 2)
                     }
+                    .frame(width: 18, height: 18)
                     .rotationEffect(.degrees(20))
                     .position(x: g.size.width - 28, y: 26)
                         
-                    Circle()
-                        .fill(Color(hex: "CEF09D"))
-                        .frame(width: 8, height: 8)
-                        .position(x: 34, y: g.size.height - 24)
+                    ZStack {
+                        Circle().fill(Color(hex: "CEF09D"))
+                        Circle().stroke(ink, lineWidth: 2)
+                    }
+                    .frame(width: 10, height: 10)
+                    .position(x: 34, y: g.size.height - 24)
                 }
                 .allowsHitTesting(false)
 
