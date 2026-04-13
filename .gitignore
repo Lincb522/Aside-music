@@ -1,0 +1,93 @@
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+build/
+build-macos/
+DerivedData/
+.build/
+*.moved-monologue
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.profile
+
+# macOS
+.DS_Store
+
+# IDE & AI Agents
+.trae/
+.vscode/
+.idea/
+.kiro/
+.cursor/
+.agents/
+.claude/
+*.code-workspace
+
+# Build artifacts
+*.ipa
+*.app
+*.dSYM
+*.xcarchive
+
+# Crash reports
+*.ips
+
+# Logs
+*.log
+
+# Backup & Temporary files
+*.backup
+*.bak
+*.tmp
+.codex-backups/
+.tmp*/
+.widget-backup*/
+Payload/
+
+# Environment & Configs
+.env
+.env.local
+Secrets.xcconfig
+Secrets_*.xcconfig
+
+# Archives & Compressed
+*.tar.gz
+*.zip
+
+# Unnecessary Local Directories (Local Libraries kept out of main repo)
+LiquidGlassEffect-main/
+LiquidGlass-main/
+api-enhanced-main*/
+ffmpeg-swift/
+NeteaseCloudMusicAPI-Swift/
+QQMusicKit/
+ZappiconIcons/
+
+# Project-specific Trash/Tests
+HiconIcons/
+build_ipa.sh
+build_gui.html
+build_server.py
+patch_capturer.py
+find_chinese.py
+fix_*.py
+test_*.py
+server-example-*.js
+scripts/
+update_pbxproj.rb
+chinese_strings.txt
+image.png
+123-iOS-Default-1024x1024@1x.png
+qq_qr.png
+AuroraIcon*.svg
+monologueIcon.svg
+CHANGELOG.txt
+UPDATE_LOG.md
+docs/

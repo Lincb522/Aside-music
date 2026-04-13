@@ -1,0 +1,736 @@
+import Foundation
+import Combine
+import SwiftData
+import QQMusicKit
+
+/// 音乐下载管理器
+@MainActor
+final class DownloadManager: NSObject, ObservableObject {
+    static let shared = DownloadManager()
+    
+    // MARK: - 发布属性
+    @Published var downloadingTasks: [String: DownloadTask] = [:]  // uniqueKey -> task
+    @Published var downloadedSongIds: Set<String> = []  // uniqueKey 集合
+    @Published var lastError: DownloadError? = nil
+    
+    struct DownloadError: Identifiable {
+        let id = UUID()
+        let songName: String
+        let message: String
+    }
+    
+    /// 最大并发下载数
+    private let maxConcurrent = 3
+    /// 等待队列
+    private var waitingQueue: [String] = []  // uniqueKey 队列
+    /// 活跃下载数
+    private var activeCount: Int { downloadingTasks.values.filter { $0.isActive }.count }
+    
+    private let apiService = APIService.shared
+    private var cancellables = Set<AnyCancellable>()
+    
+    /// 下载任务包装
+    struct DownloadTask {
+        let uniqueKey: String
+        let songId: Int
+        var urlSessionTask: URLSessionDownloadTask?
+        var progress: Double = 0
+        var isActive: Bool = false
+        /// QMC 加密文件的 ekey（下载完成后需解密）
+        var qmcEkey: String?
+    }
+    
+    // MARK: - URLSession
+    private lazy var urlSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForResource = 600 // 10分钟超时
+        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
+    }()
+    
+    /// taskIdentifier -> uniqueKey 映射（用于 delegate 回调）
+    private var taskToKey: [Int: String] = [:]
+    
+    private override init() {
+        super.init()
+        // 启动时加载已下载歌曲 ID
+        Task { loadDownloadedIds() }
+    }
+
+    /// 生成 uniqueKey
+    private static func makeKey(songId: Int, isQQ: Bool) -> String {
+        isQQ ? "qq_\(songId)" : "ncm_\(songId)"
+    }
+
+    static func makeQishuiKey(trackId: Int) -> String {
+        "qishui_\(trackId)"
+    }
+    
+    // MARK: - 默认下载音质
+
+    /// qcm默认下载音质：QMC 解密开启时用最高，否则用 SQ (FLAC)
+    static var defaultQQDownloadQuality: QQMusicQuality {
+        SettingsManager.shared.qmcDecryptEnabled ? .master : .flac
+    }
+
+    /// ncm默认下载音质：始终使用最高
+    static var defaultNeteaseDownloadQuality: SoundQuality {
+        .jymaster
+    }
+
+    // MARK: - 公开方法
+    
+    /// 下载歌曲
+    func download(song: Song, quality: SoundQuality? = nil) {
+        let key = Self.makeKey(songId: song.id, isQQ: song.isQQMusic)
+        
+        // 已下载或正在下载则跳过
+        guard !downloadedSongIds.contains(key),
+              downloadingTasks[key] == nil,
+              !waitingQueue.contains(key) else {
+            AppLogger.debug("歌曲 \(key) 已下载或正在下载中")
+            return
+        }
+        
+        // 保存到数据库（区分 qcm和ncm）
+        let context = DatabaseManager.shared.context
+        if song.isQQMusic {
+            let downloaded = DownloadedSong(from: song, qqQuality: Self.defaultQQDownloadQuality)
+            context.insert(downloaded)
+        } else {
+            let targetQuality = quality ?? Self.defaultNeteaseDownloadQuality
+            let downloaded = DownloadedSong(from: song, quality: targetQuality)
+            context.insert(downloaded)
+        }
+        try? context.save()
+        
+        // 加入队列
+        waitingQueue.append(key)
+        AppLogger.info("歌曲加入下载队列: \(song.name)")
+        
+        // 尝试启动下载
+        processQueue()
+    }
+    
+    /// 下载 qcm歌曲（指定 QQ 音质）
+    func downloadQQ(song: Song, quality: QQMusicQuality) {
+        let key = Self.makeKey(songId: song.id, isQQ: true)
+        
+        guard !downloadedSongIds.contains(key),
+              downloadingTasks[key] == nil,
+              !waitingQueue.contains(key) else {
+            AppLogger.debug("歌曲 \(key) 已下载或正在下载中")
+            return
+        }
+        
+        let context = DatabaseManager.shared.context
+        let downloaded = DownloadedSong(from: song, qqQuality: quality)
+        context.insert(downloaded)
+        try? context.save()
+        
+        waitingQueue.append(key)
+        AppLogger.info("[QQMusic] 歌曲加入下载队列: \(song.name)")
+        processQueue()
+    }
+    
+    /// 下载汽水音乐歌曲（通过服务端代理）
+    func downloadQishui(song: Song, quality: String = "highest") {
+        guard let trackId = song.qishuiTrackId else { return }
+        let key = Self.makeQishuiKey(trackId: trackId)
+
+        guard !downloadedSongIds.contains(key),
+              downloadingTasks[key] == nil,
+              !waitingQueue.contains(key) else {
+            AppLogger.debug("歌曲 \(key) 已下载或正在下载中")
+            return
+        }
+
+        let context = DatabaseManager.shared.context
+        let downloaded = DownloadedSong(
+            id: song.id,
+            name: song.name,
+            artistName: song.artistName,
+            albumName: song.al?.name,
+            coverUrl: song.coverUrl?.absoluteString,
+            duration: song.dt,
+            quality: .exhigh
+        )
+        downloaded.uniqueKey = key
+        context.insert(downloaded)
+        try? context.save()
+
+        waitingQueue.append(key)
+        AppLogger.info("[Qishui] 歌曲加入下载队列: \(song.name) (\(quality))")
+        processQueue()
+    }
+
+    /// 取消下载
+    func cancelDownload(songId: Int, isQQ: Bool = false) {
+        let key = Self.makeKey(songId: songId, isQQ: isQQ)
+        
+        // 取消活跃任务
+        if let task = downloadingTasks[key] {
+            if let sessionTask = task.urlSessionTask {
+                taskToKey.removeValue(forKey: sessionTask.taskIdentifier)
+                sessionTask.cancel()
+            }
+            downloadingTasks.removeValue(forKey: key)
+        }
+        
+        // 从等待队列移除
+        waitingQueue.removeAll { $0 == key }
+        
+        // 从数据库删除
+        deleteFromDB(key: key)
+        
+        AppLogger.info("取消下载: \(key)")
+        processQueue()
+    }
+    
+    /// 删除已下载歌曲
+    func deleteDownload(songId: Int, isQQ: Bool = false) {
+        let key = Self.makeKey(songId: songId, isQQ: isQQ)
+        
+        // 删除本地文件
+        if let url = localFileURL(songId: songId, isQQ: isQQ) {
+            do {
+                try FileManager.default.removeItem(at: url)
+                #if DEBUG
+                print("[DownloadManager] ✅ 已删除文件: \(url.lastPathComponent)")
+                #endif
+            } catch {
+                AppLogger.error("删除下载文件失败: \(url.lastPathComponent), error=\(error)")
+            }
+        } else {
+            // localFileURL 找不到记录时，尝试按 key 直接扫描文件
+            let dir = DownloadedSong.downloadsDirectory
+            let fm = FileManager.default
+            if let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                for file in files where file.lastPathComponent.hasPrefix(key) {
+                    try? fm.removeItem(at: file)
+                    #if DEBUG
+                    print("[DownloadManager] ✅ 按 key 前缀删除文件: \(file.lastPathComponent)")
+                    #endif
+                }
+            }
+        }
+        
+        // 从数据库删除
+        deleteFromDB(key: key)
+        downloadedSongIds.remove(key)
+        
+        AppLogger.info("删除下载: \(key)")
+    }
+    
+    /// 删除所有下载
+    func deleteAll() {
+        // 取消所有进行中的任务
+        for (_, task) in downloadingTasks {
+            task.urlSessionTask?.cancel()
+        }
+        downloadingTasks.removeAll()
+        waitingQueue.removeAll()
+        
+        // 删除下载目录（包含所有音频文件）
+        let dir = DownloadedSong.downloadsDirectory
+        let fm = FileManager.default
+        
+        // 先逐个删除文件（确保即使目录删除失败，文件也被清理）
+        if let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            for file in files {
+                do {
+                    try fm.removeItem(at: file)
+                } catch {
+                    AppLogger.error("删除下载文件失败: \(file.lastPathComponent), error=\(error)")
+                }
+            }
+        }
+        
+        // 再删除整个目录并重建
+        do {
+            if fm.fileExists(atPath: dir.path) {
+                try fm.removeItem(at: dir)
+            }
+        } catch {
+            AppLogger.error("删除下载目录失败: \(error)")
+        }
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        
+        // 清空数据库中的下载记录
+        let context = DatabaseManager.shared.context
+        do {
+            try context.delete(model: DownloadedSong.self)
+            try context.save()
+        } catch {
+            AppLogger.error("清空下载数据库失败: \(error)")
+        }
+        
+        downloadedSongIds.removeAll()
+        
+        // 验证清理结果
+        #if DEBUG
+        let remaining = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?.count ?? 0
+        print("[DownloadManager] 清理完成，下载目录剩余文件: \(remaining)")
+        #endif
+        
+        AppLogger.info("已清除所有下载")
+    }
+    
+    /// 检查是否已下载（兼容旧调用，同时检查 ncm 和 qq 两个 key）
+    func isDownloaded(songId: Int) -> Bool {
+        downloadedSongIds.contains("ncm_\(songId)") || downloadedSongIds.contains("qq_\(songId)")
+    }
+
+    /// 检查指定来源的歌曲是否已下载
+    func isDownloaded(songId: Int, isQQ: Bool) -> Bool {
+        downloadedSongIds.contains(Self.makeKey(songId: songId, isQQ: isQQ))
+    }
+    
+    /// 获取本地文件 URL
+    func localFileURL(songId: Int, isQQ: Bool = false) -> URL? {
+        let key = Self.makeKey(songId: songId, isQQ: isQQ)
+        let context = DatabaseManager.shared.context
+        let completed = "completed"
+        var descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.uniqueKey == key && $0.statusRaw == completed }
+        )
+        descriptor.fetchLimit = 1
+        guard let record = try? context.fetch(descriptor).first,
+              let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
+              FileManager.default.fileExists(atPath: url.path) else {
+            // 回退：按 songId 查找（兼容旧数据）
+            var fallback = FetchDescriptor<DownloadedSong>(
+                predicate: #Predicate {
+                    $0.id == songId && $0.isQQMusic == isQQ && $0.statusRaw == completed
+                }
+            )
+            fallback.fetchLimit = 1
+            guard let record = try? context.fetch(fallback).first,
+                  let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
+                  FileManager.default.fileExists(atPath: url.path) else {
+                return nil
+            }
+            return url
+        }
+        return url
+    }
+    
+    /// 获取所有已下载歌曲
+    func fetchAllDownloaded() -> [DownloadedSong] {
+        let context = DatabaseManager.shared.context
+        let descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.statusRaw == "completed" },
+            sortBy: [SortDescriptor(\.downloadedAt, order: .reverse)]
+        )
+        let records = (try? context.fetch(descriptor)) ?? []
+        for record in records {
+            _ = normalizeCompletedFileNameIfNeeded(for: record)
+        }
+        return records
+    }
+    
+    /// 获取下载中的歌曲
+    func fetchDownloading() -> [DownloadedSong] {
+        let context = DatabaseManager.shared.context
+        let descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.statusRaw != "completed" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+    
+    /// 计算已下载总大小
+    func totalDownloadSize() -> Int64 {
+        let all = fetchAllDownloaded()
+        return all.reduce(0) { $0 + $1.fileSize }
+    }
+
+    // MARK: - 内部方法
+    
+    /// 处理下载队列
+    private func processQueue() {
+        while activeCount < maxConcurrent, let key = waitingQueue.first {
+            waitingQueue.removeFirst()
+            startDownload(key: key)
+        }
+    }
+    
+    /// 开始下载单首歌曲
+    private func startDownload(key: String) {
+        guard let record = getDownloadRecord(key: key) else { return }
+        let songId = record.id
+        
+        downloadingTasks[key] = DownloadTask(uniqueKey: key, songId: songId, isActive: true)
+        
+        // 更新数据库状态
+        record.status = .downloading
+        try? DatabaseManager.shared.context.save()
+        
+        if key.hasPrefix("qishui_") {
+            let trackIdStr = key.replacingOccurrences(of: "qishui_", with: "")
+            if let trackId = Int(trackIdStr) {
+                startQishuiDownload(key: key, trackId: trackId)
+            } else {
+                handleDownloadFailed(key: key, reason: "无效的汽水音乐 track ID")
+            }
+        } else if record.isQQMusic, let mid = record.qqMid {
+            startQQDownload(key: key, songId: songId, mid: mid, record: record)
+        } else {
+            startNeteaseDownload(key: key, songId: songId)
+        }
+    }
+    
+    /// 开始ncm歌曲下载
+    private func startNeteaseDownload(key: String, songId: Int) {
+        let quality = getQuality(key: key)
+        apiService.fetchSongUrl(id: songId, level: quality.rawValue)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
+                guard let self = self, self.downloadingTasks[key] != nil else { return }
+                if case .failure(let error) = completion {
+                    AppLogger.error("获取歌曲URL失败: \(error)")
+                    self.handleDownloadFailed(key: key, reason: String(localized: "获取下载链接失败: \(error.localizedDescription)"))
+                }
+            }, receiveValue: { [weak self] result in
+                guard let self = self, self.downloadingTasks[key] != nil else { return }
+                guard !result.url.isEmpty, let url = URL(string: result.url) else {
+                    self.handleDownloadFailed(key: key, reason: String(localized: "该歌曲暂无此音质的下载链接，请尝试其他音质"))
+                    return
+                }
+                self.downloadFile(key: key, from: url)
+            })
+            .store(in: &cancellables)
+    }
+    
+    /// 开始 qcm歌曲下载
+    private func startQQDownload(key: String, songId: Int, mid: String, record: DownloadedSong?) {
+        let quality = record?.qqQuality ?? .mp3_320
+        let useDownloadAPI = SettingsManager.shared.qmcDecryptEnabled
+        let publisher: AnyPublisher<APIService.SongUrlResult, Error> = useDownloadAPI
+            ? apiService.fetchQQDownloadUrl(mid: mid, quality: quality)
+            : apiService.fetchQQSongUrl(mid: mid, quality: quality)
+        publisher
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
+                guard let self = self, self.downloadingTasks[key] != nil else { return }
+                if case .failure(let error) = completion {
+                    AppLogger.error("[QQMusic] 获取下载URL失败: \(error)")
+                    self.handleDownloadFailed(key: key, reason: String(localized: "获取下载链接失败，该歌曲可能需要 VIP 或无版权"))
+                }
+            }, receiveValue: { [weak self] result in
+                guard let self = self, self.downloadingTasks[key] != nil else { return }
+                guard !result.url.isEmpty, let url = URL(string: result.url) else {
+                    self.handleDownloadFailed(key: key, reason: String(localized: "该歌曲暂无此音质的下载链接，请尝试其他音质"))
+                    return
+                }
+                if let ekey = result.qmcEkey {
+                    self.downloadingTasks[key]?.qmcEkey = ekey
+                }
+                self.downloadFile(key: key, from: url)
+            })
+            .store(in: &cancellables)
+    }
+    
+    /// 开始汽水音乐下载（通过服务端代理，返回已解密的音频）
+    private func startQishuiDownload(key: String, trackId: Int) {
+        let quality = SettingsManager.shared.defaultQishuiPlaybackQuality
+        let proxyURL = APIService.qishuiProxyPlayURL(trackId: trackId, quality: quality)
+        guard let url = URL(string: proxyURL) else {
+            handleDownloadFailed(key: key, reason: "无法构建汽水音乐下载 URL")
+            return
+        }
+        AppLogger.info("[Qishui] 开始下载: trackId=\(trackId), quality=\(quality)")
+        downloadFile(key: key, from: url)
+    }
+
+    /// 下载文件
+    private func downloadFile(key: String, from url: URL) {
+        guard downloadingTasks[key] != nil else {
+            AppLogger.info("下载已取消，跳过: \(key)")
+            return
+        }
+        let task = urlSession.downloadTask(with: url)
+        taskToKey[task.taskIdentifier] = key
+        downloadingTasks[key]?.urlSessionTask = task
+        task.resume()
+        AppLogger.info("开始下载文件: \(key)")
+    }
+    
+    /// 下载失败处理
+    private func handleDownloadFailed(key: String, reason: String? = nil) {
+        let songName = getDownloadRecord(key: key)?.name ?? key
+        downloadingTasks.removeValue(forKey: key)
+        if let record = getDownloadRecord(key: key) {
+            record.status = .failed
+            try? DatabaseManager.shared.context.save()
+        }
+        PushService.shared.sendDownloadFailedNotification(songName: songName)
+        let msg = reason ?? String(localized: "下载出错，可能是该音质无版权或需要会员")
+        lastError = DownloadError(songName: songName, message: msg)
+        AlertManager.shared.show(
+            title: String(localized: "下载失败"),
+            message: "\(songName)\n\(msg)",
+            primaryButtonTitle: String(localized: "好的"),
+            primaryAction: { AlertManager.shared.dismiss() }
+        )
+        processQueue()
+    }
+    
+    /// 根据音质推断文件扩展名
+    private func inferFileExtension(key: String) -> String {
+        guard let record = getDownloadRecord(key: key) else { return "mp3" }
+        return inferFileExtension(for: record)
+    }
+
+    private func inferFileExtension(for record: DownloadedSong) -> String {
+        if record.isQQMusic {
+            switch record.qqQuality {
+            case .flac:                         return "flac"
+            case .ogg640, .ogg320, .ogg192, .ogg96: return "ogg"
+            case .aac192, .aac96, .aac48:       return "m4a"
+            case .master, .dtsx, .atmos71, .atmos2, .atmos51, .nac, .vinyl: return "flac"
+            default:                            return "mp3"
+            }
+        } else {
+            switch record.quality {
+            case .lossless, .hires, .jymaster:  return "flac"
+            case .sky, .jyeffect:               return "flac"
+            default:                            return "mp3"
+            }
+        }
+    }
+
+    private func sanitizedFileNameComponent(_ text: String, fallback: String? = String(localized: "未知歌曲")) -> String {
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+            .union(.newlines)
+            .union(.controlCharacters)
+            .union(.illegalCharacters)
+        let cleaned = text
+            .components(separatedBy: invalidCharacters)
+            .joined(separator: " ")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " ."))
+
+        if !cleaned.isEmpty {
+            return cleaned
+        }
+        return fallback ?? ""
+    }
+
+    private func preferredBaseFileName(for record: DownloadedSong) -> String {
+        let songName = sanitizedFileNameComponent(record.name)
+        let artistName = sanitizedFileNameComponent(record.artistName, fallback: nil)
+
+        guard !artistName.isEmpty, artistName != songName else {
+            return songName
+        }
+        return "\(songName) - \(artistName)"
+    }
+
+    private func availableDestinationURL(
+        for record: DownloadedSong,
+        fileExtension: String,
+        excluding currentURL: URL? = nil
+    ) -> URL {
+        let directory = DownloadedSong.downloadsDirectory
+        let baseName = preferredBaseFileName(for: record)
+        var candidate = directory
+            .appendingPathComponent(baseName)
+            .appendingPathExtension(fileExtension)
+
+        var index = 2
+        while FileManager.default.fileExists(atPath: candidate.path),
+              candidate.path != currentURL?.path {
+            candidate = directory
+                .appendingPathComponent("\(baseName) (\(index))")
+                .appendingPathExtension(fileExtension)
+            index += 1
+        }
+
+        return candidate
+    }
+
+    @discardableResult
+    private func normalizeCompletedFileNameIfNeeded(for record: DownloadedSong) -> URL? {
+        guard record.status == .completed,
+              let currentURL = record.localFileURL,
+              FileManager.default.fileExists(atPath: currentURL.path) else {
+            return nil
+        }
+
+        let fileExtension = currentURL.pathExtension.isEmpty ? inferFileExtension(for: record) : currentURL.pathExtension
+        let targetURL = availableDestinationURL(for: record, fileExtension: fileExtension, excluding: currentURL)
+
+        guard targetURL.path != currentURL.path else {
+            return currentURL
+        }
+
+        do {
+            try FileManager.default.moveItem(at: currentURL, to: targetURL)
+            record.localPath = targetURL.lastPathComponent
+            try? DatabaseManager.shared.context.save()
+            AppLogger.info("已规范下载文件名: \(targetURL.lastPathComponent)")
+            return targetURL
+        } catch {
+            AppLogger.error("规范下载文件名失败: \(error)")
+            return currentURL
+        }
+    }
+
+    /// 下载完成处理
+    private func handleDownloadCompleted(key: String, tempURL: URL) {
+        guard let record = getDownloadRecord(key: key) else {
+            let url = tempURL
+            Task.detached(priority: .background) { try? FileManager.default.removeItem(at: url) }
+            processQueue()
+            return
+        }
+        
+        let ekey = downloadingTasks[key]?.qmcEkey
+        var ext = inferFileExtension(key: key)
+        if ekey != nil {
+            if ext == "mflac" { ext = "flac" }
+            else if ext.hasPrefix("mgg") { ext = "ogg" }
+        }
+        let destURL = availableDestinationURL(for: record, fileExtension: ext)
+        
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                var sourceURL = tempURL
+                let decryptEnabled = await MainActor.run { SettingsManager.shared.qmcDecryptEnabled }
+                
+                if let ekey = ekey, decryptEnabled {
+                    AppLogger.info("[QMC] 下载完成，开始解密: \(key)")
+                    let decryptor = try QMCDecryptor.create(ekey: ekey)
+                    var data = try Data(contentsOf: tempURL)
+                    decryptor.decrypt(&data, offset: 0)
+                    let decryptedURL = tempURL.deletingPathExtension().appendingPathExtension("dec")
+                    try data.write(to: decryptedURL)
+                    try? FileManager.default.removeItem(at: tempURL)
+                    sourceURL = decryptedURL
+                    AppLogger.success("[QMC] 解密完成: \(key)")
+                }
+                
+                if FileManager.default.fileExists(atPath: destURL.path) {
+                    try FileManager.default.removeItem(at: destURL)
+                }
+                try FileManager.default.moveItem(at: sourceURL, to: destURL)
+                
+                let fileSize = (try? FileManager.default.attributesOfItem(atPath: destURL.path)[.size] as? Int64) ?? 0
+                
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if let record = self.getDownloadRecord(key: key) {
+                        record.status = .completed
+                        record.progress = 1.0
+                        record.localPath = destURL.lastPathComponent
+                        record.fileSize = fileSize
+                        record.downloadedAt = Date()
+                        try? DatabaseManager.shared.context.save()
+                        
+                        let songName = record.name
+                        PushService.shared.sendDownloadCompleteNotification(songName: songName)
+                    }
+                    
+                    self.downloadedSongIds.insert(key)
+                    self.downloadingTasks.removeValue(forKey: key)
+                    AppLogger.success("下载完成: \(key), 大小=\(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+                    
+                    self.processQueue()
+                }
+            } catch {
+                AppLogger.error("保存下载文件失败: \(error)")
+                await MainActor.run { [weak self] in
+                    self?.handleDownloadFailed(key: key)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 数据库辅助
+    
+    private func loadDownloadedIds() {
+        let context = DatabaseManager.shared.context
+        let descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.statusRaw == "completed" }
+        )
+        if let records = try? context.fetch(descriptor) {
+            downloadedSongIds = Set(records.map { $0.uniqueKey })
+        }
+    }
+    
+    private func getQuality(key: String) -> SoundQuality {
+        getDownloadRecord(key: key)?.quality ?? .exhigh
+    }
+    
+    private func getDownloadRecord(key: String) -> DownloadedSong? {
+        let context = DatabaseManager.shared.context
+        var descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.uniqueKey == key }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
+    }
+    
+    private func deleteFromDB(key: String) {
+        let context = DatabaseManager.shared.context
+        var descriptor = FetchDescriptor<DownloadedSong>(
+            predicate: #Predicate { $0.uniqueKey == key }
+        )
+        descriptor.fetchLimit = 1
+        if let record = try? context.fetch(descriptor).first {
+            context.delete(record)
+            try? context.save()
+        }
+    }
+}
+
+// MARK: - URLSessionDownloadDelegate
+
+extension DownloadManager: URLSessionDownloadDelegate {
+    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        let taskId = downloadTask.taskIdentifier
+        // 复制临时文件到安全位置（临时文件会被系统删除）
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFile = tempDir.appendingPathComponent(UUID().uuidString + ".tmp")
+        try? FileManager.default.copyItem(at: location, to: tempFile)
+        
+        Task { @MainActor [weak self] in
+            guard let self = self, let key = self.taskToKey[taskId] else { return }
+            self.taskToKey.removeValue(forKey: taskId)
+            self.handleDownloadCompleted(key: key, tempURL: tempFile)
+        }
+    }
+    
+    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        let taskId = downloadTask.taskIdentifier
+        let progress = totalBytesExpectedToWrite > 0 ? Double(totalBytesWritten) / Double(totalBytesExpectedToWrite) : 0
+        
+        // 节流：进度变化 < 2% 时跳过 UI 更新（完成时除外）
+        let rounded = (progress * 50).rounded() / 50
+        Task { @MainActor [weak self] in
+            guard let self = self, let key = self.taskToKey[taskId] else { return }
+            let current = self.downloadingTasks[key]?.progress ?? 0
+            guard abs(rounded - current) >= 0.02 || progress >= 1.0 else { return }
+            self.downloadingTasks[key]?.progress = rounded
+        }
+    }
+    
+    nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let error = error else { return }
+        let taskId = task.taskIdentifier
+        let errorDesc = error.localizedDescription
+        
+        Task { @MainActor [weak self] in
+            guard let self = self, let key = self.taskToKey[taskId] else { return }
+            self.taskToKey.removeValue(forKey: taskId)
+            AppLogger.error("下载失败: \(key), error=\(errorDesc)")
+            let isCancelled = (error as NSError).code == NSURLErrorCancelled
+            if !isCancelled {
+                self.handleDownloadFailed(key: key, reason: String(localized: "网络下载失败: \(errorDesc)"))
+            } else {
+                self.downloadingTasks.removeValue(forKey: key)
+                self.processQueue()
+            }
+        }
+    }
+}

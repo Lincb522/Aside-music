@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token 详情</title>
+  <link rel="icon" href="../brand-mark.png">
+  <link rel="stylesheet" href="../assets/admin.css">
+</head>
+<body>
+  <div id="authGate" class="auth-gate hidden">
+    <div class="auth-panel">
+      <div class="brand-lockup">
+        <img src="../brand-mark.png" alt="Monologue" loading="eager" decoding="async" fetchpriority="high">
+        <div class="brand-copy">
+          <small>Monologue Console</small>
+          <h1>Token 详情</h1>
+          <p>输入管理密码。</p>
+        </div>
+      </div>
+      <div class="form-stack">
+        <div class="field">
+          <label for="loginPassword">管理密码</label>
+          <input id="loginPassword" type="password" placeholder="输入密码">
+        </div>
+        <div id="loginError" class="error-text"></div>
+        <button id="loginButton" class="btn btn-primary">进入</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appShell" class="shell hidden">
+    <header class="masthead">
+      <div class="brand-lockup brand-lockup--compact">
+        <img src="../brand-mark.png" alt="Monologue" loading="eager" decoding="async" fetchpriority="high">
+        <div class="brand-copy">
+          <small>Monologue Console</small>
+          <h1>Token 详情</h1>
+        </div>
+      </div>
+      <nav class="main-nav">
+        <a href="../">首页</a>
+        <a href="../tokens">Token 管理</a>
+        <a class="is-active" href="">Token 详情</a>
+      </nav>
+      <div class="masthead-actions">
+        <a class="btn btn-secondary" href="../tokens">返回列表</a>
+        <button id="logoutButton" class="btn btn-ghost">退出</button>
+      </div>
+    </header>
+
+    <main class="page page--detail">
+      <section id="detailPanel"></section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="../assets/admin-core.js"></script>
+  <script src="../assets/token-detail-page.js"></script>
+</body>
+</html>

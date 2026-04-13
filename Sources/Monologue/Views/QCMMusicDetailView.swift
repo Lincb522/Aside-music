@@ -1,0 +1,1660 @@
+// QQMusicDetailView.swift
+// qcm歌手/专辑/歌单详情页
+// 歌手：Hero 大图 + Tab（音乐/专辑/MV）
+// 专辑：封面 + 歌手 + 发行信息 + 歌曲列表
+// 歌单：封面 + 创建者 + 歌曲列表
+
+import SwiftUI
+import Combine
+import QQMusicKit
+
+// MARK: - qcm详情类型
+
+enum QQDetailType {
+    case artist(mid: String, name: String, coverUrl: String?)
+    case album(mid: String, name: String, coverUrl: String?, artistName: String?)
+    case playlist(id: Int, name: String, coverUrl: String?, creatorName: String?)
+}
+
+// MARK: - 路由入口
+
+struct QQMusicDetailView: View {
+    let detailType: QQDetailType
+    
+    var body: some View {
+        switch detailType {
+        case .artist(let mid, let name, let coverUrl):
+            QQArtistDetailView(mid: mid, name: name, coverUrl: coverUrl)
+        case .album(let mid, let name, let coverUrl, let artistName):
+            QQAlbumDetailView(mid: mid, name: name, coverUrl: coverUrl, artistName: artistName)
+        case .playlist(let id, let name, let coverUrl, let creatorName):
+            QQPlaylistDetailView(playlistId: id, name: name, coverUrl: coverUrl, creatorName: creatorName)
+        }
+    }
+}
+
+
+// MARK: - QQ 歌手详情 ViewModel
+
+@MainActor
+class QQArtistDetailViewModel: ObservableObject {
+    @Published var songs: [Song] = []
+    @Published var albums: [AlbumInfo] = []
+    @Published var mvs: [QQMV] = []
+    @Published var isLoading = true
+    @Published var isLoadingAlbums = false
+    @Published var isLoadingMVs = false
+    @Published var resolvedName: String?
+    @Published var resolvedCoverUrl: String?
+    @Published var resolvedDesc: String?
+    @Published var songCount: Int?
+    @Published var albumCount: Int?
+    @Published var fansCount: Int?
+    
+    let mid: String
+    private var currentPage = 1
+    private var cancellables = Set<AnyCancellable>()
+    
+    init(mid: String) {
+        self.mid = mid
+    }
+    
+    func loadSongs() {
+        currentPage = 1
+        APIService.shared.fetchQQSingerSongs(mid: mid, page: 1, num: 30)
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoading = false
+                if case .failure(let e) = completion { AppLogger.error("[QQArtist] 歌曲加载失败: \(e)") }
+            }, receiveValue: { [weak self] songs in
+                self?.songs = songs
+            })
+            .store(in: &cancellables)
+    }
+    
+    func loadMoreSongs() {
+        currentPage += 1
+        APIService.shared.fetchQQSingerSongs(mid: mid, page: currentPage, num: 30)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] newSongs in
+                guard let self else { return }
+                let ids = Set(self.songs.map(\.id))
+                self.songs.append(contentsOf: newSongs.filter { !ids.contains($0.id) })
+            })
+            .store(in: &cancellables)
+    }
+    
+    @Published var isLoadingAll = false
+    
+    func loadAllSongs() {
+        guard !isLoadingAll else { return }
+        isLoadingAll = true
+        Task { @MainActor in
+            var page = self.currentPage + 1
+            while true {
+                let newSongs: [Song]
+                do {
+                    newSongs = try await withCheckedThrowingContinuation { continuation in
+                        var resumed = false
+                        var bag: AnyCancellable?
+                        bag = APIService.shared.fetchQQSingerSongs(mid: self.mid, page: page, num: 30)
+                            .sink(receiveCompletion: { completion in
+                                if case .failure(let e) = completion, !resumed { resumed = true; continuation.resume(throwing: e) }
+                                bag?.cancel()
+                            }, receiveValue: { songs in
+                                guard !resumed else { return }
+                                resumed = true; continuation.resume(returning: songs); bag?.cancel()
+                            })
+                    }
+                } catch { break }
+                if newSongs.isEmpty { break }
+                let ids = Set(self.songs.map(\.id))
+                let unique = newSongs.filter { !ids.contains($0.id) }
+                if unique.isEmpty { break }
+                self.songs.append(contentsOf: unique)
+                self.currentPage = page
+                page += 1
+            }
+            self.isLoadingAll = false
+        }
+    }
+    
+    func loadInfo() {
+        APIService.shared.fetchQQSingerInfo(mid: mid)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
+                AppLogger.debug("[QQArtist] 歌手详情: \(json)")
+                self?.applyResolvedInfo(from: json)
+            })
+            .store(in: &cancellables)
+
+        // singerInfo 可能不含简介，单独调用 singerDesc 获取
+        APIService.shared.fetchQQSingerDesc(mid: mid)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] desc in
+                guard let self, !desc.isEmpty else { return }
+                if self.resolvedDesc == nil || self.resolvedDesc?.isEmpty == true {
+                    self.resolvedDesc = desc
+                }
+            })
+            .store(in: &cancellables)
+    }
+
+    private func applyResolvedInfo(from json: JSON) {
+        let info = artistInfoContainer(from: json)
+        let baseInfo = info["BaseInfo"] ?? info["baseInfo"]
+        let singerInfo = info["Singer"] ?? info["singer"]
+
+        if let name = firstNonEmptyString([
+            baseInfo?["Name"]?.stringValue,
+            singerInfo?["Name"]?.stringValue,
+            json["name"]?.stringValue,
+            json["singerName"]?.stringValue
+        ]) {
+            resolvedName = name
+        }
+
+        if let coverURL = firstNonEmptyString([
+            baseInfo?["BackgroundImage"]?.stringValue,
+            baseInfo?["Avatar"]?.stringValue,
+            baseInfo?["BigAvatar"]?.stringValue,
+            singerInfo?["SingerPic"]?.stringValue,
+            json["pic"]?.stringValue,
+            json["singerPic"]?.stringValue,
+            json["singer_pic"]?.stringValue,
+            json["headpic"]?.stringValue
+        ]) {
+            resolvedCoverUrl = coverURL.replacingOccurrences(of: "http://", with: "https://")
+        }
+
+        if let desc = firstNonEmptyString([
+            json["desc"]?.stringValue,
+            json["brief"]?.stringValue,
+            json["SingerDesc"]?.stringValue
+        ]) {
+            resolvedDesc = desc
+        }
+
+        if let fans = firstNonNilInt([
+            info["FansNum"]?["Num"]?.intValue,
+            json["fans"]?.intValue,
+            json["fansNum"]?.intValue,
+            json["fans_num"]?.intValue
+        ]) {
+            fansCount = fans
+        }
+
+        if let songCountValue = firstNonNilInt([
+            info["songNum"]?.intValue,
+            info["SongNum"]?.intValue,
+            singerInfo?["songNum"]?.intValue,
+            singerInfo?["SongNum"]?.intValue,
+            json["songNum"]?.intValue,
+            json["song_num"]?.intValue,
+            json["total"]?.intValue
+        ]) {
+            songCount = songCountValue
+        }
+
+        if let albumCountValue = firstNonNilInt([
+            info["albumNum"]?.intValue,
+            info["AlbumNum"]?.intValue,
+            singerInfo?["albumNum"]?.intValue,
+            singerInfo?["AlbumNum"]?.intValue,
+            json["albumNum"]?.intValue,
+            json["album_num"]?.intValue
+        ]) {
+            albumCount = albumCountValue
+        }
+    }
+
+    private func artistInfoContainer(from json: JSON) -> JSON {
+        if let info = json["Info"] {
+            return info
+        }
+        if let info = json["info"] {
+            return info
+        }
+        return json
+    }
+
+    private func firstNonEmptyString(_ candidates: [String?]) -> String? {
+        for candidate in candidates {
+            if let candidate, !candidate.isEmpty {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    private func firstNonNilInt(_ candidates: [Int?]) -> Int? {
+        for candidate in candidates {
+            if let candidate {
+                return candidate
+            }
+        }
+        return nil
+    }
+    
+    func loadAlbums() {
+        guard albums.isEmpty else { return }
+        isLoadingAlbums = true
+        APIService.shared.fetchQQSingerAlbums(mid: mid, num: 30, begin: 0)
+            .sink(receiveCompletion: { [weak self] _ in self?.isLoadingAlbums = false },
+                  receiveValue: { [weak self] list in self?.albums = list })
+            .store(in: &cancellables)
+    }
+    
+    func loadMVs() {
+        guard mvs.isEmpty else { return }
+        isLoadingMVs = true
+        APIService.shared.fetchQQSingerMVs(mid: mid, num: 30, begin: 0)
+            .sink(receiveCompletion: { [weak self] _ in self?.isLoadingMVs = false },
+                  receiveValue: { [weak self] list in self?.mvs = list })
+            .store(in: &cancellables)
+    }
+}
+
+
+// MARK: - QQ 歌手详情页（Hero 大图 + Tab）
+
+struct QQArtistDetailView: View {
+    let mid: String
+    let name: String
+    let coverUrl: String?
+    
+    @StateObject private var viewModel: QQArtistDetailViewModel
+    @Environment(\.colorScheme) private var colorScheme
+    
+    @State private var selectedTab = 0
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
+    @State private var selectedQQMV: QQMVVidItem?
+    @State private var selectedAlbumMid: String?
+    @State private var selectedAlbumName: String?
+    @State private var selectedAlbumCover: String?
+    @State private var selectedAlbumArtist: String?
+    @State private var showAlbumDetail = false
+    @State private var showFullDescription = false
+    @State private var scrollOffset: CGFloat = 0
+    @State private var artistSearchText = ""
+    @State private var isArtistSearching = false
+    @State private var isArtistSelectMode = false
+    @State private var artistSelectedIds: Set<Int> = []
+    @State private var showArtistBatchPlaylist = false
+
+    private let headerImageHeight: CGFloat = 320
+    
+    init(mid: String, name: String, coverUrl: String?) {
+        self.mid = mid
+        self.name = name
+        self.coverUrl = coverUrl
+        _viewModel = StateObject(wrappedValue: QQArtistDetailViewModel(mid: mid))
+    }
+    
+    private var displayName: String { viewModel.resolvedName ?? name }
+    
+    private var displayCoverUrl: URL? {
+        if let resolved = viewModel.resolvedCoverUrl, let url = URL(string: resolved) { return url }
+        if let c = coverUrl, let url = URL(string: c) { return url }
+        return nil
+    }
+    
+    var body: some View {
+        ZStack {
+            (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    heroSection
+
+                    infoSection
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        .padding(.top, -40)
+
+                    tabBar
+                        .padding(.top, 20)
+
+                    tabContent
+                        .padding(.top, 8)
+                        .padding(.bottom, 120)
+                }
+            }
+            .scrollIndicators(.hidden)
+            .monologueScrollOffset($scrollOffset)
+            .ignoresSafeArea(edges: .top)
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+            } else {
+                EmptyView()
+            }
+        }
+        .navigationDestination(isPresented: $showAlbumDetail) {
+            if let albumMid = selectedAlbumMid {
+                QQMusicDetailView(detailType: .album(
+                    mid: albumMid,
+                    name: selectedAlbumName ?? "",
+                    coverUrl: selectedAlbumCover,
+                    artistName: selectedAlbumArtist
+                ))
+            } else {
+                EmptyView()
+            }
+        }
+        .fullScreenCover(item: $selectedQQMV) { item in
+            QQMVPlayerView(vid: item.vid)
+        }
+        .monologueSheet(isPresented: $showFullDescription, preset: .standard){
+            if let desc = viewModel.resolvedDesc {
+                QQArtistBioSheet(name: displayName, coverUrl: displayCoverUrl, desc: desc)
+            }
+        }
+        .monologueSheet(isPresented: $showArtistBatchPlaylist, preset: .standard){
+            BatchAddToPlaylistSheet(songs: artistFilteredSongs.filter { artistSelectedIds.contains($0.id) })
+        }
+        .onAppear {
+            viewModel.loadSongs()
+            viewModel.loadInfo()
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            if newTab == 1 { viewModel.loadAlbums() }
+            if newTab == 2 { viewModel.loadMVs() }
+        }
+    }
+    
+    // MARK: - Hero 大图
+
+    private var heroSection: some View {
+        let stretchHeight = headerImageHeight - scrollOffset
+
+        return ZStack(alignment: .bottom) {
+            if let url = displayCoverUrl {
+                CachedAsyncImage(url: url) {
+                    Rectangle().fill(Color.monologueGlassTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(height: stretchHeight)
+                .clipped()
+                .monologueBackgroundExtension()
+            } else {
+                Rectangle()
+                    .fill(Color.monologueGlassTint)
+                    .frame(height: stretchHeight)
+            }
+
+            LinearGradient(
+                colors: [
+                    .clear, .clear,
+                    (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7")).opacity(0.6),
+                    (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: stretchHeight)
+        }
+        .frame(height: stretchHeight)
+        .padding(.bottom, scrollOffset)
+        .offset(y: scrollOffset)
+    }
+    
+    // MARK: - 信息区域
+    
+    private var infoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .bottom) {
+                Text(displayName)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(2)
+                Spacer()
+                
+                // QCM 标签
+                Text("QCM")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.green.opacity(0.8)))
+            }
+            
+            // 统计信息
+            HStack(spacing: 16) {
+                if let fans = viewModel.fansCount, fans > 0 {
+                    Text(String(format: String(localized: "qq_fans_count"), formatCount(fans)))
+                        .font(.rounded(size: 13))
+                        .foregroundColor(.monologueTextSecondary)
+                }
+                if let ac = viewModel.albumCount, ac > 0 {
+                    Text(String(format: String(localized: "qq_album_count"), ac))
+                        .font(.rounded(size: 13))
+                        .foregroundColor(.monologueTextSecondary)
+                }
+                if let sc = viewModel.songCount, sc > 0 {
+                    Text(String(format: String(localized: "qq_song_count"), sc))
+                        .font(.rounded(size: 13))
+                        .foregroundColor(.monologueTextSecondary)
+                }
+            }
+            
+            // 简介（可点击展开）
+            if let desc = viewModel.resolvedDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 4) {
+                        Text(desc)
+                            .font(.rounded(size: 13))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                        MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary)
+                    }
+                }
+            }
+            
+            // 播放全部
+            HStack(spacing: 12) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
+                        Text("qq_play_all")
+                            .font(.rounded(size: 14, weight: .bold))
+                            .foregroundColor(.monologueIconForeground)
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(Color.monologueIconBackground))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
+                .disabled(viewModel.songs.isEmpty)
+                Spacer()
+            }
+            .padding(.top, 4)
+        }
+    }
+    
+    // MARK: - Tab 栏
+    
+    private var tabBar: some View {
+        HStack(spacing: 28) {
+            tabItem(String(localized: "qq_tab_music"), index: 0)
+            tabItem(String(localized: "qq_tab_album"), index: 1)
+            tabItem(String(localized: "qq_tab_video"), index: 2)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private func tabItem(_ title: String, index: Int) -> some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
+        }) {
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.rounded(size: 17, weight: selectedTab == index ? .bold : .medium))
+                    .foregroundColor(selectedTab == index ? .monologueTextPrimary : .monologueTextSecondary)
+                Capsule()
+                    .fill(selectedTab == index ? Color.monologueIconBackground : Color.clear)
+                    .frame(width: 20, height: 3)
+            }
+        }
+    }
+    
+    // MARK: - Tab 内容
+    
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case 0: songsTab
+        case 1: albumsTab
+        case 2: mvsTab
+        default: EmptyView()
+        }
+    }
+    
+    private var artistFilteredSongs: [Song] {
+        viewModel.songs.filtered(by: artistSearchText)
+    }
+    
+    private var songsTab: some View {
+        Group {
+            if viewModel.isLoading && viewModel.songs.isEmpty {
+                loadingView
+            } else if viewModel.songs.isEmpty {
+                emptyView(String(localized: "qq_no_songs"))
+            } else {
+                VStack(spacing: 0) {
+                    PlaylistSearchBar(
+                        searchText: $artistSearchText,
+                        isSearching: $isArtistSearching,
+                        onSearchActivated: { viewModel.loadAllSongs() },
+                        isSelectMode: $isArtistSelectMode,
+                        selectedIds: $artistSelectedIds,
+                        songs: artistFilteredSongs,
+                        onBatchQueue: {
+                            let selected = artistFilteredSongs.filter { artistSelectedIds.contains($0.id) }
+                            SongBatchActionHelper.addToQueue(selected) {
+                                isArtistSelectMode = false
+                                artistSelectedIds.removeAll()
+                            }
+                        },
+                        onBatchDownload: { batchDownload(from: artistFilteredSongs, ids: artistSelectedIds, reset: { isArtistSelectMode = false; artistSelectedIds.removeAll() }) },
+                        onBatchCollect: { showArtistBatchPlaylist = true }
+                    )
+                    
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(artistFilteredSongs.enumerated()), id: \.element.id) { index, song in
+                            SongListRow(song: song, index: index, isSelecting: isArtistSelectMode, isSelected: artistSelectedIds.contains(song.id), onArtistTap: { _ in }, onDetailTap: { s in
+                                selectedSongForDetail = s
+                                showSongDetail = true
+                            }, onAlbumTap: { _ in }, onTap: {
+                                if isArtistSelectMode {
+                                    if artistSelectedIds.contains(song.id) {
+                                        artistSelectedIds.remove(song.id)
+                                    } else {
+                                        artistSelectedIds.insert(song.id)
+                                    }
+                                } else {
+                                    PlayerManager.shared.play(song: song, in: artistFilteredSongs)
+                                }
+                            })
+                            .onAppear {
+                                if !isArtistSearching && index == viewModel.songs.count - 3 { viewModel.loadMoreSongs() }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 10)
+            }
+        }
+    }
+    
+    private var albumsTab: some View {
+        Group {
+            if viewModel.isLoadingAlbums && viewModel.albums.isEmpty {
+                loadingView
+            } else if viewModel.albums.isEmpty {
+                emptyView(String(localized: "qq_no_albums"))
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.albums) { album in
+                        qqAlbumRow(album)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 8)
+            }
+        }
+    }
+    
+    private func qqAlbumRow(_ album: AlbumInfo) -> some View {
+        Button(action: {
+            // 从 picUrl 反推 mid（格式: ...M000{mid}.jpg）
+            let albumMid = extractMidFromPicUrl(album.picUrl)
+            selectedAlbumMid = albumMid
+            selectedAlbumName = album.name
+            selectedAlbumCover = album.picUrl
+            selectedAlbumArtist = album.artistName
+            showAlbumDetail = true
+        }) {
+            HStack(spacing: 14) {
+                if let coverUrl = album.coverUrl {
+                    CachedAsyncImage(url: coverUrl) {
+                        RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.monologueGlassTint)
+                        .frame(width: 72, height: 72)
+                        .overlay(MonologueIcon(icon: .album, size: 24, color: .monologueTextSecondary.opacity(0.3)))
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(album.name)
+                        .font(.rounded(size: 16, weight: .medium))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        if !album.publishDateText.isEmpty {
+                            Text(album.publishDateText)
+                                .font(.rounded(size: 12))
+                                .foregroundColor(.monologueTextSecondary)
+                        }
+                        if let size = album.size, size > 0 {
+                            Text("\(size) Tracks")
+                                .font(.rounded(size: 12))
+                                .foregroundColor(.monologueTextSecondary)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.4))
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.monologueGlassTint)
+                    .monologueGlass(cornerRadius: 20)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+    }
+    
+    private var mvsTab: some View {
+        Group {
+            if viewModel.isLoadingMVs && viewModel.mvs.isEmpty {
+                loadingView
+            } else if viewModel.mvs.isEmpty {
+                emptyView(String(localized: "qq_no_videos"))
+            } else {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(viewModel.mvs) { mv in
+                        qqMVCard(mv: mv)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 8)
+            }
+        }
+    }
+    
+    private func qqMVCard(mv: QQMV) -> some View {
+        Button(action: {
+            selectedQQMV = QQMVVidItem(vid: mv.vid)
+        }) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .bottomTrailing) {
+                    if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
+                        CachedAsyncImage(url: url) {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.monologueTextSecondary.opacity(0.06))
+                        }
+                        .aspectRatio(16/9, contentMode: .fill)
+                        .frame(height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    } else {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.monologueTextSecondary.opacity(0.06))
+                            .frame(height: 100)
+                    }
+                    if !mv.durationText.isEmpty {
+                        Text(mv.durationText)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.clear).monologueGlass(cornerRadius: 16)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .padding(6)
+                    }
+                }
+                Text(mv.name)
+                    .font(.rounded(size: 13, weight: .medium))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+    }
+    
+    // MARK: - 辅助
+    
+    private var loadingView: some View {
+        VStack {
+            Spacer().frame(height: 60)
+            ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .monologueTextSecondary))
+            Spacer().frame(height: 60)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func emptyView(_ text: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer().frame(height: 60)
+            Text(text).font(.rounded(size: 15)).foregroundColor(.monologueTextSecondary)
+            Spacer().frame(height: 60)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func formatCount(_ count: Int) -> String {
+        if count >= 10000 {
+            let wan = Double(count) / 10000.0
+            return wan >= 100 ? String(localized: "\(Int(wan))万") : String(format: String(localized: "%.1f万"), wan)
+        }
+        return "\(count)"
+    }
+    
+    /// 从 picUrl 中提取 mid（格式: ...M000{mid}.jpg）
+    private func extractMidFromPicUrl(_ picUrl: String?) -> String {
+        guard let url = picUrl else { return "" }
+        // 匹配 M000 后面到 .jpg 之间的字符串
+        if let range = url.range(of: "M000") {
+            let afterM000 = url[range.upperBound...]
+            if let dotRange = afterM000.range(of: ".") {
+                return String(afterM000[..<dotRange.lowerBound])
+            }
+        }
+        return ""
+    }
+    
+    private func batchDownload(from songs: [Song], ids: Set<Int>, reset: @escaping () -> Void) {
+        let selected = songs.filter { ids.contains($0.id) }
+        for song in selected {
+            if song.isQQMusic {
+                DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)
+            } else {
+                DownloadManager.shared.download(song: song, quality: DownloadManager.defaultNeteaseDownloadQuality)
+            }
+        }
+        AlertManager.shared.show(title: String(localized: "已加入下载"), message: String(localized: "已将 \(selected.count) 首歌曲加入下载队列"), primaryButtonTitle: String(localized: "确定"), primaryAction: {})
+        withAnimation { reset() }
+    }
+}
+
+
+// MARK: - QQ 专辑详情 ViewModel
+
+@MainActor
+class QQAlbumDetailViewModel: ObservableObject {
+    @Published var songs: [Song] = []
+    @Published var isLoading = true
+    @Published var resolvedName: String?
+    @Published var resolvedCoverUrl: String?
+    @Published var resolvedArtistName: String?
+    @Published var resolvedDesc: String?
+    @Published var publishDate: String?
+    @Published var songCount: Int?
+    
+    let mid: String
+    private var cancellables = Set<AnyCancellable>()
+    
+    init(mid: String) {
+        self.mid = mid
+    }
+    
+    func fetchData() {
+        // 获取歌曲
+        APIService.shared.fetchQQAlbumSongs(albumMid: mid, page: 1, num: 100)
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoading = false
+                if case .failure(let e) = completion { AppLogger.error("[QQAlbum] 歌曲加载失败: \(e)") }
+            }, receiveValue: { [weak self] songs in
+                self?.songs = songs
+                if self?.songCount == nil || self?.songCount == 0 {
+                    self?.songCount = songs.count
+                }
+            })
+            .store(in: &cancellables)
+        
+        // 获取详情
+        APIService.shared.fetchQQAlbumDetail(albumMid: mid)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
+                self?.handleAlbumDetail(json)
+            })
+            .store(in: &cancellables)
+    }
+    
+    private func handleAlbumDetail(_ json: JSON) {
+        AppLogger.debug("[QQAlbum] 专辑详情: \(json)")
+
+        let basicInfo = json["basicInfo"] ?? json["basic_info"] ?? json
+        let singerList = json["singer"]?["singerList"]?.arrayValue
+            ?? json["singer"]?["list"]?.arrayValue
+            ?? json["singerList"]?.arrayValue
+            ?? json["singer"]?.arrayValue
+            ?? json["singers"]?.arrayValue
+
+        if let name = firstNonEmptyString([
+            basicInfo["albumName"]?.stringValue,
+            basicInfo["album_name"]?.stringValue,
+            basicInfo["name"]?.stringValue,
+            json["albumName"]?.stringValue,
+            json["album_name"]?.stringValue,
+            json["name"]?.stringValue
+        ]) {
+            resolvedName = name
+        }
+
+        if let directCover = firstNonEmptyString([
+            basicInfo["picUrl"]?.stringValue,
+            basicInfo["pic_url"]?.stringValue,
+            basicInfo["pic"]?.stringValue,
+            basicInfo["cover"]?.stringValue,
+            basicInfo["albumPic"]?.stringValue,
+            json["picUrl"]?.stringValue,
+            json["pic_url"]?.stringValue,
+            json["pic"]?.stringValue,
+            json["cover"]?.stringValue,
+            json["albumPic"]?.stringValue
+        ]) {
+            resolvedCoverUrl = directCover.replacingOccurrences(of: "http://", with: "https://")
+        } else {
+            let resolvedAlbumMid = firstNonEmptyString([
+                basicInfo["albumMid"]?.stringValue,
+                basicInfo["albumMID"]?.stringValue,
+                basicInfo["album_mid"]?.stringValue,
+                basicInfo["mid"]?.stringValue,
+                json["albumMid"]?.stringValue,
+                json["albumMID"]?.stringValue,
+                json["album_mid"]?.stringValue,
+                json["mid"]?.stringValue,
+                mid
+            ]) ?? mid
+            resolvedCoverUrl = "https://y.gtimg.cn/music/photo_new/T002R300x300M000\(resolvedAlbumMid).jpg"
+        }
+
+        if let singers = singerList, !singers.isEmpty {
+            let names = singers.compactMap {
+                $0["name"]?.stringValue
+                    ?? $0["singerName"]?.stringValue
+                    ?? $0["title"]?.stringValue
+            }
+            if !names.isEmpty {
+                resolvedArtistName = names.joined(separator: " / ")
+            }
+        } else if let artistName = firstNonEmptyString([
+            basicInfo["singerName"]?.stringValue,
+            basicInfo["singer_name"]?.stringValue,
+            json["singerName"]?.stringValue,
+            json["singer_name"]?.stringValue
+        ]) {
+            resolvedArtistName = artistName
+        }
+
+        if let desc = firstNonEmptyString([
+            basicInfo["desc"]?.stringValue,
+            basicInfo["description"]?.stringValue,
+            json["desc"]?.stringValue,
+            json["description"]?.stringValue
+        ]) {
+            resolvedDesc = desc
+        }
+
+        if let date = firstNonEmptyString([
+            basicInfo["publishDate"]?.stringValue,
+            basicInfo["aDate"]?.stringValue,
+            basicInfo["publicTime"]?.stringValue,
+            basicInfo["publish_date"]?.stringValue,
+            json["publishDate"]?.stringValue,
+            json["aDate"]?.stringValue,
+            json["publicTime"]?.stringValue,
+            json["publish_date"]?.stringValue
+        ]) {
+            publishDate = date
+        }
+
+        if let count = firstNonNilInt([
+            json["totalNum"]?.intValue,
+            json["total_song_num"]?.intValue,
+            json["song_count"]?.intValue,
+            basicInfo["totalNum"]?.intValue,
+            basicInfo["total_song_num"]?.intValue,
+            basicInfo["song_count"]?.intValue
+        ]) {
+            songCount = count
+        }
+    }
+
+    private func firstNonEmptyString(_ candidates: [String?]) -> String? {
+        for candidate in candidates {
+            if let candidate, !candidate.isEmpty {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    private func firstNonNilInt(_ candidates: [Int?]) -> Int? {
+        for candidate in candidates {
+            if let candidate {
+                return candidate
+            }
+        }
+        return nil
+    }
+}
+
+// MARK: - QQ 专辑详情页
+
+struct QQAlbumDetailView: View {
+    let mid: String
+    let name: String
+    let coverUrl: String?
+    let artistName: String?
+    
+    @StateObject private var viewModel: QQAlbumDetailViewModel
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
+    @State private var showAlbumDesc = false
+    @State private var albumSearchText = ""
+    @State private var isAlbumSearching = false
+    @State private var isAlbumSelectMode = false
+    @State private var albumSelectedIds: Set<Int> = []
+    @State private var showAlbumBatchPlaylist = false
+    
+    init(mid: String, name: String, coverUrl: String?, artistName: String?) {
+        self.mid = mid
+        self.name = name
+        self.coverUrl = coverUrl
+        self.artistName = artistName
+        _viewModel = StateObject(wrappedValue: QQAlbumDetailViewModel(mid: mid))
+    }
+    
+    private var displayName: String { viewModel.resolvedName ?? name }
+    private var displayArtist: String? { viewModel.resolvedArtistName ?? artistName }
+    
+    private var displayCoverUrl: URL? {
+        if let resolved = viewModel.resolvedCoverUrl, let url = URL(string: resolved) { return url }
+        if let c = coverUrl, let url = URL(string: c) { return url }
+        return nil
+    }
+    
+    var body: some View {
+        ZStack {
+            MonologueSheetAwareBackground {
+                if SettingsManager.shared.coverBgPlaylist {
+                    PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
+                } else {
+                    MonologueBackground()
+                }
+            }
+
+            VStack(spacing: 0) {
+                headerView
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        PlaylistSearchBar(
+                            searchText: $albumSearchText,
+                            isSearching: $isAlbumSearching,
+                            isSelectMode: $isAlbumSelectMode,
+                            selectedIds: $albumSelectedIds,
+                            songs: viewModel.songs.filtered(by: albumSearchText),
+                            onBatchQueue: {
+                                let selected = viewModel.songs.filtered(by: albumSearchText).filter { albumSelectedIds.contains($0.id) }
+                                SongBatchActionHelper.addToQueue(selected) {
+                                    isAlbumSelectMode = false
+                                    albumSelectedIds.removeAll()
+                                }
+                            },
+                            onBatchDownload: { batchDownload(from: viewModel.songs.filtered(by: albumSearchText), ids: albumSelectedIds, reset: { isAlbumSelectMode = false; albumSelectedIds.removeAll() }) },
+                            onBatchCollect: { showAlbumBatchPlaylist = true }
+                        )
+                        songListSection
+                    }
+                    .padding(.bottom, 100)
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if let count = viewModel.songCount ?? (viewModel.songs.isEmpty ? nil : viewModel.songs.count), count > 0 {
+                    Text(String(format: String(localized: "qq_track_count"), count))
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.monologueTextSecondary)
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail { SongDetailView(song: song) }
+        }
+        .onAppear {
+            viewModel.fetchData()
+        }
+        .monologueSheet(isPresented: $showAlbumDesc, preset: .standard){
+            if let desc = viewModel.resolvedDesc {
+                QQAlbumDescSheet(name: displayName, coverUrl: displayCoverUrl, artistName: displayArtist, desc: desc)
+            }
+        }
+    }
+    
+    // MARK: - 头部
+    
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                CachedAsyncImage(url: displayCoverUrl) {
+                    Color.gray.opacity(0.1)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.detailCoverSize, height: DeviceLayout.detailCoverSize)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text("QCM")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                        
+                        Text(displayName)
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                            .lineLimit(2)
+                    }
+                    
+                    if let artist = displayArtist, !artist.isEmpty {
+                        Text(artist)
+                            .font(.system(size: 13))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                    }
+                    
+                    if let date = viewModel.publishDate, !date.isEmpty {
+                        Text(date)
+                            .font(.rounded(size: 11))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                    }
+                    
+                    Spacer().frame(height: 4)
+                    
+                    Button(action: {
+                        if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
+                            Text(String(localized: "qq_play"))
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .foregroundColor(.monologueIconForeground)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.monologueIconBackground)
+                        .cornerRadius(20)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                }
+            }
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 24)
+        .padding(.top, 16)
+    }
+    
+    // MARK: - 歌曲列表
+    
+    private var songListSection: some View {
+        LazyVStack(spacing: 0) {
+            if viewModel.isLoading {
+                MonologueLoadingView(text: "LOADING TRACKS")
+            } else if viewModel.songs.isEmpty {
+                VStack(spacing: 14) {
+                    MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                    Text(String(localized: "qq_no_songs")).font(.rounded(size: 15)).foregroundColor(.monologueTextSecondary)
+                }
+                .padding(.top, 40)
+            } else {
+                // 专辑简介
+                if let desc = viewModel.resolvedDesc, !desc.isEmpty {
+                    Button(action: { showAlbumDesc = true }) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("qq_album_desc")
+                                    .font(.rounded(size: 15, weight: .semibold))
+                                    .foregroundColor(.monologueTextPrimary)
+                                Spacer()
+                                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
+                            }
+                            Text(desc)
+                                .font(.rounded(size: 13, weight: .regular))
+                                .foregroundColor(.monologueTextSecondary)
+                                .lineLimit(3)
+                                .lineSpacing(4)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(
+                            Color.clear // glassEffect applied via modifier
+                                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.vertical, 12)
+                }
+                
+                let albumDisplaySongs = viewModel.songs.filtered(by: albumSearchText)
+                ForEach(Array(albumDisplaySongs.enumerated()), id: \.element.id) { index, song in
+                    SongListRow(song: song, index: index, isSelecting: isAlbumSelectMode, isSelected: albumSelectedIds.contains(song.id), onArtistTap: { _ in }, onDetailTap: { s in
+                        selectedSongForDetail = s
+                        showSongDetail = true
+                    }, onAlbumTap: { _ in }, onTap: {
+                        if isAlbumSelectMode {
+                            if albumSelectedIds.contains(song.id) {
+                                albumSelectedIds.remove(song.id)
+                            } else {
+                                albumSelectedIds.insert(song.id)
+                            }
+                        } else {
+                            PlayerManager.shared.play(song: song, in: albumDisplaySongs)
+                        }
+                    })
+                }
+                
+                if !isAlbumSearching {
+                    NoMoreDataView()
+                }
+                Color.clear.frame(height: 100)
+            }
+        }
+        .monologueSheet(isPresented: $showAlbumBatchPlaylist, preset: .standard){
+            BatchAddToPlaylistSheet(songs: viewModel.songs.filter { albumSelectedIds.contains($0.id) })
+        }
+    }
+    
+    private func batchDownload(from songs: [Song], ids: Set<Int>, reset: @escaping () -> Void) {
+        let selected = songs.filter { ids.contains($0.id) }
+        for song in selected {
+            if song.isQQMusic {
+                DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)
+            } else {
+                DownloadManager.shared.download(song: song, quality: DownloadManager.defaultNeteaseDownloadQuality)
+            }
+        }
+        AlertManager.shared.show(title: String(localized: "已加入下载"), message: String(localized: "已将 \(selected.count) 首歌曲加入下载队列"), primaryButtonTitle: String(localized: "确定"), primaryAction: {})
+        withAnimation { reset() }
+    }
+}
+
+// MARK: - QQ 专辑简介 Sheet
+
+struct QQAlbumDescSheet: View {
+    let name: String
+    let coverUrl: URL?
+    let artistName: String?
+    let desc: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: coverUrl) {
+                    RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 48, height: 48)
+                .cornerRadius(10)
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name)
+                        .font(.rounded(size: 20, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+                    if let artist = artistName {
+                        Text(artist)
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.monologueTextSecondary)
+                    }
+                }
+                Spacer()
+                Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
+                    MonologueIcon(icon: .close, size: 20, color: .monologueTextSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.monologueSeparator)
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+            
+            Rectangle().fill(Color.monologueSeparator).frame(height: 0.5)
+            
+            ScrollView {
+                Text(desc)
+                    .font(.rounded(size: 15, weight: .regular))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineSpacing(6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(
+                        Color.clear // glassEffect applied via modifier
+                            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 20)
+                    .padding(.bottom, 40)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+}
+
+
+// MARK: - QQ 歌手简介 Sheet
+
+struct QQArtistBioSheet: View {
+    let name: String
+    let coverUrl: URL?
+    let desc: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: coverUrl) {
+                    Circle().fill(Color.monologueGlassTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 48, height: 48)
+                .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name)
+                        .font(.rounded(size: 20, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+                    Text("QCM")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                }
+
+                Spacer()
+
+                Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
+                    MonologueIcon(icon: .close, size: 20, color: .monologueTextSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.monologueSeparator)
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+
+            Rectangle().fill(Color.monologueSeparator).frame(height: 0.5)
+
+            ScrollView {
+                Text(desc)
+                    .font(.rounded(size: 15, weight: .regular))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineSpacing(6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding - 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 40)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+}
+
+
+// MARK: - QQ 歌单详情 ViewModel
+
+@MainActor
+class QQPlaylistDetailViewModel: ObservableObject {
+    @Published var songs: [Song] = []
+    @Published var isLoading = true
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
+    @Published var resolvedCoverUrl: String?
+    @Published var resolvedName: String?
+    
+    let playlistId: Int
+    private var currentPage = 1
+    private var cancellables = Set<AnyCancellable>()
+    
+    init(playlistId: Int) {
+        self.playlistId = playlistId
+    }
+    
+    func fetchSongs() {
+        currentPage = 1
+        APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: 1, num: 50)
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoading = false
+                if case .failure(let e) = completion { AppLogger.error("[QQPlaylist] 加载失败: \(e)") }
+            }, receiveValue: { [weak self] songs in
+                self?.songs = songs
+                self?.hasMore = songs.count >= 20
+            })
+            .store(in: &cancellables)
+    }
+    
+    func loadMore() {
+        guard !isLoadingMore, hasMore else { return }
+        isLoadingMore = true
+        currentPage += 1
+        APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: currentPage, num: 50)
+            .sink(receiveCompletion: { [weak self] _ in self?.isLoadingMore = false },
+                  receiveValue: { [weak self] newSongs in
+                guard let self else { return }
+                let ids = Set(self.songs.map(\.id))
+                self.songs.append(contentsOf: newSongs.filter { !ids.contains($0.id) })
+                self.hasMore = newSongs.count >= 20
+            })
+            .store(in: &cancellables)
+    }
+    
+    @Published var isLoadingAll = false
+    
+    func loadAllSongs(appendToQueue: Bool = false) {
+        Task { @MainActor in
+            await loadAllSongsAsync(appendToQueue: appendToQueue)
+        }
+    }
+    
+    @discardableResult
+    func loadAllSongsAsync(appendToQueue: Bool = false) async -> [Song] {
+        guard !isLoadingAll, hasMore else { return songs }
+        isLoadingAll = true
+        while self.hasMore {
+            self.currentPage += 1
+            let newSongs: [Song]
+            do {
+                newSongs = try await withCheckedThrowingContinuation { continuation in
+                    var resumed = false
+                    var bag: AnyCancellable?
+                    bag = APIService.shared.fetchQQPlaylistSongs(playlistId: self.playlistId, page: self.currentPage, num: 50)
+                        .sink(receiveCompletion: { completion in
+                            if case .failure(let e) = completion, !resumed { resumed = true; continuation.resume(throwing: e) }
+                            bag?.cancel()
+                        }, receiveValue: { songs in
+                            guard !resumed else { return }
+                            resumed = true; continuation.resume(returning: songs); bag?.cancel()
+                        })
+                }
+            } catch { break }
+            if newSongs.isEmpty || newSongs.count < 20 { self.hasMore = false }
+            let ids = Set(self.songs.map(\.id))
+            let unique = newSongs.filter { !ids.contains($0.id) }
+            self.songs.append(contentsOf: unique)
+            if appendToQueue, !unique.isEmpty {
+                PlayerManager.shared.appendContext(songs: unique)
+            }
+        }
+        self.isLoadingAll = false
+        return songs
+    }
+    
+    func fetchDetail() {
+        APIService.shared.fetchQQPlaylistDetail(playlistId: playlistId)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
+                if let logo = json["logo"]?.stringValue ?? json["dirpicurl"]?.stringValue
+                    ?? json["coverImgUrl"]?.stringValue ?? json["cover"]?.stringValue, !logo.isEmpty {
+                    self?.resolvedCoverUrl = logo
+                }
+                if let name = json["dissname"]?.stringValue ?? json["title"]?.stringValue
+                    ?? json["name"]?.stringValue, !name.isEmpty {
+                    self?.resolvedName = name
+                }
+            })
+            .store(in: &cancellables)
+    }
+}
+
+// MARK: - QQ 歌单详情页
+
+struct QQPlaylistDetailView: View {
+    let playlistId: Int
+    let name: String
+    let coverUrl: String?
+    let creatorName: String?
+    
+    @StateObject private var viewModel: QQPlaylistDetailViewModel
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
+    @State private var isCollectedLocally = false
+    @State private var searchText = ""
+    @State private var isSearching = false
+    @State private var isPlaylistSelectMode = false
+    @State private var playlistSelectedIds: Set<Int> = []
+    @State private var showPlaylistBatchPlaylist = false
+    
+    init(playlistId: Int, name: String, coverUrl: String?, creatorName: String?) {
+        self.playlistId = playlistId
+        self.name = name
+        self.coverUrl = coverUrl
+        self.creatorName = creatorName
+        _viewModel = StateObject(wrappedValue: QQPlaylistDetailViewModel(playlistId: playlistId))
+    }
+    
+    private var displayName: String { viewModel.resolvedName ?? name }
+    
+    private var displayCoverUrl: URL? {
+        if let resolved = viewModel.resolvedCoverUrl, let url = URL(string: resolved) { return url }
+        if let c = coverUrl, let url = URL(string: c) { return url }
+        return nil
+    }
+    
+    var body: some View {
+        ZStack {
+            MonologueSheetAwareBackground {
+                if SettingsManager.shared.coverBgPlaylist {
+                    PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
+                        .ignoresSafeArea()
+                } else {
+                    MonologueBackground().ignoresSafeArea()
+                }
+            }
+            
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        headerSection
+                        PlaylistSearchBar(
+                            searchText: $searchText,
+                            isSearching: $isSearching,
+                            onSearchActivated: { viewModel.loadAllSongs() },
+                            isSelectMode: $isPlaylistSelectMode,
+                            selectedIds: $playlistSelectedIds,
+                            songs: viewModel.songs.filtered(by: searchText),
+                            onBatchQueue: {
+                                let selected = qqFilteredSongs.filter { playlistSelectedIds.contains($0.id) }
+                                SongBatchActionHelper.addToQueue(selected) {
+                                    isPlaylistSelectMode = false
+                                    playlistSelectedIds.removeAll()
+                                }
+                            },
+                            onBatchDownload: { qqPlaylistBatchDownload() },
+                            onBatchCollect: { showPlaylistBatchPlaylist = true }
+                        )
+                        songsList
+                    }
+                    .padding(.bottom, 120)
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear {
+            if viewModel.songs.isEmpty {
+                viewModel.fetchSongs()
+                viewModel.fetchDetail()
+            }
+            isCollectedLocally = LocalPlaylistManager.shared.playlists.contains { $0.name == displayName }
+        }
+        .onChange(of: viewModel.resolvedName) { _, _ in
+            isCollectedLocally = LocalPlaylistManager.shared.playlists.contains { $0.name == displayName }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let song = selectedSongForDetail { SongDetailView(song: song) }
+        }
+        .overlay {
+            if viewModel.isLoading && viewModel.songs.isEmpty {
+                MonologueLoadingView(text: "LOADING")
+            }
+        }
+    }
+    
+    typealias Theme = PlaylistDetailView.Theme
+    
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                Group {
+                    if let url = displayCoverUrl {
+                        CachedAsyncImage(url: url) {
+                            Color.gray.opacity(0.1)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                    } else {
+                        ZStack {
+                            Color.monologueGlassTint
+                            MonologueIcon(icon: .musicNote, size: 32, color: .monologueTextSecondary.opacity(0.3))
+                        }
+                    }
+                }
+                .frame(width: DeviceLayout.isPad ? 180 : 120, height: DeviceLayout.isPad ? 180 : 120)
+                .cornerRadius(DeviceLayout.isPad ? 20 : 16)
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(displayName)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    if let creator = creatorName {
+                        Text("by \(creator)")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.secondaryText)
+                            .lineLimit(1)
+                    }
+                    
+                    HStack(spacing: 6) {
+                        Text("QCM")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                    }
+                    
+                    Spacer().frame(height: 4)
+                    
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                                viewModel.loadAllSongs(appendToQueue: true)
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
+                                Text(LocalizedStringKey("play_now"))
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(.monologueIconForeground)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Theme.accent)
+                            .cornerRadius(20)
+                            .monologueGlassCapsule()
+                            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                        
+                        SubscribeButton(
+                            isSubscribed: isCollectedLocally,
+                            action: {
+                                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                                Task {
+                                    let allSongs = await viewModel.loadAllSongsAsync()
+                                    LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isCollectedLocally = true
+                                    }
+                                }
+                            }
+                        )
+                        .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
+        .padding(.top, DeviceLayout.isPad ? 24 : 16)
+        .padding(.bottom, DeviceLayout.isPad ? 32 : 24)
+        .iPadContentWidth(900)
+    }
+    
+    private var qqFilteredSongs: [Song] {
+        viewModel.songs.filtered(by: searchText)
+    }
+    
+    private var songsList: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(Array(qqFilteredSongs.enumerated()), id: \.element.id) { index, song in
+                SongListRow(song: song, index: index, isSelecting: isPlaylistSelectMode, isSelected: playlistSelectedIds.contains(song.id), onArtistTap: { _ in }, onDetailTap: { s in
+                    selectedSongForDetail = s
+                    showSongDetail = true
+                }, onAlbumTap: { _ in }, onTap: {
+                    if isPlaylistSelectMode {
+                        if playlistSelectedIds.contains(song.id) {
+                            playlistSelectedIds.remove(song.id)
+                        } else {
+                            playlistSelectedIds.insert(song.id)
+                        }
+                    } else {
+                        PlayerManager.shared.play(song: song, in: qqFilteredSongs)
+                    }
+                })
+                .onAppear {
+                    if !isSearching && index == viewModel.songs.count - 3 { viewModel.loadMore() }
+                }
+            }
+            
+            if !isSearching {
+                if viewModel.isLoadingMore {
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.8)
+                        Text("qq_loading_more").font(.rounded(size: 13)).foregroundColor(.monologueTextSecondary)
+                    }
+                    .padding(.vertical, 14)
+                }
+                
+                if !viewModel.hasMore && !viewModel.songs.isEmpty {
+                    NoMoreDataView()
+                }
+            }
+        }
+        .monologueSheet(isPresented: $showPlaylistBatchPlaylist, preset: .standard){
+            BatchAddToPlaylistSheet(songs: qqFilteredSongs.filter { playlistSelectedIds.contains($0.id) })
+        }
+    }
+    
+    private func qqPlaylistBatchDownload() {
+        let selected = qqFilteredSongs.filter { playlistSelectedIds.contains($0.id) }
+        for song in selected {
+            if song.isQQMusic {
+                DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)
+            } else {
+                DownloadManager.shared.download(song: song, quality: DownloadManager.defaultNeteaseDownloadQuality)
+            }
+        }
+        AlertManager.shared.show(title: String(localized: "已加入下载"), message: String(localized: "已将 \(selected.count) 首歌曲加入下载队列"), primaryButtonTitle: String(localized: "确定"), primaryAction: {})
+        withAnimation { isPlaylistSelectMode = false; playlistSelectedIds.removeAll() }
+    }
+}

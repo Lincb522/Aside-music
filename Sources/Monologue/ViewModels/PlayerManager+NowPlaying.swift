@@ -1,0 +1,321 @@
+// PlayerManager+NowPlaying.swift
+// Monologue
+//
+// 锁屏/控制中心 Now Playing 信息更新 + 桌面小组件数据同步
+
+import Foundation
+import MediaPlayer
+import UIKit
+import WidgetKit
+
+extension PlayerManager {
+    
+    private static let widgetGroupID = "group.zijiu.Monologue.com"
+    private static let widgetTempoBPMKey = "widget_tempo_bpm"
+    private static let widgetTempoAnalyzingKey = "widget_tempo_analyzing"
+    private static let widgetAlbumNameKey = "widget_album_name"
+    private static let widgetSourceKey = "widget_source"
+    private static let widgetQualityKey = "widget_quality"
+    private static let widgetPlayModeKey = "widget_play_mode"
+    private static let widgetQueueIndexKey = "widget_queue_index"
+    private static let widgetQueueCountKey = "widget_queue_count"
+    
+    // MARK: - Now Playing Info
+
+    func clearNowPlayingInfo() {
+        lastNowPlayingLyricIndex = -1
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+    
+    func updateNowPlayingInfo() {
+        lastNowPlayingLyricIndex = -1
+        
+        var info = [String: Any]()
+        info[MPMediaItemPropertyTitle] = currentSong?.name ?? ""
+        info[MPMediaItemPropertyArtist] = currentSong?.artistName ?? ""
+        info[MPMediaItemPropertyAlbumTitle] = currentSong?.album?.name ?? ""
+        info[MPMediaItemPropertyPlaybackDuration] = duration
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        
+        syncWidgetState()
+    }
+    
+    func updateNowPlayingTime() {
+        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        if duration > 0 {
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+        }
+        
+        let lyricVM = LyricViewModel.shared
+        if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
+            let idx = lyricVM.currentLineIndex
+            if idx != lastNowPlayingLyricIndex {
+                lastNowPlayingLyricIndex = idx
+                let line = lyricVM.lyrics[idx].text
+                if !line.isEmpty {
+                    info[MPMediaItemPropertyArtist] = line
+                } else {
+                    info[MPMediaItemPropertyArtist] = currentSong?.artistName ?? ""
+                }
+                syncWidgetState()
+            }
+        }
+        
+        if CarPlaySceneDelegate.isConnected {
+            info[MPMediaItemPropertyAlbumTitle] = ""
+        }
+        
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+    
+    func updateNowPlayingArtwork(for song: Song?) {
+        guard let coverUrl = song?.coverUrl else { return }
+        let songId = song?.id
+        let groupID = Self.widgetGroupID
+        
+        Task.detached { [weak self] in
+            do {
+                let (data, _) = try await URLSession.shared.data(from: coverUrl)
+                guard let image = UIImage(data: data) else { return }
+                
+                let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                
+                let thumbSize = CGSize(width: 300, height: 300)
+                let renderer = UIGraphicsImageRenderer(size: thumbSize)
+                let thumbnail = renderer.image { _ in
+                    image.draw(in: CGRect(origin: .zero, size: thumbSize))
+                }
+                
+                let colors = image.extractColors()
+                var dominantRGB: [CGFloat] = [0.15, 0.12, 0.25]
+                var secondaryRGB: [CGFloat] = [0.10, 0.10, 0.18]
+                var coverIsDark = true
+                if let dComps = UIColor(colors.dominant).cgColor.components, dComps.count >= 3 {
+                    dominantRGB = [dComps[0], dComps[1], dComps[2]]
+                }
+                if let sComps = UIColor(colors.secondary).cgColor.components, sComps.count >= 3 {
+                    secondaryRGB = [sComps[0], sComps[1], sComps[2]]
+                }
+                coverIsDark = colors.isDark
+                
+                if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) {
+                    if let jpegData = thumbnail.jpegData(compressionQuality: 0.8) {
+                        let fileURL = containerURL.appendingPathComponent("widget_cover.jpg")
+                        try? jpegData.write(to: fileURL, options: .atomic)
+                    }
+                    let defaults = UserDefaults(suiteName: groupID)
+                    defaults?.set(dominantRGB, forKey: "widget_dominantRGB")
+                    defaults?.set(secondaryRGB, forKey: "widget_secondaryRGB")
+                    defaults?.set(coverIsDark, forKey: "widget_coverIsDark")
+                }
+                
+                await MainActor.run { [weak self] in
+                    guard let self = self, self.currentSong?.id == songId else { return }
+                    var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                    info[MPMediaItemPropertyArtwork] = artwork
+                    MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                    
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            } catch {
+                AppLogger.warning("封面图下载失败: \(error)")
+            }
+        }
+    }
+
+    func refreshPlaybackSurfaceState() {
+        if currentSong == nil {
+            clearNowPlayingInfo()
+        } else if MPNowPlayingInfoCenter.default().nowPlayingInfo == nil {
+            updateNowPlayingInfo()
+        } else {
+            updateNowPlayingTime()
+        }
+
+        syncWidgetState()
+
+        #if canImport(ActivityKit) && os(iOS)
+        Task { @MainActor in
+            if currentSong == nil {
+                await LyricsLiveActivityManager.shared.endCurrentActivity()
+            } else {
+                await LyricsLiveActivityManager.shared.sync(with: self)
+            }
+        }
+        #endif
+    }
+    
+    // MARK: - Widget 数据同步
+    
+    func syncWidgetState() {
+        guard let defaults = UserDefaults(suiteName: Self.widgetGroupID) else { return }
+        let songName = currentSong?.name ?? ""
+        let artistName = currentSong?.artistName ?? ""
+        let albumName = currentSong?.album?.name ?? ""
+        let sourceName = currentSong?.musicSource.widgetDisplayName ?? ""
+        let qualityText = currentSong == nil ? "" : qualityButtonText
+        let playModeText = widgetPlayModeText
+        let queueCount = currentSong == nil ? 0 : max(currentContextList.count, 1)
+        let queueIndex = currentSong == nil ? 0 : min(max(currentIndexInContext + 1, 1), queueCount)
+        let playbackState = playbackSurfaceState
+        defaults.set(songName, forKey: "widget_songName")
+        defaults.set(artistName, forKey: "widget_artistName")
+        defaults.set(playbackState.rawValue, forKey: "widget_playbackState")
+        defaults.set(playbackState.isPlaying, forKey: "widget_isPlaying")
+        defaults.set(albumName, forKey: Self.widgetAlbumNameKey)
+        defaults.set(sourceName, forKey: Self.widgetSourceKey)
+        defaults.set(qualityText, forKey: Self.widgetQualityKey)
+        defaults.set(playModeText, forKey: Self.widgetPlayModeKey)
+        defaults.set(queueIndex, forKey: Self.widgetQueueIndexKey)
+        defaults.set(queueCount, forKey: Self.widgetQueueCountKey)
+        let lyricVM = LyricViewModel.shared
+        let lyricText: String = {
+            guard let song = currentSong,
+                  lyricVM.currentSongId == song.id,
+                  lyricVM.hasLyrics,
+                  lyricVM.currentLineIndex >= 0,
+                  lyricVM.currentLineIndex < lyricVM.lyrics.count else { return "" }
+            let text = lyricVM.lyrics[lyricVM.currentLineIndex].text
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return text
+        }()
+        defaults.set(lyricText, forKey: "widget_lyricText")
+        syncWidgetTempo(for: currentSong, playbackState: playbackState, defaults: defaults)
+        let metadataSignature = [
+            songName,
+            artistName,
+            albumName,
+            sourceName,
+            qualityText,
+            playModeText,
+            "\(queueIndex)",
+            "\(queueCount)",
+            lyricText
+        ].joined(separator: "|")
+        if songName != lastWidgetSongName
+            || playbackState != lastWidgetPlaybackState
+            || metadataSignature != lastWidgetMetadataSignature {
+            lastWidgetSongName = songName
+            lastWidgetPlaybackState = playbackState
+            lastWidgetMetadataSignature = metadataSignature
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    private func syncWidgetTempo(
+        for song: Song?,
+        playbackState: PlaybackSurfaceState,
+        defaults: UserDefaults
+    ) {
+        let songID = song?.id
+        let hasTempoValue = (defaults.object(forKey: Self.widgetTempoBPMKey) as? Int).map { $0 > 0 } ?? false
+        let shouldRetrySameSong = lastWidgetTempoSongID == songID
+            && !hasTempoValue
+            && widgetTempoSyncTask == nil
+            && playbackState.isPlaying
+
+        guard lastWidgetTempoSongID != songID || shouldRetrySameSong else { return }
+
+        if lastWidgetTempoSongID != songID {
+            lastWidgetTempoSongID = songID
+            widgetTempoSyncTask?.cancel()
+            widgetTempoSyncTask = nil
+        }
+
+        guard let song else {
+            clearWidgetTempo(in: defaults, reload: true)
+            return
+        }
+
+        if let cachedAnalysis = cachedWidgetTempoAnalysis(for: song.id) {
+            writeWidgetTempo(from: cachedAnalysis, songID: song.id, defaults: defaults)
+            return
+        }
+
+        guard playbackState.isPlaying else {
+            defaults.removeObject(forKey: Self.widgetTempoBPMKey)
+            defaults.set(false, forKey: Self.widgetTempoAnalyzingKey)
+            WidgetCenter.shared.reloadAllTimelines()
+            return
+        }
+
+        defaults.removeObject(forKey: Self.widgetTempoBPMKey)
+        defaults.set(true, forKey: Self.widgetTempoAnalyzingKey)
+        WidgetCenter.shared.reloadAllTimelines()
+
+        let requestedSongID = song.id
+        let requestedSong = song
+        widgetTempoSyncTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.widgetTempoSyncTask = nil }
+
+            var resolvedAnalysis: AudioAnalysisResult?
+            for attempt in 0..<2 {
+                guard !Task.isCancelled else { return }
+
+                if let analysis = await AudioLabManager.shared.estimateTempoFromCurrentPlayback(for: requestedSong) {
+                    resolvedAnalysis = analysis
+                    break
+                }
+
+                if attempt == 0 {
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                }
+            }
+
+            guard !Task.isCancelled,
+                  self.currentSong?.id == requestedSongID,
+                  let defaults = UserDefaults(suiteName: Self.widgetGroupID) else {
+                return
+            }
+
+            if let analysis = resolvedAnalysis ?? self.cachedWidgetTempoAnalysis(for: requestedSongID) {
+                self.writeWidgetTempo(from: analysis, songID: requestedSongID, defaults: defaults)
+            } else {
+                self.clearWidgetTempo(in: defaults, reload: true)
+            }
+        }
+    }
+
+    private func cachedWidgetTempoAnalysis(for songID: Int) -> AudioAnalysisResult? {
+        AudioLabManager.shared.cachedAnalysis(for: songID)
+    }
+
+    private func writeWidgetTempo(from analysis: AudioAnalysisResult, songID: Int, defaults: UserDefaults) {
+        guard currentSong?.id == songID else { return }
+
+        let bpmValue = Int(analysis.bpm.rounded())
+        guard bpmValue > 0 else {
+            clearWidgetTempo(in: defaults, reload: true)
+            return
+        }
+
+        defaults.set(bpmValue, forKey: Self.widgetTempoBPMKey)
+        defaults.set(false, forKey: Self.widgetTempoAnalyzingKey)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func clearWidgetTempo(in defaults: UserDefaults, reload: Bool) {
+        defaults.removeObject(forKey: Self.widgetTempoBPMKey)
+        defaults.set(false, forKey: Self.widgetTempoAnalyzingKey)
+
+        if reload {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    private var widgetPlayModeText: String {
+        switch mode {
+        case .sequence:
+            return "顺序"
+        case .loopSingle:
+            return "单曲循环"
+        case .shuffle:
+            return "随机"
+        }
+    }
+}

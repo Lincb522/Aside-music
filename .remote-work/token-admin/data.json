@@ -1,0 +1,12 @@
+{
+  "adminPassword": "9c9836e8fc18232c",
+  "globalEnabled": false,
+  "rateLimitEnabled": true,
+  "defaultRateLimit": 60,
+  "downloadLimitEnabled": false,
+  "defaultDownloadLimit": 0,
+  "deviceBindEnabled": false,
+  "maxDevicesPerToken": 3,
+  "ipaReleases": [],
+  "tokens": []
+}
