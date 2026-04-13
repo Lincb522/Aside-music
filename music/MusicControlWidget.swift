@@ -3032,7 +3032,7 @@ private struct MangaTheme: View {
                             .padding(.top, 10)
                         
                         // Right column layout
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) { // Reduced spacing to give bubble max room
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Spacer().frame(height: 10) // Internal top buffer for the overlay header
@@ -3063,7 +3063,7 @@ private struct MangaTheme: View {
                                         Spacer(minLength: 0) // Allows bubble to stretch when empty
                                     }
                                 }
-                                .frame(minHeight: 64, alignment: .top) // Enforce a fat bubble default!
+                                .frame(minHeight: 74, alignment: .top) // Enforce a taller fat bubble default!
                             }
                             .overlay(alignment: .topLeading) {
                                 nowPlayingHeader
@@ -3074,14 +3074,14 @@ private struct MangaTheme: View {
                             
                             if !entry.isEmpty {
                                 HStack(spacing: 6) {
-                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 30, h: 26, style: .normal)
-                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 38, h: 38, style: .play)
-                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 30, h: 26, style: .normal)
+                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 22, style: .normal)
+                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 32, style: .play)
+                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 22, style: .normal)
                                 }
                                 .padding(.leading, 8) // Align perfectly flush with the bubble's square edge (bypassing the tail width)
-                                .padding(.bottom, 12) // Keep distance from the bottom edge
+                                .padding(.bottom, 8) // Minimized padding to push bubble downward
                             } else {
-                                Spacer().frame(height: 38)
+                                Spacer().frame(height: 32)
                             }
                         }
                         .padding(.top, 24) // Give room for header popping out of top bounds
