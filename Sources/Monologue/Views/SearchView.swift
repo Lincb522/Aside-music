@@ -245,9 +245,9 @@ struct SearchView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            MonologueIcon(icon: .play, size: 14, color: .white)
+                            MonologueIcon(icon: .play, size: 14, color: Color(UIColor.systemBackground))
                                 .frame(width: 24, height: 24)
-                                .background(Color.monologueBrand)
+                                .background(Color.monologueTextPrimary)
                                 .clipShape(Circle())
                             
                             Text(String(localized: "artist_play_all"))
