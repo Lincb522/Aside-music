@@ -2654,7 +2654,7 @@ private struct MangaHeartShape: Shape {
 private struct MangaChatBubbleShape: Shape {
     var cornerRadius: CGFloat = 16
     var tailSize: CGFloat = 8
-    var tailOffset: CGFloat = 18
+    var tailOffset: CGFloat = 34
 
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -3027,22 +3027,24 @@ private struct MangaTheme: View {
                 .allowsHitTesting(false)
 
                 ZStack(alignment: .top) {
-                    VStack(spacing: 0) {
-                        HStack(alignment: .center, spacing: 12) {
-                            coverView(side: coverSide)
-                            
+                    HStack(alignment: .center, spacing: 14) {
+                        coverView(side: 104) // Much larger cover taking full height
+                            .padding(.top, 10)
+                        
+                        // Right column layout
+                        VStack(spacing: 8) {
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Spacer().frame(height: 6) // Internal top buffer for the centered header overlap
+                                    Spacer().frame(height: 10) // Internal top buffer for the overlay header
 
                                     Text(song)
-                                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                        .font(.system(size: 13, weight: .heavy, design: .rounded))
                                         .foregroundStyle(ink)
                                         .lineLimit(2)
                                         .minimumScaleFactor(0.85)
 
                                     Text(artist)
-                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundStyle(inkSub)
                                         .lineLimit(1)
 
@@ -3053,7 +3055,7 @@ private struct MangaTheme: View {
                                             .padding(.vertical, 2)
 
                                         Text(lyric)
-                                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                                            .font(.system(size: 11, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
                                             .lineLimit(nil)
                                             .fixedSize(horizontal: false, vertical: true)
@@ -3061,34 +3063,40 @@ private struct MangaTheme: View {
                                         Spacer(minLength: 0) // Allows bubble to stretch when empty
                                     }
                                 }
-                                .frame(minHeight: 62, alignment: .top) // Enforce a fat bubble default!
+                                .frame(minHeight: 64, alignment: .top) // Enforce a fat bubble default!
                             }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.top, 14)
-
-                        Spacer(minLength: 2)
-
-                        ZStack(alignment: .bottomTrailing) {
+                            .overlay(alignment: .topLeading) {
+                                nowPlayingHeader
+                                    .alignmentGuide(.top) { d in d[VerticalAlignment.center] }
+                                    .offset(x: 24, y: 0)
+                            }
+                            // Extra space below the bubble to accommodate play controls tightly
+                            
                             if !entry.isEmpty {
                                 HStack(spacing: 6) {
-                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 20, style: .normal)
-                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 32, style: .play)
-                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 20, style: .normal)
+                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 34, h: 28, style: .normal)
+                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 44, h: 44, style: .play)
+                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 34, h: 28, style: .normal)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.bottom, 10)
+                                .padding(.bottom, 6)
+                            } else {
+                                Spacer().frame(height: 44)
                             }
-
+                        }
+                        .padding(.top, 24) // Give room for header popping out of top bounds
+                    }
+                    .padding(.horizontal, 16)
+                    
+                    // BPM Footer overlaid globally bottom right
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
                             bpmFooter
-                                .padding(.trailing, 16)
-                                .padding(.bottom, 12)
                         }
                     }
-
-                    // Absolutely Centered Header overlapping the top components
-                    nowPlayingHeader
-                        .padding(.top, 6)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 12)
                 }
             }
         }
