@@ -2959,11 +2959,20 @@ private struct MangaTheme: View {
                 VStack(spacing: 0) {
                     HStack(alignment: .top, spacing: 12) {
                         coverView(side: coverSide)
-                            .padding(.top, 10)
+                            .padding(.top, 14)
                         
-                        ZStack(alignment: .top) {
+                        VStack(spacing: -12) {
+                            HStack {
+                                Spacer(minLength: 0)
+                                nowPlayingHeader
+                                Spacer(minLength: 0)
+                            }
+                            .zIndex(1)
+
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
+                                    Spacer().frame(height: 8) // Prevents text from hitting the overlapping header!
+
                                     Text(song)
                                         .font(.system(size: 12, weight: .heavy, design: .rounded))
                                         .foregroundStyle(ink)
@@ -2989,13 +2998,10 @@ private struct MangaTheme: View {
                                     }
                                 }
                             }
-                            .padding(.top, 12)
-
-                            nowPlayingHeader
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.top, 10)
+                    .padding(.top, 8)
 
                     Spacer(minLength: 2)
 
