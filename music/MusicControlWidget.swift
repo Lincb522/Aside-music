@@ -3056,7 +3056,7 @@ private struct MangaTheme: View {
                                         Text(lyric)
                                             .font(.system(size: 11, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
-                                            .lineLimit(nil) // Absolutely no line limits to show all words
+                                            .lineLimit(4) // Cap at 4 lines so the engine can bound and scale the text instead of discarding it out of bounds
                                             .minimumScaleFactor(0.5) // Gracefully scale down text size if it fills up the entire layout height
                                     }
                                 }
@@ -3156,7 +3156,7 @@ private struct MangaTheme: View {
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundStyle(ink.opacity(0.75))
                             .multilineTextAlignment(.center)
-                            .lineLimit(nil)
+                            .lineLimit(5)
                             .minimumScaleFactor(0.7)
                             .padding(.horizontal, 22)
                             .padding(.top, 10)
