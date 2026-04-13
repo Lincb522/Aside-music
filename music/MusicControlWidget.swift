@@ -3797,10 +3797,14 @@ struct PagerWidgetTheme: View {
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(2)
                         .foregroundStyle(brandDim)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                     Text(" P A G E R")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(2)
                         .foregroundStyle(brandBright)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
 
                     Spacer()
 
@@ -3920,10 +3924,14 @@ struct PagerWidgetTheme: View {
                 .font(.system(size: fontSize, weight: .bold, design: .rounded))
                 .tracking(1.5)
                 .foregroundStyle(brandDim)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             Text(" P A G E R")
                 .font(.system(size: fontSize, weight: .bold, design: .rounded))
                 .tracking(1.5)
                 .foregroundStyle(brandBright)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
 
             Spacer()
 
