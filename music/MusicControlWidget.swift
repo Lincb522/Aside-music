@@ -2750,7 +2750,7 @@ private struct MangaTheme: View {
 
     private var smallWidget: some View {
         GeometryReader { g in
-            let coverSide = max(g.size.width * 0.50, 64)
+            let coverSide = max(g.size.width * 0.46, 60)
 
             ZStack {
                 mangaCanvasBackdrop(size: g.size)
@@ -2760,8 +2760,8 @@ private struct MangaTheme: View {
                     Image(systemName: "sparkle")
                         .font(.system(size: 14))
                         .foregroundStyle(accentPink)
-                        .rotationEffect(.degrees(15))
-                        .position(x: 24, y: 30)
+                        .rotationEffect(.degrees(10))
+                        .position(x: 20, y: 26) // Hugging top-left of cover
                     
                     ZStack {
                         Image(systemName: "star.fill")
@@ -2772,36 +2772,36 @@ private struct MangaTheme: View {
                             .foregroundStyle(ink)
                     }
                     .rotationEffect(.degrees(20))
-                    .position(x: g.size.width - 24, y: 24)
+                    .position(x: g.size.width - 24, y: 20)
                         
                     Circle()
                         .fill(Color(hex: "CEF09D")) // Lime green dot
                         .frame(width: 8, height: 8)
-                        .position(x: 28, y: g.size.height - 28)
+                        .position(x: 26, y: g.size.height - 24)
                         
                     Image(systemName: "heart.fill")
                         .font(.system(size: 12))
                         .foregroundStyle(accentPink)
-                        .rotationEffect(.degrees(-10))
-                        .position(x: g.size.width - 24, y: g.size.height - 30)
+                        .rotationEffect(.degrees(-15))
+                        .position(x: g.size.width - 20, y: g.size.height - 24)
                 }
                 .allowsHitTesting(false)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 16)
                     
-                    HStack(alignment: .center, spacing: 12) {
+                    HStack(alignment: .center, spacing: 10) {
                         coverView(side: coverSide)
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(song)
-                                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
                                 .foregroundStyle(ink)
                                 .lineLimit(3)
                                 .minimumScaleFactor(0.85)
                                 
                             Text(artist)
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
                                 .foregroundStyle(inkSub)
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.85)
@@ -2813,14 +2813,14 @@ private struct MangaTheme: View {
                     Spacer(minLength: 14)
                     
                     if !entry.isEmpty {
-                        HStack(spacing: 8) {
-                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 38, h: 30, style: .normal)
-                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 46, h: 46, style: .play)
-                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 38, h: 30, style: .normal)
+                        HStack(spacing: 6) {
+                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 22, style: .normal)
+                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 36, style: .play)
+                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 22, style: .normal)
                         }
-                        .padding(.bottom, 18)
+                        .padding(.bottom, 16)
                     } else {
-                        Spacer().frame(height: 18)
+                        Spacer().frame(height: 16)
                     }
                 }
             }
