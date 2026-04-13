@@ -2675,42 +2675,57 @@ private struct MangaTheme: View {
                     .fill(ink)
                     .offset(x: 4, y: 4)
             )
+
+            if !entry.qualityText.isEmpty {
+                Text(entry.qualityText)
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .foregroundStyle(ink)
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(labelYellow))
+                    .overlay(Capsule().stroke(ink, lineWidth: 2.5))
+                    .background(Capsule().fill(ink).offset(x: 2.5, y: 2.5))
+                    .rotationEffect(.degrees(-12))
+                    .offset(x: 12, y: -4)
+            }
         }
     }
 
     private var nowPlayingHeader: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
+            Image(systemName: "music.note")
+                .font(.system(size: 10, weight: .black))
             Text("NOW PLAYING")
-                .font(.system(size: 8, weight: .heavy, design: .rounded))
-                .tracking(0.8)
-                .foregroundStyle(ink)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(labelYellow))
-                .overlay(Capsule().stroke(ink.opacity(0.32), lineWidth: 1))
-                .shadow(color: .black.opacity(0.12), radius: 4, x: 0, y: 2)
-
-            Image(systemName: "star.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(labelYellow)
-                .shadow(color: ink.opacity(0.22), radius: 0, x: 1, y: 1)
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .tracking(1.0)
         }
+        .foregroundStyle(ink)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(labelYellow))
+        .overlay(Capsule().stroke(ink, lineWidth: 3))
+        .background(Capsule().fill(ink).offset(x: 3, y: 3))
     }
 
     private func mangaBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.9))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(ink.opacity(0.26), lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(ink, lineWidth: 3.5)
             )
-            .shadow(color: ink.opacity(0.1), radius: 10, x: 0, y: 4)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(ink)
+                    .offset(x: 4.5, y: 4.5)
+            )
     }
 
     private enum MediaBtnStyle {
@@ -2744,9 +2759,22 @@ private struct MangaTheme: View {
     private var bpmFooter: some View {
         Group {
             if let b = entry.tempoBPM, b > 0 {
-                Text("\(b) BPM")
-                    .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(inkSub.opacity(0.88))
+                HStack(spacing: 2) {
+                    Text("\(b)")
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundStyle(inkSub.opacity(0.7))
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(accentPink)
+                        .offset(y: -1)
+                    Text("bpm")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(inkSub.opacity(0.7))
+                }
+            } else {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(accentPink)
             }
         }
     }
@@ -2837,95 +2865,97 @@ private struct MangaTheme: View {
 
     private var mediumWidget: some View {
         GeometryReader { g in
-            let coverSide = min(g.size.height * 0.52, 100)
+            let coverSide = max(g.size.width * 0.30, 100)
 
             ZStack {
                 mangaCanvasBackdrop(size: g.size)
 
-                VStack {
-                    HStack {
-                        Image(systemName: "sparkle")
-                            .font(.system(size: 10))
-                            .foregroundStyle(accentPink.opacity(0.42))
-                        Spacer()
+                // Widget outer comic border
+                ContainerRelativeShape()
+                    .stroke(ink, lineWidth: 2)
+
+                // Background decorations
+                ZStack {
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(accentPink)
+                        .rotationEffect(.degrees(10))
+                        .position(x: 28, y: 30)
+                    
+                    ZStack {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(labelYellow.opacity(0.65))
+                            .font(.system(size: 16))
+                            .foregroundStyle(labelYellow)
+                        Image(systemName: "star")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(ink)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(accentPink.opacity(0.34))
-                    }
-                    .padding(12)
+                    .rotationEffect(.degrees(20))
+                    .position(x: g.size.width - 28, y: 26)
+                        
+                    Circle()
+                        .fill(Color(hex: "CEF09D"))
+                        .frame(width: 8, height: 8)
+                        .position(x: 34, y: g.size.height - 24)
                 }
                 .allowsHitTesting(false)
 
                 VStack(spacing: 0) {
-                    HStack {
-                        Spacer(minLength: 0)
+                    VStack(spacing: -14) {
                         nowPlayingHeader
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.top, 10)
+                            .zIndex(1)
 
-                    Spacer(minLength: 4)
+                        HStack(alignment: .center, spacing: 14) {
+                            coverView(side: coverSide)
+                            
+                            mangaBubble {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(song)
+                                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(ink)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.8)
 
-                    HStack(alignment: .center, spacing: 10) {
-                        coverView(side: coverSide)
+                                    Text(artist)
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                        .foregroundStyle(inkSub)
+                                        .lineLimit(1)
 
-                        mangaBubble {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(song)
-                                    .font(.system(size: 14, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(ink)
-                                    .lineLimit(3)
-                                    .minimumScaleFactor(0.7)
+                                    if !lyric.isEmpty {
+                                        Rectangle()
+                                            .fill(ink.opacity(0.12))
+                                            .frame(height: 1.5)
+                                            .padding(.vertical, 4)
 
-                                Text(artist)
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(inkSub)
-                                    .lineLimit(2)
-
-                                if !lyric.isEmpty {
-                                    Rectangle()
-                                        .fill(ink.opacity(0.12))
-                                        .frame(height: 1)
-                                        .padding(.vertical, 4)
-
-                                    Text(lyric)
-                                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                                        .foregroundStyle(ink.opacity(0.78))
-                                        .lineLimit(nil)
-                                        .minimumScaleFactor(0.7)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                        Text(lyric)
+                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .foregroundStyle(ink.opacity(0.8))
+                                            .lineLimit(2)
+                                            .minimumScaleFactor(0.85)
+                                    }
                                 }
                             }
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
 
-                    Spacer(minLength: 4)
+                    Spacer(minLength: 12)
 
                     ZStack(alignment: .bottomTrailing) {
                         if !entry.isEmpty {
-                            HStack {
-                                Spacer(minLength: 0)
-                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 36, h: 28, style: .normal)
-                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 42, h: 42, style: .play)
-                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 36, h: 28, style: .normal)
-                                Spacer(minLength: 0)
+                            HStack(spacing: 6) {
+                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 30, h: 26, style: .normal)
+                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 38, h: 42, style: .play)
+                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 30, h: 26, style: .normal)
                             }
-                            .padding(.bottom, 10)
+                            .frame(maxWidth: .infinity)
+                            .padding(.bottom, 16)
                         }
 
                         bpmFooter
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 11)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 22)
                     }
                 }
             }
