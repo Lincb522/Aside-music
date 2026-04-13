@@ -2623,6 +2623,11 @@ private struct MangaTheme: View {
         [Color(hex: "E8F4FD"), Color(hex: "FDE8F0"), Color(hex: "FFF8EC")]
     }
 
+    private var extractedPlayBtn: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "5E5A53") }
+        return Color(red: Double(entry.dominantRGB[0]), green: Double(entry.dominantRGB[1]), blue: Double(entry.dominantRGB[2]))
+    }
+
     private func mangaCanvasBackdrop(size: CGSize) -> some View {
         ZStack {
             LinearGradient(colors: bgColors, startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -2721,7 +2726,7 @@ private struct MangaTheme: View {
                 .frame(width: w, height: h)
                 .background(
                     RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
-                        .fill(style == .play ? Color(hex: "5E5A53") : Color.white)
+                        .fill(style == .play ? extractedPlayBtn : Color.white)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
