@@ -2625,37 +2625,21 @@ private struct MangaTheme: View {
 
     private func mangaCanvasBackdrop(size: CGSize) -> some View {
         ZStack {
-            LinearGradient(colors: bgColors, startPoint: .leading, endPoint: .trailing)
+            LinearGradient(colors: bgColors, startPoint: .topLeading, endPoint: .bottomTrailing)
             Canvas { context, sz in
-                let gap: CGFloat = 10
-                let dotR: CGFloat = 0.4
-                var y: CGFloat = 0
-                var row = 0
+                let gap: CGFloat = 16
+                let dotR: CGFloat = 1.0
+                var y: CGFloat = gap/2
+                var isEven = true
                 while y < sz.height + gap {
-                    var x: CGFloat = row.isMultiple(of: 2) ? 0 : gap * 0.5
+                    var x: CGFloat = isEven ? gap/2 : gap
                     while x < sz.width + gap {
                         let rect = CGRect(x: x - dotR, y: y - dotR, width: dotR * 2, height: dotR * 2)
-                        context.fill(Path(ellipseIn: rect), with: .color(ink.opacity(0.04)))
+                        context.fill(Path(ellipseIn: rect), with: .color(ink.opacity(0.12)))
                         x += gap
                     }
                     y += gap
-                    row += 1
-                }
-                let blobs: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
-                    (0.08, 0.12, 14, 0.06),
-                    (0.92, 0.08, 12, 0.05),
-                    (0.12, 0.86, 16, 0.05),
-                    (0.9, 0.84, 11, 0.055),
-                    (0.52, 0.06, 9, 0.035)
-                ]
-                for b in blobs {
-                    let cx = sz.width * b.0
-                    let cy = sz.height * b.1
-                    let rad = b.2
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: cx - rad, y: cy - rad, width: rad * 2, height: rad * 2)),
-                        with: .color(accentPink.opacity(b.3))
-                    )
+                    isEven.toggle()
                 }
             }
         }
@@ -2676,24 +2660,16 @@ private struct MangaTheme: View {
                 }
             }
             .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: side * 0.24, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(ink.opacity(0.4), lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
+                    .stroke(ink, lineWidth: 3)
             )
-            .shadow(color: ink.opacity(0.12), radius: 8, x: 0, y: 4)
-
-            if !entry.qualityText.isEmpty {
-                Text(entry.qualityText)
-                    .font(.system(size: 7, weight: .bold, design: .rounded))
-                    .foregroundStyle(ink)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(labelYellow.opacity(0.95)))
-                    .overlay(Capsule().stroke(ink.opacity(0.3), lineWidth: 0.8))
-                    .shadow(color: .black.opacity(0.08), radius: 2, x: 0, y: 1)
-                    .padding(6)
-            }
+            .background(
+                RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
+                    .fill(ink)
+                    .offset(x: 4, y: 4)
+            )
         }
     }
 
@@ -2737,22 +2713,25 @@ private struct MangaTheme: View {
         case play
     }
 
-    private func mediaButton(intent: some AppIntent, icon: String, size: CGFloat, style: MediaBtnStyle) -> some View {
+    private func mediaButton(intent: some AppIntent, icon: String, w: CGFloat, h: CGFloat, style: MediaBtnStyle) -> some View {
         Button(intent: intent) {
             Image(systemName: icon)
-                .font(.system(size: size * 0.38, weight: .bold))
+                .font(.system(size: min(w, h) * 0.45, weight: .black))
                 .foregroundStyle(style == .play ? Color.white : ink)
-                .frame(width: size, height: size)
+                .frame(width: w, height: h)
                 .background(
-                    RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                        .fill(style == .play ? accentPink : Color.white.opacity(0.95))
+                    RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
+                        .fill(style == .play ? Color(hex: "5E5A53") : Color.white)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                        .stroke(ink.opacity(0.2), lineWidth: 1.2)
+                    RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
+                        .stroke(ink, lineWidth: 3)
                 )
-                .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 3)
-                .contentTransition(.symbolEffect(.replace))
+                .background(
+                    RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
+                        .fill(ink)
+                        .offset(x: 3, y: 3)
+                )
         }
         .buttonStyle(.plain)
     }
@@ -2771,62 +2750,77 @@ private struct MangaTheme: View {
 
     private var smallWidget: some View {
         GeometryReader { g in
-            let coverSide = min(g.size.height * 0.42, 64)
+            let coverSide = max(g.size.width * 0.50, 64)
 
             ZStack {
                 mangaCanvasBackdrop(size: g.size)
 
-                VStack {
-                    HStack {
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(accentPink.opacity(0.38))
-                        Spacer()
-                        Image(systemName: "music.note")
-                            .font(.system(size: 12))
-                            .foregroundStyle(decoBlue.opacity(0.5))
+                // 漫画风背景点缀装饰
+                ZStack {
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 14))
+                        .foregroundStyle(accentPink)
+                        .rotationEffect(.degrees(15))
+                        .position(x: 24, y: 30)
+                    
+                    ZStack {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(labelYellow)
+                        Image(systemName: "star")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(ink)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.top, 8)
-                    Spacer()
+                    .rotationEffect(.degrees(20))
+                    .position(x: g.size.width - 24, y: 24)
+                        
+                    Circle()
+                        .fill(Color(hex: "CEF09D")) // Lime green dot
+                        .frame(width: 8, height: 8)
+                        .position(x: 28, y: g.size.height - 28)
+                        
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(accentPink)
+                        .rotationEffect(.degrees(-10))
+                        .position(x: g.size.width - 24, y: g.size.height - 30)
                 }
                 .allowsHitTesting(false)
 
                 VStack(spacing: 0) {
-                    HStack(alignment: .center, spacing: 8) {
+                    Spacer(minLength: 16)
+                    
+                    HStack(alignment: .center, spacing: 12) {
                         coverView(side: coverSide)
-
+                        
                         VStack(alignment: .leading, spacing: 4) {
                             Text(song)
-                                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                .font(.system(size: 15, weight: .heavy, design: .rounded))
                                 .foregroundStyle(ink)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.75)
-
+                                .lineLimit(3)
+                                .minimumScaleFactor(0.85)
+                                
                             Text(artist)
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
                                 .foregroundStyle(inkSub)
                                 .lineLimit(2)
-                                .minimumScaleFactor(0.8)
+                                .minimumScaleFactor(0.85)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.top, 10)
-
-                    Spacer(minLength: 6)
-
+                    .padding(.horizontal, 14)
+                    
+                    Spacer(minLength: 14)
+                    
                     if !entry.isEmpty {
-                        HStack {
-                            Spacer(minLength: 0)
-                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", size: 28, style: .normal)
-                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, size: 34, style: .play)
-                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", size: 28, style: .normal)
-                            Spacer(minLength: 0)
+                        HStack(spacing: 8) {
+                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 38, h: 30, style: .normal)
+                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 46, h: 46, style: .play)
+                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 38, h: 30, style: .normal)
                         }
-                        .padding(.bottom, 10)
+                        .padding(.bottom, 18)
                     } else {
-                        Spacer().frame(height: 8)
+                        Spacer().frame(height: 18)
                     }
                 }
             }
