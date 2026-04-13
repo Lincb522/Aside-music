@@ -2651,6 +2651,38 @@ private struct MangaHeartShape: Shape {
     }
 }
 
+private struct MangaChatBubbleShape: Shape {
+    var cornerRadius: CGFloat = 16
+    var tailSize: CGFloat = 8
+    var tailOffset: CGFloat = 18
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        
+        let tr = CGPoint(x: rect.maxX, y: rect.minY)
+        let br = CGPoint(x: rect.maxX, y: rect.maxY)
+        let bl = CGPoint(x: rect.minX + tailSize, y: rect.maxY)
+        let tl = CGPoint(x: rect.minX + tailSize, y: rect.minY)
+
+        path.move(to: CGPoint(x: tl.x + cornerRadius, y: tl.y))
+        path.addLine(to: CGPoint(x: tr.x - cornerRadius, y: tr.y))
+        path.addArc(center: CGPoint(x: tr.x - cornerRadius, y: tr.y + cornerRadius), radius: cornerRadius, startAngle: .degrees(-90), endAngle: .zero, clockwise: false)
+        path.addLine(to: CGPoint(x: br.x, y: br.y - cornerRadius))
+        path.addArc(center: CGPoint(x: br.x - cornerRadius, y: br.y - cornerRadius), radius: cornerRadius, startAngle: .zero, endAngle: .degrees(90), clockwise: false)
+        path.addLine(to: CGPoint(x: bl.x + cornerRadius, y: bl.y))
+        path.addArc(center: CGPoint(x: bl.x + cornerRadius, y: bl.y - cornerRadius), radius: cornerRadius, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        
+        path.addLine(to: CGPoint(x: tl.x, y: tl.y + tailOffset + tailSize))
+        path.addLine(to: CGPoint(x: rect.minX, y: tl.y + tailOffset + tailSize / 2))
+        path.addLine(to: CGPoint(x: tl.x, y: tl.y + tailOffset))
+        
+        path.addLine(to: CGPoint(x: tl.x, y: tl.y + cornerRadius))
+        path.addArc(center: CGPoint(x: tl.x + cornerRadius, y: tl.y + cornerRadius), radius: cornerRadius, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        
+        return path
+    }
+}
+
 private struct MangaTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
@@ -2756,22 +2788,13 @@ private struct MangaTheme: View {
 
     private func mangaBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .padding(.horizontal, 14)
+            .padding(.leading, 20)
+            .padding(.trailing, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(ink, lineWidth: 3.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(ink)
-                    .offset(x: 4.5, y: 4.5)
-            )
+            .background(MangaChatBubbleShape().fill(Color.white))
+            .overlay(MangaChatBubbleShape().stroke(ink, lineWidth: 3.5))
+            .background(MangaChatBubbleShape().fill(ink).offset(x: 4.5, y: 4.5))
     }
 
     private enum MediaBtnStyle {
@@ -2986,10 +3009,13 @@ private struct MangaTheme: View {
                                         Text(lyric)
                                             .font(.system(size: 10, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
-                                            .lineLimit(2)
-                                            .minimumScaleFactor(0.85)
+                                            .lineLimit(nil)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    } else {
+                                        Spacer(minLength: 0) // Allows bubble to stretch when empty
                                     }
                                 }
+                                .frame(minHeight: 62, alignment: .top) // Enforce a fat bubble default!
                             }
                         }
                         .padding(.horizontal, 14)
