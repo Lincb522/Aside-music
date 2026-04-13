@@ -3418,9 +3418,21 @@ struct PagerWidgetTheme: View {
     private var bodyBottom: Color { isLight ? Color(hex: "E8E6E0") : Color(hex: "252320") }
     private var screenBg: Color { isLight ? Color(hex: "E8E8E8") : Color(hex: "161616") }
     private var amber: Color { isLight ? Color(hex: "181818") : Color(hex: "fca311") }
+    private var signalLit: Color { isLight ? dynamicTop : Color(hex: "fca311") }
     
-    private var btnMainTop: Color { isLight ? Color(hex: "E5E4E0") : Color(hex: "fca311") }
-    private var btnMainBottom: Color { isLight ? Color(hex: "C8C6C0") : Color(hex: "c47f0a") }
+    
+    private var dynamicTop: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "E5E4E0") }
+        return Color(red: Double(entry.dominantRGB[0]), green: Double(entry.dominantRGB[1]), blue: Double(entry.dominantRGB[2]))
+    }
+    
+    private var dynamicBottom: Color {
+        guard entry.secondaryRGB.count == 3, !entry.isEmpty else { return Color(hex: "C8C6C0") }
+        return Color(red: Double(entry.secondaryRGB[0]), green: Double(entry.secondaryRGB[1]), blue: Double(entry.secondaryRGB[2]))
+    }
+    
+    private var btnMainTop: Color { isLight ? dynamicTop : Color(hex: "fca311") }
+    private var btnMainBottom: Color { isLight ? dynamicBottom : Color(hex: "c47f0a") }
     
     private var btnBg: Color { isLight ? Color(hex: "D8D5D0") : Color(hex: "3a3630") }
     private var btnIcon: Color { isLight ? Color(hex: "A3A09A") : Color(hex: "78746c") }
@@ -3765,14 +3777,14 @@ struct PagerWidgetTheme: View {
                 // "TX" 数据发射标识文字
                 Text("TX")
                     .font(.system(size: height * 0.7, weight: .heavy, design: .monospaced))
-                    .foregroundStyle(entry.isPlaying ? amber.opacity(0.9) : brandDim.opacity(0.4))
+                    .foregroundStyle(entry.isPlaying ? signalLit.opacity(0.9) : brandDim.opacity(0.4))
 
                 // 纯几何绘制的 5 段式扫描像素槽
                 HStack(spacing: 1.5) {
                     ForEach(0..<5, id: \.self) { i in
                         let isLit = (i == pos)
                         Rectangle()
-                            .fill(isLit ? amber.opacity(0.95) : brandDim.opacity(0.2))
+                            .fill(isLit ? signalLit.opacity(0.95) : brandDim.opacity(0.2))
                             .frame(width: 3.5, height: height * 0.75)
                             .animation(.none, value: isLit) // 硬切割动画，模拟真实老硬件的断电/通电质感
                     }
