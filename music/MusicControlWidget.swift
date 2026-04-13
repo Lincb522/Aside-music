@@ -2683,6 +2683,45 @@ private struct MangaChatBubbleShape: Shape {
     }
 }
 
+private struct MangaMicroAnimator: ViewModifier {
+    var type: AnimationType
+    
+    enum AnimationType {
+        case pulse
+        case twinkle
+        case wobble
+        case float
+    }
+    
+    func body(content: Content) -> some View {
+        content.phaseAnimator([false, true]) { view, phase in
+            switch type {
+            case .pulse:
+                view.scaleEffect(phase ? 1.15 : 1.0)
+            case .twinkle:
+                view
+                    .scaleEffect(phase ? 1.1 : 0.85)
+                    .opacity(phase ? 1.0 : 0.6)
+            case .wobble:
+                view.rotationEffect(.degrees(phase ? 6 : -6))
+            case .float:
+                view.offset(y: phase ? -3 : 3)
+            }
+        } animation: { phase in
+            switch type {
+            case .pulse:
+                .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+            case .twinkle:
+                .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
+            case .wobble:
+                .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
+            case .float:
+                .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
+            }
+        }
+    }
+}
+
 private struct MangaTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
@@ -2839,6 +2878,7 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 12, height: 10)
                     .offset(y: -1)
+                    .modifier(MangaMicroAnimator(type: .pulse))
                     
                     Text("bpm")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -2871,6 +2911,7 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 14, height: 14)
                     .rotationEffect(.degrees(10))
+                    .modifier(MangaMicroAnimator(type: .twinkle))
                     .position(x: 20, y: 26) // Hugging top-left of cover
                     
                     ZStack {
@@ -2879,6 +2920,7 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 16, height: 16)
                     .rotationEffect(.degrees(20))
+                    .modifier(MangaMicroAnimator(type: .wobble))
                     .position(x: g.size.width - 24, y: 20)
                         
                     ZStack {
@@ -2886,6 +2928,7 @@ private struct MangaTheme: View {
                         Circle().stroke(ink, lineWidth: 2)
                     }
                     .frame(width: 8, height: 8)
+                    .modifier(MangaMicroAnimator(type: .float))
                     .position(x: 26, y: g.size.height - 24)
                         
                     ZStack {
@@ -2894,6 +2937,7 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 14, height: 12)
                     .rotationEffect(.degrees(-15))
+                    .modifier(MangaMicroAnimator(type: .pulse))
                     .position(x: g.size.width - 20, y: g.size.height - 24)
                 }
                 .allowsHitTesting(false)
@@ -2960,6 +3004,7 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 14, height: 14)
                     .rotationEffect(.degrees(10))
+                    .modifier(MangaMicroAnimator(type: .twinkle))
                     .position(x: 14, y: 14)
                     
                     ZStack {
@@ -2968,6 +3013,7 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 14, height: 14)
                     .rotationEffect(.degrees(20))
+                    .modifier(MangaMicroAnimator(type: .wobble))
                     .position(x: g.size.width - 20, y: 16)
                         
                     ZStack {
@@ -2975,6 +3021,7 @@ private struct MangaTheme: View {
                         Circle().stroke(ink, lineWidth: 2)
                     }
                     .frame(width: 6, height: 6)
+                    .modifier(MangaMicroAnimator(type: .float))
                     .position(x: 24, y: g.size.height - 18)
                 }
                 .allowsHitTesting(false)
