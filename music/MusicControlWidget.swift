@@ -2920,7 +2920,7 @@ private struct MangaTheme: View {
 
     private var mediumWidget: some View {
         GeometryReader { g in
-            let coverSide = max(g.size.width * 0.27, 85)
+            let coverSide = max(g.size.width * 0.26, 82)
 
             ZStack {
                 mangaCanvasBackdrop(size: g.size)
@@ -2945,36 +2945,30 @@ private struct MangaTheme: View {
                     }
                     .frame(width: 16, height: 16)
                     .rotationEffect(.degrees(20))
-                    .position(x: g.size.width - 24, y: 18)
+                    .position(x: g.size.width - 20, y: 16)
                         
                     ZStack {
                         Circle().fill(Color(hex: "CEF09D"))
                         Circle().stroke(ink, lineWidth: 2)
                     }
                     .frame(width: 8, height: 8)
-                    .position(x: 24, y: g.size.height - 18)
+                    .position(x: 24, y: g.size.height - 20)
                 }
                 .allowsHitTesting(false)
 
                 VStack(spacing: 0) {
-                    HStack(alignment: .center, spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) {
                         coverView(side: coverSide)
+                            .padding(.top, 14)
                         
-                        VStack(spacing: -12) {
-                            HStack {
-                                Spacer(minLength: 0)
-                                nowPlayingHeader
-                                Spacer(minLength: 0)
-                            }
-                            .zIndex(1)
-
+                        ZStack(alignment: .top) {
                             mangaBubble {
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text(song)
                                         .font(.system(size: 13, weight: .heavy, design: .rounded))
                                         .foregroundStyle(ink)
                                         .lineLimit(2)
-                                        .minimumScaleFactor(0.8)
+                                        .minimumScaleFactor(0.85)
 
                                     Text(artist)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -2985,22 +2979,25 @@ private struct MangaTheme: View {
                                         Rectangle()
                                             .fill(ink.opacity(0.12))
                                             .frame(height: 1.5)
-                                            .padding(.vertical, 3)
+                                            .padding(.vertical, 2)
 
                                         Text(lyric)
                                             .font(.system(size: 11, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
                                             .lineLimit(2)
-                                            .minimumScaleFactor(0.8)
+                                            .minimumScaleFactor(0.85)
                                     }
                                 }
                             }
+                            .padding(.top, 12)
+
+                            nowPlayingHeader
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 14)
+                    .padding(.top, 10)
 
-                    Spacer(minLength: 6)
+                    Spacer(minLength: 2)
 
                     ZStack(alignment: .bottomTrailing) {
                         if !entry.isEmpty {
@@ -3010,12 +3007,12 @@ private struct MangaTheme: View {
                                 mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 28, h: 22, style: .normal)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.bottom, 8)
+                            .padding(.bottom, 12)
                         }
 
                         bpmFooter
                             .padding(.trailing, 16)
-                            .padding(.bottom, 10)
+                            .padding(.bottom, 14)
                     }
                 }
             }
