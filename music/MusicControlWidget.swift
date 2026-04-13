@@ -2910,9 +2910,9 @@ private struct MangaTheme: View {
                         if !entry.isEmpty {
                             HStack {
                                 Spacer(minLength: 0)
-                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", size: 32, style: .normal)
-                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, size: 40, style: .play)
-                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", size: 32, style: .normal)
+                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 36, h: 28, style: .normal)
+                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 42, h: 42, style: .play)
+                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 36, h: 28, style: .normal)
                                 Spacer(minLength: 0)
                             }
                             .padding(.bottom, 10)
@@ -2993,9 +2993,9 @@ private struct MangaTheme: View {
 
                     if !entry.isEmpty {
                         HStack(spacing: 10) {
-                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", size: 38, style: .normal)
-                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, size: 48, style: .play)
-                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", size: 38, style: .normal)
+                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 42, h: 34, style: .normal)
+                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 50, h: 50, style: .play)
+                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 42, h: 34, style: .normal)
                         }
                         .padding(.bottom, 8)
                     }
