@@ -2920,7 +2920,7 @@ private struct MangaTheme: View {
 
     private var mediumWidget: some View {
         GeometryReader { g in
-            let coverSide = max(g.size.width * 0.30, 100)
+            let coverSide = max(g.size.width * 0.27, 85)
 
             ZStack {
                 mangaCanvasBackdrop(size: g.size)
@@ -2935,45 +2935,49 @@ private struct MangaTheme: View {
                         MangaSparkleShape().fill(accentPink)
                         MangaSparkleShape().stroke(ink, lineWidth: 2)
                     }
-                    .frame(width: 16, height: 16)
+                    .frame(width: 14, height: 14)
                     .rotationEffect(.degrees(10))
-                    .position(x: 28, y: 30)
+                    .position(x: 16, y: 16)
                     
                     ZStack {
                         MangaStarShape().fill(labelYellow)
                         MangaStarShape().stroke(ink, lineWidth: 2)
                     }
-                    .frame(width: 18, height: 18)
+                    .frame(width: 16, height: 16)
                     .rotationEffect(.degrees(20))
-                    .position(x: g.size.width - 28, y: 26)
+                    .position(x: g.size.width - 24, y: 18)
                         
                     ZStack {
                         Circle().fill(Color(hex: "CEF09D"))
                         Circle().stroke(ink, lineWidth: 2)
                     }
-                    .frame(width: 10, height: 10)
-                    .position(x: 34, y: g.size.height - 24)
+                    .frame(width: 8, height: 8)
+                    .position(x: 24, y: g.size.height - 18)
                 }
                 .allowsHitTesting(false)
 
                 VStack(spacing: 0) {
-                    VStack(spacing: -14) {
-                        nowPlayingHeader
+                    HStack(alignment: .center, spacing: 14) {
+                        coverView(side: coverSide)
+                        
+                        VStack(spacing: -12) {
+                            HStack {
+                                Spacer(minLength: 0)
+                                nowPlayingHeader
+                                Spacer(minLength: 0)
+                            }
                             .zIndex(1)
 
-                        HStack(alignment: .center, spacing: 14) {
-                            coverView(side: coverSide)
-                            
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(song)
-                                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                        .font(.system(size: 13, weight: .heavy, design: .rounded))
                                         .foregroundStyle(ink)
                                         .lineLimit(2)
                                         .minimumScaleFactor(0.8)
 
                                     Text(artist)
-                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundStyle(inkSub)
                                         .lineLimit(1)
 
@@ -2981,37 +2985,37 @@ private struct MangaTheme: View {
                                         Rectangle()
                                             .fill(ink.opacity(0.12))
                                             .frame(height: 1.5)
-                                            .padding(.vertical, 4)
+                                            .padding(.vertical, 3)
 
                                         Text(lyric)
-                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .font(.system(size: 11, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
                                             .lineLimit(2)
-                                            .minimumScaleFactor(0.85)
+                                            .minimumScaleFactor(0.8)
                                     }
                                 }
                             }
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.top, 14)
 
-                    Spacer(minLength: 12)
+                    Spacer(minLength: 6)
 
                     ZStack(alignment: .bottomTrailing) {
                         if !entry.isEmpty {
                             HStack(spacing: 6) {
-                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 30, h: 26, style: .normal)
-                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 38, h: 42, style: .play)
-                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 30, h: 26, style: .normal)
+                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 28, h: 22, style: .normal)
+                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 34, h: 36, style: .play)
+                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 28, h: 22, style: .normal)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.bottom, 16)
+                            .padding(.bottom, 8)
                         }
 
                         bpmFooter
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 22)
+                            .padding(.trailing, 16)
+                            .padding(.bottom, 10)
                     }
                 }
             }
