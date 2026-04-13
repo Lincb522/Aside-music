@@ -3032,7 +3032,7 @@ private struct MangaTheme: View {
                             .padding(.top, 10)
                         
                         // Right column layout
-                        VStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 8) {
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Spacer().frame(height: 10) // Internal top buffer for the overlay header
@@ -3057,8 +3057,8 @@ private struct MangaTheme: View {
                                         Text(lyric)
                                             .font(.system(size: 11, weight: .bold, design: .rounded))
                                             .foregroundStyle(ink.opacity(0.8))
-                                            .lineLimit(nil)
-                                            .fixedSize(horizontal: false, vertical: true)
+                                            .lineLimit(4) // Allows extensive wrapping but puts a hard ceiling constraint
+                                            .minimumScaleFactor(0.85) // Compresses large blocks back into the safety bounds
                                     } else {
                                         Spacer(minLength: 0) // Allows bubble to stretch when empty
                                     }
@@ -3078,6 +3078,7 @@ private struct MangaTheme: View {
                                     mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 44, h: 44, style: .play)
                                     mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 34, h: 28, style: .normal)
                                 }
+                                .padding(.leading, 8) // Align perfectly flush with the bubble's square edge (bypassing the tail width)
                                 .padding(.bottom, 6)
                             } else {
                                 Spacer().frame(height: 44)
