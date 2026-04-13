@@ -3059,11 +3059,8 @@ private struct MangaTheme: View {
                                             .foregroundStyle(ink.opacity(0.8))
                                             .lineLimit(nil) // Absolutely no line limits to show all words
                                             .minimumScaleFactor(0.5) // Gracefully scale down text size if it fills up the entire layout height
-                                    } else {
-                                        Spacer(minLength: 0) // Allows bubble to stretch when empty
                                     }
                                 }
-                                .frame(minHeight: 74, alignment: .top) // Enforce a taller fat bubble default!
                             }
                             .overlay(alignment: .topLeading) {
                                 nowPlayingHeader
