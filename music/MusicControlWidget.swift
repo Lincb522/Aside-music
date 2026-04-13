@@ -3027,9 +3027,8 @@ private struct MangaTheme: View {
                 .allowsHitTesting(false)
 
                 ZStack(alignment: .top) {
-                    HStack(alignment: .top, spacing: 14) { // Changed to .top to anchor the cover vertically!
+                    HStack(alignment: .center, spacing: 14) { // Reverted back to .center for layout symmetry
                         coverView(side: 104) // Much larger cover taking full height
-                            .padding(.top, 10)
                         
                         // Right column layout
                         VStack(alignment: .leading, spacing: 10) { // Increased spacing to detach play controls from bubble
@@ -3083,6 +3082,7 @@ private struct MangaTheme: View {
                         }
                         .padding(.top, 24) // Give room for header popping out of top bounds
                     }
+                    .frame(maxHeight: .infinity) // Force HStack to capture total fixed widget height, preventing cover from moving when content grows
                     .padding(.horizontal, 16)
                     
                     // BPM Footer overlaid globally bottom right
