@@ -3027,12 +3027,12 @@ private struct MangaTheme: View {
                 .allowsHitTesting(false)
 
                 ZStack(alignment: .top) {
-                    HStack(alignment: .center, spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) { // Changed to .top to anchor the cover vertically!
                         coverView(side: 104) // Much larger cover taking full height
                             .padding(.top, 10)
                         
                         // Right column layout
-                        VStack(alignment: .leading, spacing: 4) { // Reduced spacing to give bubble max room
+                        VStack(alignment: .leading, spacing: 10) { // Increased spacing to detach play controls from bubble
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Spacer().frame(height: 10) // Internal top buffer for the overlay header
