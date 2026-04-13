@@ -2739,19 +2739,19 @@ private struct MangaTheme: View {
     }
 
     private var nowPlayingHeader: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3) {
             Image(systemName: "music.note")
-                .font(.system(size: 10, weight: .black))
+                .font(.system(size: 8, weight: .black))
             Text("NOW PLAYING")
-                .font(.system(size: 10, weight: .black, design: .rounded))
-                .tracking(1.0)
+                .font(.system(size: 8, weight: .black, design: .rounded))
+                .tracking(0.5)
         }
         .foregroundStyle(ink)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .background(Capsule().fill(labelYellow))
-        .overlay(Capsule().stroke(ink, lineWidth: 3))
-        .background(Capsule().fill(ink).offset(x: 3, y: 3))
+        .overlay(Capsule().stroke(ink, lineWidth: 2.5))
+        .background(Capsule().fill(ink).offset(x: 2.5, y: 2.5))
     }
 
     private func mangaBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -2956,22 +2956,15 @@ private struct MangaTheme: View {
                 }
                 .allowsHitTesting(false)
 
-                VStack(spacing: 0) {
-                    HStack(alignment: .top, spacing: 12) {
-                        coverView(side: coverSide)
-                            .padding(.top, 14)
-                        
-                        VStack(spacing: -12) {
-                            HStack {
-                                Spacer(minLength: 0)
-                                nowPlayingHeader
-                                Spacer(minLength: 0)
-                            }
-                            .zIndex(1)
-
+                ZStack(alignment: .top) {
+                    VStack(spacing: 0) {
+                        HStack(alignment: .top, spacing: 12) {
+                            coverView(side: coverSide)
+                                .padding(.top, 4)
+                            
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Spacer().frame(height: 8) // Prevents text from hitting the overlapping header!
+                                    Spacer().frame(height: 6) // Internal top buffer for the centered header overlap
 
                                     Text(song)
                                         .font(.system(size: 12, weight: .heavy, design: .rounded))
@@ -2999,27 +2992,31 @@ private struct MangaTheme: View {
                                 }
                             }
                         }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 8)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 14)
 
-                    Spacer(minLength: 2)
+                        Spacer(minLength: 2)
 
-                    ZStack(alignment: .bottomTrailing) {
-                        if !entry.isEmpty {
-                            HStack(spacing: 6) {
-                                mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 20, style: .normal)
-                                mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 32, style: .play)
-                                mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 20, style: .normal)
+                        ZStack(alignment: .bottomTrailing) {
+                            if !entry.isEmpty {
+                                HStack(spacing: 6) {
+                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 20, style: .normal)
+                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 32, style: .play)
+                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 20, style: .normal)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.bottom, 10)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.bottom, 10)
-                        }
 
-                        bpmFooter
-                            .padding(.trailing, 16)
-                            .padding(.bottom, 12)
+                            bpmFooter
+                                .padding(.trailing, 16)
+                                .padding(.bottom, 12)
+                        }
                     }
+
+                    // Absolutely Centered Header overlapping the top components
+                    nowPlayingHeader
+                        .padding(.top, 6)
                 }
             }
         }
