@@ -2867,21 +2867,21 @@ private struct MangaTheme: View {
     private var bpmFooter: some View {
         Group {
             if let b = entry.tempoBPM, b > 0 {
-                HStack(spacing: 4) {
+                HStack(spacing: 2) {
                     Text("\(b)")
-                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
                         .foregroundStyle(inkSub.opacity(0.8))
                     
                     ZStack {
                         MangaHeartShape().fill(accentPink)
                         MangaHeartShape().stroke(ink, lineWidth: 1.5)
                     }
-                    .frame(width: 12, height: 10)
+                    .frame(width: 9, height: 8)
                     .offset(y: -1)
                     .modifier(MangaMicroAnimator(type: .pulse))
                     
                     Text("bpm")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
                         .foregroundStyle(inkSub.opacity(0.8))
                 }
             } else {
@@ -2889,7 +2889,7 @@ private struct MangaTheme: View {
                     MangaHeartShape().fill(accentPink)
                     MangaHeartShape().stroke(ink, lineWidth: 1.5)
                 }
-                .frame(width: 16, height: 14)
+                .frame(width: 12, height: 10)
             }
         }
     }
@@ -3074,14 +3074,14 @@ private struct MangaTheme: View {
                             
                             if !entry.isEmpty {
                                 HStack(spacing: 6) {
-                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 34, h: 28, style: .normal)
-                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 44, h: 44, style: .play)
-                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 34, h: 28, style: .normal)
+                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 30, h: 26, style: .normal)
+                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 38, h: 38, style: .play)
+                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 30, h: 26, style: .normal)
                                 }
                                 .padding(.leading, 8) // Align perfectly flush with the bubble's square edge (bypassing the tail width)
-                                .padding(.bottom, 6)
+                                .padding(.bottom, 12) // Keep distance from the bottom edge
                             } else {
-                                Spacer().frame(height: 44)
+                                Spacer().frame(height: 38)
                             }
                         }
                         .padding(.top, 24) // Give room for header popping out of top bounds
