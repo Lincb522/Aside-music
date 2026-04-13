@@ -2710,13 +2710,13 @@ private struct MangaMicroAnimator: ViewModifier {
         } animation: { phase in
             switch type {
             case .pulse:
-                .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                .easeInOut(duration: 0.8)
             case .twinkle:
-                .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
+                .easeInOut(duration: 1.2)
             case .wobble:
-                .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
+                .easeInOut(duration: 2.0)
             case .float:
-                .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
+                .easeInOut(duration: 1.5)
             }
         }
     }
