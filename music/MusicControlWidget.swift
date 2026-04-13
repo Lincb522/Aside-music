@@ -3028,9 +3028,8 @@ private struct MangaTheme: View {
 
                 ZStack(alignment: .top) {
                     VStack(spacing: 0) {
-                        HStack(alignment: .top, spacing: 12) {
+                        HStack(alignment: .center, spacing: 12) {
                             coverView(side: coverSide)
-                                .padding(.top, 4)
                             
                             mangaBubble {
                                 VStack(alignment: .leading, spacing: 2) {
