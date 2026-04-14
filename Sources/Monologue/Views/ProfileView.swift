@@ -14,7 +14,6 @@ struct ProfileView: View {
     @State private var userLevel: Int?
     @State private var listenSongs: Int?
     
-    @State private var recentSongs: [Song] = []
     
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
@@ -45,7 +44,7 @@ struct ProfileView: View {
                     cachedProfile = viewModel.userProfile
                     GlobalRefreshManager.shared.markProfileDataReady()
                     fetchUserExtra()
-                    fetchRecentSongs()
+                    // 移除网易云历史记录抓取，统一使用播放器本地历史
                 }
             } else {
                 GlobalRefreshManager.shared.markProfileDataReady()
@@ -70,7 +69,7 @@ struct ProfileView: View {
         .onReceive(playerManager.$currentSong.dropFirst()) { newSong in
             guard newSong != nil, isAppLoggedIn else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                refreshRecentSongsFromLocal()
+                // 移除本地独立历史刷新，统一由 playerManager 数据驱动
             }
         }
     }
@@ -91,7 +90,7 @@ struct ProfileView: View {
                         statsBar
                             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-                        if !recentSongs.isEmpty {
+                        if !playerManager.history.isEmpty {
                             recentlyPlayedSection
                         }
 
@@ -213,9 +212,9 @@ struct ProfileView: View {
 
                 Spacer()
 
-                NavigationLink(destination: RecentPlayHistoryView(songs: recentSongs)) {
+                NavigationLink(destination: RecentPlayHistoryView()) {
                     HStack(spacing: 4) {
-                        Text(String(format: String(localized: "profile_recent_count"), recentSongs.count))
+                        Text(String(format: String(localized: "profile_recent_count"), playerManager.history.count))
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundColor(.monologueTextSecondary)
                         MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
@@ -227,9 +226,9 @@ struct ProfileView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(recentSongs.prefix(15)) { song in
+                    ForEach(playerManager.history.prefix(15)) { song in
                         Button(action: {
-                            playerManager.play(song: song, in: recentSongs)
+                            playerManager.play(song: song, in: playerManager.history)
                         }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: song.coverUrl) {
@@ -339,7 +338,7 @@ struct ProfileView: View {
                     hasAppeared = false
                     userLevel = nil
                     listenSongs = nil
-                    recentSongs = []
+                    playerManager.clearPlaybackHistory()
                     AlertManager.shared.dismiss()
                 }
             }
@@ -471,60 +470,6 @@ struct ProfileView: View {
                 listenSongs = response.listenSongs
             })
             .store(in: &ProfileCancellableStore.shared.cancellables)
-    }
-
-    private func fetchRecentSongs() {
-        let localHistory = HistoryRepository().getPlayHistory(limit: 100)
-        let localSongs = localHistory.map { $0.toSong() }
-
-        APIService.shared.fetchRecentSongs()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { [self] remoteSongs in
-                var merged: [Song] = []
-                var seenIds = Set<Int>()
-
-                for song in localSongs {
-                    if !seenIds.contains(song.id) {
-                        seenIds.insert(song.id)
-                        merged.append(song)
-                    }
-                }
-
-                for song in remoteSongs {
-                    if !seenIds.contains(song.id) {
-                        seenIds.insert(song.id)
-                        merged.append(song)
-                    }
-                }
-
-                self.recentSongs = merged
-            })
-            .store(in: &ProfileCancellableStore.shared.cancellables)
-    }
-
-    private func refreshRecentSongsFromLocal() {
-        let localHistory = HistoryRepository().getPlayHistory(limit: 100)
-        let localSongs = localHistory.map { $0.toSong() }
-
-        var merged: [Song] = []
-        var seenIds = Set<Int>()
-
-        for song in localSongs {
-            if !seenIds.contains(song.id) {
-                seenIds.insert(song.id)
-                merged.append(song)
-            }
-        }
-
-        for song in recentSongs {
-            if !seenIds.contains(song.id) {
-                seenIds.insert(song.id)
-                merged.append(song)
-            }
-        }
-
-        self.recentSongs = merged
     }
 
     private func formatNumber(_ value: Int) -> String {

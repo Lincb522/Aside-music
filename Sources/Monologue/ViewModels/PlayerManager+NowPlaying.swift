@@ -193,15 +193,16 @@ extension PlayerManager {
             qualityText,
             playModeText,
             "\(queueIndex)",
-            "\(queueCount)",
-            lyricText
+            "\(queueCount)"
         ].joined(separator: "|")
         if songName != lastWidgetSongName
             || playbackState != lastWidgetPlaybackState
-            || metadataSignature != lastWidgetMetadataSignature {
+            || metadataSignature != lastWidgetMetadataSignature
+            || lyricText != lastWidgetLyricText {
             lastWidgetSongName = songName
             lastWidgetPlaybackState = playbackState
             lastWidgetMetadataSignature = metadataSignature
+            lastWidgetLyricText = lyricText
             WidgetCenter.shared.reloadAllTimelines()
         }
     }

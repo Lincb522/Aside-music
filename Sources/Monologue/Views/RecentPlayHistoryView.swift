@@ -6,15 +6,21 @@ struct RecentPlayHistoryView: View {
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @ObservedObject private var playerManager = PlayerManager.shared
     
-    let songs: [Song]
+    let explicitSongs: [Song]?
     
+    init(songs: [Song]? = nil) {
+        self.explicitSongs = songs
+    }
+    
+    @State private var showClearConfirm = false
     @State private var isSelectMode = false
     @State private var selectedSongIds: Set<Int> = []
     @State private var showBatchAddToPlaylist = false
     @State private var recentSearch = ""
     @State private var isRecentSearching = false
     
-    private var recentFiltered: [Song] { songs.filtered(by: recentSearch) }
+    private var displaySongs: [Song] { explicitSongs ?? playerManager.history }
+    private var recentFiltered: [Song] { displaySongs.filtered(by: recentSearch) }
     
     var body: some View {
         ZStack {
@@ -76,21 +82,38 @@ struct RecentPlayHistoryView: View {
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    if let first = songs.first {
-                        playerManager.playReplacingContext(song: first, in: songs)
+                HStack {
+                    if explicitSongs == nil {
+                        Button {
+                            showClearConfirm = true
+                        } label: {
+                            MonologueIcon(icon: .trash, size: 16, color: .monologueTextPrimary)
+                        }
+                        .disabled(playerManager.history.isEmpty)
                     }
-                } label: {
-                    HStack(spacing: 6) {
-                        MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
-                        Text(LocalizedStringKey("artist_play_all"))
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
+                    
+                    Button {
+                        if let first = displaySongs.first {
+                            playerManager.playReplacingContext(song: first, in: displaySongs)
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
+                            Text(LocalizedStringKey("artist_play_all"))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(.monologueTextPrimary)
+                        }
                     }
+                    .disabled(displaySongs.isEmpty)
                 }
-                .disabled(songs.isEmpty)
             }
+        .alert(String(localized: "清空播放历史"), isPresented: $showClearConfirm) {
+            Button(String(localized: "取消"), role: .cancel) { }
+            Button(String(localized: "清空"), role: .destructive) {
+                playerManager.clearPlaybackHistory()
+            }
+        } message: {
+            Text(String(localized: "确定要清空所有播放历史吗？此操作无法撤销。"))
         }
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
             BatchAddToPlaylistSheet(songs: recentFiltered.filter { selectedSongIds.contains($0.id) })

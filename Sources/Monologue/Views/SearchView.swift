@@ -12,8 +12,10 @@ struct SearchView: View {
     @State private var showPlaylistDetail = false
     @State private var selectedMVId: MVIdItem?
     @State private var selectedAlbumId: Int?
+    @Environment(\.dismiss) private var dismiss
     @State private var showAlbumDetail = false
     @FocusState private var isFocused: Bool
+    @State private var isSearchBarExpanded: Bool = true
     
     // qcm详情导航
     @State private var qqDetailType: QQDetailType?
@@ -41,8 +43,8 @@ struct SearchView: View {
             }
             .iPadContentWidth()
         }
-        .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -90,11 +92,33 @@ struct SearchView: View {
     // MARK: - 搜索栏
     
     private var searchBarSection: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 12) {
-                HStack {
-                    MonologueIcon(icon: .magnifyingGlass, size: 18, color: .gray)
-                    
+        let showFullSearch = !viewModel.hasSearched || isSearchBarExpanded
+        
+        return HStack(spacing: 12) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+                    .frame(width: 42, height: 42)
+                    .background(Color.monologueTextPrimary.opacity(0.04))
+                    .clipShape(Circle())
+                    .liquidGlassStyle(cornerRadius: 21)
+                    .overlay(
+                        Circle().stroke(Color.monologueTextPrimary.opacity(0.05), lineWidth: 0.5)
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            if !showFullSearch {
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: showFullSearch ? 8 : 0) {
+                MonologueIcon(icon: .magnifyingGlass, size: 18, color: .gray)
+                
+                if showFullSearch {
                     ZStack(alignment: .leading) {
                         if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
                             Text(defaultKw.showKeyword)
@@ -104,6 +128,9 @@ struct SearchView: View {
                                 .onTapWithHaptic {
                                     viewModel.performSearch(keyword: defaultKw.realkeyword)
                                     isFocused = false
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isSearchBarExpanded = false
+                                    }
                                 }
                         }
                         
@@ -116,29 +143,56 @@ struct SearchView: View {
                             .onSubmit {
                                 if !viewModel.query.isEmpty {
                                     viewModel.performSearch(keyword: viewModel.query)
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isSearchBarExpanded = false
+                                    }
                                 } else if let defaultKw = viewModel.defaultKeyword {
                                     viewModel.performSearch(keyword: defaultKw.realkeyword)
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isSearchBarExpanded = false
+                                    }
                                 }
                             }
                     }
                     
                     if !viewModel.query.isEmpty {
                         Button(action: {
-                            viewModel.clearSearch()
+                            viewModel.query = ""
+                            isFocused = false
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                isSearchBarExpanded = false
+                            }
                         }) {
                             MonologueIcon(icon: .xmark, size: 18, color: .gray)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .monologueGlass(cornerRadius: 16)
             }
-            .frame(maxWidth: 720)
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.horizontal, showFullSearch ? 16 : 12)
+            .padding(.vertical, showFullSearch ? 10 : 12)
+            .liquidGlassStyle(cornerRadius: showFullSearch ? 16 : 21)
+            .onTapGesture {
+                if !showFullSearch {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        isSearchBarExpanded = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            isFocused = true
+                        }
+                    }
+                }
+            }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .frame(maxWidth: 720)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+        .onChange(of: viewModel.hasSearched) { searched in
+            if !searched {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    isSearchBarExpanded = true
+                }
+            }
+        }
     }
 
     // MARK: - 搜索类型 Tab 栏
@@ -241,7 +295,7 @@ struct SearchView: View {
                 HStack(spacing: 12) {
                     Button(action: {
                         if !currentSongs.isEmpty {
-                            PlayerManager.shared.play(song: currentSongs[0], in: currentSongs)
+                            viewModel.playAllSongs(source: currentSource, currentSongs: currentSongs)
                         }
                     }) {
                         HStack(spacing: 6) {
@@ -295,9 +349,9 @@ struct SearchView: View {
     // MARK: - 平台标签页
 
     private var platformTabBar: some View {
-        let platforms: [MusicSource] = viewModel.currentTab == .mvs
-            ? [.netease, .qqmusic]
-            : [.netease, .qqmusic, .qishui]
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
         return HStack(spacing: 0) {
             ForEach(platforms, id: \.self) { platform in
                 Button(action: {
@@ -326,7 +380,7 @@ struct SearchView: View {
     private func platformTabName(_ source: MusicSource) -> String {
         switch source {
         case .netease: return "NCM"
-        case .qqmusic: return "QQ"
+        case .qqmusic: return "QCM"
         case .qishui: return "QSM"
         case .local: return "Local"
         }

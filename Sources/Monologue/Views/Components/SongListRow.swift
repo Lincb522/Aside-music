@@ -80,38 +80,59 @@ struct SongListRow: View {
         song.isLocal
     }
     
+    private var ncmBrandColor: Color {
+        settings.coverBgGlobal ? Theme.accent : .red
+    }
+    
+    private var qcmBrandColor: Color {
+        settings.coverBgGlobal ? Theme.accent : Color(light: .blue, dark: .blue)
+    }
+    
+    private var qsmBrandColor: Color {
+        settings.coverBgGlobal ? Theme.accent : Color(light: .orange, dark: .orange)
+    }
+    
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Button {
                 onTap?()
             } label: {
-                HStack(spacing: 16) {
+                HStack(spacing: 10) {
                     ZStack {
                         if isSelecting {
                             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20))
+                                .font(.system(size: 18))
                                 .foregroundColor(isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4))
-                        } else if isCurrent {
-                            PlayingVisualizerView(isAnimating: player.isPlaying, color: Theme.accent)
                         } else {
                             Text(String(format: "%02d", index + 1))
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Theme.secondaryText.opacity(0.5))
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
                         }
                     }
-                    .frame(width: 30)
+                    .frame(width: 16)
 
                     CachedAsyncImage(url: song.coverUrl) {
                         Color.gray.opacity(0.1)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)
+                    .overlay {
+                        if isCurrent && !isSelecting {
+                            ZStack {
+                                Color.black.opacity(0.35)
+                                PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
+                                    .scaleEffect(0.85)
+                            }
+                        }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .opacity(isGrayed ? 0.4 : 1.0)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 16, weight: isCurrent ? .bold : .medium))
                             .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.4) : (isCurrent ? Theme.accent : Theme.text))
                             .lineLimit(1)
 
@@ -122,6 +143,7 @@ struct SongListRow: View {
                                     .foregroundColor(Theme.accent)
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 1)
+                                    .background(Theme.accent.opacity(0.1).cornerRadius(2))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 2)
                                             .stroke(Theme.accent, lineWidth: 0.5)
@@ -132,12 +154,13 @@ struct SongListRow: View {
                                 if song.isQQMusic {
                                     Text("QCM")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(qcmBrandColor)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 3)
-                                                .fill(Color.green.opacity(0.8))
+                                        .background(qcmBrandColor.opacity(0.1).cornerRadius(2))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .stroke(qcmBrandColor, lineWidth: 0.5)
                                         )
 
                                     if let badge = song.qqMaxQuality?.badgeText {
@@ -146,6 +169,7 @@ struct SongListRow: View {
                                             .foregroundColor(Theme.accent)
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 1)
+                                            .background(Theme.accent.opacity(0.1).cornerRadius(2))
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 2)
                                                     .stroke(Theme.accent, lineWidth: 0.5)
@@ -154,12 +178,13 @@ struct SongListRow: View {
                                 } else if song.isQishui {
                                     Text("QSM")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(qsmBrandColor)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 3)
-                                                .fill(Color(red: 0.2, green: 0.9, blue: 0.4))
+                                        .background(qsmBrandColor.opacity(0.1).cornerRadius(2))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .stroke(qsmBrandColor, lineWidth: 0.5)
                                         )
                                     
                                     if let badge = song.qualityBadge {
@@ -168,6 +193,7 @@ struct SongListRow: View {
                                             .foregroundColor(Theme.accent)
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 1)
+                                            .background(Theme.accent.opacity(0.1).cornerRadius(2))
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 2)
                                                     .stroke(Theme.accent, lineWidth: 0.5)
@@ -176,22 +202,24 @@ struct SongListRow: View {
                                 } else if isLocalSong {
                                     Text("LOCAL")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.blue)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 3)
-                                                .fill(Color.blue.opacity(0.75))
+                                        .background(Color.blue.opacity(0.1).cornerRadius(2))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .stroke(Color.blue, lineWidth: 0.5)
                                         )
                                 } else {
                                     Text("NCM")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(ncmBrandColor)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 3)
-                                                .fill(Color.red.opacity(0.8))
+                                        .background(ncmBrandColor.opacity(0.1).cornerRadius(2))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .stroke(ncmBrandColor, lineWidth: 0.5)
                                         )
                                     
                                     if let badge = song.qualityBadge {
@@ -202,6 +230,7 @@ struct SongListRow: View {
                                                 .foregroundColor(Theme.accent)
                                                 .padding(.horizontal, 4)
                                                 .padding(.vertical, 1)
+                                                .background(Theme.accent.opacity(0.1).cornerRadius(2))
                                                 .overlay(
                                                     RoundedRectangle(cornerRadius: 2)
                                                         .stroke(Theme.accent, lineWidth: 0.5)
@@ -249,9 +278,42 @@ struct SongListRow: View {
         .padding(.vertical, 8)
         .background {
             if isCurrent {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Theme.accent.opacity(0.05))
-                    .monologueGlass(cornerRadius: 12)
+                ZStack(alignment: .leading) {
+                    // 主体渐变玻璃态
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Theme.accent.opacity(0.12),
+                                    Theme.accent.opacity(0.01)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .monologueGlass(cornerRadius: 12)
+                    
+                    // 左侧微光描边
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Theme.accent.opacity(0.35),
+                                    Color.clear
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 0.5
+                        )
+
+                    // 呼吸发光指示条
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Theme.accent)
+                        .frame(width: 3.5, height: 20)
+                        .shadow(color: Theme.accent.opacity(0.6), radius: 4, x: 0, y: 0)
+                }
+                .padding(.horizontal, 4)
             }
         }
         .contentShape(Rectangle())

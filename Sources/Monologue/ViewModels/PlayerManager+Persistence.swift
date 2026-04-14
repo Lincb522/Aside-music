@@ -15,6 +15,7 @@ extension PlayerManager {
         let userQueue: [Song]
         let mode: PlayMode
         let history: [Song]
+        let podcastHistory: [Song]?
         let playSource: PlaySource?
         let queueExhaustionBehavior: QueueExhaustionBehavior?
         let context: [Song]?
@@ -39,6 +40,7 @@ extension PlayerManager {
             userQueue: [],
             mode: mode,
             history: history,
+            podcastHistory: podcastHistory,
             playSource: playSource,
             queueExhaustionBehavior: queueExhaustionBehavior,
             context: trimmedContext,
@@ -78,6 +80,7 @@ extension PlayerManager {
     private func applyRestoredState(_ state: PlayerState) {
         self.mode = state.mode
         self.history = state.history
+        self.podcastHistory = state.podcastHistory ?? []
         self.playSource = state.playSource ?? .normal
         self.queueExhaustionBehavior = state.queueExhaustionBehavior ?? .loop
         self.playbackBackStack = state.playbackBackStack ?? []
@@ -170,6 +173,7 @@ extension PlayerManager {
         if let state = CacheManager.shared.getObject(forKey: "player_state_v4", type: PlayerState.self) {
             self.mode = state.mode
             self.history = state.history
+            self.podcastHistory = state.podcastHistory ?? []
             self.playSource = state.playSource ?? .normal
             self.queueExhaustionBehavior = state.queueExhaustionBehavior ?? .loop
             self.playbackForwardStack = state.playbackForwardStack ?? []
@@ -188,6 +192,16 @@ extension PlayerManager {
     }
     
     func addToHistory(song: Song) {
+        if playSource.isPodcast {
+            podcastHistory.removeAll { $0.id == song.id }
+            podcastHistory.insert(song, at: 0)
+            if podcastHistory.count > AppConfig.Player.maxHistoryCount {
+                podcastHistory.removeLast()
+            }
+            saveState()
+            return
+        }
+        
         history.removeAll { $0.id == song.id }
         history.insert(song, at: 0)
         if history.count > AppConfig.Player.maxHistoryCount {
@@ -205,6 +219,11 @@ extension PlayerManager {
     func clearPlaybackHistory() {
         history.removeAll()
         HistoryRepository().clearPlayHistory()
+        saveStateImmediately()
+    }
+    
+    func clearPodcastHistory() {
+        podcastHistory.removeAll()
         saveStateImmediately()
     }
     

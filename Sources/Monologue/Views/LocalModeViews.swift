@@ -1281,7 +1281,7 @@ struct LocalModeProfileView: View {
 
                 Spacer()
 
-                NavigationLink(destination: RecentPlayHistoryView(songs: recentSongs)) {
+                NavigationLink(destination: RecentPlayHistoryView()) {
                     HStack(spacing: 4) {
                         Text(localModeText("view_all"))
                             .font(.system(size: 13, weight: .medium, design: .rounded))

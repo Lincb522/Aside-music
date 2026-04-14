@@ -1,9 +1,5 @@
 import SwiftUI
 
-private enum MotoPagerAppGroup {
-    nonisolated(unsafe) static let userDefaults = UserDefaults(suiteName: "group.zijiu.Monologue.com") ?? .standard
-}
-
 /// 复古寻呼机风格播放器 (MotoPager)
 /// 核心理念：模拟小票打印机/寻呼机的复古质感，歌词像小票一样打印出来
 struct MotoPagerLayout: View {
@@ -12,8 +8,6 @@ struct MotoPagerLayout: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
-    @AppStorage("widget_tempo_bpm", store: MotoPagerAppGroup.userDefaults) private var widgetTempoBPM: Int = 0
-    @AppStorage("widget_tempo_analyzing", store: MotoPagerAppGroup.userDefaults) private var widgetTempoAnalyzing: Bool = false
     
     // MARK: - Colors & Constants
     // 动态配色 - 适配深色/浅色模式（木桌背景）
@@ -216,10 +210,7 @@ struct MotoPagerLayout: View {
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
                 onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false },
                 songMid: player.currentSong?.qqMid,
-                songId: player.currentSong?.id,
-                isQishui: player.currentSong?.isQishui == true,
-                qishuiTrackId: player.currentSong?.qishuiTrackId,
-                onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
+                songId: player.currentSong?.id
             )
         }
         .monologueSheet(isPresented: $showEQSettings, preset: .large){
@@ -359,26 +350,6 @@ struct MotoPagerLayout: View {
     }
 }
 
-private extension MotoPagerLayout {
-    var motoPagerLyricLine: String {
-        guard let song = player.currentSong,
-              lyricVM.currentSongId == song.id,
-              lyricVM.hasLyrics,
-              lyricVM.currentLineIndex >= 0,
-              lyricVM.currentLineIndex < lyricVM.lyrics.count else {
-            return ""
-        }
-        return lyricVM.lyrics[lyricVM.currentLineIndex].text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var motoPagerBpmLabel: String? {
-        if widgetTempoAnalyzing { return "···" }
-        if widgetTempoBPM > 0 { return "\(widgetTempoBPM) BPM" }
-        return nil
-    }
-}
-
 // MARK: - Device Body (机器主体 — 原始 MotoPager 风格)
 extension MotoPagerLayout {
     var deviceBodyView: some View {
@@ -392,70 +363,27 @@ extension MotoPagerLayout {
             // ═══ Brand 区 ═══
             VStack(spacing: 3) {
                 HStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        Text("MOTO")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundColor(colorScheme == .dark ? Color(hex: "999999") : Color(hex: "555555"))
-                        Text("PAGER")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundColor(accentColor)
-                    }
-                    .tracking(3)
-                    if let bpmLabel = motoPagerBpmLabel {
-                        Text(" · ")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(brandSubColor.opacity(0.45))
-                        Text(bpmLabel)
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(brandSubColor)
-                    }
+                    Text("MOTO")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(colorScheme == .dark ? Color(hex: "999999") : Color(hex: "555555"))
+                    Text("PAGER")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(accentColor)
                 }
+                .tracking(3)
                 
                 if let song = player.currentSong {
-                    VStack(spacing: 3) {
-                        HStack(spacing: 6) {
-                            Button { showArtistDetail = true } label: {
-                                MarqueeText(
-                                    text: song.artistName,
-                                    font: .system(size: 9, weight: .regular, design: .monospaced),
-                                    color: brandSubColor,
-                                    speed: 25,
-                                    alignment: .leading
-                                )
-                                .frame(maxWidth: .infinity, minHeight: 14)
-                            }
-                            .buttonStyle(.plain)
-                            Text("·")
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .foregroundColor(brandSubColor.opacity(0.55))
-                            Group {
-                                if motoPagerLyricLine.isEmpty {
-                                    Text("—")
-                                        .font(.system(size: 9, weight: .regular, design: .monospaced))
-                                        .foregroundColor(brandSubColor.opacity(0.45))
-                                        .frame(maxWidth: .infinity, minHeight: 14, alignment: .leading)
-                                } else {
-                                    MarqueeText(
-                                        text: motoPagerLyricLine,
-                                        font: .system(size: 9, weight: .regular, design: .monospaced),
-                                        color: brandSubColor,
-                                        speed: 22,
-                                        alignment: .leading
-                                    )
-                                    .frame(maxWidth: .infinity, minHeight: 14)
-                                }
-                            }
-                        }
+                    Button { showArtistDetail = true } label: {
                         MarqueeText(
-                            text: song.name,
-                            font: .system(size: 8, weight: .regular, design: .monospaced),
-                            color: brandSubColor.opacity(0.75),
-                            speed: 22,
+                            text: "\(song.artistName) — \(song.name)",
+                            font: .system(size: 9, weight: .regular, design: .monospaced),
+                            color: brandSubColor,
+                            speed: 25,
                             alignment: .center
                         )
-                        .frame(maxWidth: .infinity, minHeight: 12)
+                        .frame(maxWidth: 200, minHeight: 16)
                     }
-                    .frame(maxWidth: 280)
+                    .buttonStyle(.plain)
                 } else {
                     Text("— DIGITAL NOTE PRINTER —")
                         .font(.system(size: 9, weight: .regular, design: .monospaced))
@@ -557,6 +485,22 @@ extension MotoPagerLayout {
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
                     }
+                    
+                    // 音质
+                    Button(action: { showQualitySheet = true }) {
+                        Text(player.qualityButtonText)
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundColor(brandSubColor)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .padding(.horizontal, 8)
+                            .frame(height: 25)
+                            .background(smallBtnColor)
+                            .clipShape(Capsule())
+                            .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle())
                     
                     // 上一首
                     Button(action: { player.previous() }) {
@@ -801,22 +745,6 @@ extension MotoPagerLayout {
                 .buttonStyle(MonologueBouncingButtonStyle())
                 
                 Spacer()
-                
-                if player.currentSong != nil {
-                    Button(action: { showQualitySheet = true }) {
-                        Text(player.qualityButtonText)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(topBtnFgColor)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .padding(.horizontal, 12)
-                            .frame(height: 36)
-                            .background(topBtnBgColor)
-                            .clipShape(Capsule())
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                }
                 
                 Button(action: { showMoreMenu = true }) {
                     Image(systemName: "ellipsis")

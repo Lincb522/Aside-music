@@ -56,6 +56,7 @@ class PlayerManager: ObservableObject {
     var lastWidgetSongName: String = ""
     var lastWidgetPlaybackState: PlaybackSurfaceState = .idle
     var lastWidgetMetadataSignature: String = ""
+    var lastWidgetLyricText: String = ""
     var lastWidgetTempoSongID: Int?
     var widgetTempoSyncTask: Task<Void, Never>?
     
@@ -305,6 +306,7 @@ class PlayerManager: ObservableObject {
     @Published var shuffledContext: [Song] = []
     @Published var userQueue: [Song] = []
     @Published var history: [Song] = []
+    @Published var podcastHistory: [Song] = []
     var queueExhaustionBehavior: QueueExhaustionBehavior = .loop
     /// 运行时回退栈：驱动 previous() 的“真实上一首”行为
     @Published var playbackBackStack: [Song] = []

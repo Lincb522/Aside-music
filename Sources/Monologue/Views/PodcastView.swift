@@ -6,6 +6,7 @@ struct PodcastView: View {
     @State private var radioIdToOpen: Int = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?
     @State private var bannerWebURL: URL?
+    @ObservedObject private var playerManager = PlayerManager.shared
 
     enum PodcastDestination: Hashable {
         case category(RadioCategory)
@@ -49,6 +50,11 @@ struct PodcastView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 28) {
+                            // 历史记录（如果存在）
+                            if !playerManager.podcastHistory.isEmpty {
+                                podcastHistorySection
+                            }
+                            
                             // DJ Banner 轮播
                             if !viewModel.djBanners.isEmpty {
                                 bannerSection
@@ -720,6 +726,49 @@ struct PodcastView: View {
     }
 
     // MARK: - 广播电台
+    
+    private var podcastHistorySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(LocalizedStringKey("profile_recently_played"))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer()
+                
+                NavigationLink(destination: RecentPlayHistoryView(songs: playerManager.podcastHistory)) {
+                    HStack(spacing: 4) {
+                        Text(LocalizedStringKey("view_all"))
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                    }
+                    .foregroundColor(.monologueTextSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, padH)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 14) {
+                    ForEach(playerManager.podcastHistory.prefix(10)) { song in
+                        SongCard(song: song) {
+                            playerManager.playPodcast(song: song, in: playerManager.podcastHistory, radioId: song.album?.id ?? 0)
+                        }
+                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                            content
+                                .scaleEffect(phase.isIdentity ? 1 : 0.93)
+                                .opacity(phase.isIdentity ? 1 : 0.5)
+                                .offset(y: phase.isIdentity ? 0 : phase.value * 8)
+                        }
+                    }
+                }
+                .scrollTargetLayout()
+                .padding(.horizontal, padH)
+            }
+            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .scrollIndicators(.hidden)
+        }
+    }
 
     private var broadcastSection: some View {
         VStack(alignment: .leading, spacing: 14) {

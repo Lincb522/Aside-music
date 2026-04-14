@@ -97,7 +97,8 @@ class SearchViewModel: ObservableObject {
                     self.showSuggestions = true
                     self.fetchSuggestions(keyword: keyword)
                 } else {
-                    self.resetState()
+                    self.showSuggestions = false
+                    self.suggestions = []
                 }
             }
             .store(in: &cancellables)
@@ -168,8 +169,8 @@ class SearchViewModel: ObservableObject {
         qqCanLoadMore = true
         expandedSource = nil
         
+        lastSearchedKeyword = keyword
         if query != keyword {
-            lastSearchedKeyword = keyword
             query = keyword
         }
         hasSearched = true
@@ -201,6 +202,12 @@ class SearchViewModel: ObservableObject {
         guard tab != currentTab else { return }
         currentTab = tab
         expandedSource = nil
+        
+        // 如果离开了单曲标签，且当前平台为汽水音乐，则自动切回网易云
+        if tab != .songs && selectedPlatform == .qishui {
+            selectedPlatform = .netease
+        }
+        
         guard hasSearched, !query.isEmpty else { return }
         
         // 检查两个平台是否都已有该类型的结果
@@ -482,5 +489,121 @@ class SearchViewModel: ObservableObject {
     func clearAllHistory() {
         cacheManager.clearSearchHistory()
         loadSearchHistory()
+    }
+    
+    // MARK: - 全部播放（含后台静默加载）
+    
+    /// 先播放当前已加载的歌曲，然后后台静默加载剩余页面并追加到播放队列
+    func playAllSongs(source: MusicSource, currentSongs: [Song]) {
+        guard !currentSongs.isEmpty else { return }
+        
+        // 立即开始播放已加载的歌曲
+        PlayerManager.shared.playReplacingContext(song: currentSongs[0], in: currentSongs)
+        
+        // 后台静默加载剩余页并追加到播放队列
+        let keyword = query
+        guard !keyword.isEmpty else { return }
+        
+        switch source {
+        case .netease:
+            guard neteaseCanLoadMore else { return }
+            Task { @MainActor in
+                await silentLoadAllNetease(keyword: keyword, startPage: neteaseCurrentPage + 1)
+            }
+        case .qqmusic:
+            guard qqCanLoadMore else { return }
+            Task { @MainActor in
+                await silentLoadAllQQ(keyword: keyword, startPage: qqCurrentPage + 2)
+            }
+        case .qishui, .local:
+            return
+        }
+    }
+    
+    /// 静默加载所有 NCM 剩余歌曲页
+    private func silentLoadAllNetease(keyword: String, startPage: Int) async {
+        var page = startPage
+        var keepLoading = true
+        
+        while keepLoading {
+            let offset = page * 30
+            do {
+                let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                    apiService.searchSongs(keyword: keyword, offset: offset)
+                        .receive(on: DispatchQueue.main)
+                        .sink(receiveCompletion: { completion in
+                            if case .failure(let error) = completion {
+                                continuation.resume(throwing: error)
+                            }
+                        }, receiveValue: { songs in
+                            continuation.resume(returning: songs)
+                        })
+                        .store(in: &cancellables)
+                }
+                
+                if songs.isEmpty || songs.count < 30 {
+                    keepLoading = false
+                }
+                
+                if !songs.isEmpty {
+                    // 去重后追加到已加载结果
+                    let existingIds = Set(neteaseResults.map { $0.id })
+                    let newSongs = songs.filter { !existingIds.contains($0.id) }
+                    if !newSongs.isEmpty {
+                        neteaseResults.append(contentsOf: newSongs)
+                        // 追加到播放队列
+                        PlayerManager.shared.appendContext(songs: newSongs)
+                    }
+                    neteaseCurrentPage = page
+                }
+                
+                page += 1
+            } catch {
+                keepLoading = false
+            }
+        }
+        neteaseCanLoadMore = false
+    }
+    
+    /// 静默加载所有 QQ 剩余歌曲页
+    private func silentLoadAllQQ(keyword: String, startPage: Int) async {
+        var page = startPage
+        var keepLoading = true
+        
+        while keepLoading {
+            do {
+                let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                    apiService.searchQQSongs(keyword: keyword, page: page, num: 30)
+                        .receive(on: DispatchQueue.main)
+                        .sink(receiveCompletion: { completion in
+                            if case .failure(let error) = completion {
+                                continuation.resume(throwing: error)
+                            }
+                        }, receiveValue: { songs in
+                            continuation.resume(returning: songs)
+                        })
+                        .store(in: &cancellables)
+                }
+                
+                if songs.isEmpty || songs.count < 30 {
+                    keepLoading = false
+                }
+                
+                if !songs.isEmpty {
+                    let existingIds = Set(qqResults.map { $0.id })
+                    let newSongs = songs.filter { !existingIds.contains($0.id) }
+                    if !newSongs.isEmpty {
+                        qqResults.append(contentsOf: newSongs)
+                        PlayerManager.shared.appendContext(songs: newSongs)
+                    }
+                    qqCurrentPage = page - 1
+                }
+                
+                page += 1
+            } catch {
+                keepLoading = false
+            }
+        }
+        qqCanLoadMore = false
     }
 }

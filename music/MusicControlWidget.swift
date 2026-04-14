@@ -45,6 +45,10 @@ enum WidgetTheme: String, CaseIterable, AppEnum {
     case magazine
     case pager
     case pagerLight
+    case radio
+    case dashboard
+    case soundwave
+    case typewriter
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "主题")
     static let caseDisplayRepresentations: [WidgetTheme: DisplayRepresentation] = [
@@ -55,6 +59,10 @@ enum WidgetTheme: String, CaseIterable, AppEnum {
         .magazine:    "杂志",
         .pager:       "寻呼机(深色)",
         .pagerLight:  "寻呼机(浅色)",
+        .radio:       "收音机",
+        .dashboard:   "仪表盘",
+        .soundwave:   "声波",
+        .typewriter:  "打字机"
     ]
 }
 
@@ -407,6 +415,14 @@ struct NowPlayingWidgetView: View {
             PagerWidgetTheme(entry: entry, family: family, isLight: false)
         case .pagerLight:
             PagerWidgetTheme(entry: entry, family: family, isLight: true)
+        case .radio:
+            RadioTheme(entry: entry, family: family)
+        case .dashboard:
+            DashboardTheme(entry: entry, family: family)
+        case .soundwave:
+            SoundwaveTheme(entry: entry, family: family)
+        case .typewriter:
+            TypewriterWidgetTheme(entry: entry, family: family)
         }
     }
 
@@ -448,6 +464,36 @@ struct NowPlayingWidgetView: View {
             Color(hex: "F4F1EA").ignoresSafeArea()
         case .pager, .pagerLight:
             Color.clear.ignoresSafeArea()
+        case .radio:
+            radioBackground.ignoresSafeArea()
+        case .dashboard:
+            Color(hex: "1A1A1E").ignoresSafeArea()
+        case .soundwave:
+            Color(hex: "151515").ignoresSafeArea()
+        case .typewriter:
+            Color(hex: "DED0B6").ignoresSafeArea()
+        }
+    }
+
+    /// 收音机主题动态背景：封面主色 → 高亮度低饱和的柔和渐变
+    @ViewBuilder
+    private var radioBackground: some View {
+        if entry.dominantRGB.count == 3, !entry.isEmpty {
+            let r = Double(entry.dominantRGB[0])
+            let g = Double(entry.dominantRGB[1])
+            let b = Double(entry.dominantRGB[2])
+            LinearGradient(
+                colors: [
+                    Color(red: r * 0.25 + 0.75, green: g * 0.25 + 0.75, blue: b * 0.25 + 0.75),
+                    Color(red: r * 0.35 + 0.65, green: g * 0.35 + 0.65, blue: b * 0.35 + 0.65)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        } else {
+            LinearGradient(
+                colors: [Color(hex: "F0EEEA"), Color(hex: "E6E4E0")],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -476,10 +522,12 @@ struct NowPlayingWidgetView: View {
                 Text(entry.isEmpty ? "未在播放" : entry.songName)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Text(entry.isEmpty ? "暂无歌曲信息" : entry.artistName)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -562,6 +610,7 @@ private struct PolaroidTheme: View {
                             Image(systemName: "mappin.circle.fill").font(.system(size: 11)).foregroundStyle(inkBlack)
                             Text(displaySongName)
                                 .font(.system(size: 13, weight: .heavy, design: .serif)).foregroundStyle(inkBlack).lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .contentTransition(.interpolate)
                         }
                         ZStack(alignment: .leading) {
@@ -569,6 +618,7 @@ private struct PolaroidTheme: View {
                                 .font(.custom("Snell Roundhand", size: 16)).foregroundStyle(accentYellow.opacity(0.7)).offset(x: 2, y: -3)
                             Text(displayArtistName)
                                 .font(.system(size: 9, weight: .medium)).foregroundStyle(inkGray).lineLimit(1).padding(.leading, 2)
+                                .minimumScaleFactor(0.6)
                         }
                     }
                     Spacer(minLength: 4)
@@ -617,6 +667,7 @@ private struct PolaroidTheme: View {
                                     .font(.system(size: 20, weight: .heavy, design: .serif))
                                     .foregroundStyle(inkBlack)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                                     .contentTransition(.interpolate)
                             }
 
@@ -630,6 +681,7 @@ private struct PolaroidTheme: View {
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundStyle(inkGray)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                                     .padding(.leading, 2)
                             }
                         }
@@ -730,6 +782,7 @@ private struct PolaroidTheme: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(inkGray)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
 
                     Spacer(minLength: 4)
@@ -1120,6 +1173,7 @@ private struct VinylTheme: View {
                                 .font(.system(size: 10, weight: .medium, design: .rounded))
                                 .foregroundStyle(dimTextColor)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
 
                         if !entry.isEmpty {
@@ -1181,6 +1235,7 @@ private struct VinylTheme: View {
                                     .font(.system(size: 11, weight: .medium, design: .rounded))
                                     .foregroundStyle(dimTextColor)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
 
                                 Spacer(minLength: 8)
 
@@ -1404,6 +1459,7 @@ private struct VinylTheme: View {
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundStyle(dimTextColor)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .padding(.top, 2)
 
                         if !entry.lyricText.isEmpty {
@@ -1531,7 +1587,7 @@ private struct VinylTheme: View {
                 .font(.system(size: compact ? 9 : 10, weight: .black, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.6)
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.vertical, verticalPadding)
@@ -1550,7 +1606,7 @@ private struct VinylTheme: View {
             .font(.system(size: 10, weight: .black, design: .rounded))
             .foregroundStyle(.white.opacity(0.94))
             .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .minimumScaleFactor(0.6)
             .frame(width: 24, height: 24)
             .background(
                 Circle()
@@ -1578,12 +1634,12 @@ private struct VinylTheme: View {
                 .font(.system(size: compact ? 8 : 9, weight: .bold, design: .rounded))
                 .foregroundStyle(dimTextColor)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.6)
             Text(value)
                 .font(.system(size: compact ? 12 : 13, weight: .black, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1774,48 +1830,26 @@ private struct VinylTheme: View {
                     endPoint: .bottomTrailing
                 )
             )
-            .overlay {
-                shape
-                    .stroke(Color.black.opacity(0.34), lineWidth: 6)
-                    .blur(radius: 6)
-                    .offset(x: 2, y: 2)
-                    .mask {
-                        shape.fill(
-                            LinearGradient(
-                                colors: [.black, .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    }
-            }
-            .overlay {
-                shape
-                    .stroke(Color.white.opacity(0.045), lineWidth: 3)
-                    .blur(radius: 2.5)
-                    .offset(x: -1.2, y: -1.2)
-                    .mask {
-                        shape.fill(
-                            LinearGradient(
-                                colors: [.white, .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    }
-            }
             .overlay(
+                // Simulating top-left dark inner shadow (bevel)
                 shape.stroke(
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.05),
-                            Color.white.opacity(0.015),
-                            Color.black.opacity(0.16)
-                        ],
+                        colors: [Color.black.opacity(0.45), .clear],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 0.9
+                    lineWidth: 3
+                )
+            )
+            .overlay(
+                // Simulating bottom-right bright rim
+                shape.stroke(
+                    LinearGradient(
+                        colors: [.clear, Color.white.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
                 )
             )
     }
@@ -1917,14 +1951,23 @@ private struct VinylRecordView: View {
     var body: some View {
         ZStack {
             Ellipse()
-                .fill(Color.black.opacity(0.18))
-                .frame(width: size * 0.88, height: size * 0.24)
-                .blur(radius: size * 0.09)
+                .fill(
+                    RadialGradient(
+                        colors: [Color.black.opacity(0.5), .clear],
+                        center: .center, startRadius: size * 0.1, endRadius: size * 0.44
+                    )
+                )
+                .frame(width: size * 1.05, height: size * 0.34)
                 .offset(y: size * 0.40)
+            
             Ellipse()
-                .fill(Color.black.opacity(0.28))
-                .frame(width: size * 0.62, height: size * 0.12)
-                .blur(radius: size * 0.045)
+                .fill(
+                    RadialGradient(
+                        colors: [Color.black.opacity(0.6), .clear],
+                        center: .center, startRadius: size * 0.05, endRadius: size * 0.31
+                    )
+                )
+                .frame(width: size * 0.72, height: size * 0.18)
                 .offset(y: size * 0.43)
 
             ZStack {
@@ -2063,7 +2106,7 @@ private struct VinylLabelView: View {
                     .font(.system(size: size * 0.12, weight: .black, design: .rounded))
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .minimumScaleFactor(0.6)
 
                 Capsule(style: .continuous)
                     .fill(.white.opacity(0.42))
@@ -2073,13 +2116,14 @@ private struct VinylLabelView: View {
                     .font(.system(size: size * 0.085, weight: .bold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.88))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .padding(.horizontal, size * 0.10)
 
                 Text(labelFooter)
                     .font(.system(size: size * 0.078, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.76))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .minimumScaleFactor(0.6)
             }
             .shadow(color: .black.opacity(0.26), radius: 5, x: 0, y: 1)
 
@@ -2219,7 +2263,7 @@ private struct PlaybackWave: View {
             waveBody(time: date.timeIntervalSinceReferenceDate)
                 .animation(.linear(duration: 0.5), value: date)
         } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: !isActive)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isActive)) { context in
                 waveBody(time: context.date.timeIntervalSinceReferenceDate)
             }
         }
@@ -2241,10 +2285,10 @@ private struct PlaybackWave: View {
         if !isActive {
             return 2.5
         }
-        let phases: [Double] = [0.0, 1.3, 0.6, 2.1, 1.0, 2.6, 0.3, 1.8]
+        let phases: [Double] = [0.0, 1.8, 0.9, 2.7, 1.4, 3.2, 0.5, 2.3]
         let phase = phases[index % phases.count]
-        let wave = sin(time * 3.5 + phase) * 0.5 + 0.5
-        let minScale: CGFloat = 0.18
+        let wave = sin(time * 12.0 + phase) * 0.5 + 0.5
+        let minScale: CGFloat = 0.15
         return height * (minScale + CGFloat(wave) * (1.0 - minScale))
     }
 }
@@ -2388,6 +2432,7 @@ struct PosterWidgetTheme: View {
                         .foregroundStyle(.white.opacity(0.6))
                         .tracking(2)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                     Spacer()
                 }
                 .padding(.horizontal, 14)
@@ -2407,6 +2452,7 @@ struct PosterWidgetTheme: View {
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
@@ -2474,6 +2520,7 @@ struct PosterWidgetTheme: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.white.opacity(0.85))
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 1)
                         }
 
@@ -2555,6 +2602,7 @@ struct PosterWidgetTheme: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .padding(.horizontal, 20)
                     .padding(.top, 3)
 
@@ -2563,6 +2611,7 @@ struct PosterWidgetTheme: View {
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(.white.opacity(0.55))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .padding(.horizontal, 20)
                         .padding(.top, 1)
                 }
@@ -2710,15 +2759,60 @@ private struct MangaMicroAnimator: ViewModifier {
         } animation: { phase in
             switch type {
             case .pulse:
-                .easeInOut(duration: 0.8)
+                .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
             case .twinkle:
-                .easeInOut(duration: 1.2)
+                .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
             case .wobble:
-                .easeInOut(duration: 2.0)
+                .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
             case .float:
-                .easeInOut(duration: 1.5)
+                .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
             }
         }
+    }
+}
+
+/// Floating heart bubbles — multiple tiny hearts rise & fade like fizzy bubbles
+/// Uses real SwiftUI views (not Canvas) for WidgetKit compatibility
+private struct MangaHeartBubblesView: View {
+    let color: Color
+    let ink: Color
+    var bubbleCount: Int = 5
+    var areaWidth: CGFloat = 40
+    var areaHeight: CGFloat = 50
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            ZStack {
+                ForEach(0..<bubbleCount, id: \.self) { i in
+                    let seed = Double(i)
+                    let cycle = 2.0 + (seed * 1.3).truncatingRemainder(dividingBy: 1.5)
+                    let delay = (seed * 0.6).truncatingRemainder(dividingBy: 2.0)
+                    let phase = (t + delay).truncatingRemainder(dividingBy: cycle) / cycle
+                    let xBase = ((seed * 7.3).truncatingRemainder(dividingBy: 1.0) - 0.5) * Double(areaWidth) * 0.7
+                    let xSway = sin(phase * .pi * 2.5) * 4.0
+                    let heartSize = CGFloat(4.0 + (seed * 3.7).truncatingRemainder(dividingBy: 5.0))
+                    let scale = 0.6 + 0.4 * (1.0 - phase)
+                    let opacity = (1.0 - phase) * 0.85
+                    let rot = (seed * 13.0).truncatingRemainder(dividingBy: 30.0) - 15.0
+
+                    ZStack {
+                        MangaHeartShape().fill(color)
+                        MangaHeartShape().stroke(ink.opacity(0.6), lineWidth: 0.8)
+                    }
+                    .frame(width: heartSize, height: heartSize)
+                    .scaleEffect(CGFloat(scale))
+                    .rotationEffect(.degrees(rot))
+                    .opacity(opacity)
+                    .offset(
+                        x: CGFloat(xBase + xSway),
+                        y: CGFloat(areaHeight / 2.0 - CGFloat(phase) * areaHeight)
+                    )
+                }
+            }
+            .frame(width: areaWidth, height: areaHeight)
+        }
+        .allowsHitTesting(false)
     }
 }
 
@@ -2798,6 +2892,7 @@ private struct MangaTheme: View {
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .foregroundStyle(ink)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(labelYellow))
@@ -2939,6 +3034,10 @@ private struct MangaTheme: View {
                     .rotationEffect(.degrees(-15))
                     .modifier(MangaMicroAnimator(type: .pulse))
                     .position(x: g.size.width - 20, y: g.size.height - 24)
+                    
+                    // Heart bubbles floating up from the bottom-right heart
+                    MangaHeartBubblesView(color: accentPink, ink: ink, bubbleCount: 4, areaWidth: 30, areaHeight: 40)
+                        .position(x: g.size.width - 20, y: g.size.height - 46)
                 }
                 .allowsHitTesting(false)
 
@@ -2953,13 +3052,13 @@ private struct MangaTheme: View {
                                 .font(.system(size: 14, weight: .heavy, design: .rounded))
                                 .foregroundStyle(ink)
                                 .lineLimit(3)
-                                .minimumScaleFactor(0.85)
+                                .minimumScaleFactor(0.4)
                                 
                             Text(artist)
                                 .font(.system(size: 12, weight: .bold, design: .rounded))
                                 .foregroundStyle(inkSub)
                                 .lineLimit(2)
-                                .minimumScaleFactor(0.85)
+                                .minimumScaleFactor(0.4)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -3023,6 +3122,10 @@ private struct MangaTheme: View {
                     .frame(width: 6, height: 6)
                     .modifier(MangaMicroAnimator(type: .float))
                     .position(x: 24, y: g.size.height - 18)
+                    
+                    // Heart bubbles near the top-right star area
+                    MangaHeartBubblesView(color: accentPink, ink: ink, bubbleCount: 3, areaWidth: 28, areaHeight: 36)
+                        .position(x: g.size.width - 22, y: g.size.height - 38)
                 }
                 .allowsHitTesting(false)
 
@@ -3040,12 +3143,13 @@ private struct MangaTheme: View {
                                         .font(.system(size: 13, weight: .heavy, design: .rounded))
                                         .foregroundStyle(ink)
                                         .lineLimit(2)
-                                        .minimumScaleFactor(0.85)
+                                        .minimumScaleFactor(0.4)
 
                                     Text(artist)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundStyle(inkSub)
                                         .lineLimit(1)
+                                        .minimumScaleFactor(0.4)
 
                                     if !lyric.isEmpty {
                                         Rectangle()
@@ -3121,6 +3225,18 @@ private struct MangaTheme: View {
                     Spacer()
                 }
                 .allowsHitTesting(false)
+                
+                // Heart bubbles decoration for large widget
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        MangaHeartBubblesView(color: accentPink, ink: ink, bubbleCount: 6, areaWidth: 44, areaHeight: 60)
+                    }
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 28)
+                }
+                .allowsHitTesting(false)
 
                 VStack(spacing: 0) {
                     HStack {
@@ -3139,7 +3255,7 @@ private struct MangaTheme: View {
                         .foregroundStyle(ink)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
-                        .minimumScaleFactor(0.72)
+                        .minimumScaleFactor(0.4)
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
 
@@ -3157,7 +3273,7 @@ private struct MangaTheme: View {
                             .foregroundStyle(ink.opacity(0.75))
                             .multilineTextAlignment(.center)
                             .lineLimit(5)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.4)
                             .padding(.horizontal, 22)
                             .padding(.top, 10)
                     }
@@ -3299,6 +3415,7 @@ struct MagazineTheme: View {
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(inkLight)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                 }
                 .padding(.horizontal, pad)
@@ -3353,6 +3470,7 @@ struct MagazineTheme: View {
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(inkLight)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .padding(.top, 2)
 
                     Spacer(minLength: 4)
@@ -3463,6 +3581,7 @@ struct MagazineTheme: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(inkLight)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .padding(.top, 4)
 
                         if !entry.albumName.isEmpty {
@@ -3470,6 +3589,7 @@ struct MagazineTheme: View {
                                 .font(.system(size: 10, weight: .regular, design: .serif))
                                 .foregroundStyle(inkLight.opacity(0.7))
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .padding(.top, 2)
                         }
                     }
@@ -3639,14 +3759,14 @@ struct PagerWidgetTheme: View {
                             .foregroundStyle(amber)
                             .padding(.top, 6)
                             .lineLimit(2)
-                            .minimumScaleFactor(0.65)
+                            .minimumScaleFactor(0.4)
                             .contentTransition(.interpolate)
 
                         Text(artist)
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundStyle(amber.opacity(0.4))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.4)
 
                         Spacer(minLength: 2)
                     }
@@ -3726,7 +3846,7 @@ struct PagerWidgetTheme: View {
                                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                                 .foregroundStyle(amber)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.7)
+                                .minimumScaleFactor(0.4)
                                 .contentTransition(.interpolate)
 
                             // 歌手 / 歌词
@@ -3741,6 +3861,7 @@ struct PagerWidgetTheme: View {
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundStyle(amber.opacity(0.55))
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.4)
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: 62, alignment: .topLeading)
@@ -3833,7 +3954,7 @@ struct PagerWidgetTheme: View {
                                 .font(.system(size: 24, weight: .bold, design: .monospaced))
                                 .foregroundStyle(amber)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.6)
+                                .minimumScaleFactor(0.4)
                                 .contentTransition(.interpolate)
 
                             VStack(alignment: .center, spacing: 6) {
@@ -3841,6 +3962,7 @@ struct PagerWidgetTheme: View {
                                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                                     .foregroundStyle(amber.opacity(0.55))
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.4)
 
                                 let subStr = entry.albumName.isEmpty ? entry.lyricText : entry.albumName
                                 if !subStr.isEmpty {
@@ -3921,13 +4043,13 @@ struct PagerWidgetTheme: View {
                 .tracking(1.5)
                 .foregroundStyle(brandDim)
                 .lineLimit(1)
-                .minimumScaleFactor(0.5)
+                .minimumScaleFactor(0.6)
             Text(" P A G E R")
                 .font(.system(size: fontSize, weight: .bold, design: .rounded))
                 .tracking(1.5)
                 .foregroundStyle(brandBright)
                 .lineLimit(1)
-                .minimumScaleFactor(0.5)
+                .minimumScaleFactor(0.6)
 
             Spacer()
 
@@ -4106,3 +4228,1895 @@ struct PagerWidgetTheme: View {
     }
 }
 
+// MARK: - Radio Theme (收音机)
+
+struct RadioTheme: View {
+    let entry: NowPlayingEntry
+    let family: WidgetFamily
+
+    // 从封面取色生成动态配色
+    private var dominantColor: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "D0CEC8") }
+        return Color(red: Double(entry.dominantRGB[0]), green: Double(entry.dominantRGB[1]), blue: Double(entry.dominantRGB[2]))
+    }
+
+    private var secondaryColor: Color {
+        guard entry.secondaryRGB.count == 3, !entry.isEmpty else { return Color(hex: "E8E6E2") }
+        return Color(red: Double(entry.secondaryRGB[0]), green: Double(entry.secondaryRGB[1]), blue: Double(entry.secondaryRGB[2]))
+    }
+
+    /// 背景色：封面主色 → 调高亮度、降低饱和度，保持柔和拟物感
+    private var bgTop: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "F0EEEA") }
+        let r = Double(entry.dominantRGB[0])
+        let g = Double(entry.dominantRGB[1])
+        let b = Double(entry.dominantRGB[2])
+        // 混合白色 75%，保留 25% 色调
+        return Color(red: r * 0.25 + 0.75, green: g * 0.25 + 0.75, blue: b * 0.25 + 0.75)
+    }
+
+    private var bgBottom: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "E6E4E0") }
+        let r = Double(entry.dominantRGB[0])
+        let g = Double(entry.dominantRGB[1])
+        let b = Double(entry.dominantRGB[2])
+        // 混合白色 65%，保留 35% 色调，略深
+        return Color(red: r * 0.35 + 0.65, green: g * 0.35 + 0.65, blue: b * 0.35 + 0.65)
+    }
+
+    // 文字
+    private let textPrimary = Color(hex: "2C2C2C")
+    private let textSecondary = Color(hex: "9A9A9A")
+    private let fmColor = Color(hex: "A0A0A0")
+
+    // 刻度盘 — 跟随背景色调
+    private var dialScreenBg: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "D8D6D2") }
+        let r = Double(entry.dominantRGB[0])
+        let g = Double(entry.dominantRGB[1])
+        let b = Double(entry.dominantRGB[2])
+        return Color(red: r * 0.3 + 0.56, green: g * 0.3 + 0.56, blue: b * 0.3 + 0.56)
+    }
+
+    private var dialScreenTop: Color {
+        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "E2E0DC") }
+        let r = Double(entry.dominantRGB[0])
+        let g = Double(entry.dominantRGB[1])
+        let b = Double(entry.dominantRGB[2])
+        return Color(red: r * 0.25 + 0.63, green: g * 0.25 + 0.63, blue: b * 0.25 + 0.63)
+    }
+
+    private let dialInnerShadow = Color(hex: "B0AEA8")
+    private let tickColor = Color(hex: "B0ADA6")
+    private let tickMajorColor = Color(hex: "9A9894")
+    private let needleColor = Color(hex: "A8A6A0")
+    private let freqColor = Color(hex: "8A8884")
+
+    // 按钮
+    private let btnTopColor = Color(hex: "F2F0EC")
+    private let btnBottomColor = Color(hex: "E0DDD8")
+    private let btnShadowColor = Color(hex: "C0BDB6")
+    private let btnIconColor = Color(hex: "7A7874")
+
+    private var song: String { entry.isEmpty ? "FM Radio" : entry.songName }
+    private var artist: String { entry.isEmpty ? "Tune In" : entry.artistName }
+
+    var body: some View {
+        switch family {
+        case .systemMedium: mediumLayout
+        case .systemLarge:  largeLayout
+        default:            smallLayout
+        }
+    }
+
+    // MARK: - Small
+
+    private var smallLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let btnSz: CGFloat = min(w * 0.21, 30)
+
+            VStack(spacing: 0) {
+                // FM 标签
+                HStack {
+                    Spacer()
+                    Text("FM")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(fmColor)
+                }
+                .padding(.trailing, 14)
+                .padding(.top, 10)
+
+                // 频率刻度盘 — 凹陷屏幕
+                radioDialScreen(width: w - 24, height: h * 0.35)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+
+                // 歌曲信息
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(song)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+
+                    Text(artist)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.top, 6)
+
+                Spacer(minLength: 2)
+
+                // 控制按钮
+                if !entry.isEmpty {
+                    HStack(spacing: w * 0.06) {
+                        radioKnob(intent: PreviousTrackIntent(), icon: "backward.fill", size: btnSz, isMain: false)
+                        radioKnob(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, size: btnSz + 6, isMain: true)
+                        radioKnob(intent: NextTrackIntent(), icon: "forward.fill", size: btnSz, isMain: false)
+                    }
+                    .padding(.bottom, 12)
+                } else {
+                    Spacer().frame(height: 12)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    // MARK: - Medium
+
+    private var mediumLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let coverSize: CGFloat = h - 24
+            let btnSz: CGFloat = 28
+
+            HStack(spacing: 0) {
+                // 左侧 — 凹陷封面框
+                ZStack {
+                    // 凹陷底座
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [bgBottom.opacity(0.6), bgBottom.opacity(0.4)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.black.opacity(0.05), Color.clear],
+                                        startPoint: .top, endPoint: .center
+                                    )
+                                )
+                        )
+                        .frame(width: coverSize, height: coverSize)
+
+                    // 封面图片
+                    if let data = entry.coverImageData,
+                       let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: coverSize - 8, height: coverSize - 8)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    } else {
+                        Image(systemName: "radio")
+                            .font(.system(size: 30, weight: .light))
+                            .foregroundStyle(textSecondary.opacity(0.5))
+                    }
+                }
+                .frame(width: coverSize + 4)
+                .padding(.leading, 12)
+
+                // 右侧 — 信息和控制
+                VStack(alignment: .leading, spacing: 0) {
+                    // RADIO + 音质
+                    HStack {
+                        Text("RADIO")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(fmColor)
+                            .tracking(1)
+                        Spacer()
+                        if !entry.qualityText.isEmpty {
+                            Text(entry.qualityText)
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(fmColor.opacity(0.7))
+                                .italic()
+                        }
+                    }
+                    .padding(.top, 10)
+
+                    // 频率刻度盘
+                    radioDialScreen(width: w - coverSize - 44, height: 42)
+                        .padding(.top, 4)
+
+                    // 歌曲信息
+                    Text(song)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+                        .padding(.top, 5)
+
+                    Text(artist)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+                        .padding(.top, 1)
+
+                    Spacer(minLength: 2)
+
+                    // 控制按钮
+                    if !entry.isEmpty {
+                        HStack(spacing: 12) {
+                            radioKnob(intent: PreviousTrackIntent(), icon: "backward.fill", size: btnSz, isMain: false)
+                            radioKnob(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, size: btnSz + 4, isMain: true)
+                            radioKnob(intent: NextTrackIntent(), icon: "forward.fill", size: btnSz, isMain: false)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 10)
+                    }
+                }
+                .padding(.leading, 10)
+                .padding(.trailing, 14)
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    // MARK: - Large
+
+    private var largeLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            // 封面高度基于可用空间计算，预留顶部(40)+刻度盘(66)+歌曲信息(50)+格栅(16)+按钮(60)=232
+            let coverH: CGFloat = min(h - 230, w * 0.5)
+            let coverW: CGFloat = w - 40
+            let btnSz: CGFloat = 36
+
+            VStack(spacing: 0) {
+                // 顶部：RADIO + 音质
+                HStack {
+                    Text("RADIO")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(fmColor)
+                        .tracking(1.5)
+                    Spacer()
+                    if !entry.qualityText.isEmpty {
+                        Text(entry.qualityText)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(fmColor.opacity(0.7))
+                            .italic()
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+
+                // 频率刻度盘
+                radioDialScreen(width: w - 36, height: 58)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+
+                // 凹陷封面框
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [bgBottom.opacity(0.5), bgBottom.opacity(0.35)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.black.opacity(0.04), Color.clear],
+                                        startPoint: .top, endPoint: .center
+                                    )
+                                )
+                        )
+                        .frame(width: coverW, height: coverH)
+
+                    if let data = entry.coverImageData,
+                       let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: coverW - 10, height: coverH - 10)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    } else {
+                        Image(systemName: "radio")
+                            .font(.system(size: 36, weight: .light))
+                            .foregroundStyle(textSecondary.opacity(0.4))
+                    }
+                }
+                .padding(.top, 10)
+
+                // 歌曲信息
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(song)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+
+                    Text(artist)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+
+                Spacer(minLength: 6)
+
+                // 装饰扬声器格栅线
+                HStack(spacing: 3) {
+                    ForEach(0..<Int(w / 5), id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 0.5)
+                            .fill(btnShadowColor.opacity(0.15))
+                            .frame(width: 1, height: 6)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
+
+                // 控制按钮
+                if !entry.isEmpty {
+                    HStack(spacing: 18) {
+                        radioKnob(intent: PreviousTrackIntent(), icon: "backward.fill", size: btnSz, isMain: false)
+                        radioKnob(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, size: btnSz + 8, isMain: true)
+                        radioKnob(intent: NextTrackIntent(), icon: "forward.fill", size: btnSz, isMain: false)
+                    }
+                    .padding(.bottom, 16)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    // MARK: - 凹陷频率刻度盘
+
+    /// 模拟参考图中的凹陷屏幕：深色背景，频率数字在顶部，长刻度线贯穿，半透明指针
+    private func radioDialScreen(width: CGFloat, height: CGFloat) -> some View {
+        let frequencies = [88, 92, 96, 100, 104, 108]
+        let totalTicks = 26 // 每个区间5格 × 5区间 + 首尾 = 26
+
+        return ZStack {
+            // 凹陷屏幕背景
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [dialScreenTop, dialScreenBg, dialScreenBg.opacity(0.95)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                // 内阴影效果 — 凹陷感
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(dialInnerShadow.opacity(0.5), lineWidth: 1)
+                )
+                .overlay(
+                    // 顶部内阴影
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.06), Color.clear],
+                                startPoint: .top, endPoint: .center
+                            )
+                        )
+                )
+
+            // 内容
+            VStack(spacing: 0) {
+                // 频率数字
+                HStack(spacing: 0) {
+                    ForEach(frequencies, id: \.self) { freq in
+                        Text("\(freq)")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(freqColor)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 6)
+
+                Spacer(minLength: 2)
+
+                // 刻度线区域
+                ZStack(alignment: .bottom) {
+                    // 刻度线
+                    HStack(spacing: 0) {
+                        ForEach(0..<totalTicks, id: \.self) { i in
+                            let isMajor = i % 5 == 0
+                            VStack(spacing: 0) {
+                                Spacer(minLength: 0)
+                                Rectangle()
+                                    .fill(isMajor ? tickMajorColor : tickColor.opacity(0.6))
+                                    .frame(width: isMajor ? 1.2 : 0.8, height: isMajor ? height * 0.48 : height * 0.32)
+                            }
+                            if i < totalTicks - 1 {
+                                Spacer(minLength: 0)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10)
+
+                    // 指针 — 半透明竖线
+                    let needlePos = entry.isEmpty ? 0.5 : stableNeedlePosition()
+                    Rectangle()
+                        .fill(needleColor.opacity(0.7))
+                        .frame(width: 2.5, height: height * 0.55)
+                        .background(
+                            Rectangle()
+                                .fill(Color.white.opacity(0.3))
+                                .frame(width: 6)
+                                .blur(radius: 2)
+                        )
+                        .offset(x: (needlePos - 0.5) * (width - 28))
+                }
+                .padding(.bottom, 6)
+            }
+        }
+        .frame(width: width, height: height)
+        // 外阴影 — 凹陷感
+        .shadow(color: Color.white.opacity(0.6), radius: 1, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: -1)
+    }
+
+    private func stableNeedlePosition() -> CGFloat {
+        let hash = abs(entry.songName.hashValue)
+        return CGFloat(hash % 70 + 15) / 100.0 // 0.15 ~ 0.85
+    }
+
+    // MARK: - 轻拟物按钮
+
+    private func radioKnob<I: AppIntent>(intent: I, icon: String, size: CGFloat, isMain: Bool) -> some View {
+        Button(intent: intent) {
+            Image(systemName: icon)
+                .font(.system(size: size * 0.34, weight: .semibold))
+                .foregroundStyle(isMain ? textPrimary.opacity(0.65) : btnIconColor)
+                .frame(width: size, height: size)
+                .background(
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [btnTopColor, btnBottomColor],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        // 柔和的底部投影 — 圆润凸起感
+                        .shadow(color: btnShadowColor.opacity(0.5), radius: 2.5, x: 0, y: 2)
+                        .shadow(color: Color.white.opacity(0.5), radius: 0.5, x: 0, y: -0.5)
+                )
+                // 淡淡的顶部高亮 — 圆润感
+                .overlay(
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.35), Color.clear],
+                                startPoint: .top, endPoint: .center
+                            )
+                        )
+                        .padding(2)
+                        .allowsHitTesting(false)
+                )
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Dashboard Theme (仪表盘)
+
+struct DashboardTheme: View {
+    let entry: NowPlayingEntry
+    let family: WidgetFamily
+
+    // 色彩系统 — 深色仪表盘
+    private let bgColor = Color(hex: "1C1C1E")
+    private let cardBg = Color(hex: "242428")
+    private let pillBg = Color.white.opacity(0.06)
+    private let textWhite = Color.white
+    private let textGray = Color(hex: "98989D")
+    private let accentBar = Color(hex: "FF9F0A") // 橙黄色竖条
+    private let indicatorDot = Color(hex: "8B6914") // 偏深金/棕色指示点
+    private let btnColor = Color(hex: "7C7C80") // 未激活按钮颜色
+
+    private var song: String { entry.isEmpty ? "Dashboard" : entry.songName }
+    private var artist: String { entry.isEmpty ? "Not Playing" : entry.artistName }
+    private var displayLyric: String { entry.lyricText.isEmpty ? "" : entry.lyricText }
+
+    var body: some View {
+        switch family {
+        case .systemMedium: mediumLayout
+        case .systemLarge:  largeLayout
+        default:            smallLayout
+        }
+    }
+
+    // MARK: - Small
+
+    private var smallLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let coverSize: CGFloat = min(w * 0.42, h * 0.38)
+
+            VStack(spacing: 0) {
+                // 上半部：封面 + 标签
+                HStack(alignment: .top, spacing: 8) {
+                    // 凹陷封面
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(cardBg)
+                            .frame(width: coverSize, height: coverSize)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+                            )
+
+                        if let data = entry.coverImageData,
+                           let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: coverSize - 6, height: coverSize - 6)
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        } else {
+                            Image(systemName: "music.note")
+                                .font(.system(size: 20, weight: .light))
+                                .foregroundStyle(textGray.opacity(0.4))
+                        }
+                    }
+
+                    // 右侧标签
+                    VStack(alignment: .trailing, spacing: 6) {
+                        // 音质标签
+                        dashboardPill(
+                            icon: "music.note",
+                            text: entry.qualityText.isEmpty ? "Standard" : entry.qualityText
+                        )
+
+                        // 播放模式标签
+                        dashboardPill(
+                            icon: "play.fill",
+                            text: entry.playModeText.isEmpty ? "顺序" : entry.playModeText
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+
+                Spacer(minLength: 4)
+
+                // 歌曲信息
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(song)
+                        .font(.system(size: 19, weight: .heavy, design: .rounded))
+                        .foregroundStyle(textWhite)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+
+                    HStack(spacing: 5) {
+                        // 橙色竖条
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(accentBar)
+                            .frame(width: 2.5, height: 12)
+
+                        Text(artist)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(textGray)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.4)
+                            .contentTransition(.interpolate)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+
+                Spacer(minLength: 4)
+
+                // 底部控制按钮
+                if !entry.isEmpty {
+                    HStack(spacing: 0) {
+                        dashboardBtn(intent: PreviousTrackIntent(), icon: "backward.fill")
+                        dashboardBtn(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, isMain: true)
+                        dashboardBtn(intent: NextTrackIntent(), icon: "forward.fill")
+
+                        Spacer()
+
+                        // 指示灯
+                        Circle()
+                            .fill(indicatorDot)
+                            .frame(width: 6, height: 6)
+                            .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
+                            .shadow(color: indicatorDot.opacity(0.3), radius: 2, x: 0, y: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
+                } else {
+                    Spacer().frame(height: 12)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    // MARK: - Medium
+
+    private var mediumLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let coverSize: CGFloat = h - 24
+
+            HStack(spacing: 0) {
+                // 左侧封面
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(cardBg)
+                        .frame(width: coverSize, height: coverSize)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+                        )
+
+                    if let data = entry.coverImageData,
+                       let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: coverSize - 8, height: coverSize - 8)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    } else {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(textGray.opacity(0.4))
+                    }
+                }
+                .padding(.leading, 14)
+
+                // 右侧
+                VStack(alignment: .leading, spacing: 0) {
+                    // 标签
+                    HStack(spacing: 6) {
+                        dashboardPill(icon: "music.note", text: entry.qualityText.isEmpty ? "Standard" : entry.qualityText)
+                        dashboardPill(icon: "play.fill", text: entry.playModeText.isEmpty ? "顺序" : entry.playModeText)
+                        Spacer()
+                        Circle()
+                            .fill(indicatorDot)
+                            .frame(width: 6, height: 6)
+                            .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
+                            .shadow(color: indicatorDot.opacity(0.3), radius: 2)
+                    }
+                    .padding(.top, 10)
+
+                    Spacer(minLength: 4)
+
+                    // 歌曲信息
+                    Text(song)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(textWhite)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.interpolate)
+
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(accentBar)
+                            .frame(width: 2.5, height: 12)
+                        Text(artist)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(textGray)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.4)
+                            .contentTransition(.interpolate)
+                    }
+                    .padding(.top, 2)
+
+                    // 歌词滚动框 (独特跑马灯切入动画)
+                    if !displayLyric.isEmpty {
+                        Text(displayLyric)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(accentBar)
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .layoutPriority(1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(cardBg)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+                                    )
+                            )
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                            .id(displayLyric)
+                            .clipped() // 防止滑动时溢出
+                    }
+
+                    Spacer(minLength: 4)
+
+                    // 按钮
+                    if !entry.isEmpty {
+                        HStack(spacing: 0) {
+                            dashboardBtn(intent: PreviousTrackIntent(), icon: "backward.fill")
+                            dashboardBtn(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, isMain: true)
+                            dashboardBtn(intent: NextTrackIntent(), icon: "forward.fill")
+                        }
+                        .padding(.bottom, 10)
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    private var largeLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let coverSize: CGFloat = min(w * 0.45, 150) // 左侧中等偏大封面
+
+            VStack(spacing: 0) {
+                // 上半部分：分栏布局 (类似中控双屏)
+                HStack(alignment: .top, spacing: 16) {
+                    // 左侧：封面
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(cardBg)
+                            .frame(width: coverSize, height: coverSize)
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.06), lineWidth: 1))
+
+                        if let data = entry.coverImageData,
+                           let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: coverSize - 10, height: coverSize - 10)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        } else {
+                            Image(systemName: "music.note")
+                                .font(.system(size: 36, weight: .light))
+                                .foregroundStyle(textGray.opacity(0.4))
+                        }
+                    }
+
+                    // 右侧：信息与标签
+                    VStack(alignment: .leading, spacing: 0) {
+                        // 顶部标签区
+                        HStack(spacing: 6) {
+                            dashboardPill(icon: "music.note", text: entry.qualityText.isEmpty ? "Standard" : entry.qualityText)
+                            dashboardPill(icon: "play.fill", text: entry.playModeText.isEmpty ? "顺序" : entry.playModeText)
+                            Spacer(minLength: 0)
+                            Circle()
+                                .fill(indicatorDot)
+                                .frame(width: 8, height: 8)
+                                .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
+                                .shadow(color: indicatorDot.opacity(0.3), radius: 2)
+                        }
+                        
+                        Spacer(minLength: 10)
+
+                        // 歌曲名
+                        Text(song)
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .foregroundStyle(textWhite)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.4)
+                            .contentTransition(.interpolate)
+                            .padding(.bottom, 6)
+
+                        // 歌手名
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(accentBar)
+                                .frame(width: 3, height: 14)
+                            Text(artist)
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundStyle(textGray)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.4)
+                                .contentTransition(.interpolate)
+                        }
+                        
+                        Spacer(minLength: 0)
+                    }
+                    .frame(height: coverSize, alignment: .top) // 让右侧与封面等高
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+
+                Spacer(minLength: 16)
+
+                // 中间部分：巨大的歌词遥测面板
+                if !displayLyric.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Image(systemName: "teletype")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(accentBar.opacity(0.8))
+                            Text("LYRICS_TELEMETRY")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(textGray.opacity(0.8))
+                        }
+                        
+                        Text(displayLyric)
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .foregroundStyle(textWhite.opacity(0.95))
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.8) // 保证缩放不缩略
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .layoutPriority(1) // 防止外部布局挤压缩略
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                            .id(displayLyric)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(width: w - 40, alignment: .topLeading) // 强制全宽，优先保证文本不被截断
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(cardBg.opacity(0.6))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.04), lineWidth: 1))
+                    )
+                }
+
+                Spacer(minLength: 16)
+
+                // 底部部分：超宽扁平控制栏
+                if !entry.isEmpty {
+                    HStack(spacing: 0) {
+                        dashboardBtn(intent: PreviousTrackIntent(), icon: "backward.fill", btnW: 60, btnH: 44, iconSize: 18)
+                        Spacer()
+                        dashboardBtn(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, isMain: true, btnW: 100, btnH: 44, iconSize: 26)
+                        Spacer()
+                        dashboardBtn(intent: NextTrackIntent(), icon: "forward.fill", btnW: 60, btnH: 44, iconSize: 18)
+                    }
+                    .background(cardBg)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.04), lineWidth: 1))
+                    .padding(.horizontal, 30)
+                    .padding(.bottom, 24)
+                } else {
+                    Spacer().frame(height: 24)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    // MARK: - 胶囊标签
+
+    private func dashboardPill(icon: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 8, weight: .semibold))
+            Text(text)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+        }
+        .foregroundStyle(textWhite.opacity(0.75))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(pillBg)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                )
+        )
+    }
+
+    // MARK: - 扁平控制按钮
+
+    private func dashboardBtn<I: AppIntent>(intent: I, icon: String, isMain: Bool = false, btnW: CGFloat = 36, btnH: CGFloat = 28, iconSize: CGFloat = 14) -> some View {
+        Button(intent: intent) {
+            Image(systemName: icon)
+                .font(.system(size: isMain ? iconSize + 4 : iconSize, weight: .semibold))
+                .foregroundStyle(isMain ? textWhite : btnColor)
+                .frame(width: btnW, height: btnH)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - SoundwaveTheme (声波主题)
+
+struct SoundwaveTheme: View {
+    var entry: NowPlayingEntry
+    var family: WidgetFamily
+    
+    // 从 UserDefaults 读取最新的歌词信息
+    let lyricsData = UserDefaults(suiteName: "group.com.lcb.monologue")?.string(forKey: "currentLyrics") ?? ""
+
+    private var song: String {
+        return entry.songName.isEmpty ? "Monologue" : entry.songName
+    }
+    
+    private var artist: String {
+        return entry.artistName.isEmpty ? "聆听你的声音" : entry.artistName
+    }
+    
+    private var displayLyric: String {
+        return entry.lyricText.isEmpty ? "" : entry.lyricText
+    }
+
+    // Colors
+    private let cardBg = Color(hex: "151515")
+    private let ringOrange = Color(hex: "CC7A33")
+    private let playOrange = Color(hex: "F06A00")
+    private let infoBg = Color(hex: "111112")
+    private let pillBg = Color(hex: "1C1C1E")
+
+    var body: some View {
+        switch family {
+        case .systemSmall:
+            smallLayout
+        case .systemMedium:
+            mediumLayout
+        case .systemLarge:
+            largeLayout
+        default:
+            smallLayout
+        }
+    }
+
+    // MARK: - Small Layout
+    
+    private var smallLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            
+            ZStack {
+                // 背景
+                cardBg.ignoresSafeArea()
+                
+                // 4个工业风螺丝角 (使用深色圆环模拟)
+                let inset: CGFloat = 8
+                Group {
+                    screwCorner().position(x: inset, y: inset)
+                    screwCorner().position(x: w - inset, y: inset)
+                    screwCorner().position(x: inset, y: h - inset)
+                    screwCorner().position(x: w - inset, y: h - inset)
+                }
+                
+                // 内部主结构
+                VStack(spacing: 8) {
+                    
+                    // 顶部区域：表盘 + 按钮胶囊
+                    HStack(spacing: 6) {
+                        // 左边：雷达表盘形进度 (100%TRACK)
+                        ZStack {
+                            Circle()
+                                .stroke(ringOrange.opacity(0.35), lineWidth: 2)
+                                
+                            // 刻度线
+                            ForEach(0..<12) { i in
+                                Rectangle()
+                                    .fill(ringOrange.opacity(i % 3 == 0 ? 0.7 : 0.4))
+                                    .frame(width: 1.5, height: i % 3 == 0 ? 6 : 3)
+                                    .offset(y: -22)
+                                    .rotationEffect(.degrees(Double(i) * 30))
+                            }
+                            
+                            VStack(spacing: 1) {
+                                Text("100%")
+                                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                    .foregroundColor(.white)
+                                
+                                PlaybackWave(isActive: entry.isPlaying, barCount: 3, color: ringOrange, height: 8)
+                                    
+                                Text("TRACK")
+                                    .font(.system(size: 7, weight: .black, design: .monospaced))
+                                    .foregroundColor(ringOrange)
+                            }
+                        }
+                        .frame(width: 50, height: 50)
+                        
+                        // 右边：上下两个胶囊
+                        VStack(spacing: 6) {
+                            // VOL
+                            HStack(spacing: 4) {
+                                PlaybackWave(isActive: entry.isPlaying, barCount: 3, color: playOrange, height: 10)
+                                Text("VOL")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .foregroundColor(ringOrange)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 20)
+                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(pillBg))
+                            
+                            // 控件胶囊
+                            HStack(spacing: 0) {
+                                Button(intent: PreviousTrackIntent()) {
+                                    Image(systemName: "backward.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(Color.gray.opacity(0.8))
+                                        .frame(width: 22, height: 26)
+                                }.buttonStyle(.plain)
+                                
+                                Spacer(minLength: 2)
+                                
+                                Button(intent: TogglePlaybackIntent()) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .fill(playOrange)
+                                        Image(systemName: entry.controlSymbolName)
+                                            .font(.system(size: 10, weight: .black))
+                                            .foregroundColor(.black)
+                                    }
+                                    .frame(width: 26, height: 26)
+                                    .shadow(color: playOrange.opacity(0.4), radius: 3, y: 1.5)
+                                }.buttonStyle(.plain)
+                                
+                                Spacer(minLength: 2)
+                                
+                                Button(intent: NextTrackIntent()) {
+                                    Image(systemName: "forward.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(Color.gray.opacity(0.8))
+                                        .frame(width: 22, height: 26)
+                                }.buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 4)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 34)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(pillBg))
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 14)
+                    
+                    // 下方：信号信息大卡片
+                    ZStack(alignment: .bottomTrailing) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("CURRENT_SIGNAL")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(Color.gray.opacity(0.7))
+                                
+                            Spacer(minLength: 4)
+                                
+                            Text(song)
+                                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.4)
+                                
+                            Text(artist)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundColor(ringOrange)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.4)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: 64)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(infoBg))
+                        
+                        // 卡片内部右下角的虚晃微型波形
+                        PlaybackWave(isActive: entry.isPlaying, barCount: 3, color: ringOrange.opacity(0.8), height: 10)
+                            .padding(14)
+                    }
+                    .padding(.horizontal, 12)
+                    
+                    Spacer()
+                }
+                
+                // 最底部角落修饰字符 "SYS_LINK"
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Circle().fill(ringOrange.opacity(0.5)).frame(width: 5, height: 5)
+                            Text("SYS_LINK")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundColor(ringOrange.opacity(0.4))
+                        }
+                    }
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+    
+    // MARK: - Medium Layout
+    
+    private var mediumLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            
+            ZStack {
+                cardBg.ignoresSafeArea()
+                
+                let inset: CGFloat = 8
+                VStack {
+                    HStack { screwCorner(); Spacer(); screwCorner() }
+                    Spacer()
+                    HStack { screwCorner(); Spacer(); screwCorner() }
+                }
+                .padding(inset)
+                
+                HStack(spacing: 12) {
+                    // Left: Cover + Song Info + Controls (VStack)
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Top row of left: Radar Cover
+                        HStack(spacing: 12) {
+                            // Radar
+                            ZStack {
+                                Circle().stroke(ringOrange.opacity(0.35), lineWidth: 2)
+                                ForEach(0..<12) { i in
+                                    Rectangle()
+                                        .fill(ringOrange.opacity(i % 3 == 0 ? 0.7 : 0.4))
+                                        .frame(width: 1.5, height: i % 3 == 0 ? 6 : 3)
+                                        .offset(y: -22)
+                                        .rotationEffect(.degrees(Double(i) * 30))
+                                }
+                                
+                                if let data = entry.coverImageData, let uiImage = UIImage(data: data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .clipShape(Circle())
+                                        .frame(width: 40, height: 40)
+                                } else {
+                                    Circle().fill(Color.white.opacity(0.1)).frame(width: 40, height: 40)
+                                    Image(systemName: "music.note")
+                                        .foregroundColor(.white.opacity(0.5))
+                                }
+                            }
+                            .frame(width: 50, height: 50)
+                            
+                            // Info
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(song)
+                                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.4)
+                                    
+                                Text(artist)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundColor(ringOrange)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.4)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Controls Pill
+                        HStack(spacing: 0) {
+                            Button(intent: PreviousTrackIntent()) {
+                                Image(systemName: "backward.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.gray.opacity(0.8))
+                                    .frame(width: 24, height: 32)
+                            }.buttonStyle(.plain)
+                            
+                            Spacer()
+                            
+                            Button(intent: TogglePlaybackIntent()) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(playOrange)
+                                    Image(systemName: entry.controlSymbolName)
+                                        .font(.system(size: 12, weight: .black))
+                                        .foregroundColor(.black)
+                                }
+                                .frame(width: 32, height: 32)
+                                .shadow(color: playOrange.opacity(0.4), radius: 3, y: 1.5)
+                            }.buttonStyle(.plain)
+                            
+                            Spacer()
+                            
+                            Button(intent: NextTrackIntent()) {
+                                Image(systemName: "forward.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.gray.opacity(0.8))
+                                    .frame(width: 24, height: 32)
+                            }.buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 10)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 42)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(pillBg))
+                    }
+                    .frame(maxWidth: w * 0.44)
+                    
+                    // Right: Lyrics Terminal
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            PlaybackWave(isActive: entry.isPlaying, barCount: 3, color: playOrange, height: 10)
+                            Text("LYRICS_DATA")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundColor(ringOrange)
+                            Spacer()
+                            Circle().fill(ringOrange.opacity(0.5)).frame(width: 4, height: 4)
+                        }
+                        
+                        Divider().background(Color.white.opacity(0.1))
+                        
+                        Text(displayLyric)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.85))
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.8)
+                            .layoutPriority(1)
+                        
+                        Spacer()
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(infoBg)
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(ringOrange.opacity(0.15), lineWidth: 1))
+                    )
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+    
+    // MARK: - Large Layout
+    
+    private var largeLayout: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            
+            ZStack {
+                cardBg.ignoresSafeArea()
+                
+                let inset: CGFloat = 10
+                VStack {
+                    HStack { screwCorner(); Spacer(); screwCorner() }
+                    Spacer()
+                    HStack { screwCorner(); Spacer(); screwCorner() }
+                }
+                .padding(inset)
+                
+                VStack(spacing: 12) {
+                    // Row 1: Radar Cover + Info Panel
+                    HStack(spacing: 16) {
+                        // Radar Big Cover
+                        ZStack {
+                            Circle().stroke(ringOrange.opacity(0.35), lineWidth: 3)
+                            ForEach(0..<18) { i in
+                                Rectangle()
+                                    .fill(ringOrange.opacity(i % 3 == 0 ? 0.7 : 0.4))
+                                    .frame(width: 2, height: i % 3 == 0 ? 8 : 4)
+                                    .offset(y: -42)
+                                    .rotationEffect(.degrees(Double(i) * 20))
+                            }
+                            
+                            if let data = entry.coverImageData, let uiImage = UIImage(data: data) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .clipShape(Circle())
+                                    .frame(width: 76, height: 76)
+                            } else {
+                                Circle().fill(Color.white.opacity(0.1)).frame(width: 76, height: 76)
+                            }
+                        }
+                        .frame(width: 90, height: 90)
+                        
+                        // Vertical Song Info Hub
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("NOW_TRACKING")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(Color.gray.opacity(0.7))
+                            Text(song)
+                                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                                .foregroundColor(.white)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.4)
+                            Text(artist)
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(ringOrange)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.4)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
+                    
+                    // Row 2: Equalizer / Control Deck Strip
+                    HStack {
+                        // Equalizer fake bars
+                        HStack(spacing: 4) {
+                            ForEach(0..<6) { i in
+                                Capsule()
+                                    .fill(playOrange.opacity(0.6))
+                                    .frame(width: 4, height: CGFloat([12, 24, 18, 28, 16, 20][i]))
+                            }
+                        }
+                        .padding(.leading, 12)
+                        
+                        Spacer()
+                        
+                        // Controls
+                        HStack(spacing: 20) {
+                            Button(intent: PreviousTrackIntent()) {
+                                Image(systemName: "backward.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.gray.opacity(0.8))
+                                    .frame(width: 32, height: 40)
+                            }.buttonStyle(.plain)
+                            
+                            Button(intent: TogglePlaybackIntent()) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(playOrange)
+                                    Image(systemName: entry.controlSymbolName)
+                                        .font(.system(size: 16, weight: .black))
+                                        .foregroundColor(.black)
+                                }
+                                .frame(width: 40, height: 40)
+                                .shadow(color: playOrange.opacity(0.4), radius: 3, y: 1.5)
+                            }.buttonStyle(.plain)
+                            
+                            Button(intent: NextTrackIntent()) {
+                                Image(systemName: "forward.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.gray.opacity(0.8))
+                                    .frame(width: 32, height: 40)
+                            }.buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    .frame(height: 56)
+                    .frame(maxWidth: .infinity)
+                    .background(pillBg)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 14)
+                    
+                    // Row 3: Massive Lyrics Screen
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            PlaybackWave(isActive: entry.isPlaying, barCount: 4, color: playOrange, height: 12)
+                            Text("LIVE_LYRICS_STREAM")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(ringOrange)
+                            Spacer()
+                            Circle().fill(ringOrange.opacity(0.5)).frame(width: 6, height: 6)
+                        }
+                        
+                        Divider().background(Color.white.opacity(0.1))
+                        
+                        Text(displayLyric)
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.85))
+                            .lineLimit(6)
+                            .minimumScaleFactor(0.4)
+                            .layoutPriority(1)
+                        Spacer()
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(infoBg)
+                            .overlay(RoundedRectangle(cornerRadius: 20).stroke(ringOrange.opacity(0.15), lineWidth: 1.5))
+                            .overlay(
+                                VStack {
+                                    HStack { screwCorner(); Spacer(); screwCorner() }
+                                    Spacer()
+                                    HStack { screwCorner(); Spacer(); screwCorner() }
+                                }
+                                .padding(12)
+                            )
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+    
+    // 角落的仿真螺丝
+    private func screwCorner() -> some View {
+        Circle()
+            .fill(Color.white.opacity(0.08))
+            .frame(width: 8, height: 8)
+            .shadow(color: Color.black.opacity(0.5), radius: 1, x: 0, y: 1)
+            .overlay(
+                Rectangle()
+                    .fill(Color.black.opacity(0.6))
+                    .frame(width: 6, height: 1)
+                    .rotationEffect(.degrees(45))
+            )
+            .overlay(
+                Circle().stroke(Color.black.opacity(0.5), lineWidth: 0.5)
+            )
+    }
+}
+
+
+
+// MARK: - Typewriter Theme (打字机)
+
+struct TypewriterWidgetTheme: View {
+    let entry: NowPlayingEntry
+    let family: WidgetFamily
+    
+    // Aesthetic Palette
+    private var metal: Color { Color(hex: "3C342E") }
+    private var metalDark: Color { Color(hex: "28221D") }
+    private var paper: Color { Color(hex: "DED0B6") }
+    private var paperEdge: Color { Color(hex: "C5B79E") }
+    private var ink: Color { Color(hex: "221A14") }
+    private var inkFaded: Color { Color(hex: "6D5E50") }
+    private var ribbon: Color { Color(hex: "A44E38") }
+    private var keyFace: Color { Color(hex: "F0E8D8") }
+    private var keyRim: Color { Color(hex: "6A5E52") }
+    private var keyText: Color { Color(hex: "2C2218") }
+
+    private var displaySong: String { entry.isEmpty ? "INSERT RECORD" : entry.songName }
+    private var displayArtist: String { entry.isEmpty ? "等待歌曲开始播放…" : entry.artistName }
+
+    // MARK: - Typewriter Stamp View
+    @ViewBuilder
+    private func stampCover(size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.12, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "DCC8A0"), Color(hex: "B89060")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+
+            if let data = entry.coverImageData, let img = UIImage(data: data) {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size * 0.84, height: size * 0.84)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.08, style: .continuous))
+            } else {
+                Image(systemName: "music.quarternote.3")
+                    .font(.system(size: size * 0.35))
+                    .foregroundColor(ink.opacity(0.4))
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: size * 0.12, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 0.8)
+        )
+        .rotationEffect(.degrees(3))
+        .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 3)
+    }
+
+    // MARK: - Animated Typing Cursor
+    private var typingCursor: some View {
+        TimelineView(.animation(minimumInterval: 0.45)) { timeline in
+            let isVisible = Int(timeline.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
+            Text("▌")
+                .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                .foregroundColor(ribbon)
+                .opacity(!entry.isEmpty && entry.isPlaying && isVisible ? 1.0 : (!entry.isEmpty && entry.isPlaying ? 0.2 : 0))
+        }
+    }
+
+    // MARK: - Keycap Constructor
+    private func keyButton(icon: String, size: CGFloat, intent: any AppIntent) -> some View {
+        Button(intent: intent) {
+            ZStack {
+                // Key Rim
+                Circle()
+                    .fill(
+                        LinearGradient(colors: [keyRim, keyRim.opacity(0.7)], startPoint: .top, endPoint: .bottom)
+                    )
+                    .frame(width: size, height: size)
+                // Key Face
+                Circle()
+                    .fill(
+                        LinearGradient(colors: [keyFace, keyFace.opacity(0.88)], startPoint: .top, endPoint: .bottom)
+                    )
+                    .frame(width: size - 5, height: size - 5)
+                // Symbol
+                Image(systemName: icon)
+                    .font(.system(size: size * 0.35, weight: .bold))
+                    .foregroundColor(keyText)
+            }
+            .contentShape(Circle())
+            .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 1.5)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func playKeyButton(size: CGFloat) -> some View {
+        Button(intent: TogglePlaybackIntent()) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(colors: [ribbon, ribbon.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+                    )
+                    .frame(width: size, height: size)
+                    .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                    
+                Image(systemName: entry.controlSymbolName)
+                    .font(.system(size: size * 0.38, weight: .bold))
+                    .foregroundColor(keyFace)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .contentShape(Circle())
+            .shadow(color: Color.black.opacity(0.35), radius: 2.5, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Main Body
+    var body: some View {
+        switch family {
+        case .systemMedium: mediumLayout
+        case .systemLarge: largeLayout
+        default: smallLayout
+        }
+    }
+    
+    // MARK: - Small Layout (Paper & Stamp)
+    private var smallLayout: some View {
+        GeometryReader { _ in
+            ZStack {
+                paper.ignoresSafeArea()
+                
+                // Paper watermark lines
+                VStack(spacing: 20) {
+                    Divider().background(inkFaded.opacity(0.12))
+                    Divider().background(inkFaded.opacity(0.12))
+                    Divider().background(inkFaded.opacity(0.12))
+                    Divider().background(inkFaded.opacity(0.12))
+                    Divider().background(inkFaded.opacity(0.12))
+                }
+                .padding(.top, 20)
+                
+                // Margin Line
+                HStack {
+                    Rectangle()
+                        .fill(ribbon.opacity(0.28))
+                        .frame(width: 1.5)
+                        .padding(.leading, 18)
+                    Spacer()
+                }
+                
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(!entry.isEmpty && entry.isPlaying ? ribbon : inkFaded.opacity(0.4))
+                                .frame(width: 5, height: 5)
+                            Text(!entry.isEmpty && entry.isPlaying ? "TYPING" : "READY")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundColor(inkFaded)
+                                .tracking(1)
+                        }
+                        Spacer()
+                        stampCover(size: 45)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 0) {
+                            Text(displaySong)
+                                .font(.system(size: 15, weight: .bold, design: .serif))
+                                .foregroundColor(ink)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.6)
+                            typingCursor
+                        }
+                        
+                        Text(displayArtist)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(inkFaded)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(14)
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+    
+    // MARK: - Medium Layout (Deck + Paper)
+    private var mediumLayout: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                // Base background for medium is the paper sticking out
+                paper.ignoresSafeArea()
+                
+                // Paper lines
+                VStack(spacing: 22) {
+                    Divider().background(inkFaded.opacity(0.15))
+                    Divider().background(inkFaded.opacity(0.15))
+                    Divider().background(inkFaded.opacity(0.15))
+                }
+                .padding(.top, 26)
+                
+                // Margin line
+                HStack {
+                    Rectangle()
+                        .fill(ribbon.opacity(0.28))
+                        .frame(width: 1.5)
+                        .padding(.leading, 22)
+                    Spacer()
+                }
+
+                // Top Paper Content
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(!entry.isEmpty && entry.isPlaying ? ribbon : inkFaded.opacity(0.4))
+                                    .frame(width: 6, height: 6)
+                                Text(!entry.isEmpty && entry.isPlaying ? "TYPING" : "READY")
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .foregroundColor(inkFaded)
+                                    .tracking(2)
+                            }
+                            
+                            HStack(spacing: 0) {
+                                Text(displaySong.uppercased())
+                                    .font(.system(size: 18, weight: .bold, design: .serif))
+                                    .foregroundColor(ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
+                                typingCursor
+                            }
+                            
+                            Text(displayArtist)
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .foregroundColor(inkFaded)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        stampCover(size: 50)
+                            .offset(y: -4)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 14)
+                .padding(.horizontal, 16)
+                
+                // Bottom Metal Deck Base
+                let deckHeight = geo.size.height * 0.45
+                ZStack(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(LinearGradient(colors: [metal, metalDark], startPoint: .top, endPoint: .bottom))
+                        .shadow(color: Color.black.opacity(0.4), radius: 6, x: 0, y: -2)
+                        
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(
+                            LinearGradient(colors: [Color.white.opacity(0.12), .clear], startPoint: .top, endPoint: .bottom),
+                            lineWidth: 1
+                        )
+                        
+                    // Deck Content
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("ROLLING")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundColor(keyFace.opacity(0.5))
+                                .tracking(1)
+                            
+                            if !entry.qualityText.isEmpty {
+                                Text(entry.qualityText)
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.white.opacity(0.15))
+                                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Mechanical Controls
+                        if !entry.isEmpty {
+                            HStack(spacing: 12) {
+                                UITargetedButton(icon: "backward.fill", size: 36, intent: PreviousTrackIntent())
+                                playUITargetedButton(size: 46)
+                                UITargetedButton(icon: "forward.fill", size: 36, intent: NextTrackIntent())
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: deckHeight)
+                }
+                .frame(height: deckHeight)
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+    
+    // Helper explicitly wrapping button creation
+    private func UITargetedButton(icon: String, size: CGFloat, intent: any AppIntent) -> some View {
+        return keyButton(icon: icon, size: size, intent: intent)
+    }
+    private func playUITargetedButton(size: CGFloat) -> some View {
+        return playKeyButton(size: size)
+    }
+    
+    // MARK: - Large Layout (Full Typewriter)
+    private var largeLayout: some View {
+        GeometryReader { geo in
+            ZStack {
+                metalDark.ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Top Roller Bar
+                    ZStack {
+                        Capsule()
+                            .fill(LinearGradient(colors: [metal, metalDark], startPoint: .top, endPoint: .bottom))
+                            .frame(width: geo.size.width * 0.85, height: 12)
+                            .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1))
+                            .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 2)
+                            
+                        HStack {
+                            Circle().fill(metal).frame(width: 18)
+                            Spacer()
+                            Circle().fill(metal).frame(width: 18)
+                        }
+                        .frame(width: geo.size.width * 0.9)
+                        .overlay(Circle().stroke(Color.white.opacity(0.2)), alignment: .leading)
+                        .overlay(Circle().stroke(Color.white.opacity(0.2)), alignment: .trailing)
+                    }
+                    .padding(.top, 10)
+                    .zIndex(2)
+                    
+                    // Paper Area
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(paper)
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(paperEdge, lineWidth: 1))
+                            .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 4)
+                            
+                        // Margins and lines
+                        VStack(spacing: 24) {
+                            ForEach(0..<10, id: \.self) { _ in Divider().background(inkFaded.opacity(0.15)) }
+                        }.padding(.top, 24)
+                        
+                        HStack {
+                            Rectangle().fill(ribbon.opacity(0.28)).frame(width: 1.5).padding(.leading, 24)
+                            Spacer()
+                        }
+                        
+                        // Content
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Circle()
+                                            .fill(!entry.isEmpty && entry.isPlaying ? ribbon : inkFaded.opacity(0.4))
+                                            .frame(width: 6, height: 6)
+                                        Text(!entry.isEmpty && entry.isPlaying ? "TYPING" : "READY")
+                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            .foregroundColor(inkFaded)
+                                            .tracking(2)
+                                    }
+                                    Text(displaySong)
+                                        .font(.system(size: 24, weight: .bold, design: .serif))
+                                        .foregroundColor(ink)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.5)
+                                    Text(displayArtist)
+                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                        .foregroundColor(inkFaded)
+                                }
+                                Spacer()
+                                stampCover(size: 58)
+                            }
+                            
+                            Rectangle().fill(ink.opacity(0.1)).frame(height: 1)
+                            
+                            // Mock typing section for latest lyric
+                            if !entry.isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    let lyric = entry.lyricText.isEmpty ? "INSTRUMENTAL TRACK" : entry.lyricText
+                                    HStack(alignment: .top, spacing: 0) {
+                                        Text(lyric.uppercased())
+                                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                                            .foregroundColor(ink)
+                                            .lineLimit(3)
+                                        typingCursor
+                                    }
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 16)
+                        .padding(.horizontal, 36)
+                    }
+                    .frame(width: geo.size.width * 0.9, height: geo.size.height * 0.55)
+                    .offset(y: -6)
+                    .zIndex(1)
+                    
+                    // Bottom Deck
+                    VStack {
+                        Spacer()
+                        // Metal base
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .fill(LinearGradient(colors: [metal, metalDark], startPoint: .top, endPoint: .bottom))
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .stroke(LinearGradient(colors: [Color.white.opacity(0.12), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                                
+                            HStack(spacing: 16) {
+                                if !entry.isEmpty {
+                                    UITargetedButton(icon: "backward.fill", size: 40, intent: PreviousTrackIntent())
+                                    playUITargetedButton(size: 56)
+                                    UITargetedButton(icon: "forward.fill", size: 40, intent: NextTrackIntent())
+                                }
+                            }
+                        }
+                        .frame(width: geo.size.width, height: geo.size.height * 0.28)
+                        .shadow(color: .black.opacity(0.4), radius: 10, x: 0, y: -4)
+                    }
+                    .zIndex(3)
+                }
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+}

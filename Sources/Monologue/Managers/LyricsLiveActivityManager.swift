@@ -45,16 +45,19 @@ final class LyricsLiveActivityManager {
 
         let lyricState = buildState(from: player, song: song)
         let songID = String(song.id)
-        let bucket = progressBucket(currentTime: player.currentTime)
         let needsRestart = forceRestart || activeSongID != songID
 
         if needsRestart {
             await start(songID: songID, state: lyricState)
-            lastProgressBucket = bucket
             return
         }
 
-        let shouldUpdate = lastState != lyricState || bucket != lastProgressBucket
+        // Only update if the core content (lyrics or playback state) changes.
+        // Avoid evaluating progress/time to bypass system updating rate caps which drop text strings.
+        let stateChanged = lastState?.playbackState != lyricState.playbackState
+        let lyricChanged = lastState?.lyric != lyricState.lyric || lastState?.nextLyric != lyricState.nextLyric
+        let shouldUpdate = lastState == nil || stateChanged || lyricChanged
+
         guard shouldUpdate, let activeActivityID else { return }
 
         await Self.updateActivity(
@@ -63,7 +66,6 @@ final class LyricsLiveActivityManager {
             staleDate: staleDate(for: lyricState.playbackState)
         )
         lastState = lyricState
-        lastProgressBucket = bucket
     }
 
     func endCurrentActivity() async {
