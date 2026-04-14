@@ -169,7 +169,6 @@ class SearchViewModel: ObservableObject {
         qqCanLoadMore = true
         expandedSource = nil
         
-        lastSearchedKeyword = keyword
         if query != keyword {
             query = keyword
         }
