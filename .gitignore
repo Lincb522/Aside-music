@@ -60,6 +60,7 @@ Secrets_*.xcconfig
 # Archives & Compressed
 *.tar.gz
 *.zip
+*.crx
 
 # Unnecessary Local Directories (Local Libraries kept out of main repo)
 LiquidGlassEffect-main/
@@ -98,3 +99,4 @@ assets/screenshots/home.png
 assets/screenshots/library.png
 /assets
 assets/screenshots/Simulator Screenshot - iPhone 16 Pro - 2026-02-18 at 13.13.58.png
+scratch_nginx.conf
