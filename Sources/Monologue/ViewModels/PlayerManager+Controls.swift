@@ -141,6 +141,13 @@ extension PlayerManager {
         pendingRestoreTime = nil
         needsPlaybackRestoration = false
         shouldAutoResumeAfterRestore = false
+        // 清空保存的上下文
+        savedMusicContext.removeAll()
+        savedMusicShuffledContext.removeAll()
+        savedMusicSong = nil
+        savedPodcastContext.removeAll()
+        savedPodcastSong = nil
+        savedPodcastRadioId = nil
         isUserStopping = false
 
         refreshPlaybackSurfaceState()

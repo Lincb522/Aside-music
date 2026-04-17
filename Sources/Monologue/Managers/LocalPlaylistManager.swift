@@ -120,21 +120,42 @@ class LocalPlaylistManager: ObservableObject {
         reload()
     }
 
+    /// 从云端恢复下载记录到下载歌单（仅补充元数据，不重复已存在的）
+    func restoreDownloadPlaylistSongs(_ cloudSongs: [Song]) {
+        guard let dl = downloadPlaylist else { return }
+        let dlId = dl.id
+        let descriptor = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == dlId })
+        guard let target = (try? context.fetch(descriptor))?.first else { return }
+
+        let existingIds = Set(target.songs.map { $0.id })
+        let newSongs = cloudSongs.filter { !existingIds.contains($0.id) }
+        guard !newSongs.isEmpty else { return }
+
+        var current = target.songs
+        current.append(contentsOf: newSongs)
+        target.songs = current
+        try? context.save()
+        reload()
+    }
+
     var syncablePlaylists: [LocalPlaylist] {
         playlists.filter { !$0.isDownload }
     }
 
     var hasSyncableContent: Bool {
-        syncablePlaylists.contains { playlist in
+        let hasPlaylistContent = syncablePlaylists.contains { playlist in
             if playlist.isFavorite {
                 return !playlist.songs.isEmpty
             }
             return true
         }
+        let hasDownloads = !DownloadManager.shared.fetchAllDownloaded().isEmpty
+        let hasPodcasts = !SubscriptionManager.shared.localSubscribedRadios.isEmpty
+        return hasPlaylistContent || hasDownloads || hasPodcasts
     }
 
     func currentSyncDigest() -> String {
-        let payload = syncablePlaylists.map { playlist in
+        let playlistPayload = syncablePlaylists.map { playlist in
             LocalPlaylistCloudPlaylist(
                 id: playlist.id,
                 name: playlist.name,
@@ -146,9 +167,18 @@ class LocalPlaylistManager: ObservableObject {
                 songs: playlist.songs
             )
         }
+        let downloads = DownloadManager.shared.fetchAllDownloaded().map { CloudDownloadRecord(from: $0) }
+        let podcasts = SubscriptionManager.shared.localSubscribedRadios
+
+        struct DigestPayload: Encodable {
+            let playlists: [LocalPlaylistCloudPlaylist]
+            let downloads: [CloudDownloadRecord]
+            let podcasts: [RadioStation]
+        }
+        let digest = DigestPayload(playlists: playlistPayload, downloads: downloads, podcasts: podcasts)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(payload) else { return "" }
+        guard let data = try? encoder.encode(digest) else { return "" }
         return data.base64EncodedString()
     }
 
@@ -166,11 +196,16 @@ class LocalPlaylistManager: ObservableObject {
             )
         }
 
+        let downloads = DownloadManager.shared.fetchAllDownloaded().map { CloudDownloadRecord(from: $0) }
+        let podcasts = SubscriptionManager.shared.localSubscribedRadios
+
         return LocalPlaylistCloudSnapshot(
             updatedAt: Date(),
             deviceId: deviceId,
             deviceName: deviceName,
-            playlists: cloudPlaylists
+            playlists: cloudPlaylists,
+            downloads: downloads.isEmpty ? nil : downloads,
+            localRadioSubscriptions: podcasts.isEmpty ? nil : podcasts
         )
     }
 

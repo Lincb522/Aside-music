@@ -1020,6 +1020,8 @@
 "podcast_timer_cancel_action" = "关闭定时";
 "podcast_timer_cancel_subtitle" = "关闭当前倒计时和停止计划";
 "podcast_timer_pending_short" = "本曲后停";
+"podcast_playlist_count" = "共 %d 期节目";
+"podcast_playlist_empty" = "播放列表为空";
 
 /* Error Messages */
 "error_no_internet" = "无网络连接";

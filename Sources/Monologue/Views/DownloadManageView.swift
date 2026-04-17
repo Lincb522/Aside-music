@@ -120,7 +120,7 @@ struct DownloadManageView: View {
                     .foregroundColor(selectedTab == index ? .monologueTextPrimary : .monologueTextSecondary)
                 
                 Rectangle()
-                    .fill(selectedTab == index ? Color.monologueAccentBlue : Color.clear)
+                    .fill(selectedTab == index ? Color.monologueTextPrimary : Color.clear)
                     .frame(height: 2)
                     .frame(width: 40)
             }

@@ -222,6 +222,7 @@ extension PlayerManager {
     }
     
     func play(song: Song, in newContext: [Song]) {
+        ensureMusicContextRestored()
         if currentSong?.id == song.id {
             togglePlayPause()
             return
@@ -240,6 +241,7 @@ extension PlayerManager {
     }
 
     func playReplacingContext(song: Song, in newContext: [Song]) {
+        ensureMusicContextRestored()
         let isCurrentSongTarget = currentSong?.id == song.id
 
         if insertsPlaybackContext {
@@ -261,6 +263,7 @@ extension PlayerManager {
     }
     
     func playFM(song: Song, in context: [Song], autoPlay: Bool = true) {
+        if isPlayingPodcast { savePodcastContext() }
         self.context = context
         self.playSource = .fm
         self.queueExhaustionBehavior = .loop
@@ -293,21 +296,97 @@ extension PlayerManager {
     }
     
     func playPodcast(song: Song, in context: [Song], radioId: Int) {
-        self.context = context
-        self.playSource = .podcast(radioId: radioId)
-        self.queueExhaustionBehavior = .loop
-        
-        var songToPlay = song
-        if let index = context.firstIndex(where: { $0.id == song.id }) {
-            self.contextIndex = index
-            songToPlay = context[index]
+        // 如果当前正在播放音乐（非播客），先保存音乐上下文
+        if !isPlayingPodcast {
+            saveMusicContext()
+        }
+        // 如果之前有保存的播客上下文且是同一个电台，尝试恢复
+        if savedPodcastRadioId == radioId, !savedPodcastContext.isEmpty,
+           savedPodcastContext.contains(where: { $0.id == song.id }) {
+            self.context = savedPodcastContext
+            self.contextIndex = savedPodcastContext.firstIndex(where: { $0.id == song.id }) ?? savedPodcastContextIndex
+            clearSavedPodcastContext()
         } else {
-            self.context.insert(song, at: 0)
-            self.contextIndex = 0
+            self.context = context
+            if let index = context.firstIndex(where: { $0.id == song.id }) {
+                self.contextIndex = index
+            } else {
+                self.context.insert(song, at: 0)
+                self.contextIndex = 0
+            }
         }
         
+        self.playSource = .podcast(radioId: radioId)
+        self.queueExhaustionBehavior = .loop
         self.mode = .sequence
+        
+        let songToPlay = self.context.indices.contains(self.contextIndex) ? self.context[self.contextIndex] : song
         loadAndPlay(song: songToPlay)
+    }
+    
+    // MARK: - 播客/音乐上下文隔离
+    
+    /// 保存当前音乐播放上下文（从音乐切到播客时调用）
+    func saveMusicContext() {
+        guard !isPlayingPodcast, playSource != .fm else { return }
+        savedMusicContext = context
+        savedMusicContextIndex = contextIndex
+        savedMusicShuffledContext = shuffledContext
+        savedMusicMode = mode
+        savedMusicSong = currentSong
+        savedMusicCurrentTime = currentTime
+        savedMusicDuration = duration
+    }
+    
+    /// 保存当前播客播放上下文（从播客切到音乐时调用）
+    func savePodcastContext() {
+        guard isPlayingPodcast, case .podcast(let radioId) = playSource else { return }
+        savedPodcastContext = context
+        savedPodcastContextIndex = contextIndex
+        savedPodcastRadioId = radioId
+        savedPodcastSong = currentSong
+        savedPodcastCurrentTime = currentTime
+        savedPodcastDuration = duration
+    }
+    
+    /// 确保当前音乐上下文已恢复（在从播客/FM 切换回普通音乐时调用）
+    func ensureMusicContextRestored() {
+        if isPlayingPodcast || playSource == .fm {
+            if isPlayingPodcast { savePodcastContext() }
+            self.playSource = .normal
+            self.queueExhaustionBehavior = .loop
+            
+            // 恢复音乐上下文
+            if !savedMusicContext.isEmpty {
+                self.context = savedMusicContext
+                self.contextIndex = savedMusicContextIndex
+                self.shuffledContext = savedMusicShuffledContext
+                self.mode = savedMusicMode
+            } else {
+                self.context = []
+                self.contextIndex = 0
+                self.shuffledContext = []
+            }
+            clearSavedMusicContext()
+        }
+    }
+    
+    private func clearSavedMusicContext() {
+        savedMusicContext = []
+        savedMusicContextIndex = 0
+        savedMusicShuffledContext = []
+        savedMusicSong = nil
+        savedMusicCurrentTime = 0
+        savedMusicDuration = 0
+    }
+    
+    private func clearSavedPodcastContext() {
+        savedPodcastContext = []
+        savedPodcastContextIndex = 0
+        savedPodcastSong = nil
+        savedPodcastCurrentTime = 0
+        savedPodcastDuration = 0
+        // 保留 savedPodcastRadioId 以便判断是否是同一电台
     }
     
     private static let contextUpperLimit = 500
@@ -325,6 +404,7 @@ extension PlayerManager {
     }
     
     func playSingle(song: Song) {
+        ensureMusicContextRestored()
         if currentSong?.id == song.id {
             togglePlayPause()
             return
@@ -341,6 +421,7 @@ extension PlayerManager {
     
     /// 下一首播放：插入到 context 当前位置之后
     func playNext(song: Song) {
+        ensureMusicContextRestored()
         if context.isEmpty || currentSong == nil {
             playSingle(song: song)
             return
@@ -367,6 +448,7 @@ extension PlayerManager {
     
     /// 添加到队列末尾
     func addToQueue(song: Song) {
+        ensureMusicContextRestored()
         if context.isEmpty || currentSong == nil {
             playSingle(song: song)
             return
@@ -392,6 +474,7 @@ extension PlayerManager {
     }
 
     func addToQueue(songs: [Song]) {
+        ensureMusicContextRestored()
         var seenSongIDs = Set<Int>()
         let orderedSongs = songs.filter { song in
             seenSongIDs.insert(song.id).inserted && song.id != currentSong?.id

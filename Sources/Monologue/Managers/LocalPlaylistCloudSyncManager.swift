@@ -113,9 +113,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             deviceId: Self.deviceId(),
             deviceName: UIDevice.current.name
         )
-        let uploadedDigest = Self.digest(for: snapshot.playlists)
         let response = try await APIService.shared.uploadCloudPlaylistSnapshot(snapshot)
-        lastObservedDigest = uploadedDigest
+        lastObservedDigest = playlistManager.currentSyncDigest()
         persistSyncState(date: response.updatedAt)
         persistRemoteRevision(response.revision)
 
@@ -217,6 +216,26 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
     private func observePlaylistChanges() {
         playlistManager.$playlists
+            .dropFirst()
+            .debounce(for: .milliseconds(350), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.enqueueLocalPlaylistChange() }
+            }
+            .store(in: &cancellables)
+
+        // 监听下载记录变化（实时同步）
+        DownloadManager.shared.$downloadedSongIds
+            .dropFirst()
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.enqueueLocalPlaylistChange() }
+            }
+            .store(in: &cancellables)
+
+        // 监听播客本地订阅变化（实时同步）
+        SubscriptionManager.shared.$localSubscribedRadios
             .dropFirst()
             .debounce(for: .milliseconds(350), scheduler: RunLoop.main)
             .sink { [weak self] _ in
@@ -335,6 +354,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         if response.hasSnapshot {
             return applyRemotePlaylists(
                 response.playlists,
+                downloads: response.downloads,
+                radioSubscriptions: response.localRadioSubscriptions,
                 revision: response.revision,
                 updatedAt: response.updatedAt,
                 showStatus: showStatus
@@ -347,6 +368,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     @discardableResult
     private func applyRemotePlaylists(
         _ remotePlaylists: [LocalPlaylistCloudPlaylist],
+        downloads: [CloudDownloadRecord]?,
+        radioSubscriptions: [RadioStation]?,
         revision: String?,
         updatedAt: Date?,
         showStatus: Bool
@@ -358,19 +381,23 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             with: remotePlaylists,
             preservingLocalChangesSince: lastSyncedAt
         )
-        let localDigest = playlistManager.currentSyncDigest()
-        let remoteDigest = Self.digest(for: remotePlaylists)
 
-        if localDigest == remoteDigest {
-            lastObservedDigest = localDigest
-            pendingUploadDigest = nil
-        } else {
-            pendingUploadDigest = localDigest
-            lastObservedDigest = remoteDigest
-            Task { [weak self] in
-                await self?.processPendingLocalUpload()
-            }
+        // 恢复播客本地订阅
+        if let radios = radioSubscriptions, !radios.isEmpty {
+            SubscriptionManager.shared.replaceLocalSubscriptions(with: radios)
         }
+
+        // 恢复下载记录到下载歌单（仅元数据，显示用）
+        if let downloads = downloads, !downloads.isEmpty {
+            let songs = downloads.map { $0.toSong() }
+            playlistManager.restoreDownloadPlaylistSongs(songs)
+        }
+
+        let localDigest = playlistManager.currentSyncDigest()
+
+        // 上传后 digest 一致说明本地无更多变化
+        lastObservedDigest = localDigest
+        pendingUploadDigest = nil
         persistRemoteRevision(revision)
         persistSyncState(date: updatedAt ?? Date())
 
@@ -450,13 +477,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     }
 
     private static func deviceId() -> String {
-        if let existing = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playlistSyncDeviceId),
-           !existing.isEmpty {
-            return existing
-        }
-        let value = UUID().uuidString
-        UserDefaults.standard.set(value, forKey: AppConfig.StorageKeys.playlistSyncDeviceId)
-        return value
+        return DeviceIdentifier.uuid
     }
 
     private static func tokenFingerprint() -> String? {
@@ -467,10 +488,21 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         return token
     }
 
-    private static func digest(for playlists: [LocalPlaylistCloudPlaylist]) -> String {
+    private static func digest(for snapshot: LocalPlaylistCloudSnapshot) -> String {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(playlists) else { return "" }
+        // 排除 updatedAt/deviceId/deviceName，只比较内容
+        struct DigestContent: Encodable {
+            let playlists: [LocalPlaylistCloudPlaylist]
+            let downloads: [CloudDownloadRecord]?
+            let localRadioSubscriptions: [RadioStation]?
+        }
+        let content = DigestContent(
+            playlists: snapshot.playlists,
+            downloads: snapshot.downloads,
+            localRadioSubscriptions: snapshot.localRadioSubscriptions
+        )
+        guard let data = try? encoder.encode(content) else { return "" }
         return data.base64EncodedString()
     }
 }

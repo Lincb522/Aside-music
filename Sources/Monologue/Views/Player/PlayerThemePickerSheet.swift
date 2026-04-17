@@ -127,6 +127,12 @@ struct PlayerThemePickerSheet: View {
             radioPreview
         case .immersiveLyric:
             immersiveLyricPreview
+        case .mangaChat:
+            mangaChatPreview
+        case .folk:
+            folkPreview
+        case .cosmos:
+            cosmosPreview
         }
     }
 
@@ -985,6 +991,335 @@ struct PlayerThemePickerSheet: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 6)
             }
+        }
+    }
+
+    // MARK: - 漫画聊天预览
+    private var mangaChatPreview: some View {
+        let ink = Color(hex: "2D2D3A")
+        let inkSub = Color(hex: "8888A0")
+        let pinkBg = Color(hex: "FFE8F0")
+        let blueBg = Color(hex: "E8F0FF")
+        let yellowLabel = Color(hex: "FFE4B5")
+
+        return ZStack {
+            // 漫画网点渐变背景
+            LinearGradient(
+                colors: [Color(hex: "FFF8EC"), Color(hex: "FDE8F0"), Color(hex: "E8F4FD")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            // 网点
+            Canvas { context, sz in
+                let gap: CGFloat = 10
+                let dotR: CGFloat = 0.6
+                var y: CGFloat = gap / 2
+                var isEven = true
+                while y < sz.height + gap {
+                    var x: CGFloat = isEven ? gap / 2 : gap
+                    while x < sz.width + gap {
+                        let rect = CGRect(x: x - dotR, y: y - dotR, width: dotR * 2, height: dotR * 2)
+                        context.fill(Path(ellipseIn: rect), with: .color(ink.opacity(0.08)))
+                        x += gap
+                    }
+                    y += gap
+                    isEven.toggle()
+                }
+            }
+
+            VStack(spacing: 6) {
+                // CHAT 标签
+                HStack(spacing: 2) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 6, weight: .black))
+                    Text("CHAT")
+                        .font(.system(size: 7, weight: .black, design: .rounded))
+                        .tracking(0.5)
+                }
+                .foregroundStyle(ink)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(yellowLabel))
+                .overlay(Capsule().stroke(ink, lineWidth: 1.5))
+                .background(Capsule().fill(ink).offset(x: 1.5, y: 1.5))
+
+                // 左侧气泡
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(yellowLabel.opacity(0.5))
+                        .frame(width: 14, height: 14)
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(ink, lineWidth: 1.2))
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Capsule().fill(ink.opacity(0.7)).frame(width: 46, height: 3)
+                        Capsule().fill(inkSub.opacity(0.4)).frame(width: 28, height: 2)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(pinkBg)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(ink, lineWidth: 1.5)
+                    )
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(ink).offset(x: 1.5, y: 1.5)
+                    )
+
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+
+                // 右侧气泡
+                HStack(spacing: 4) {
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Capsule().fill(ink.opacity(0.7)).frame(width: 38, height: 3)
+                        Capsule().fill(inkSub.opacity(0.4)).frame(width: 22, height: 2)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(blueBg)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(ink, lineWidth: 1.5)
+                    )
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(ink).offset(x: -1.5, y: 1.5)
+                    )
+
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color(hex: "B8D4F0").opacity(0.5))
+                        .frame(width: 14, height: 14)
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(ink, lineWidth: 1.2))
+                }
+                .padding(.horizontal, 10)
+
+                // 控制按钮
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color.white)
+                        .frame(width: 16, height: 12)
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(ink, lineWidth: 1.2))
+                        .overlay(Image(systemName: "backward.fill").font(.system(size: 5, weight: .black)).foregroundColor(ink))
+
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color(hex: "FF8FAB"))
+                        .frame(width: 22, height: 18)
+                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(ink, lineWidth: 1.5))
+                        .overlay(Image(systemName: "play.fill").font(.system(size: 7, weight: .black)).foregroundColor(.white))
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(ink).offset(x: 1.5, y: 1.5))
+
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color.white)
+                        .frame(width: 16, height: 12)
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(ink, lineWidth: 1.2))
+                        .overlay(Image(systemName: "forward.fill").font(.system(size: 5, weight: .black)).foregroundColor(ink))
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    // MARK: - 民谣预览
+
+    private var folkPreview: some View {
+        let paperBg = Color(hex: "F4EBE0")
+        let inkDark = Color(hex: "2A2520")
+        let inkFaded = Color(hex: "8A8075")
+        let redStamp = Color(hex: "BE4A41")
+        let tapeColor = Color(hex: "E6D5B8")
+
+        return ZStack {
+            // 信纸背景
+            paperBg
+
+            VStack(spacing: 8) {
+                // 顶部日期图章
+                HStack {
+                    Spacer()
+                    VStack(spacing: 1) {
+                        Capsule().fill(redStamp.opacity(0.8)).frame(width: 20, height: 1)
+                        Capsule().fill(inkDark).frame(width: 32, height: 1)
+                    }
+                    .padding(3)
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(redStamp.opacity(0.5), lineWidth: 0.5))
+                    .rotationEffect(.degrees(-2))
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+
+                // 封面与寄信人
+                HStack(spacing: 6) {
+                    ZStack {
+                        Color.white
+                        Rectangle().fill(inkFaded.opacity(0.2)).frame(width: 20, height: 20)
+                    }
+                    .frame(width: 24, height: 24)
+                    .shadow(color: inkDark.opacity(0.1), radius: 2, x: 1, y: 1)
+                    .rotationEffect(.degrees(-3))
+                    .overlay(
+                        Rectangle().fill(tapeColor.opacity(0.8)).frame(width: 12, height: 4)
+                            .rotationEffect(.degrees(-10)).offset(y: -10)
+                    )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 2) {
+                            Capsule().fill(redStamp).frame(width: 10, height: 1)
+                            Capsule().fill(inkDark).frame(width: 24, height: 2)
+                        }
+                        HStack(spacing: 2) {
+                            Capsule().fill(inkFaded).frame(width: 10, height: 1)
+                            Capsule().fill(inkFaded).frame(width: 18, height: 1.5)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+
+                // 打字机歌词
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .top, spacing: 2) {
+                        Text("-").font(.system(size: 3)).foregroundColor(inkFaded)
+                        Capsule().fill(inkDark).frame(width: 48, height: 2)
+                    }
+                    HStack(alignment: .top, spacing: 2) {
+                        Text("-").font(.system(size: 3)).foregroundColor(redStamp)
+                        Capsule().fill(inkDark).frame(width: 36, height: 2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.top, 4)
+
+                Spacer(minLength: 0)
+
+                // 进度与控制
+                VStack(spacing: 4) {
+                    // 虚线与实线进度
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(inkFaded.opacity(0.3)).frame(height: 0.5)
+                        Capsule().fill(inkDark).frame(width: 28, height: 1)
+                        Path { p in p.move(to: .zero); p.addLine(to: CGPoint(x: 2, y: 2)); p.addLine(to: CGPoint(x: -2, y: 2)); p.closeSubpath() }
+                            .fill(inkDark).offset(x: 27, y: -1)
+                    }
+                    .padding(.horizontal, 10)
+
+                    // 按钮
+                    HStack(spacing: 8) {
+                        Image(systemName: "backward.end.alt.fill")
+                            .font(.system(size: 4))
+                            .foregroundColor(inkDark)
+                            .background(Circle().stroke(inkFaded.opacity(0.3), lineWidth: 0.5).frame(width: 8, height: 8))
+                        
+                        ZStack {
+                            Circle().fill(inkDark).frame(width: 14, height: 14)
+                            Image(systemName: "play.fill").font(.system(size: 4)).foregroundColor(paperBg)
+                        }
+
+                        Image(systemName: "forward.end.alt.fill")
+                            .font(.system(size: 4))
+                            .foregroundColor(inkDark)
+                            .background(Circle().stroke(inkFaded.opacity(0.3), lineWidth: 0.5).frame(width: 8, height: 8))
+                    }
+                }
+                .padding(.bottom, 6)
+            }
+        }
+    }
+
+    // MARK: - 卡通宇宙预览
+    private var cosmosPreview: some View {
+        let bgTop = Color(hex: "1A1B3E")
+        let bgBottom = Color(hex: "3E1E66")
+        let accent = Color(hex: "FF4A6B")
+        let cream = Color(hex: "FFF2D1")
+
+        return ZStack {
+            LinearGradient(colors: [bgTop, bgBottom], startPoint: .top, endPoint: .bottom)
+
+            // 星星
+            ForEach(0..<8, id: \.self) { i in
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: CGFloat.random(in: 1...2.4), height: CGFloat.random(in: 1...2.4))
+                    .offset(
+                        x: CGFloat.random(in: -50...50),
+                        y: CGFloat.random(in: -50...50)
+                    )
+                    .opacity(Double.random(in: 0.5...1.0))
+                    .id(i)
+            }
+
+            // 月亮
+            Circle()
+                .fill(cream)
+                .frame(width: 22, height: 22)
+                .offset(x: 26, y: -28)
+                .overlay(
+                    Circle()
+                        .fill(bgTop.opacity(0.25))
+                        .frame(width: 4, height: 4)
+                        .offset(x: 24, y: -28)
+                )
+
+            // 小宇航员（头盔 + 身体）
+            VStack(spacing: 0) {
+                ZStack {
+                    Circle().fill(Color.white).frame(width: 22, height: 22)
+                    Circle()
+                        .fill(LinearGradient(colors: [Color(hex: "69E0FF"), Color(hex: "2A5DF5")],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 16, height: 16)
+                    // 头盔高光
+                    Ellipse()
+                        .fill(Color.white.opacity(0.8))
+                        .frame(width: 6, height: 3)
+                        .offset(x: -3, y: -4)
+                }
+                // 身体
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.white)
+                    .frame(width: 14, height: 10)
+                    .offset(y: -2)
+            }
+            .offset(x: -14, y: 6)
+            .rotationEffect(.degrees(-8))
+
+            // 歌词气泡
+            HStack(spacing: 3) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.white)
+                    .frame(width: 26, height: 6)
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.white, lineWidth: 0.6)
+                    .frame(width: 18, height: 5)
+            }
+            .offset(x: 12, y: -4)
+
+            // 底部：火箭按钮
+            HStack(spacing: 6) {
+                Capsule().stroke(Color.white.opacity(0.55), lineWidth: 0.5).frame(width: 8, height: 4)
+                Circle()
+                    .fill(accent)
+                    .frame(width: 14, height: 14)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.9), lineWidth: 0.8)
+                    )
+                Capsule().stroke(Color.white.opacity(0.55), lineWidth: 0.5).frame(width: 8, height: 4)
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 8)
         }
     }
 }

@@ -161,6 +161,24 @@ enum SecureConfig {
         #endif
     }
     
+    /// 汽水音乐 API 服务器地址
+    static var qishuiBaseURL: String {
+        if let envURL = ProcessInfo.processInfo.environment["QISHUI_BASE_URL"],
+           !envURL.isEmpty {
+            return envURL
+        }
+        if let plistURL = Bundle.main.object(forInfoDictionaryKey: "QISHUI_BASE_URL") as? String,
+           !plistURL.isEmpty,
+           !plistURL.hasPrefix("$(") {
+            return plistURL
+        }
+        // 回退机制：如果没配专门的汽水地址，就用 QCM 的地址加上 /qishui
+        let base = qqMusicBaseURL.hasSuffix("/")
+            ? String(qqMusicBaseURL.dropLast())
+            : qqMusicBaseURL
+        return "\(base)/qishui"
+    }
+    
     // MARK: - API Token
     
     /// 用户配置的 API 访问令牌，存储在 Keychain 中

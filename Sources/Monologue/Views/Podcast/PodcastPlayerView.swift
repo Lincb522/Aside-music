@@ -5,11 +5,13 @@ struct PodcastPlayerView: View {
     @State private var viewModel: PodcastPlayerViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    @ObservedObject private var subManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var showEpisodeList = false
     @State private var showSpeedSheet = false
     @State private var showTimerSheet = false
+    @State private var showPlaylist = false
 
     init(radioId: Int) {
         self.radioId = radioId
@@ -42,7 +44,9 @@ struct PodcastPlayerView: View {
         }
         .monologueSheet(isPresented: $showTimerSheet, preset: .standard){
             PodcastTimerSheet()
-
+        }
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard){
+            PodcastPlaylistPopupView()
         }
     }
 
@@ -126,7 +130,8 @@ struct PodcastPlayerView: View {
 
             PodcastToolbar(
                 onSpeedTap: { showSpeedSheet = true },
-                onTimerTap: { showTimerSheet = true }
+                onTimerTap: { showTimerSheet = true },
+                onPlaylistTap: { showPlaylist = true }
             )
 
             Spacer().frame(height: 40)
@@ -149,6 +154,26 @@ struct PodcastPlayerView: View {
             }
 
             Spacer()
+
+            if let radio = viewModel.radioDetail {
+                // Ensure SwiftUI depends on the @Published array directly to trigger view reload correctly
+                let isSubscribed = subManager.localSubscribedRadios.contains { $0.id == radio.id }
+                
+                Button(action: {
+                    withAnimation {
+                        subManager.toggleRadioSubscription(radio)
+                    }
+                }) {
+                    MonologueIcon(
+                        icon: isSubscribed ? .liked : .like,
+                        size: 18,
+                        color: isSubscribed ? .monologueAccent : .monologueTextPrimary,
+                        lineWidth: 1.4
+                    )
+                    .frame(width: 40, height: 40)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
+            }
 
             Button(action: { showEpisodeList = true }) {
                 MonologueIcon(icon: .list, size: 18, color: .monologueTextPrimary, lineWidth: 1.4)

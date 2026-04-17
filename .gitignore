@@ -60,7 +60,6 @@ Secrets_*.xcconfig
 # Archives & Compressed
 *.tar.gz
 *.zip
-*.crx
 
 # Unnecessary Local Directories (Local Libraries kept out of main repo)
 LiquidGlassEffect-main/

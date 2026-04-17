@@ -51,12 +51,11 @@ extension PlayerManager {
         }
         
         let lyricVM = LyricViewModel.shared
-        if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
+        if lyricVM.hasLyrics {
             let idx = lyricVM.currentLineIndex
             if idx != lastNowPlayingLyricIndex {
                 lastNowPlayingLyricIndex = idx
-                let line = lyricVM.lyrics[idx].text
-                if !line.isEmpty {
+                if let line = lyricVM.currentLineText, !line.isEmpty {
                     info[MPMediaItemPropertyArtist] = line
                 } else {
                     info[MPMediaItemPropertyArtist] = currentSong?.artistName ?? ""
@@ -177,11 +176,8 @@ extension PlayerManager {
             guard let song = currentSong,
                   lyricVM.currentSongId == song.id,
                   lyricVM.hasLyrics,
-                  lyricVM.currentLineIndex >= 0,
-                  lyricVM.currentLineIndex < lyricVM.lyrics.count else { return "" }
-            let text = lyricVM.lyrics[lyricVM.currentLineIndex].text
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return text
+                  let text = lyricVM.currentLineText else { return "" }
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
         }()
         defaults.set(lyricText, forKey: "widget_lyricText")
         syncWidgetTempo(for: currentSong, playbackState: playbackState, defaults: defaults)

@@ -252,6 +252,7 @@ struct HomeView: View {
                     HomeNCMPlaylistSection(
                         playlists: viewModel.recommendPlaylists,
                         onViewAll: {
+                            UserDefaults.standard.set(true, forKey: "pendingLibrarySquareSwitch")
                             NotificationCenter.default.post(name: .init("SwitchToLibrarySquare"), object: nil)
                         },
                         onTap: { pl in navigationPath.append(HomeDestination.playlist(pl)) }
@@ -264,6 +265,7 @@ struct HomeView: View {
                     HomeQQPlaylistSection(
                         playlists: viewModel.qqRecommendPlaylists,
                         onViewAll: {
+                            UserDefaults.standard.set(true, forKey: "pendingLibrarySquareSwitch")
                             NotificationCenter.default.post(name: .init("SwitchToLibrarySquare"), object: nil)
                         },
                         onTap: { pl in navigationPath.append(HomeDestination.playlist(pl)) }

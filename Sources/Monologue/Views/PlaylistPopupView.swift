@@ -20,7 +20,8 @@ struct PlaylistPopupView: View {
     }
 
     private var linearQueueItems: [LinearQueueItem] {
-        let list = player.currentContextList
+        let rawList = player.currentContextList
+        let list = rawList.filter { $0.podcastRadioId == nil }
         guard !list.isEmpty else { return [] }
 
         let currentIndex: Int
@@ -237,21 +238,23 @@ struct PlaylistPopupView: View {
 
     private var historyView: some View {
         Group {
-            if player.history.isEmpty {
+            let musicHistory = player.history.filter { $0.podcastRadioId == nil }
+            if musicHistory.isEmpty {
                 EmptyStateView(text: "queue_history_empty", icon: .clock)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     QueueSectionHeader(
                         icon: .clock,
                         title: NSLocalizedString("queue_tab_history", comment: ""),
-                        count: player.history.count,
+                        count: musicHistory.count,
                         actionTitle: NSLocalizedString("queue_clear", comment: ""),
                         action: confirmClearHistory
                     )
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.bottom, 8)
 
-                    ForEach(player.history) { song in
+                    let musicHistory = player.history.filter { $0.podcastRadioId == nil }
+                    ForEach(musicHistory) { song in
                         HistoryRow(song: song) {
                             player.playFromQueue(song: song)
                         }

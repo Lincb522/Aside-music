@@ -92,6 +92,12 @@ struct LibraryView: View {
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
                 switchToTab(.square)
             }
+            .onAppear {
+                if UserDefaults.standard.bool(forKey: "pendingLibrarySquareSwitch") {
+                    UserDefaults.standard.set(false, forKey: "pendingLibrarySquareSwitch")
+                    switchToTab(.square)
+                }
+            }
             .onChange(of: viewModel.currentTab) { _, newTab in
                 if let idx = allTabs.firstIndex(of: newTab), idx != tabIndex {
                     tabIndex = idx
@@ -1150,8 +1156,110 @@ struct LocalPlaylistRow: View {
 struct MyPodcastsView: View {
     typealias Theme = PlaylistDetailView.Theme
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @State private var selectedTab: Int = 0
 
     var body: some View {
+        VStack(spacing: 0) {
+            // 自定义标签栏（与下载管理等页面风格统一）
+            HStack(spacing: 0) {
+                podcastTabButton(title: String(localized: "本地收藏"), index: 0)
+                podcastTabButton(title: String(localized: "NCM 播客"), index: 1)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+
+            if selectedTab == 0 {
+                localPodcastsList
+            } else {
+                ncmPodcastsList
+            }
+        }
+        .onAppear {
+            if subManager.subscribedRadios.isEmpty {
+                subManager.fetchSubscribedRadios()
+            }
+        }
+    }
+
+    private func podcastTabButton(title: String, index: Int) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
+        } label: {
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 15, weight: selectedTab == index ? .bold : .medium, design: .rounded))
+                    .foregroundColor(selectedTab == index ? .monologueTextPrimary : .monologueTextSecondary)
+
+                Rectangle()
+                    .fill(selectedTab == index ? Color.monologueTextPrimary : Color.clear)
+                    .frame(height: 2)
+                    .frame(width: 40)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
+    }
+
+    private var localPodcastsList: some View {
+        Group {
+            if subManager.localSubscribedRadios.isEmpty {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        MonologueIcon(icon: .radio, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                        Text("暂无本地收藏")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .padding(.top, 50)
+                }
+                .scrollIndicators(.hidden)
+            } else {
+                List {
+                    ForEach(subManager.localSubscribedRadios) { radio in
+                        ZStack {
+                            NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                                EmptyView()
+                            }
+                            .opacity(0)
+                            
+                            podcastRow(radio: radio)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    subManager.removeLocalRadio(radio)
+                                }
+                            } label: {
+                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
+                            }
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    subManager.removeLocalRadio(radio)
+                                }
+                            } label: {
+                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
+                    }
+
+                    Color.clear.frame(height: 100)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
+            }
+        }
+    }
+
+    private var ncmPodcastsList: some View {
         Group {
             if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
                 ScrollView {
@@ -1189,40 +1297,6 @@ struct MyPodcastsView: View {
                             
                             podcastRow(radio: radio)
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                AlertManager.shared.show(
-                                    title: String(localized: "lib_unsubscribe"),
-                                    message: String(format: String(localized: "lib_confirm_unsubscribe"), radio.name),
-                                    primaryButtonTitle: String(localized: "lib_unsubscribe"),
-                                    secondaryButtonTitle: String(localized: "alert_cancel"),
-                                    primaryAction: {
-                                        withAnimation {
-                                            subManager.unsubscribeRadio(radio) { _ in }
-                                        }
-                                    }
-                                )
-                            } label: {
-                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
-                            }
-                        }
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                AlertManager.shared.show(
-                                    title: String(localized: "lib_unsubscribe"),
-                                    message: String(format: String(localized: "lib_confirm_unsubscribe"), radio.name),
-                                    primaryButtonTitle: String(localized: "lib_unsubscribe"),
-                                    secondaryButtonTitle: String(localized: "alert_cancel"),
-                                    primaryAction: {
-                                        withAnimation {
-                                            subManager.unsubscribeRadio(radio) { _ in }
-                                        }
-                                    }
-                                )
-                            } label: {
-                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
-                            }
-                        }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
@@ -1238,11 +1312,6 @@ struct MyPodcastsView: View {
                 .refreshable {
                     subManager.fetchSubscribedRadios()
                 }
-            }
-        }
-        .onAppear {
-            if subManager.subscribedRadios.isEmpty {
-                subManager.fetchSubscribedRadios()
             }
         }
     }

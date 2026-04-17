@@ -538,17 +538,18 @@ extension APIService {
     /// 获取 qcm歌词
     func fetchQQLyric(mid: String) -> AnyPublisher<QQLyricResponse, Error> {
         asyncToPublisher { [weak self] in
-            guard let self = self else { return QQLyricResponse(lyric: nil, qrc: nil, trans: nil) }
+            guard let self = self else { return QQLyricResponse(lyric: nil, qrc: nil, trans: nil, roma: nil) }
             let result = try await self.qqClient.lyric(
                 value: mid,
                 qrc: true,
                 trans: true,
-                roma: false
+                roma: true
             )
             return QQLyricResponse(
                 lyric: result.lyric,
                 qrc: result.qrc,
-                trans: result.trans
+                trans: result.trans,
+                roma: result.roma
             )
         }
     }
@@ -559,6 +560,7 @@ struct QQLyricResponse: Sendable {
     let lyric: String?
     let qrc: String?
     let trans: String?
+    let roma: String?
 }
 
 // MARK: - qcm热搜

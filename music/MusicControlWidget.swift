@@ -251,7 +251,7 @@ struct NowPlayingEntry: TimelineEntry {
 }
 
 struct NowPlayingProvider: AppIntentTimelineProvider {
-    private let groupDefaults = UserDefaults(suiteName: appGroupID)
+    private var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroupID) }
 
     func placeholder(in context: Context) -> NowPlayingEntry {
         NowPlayingEntry.preview(theme: cachedTheme())
@@ -2771,51 +2771,6 @@ private struct MangaMicroAnimator: ViewModifier {
     }
 }
 
-/// Floating heart bubbles — multiple tiny hearts rise & fade like fizzy bubbles
-/// Uses real SwiftUI views (not Canvas) for WidgetKit compatibility
-private struct MangaHeartBubblesView: View {
-    let color: Color
-    let ink: Color
-    var bubbleCount: Int = 5
-    var areaWidth: CGFloat = 40
-    var areaHeight: CGFloat = 50
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            ZStack {
-                ForEach(0..<bubbleCount, id: \.self) { i in
-                    let seed = Double(i)
-                    let cycle = 2.0 + (seed * 1.3).truncatingRemainder(dividingBy: 1.5)
-                    let delay = (seed * 0.6).truncatingRemainder(dividingBy: 2.0)
-                    let phase = (t + delay).truncatingRemainder(dividingBy: cycle) / cycle
-                    let xBase = ((seed * 7.3).truncatingRemainder(dividingBy: 1.0) - 0.5) * Double(areaWidth) * 0.7
-                    let xSway = sin(phase * .pi * 2.5) * 4.0
-                    let heartSize = CGFloat(4.0 + (seed * 3.7).truncatingRemainder(dividingBy: 5.0))
-                    let scale = 0.6 + 0.4 * (1.0 - phase)
-                    let opacity = (1.0 - phase) * 0.85
-                    let rot = (seed * 13.0).truncatingRemainder(dividingBy: 30.0) - 15.0
-
-                    ZStack {
-                        MangaHeartShape().fill(color)
-                        MangaHeartShape().stroke(ink.opacity(0.6), lineWidth: 0.8)
-                    }
-                    .frame(width: heartSize, height: heartSize)
-                    .scaleEffect(CGFloat(scale))
-                    .rotationEffect(.degrees(rot))
-                    .opacity(opacity)
-                    .offset(
-                        x: CGFloat(xBase + xSway),
-                        y: CGFloat(areaHeight / 2.0 - CGFloat(phase) * areaHeight)
-                    )
-                }
-            }
-            .frame(width: areaWidth, height: areaHeight)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 private struct MangaTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
@@ -3034,10 +2989,6 @@ private struct MangaTheme: View {
                     .rotationEffect(.degrees(-15))
                     .modifier(MangaMicroAnimator(type: .pulse))
                     .position(x: g.size.width - 20, y: g.size.height - 24)
-                    
-                    // Heart bubbles floating up from the bottom-right heart
-                    MangaHeartBubblesView(color: accentPink, ink: ink, bubbleCount: 4, areaWidth: 30, areaHeight: 40)
-                        .position(x: g.size.width - 20, y: g.size.height - 46)
                 }
                 .allowsHitTesting(false)
 
@@ -3122,10 +3073,6 @@ private struct MangaTheme: View {
                     .frame(width: 6, height: 6)
                     .modifier(MangaMicroAnimator(type: .float))
                     .position(x: 24, y: g.size.height - 18)
-                    
-                    // Heart bubbles near the top-right star area
-                    MangaHeartBubblesView(color: accentPink, ink: ink, bubbleCount: 3, areaWidth: 28, areaHeight: 36)
-                        .position(x: g.size.width - 22, y: g.size.height - 38)
                 }
                 .allowsHitTesting(false)
 
@@ -3223,18 +3170,6 @@ private struct MangaTheme: View {
                     }
                     .padding(14)
                     Spacer()
-                }
-                .allowsHitTesting(false)
-                
-                // Heart bubbles decoration for large widget
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        MangaHeartBubblesView(color: accentPink, ink: ink, bubbleCount: 6, areaWidth: 44, areaHeight: 60)
-                    }
-                    .padding(.trailing, 18)
-                    .padding(.bottom, 28)
                 }
                 .allowsHitTesting(false)
 
@@ -5170,9 +5105,6 @@ struct DashboardTheme: View {
 struct SoundwaveTheme: View {
     var entry: NowPlayingEntry
     var family: WidgetFamily
-    
-    // 从 UserDefaults 读取最新的歌词信息
-    let lyricsData = UserDefaults(suiteName: "group.com.lcb.monologue")?.string(forKey: "currentLyrics") ?? ""
 
     private var song: String {
         return entry.songName.isEmpty ? "Monologue" : entry.songName

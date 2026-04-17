@@ -354,8 +354,8 @@ private struct CompactMiniPlayerView: View {
     @State private var showCompactPlaylist = false
 
     private var subtitleText: String {
-        if lyricVM.hasLyrics, !lyricVM.lyrics.isEmpty {
-            return lyricVM.lyrics[lyricVM.currentLineIndex].text
+        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+            return text
         }
         return song.artistName
     }
@@ -462,8 +462,11 @@ private struct CompactMiniPlayerView: View {
             }
         }
         .monologueSheet(isPresented: $showCompactPlaylist, preset: .standard){
-            PlaylistPopupView()
-
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
         }
     }
 

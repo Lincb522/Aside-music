@@ -85,6 +85,16 @@ struct PodcastView: View {
                                 newcomerSection
                             }
 
+                            // 上新佳作
+                            if !viewModel.newestPrograms.isEmpty {
+                                newestSection
+                            }
+
+                            // 音乐播客榜
+                            if !viewModel.chartPrograms.isEmpty {
+                                chartSection
+                            }
+
                             // 节目榜
                             if !viewModel.programToplist.isEmpty {
                                 programToplistSection
@@ -442,6 +452,139 @@ struct PodcastView: View {
         }
     }
 
+    // MARK: - 上新佳作
+
+    private var newestSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("上新佳作")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, padH)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 14) {
+                    ForEach(Array(viewModel.newestPrograms.enumerated()), id: \.offset) { index, program in
+                        Button {
+                            HapticStyle.light.trigger()
+                            if let radioId = program.creativeExtInfoVO?.djProgram?.radio?.id {
+                                radioIdToOpen = radioId
+                            } else if let radioId = program.creativeExtInfoVO?.radio?.id {
+                                radioIdToOpen = radioId
+                            }
+                        } label: {
+                            creativeCompactCard(creative: program)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                            content
+                                .scaleEffect(phase.isIdentity ? 1 : 0.93)
+                                .opacity(phase.isIdentity ? 1 : 0.8)
+                        }
+                    }
+                }
+                .padding(.horizontal, padH)
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollClipDisabled()
+        }
+    }
+
+    // MARK: - 音乐播客榜
+
+    private var chartSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("音乐播客榜")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, padH)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 14) {
+                    ForEach(Array(viewModel.chartPrograms.enumerated()), id: \.offset) { index, program in
+                        Button {
+                            HapticStyle.light.trigger()
+                            if let radioId = program.creativeExtInfoVO?.djProgram?.radio?.id {
+                                radioIdToOpen = radioId
+                            } else if let radioId = program.creativeExtInfoVO?.radio?.id {
+                                radioIdToOpen = radioId
+                            }
+                        } label: {
+                            creativeCompactCard(creative: program, rank: index + 1)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                            content
+                                .scaleEffect(phase.isIdentity ? 1 : 0.93)
+                                .opacity(phase.isIdentity ? 1 : 0.8)
+                        }
+                    }
+                }
+                .padding(.horizontal, padH)
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollClipDisabled()
+        }
+    }
+
+    private func creativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> some View {
+        let s = compactCardSize
+        let cr: CGFloat = DeviceLayout.isPad ? 18 : 16
+        
+        let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
+        let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
+        var coverUrl: URL? = nil
+        if let urlStr = creative.uiElement?.image?.imageUrl {
+            coverUrl = URL(string: urlStr)
+        } else if let urlStr = creative.creativeExtInfoVO?.djProgram?.coverUrl {
+            coverUrl = URL(string: urlStr)
+        } else if let urlStr = creative.creativeExtInfoVO?.djProgram?.mainSong?.coverUrl?.absoluteString {
+            coverUrl = URL(string: urlStr)
+        }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: coverUrl) {
+                    RoundedRectangle(cornerRadius: cr)
+                        .fill(Color.monologueGlassTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: s, height: s)
+                .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
+
+                if let rank = rank {
+                    Text("\(rank)")
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundColor(rank <= 3 ? .monologueIconForeground : .monologueTextPrimary)
+                        .frame(width: 26, height: 26)
+                        .background(
+                            Circle().fill(rank <= 3 ? Color.monologueIconBackground : Color.monologueGlassTint)
+                        )
+                        .monologueGlassCircle()
+                        .padding(8)
+                }
+            }
+
+            Text(title)
+                .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
+                .lineLimit(2)
+                .frame(width: s, height: 34, alignment: .topLeading)
+
+            Text(subTitle)
+                .font(.system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))
+                .foregroundColor(.monologueTextSecondary)
+                .lineLimit(1)
+                .frame(width: s, alignment: .leading)
+        }
+        .frame(width: s)
+    }
+
     // MARK: - 新人电台榜
 
     private var newcomerSection: some View {
@@ -728,7 +871,19 @@ struct PodcastView: View {
     // MARK: - 广播电台
     
     private var podcastHistorySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let uniquePodcastHistory: [Song] = {
+            var seenIds = Set<Int>()
+            var result = [Song]()
+            for song in playerManager.podcastHistory {
+                if !seenIds.contains(song.id) {
+                    seenIds.insert(song.id)
+                    result.append(song)
+                }
+            }
+            return result
+        }()
+        
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -736,24 +891,37 @@ struct PodcastView: View {
 
                 Spacer()
                 
-                NavigationLink(destination: RecentPlayHistoryView(songs: playerManager.podcastHistory)) {
-                    HStack(spacing: 4) {
-                        Text(LocalizedStringKey("view_all"))
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                HStack(spacing: 12) {
+                    Button(action: {
+                        HapticStyle.light.trigger()
+                        playerManager.clearPodcastHistory()
+                    }) {
+                        HStack(spacing: 4) {
+                            MonologueIcon(icon: .trash, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                            Text(LocalizedStringKey("storage_clear"))
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                        }
+                        .foregroundColor(.monologueTextSecondary)
                     }
-                    .foregroundColor(.monologueTextSecondary)
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
+                        HStack(spacing: 4) {
+                            Text(LocalizedStringKey("view_all"))
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                        }
+                        .foregroundColor(.monologueTextSecondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, padH)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(playerManager.podcastHistory.prefix(10)) { song in
-                        SongCard(song: song) {
-                            playerManager.playPodcast(song: song, in: playerManager.podcastHistory, radioId: song.album?.id ?? 0)
-                        }
+                    ForEach(uniquePodcastHistory.prefix(10)) { song in
+                        podcastHistoryCard(song: song)
                         .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
@@ -768,6 +936,70 @@ struct PodcastView: View {
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
             .scrollIndicators(.hidden)
         }
+    }
+
+    private func podcastHistoryCard(song: Song) -> some View {
+        let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
+        let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
+        let cr: CGFloat = 12
+        let isCurrent = playerManager.currentSong?.id == song.id
+        
+        return Button {
+            HapticStyle.light.trigger()
+            let rid = song.podcastRadioId ?? song.album?.id ?? 0
+            playerManager.playPodcast(song: song, in: playerManager.podcastHistory, radioId: rid)
+            if rid > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    radioIdToOpen = rid
+                    showRadioPlayer = true
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack(alignment: .bottomTrailing) {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: cr)
+                            .fill(Color.monologueGlassTint)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: cardHeight, height: cardHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
+                    
+                    if isCurrent {
+                        PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .white)
+                            .frame(width: 10)
+                            .padding(4)
+                            .background(Circle().fill(.black.opacity(0.4)))
+                            .padding(4)
+                            .clipShape(Circle())
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.name)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(isCurrent ? .monologueAccent : .monologueTextPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    
+                    let subtitle = song.podcastRadioName ?? song.ar?.first?.name ?? ""
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.trailing, 12)
+            .frame(width: cardWidth, height: cardHeight)
+            .background(Color.monologueGlassTint)
+            .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
+            .monologueGlass(cornerRadius: cr)
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
     }
 
     private var broadcastSection: some View {

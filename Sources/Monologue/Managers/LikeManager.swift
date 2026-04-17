@@ -50,7 +50,8 @@ class LikeManager: ObservableObject {
         
         objectWillChange.send()
         
-        if !isQQMusic && SettingsManager.shared.syncLikeToNetease {
+        let isQSM = song?.isQishui ?? false
+        if !isQQMusic && !isQSM && SettingsManager.shared.syncLikeToNetease {
             syncToNetease(songId: songId, like: !currentlyLiked)
         }
     }

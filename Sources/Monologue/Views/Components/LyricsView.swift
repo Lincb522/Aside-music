@@ -14,7 +14,7 @@ struct LyricLine: Identifiable, Equatable {
     let id = UUID()
     let time: TimeInterval
     let text: String
-    let translation: String?
+    var translation: String?
     var duration: TimeInterval = 0
     var words: [LyricWord] = []
 }
@@ -27,6 +27,15 @@ class LyricViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var currentLineIndex: Int = 0
     @Published var hasLyrics = false
+    
+    var currentLineSafely: LyricLine? {
+        guard lyrics.indices.contains(currentLineIndex) else { return nil }
+        return lyrics[currentLineIndex]
+    }
+    
+    var currentLineText: String? {
+        return currentLineSafely?.text
+    }
     
     var currentLineProgress: Double = 0.0
     
@@ -394,6 +403,16 @@ class LyricViewModel: ObservableObject {
         if let trans = response.trans {
             parseTranslations(trans)
         }
+        
+        // 如果常规翻译解析后依然为空（例如此时 trans 是不支持时间戳映射的 [kana:...] 格式）
+        // 则尝试解析 roma（罗马音 XML 格式）作为兜底翻译显示。
+        if translations.isEmpty, let roma = response.roma {
+            if roma.contains("<QrcInfos>") || roma.hasPrefix("<?xml") {
+                parseRomajiXMLToTranslations(roma)
+            } else {
+                parseTranslations(roma)
+            }
+        }
 
         if let qrc = response.qrc, !qrc.isEmpty {
             parseQRC(qrc)
@@ -422,6 +441,98 @@ class LyricViewModel: ObservableObject {
             let (time, content) = parseLine(line)
             if let time = time, !content.isEmpty {
                 translations[translationKey(time)] = content
+            }
+        }
+    }
+    
+    // 应用翻译到已经解析好的歌词行中
+    private func applyTranslationsToLines(_ lines: inout [LyricLine]) {
+        guard !translations.isEmpty else { return }
+        
+        let sortedTrans = translations.map { (time: $0.key, text: $0.value) }.sorted { $0.time < $1.time }
+        
+        // 匹配策略 1：如果数量完全相等，说明是非常规整的双语结构（常见于网易云 LRC 与 Tlyric）
+        if lines.count == sortedTrans.count {
+            for i in 0..<lines.count {
+                lines[i].translation = sortedTrans[i].text
+            }
+            return
+        }
+        
+        // 匹配策略 2：通过绝对时间差最接近来寻找翻译（最大允许误差 2.0 秒，用来兼容 YRC 与普通 LRC 翻译打轴的微量偏移）
+        for i in 0..<lines.count {
+            let lineTime = lines[i].time
+            var bestTranslation: String? = nil
+            var smallestDiff: TimeInterval = 2.0
+            
+            for trans in sortedTrans {
+                let diff = abs(trans.time - lineTime)
+                if diff <= smallestDiff {
+                    smallestDiff = diff
+                    bestTranslation = trans.text
+                } else if trans.time > lineTime + smallestDiff {
+                    // 因为 sortedTrans 是按时间顺序排列的，如果已经偏大很多就不需要继续找了
+                    break
+                }
+            }
+            
+            if let bestTranslation {
+                lines[i].translation = bestTranslation
+            }
+        }
+    }
+    
+    // 解析 QQ 音乐的 XML roma 罗马音字段，并将其映射为翻译字段
+    private func parseRomajiXMLToTranslations(_ xmlText: String) {
+        let pattern = "LyricContent=\"([^\"]+)\""
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return }
+        
+        let matches = regex.matches(in: xmlText, options: [], range: NSRange(location: 0, length: xmlText.utf16.count))
+        for match in matches {
+            guard let range = Range(match.range(at: 1), in: xmlText) else { continue }
+            let rawQrcContent = String(xmlText[range])
+            let qrcContent = rawQrcContent.replacingOccurrences(of: "&#10;", with: "\n")
+                .replacingOccurrences(of: "&apos;", with: "'")
+                .replacingOccurrences(of: "&quot;", with: "\"")
+                .replacingOccurrences(of: "&amp;", with: "&")
+                .replacingOccurrences(of: "&lt;", with: "<")
+                .replacingOccurrences(of: "&gt;", with: ">")
+            
+            let lines = qrcContent.components(separatedBy: .newlines)
+            for line in lines {
+                guard let closeBracket = line.firstIndex(of: "]"), line.hasPrefix("[") else { continue }
+                
+                let timePart = line[line.index(after: line.startIndex)..<closeBracket]
+                let contentPart = String(line[line.index(after: closeBracket)...])
+                
+                let times = timePart.components(separatedBy: ",")
+                guard times.count >= 2, let startMs = Double(times[0]) else { continue }
+                
+                let startTime = startMs / 1000.0
+                
+                var plainText = ""
+                var remaining = contentPart
+                while !remaining.isEmpty {
+                    guard let parenStart = remaining.firstIndex(of: "(") else {
+                        plainText += remaining
+                        break
+                    }
+                    let wText = String(remaining[remaining.startIndex..<parenStart])
+                    remaining = String(remaining[remaining.index(after: parenStart)...])
+                    
+                    guard let parenEnd = remaining.firstIndex(of: ")") else { break }
+                    remaining = String(remaining[remaining.index(after: parenEnd)...])
+                    
+                    if !wText.isEmpty {
+                        plainText += wText
+                    }
+                }
+                
+                if plainText.isEmpty {
+                    plainText = contentPart
+                }
+                
+                translations[translationKey(startTime)] = plainText
             }
         }
     }
@@ -491,10 +602,10 @@ class LyricViewModel: ObservableObject {
                 plainText = String(contentPart)
             }
             
-            let translation = translations[translationKey(startTime)]
-            parsedLines.append(LyricLine(time: startTime, text: plainText, translation: translation, duration: duration, words: words))
+            parsedLines.append(LyricLine(time: startTime, text: plainText, translation: nil, duration: duration, words: words))
         }
         
+        applyTranslationsToLines(&parsedLines)
         self.lyrics = parsedLines.sorted { $0.time < $1.time }
     }
     
@@ -556,10 +667,10 @@ class LyricViewModel: ObservableObject {
                 plainText = contentPart
             }
             
-            let translation = translations[translationKey(startTime)]
-            parsedLines.append(LyricLine(time: startTime, text: plainText, translation: translation, duration: duration, words: words))
+            parsedLines.append(LyricLine(time: startTime, text: plainText, translation: nil, duration: duration, words: words))
         }
         
+        applyTranslationsToLines(&parsedLines)
         self.lyrics = parsedLines.sorted { $0.time < $1.time }
     }
     
@@ -570,11 +681,11 @@ class LyricViewModel: ObservableObject {
         for line in lines {
             let (time, content) = parseLine(line)
             if let time = time {
-                let translation = translations[translationKey(time)]
-                parsedLines.append(LyricLine(time: time, text: content, translation: translation))
+                parsedLines.append(LyricLine(time: time, text: content, translation: nil))
             }
         }
         
+        applyTranslationsToLines(&parsedLines)
         parsedLines.sort { $0.time < $1.time }
         
         for i in 0..<parsedLines.count {
@@ -642,6 +753,16 @@ class LyricViewModel: ObservableObject {
             self.publishScheduled = false
             self.objectWillChange.send()
         }
+    }
+    
+    func clearLyrics() {
+        lyrics = []
+        hasLyrics = false
+        currentLineIndex = 0
+        currentLineProgress = 0.0
+        translations = [:]
+        currentSongId = nil
+        isLoading = false
     }
 }
 

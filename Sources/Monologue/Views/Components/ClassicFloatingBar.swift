@@ -61,8 +61,8 @@ private struct ClassicMiniPlayerSection: View {
     @ObservedObject private var lyricVM = LyricViewModel.shared
 
     private var subtitleText: String {
-        if lyricVM.hasLyrics, !lyricVM.lyrics.isEmpty {
-            return lyricVM.lyrics[lyricVM.currentLineIndex].text
+        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+            return text
         }
         return song.artistName
     }
@@ -177,8 +177,11 @@ private struct ClassicMiniPlayerSection: View {
                 .opacity(0.6)
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
-            PlaylistPopupView()
-
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
         }
     }
 

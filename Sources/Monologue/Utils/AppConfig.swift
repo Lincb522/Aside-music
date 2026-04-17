@@ -82,6 +82,7 @@ enum AppConfig {
         static let playlistSyncDeleteCloudSnapshot = "monologue_playlist_sync_delete_cloud_snapshot"
         static let defaultPlaybackQuality = "defaultPlaybackQuality"
         static let insertPlaybackContext = "monologue_insert_playback_context"
+        static let podcastSortAscending = "monologue_podcast_sort_ascending"
         // [DEPRECATED] 智能分析功能已废弃
         static let audioLabSmartEffects = "audio_lab_smart_effects_enabled"
         static let audioLabAnalysisMode = "audio_lab_analysis_mode"

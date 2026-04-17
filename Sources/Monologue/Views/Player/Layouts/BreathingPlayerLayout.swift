@@ -710,7 +710,7 @@ extension BreathingPlayerLayout {
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.top, topInset + 4)
+            .padding(.top, 4)
 
             Spacer()
         }

@@ -17,12 +17,20 @@ class SubscriptionManager: ObservableObject {
     /// 最近手动取消收藏的歌单 ID
     private var recentlyUnsubscribedIds: Set<Int> = []
 
+    /// 本地收藏的播客列表
+    @Published var localSubscribedRadios: [RadioStation] = []
+
     @Published var isLoadingRadios = false
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
 
     private init() {
+        if let data = UserDefaults.standard.data(forKey: "localSubscribedRadios"),
+           let decoded = try? JSONDecoder().decode([RadioStation].self, from: data) {
+            localSubscribedRadios = decoded
+        }
+        
         if apiService.isLoggedIn {
             fetchSubscribedRadios()
         }
@@ -49,42 +57,40 @@ class SubscriptionManager: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// 检查播客是否已订阅
+    /// 检查播客是否已本地收藏
     func isRadioSubscribed(_ id: Int) -> Bool {
-        subscribedRadioIds.contains(id)
+        localSubscribedRadios.contains(where: { $0.id == id })
     }
 
-    /// 订阅/取消订阅播客
+    /// 纯本地订阅/取消订阅播客
     func toggleRadioSubscription(_ radio: RadioStation) {
-        guard apiService.isLoggedIn else { return }
-
-        let isCurrently = isRadioSubscribed(radio.id)
-        let targetState = !isCurrently
-
-        // 乐观更新
-        if targetState {
-            subscribedRadioIds.insert(radio.id)
-            subscribedRadios.insert(radio, at: 0)
+        if let index = localSubscribedRadios.firstIndex(where: { $0.id == radio.id }) {
+            localSubscribedRadios.remove(at: index)
         } else {
-            subscribedRadioIds.remove(radio.id)
-            subscribedRadios.removeAll { $0.id == radio.id }
+            localSubscribedRadios.insert(radio, at: 0)
         }
+        
+        if let encoded = try? JSONEncoder().encode(localSubscribedRadios) {
+            UserDefaults.standard.set(encoded, forKey: "localSubscribedRadios")
+        }
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+    }
+    
+    /// 本地删除播客收藏
+    func removeLocalRadio(_ radio: RadioStation) {
+        localSubscribedRadios.removeAll(where: { $0.id == radio.id })
+        if let encoded = try? JSONEncoder().encode(localSubscribedRadios) {
+            UserDefaults.standard.set(encoded, forKey: "localSubscribedRadios")
+        }
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+    }
 
-        apiService.subscribeDJ(rid: radio.id, subscribe: targetState)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] completion in
-                if case .failure = completion {
-                    // 回滚
-                    if targetState {
-                        self?.subscribedRadioIds.remove(radio.id)
-                        self?.subscribedRadios.removeAll { $0.id == radio.id }
-                    } else {
-                        self?.subscribedRadioIds.insert(radio.id)
-                        self?.subscribedRadios.insert(radio, at: 0)
-                    }
-                }
-            }, receiveValue: { _ in })
-            .store(in: &cancellables)
+    /// 从云端恢复本地播客订阅（替换当前列表）
+    func replaceLocalSubscriptions(with radios: [RadioStation]) {
+        localSubscribedRadios = radios
+        if let encoded = try? JSONEncoder().encode(localSubscribedRadios) {
+            UserDefaults.standard.set(encoded, forKey: "localSubscribedRadios")
+        }
     }
 
     // MARK: - 歌单收藏

@@ -287,7 +287,7 @@ class PlayerManager: ObservableObject {
     static func gaplessPlaybackEnabled() -> Bool {
         let defaults = UserDefaults.standard
         guard defaults.object(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled) != nil else {
-            return true
+            return false
         }
         return defaults.bool(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled)
     }
@@ -312,6 +312,23 @@ class PlayerManager: ObservableObject {
     @Published var playbackBackStack: [Song] = []
     /// 运行时前进栈：在 previous() 后支持回到原先的“下一首”
     @Published var playbackForwardStack: [Song] = []
+    
+    // MARK: - 播客/音乐上下文隔离
+    /// 切换到播客时保存的音乐上下文，以便切回时恢复
+    var savedMusicContext: [Song] = []
+    var savedMusicContextIndex: Int = 0
+    var savedMusicShuffledContext: [Song] = []
+    var savedMusicMode: PlayMode = .sequence
+    var savedMusicSong: Song? = nil
+    var savedMusicCurrentTime: Double = 0
+    var savedMusicDuration: Double = 0
+    /// 切换到音乐时保存的播客上下文
+    var savedPodcastContext: [Song] = []
+    var savedPodcastContextIndex: Int = 0
+    var savedPodcastRadioId: Int? = nil
+    var savedPodcastSong: Song? = nil
+    var savedPodcastCurrentTime: Double = 0
+    var savedPodcastDuration: Double = 0
     
     // MARK: - Internal Properties (供扩展文件访问)
     var cancellables = Set<AnyCancellable>()

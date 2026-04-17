@@ -17,6 +17,7 @@ final class PlayHistory {
     var sourceRaw: String? // MusicSource.rawValue
     var qqMid: String?
     var qqAlbumMid: String?
+    var qishuiTrackId: Int?
     
     init(
         songId: Int,
@@ -27,7 +28,8 @@ final class PlayHistory {
         completed: Bool = false,
         sourceRaw: String? = nil,
         qqMid: String? = nil,
-        qqAlbumMid: String? = nil
+        qqAlbumMid: String? = nil,
+        qishuiTrackId: Int? = nil
     ) {
         self.id = UUID()
         self.songId = songId
@@ -40,6 +42,7 @@ final class PlayHistory {
         self.sourceRaw = sourceRaw
         self.qqMid = qqMid
         self.qqAlbumMid = qqAlbumMid
+        self.qishuiTrackId = qishuiTrackId
     }
     
     /// 从 Song 创建
@@ -53,7 +56,8 @@ final class PlayHistory {
             completed: completed,
             sourceRaw: song.source?.rawValue,
             qqMid: song.qqMid,
-            qqAlbumMid: song.qqAlbumMid
+            qqAlbumMid: song.qqAlbumMid,
+            qishuiTrackId: song.qishuiTrackId
         )
     }
     
@@ -82,6 +86,7 @@ final class PlayHistory {
         }
         song.qqMid = qqMid
         song.qqAlbumMid = qqAlbumMid
+        song.qishuiTrackId = qishuiTrackId
         return song
     }
 }

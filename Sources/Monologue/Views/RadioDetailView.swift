@@ -364,8 +364,8 @@ struct RadioDetailView: View {
     }
 
     private func playProgram(_ program: RadioProgram) {
-        guard let song = program.mainSong else { return }
         let songs = viewModel.songsFromPrograms()
+        guard let song = songs.first(where: { $0.id == program.mainSong?.id }) else { return }
         player.playPodcast(song: song, in: songs, radioId: radioId)
     }
 

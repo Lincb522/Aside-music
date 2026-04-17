@@ -26,6 +26,12 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
     /// 播客节目封面（非 API 字段，手动注入）
     var podcastCoverUrl: String?
     
+    /// 播客电台 ID（非 API 字段，手动注入）
+    var podcastRadioId: Int?
+    
+    /// 播客电台名称（非 API 字段，手动注入）
+    var podcastRadioName: String?
+    
     // MARK: - qcm 扩展字段
     /// 音乐来源平台
     var source: MusicSource?
@@ -52,6 +58,9 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
         case source, qqMid, qqAlbumMid, qqArtistMid, qqMaxQuality
         case localRelativePath, localImportedAt
         case qishuiTrackId
+        case podcastCoverUrl
+        case podcastRadioId
+        case podcastRadioName
     }
     
     // MARK: - 辅助属性
@@ -59,6 +68,10 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
     var album: Album? { al }
     
     private var inferredLegacySource: MusicSource? {
+        if source == nil, let qishuiTrackId, qishuiTrackId > 0 {
+            return .qishui
+        }
+        
         guard source == nil, let qqMid, !qqMid.isEmpty else { return nil }
 
         // 兼容旧本地歌单/导入数据：部分 qcm 歌缺少 source，但仍保留 qqMid 与 qcm CDN 封面。
@@ -73,7 +86,11 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
     }
 
     /// 实际音乐来源（默认 ncm）
-    var musicSource: MusicSource { source ?? inferredLegacySource ?? .netease }
+    var musicSource: MusicSource {
+        if let s = source { return s }
+        if let inferred = inferredLegacySource { return inferred }
+        return .netease
+    }
     
     /// 是否为 qcm 歌曲
     var isQQMusic: Bool { musicSource == .qqmusic }

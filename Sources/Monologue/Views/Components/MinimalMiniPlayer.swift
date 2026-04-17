@@ -11,8 +11,8 @@ struct MinimalMiniPlayer: View {
     @State private var showingTabs = false
 
     private var subtitleText: String {
-        if lyricVM.hasLyrics, !lyricVM.lyrics.isEmpty {
-            return lyricVM.lyrics[lyricVM.currentLineIndex].text
+        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+            return text
         }
         return player.currentSong?.artistName ?? NSLocalizedString("select_song_to_play", comment: String(localized: "选择歌曲开始播放"))
     }
@@ -149,9 +149,15 @@ struct MinimalMiniPlayer: View {
             }
         }
         .sheet(isPresented: $showPlaylist) {
-            PlaylistPopupView()
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            } else {
+                PlaylistPopupView()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
     

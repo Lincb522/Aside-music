@@ -88,17 +88,6 @@ extension PlayerManager {
                         self.refreshPlaybackSurfaceState()
                         self.saveStateImmediately()
                     }
-                    // 主动释放音频会话，让录音类 App（微信语音等）能顺利拿到麦克风
-                    // 先设置屏蔽窗口，防止 setActive(false) 触发 AVAudioEngine 停止
-                    // 导致 StreamPlayer 误发 .stopped 回调，引起自动跳歌
-                    self.suppressStopHandlingUntil = Date().addingTimeInterval(5.0)
-                    do {
-                        try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-                        AppLogger.info("音频会话已主动释放")
-                    } catch {
-                        self.suppressStopHandlingUntil = nil
-                        AppLogger.warning("释放音频会话失败: \(error)")
-                    }
                 case .ended:
                     AppLogger.info("音频中断结束")
                     self.isUnderInterruption = false
@@ -123,42 +112,6 @@ extension PlayerManager {
             }
         }
 
-        // 监听次要音频提示：其他 App 开始/停止播放时动态切换共存/独占模式
-        // 这样既能在有其他音频时混音共存，又能在独占时正确显示锁屏/灵动岛
-        if let old = silenceHintObserver {
-            NotificationCenter.default.removeObserver(old)
-        }
-        silenceHintObserver = NotificationCenter.default.addObserver(
-            forName: AVAudioSession.silenceSecondaryAudioHintNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let userInfo = notification.userInfo,
-                  let typeValue = userInfo[AVAudioSessionSilenceSecondaryAudioHintTypeKey] as? UInt,
-                  let hintType = AVAudioSession.SilenceSecondaryAudioHintType(rawValue: typeValue) else { return }
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let session = AVAudioSession.sharedInstance()
-                switch hintType {
-                case .begin:
-                    let options = self.audioSessionOptions(otherAudioPlaying: true)
-                    if options == Self.mixingAudioSessionOptions {
-                        AppLogger.info("其他音频开始，切换到共存模式")
-                        try? session.setCategory(.playback, mode: .default, options: options)
-                    }
-                case .end:
-                    let options = self.audioSessionOptions(otherAudioPlaying: false)
-                    try? session.setCategory(.playback, mode: .default, options: options)
-                    if options == Self.playbackAudioSessionOptions, self.currentSong != nil {
-                        AppLogger.info("其他音频结束，切回独占模式")
-                        self.updateNowPlayingInfo()
-                        self.updateNowPlayingArtwork(for: self.currentSong)
-                    }
-                @unknown default:
-                    break
-                }
-            }
-        }
 
         if let old = foregroundObserver {
             NotificationCenter.default.removeObserver(old)

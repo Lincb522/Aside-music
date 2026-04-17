@@ -26,6 +26,16 @@ extension PlayerManager {
         let currentTime: Double?
         let duration: Double?
         let wasPlaying: Bool?
+        // 播客/音乐上下文隔离
+        let savedMusicContext: [Song]?
+        let savedMusicContextIndex: Int?
+        let savedMusicShuffledContext: [Song]?
+        let savedMusicMode: PlayMode?
+        let savedMusicSong: Song?
+        let savedPodcastContext: [Song]?
+        let savedPodcastContextIndex: Int?
+        let savedPodcastRadioId: Int?
+        let savedPodcastSong: Song?
     }
     
     private func buildPlayerState() -> PlayerState {
@@ -50,7 +60,16 @@ extension PlayerManager {
             playbackForwardStack: trimmedForwardStack,
             currentTime: currentSong == nil ? nil : currentTime,
             duration: currentSong == nil ? nil : duration,
-            wasPlaying: currentSong == nil ? nil : isPlaying
+            wasPlaying: currentSong == nil ? nil : isPlaying,
+            savedMusicContext: savedMusicContext.isEmpty ? nil : Array(savedMusicContext.prefix(maxPersistContextSize)),
+            savedMusicContextIndex: savedMusicContext.isEmpty ? nil : savedMusicContextIndex,
+            savedMusicShuffledContext: savedMusicShuffledContext.isEmpty ? nil : Array(savedMusicShuffledContext.prefix(maxPersistContextSize)),
+            savedMusicMode: savedMusicContext.isEmpty ? nil : savedMusicMode,
+            savedMusicSong: savedMusicSong,
+            savedPodcastContext: savedPodcastContext.isEmpty ? nil : Array(savedPodcastContext.prefix(maxPersistContextSize)),
+            savedPodcastContextIndex: savedPodcastContext.isEmpty ? nil : savedPodcastContextIndex,
+            savedPodcastRadioId: savedPodcastRadioId,
+            savedPodcastSong: savedPodcastSong
         )
     }
     
@@ -85,6 +104,16 @@ extension PlayerManager {
         self.queueExhaustionBehavior = state.queueExhaustionBehavior ?? .loop
         self.playbackBackStack = state.playbackBackStack ?? []
         self.playbackForwardStack = state.playbackForwardStack ?? []
+        // 恢复保存的上下文
+        self.savedMusicContext = state.savedMusicContext ?? []
+        self.savedMusicContextIndex = state.savedMusicContextIndex ?? 0
+        self.savedMusicShuffledContext = state.savedMusicShuffledContext ?? []
+        self.savedMusicMode = state.savedMusicMode ?? .sequence
+        self.savedMusicSong = state.savedMusicSong
+        self.savedPodcastContext = state.savedPodcastContext ?? []
+        self.savedPodcastContextIndex = state.savedPodcastContextIndex ?? 0
+        self.savedPodcastRadioId = state.savedPodcastRadioId
+        self.savedPodcastSong = state.savedPodcastSong
         
         guard let song = state.currentSong else { return }
         
@@ -193,7 +222,9 @@ extension PlayerManager {
     
     func addToHistory(song: Song) {
         if playSource.isPodcast {
+            // Deduplicate by episode ID only
             podcastHistory.removeAll { $0.id == song.id }
+            
             podcastHistory.insert(song, at: 0)
             if podcastHistory.count > AppConfig.Player.maxHistoryCount {
                 podcastHistory.removeLast()

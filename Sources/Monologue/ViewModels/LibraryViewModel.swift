@@ -324,7 +324,7 @@ class LibraryViewModel: ObservableObject {
             }
 
             if playlistCategories.isEmpty {
-                apiService.fetchHotPlaylistCategories()
+                apiService.fetchPlaylistCategories()
                     .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] tags in
                         var allTags = [PlaylistCategory(name: NSLocalizedString("filter_all", comment: ""), id: -1, category: -1, hot: true)]
                         allTags.append(contentsOf: tags)

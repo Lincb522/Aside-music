@@ -120,15 +120,27 @@ struct PlaybackSettingsView: View {
                     .padding(.leading, 62)
 
                 SettingsToggleRow(
-                    icon: .playNext,
-                    title: String(localized: "settings_gapless_playback"),
-                    subtitle: String(localized: "settings_gapless_playback_desc"),
-                    isOn: $settings.gaplessPlaybackEnabled
+                    icon: .podcast,
+                    title: String(localized: "播客播放顺序"),
+                    subtitle: settings.podcastSortAscending ? String(localized: "最早一期优先") : String(localized: "最新一期优先"),
+                    isOn: $settings.podcastSortAscending
                 )
 
                 Divider()
                     .opacity(0.4)
                     .padding(.leading, 62)
+
+                // 无缝切歌设置项暂时隐藏，默认关闭
+                // SettingsToggleRow(
+                //     icon: .playNext,
+                //     title: String(localized: "settings_gapless_playback"),
+                //     subtitle: String(localized: "settings_gapless_playback_desc"),
+                //     isOn: $settings.gaplessPlaybackEnabled
+                // )
+
+                // Divider()
+                //     .opacity(0.4)
+                //     .padding(.leading, 62)
 
                 SettingsNavigationRow(
                     icon: .headphones,

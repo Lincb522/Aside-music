@@ -117,11 +117,11 @@ struct PlaylistCreator: Codable, Hashable {
 
 struct PlaylistCategory: Codable, Identifiable {
     let name: String
-    let id: Int
+    var id: Int?
     let category: Int?
     let hot: Bool?
     
-    var idString: String { "\(id)_\(name)" }
+    var idString: String { "\(id ?? 0)_\(name)" }
 }
 
 struct PlaylistDetailResponse: Codable {

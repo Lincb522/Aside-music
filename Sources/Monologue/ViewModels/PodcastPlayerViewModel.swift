@@ -66,13 +66,7 @@ import Combine
     }
 
     func songsFromPrograms() -> [Song] {
-        orderedPrograms.compactMap { program in
-            guard var song = program.mainSong else { return nil }
-            if song.al?.picUrl == nil || (song.al?.picUrl?.isEmpty ?? true) {
-                song.podcastCoverUrl = program.coverUrl ?? radioDetail?.picUrl
-            }
-            return song
-        }
+        detailVM.songsFromPrograms()
     }
 
     func handlePlayPause() {

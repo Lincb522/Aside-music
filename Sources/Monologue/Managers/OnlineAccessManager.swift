@@ -65,7 +65,7 @@ final class OnlineAccessManager: ObservableObject {
         }
 
         Task {
-            let status = await verifyCurrentToken()
+            let status = await verifyCurrentToken(isRefresh: true)
             await MainActor.run {
                 self.handle(status: status, showInvalidAlert: showInvalidAlert)
             }
@@ -95,10 +95,10 @@ final class OnlineAccessManager: ObservableObject {
         purgeCredential(with: .missing)
     }
 
-    private func verifyCurrentToken() async -> APIService.TokenStatus {
+    private func verifyCurrentToken(isRefresh: Bool = false) async -> APIService.TokenStatus {
         isVerifying = true
         defer { isVerifying = false }
-        return await APIService.shared.verifyToken()
+        return await APIService.shared.verifyToken(isRefresh: isRefresh)
     }
 
     private func handle(status: APIService.TokenStatus, showInvalidAlert: Bool) {
@@ -139,7 +139,7 @@ final class OnlineAccessManager: ObservableObject {
             if showInvalidAlert {
                 AlertManager.shared.show(
                     title: String(localized: "设备验证失败"),
-                    message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。如需更换设备，请联系管理员解绑。"),
+                    message: String(localized: "Token 已解绑，请重新绑定"),
                     primaryButtonTitle: NSLocalizedString("common_ok", comment: ""),
                     primaryAction: {}
                 )

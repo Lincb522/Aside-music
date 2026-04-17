@@ -138,16 +138,13 @@ enum KeychainHelper {
         if UserDefaults.standard.bool(forKey: key) { return }
         
         #if DEBUG
-        print("[KeychainHelper] 检测到全新安装，清除残留 Keychain 数据")
+        print("[KeychainHelper] 检测到全新安装，但按照要求保留之前安装的 Keychain UDID 与数据")
         #endif
         
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service
-        ]
-        SecItemDelete(query as CFDictionary)
+        // 我们不再执行 SecItemDelete，使得所有的设备 UDID（包括 monologue_device_uuid 与 mlg.access.seed.v2）
+        // 都能够得到完整的跨卸载保留。
         
-        // 同时清理文件存储降级目录
+        // 仅清理文件存储降级目录即可
         if FileManager.default.fileExists(atPath: storageDir.path) {
             try? FileManager.default.removeItem(at: storageDir)
             try? FileManager.default.createDirectory(at: storageDir, withIntermediateDirectories: true)

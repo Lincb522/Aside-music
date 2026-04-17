@@ -118,7 +118,7 @@ struct SearchView: View {
             HStack(spacing: showFullSearch ? 8 : 0) {
                 MonologueIcon(icon: .magnifyingGlass, size: 18, color: .gray)
                 
-                if showFullSearch {
+                HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
                         if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
                             Text(defaultKw.showKeyword)
@@ -165,8 +165,12 @@ struct SearchView: View {
                         }) {
                             MonologueIcon(icon: .xmark, size: 18, color: .gray)
                         }
+                        .padding(.leading, 8)
                     }
                 }
+                .frame(maxWidth: showFullSearch ? .infinity : 0)
+                .opacity(showFullSearch ? 1 : 0)
+                .clipped()
             }
             .padding(.horizontal, showFullSearch ? 16 : 12)
             .padding(.vertical, showFullSearch ? 10 : 12)
@@ -175,9 +179,9 @@ struct SearchView: View {
                 if !showFullSearch {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         isSearchBarExpanded = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isFocused = true
-                        }
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        isFocused = true
                     }
                 }
             }

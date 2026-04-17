@@ -199,6 +199,9 @@ struct MonologueApp: App {
                             settings.applyTheme()
                         }
                     }
+                    if OnlineAccessManager.shared.hasStoredToken {
+                        OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: true)
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
                     PlayerManager.shared.saveStateImmediately()
@@ -266,10 +269,11 @@ struct MonologueApp: App {
     private static func cleanupKeychainIfNeeded() {
         let hasLaunchedKey = "monologue_has_launched_before"
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
-            KeychainHelper.deleteAll()
+            // 根据要求，永久不删残留 Keychain 数据以保留设备 UDID 等标识
+            // KeychainHelper.deleteAll()
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
             #if DEBUG
-            print("[App] 检测到全新安装，已清除残留 Keychain 数据")
+            print("[App] 检测到全新安装，保留原有 Keychain 数据")
             #endif
         }
     }

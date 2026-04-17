@@ -58,10 +58,13 @@ class SearchViewModel: ObservableObject {
 
     private var neteaseCurrentPage = 0
     private var qqCurrentPage = 0
+    private var qishuiCurrentPage = 0
     private var neteaseCanLoadMore = true
     private var qqCanLoadMore = true
+    private var qishuiCanLoadMore = true
     private var isFetchingMoreNetease = false
     private var isFetchingMoreQQ = false
+    private var isFetchingMoreQishui = false
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
     private let cacheManager = OptimizedCacheManager.shared
@@ -71,9 +74,14 @@ class SearchViewModel: ObservableObject {
     var isLoading: Bool { isNeteaseLoading && isQQLoading && isQishuiLoading }
     var canLoadMore: Bool {
         if let source = expandedSource {
-            return source == .netease ? neteaseCanLoadMore : qqCanLoadMore
+            switch source {
+            case .netease: return neteaseCanLoadMore
+            case .qqmusic: return qqCanLoadMore
+            case .qishui: return qishuiCanLoadMore
+            case .local: return false
+            }
         }
-        return neteaseCanLoadMore || qqCanLoadMore
+        return neteaseCanLoadMore || qqCanLoadMore || qishuiCanLoadMore
     }
     
     /// 合并的歌曲结果（兼容旧代码）
@@ -123,8 +131,10 @@ class SearchViewModel: ObservableObject {
         multimatchResult = nil
         neteaseCurrentPage = 0
         qqCurrentPage = 0
+        qishuiCurrentPage = 0
         neteaseCanLoadMore = true
         qqCanLoadMore = true
+        qishuiCanLoadMore = true
     }
     
     func loadSearchHistory() {
@@ -161,12 +171,15 @@ class SearchViewModel: ObservableObject {
     }
     
     func performSearch(keyword: String) {
+        lastSearchedKeyword = keyword
         showSuggestions = false
         suggestions = []
         neteaseCurrentPage = 0
         qqCurrentPage = 0
+        qishuiCurrentPage = 0
         neteaseCanLoadMore = true
         qqCanLoadMore = true
+        qishuiCanLoadMore = true
         expandedSource = nil
         
         if query != keyword {
@@ -180,7 +193,7 @@ class SearchViewModel: ObservableObject {
         // 同时搜索三个平台
         executeNeteaseSearch(keyword: keyword, offset: 0, isLoadMore: false)
         executeQQSearch(keyword: keyword, page: 1, isLoadMore: false)
-        executeQishuiSearch(keyword: keyword, page: 0)
+        executeQishuiSearch(keyword: keyword, page: 0, isLoadMore: false)
         
         // 获取多类型最佳匹配
         apiService.fetchSearchMultimatch(keywords: keyword)
@@ -240,7 +253,12 @@ class SearchViewModel: ObservableObject {
             isFetchingMoreQQ = true
             let page = qqCurrentPage + 2 // page 从 1 开始
             executeQQSearch(keyword: query, page: page, isLoadMore: true)
-        case .qishui, .local:
+        case .qishui:
+            guard !isFetchingMoreQishui && qishuiCanLoadMore else { return }
+            isFetchingMoreQishui = true
+            let page = qishuiCurrentPage + 1 // qishui page 从 0 开始
+            executeQishuiSearch(keyword: query, page: page, isLoadMore: true)
+        case .local:
             return
         }
     }
@@ -390,15 +408,17 @@ class SearchViewModel: ObservableObject {
 
     // MARK: - 汽水音乐搜索执行
 
-    private func executeQishuiSearch(keyword: String, page: Int) {
+    private func executeQishuiSearch(keyword: String, page: Int, isLoadMore: Bool) {
         guard currentTab == .songs else { return }
-        isQishuiLoading = true
+        isQishuiLoading = !isLoadMore
         apiService.searchQishuiSongs(keyword: keyword, page: page)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
                 self?.isQishuiLoading = false
+                if isLoadMore { self?.isFetchingMoreQishui = false }
             }, receiveValue: { [weak self] songs in
-                self?.qishuiResults = songs
+                guard let self = self else { return }
+                self.handleQishuiPagination(newItems: songs, existing: &self.qishuiResults, isLoadMore: isLoadMore)
             })
             .store(in: &cancellables)
     }
@@ -440,6 +460,25 @@ class SearchViewModel: ObservableObject {
         } else {
             existing = newItems
             qqCanLoadMore = !newItems.isEmpty
+        }
+    }
+    
+    private func handleQishuiPagination<T: Identifiable>(newItems: [T], existing: inout [T], isLoadMore: Bool) where T.ID: Hashable {
+        if isLoadMore {
+            if !newItems.isEmpty {
+                let existingIds = Set(existing.map { $0.id })
+                let filtered = newItems.filter { !existingIds.contains($0.id) }
+                if !filtered.isEmpty {
+                    existing.append(contentsOf: filtered)
+                }
+                qishuiCurrentPage += 1
+                qishuiCanLoadMore = newItems.count >= 20
+            } else {
+                qishuiCanLoadMore = false
+            }
+        } else {
+            existing = newItems
+            qishuiCanLoadMore = newItems.count >= 20
         }
     }
     
@@ -514,7 +553,12 @@ class SearchViewModel: ObservableObject {
             Task { @MainActor in
                 await silentLoadAllQQ(keyword: keyword, startPage: qqCurrentPage + 2)
             }
-        case .qishui, .local:
+        case .qishui:
+            guard qishuiCanLoadMore else { return }
+            Task { @MainActor in
+                await silentLoadAllQishui(keyword: keyword, startPage: qishuiCurrentPage + 1)
+            }
+        case .local:
             return
         }
     }
@@ -604,5 +648,47 @@ class SearchViewModel: ObservableObject {
             }
         }
         qqCanLoadMore = false
+    }
+
+    /// 静默加载所有 汽水音乐 剩余歌曲页
+    private func silentLoadAllQishui(keyword: String, startPage: Int) async {
+        var page = startPage
+        var keepLoading = true
+        
+        while keepLoading {
+            do {
+                let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                    apiService.searchQishuiSongs(keyword: keyword, page: page)
+                        .receive(on: DispatchQueue.main)
+                        .sink(receiveCompletion: { completion in
+                            if case .failure(let error) = completion {
+                                continuation.resume(throwing: error)
+                            }
+                        }, receiveValue: { songs in
+                            continuation.resume(returning: songs)
+                        })
+                        .store(in: &cancellables)
+                }
+                
+                if songs.isEmpty || songs.count < 20 {
+                    keepLoading = false
+                }
+                
+                if !songs.isEmpty {
+                    let existingIds = Set(qishuiResults.map { $0.id })
+                    let newSongs = songs.filter { !existingIds.contains($0.id) }
+                    if !newSongs.isEmpty {
+                        qishuiResults.append(contentsOf: newSongs)
+                        PlayerManager.shared.appendContext(songs: newSongs)
+                    }
+                    qishuiCurrentPage = page
+                }
+                
+                page += 1
+            } catch {
+                keepLoading = false
+            }
+        }
+        qishuiCanLoadMore = false
     }
 }

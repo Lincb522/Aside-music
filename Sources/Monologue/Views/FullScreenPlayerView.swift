@@ -7,6 +7,8 @@ struct FullScreenPlayerView: View {
     
     // PlayerThemeManager 使用 @Observable，需要用 @State 持有引用以确保观察生效
     @State private var themeManager = PlayerThemeManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.colorScheme) private var envColorScheme
 
     var body: some View {
         ZStack {
@@ -19,38 +21,48 @@ struct FullScreenPlayerView: View {
             }
             .ignoresSafeArea()
 
-            switch themeManager.currentTheme {
-            case .classic:
-                ClassicPlayerLayout()
-            case .vinyl:
-                VinylPlayerLayout()
-            case .lyricFocus:
-                MinimalPlayerLayout()
-            case .card:
-                CardPlayerLayout()
-            case .neumorphic:
-                NeumorphicPlayerLayout()
-            case .poster:
-                PosterPlayerLayout()
-                    .fontDesign(nil)
-            case .motoPager:
-                MotoPagerLayout()
-            case .typewriter:
-                TypewriterPlayerLayout()
-            case .pixel:
-                PixelPlayerLayout()
-                    .fontDesign(nil)
-            case .aqua:
-                AquaPlayerLayout()
-            case .breathing:
-                BreathingPlayerLayout()
-            case .cassette:
-                CassettePlayerLayout()
-            case .radio:
-                RadioPlayerLayout()
-            case .immersiveLyric:
-                ImmersiveLyricPlayerLayout()
+            Group {
+                switch themeManager.currentTheme {
+                case .classic:
+                    ClassicPlayerLayout()
+                case .vinyl:
+                    VinylPlayerLayout()
+                case .lyricFocus:
+                    MinimalPlayerLayout()
+                case .card:
+                    CardPlayerLayout()
+                case .neumorphic:
+                    NeumorphicPlayerLayout()
+                case .poster:
+                    PosterPlayerLayout()
+                        .fontDesign(nil)
+                case .motoPager:
+                    MotoPagerLayout()
+                case .typewriter:
+                    TypewriterPlayerLayout()
+                case .pixel:
+                    PixelPlayerLayout()
+                        .fontDesign(nil)
+                case .aqua:
+                    AquaPlayerLayout()
+                case .breathing:
+                    BreathingPlayerLayout()
+                case .cassette:
+                    CassettePlayerLayout()
+                case .radio:
+                    RadioPlayerLayout()
+                case .immersiveLyric:
+                    ImmersiveLyricPlayerLayout()
+                case .mangaChat:
+                    MangaChatPlayerLayout()
+                case .folk:
+                    FolkPlayerLayout()
+                case .cosmos:
+                    CosmosPlayerLayout()
+                }
             }
+            .environment(\.colorScheme, themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme)
+
 
         }
         .monologueEdgeSwipeToDismiss()

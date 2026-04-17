@@ -195,7 +195,7 @@ class APIService: @unchecked Sendable {
     }
 
     /// 启动时验证 API Token（带设备绑定）
-    func verifyToken() async -> TokenStatus {
+    func verifyToken(isRefresh: Bool = false) async -> TokenStatus {
         guard let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines),
               !token.isEmpty else {
             return .missing
@@ -209,10 +209,15 @@ class APIService: @unchecked Sendable {
         components.path = currentPath.hasSuffix("/")
             ? "\(currentPath)\(AccessRelay.verifyPath.dropFirst())"
             : "\(currentPath)\(AccessRelay.verifyPath)"
-        components.queryItems = [
+        
+        var queryItems = [
             URLQueryItem(name: AccessRelay.tokenQueryName, value: token),
             URLQueryItem(name: "device_uuid", value: DeviceIdentifier.uuid)
         ]
+        if isRefresh {
+            queryItems.append(URLQueryItem(name: "is_refresh", value: "1"))
+        }
+        components.queryItems = queryItems
 
         guard let url = components.url else {
             return .networkError
@@ -257,7 +262,7 @@ class APIService: @unchecked Sendable {
             } else if http.statusCode == 403 {
                 // 检查是否是设备不匹配错误
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let message = json["message"] as? String,
+                   let message = (json["message"] ?? json["error"]) as? String,
                    message.lowercased().contains("device") {
                     return .deviceMismatch
                 }
@@ -703,16 +708,46 @@ class APIService: @unchecked Sendable {
 
     func fetchBanners() -> AnyPublisher<[Banner], Error> {
         ncm.publisher { [ncm] in
-            guard let serverUrl = ncm.serverUrl else {
+            var allDicts: [[String: Any]] = []
+            
+            if let serverUrl = ncm.serverUrl {
+                async let newBannersReq = try? Self.postToBackend(serverUrl: serverUrl, route: "/banner", params: ["type": 2])
+                async let oldBannersReq = try? Self.postToBackend(serverUrl: serverUrl, route: "/banner/backup", params: ["type": 2])
+                
+                let (newBody, oldBody) = await (newBannersReq, oldBannersReq)
+                
+                if let newBody = newBody, let arr1 = newBody["banners"] as? [[String: Any]] {
+                    allDicts.append(contentsOf: arr1)
+                }
+                if let oldBody = oldBody, let arr2 = oldBody["banners"] as? [[String: Any]] {
+                    allDicts.append(contentsOf: arr2)
+                }
+            } else {
                 let resp = try await ncm.banner(type: .iphone)
-                guard let arr = resp.body["banners"] as? [[String: Any]] else { return [Banner]() }
-                let data = try JSONSerialization.data(withJSONObject: arr)
-                return try JSONDecoder().decode([Banner].self, from: data)
+                let arr = resp.body["banners"] as? [[String: Any]] ?? []
+                allDicts.append(contentsOf: arr)
             }
-            let body = try await Self.postToBackend(serverUrl: serverUrl, route: "/banner", params: ["type": 2])
-            guard let arr = body["banners"] as? [[String: Any]] else { return [Banner]() }
-            let data = try JSONSerialization.data(withJSONObject: arr)
-            return try JSONDecoder().decode([Banner].self, from: data)
+            
+            let data = try JSONSerialization.data(withJSONObject: allDicts)
+            let allBanners = try JSONDecoder().decode([Banner].self, from: data)
+            
+            var seenIds = Set<Int>()
+            var uniqueBanners = [Banner]()
+            for banner in allBanners {
+                if !seenIds.contains(banner.targetId) {
+                    seenIds.insert(banner.targetId)
+                    uniqueBanners.append(banner)
+                }
+            }
+            
+            // 根据日志，当天的 API 并没有 targetType = 1 (新单曲) 的内容
+            // 只有 1000(歌单) 和 3000(网页活动/演出)
+            // 为了避免首页跑空，我们保留歌曲相关的实体类型：1(单曲), 10(专辑), 1000(歌单)
+            // 直接过滤掉 targetType == 3000（含有“演出”、“独家策划”等网页重定向广告）
+            return uniqueBanners.filter { banner in
+                // 1: 单曲, 10: 专辑, 1000: 歌单
+                return [1, 10, 1000].contains(banner.targetType)
+            }
         }
     }
 
@@ -815,7 +850,7 @@ class APIService: @unchecked Sendable {
     ///   - level: 期望音质；传 nil 时自动按最高音质策略解析
     ///   - prefetchedLevel: 预查询缓存的最佳音质（由 PlayerManager 传入）
     ///   - skipUnblock: 是否跳过（播客等场景）
-    func fetchSongUrl(id: Int, level: String? = nil, prefetchedLevel: String? = nil, skipUnblock: Bool = false) -> AnyPublisher<SongUrlResult, Error> {
+    func fetchSongUrl(id: Int, level: String? = nil, prefetchedLevel: String? = nil, skipUnblock: Bool = false, isDownload: Bool = false) -> AnyPublisher<SongUrlResult, Error> {
         return asyncToPublisher { [weak self] in
             guard let self = self else { throw PlaybackError.unavailable }
             if await MainActor.run(body: { OnlineAccessManager.shared.lastTokenStatus }) == .expired {
@@ -850,13 +885,13 @@ class APIService: @unchecked Sendable {
             if candidates.isEmpty {
                 let fallbackQuality = preferredQuality ?? prefetchedQuality ?? .exhigh
                 AppLogger.warning("[Netease] 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
-                return try await self.tryNeteaseLevel(client: client, id: id, level: fallbackQuality.rawValue)
+                return try await self.tryNeteaseLevel(client: client, id: id, level: fallbackQuality.rawValue, isDownload: isDownload)
             }
 
             for quality in candidates {
                 AppLogger.info("[Netease] 尝试: \(quality.displayName)")
                 do {
-                    let result = try await self.tryNeteaseLevel(client: client, id: id, level: quality.rawValue)
+                    let result = try await self.tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
                     AppLogger.success("[Netease] \(quality.displayName) 获取成功")
                     return result
                 } catch PlaybackError.tokenRequired {
@@ -871,9 +906,26 @@ class APIService: @unchecked Sendable {
     }
     
     /// 尝试用指定级别获取ncm播放 URL
-    private func tryNeteaseLevel(client: NCMClient, id: Int, level: String) async throws -> SongUrlResult {
+    private func tryNeteaseLevel(client: NCMClient, id: Int, level: String, isDownload: Bool = false) async throws -> SongUrlResult {
         let qualityLevel = NeteaseCloudMusicAPI.SoundQualityType(rawValue: level) ?? .exhigh
-        let response = try await client.songUrlV1(ids: [id], level: qualityLevel)
+        
+        // 如果是下载，手动在原始 URL 上添加 _download=1 标识（即便 SDK 不支持，NGINX 也能拦截到）
+        var response = try await client.songUrlV1(ids: [id], level: qualityLevel)
+        
+        if isDownload,
+           var dataArray = response.body["data"] as? [[String: Any]],
+           !dataArray.isEmpty {
+            for i in 0..<dataArray.count {
+                if let originalUrl = dataArray[i]["url"] as? String, !originalUrl.isEmpty {
+                    let separator = originalUrl.contains("?") ? "&" : "?"
+                    dataArray[i]["url"] = originalUrl + separator + "_download=1"
+                }
+            }
+            // 写回 response body
+            var newBody = response.body
+            newBody["data"] = dataArray
+            response = APIResponse(status: response.status, body: newBody, cookies: response.cookies)
+        }
         if response.status == 403,
            let msg = response.body["message"] as? String,
            msg.lowercased().contains("token") {

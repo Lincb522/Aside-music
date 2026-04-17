@@ -210,6 +210,17 @@ struct SongListRow: View {
                                             RoundedRectangle(cornerRadius: 2)
                                                 .stroke(Color.blue, lineWidth: 0.5)
                                         )
+                                } else if let radioName = song.podcastRadioName {
+                                    Text(radioName.uppercased())
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(ncmBrandColor)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(ncmBrandColor.opacity(0.1).cornerRadius(2))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .stroke(ncmBrandColor, lineWidth: 0.5)
+                                        )
                                 } else {
                                     Text("NCM")
                                         .font(.system(size: 8, weight: .bold))

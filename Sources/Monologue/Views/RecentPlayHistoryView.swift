@@ -65,7 +65,12 @@ struct RecentPlayHistoryView: View {
                                                 selectedSongIds.insert(song.id)
                                             }
                                         } else {
-                                            playerManager.play(song: song, in: recentFiltered)
+                                            if let rid = song.podcastRadioId, rid > 0 {
+                                                playerManager.playPodcast(song: song, in: recentFiltered, radioId: rid)
+                                                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: rid)
+                                            } else {
+                                                playerManager.play(song: song, in: recentFiltered)
+                                            }
                                         }
                                     }
                                 )

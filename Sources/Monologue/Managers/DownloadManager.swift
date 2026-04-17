@@ -219,6 +219,7 @@ final class DownloadManager: NSObject, ObservableObject {
         downloadedSongIds.remove(key)
         
         AppLogger.info("删除下载: \(key)")
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
     
     /// 删除所有下载
@@ -382,7 +383,7 @@ final class DownloadManager: NSObject, ObservableObject {
     /// 开始ncm歌曲下载
     private func startNeteaseDownload(key: String, songId: Int) {
         let quality = getQuality(key: key)
-        apiService.fetchSongUrl(id: songId, level: quality.rawValue)
+        apiService.fetchSongUrl(id: songId, level: quality.rawValue, isDownload: true)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 guard let self = self, self.downloadingTasks[key] != nil else { return }
@@ -433,7 +434,9 @@ final class DownloadManager: NSObject, ObservableObject {
     /// 开始汽水音乐下载（通过服务端代理，返回已解密的音频）
     private func startQishuiDownload(key: String, trackId: Int) {
         let quality = SettingsManager.shared.defaultQishuiPlaybackQuality
-        let proxyURL = APIService.qishuiProxyPlayURL(trackId: trackId, quality: quality)
+        var proxyURL = APIService.qishuiProxyPlayURL(trackId: trackId, quality: quality)
+        let separator = proxyURL.contains("?") ? "&" : "?"
+        proxyURL += separator + "_download=1"
         guard let url = URL(string: proxyURL) else {
             handleDownloadFailed(key: key, reason: "无法构建汽水音乐下载 URL")
             return
@@ -636,6 +639,9 @@ final class DownloadManager: NSObject, ObservableObject {
                     AppLogger.success("下载完成: \(key), 大小=\(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
                     
                     self.processQueue()
+                    
+                    // 触发云端同步（下载记录变更）
+                    LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
                 }
             } catch {
                 AppLogger.error("保存下载文件失败: \(error)")

@@ -81,6 +81,11 @@ extension PlayerManager {
     
     /// 根据歌曲来源获取歌词（统一入口，避免重复判断）
     func fetchLyricsForSong(_ song: Song) {
+        // 播客节目没有歌词，跳过请求
+        guard !isPlayingPodcast else {
+            LyricViewModel.shared.clearLyrics()
+            return
+        }
         LyricViewModel.shared.fetchLyrics(for: song)
     }
 
@@ -371,11 +376,28 @@ extension PlayerManager {
         streamPlayer.cancelNextPreparation()
         
         // 网络获取 URL：每首歌单独按该曲最高可用音质（使用预缓存加速）
-        if song.isQQMusic, let mid = song.qqMid {
+        if song.isQishui, let trackId = song.qishuiTrackId {
+            let shouldAutoSelectHighest = SettingsManager.shared.preferHighestPlaybackQuality
+            let requestedQuality = shouldAutoSelectHighest ? "lossless" : self.qishuiSelectedQuality
+            Task { @MainActor in
+                self.nextTrackCancellable = APIService.shared.fetchQishuiSongUrl(trackId: trackId, quality: requestedQuality)
+                    .receive(on: DispatchQueue.main)
+                    .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] result in
+                        guard let self, self.playbackSessionId == sessionId, self.isGaplessPlaybackEnabled else { return }
+                        self.qishuiSelectedQuality = result.quality
+                        // 如果不需要解密（普通直连），可以在这里传给 player
+                        // 需要解密的话需要先下载，这里暂时只在缓存命中时无缝或者不处理
+                        AppLogger.info("[Qishui] 获取到了预加载下一首 URL")
+                        // 预下载或者传给 player
+                        // 简单跳过 prepareNext 交给切歌时的 downloadAndPlayQishuiAudio 来做，避免重复下载引发冲突
+                    })
+            }
+        } else if song.isQQMusic, let mid = song.qqMid {
             let cachedQQ = QQMusicQuality(rawValue: prefetchedQualityCache.removeValue(forKey: "qq_\(mid)") ?? "")
             Task { @MainActor in
                 self.nextTrackCancellable = APIService.shared.fetchQQSongUrl(
                     mid: mid,
+                    quality: nil,
                     prefetchedQuality: cachedQQ
                 )
                     .receive(on: DispatchQueue.main)
@@ -550,7 +572,9 @@ extension PlayerManager {
         }
         
         nextQualityPrefetchTask = Task {
-            if nextSong.isQQMusic, let mid = nextSong.qqMid {
+            if nextSong.isQishui {
+                AppLogger.info("[Prefetch] 下一首 汽水音乐音质暂不预查询: \(nextSong.name)")
+            } else if nextSong.isQQMusic, let mid = nextSong.qqMid {
                 do {
                     let infos = try await APIService.shared.prefetchQQQualities(mid: mid)
                     guard !Task.isCancelled else { return }

@@ -16,7 +16,9 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case cassette          // 磁带 - 精致复古纯平几何像素风
     case radio             // 收音机 - 横向卡片式复古收音机
     case immersiveLyric    // 沉浸歌词 - 顶部小图大字纯净版
-
+    case mangaChat         // 漫画聊天 - 歌词以对话气泡形式展示
+    case folk              // 民谣 - 旅行手记笔记本风格
+    case cosmos            // 卡通宇宙 - 卡通宇航员漫画风
     var id: String { rawValue }
     
     var displayName: String {
@@ -35,6 +37,9 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .cassette:   return String(localized: "磁带")
         case .radio:      return String(localized: "收音机")
         case .immersiveLyric: return String(localized: "沉浸歌词")
+        case .mangaChat:  return String(localized: "漫画")
+        case .folk:       return String(localized: "信笺")
+        case .cosmos:     return String(localized: "卡通宇宙")
         }
     }
     
@@ -54,6 +59,9 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .cassette:   return "play.rectangle.fill"
         case .radio:      return "radio.fill"
         case .immersiveLyric: return "music.note.list"
+        case .mangaChat:  return "bubble.left.and.bubble.right.fill"
+        case .folk:       return "envelope.fill"
+        case .cosmos:     return "sparkles"
         }
     }
     
@@ -73,6 +81,20 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .cassette:   return String(localized: "复古扁平磁带，极其精致的纯平几何重构")
         case .radio:      return String(localized: "复古收音机，横向卡片式 LED 点阵与扬声器")
         case .immersiveLyric: return String(localized: "沉浸歌词，顶部小图大字纯净版")
+        case .mangaChat:  return String(localized: "漫画风聊天，歌词以对话气泡形式展示")
+        case .folk:       return String(localized: "诗集信笺，非常规打字机逐行出现的打字信件")
+        case .cosmos:     return String(localized: "卡通宇航员漂浮星空，歌词以对话气泡飘出")
+        }
+    }
+    
+    /// 是否自带自定义的不透明背景。自带背景的主题将不受全局封面亮度控制影响。
+    var hasCustomBackground: Bool {
+        switch self {
+        case .classic, .vinyl, .lyricFocus, .poster, .breathing, .immersiveLyric:
+            return false // 依赖全局模糊封面背景
+        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .cosmos:
+            return true  // 自带不透明的自定义背景
         }
     }
 }
+

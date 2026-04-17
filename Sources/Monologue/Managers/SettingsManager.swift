@@ -36,6 +36,16 @@ final class SettingsManager: ObservableObject {
         }
     }
     
+    /// 返回未被全局封面影响的“真实”系统/用户预设色彩模式
+    var nativeColorScheme: ColorScheme {
+        switch themeMode {
+        case "light": return .light
+        case "dark": return .dark
+        default:
+            return UIScreen.main.traitCollection.userInterfaceStyle == .dark ? .dark : .light
+        }
+    }
+    
     /// 应用主题到所有窗口（确保 fullScreenCover 等独立层级也能实时生效）
     func applyTheme() {
         let style: UIUserInterfaceStyle
@@ -80,7 +90,7 @@ final class SettingsManager: ObservableObject {
 
     /// 是否启用下一首无缝切歌预加载
     @AppStorage(AppConfig.StorageKeys.gaplessPlaybackEnabled)
-    var gaplessPlaybackEnabled: Bool = true
+    var gaplessPlaybackEnabled: Bool = false
 
     /// 后台音频策略
     @AppStorage(AppConfig.StorageKeys.backgroundAudioPolicy)
@@ -141,6 +151,10 @@ final class SettingsManager: ObservableObject {
     /// 全部播放时是否将整张列表插入当前播放队列
     @AppStorage(AppConfig.StorageKeys.insertPlaybackContext)
     var insertPlaybackContext: Bool = false
+
+    /// 播客默认播放顺序（false：最新一期优先；true：最早一期优先）
+    @AppStorage(AppConfig.StorageKeys.podcastSortAscending)
+    var podcastSortAscending: Bool = false
     
     /// 默认下载音质
     @AppStorage("defaultDownloadQuality") var defaultDownloadQuality: String = "standard"

@@ -8,8 +8,10 @@ extension APIService {
 
     func fetchDJPersonalizeRecommend(limit: Int = 6) -> AnyPublisher<[RadioStation], Error> {
         ncm.fetch([RadioStation].self, keyPath: "data") { [ncm] in
-            try await ncm.djPersonalizeRecommend(limit: limit)
+            try await ncm.djPersonalizeRecommend(limit: 30)
         }
+        .map { Array($0.shuffled().prefix(limit)) }
+        .eraseToAnyPublisher()
     }
 
     func fetchDJCategories() -> AnyPublisher<[RadioCategory], Error> {
@@ -29,6 +31,8 @@ extension APIService {
         ncm.fetch([RadioStation].self, keyPath: "djRadios") { [ncm] in
             try await ncm.djRecommend()
         }
+        .map { Array($0.shuffled().prefix(6)) }
+        .eraseToAnyPublisher()
     }
 
     func fetchDJDetail(id: Int) -> AnyPublisher<RadioStation, Error> {
@@ -90,6 +94,24 @@ extension APIService {
             }
             let data = try JSONSerialization.data(withJSONObject: radiosArray)
             return try JSONDecoder().decode([RadioStation].self, from: data)
+        }
+    }
+
+    // MARK: - 播客首页 Tab（真实推荐接口）
+
+    /// 获取播客首页 Tab 数据（为你推荐、热门播客、上新佳作、音乐播客榜）
+    func fetchPodcastHomeTab() -> AnyPublisher<PodcastHomeTabResponse, Error> {
+        ncm.publisher { [ncm] in
+            guard let serverUrl = ncm.serverUrl else {
+                throw URLError(.badServerResponse)
+            }
+            let body = try await Self.postToBackend(
+                serverUrl: serverUrl,
+                route: "/podcast/home/tab",
+                params: [:]
+            )
+            let data = try JSONSerialization.data(withJSONObject: body)
+            return try JSONDecoder().decode(PodcastHomeTabResponse.self, from: data)
         }
     }
 
@@ -168,16 +190,32 @@ extension APIService {
         }
     }
 
-    /// 订阅/取消订阅播客
     func subscribeDJ(rid: Int, subscribe: Bool) -> AnyPublisher<SimpleResponse, Error> {
         ncm.publisher { [ncm] in
-            let response = try await ncm.djSub(
-                rid: rid,
-                action: subscribe ? .sub : .unsub
+            guard let serverUrl = ncm.serverUrl else {
+                let response = try await ncm.djSub(
+                    rid: rid,
+                    action: subscribe ? .sub : .unsub
+                )
+                return SimpleResponse(
+                    code: response.body["code"] as? Int ?? 200,
+                    message: nil
+                )
+            }
+            
+            // 绕过 SDK 的 djSub（后端代理无 /api/djradio/sub 路由报 404）
+            let params: [String: Any] = [
+                "rid": rid,
+                "t": subscribe ? 1 : 0,
+            ]
+            let body = try await Self.postToBackend(
+                serverUrl: serverUrl,
+                route: "/dj/sub",
+                params: params
             )
             return SimpleResponse(
-                code: response.body["code"] as? Int ?? 200,
-                message: nil
+                code: body["code"] as? Int ?? 200,
+                message: body["message"] as? String
             )
         }
     }

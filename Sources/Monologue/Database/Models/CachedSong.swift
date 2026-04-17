@@ -19,6 +19,11 @@ final class CachedSong {
     var fee: Int?
     var canPlay: Bool
     
+    // 音乐来源
+    var sourceRaw: String?
+    var qqMid: String?
+    var qishuiTrackId: Int?
+    
     init(
         id: Int,
         name: String,
@@ -28,7 +33,10 @@ final class CachedSong {
         duration: Int? = nil,
         maxBitrate: Int? = nil,
         fee: Int? = nil,
-        canPlay: Bool = true
+        canPlay: Bool = true,
+        sourceRaw: String? = nil,
+        qqMid: String? = nil,
+        qishuiTrackId: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -42,6 +50,9 @@ final class CachedSong {
         self.maxBitrate = maxBitrate
         self.fee = fee
         self.canPlay = canPlay
+        self.sourceRaw = sourceRaw
+        self.qqMid = qqMid
+        self.qishuiTrackId = qishuiTrackId
     }
     
     /// 从 Song 模型创建
@@ -55,13 +66,16 @@ final class CachedSong {
             duration: song.dt,
             maxBitrate: nil,
             fee: song.fee,
-            canPlay: true
+            canPlay: true,
+            sourceRaw: song.source?.rawValue,
+            qqMid: song.qqMid,
+            qishuiTrackId: song.qishuiTrackId
         )
     }
     
     /// 转换为 Song 模型
     func toSong() -> Song {
-        return Song(
+        var song = Song(
             id: id,
             name: name,
             ar: [Artist(id: 0, name: artistName)],
@@ -77,6 +91,12 @@ final class CachedSong {
             alia: nil,
             privilege: nil
         )
+        if let raw = sourceRaw {
+            song.source = MusicSource(rawValue: raw)
+        }
+        song.qqMid = qqMid
+        song.qishuiTrackId = qishuiTrackId
+        return song
     }
     
     /// 更新播放记录

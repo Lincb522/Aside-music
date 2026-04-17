@@ -15,7 +15,13 @@ import Combine
     var newcomerRadios: [RadioStation] = []
     var programToplist: [RadioProgram] = []
     var todayPerfered: [RadioStation] = []
+    var hotRadios: [RadioStation] = []
 
+    // 播客首页 Tab 真实数据
+    var rcmdPrograms: [PodcastCreative] = []      // 为你推荐（节目）
+    var hotPodcasts: [PodcastCreative] = []        // 热门播客（电台）
+    var newestPrograms: [PodcastCreative] = []     // 上新佳作
+    var chartPrograms: [PodcastCreative] = []      // 音乐播客榜
     
     var isLoading = false
     var errorMessage: String?
@@ -27,26 +33,65 @@ import Combine
         isLoading = true
         errorMessage = nil
 
-        let personalizePublisher = apiService.fetchDJPersonalizeRecommend(limit: 6)
-            .catch { _ in Just([RadioStation]()) }
+        // 并行拉取分类、广播频道和播客首页 Tab
         let categoriesPublisher = apiService.fetchDJCategories()
             .catch { _ in Just([RadioCategory]()) }
-        let recommendPublisher = apiService.fetchDJRecommend()
-            .catch { _ in Just([RadioStation]()) }
         let broadcastPublisher = apiService.fetchBroadcastChannels(limit: 6)
             .catch { _ in Just([BroadcastChannel]()) }
+        let homeTabPublisher = apiService.fetchPodcastHomeTab()
+            .catch { _ in Just(PodcastHomeTabResponse(code: -1, data: nil)) }
 
-        Publishers.Zip4(personalizePublisher, categoriesPublisher, recommendPublisher, broadcastPublisher)
+        Publishers.Zip3(categoriesPublisher, broadcastPublisher, homeTabPublisher)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] personalized, cats, recommend, broadcasts in
-                self?.personalizedRadios = personalized
-                self?.categories = cats
-                self?.recommendRadios = recommend
-                self?.broadcastChannels = broadcasts
-                self?.isLoading = false
-                self?.fetchExtendedData()
+            .sink { [weak self] cats, broadcasts, homeTab in
+                guard let self = self else { return }
+                self.categories = cats
+                self.broadcastChannels = broadcasts
+                self.parsePodcastHomeTab(homeTab)
+                self.isLoading = false
+                self.fetchExtendedData()
             }
             .store(in: &cancellables)
+    }
+
+    /// 解析播客首页 Tab 数据到各个区块
+    private func parsePodcastHomeTab(_ response: PodcastHomeTabResponse) {
+        guard let blocks = response.data?.blockVOS else { return }
+        for block in blocks {
+            guard let code = block.blockCode, let creatives = block.creatives else { continue }
+            switch code {
+            case "RCMD_FOR_YOU":
+                rcmdPrograms = creatives
+                // 兼容：从推荐节目中提取电台作为 personalizedRadios
+                personalizedRadios = creatives.compactMap { c -> RadioStation? in
+                    guard let djProg = c.creativeExtInfoVO?.djProgram,
+                          let radio = djProg.radio else { return nil }
+                    return RadioStation(
+                        id: radio.id ?? djProg.id,
+                        name: radio.name ?? djProg.name ?? "",
+                        picUrl: radio.picUrl ?? c.uiElement?.image?.imageUrl,
+                        dj: djProg.dj,
+                        programCount: nil, subCount: nil, desc: nil,
+                        categoryId: nil, category: nil
+                    )
+                }
+            case "HOTTEST_VOICELIST_BLOCK":
+                hotPodcasts = creatives
+                // 兼容旧 UI：提取电台列表
+                hotRadios = creatives.compactMap { $0.creativeExtInfoVO?.radio }
+                recommendRadios = Array(hotRadios.prefix(6))
+            case "NEWEST_GOOD_VOICE_BLOCK":
+                newestPrograms = creatives
+            case "FINITE_CHARTS_BLOCK":
+                if let resources = creatives.first?.resources {
+                    chartPrograms = resources.map { $0.asCreative }
+                } else {
+                    chartPrograms = creatives
+                }
+            default:
+                break
+            }
+        }
     }
     
     /// 加载 DJ 扩展数据（Banner、付费精品、新人榜、节目榜、今日优选）

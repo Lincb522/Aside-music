@@ -1021,6 +1021,8 @@
 "podcast_timer_cancel_action" = "Turn Off Timer";
 "podcast_timer_cancel_subtitle" = "Cancel the current countdown and pending stop plan";
 "podcast_timer_pending_short" = "Track End";
+"podcast_playlist_count" = "%d episodes";
+"podcast_playlist_empty" = "Playlist is empty";
 
 /* Error Messages */
 "error_no_internet" = "No Internet Connection";

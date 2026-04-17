@@ -486,8 +486,13 @@ struct MacPlayerBar: View {
                 showPlaylist.toggle()
             }
             .popover(isPresented: $showPlaylist) {
-                PlaylistPopupView()
-                    .frame(width: 360, height: 480)
+                if player.isPlayingPodcast {
+                    PodcastPlaylistPopupView()
+                        .frame(width: 360, height: 480)
+                } else {
+                    PlaylistPopupView()
+                        .frame(width: 360, height: 480)
+                }
             }
         }
     }

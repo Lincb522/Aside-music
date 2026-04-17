@@ -29,7 +29,15 @@ final class LocalPlaylist {
             return (try? JSONDecoder().decode([Song].self, from: data)) ?? []
         }
         set {
-            songsData = try? JSONEncoder().encode(newValue)
+            // 在保存/同步前，确保显式补全 source 字段，防止传到云端后丢失平台信息
+            let cleanedSongs = newValue.map { song -> Song in
+                var s = song
+                if s.source == nil {
+                    s.source = s.musicSource
+                }
+                return s
+            }
+            songsData = try? JSONEncoder().encode(cleanedSongs)
             updatedAt = Date()
         }
     }

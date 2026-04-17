@@ -7,7 +7,7 @@ import Combine
 @Observable class RadioDetailViewModel {
     var radioDetail: RadioStation?
     var programs: [RadioProgram] = []
-    var isAscendingOrder = false
+    var isAscendingOrder = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.podcastSortAscending)
     var isLoading = true
     var isLoadingMore = false
     var hasMore = true
@@ -15,7 +15,7 @@ import Combine
 
     let radioId: Int
     private var offset = 0
-    private let limit = 30
+    private let limit = 1000
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
 
@@ -67,6 +67,10 @@ import Combine
                 self.programs = progs
                 self.offset = progs.count
                 self.hasMore = progs.count >= self.limit
+                
+                if self.hasMore {
+                    self.loadMorePrograms()
+                }
             })
             .store(in: &cancellables)
     }
@@ -91,6 +95,10 @@ import Combine
                 self.offset += progs.count
                 self.hasMore = progs.count >= self.limit
                 self.isLoadingMore = false
+                
+                if self.hasMore {
+                    self.loadMorePrograms()
+                }
             })
             .store(in: &cancellables)
     }
@@ -103,6 +111,9 @@ import Combine
             if song.al?.picUrl == nil || (song.al?.picUrl?.isEmpty ?? true) {
                 song.podcastCoverUrl = program.coverUrl ?? radioDetail?.picUrl
             }
+            // 注入所属播客电台的 ID，用于历史记录等场景能够正确跳回电台详情页
+            song.podcastRadioId = program.radio?.id ?? radioDetail?.id
+            song.podcastRadioName = program.radio?.name ?? radioDetail?.name
             return song
         }
     }

@@ -35,6 +35,12 @@ final class DownloadedSong {
     /// qcm音质（仅 qcm歌曲使用）
     var qqQualityRaw: String?
     
+    // MARK: - 汽水扩展字段
+    /// 是否为 汽水音乐歌曲
+    var isQishui: Bool = false
+    /// 汽水歌曲 Track ID
+    var qishuiTrackId: Int?
+    
     enum Status: String {
         case waiting = "waiting"
         case downloading = "downloading"
@@ -71,9 +77,17 @@ final class DownloadedSong {
         quality: SoundQuality = .exhigh,
         qqMid: String? = nil,
         isQQMusic: Bool = false,
-        qqQuality: QQMusicQuality? = nil
+        qqQuality: QQMusicQuality? = nil,
+        isQishui: Bool = false,
+        qishuiTrackId: Int? = nil
     ) {
-        self.uniqueKey = isQQMusic ? "qq_\(id)" : "ncm_\(id)"
+        if isQQMusic {
+            self.uniqueKey = "qq_\(id)"
+        } else if isQishui {
+            self.uniqueKey = "qsm_\(id)"
+        } else {
+            self.uniqueKey = "ncm_\(id)"
+        }
         self.id = id
         self.name = name
         self.artistName = artistName
@@ -90,9 +104,11 @@ final class DownloadedSong {
         self.qqMid = qqMid
         self.isQQMusic = isQQMusic
         self.qqQualityRaw = qqQuality?.rawValue
+        self.isQishui = isQishui
+        self.qishuiTrackId = qishuiTrackId
     }
     
-    /// 从 Song 模型创建（ncm）
+    /// 从 Song 模型创建（ncm 及 QSM）
     convenience init(from song: Song, quality: SoundQuality = .exhigh) {
         self.init(
             id: song.id,
@@ -103,7 +119,9 @@ final class DownloadedSong {
             duration: song.dt,
             quality: quality,
             qqMid: song.qqMid,
-            isQQMusic: song.isQQMusic
+            isQQMusic: song.isQQMusic,
+            isQishui: song.isQishui,
+            qishuiTrackId: song.qishuiTrackId
         )
     }
     
@@ -118,12 +136,22 @@ final class DownloadedSong {
             duration: song.dt,
             qqMid: song.qqMid,
             isQQMusic: true,
-            qqQuality: qqQuality
+            qqQuality: qqQuality,
+            isQishui: false,
+            qishuiTrackId: nil
         )
     }
     
     /// 转换为 Song 模型（用于离线播放）
     func toSong() -> Song {
+        var source: MusicSource?
+        if isQQMusic {
+            source = .qqmusic
+        } else if isQishui {
+            source = .qishui
+        } else {
+            source = nil
+        }
         return Song(
             id: id,
             name: name,
@@ -135,8 +163,9 @@ final class DownloadedSong {
             h: nil, m: nil, l: nil, sq: nil, hr: nil,
             alia: nil,
             privilege: nil,
-            source: isQQMusic ? .qqmusic : nil,
-            qqMid: qqMid
+            source: source,
+            qqMid: qqMid,
+            qishuiTrackId: qishuiTrackId
         )
     }
     

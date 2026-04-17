@@ -5,6 +5,7 @@ struct PodcastToolbar: View {
 
     var onSpeedTap: () -> Void
     var onTimerTap: () -> Void
+    var onPlaylistTap: () -> Void
 
     private var speedText: String {
         let speed = player.playbackSpeed
@@ -28,6 +29,7 @@ struct PodcastToolbar: View {
         HStack(spacing: 24) {
             toolButton(label: speedText, icon: nil, action: onSpeedTap)
             toolButton(label: timerText, icon: .clock, action: onTimerTap)
+            toolButton(label: nil, icon: .list, action: onPlaylistTap)
         }
     }
 
