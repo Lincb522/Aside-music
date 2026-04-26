@@ -8,25 +8,38 @@ struct SubscribeButton: View {
 
     typealias Theme = PlaylistDetailView.Theme
 
+    @ViewBuilder
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                MonologueIcon(
+        if MujiStyle.isActive {
+            Button(action: action) {
+                MujiActionPill(
+                    title: isSubscribed ? label.subscribed : label.unsubscribed,
                     icon: isSubscribed ? .liked : .like,
-                    size: 12,
-                    color: .monologueIconForeground,
-                    lineWidth: 1.4
+                    selected: true,
+                    tint: isSubscribed ? MujiStyle.tea : MujiStyle.clay
                 )
-                Text(isSubscribed ? label.subscribed : label.unsubscribed)
-                    .font(.system(size: 12, weight: .bold))
             }
-            .foregroundColor(.monologueIconForeground)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Theme.accent)
-            .cornerRadius(20)
-            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+        } else {
+            Button(action: action) {
+                HStack(spacing: 6) {
+                    MonologueIcon(
+                        icon: isSubscribed ? .liked : .like,
+                        size: 12,
+                        color: .monologueIconForeground,
+                        lineWidth: 1.4
+                    )
+                    Text(isSubscribed ? label.subscribed : label.unsubscribed)
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundColor(.monologueIconForeground)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Theme.accent)
+                .cornerRadius(20)
+                .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
     }
 }

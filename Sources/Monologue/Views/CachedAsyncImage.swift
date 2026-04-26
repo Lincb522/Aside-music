@@ -250,8 +250,14 @@ struct CachedAsyncImage<Placeholder: View>: View {
     
     @ViewBuilder
     private var content: some View {
-        if let image = loader.image {
-            Image(uiImage: image)
+        // 优先使用 loader 已加载的图片；若 loader 尚未触发（onAppear 还没执行），
+        // 则直接内联查询内存缓存，避免首帧显示 placeholder 导致封面"闪白"。
+        // 两个来源合并到同一个 if 分支，防止 loader 加载后分支切换触发 transition 动画。
+        let resolvedImage: UIImage? = loader.image
+            ?? (url.flatMap { imageCache.object(forKey: $0.absoluteString as NSString) })
+
+        if let resolvedImage {
+            Image(uiImage: resolvedImage)
                 .resizable()
                 .aspectRatio(contentMode: contentMode)
                 .transition(transition)

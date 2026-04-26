@@ -17,6 +17,7 @@ struct AppearanceSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
+                    globalThemeSection
                     appearanceSection
                     lyricSection
                     Spacer(minLength: 100)
@@ -154,6 +155,52 @@ struct AppearanceSettingsView: View {
                     subtitle: String(localized: "settings_cover_bg_player_desc"),
                     isOn: $settings.coverBgPlayer
                 )
+            }
+        }
+    }
+
+    // MARK: - 全局主题
+
+    private var globalThemeSection: some View {
+        SettingsSection(title: String(localized: "全局主题")) {
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 12) {
+                        SettingsIconBadge(icon: .playerTheme)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(localized: "主题风格"))
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundColor(.monologueTextPrimary)
+
+                            Text(String(localized: "切换整个 App 的视觉风格与布局"))
+                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        Spacer()
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(GlobalThemeId.allCases) { themeId in
+                                Button {
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        settings.globalThemeId = themeId
+                                    }
+                                } label: {
+                                    GlobalThemeOptionCard(
+                                        themeId: themeId,
+                                        isSelected: settings.globalThemeId == themeId
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
             }
         }
     }

@@ -18,7 +18,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case immersiveLyric    // 沉浸歌词 - 顶部小图大字纯净版
     case mangaChat         // 漫画聊天 - 歌词以对话气泡形式展示
     case folk              // 民谣 - 旅行手记笔记本风格
-    case cosmos            // 卡通宇宙 - 卡通宇航员漫画风
+    case game2048          // 2048 - 数字方块游戏风格
     var id: String { rawValue }
     
     var displayName: String {
@@ -39,7 +39,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .immersiveLyric: return String(localized: "沉浸歌词")
         case .mangaChat:  return String(localized: "漫画")
         case .folk:       return String(localized: "信笺")
-        case .cosmos:     return String(localized: "卡通宇宙")
+        case .game2048:   return String(localized: "2048")
         }
     }
     
@@ -61,7 +61,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .immersiveLyric: return "music.note.list"
         case .mangaChat:  return "bubble.left.and.bubble.right.fill"
         case .folk:       return "envelope.fill"
-        case .cosmos:     return "sparkles"
+        case .game2048:   return "square.grid.2x2.fill"
         }
     }
     
@@ -83,7 +83,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .immersiveLyric: return String(localized: "沉浸歌词，顶部小图大字纯净版")
         case .mangaChat:  return String(localized: "漫画风聊天，歌词以对话气泡形式展示")
         case .folk:       return String(localized: "诗集信笺，非常规打字机逐行出现的打字信件")
-        case .cosmos:     return String(localized: "卡通宇航员漂浮星空，歌词以对话气泡飘出")
+        case .game2048:   return String(localized: "2048 方块游戏，滑动切歌点击方块控制")
         }
     }
     
@@ -92,7 +92,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classic, .vinyl, .lyricFocus, .poster, .breathing, .immersiveLyric:
             return false // 依赖全局模糊封面背景
-        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .cosmos:
+        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .game2048:
             return true  // 自带不透明的自定义背景
         }
     }

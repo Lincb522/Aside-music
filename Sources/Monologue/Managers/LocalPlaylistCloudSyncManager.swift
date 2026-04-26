@@ -22,6 +22,19 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     private var pendingUploadDigest: String?
     private var uploadRetryTask: Task<Void, Never>?
 
+    // MARK: - Upload Throttling
+    //
+    // 背景：线上监测到单设备每 1-2 秒发起一次 PUT 上报（单机 12k+ 次/30min），
+    // 原因是 digest 不稳定（下载记录规范化、playlist.updatedAt 回灌等）反复
+    // 触发 `enqueueLocalPlaylistChange → processPendingLocalUpload` 的 while 循环。
+    //
+    // 硬止血：连续两次上传之间至少间隔 `minUploadInterval` 秒；短时间内发生的
+    // 重复变更会合并到一次后续上传。
+    /// 连续两次上传的最小间隔
+    private static let minUploadInterval: TimeInterval = 10
+    /// 最近一次真正完成 uploadCloudPlaylistSnapshot 的时间戳
+    private var lastUploadCompletedAt: Date?
+
     private init() {
         lastObservedDigest = playlistManager.currentSyncDigest()
         lastStatusMessage = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playlistSyncLastMessage)
@@ -114,6 +127,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             deviceName: UIDevice.current.name
         )
         let response = try await APIService.shared.uploadCloudPlaylistSnapshot(snapshot)
+        lastUploadCompletedAt = Date()
         lastObservedDigest = playlistManager.currentSyncDigest()
         persistSyncState(date: response.updatedAt)
         persistRemoteRevision(response.revision)
@@ -282,6 +296,23 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         guard !isSyncing else { return }
         guard settings.playlistSyncAutoEnabled else { return }
 
+        // 节流：距离上次上传不足 minUploadInterval 秒时，挂起一个延时任务
+        // 等冷却完再进入 while 循环；避免 digest 抖动导致的死循环式上传。
+        if let last = lastUploadCompletedAt {
+            let elapsed = Date().timeIntervalSince(last)
+            let remaining = Self.minUploadInterval - elapsed
+            if remaining > 0 {
+                uploadRetryTask?.cancel()
+                uploadRetryTask = Task { [weak self] in
+                    let nanos = UInt64(remaining * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: nanos)
+                    guard let self, !Task.isCancelled else { return }
+                    await self.processPendingLocalUpload()
+                }
+                return
+            }
+        }
+
         while let pendingUploadDigest, pendingUploadDigest != lastObservedDigest {
             do {
                 if !playlistManager.hasSyncableContent {
@@ -308,6 +339,20 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 }
 
                 persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
+
+                // 单次循环成功后立即跳出：剩余变更通过节流延时任务
+                // 在 `minUploadInterval` 秒后统一处理。
+                // 不再连续 upload，避免 digest 抖动引发的高频刷流量。
+                if self.pendingUploadDigest != nil {
+                    uploadRetryTask?.cancel()
+                    uploadRetryTask = Task { [weak self] in
+                        let nanos = UInt64(Self.minUploadInterval * 1_000_000_000)
+                        try? await Task.sleep(nanoseconds: nanos)
+                        guard let self, !Task.isCancelled else { return }
+                        await self.processPendingLocalUpload()
+                    }
+                }
+                return
             } catch {
                 self.pendingUploadDigest = playlistManager.currentSyncDigest()
                 scheduleUploadRetry()

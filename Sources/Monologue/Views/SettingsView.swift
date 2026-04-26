@@ -238,7 +238,9 @@ struct SettingsView: View {
                 Spacer(minLength: 8)
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    NavigationLink(destination: AboutView()) {
+                    NavigationLink(
+                        destination: AboutView()
+                    ) {
                         Text(String(localized: "settings_about"))
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundColor(.monologueTextSecondary)
@@ -605,9 +607,26 @@ struct SettingsSection<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
-            .monologueGlass(cornerRadius: 20)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background {
+                if MangaStyle.isActive {
+                    MangaCardBackground(cornerRadius: 20, elevated: true, tint: MangaStyle.bubbleWhite)
+                }
+            }
+            .monologueGlassConditionalForSettings(cornerRadius: 20)
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func monologueGlassConditionalForSettings(cornerRadius: CGFloat) -> some View {
+        if MangaStyle.isActive {
+            self
+        } else {
+            self
+                .monologueGlass(cornerRadius: cornerRadius)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
 }
@@ -773,7 +792,9 @@ struct SettingsLinkRow<Destination: View>: View {
     var verticalPadding: CGFloat = 11
 
     var body: some View {
-        NavigationLink(destination: destination) {
+        NavigationLink(
+            destination: destination
+        ) {
             HStack(spacing: 12) {
                 SettingsIconBadge(icon: icon)
 

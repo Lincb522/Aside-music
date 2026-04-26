@@ -96,12 +96,6 @@ struct HomeHeader: View {
     }
 
     private var greetingKey: String {
-        let h = Calendar.current.component(.hour, from: Date())
-        switch h {
-        case 5..<11:  return "good_morning"
-        case 11..<14: return "good_noon"
-        case 14..<18: return "good_afternoon"
-        default:      return "good_evening"
-        }
+        MonologueTimeGreeting.localizedKey
     }
 }

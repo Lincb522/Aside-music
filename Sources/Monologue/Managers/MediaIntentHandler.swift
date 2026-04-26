@@ -78,6 +78,38 @@ struct MonologueShortcuts: AppShortcutsProvider {
             shortTitle: "播放歌曲",
             systemImageName: "play.fill"
         )
+
+        AppShortcut(
+            intent: OpenGameModeIntent(),
+            phrases: [
+                "打开\(.applicationName)游戏模式",
+                "开启\(.applicationName)游戏模式",
+                "启动\(.applicationName)游戏模式",
+                "\(.applicationName)开始游戏模式",
+            ],
+            shortTitle: "开启游戏模式",
+            systemImageName: "gamecontroller.fill"
+        )
+
+        AppShortcut(
+            intent: ExitGameModeIntent(),
+            phrases: [
+                "关闭\(.applicationName)游戏模式",
+                "退出\(.applicationName)游戏模式",
+                "\(.applicationName)结束游戏模式",
+            ],
+            shortTitle: "关闭游戏模式",
+            systemImageName: "gamecontroller"
+        )
+
+        AppShortcut(
+            intent: ToggleGameModeIntent(),
+            phrases: [
+                "切换\(.applicationName)游戏模式",
+            ],
+            shortTitle: "切换游戏模式",
+            systemImageName: "gamecontroller"
+        )
     }
 }
 

@@ -83,6 +83,26 @@ enum AppConfig {
         static let defaultPlaybackQuality = "defaultPlaybackQuality"
         static let insertPlaybackContext = "monologue_insert_playback_context"
         static let podcastSortAscending = "monologue_podcast_sort_ascending"
+
+        // MARK: - 游戏模式
+        static let gameModeEnabled = "monologue_game_mode_enabled"
+        static let gameModeAutoDucking = "monologue_game_mode_auto_ducking"
+        static let gameModeLowerQuality = "monologue_game_mode_lower_quality"
+        static let gameModeDisableLiveActivity = "monologue_game_mode_disable_live_activity"
+        static let gameModeAutoPlaylistLocalId = "monologue_game_mode_auto_playlist_local_id"
+        static let gameModePreferredQuality = "monologue_game_mode_preferred_quality"
+        static let gameModeAutoExit = "monologue_game_mode_auto_exit"
+        static let gameModeSavedBackgroundPolicy = "monologue_game_mode_saved_background_policy"
+        static let gameModeSavedSoundQuality = "monologue_game_mode_saved_sound_quality"
+        /// 标记「进入游戏模式时是否替换了用户的 backgroundAudioPolicy」
+        /// 只有为 true 时退出游戏模式才会尝试恢复；否则保持现状，避免把用户原本就是 alwaysMix 的偏好改掉。
+        static let gameModeSavedPolicyWasManaged = "monologue_game_mode_saved_policy_was_managed"
+        /// 标记「进入游戏模式时是否替换了音质」，与上同逻辑
+        static let gameModeSavedQualityWasManaged = "monologue_game_mode_saved_quality_was_managed"
+        /// 上次应用的游戏模式场景预设 rawValue（用于 UI 高亮）
+        static let gameModeLastScenarioPreset = "monologue_game_mode_last_scenario_preset"
+        /// 【实验性】游戏模式下隐藏锁屏信息时，是否保留最小锁屏信息（仅歌名）
+        static let gameModeMinimalNowPlaying = "monologue_game_mode_minimal_now_playing"
         // [DEPRECATED] 智能分析功能已废弃
         static let audioLabSmartEffects = "audio_lab_smart_effects_enabled"
         static let audioLabAnalysisMode = "audio_lab_analysis_mode"

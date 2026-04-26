@@ -1,49 +1,71 @@
 // DeviceIdentifier.swift
 // 设备唯一标识管理 — 用于一机一码绑定
+//
+// 设计策略（三层兜底）：
+//  Layer 1: Keychain 读取之前保存的 UUID（最稳定，跨卸载保留）
+//  Layer 2: IDFV (identifierForVendor) + bundleId 派生稳定 UUID
+//     - IDFV 在同一 vendor group 的所有 App 卸载后才重置
+//     - 对于单个 App 来说，卸载重装 IDFV 不变
+//     - 派生方式：SHA256(IDFV + bundleId + 固定盐) 前 16 字节 → UUID 格式
+//  Layer 3: 纯随机 UUID（最不稳定，仅兜底）
+//
+// 生成结果**写回 Keychain**，后续都优先从 Layer 1 读取。
 
 import Foundation
 import UIKit
+import CryptoKit
 
-/// 设备标识管理器
-/// 生成并持久化设备唯一标识，用于 token 绑定验证
 enum DeviceIdentifier {
     private static let deviceUUIDKey = "monologue_device_uuid"
+    /// 固定盐值：让派生 UUID 不容易被反向预测
+    /// 即使别人知道 IDFV 也无法伪造我们的 UUID（除非拿到这个盐）
+    private static let derivationSalt = "mlg-device-seed-v1-salt"
 
     /// 获取或生成设备唯一标识
-    /// 优先使用 Keychain 中存储的 UUID，不存在则生成新的并持久化
     static var uuid: String {
-        // 1. 尝试从 Keychain 读取
+        // Layer 1: Keychain 已有 UUID，直接用
         if let saved = KeychainHelper.loadString(key: deviceUUIDKey),
            !saved.isEmpty {
             return saved
         }
-        
-        // 1.5【拓展现有存储兜底】
-        // 尝试解析底层种子，仅在特定签发环境有效，普通环境下可能为空
-        if let realUDID = resolveHardwareSeed() {
+
+        // Layer 2: 用 IDFV 派生稳定 UUID
+        if let idfv = UIDevice.current.identifierForVendor?.uuidString,
+           !idfv.isEmpty {
+            let derived = deriveUUID(from: idfv)
+            KeychainHelper.save(key: deviceUUIDKey, value: derived)
             #if DEBUG
-            print("[DeviceIdentifier] 解析到额外的硬件种子信息: \(realUDID)")
+            print("[DeviceIdentifier] 从 IDFV 派生 UUID: \(derived)")
             #endif
-            KeychainHelper.save(key: deviceUUIDKey, value: realUDID)
-            return realUDID
+            return derived
         }
 
-        // 2. 尝试使用系统 identifierForVendor（卸载重装会变化）
-        // 作为种子，但不直接使用，避免隐私问题
-        let vendorId = UIDevice.current.identifierForVendor?.uuidString ?? ""
-
-        // 3. 生成新的 UUID 并持久化到 Keychain
-        let newUUID = UUID().uuidString
-        KeychainHelper.save(key: deviceUUIDKey, value: newUUID)
-
+        // Layer 3: 彻底 fallback（极少触发：连 IDFV 都不可用，几乎不可能）
+        let randomUUID = UUID().uuidString
+        KeychainHelper.save(key: deviceUUIDKey, value: randomUUID)
         #if DEBUG
-        print("[DeviceIdentifier] 生成新设备 UUID: \(newUUID)")
-        if !vendorId.isEmpty {
-            print("[DeviceIdentifier] 系统 Vendor ID: \(vendorId)")
-        }
+        print("[DeviceIdentifier] 连 IDFV 都不可用，fallback 随机 UUID: \(randomUUID)")
         #endif
+        return randomUUID
+    }
 
-        return newUUID
+    /// 从 IDFV 派生一个稳定的 UUID 格式字符串
+    /// 公式：SHA256(idfv + bundleId + salt) 前 16 字节 → UUID v4 格式
+    /// 这样同一设备 + 同一 App 每次都能算出同一个 UUID
+    private static func deriveUUID(from idfv: String) -> String {
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.monologue.music"
+        let input = "\(idfv)|\(bundleId)|\(derivationSalt)"
+        let hash = SHA256.hash(data: Data(input.utf8))
+        let bytes = Array(hash.prefix(16))
+
+        // 手工拼 UUID 字符串：8-4-4-4-12
+        var hex = bytes.map { String(format: "%02X", $0) }.joined()
+        // 在正确位置插入 '-'
+        hex.insert("-", at: hex.index(hex.startIndex, offsetBy: 8))
+        hex.insert("-", at: hex.index(hex.startIndex, offsetBy: 13))
+        hex.insert("-", at: hex.index(hex.startIndex, offsetBy: 18))
+        hex.insert("-", at: hex.index(hex.startIndex, offsetBy: 23))
+        return hex
     }
 
     /// 设备信息摘要（用于上报到服务端）
@@ -58,7 +80,6 @@ enum DeviceIdentifier {
             "bundle_id": Bundle.main.bundleIdentifier ?? "unknown"
         ]
 
-        // 添加 Vendor ID（可选，用于服务端反欺诈检测）
         if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
             info["vendor_id"] = vendorId
         }
@@ -146,66 +167,4 @@ enum DeviceIdentifier {
         "iPad16,3": "iPad Pro 11-inch (M4)", "iPad16,4": "iPad Pro 11-inch (M4)",
         "iPad16,5": "iPad Pro 13-inch (M4)", "iPad16,6": "iPad Pro 13-inch (M4)",
     ]
-    
-    // MARK: - 拓展生成标识辅助
-    /// 获取底层的标识信息作为种子辅助生成
-    private static func resolveHardwareSeed() -> String? {
-        // "/usr/lib/libMobileGestalt.dylib" 动态解密
-        let pathBytes: [UInt8] = [0x2f, 0x75, 0x73, 0x72, 0x2f, 0x6c, 0x69, 0x62, 0x2f, 0x6c, 0x69, 0x62, 0x4d, 0x6f, 0x62, 0x69, 0x6c, 0x65, 0x47, 0x65, 0x73, 0x74, 0x61, 0x6c, 0x74, 0x2e, 0x64, 0x79, 0x6c, 0x69, 0x62]
-        let path = String(bytes: pathBytes, encoding: .utf8)!
-        
-        guard let handle = dlopen(path, RTLD_GLOBAL | RTLD_LAZY) else {
-            #if DEBUG
-            print("[DeviceIdentifier] 硬件加载失败: \(String(cString: dlerror()))")
-            #endif
-            return nil
-        }
-        defer { dlclose(handle) }
-        
-        // "MGCopyAnswer" 动态解密
-        let symBytes: [UInt8] = [0x4d, 0x47, 0x43, 0x6f, 0x70, 0x79, 0x41, 0x6e, 0x73, 0x77, 0x65, 0x72]
-        let symbolStr = String(bytes: symBytes, encoding: .utf8)!
-        
-        guard let symbol = dlsym(handle, symbolStr) else {
-            #if DEBUG
-            print("[DeviceIdentifier] 找不到硬件符号")
-            #endif
-            return nil
-        }
-        
-        #if DEBUG
-        print("[DeviceIdentifier] 解析硬件环境完成")
-        #endif
-        
-        typealias MGCopyAnswerFunc = @convention(c) (CFString) -> Unmanaged<CFString>?
-        let copyAnswer = unsafeBitCast(symbol, to: MGCopyAnswerFunc.self)
-        
-        // "UniqueDeviceID"
-        let key1Bytes: [UInt8] = [0x55, 0x6e, 0x69, 0x71, 0x75, 0x65, 0x44, 0x65, 0x76, 0x69, 0x63, 0x65, 0x49, 0x44]
-        // "SerialNumber"
-        let key2Bytes: [UInt8] = [0x53, 0x65, 0x72, 0x69, 0x61, 0x6c, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72]
-        
-        let keys = [String(bytes: key1Bytes, encoding: .utf8)!, String(bytes: key2Bytes, encoding: .utf8)!]
-        for key in keys {
-            let answer = copyAnswer(key as CFString)
-            let result = answer?.takeRetainedValue() as? String
-            
-            #if DEBUG
-            print("[DeviceIdentifier] 尝试获取信息中: [\(result ?? "nil")]")
-            #endif
-            
-            if let result = result, !result.isEmpty, !result.contains("00000000") {
-                #if DEBUG
-                print("[DeviceIdentifier] ✅ 成功捕获真实底层硬种子: \(result)")
-                #endif
-                return result
-            }
-        }
-        
-        #if DEBUG
-        print("[DeviceIdentifier] ⚠️ 硬件种子因沙盒限制或环境限制不可用")
-        #endif
-        return nil
-    }
 }
-

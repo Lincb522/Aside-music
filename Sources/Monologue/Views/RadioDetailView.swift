@@ -19,8 +19,14 @@ struct RadioDetailView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            if MangaStyle.isActive {
+                MangaRootBackdrop()
+            } else if MujiStyle.isActive {
+                MujiRootBackdrop()
+            } else {
+                MonologueBackground()
+                    .ignoresSafeArea()
+            }
 
             if viewModel.isLoading && viewModel.radioDetail == nil {
                 MonologueLoadingView(text: "LOADING")
@@ -71,18 +77,17 @@ struct RadioDetailView: View {
         VStack(spacing: 16) {
             MonologueIcon(icon: .warning, size: 40, color: .monologueTextSecondary)
             Text(error)
-                .font(.system(size: 14, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : .system(size: 14, design: .rounded)))
+                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                 .multilineTextAlignment(.center)
             Button(String(localized: "radio_retry")) {
                 viewModel.fetchDetail()
             }
-            .font(.system(size: 15, weight: .medium, design: .rounded))
-            .foregroundColor(.monologueIconForeground)
+            .font(MangaStyle.isActive ? MangaStyle.labelFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded)))
+            .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : .monologueIconForeground))
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
-            .background(Color.monologueIconBackground)
-            .clipShape(Capsule())
+            .background(MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueIconBackground), in: Capsule())
         }
         .padding(.horizontal, 40)
     }
@@ -93,42 +98,58 @@ struct RadioDetailView: View {
         VStack(spacing: 16) {
             if let radio = viewModel.radioDetail {
                 CachedAsyncImage(url: radio.coverUrl) {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 10 : 20))
+                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                 }
-                .frame(width: 160, height: 160)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+                .frame(width: MangaStyle.isActive ? 150 : 160, height: MangaStyle.isActive ? 150 : 160)
+                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 10 : 20), style: .continuous))
+                .overlay {
+                    if MangaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                    } else if MujiStyle.isActive {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
+                    }
+                }
+                .background {
+                    if MangaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(MangaStyle.ink)
+                            .offset(x: 3, y: 3)
+                    }
+                }
+                .shadow(color: .black.opacity((MangaStyle.isActive || MujiStyle.isActive) ? 0.055 : 0.15), radius: (MangaStyle.isActive || MujiStyle.isActive) ? 10 : 12, x: 0, y: (MangaStyle.isActive || MujiStyle.isActive) ? 5 : 6)
 
                 Text(radio.name)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : .system(size: 20, weight: .bold, design: .rounded)))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
 
                 HStack(spacing: 16) {
                     if let dj = radio.dj?.nickname {
                         HStack(spacing: 4) {
-                            MonologueIcon(icon: .profile, size: 13, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .profile, size: 13, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                             Text(dj)
                         }
-                            .font(.system(size: 13, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, design: .rounded)))
+                            .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                     }
                     if let count = radio.programCount {
                         HStack(spacing: 4) {
-                            MonologueIcon(icon: .podcast, size: 13, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .podcast, size: 13, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                             Text(String(format: String(localized: "radio_episode_count"), count))
                         }
-                            .font(.system(size: 13, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, design: .rounded)))
+                            .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                     }
                 }
 
                 if let desc = radio.desc, !desc.isEmpty {
                     Text(desc)
-                        .font(.system(size: 13, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, design: .rounded)))
+                        .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                         .lineLimit(3)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -144,25 +165,47 @@ struct RadioDetailView: View {
 
                     // 收音机模式播放按钮
                     Button(action: { showRadioPlayer = true }) {
-                        HStack(spacing: 8) {
-                            MonologueIcon(icon: .radio, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
-                            Text("radio_mode")
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        if MangaStyle.isActive {
+                            MangaLabel(text: String(localized: "radio_mode"), tint: MangaStyle.labelYellow, small: false)
+                        } else if MujiStyle.isActive {
+                            MujiActionPill(title: String(localized: "radio_mode"), icon: .radio, selected: true, tint: MujiStyle.indigo)
+                        } else {
+                            HStack(spacing: 8) {
+                                MonologueIcon(icon: .radio, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
+                                Text("radio_mode")
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundColor(.monologueIconForeground)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.monologueIconBackground)
+                            .clipShape(Capsule())
                         }
-                        .foregroundColor(.monologueIconForeground)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.monologueIconBackground)
-                        .clipShape(Capsule())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                 }
                 .padding(.top, 4)
+
+                if MangaStyle.isActive {
+                    MangaListDivider()
+                        .padding(.top, 6)
+                } else if MujiStyle.isActive {
+                    MujiListDivider()
+                        .padding(.top, 6)
+                }
             }
         }
         .padding(.top, 16)
         .padding(.bottom, 24)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .background {
+            if MangaStyle.isActive && viewModel.radioDetail != nil {
+                MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+            }
+        }
     }
 
     // MARK: - 节目列表
@@ -173,28 +216,28 @@ struct RadioDetailView: View {
                 VStack(spacing: 0) {
                     HStack {
                         Text("radio_program_list_title")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
+                            .font(MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : .system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary)
 
                         Spacer()
 
                         Button(action: { viewModel.toggleEpisodeOrder() }) {
                             HStack(spacing: 5) {
-                                MonologueIcon(icon: .filter, size: 11, color: .monologueTextSecondary)
+                                MonologueIcon(icon: .filter, size: 11, color: MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)
                                 Text(
                                     viewModel.isAscendingOrder
                                         ? String(localized: "podcast_sort_oldest")
                                         : String(localized: "podcast_sort_latest")
                                 )
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                             }
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5)
-                            .background(Color.monologueSeparator.opacity(0.9))
-                            .clipShape(Capsule())
+                            .background(MujiStyle.isActive ? MujiStyle.surface.opacity(0.84) : Color.monologueSeparator.opacity(0.9), in: Capsule())
+                            .overlay(Capsule().stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
 
@@ -202,11 +245,15 @@ struct RadioDetailView: View {
                             MonologueIcon(
                                 icon: isSearchExpanded ? .close : .search,
                                 size: 13,
-                                color: .monologueTextSecondary
+                                color: MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary
                             )
                             .frame(width: 32, height: 32)
-                            .background(Color.monologueSeparator.opacity(0.9))
+                            .background(MujiStyle.isActive ? MujiStyle.surface.opacity(0.84) : Color.monologueSeparator.opacity(0.9))
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6)
+                            )
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
                         .accessibilityLabel(
@@ -219,7 +266,7 @@ struct RadioDetailView: View {
 
                     if isSearchExpanded {
                         HStack(spacing: 10) {
-                            MonologueIcon(icon: .search, size: 14, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .search, size: 14, color: MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextSecondary)
 
                             TextField(
                                 String(localized: "podcast_episode_search_placeholder"),
@@ -230,9 +277,9 @@ struct RadioDetailView: View {
 
                             if !searchText.isEmpty {
                                 Button(action: { searchText = "" }) {
-                                    MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
+                                    MonologueIcon(icon: .close, size: 12, color: MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)
                                         .frame(width: 22, height: 22)
-                                        .background(Color.monologueSeparator)
+                                        .background(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueSeparator)
                                         .clipShape(Circle())
                                 }
                                 .buttonStyle(.plain)
@@ -240,8 +287,12 @@ struct RadioDetailView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Color.monologueSeparator.opacity(0.85))
+                        .background(MujiStyle.isActive ? MujiStyle.surface.opacity(0.84) : Color.monologueSeparator.opacity(0.85))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.48) : Color.clear, lineWidth: 0.6)
+                        )
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                         .padding(.top, 10)
                     }
@@ -310,10 +361,16 @@ struct RadioDetailView: View {
         return HStack(spacing: 14) {
             CachedAsyncImage(url: program.programCoverUrl) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.monologueGlassTint)
+                    .fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint)
             }
             .frame(width: 48, height: 48)
             .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                if MujiStyle.isActive {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
+                }
+            }
             .overlay(
                 Group {
                     if isCurrentPlaying {
@@ -326,24 +383,24 @@ struct RadioDetailView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(program.name ?? String(localized: "radio_unknown_program"))
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(isCurrentPlaying ? .monologueAccentBlue : .monologueTextPrimary)
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(isCurrentPlaying ? (MujiStyle.isActive ? MujiStyle.clay : .monologueAccentBlue) : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     Text(String(format: String(localized: "radio_episode_label"), episodeNumber))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)
 
                     if !program.durationText.isEmpty {
                         Text(program.durationText)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
+                            .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)
                     }
                     if let listeners = program.listenerCount, listeners > 0 {
                         Text(String(format: String(localized: "radio_play_count"), formatCount(listeners)))
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
+                            .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)
                     }
                 }
             }
@@ -351,15 +408,22 @@ struct RadioDetailView: View {
             Spacer()
 
             if program.mainSong != nil {
-                MonologueIcon(icon: .playCircle, size: 22, color: .monologueTextSecondary, lineWidth: 1.4)
+                MonologueIcon(icon: .playCircle, size: 22, color: MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary, lineWidth: 1.4)
             } else {
                 Text("radio_not_playable")
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, design: .rounded))
+                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
             }
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, 10)
+        .padding(.horizontal, MujiStyle.isActive ? 12 : DeviceLayout.viewHorizontalPadding)
+        .padding(.vertical, MujiStyle.isActive ? 11 : 10)
+        .background {
+            if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 10)
+            }
+        }
+        .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.vertical, MujiStyle.isActive ? 5 : 0)
         .contentShape(Rectangle())
     }
 

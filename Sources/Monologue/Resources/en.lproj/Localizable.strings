@@ -32,10 +32,13 @@
 "tab_profile" = "Profile";
 
 /* New Additions */
+"good_dawn" = "Good Dawn";
 "good_morning" = "Good Morning";
 "good_noon" = "Good Noon";
 "good_afternoon" = "Good Afternoon";
+"good_dusk" = "Good Dusk";
 "good_evening" = "Good Evening";
+"good_late_night" = "Good Late Night";
 "default_nickname" = "Monologue";
 "search_bar_placeholder" = "Search songs, artists, playlists...";
 "new_releases" = "New Releases";
@@ -152,6 +155,8 @@
 "player_now_playing" = "Now Playing";
 "player_private_fm" = "Private FM";
 "player_queue" = "QUEUE";
+"not_playing" = "Not Playing";
+"not_playing_subtitle" = "Tap to explore music";
 "artist_details" = "Artist Details";
 "more_by_artist" = "More by %@";
 
@@ -371,6 +376,52 @@
 "settings_background_audio_policy_automatic_desc" = "Mix with other audio only when another app is already playing";
 "settings_background_audio_policy_always_mix" = "Always Mix";
 "settings_background_audio_policy_always_mix_desc" = "Keep playing alongside other apps when possible";
+
+// MARK: - Game Mode
+"game_mode_settings_entry" = "Game Mode";
+"game_mode_settings_subtitle_on" = "On · Coexist with your game";
+"game_mode_settings_subtitle_off" = "Listen while gaming";
+"game_mode_settings_title" = "Game Mode";
+"game_mode_menu_on" = "Turn Off Game Mode";
+"game_mode_menu_off" = "Turn On Game Mode";
+"game_mode_badge_active" = "On";
+"game_mode_main_title" = "Game Mode";
+"game_mode_main_subtitle_on" = "On — music mixes with game audio. Tap to turn off.";
+"game_mode_main_subtitle_off" = "One tap to mix audio with your current game";
+"quick_action_enter_game_mode" = "Enter Game Mode";
+"quick_action_exit_game_mode" = "Exit Game Mode";
+"quick_action_open_player" = "Open Player";
+"game_mode_preset_section_title" = "Scenarios";
+"game_mode_preset_section_subtitle" = "Tap to apply a recommended combination";
+"game_mode_preset_fps_title" = "FPS";
+"game_mode_preset_fps_subtitle" = "Voice priority · Low power · Hide lock screen";
+"game_mode_preset_rpg_title" = "RPG";
+"game_mode_preset_rpg_subtitle" = "Immersive audio · Keep lock screen info";
+"game_mode_preset_rhythm_title" = "Rhythm";
+"game_mode_preset_rhythm_subtitle" = "Full quality · Minimal interruption";
+"game_mode_option_ducking_title" = "Prioritize Voice Audio";
+"game_mode_option_ducking_subtitle" = "Duck music when system voice / voice chat plays";
+"game_mode_option_quality_title" = "Save Battery — Lower Quality";
+"game_mode_option_quality_subtitle" = "Switch to standard quality to keep performance for the game";
+"game_mode_option_live_activity_title" = "Hide Dynamic Island Lyrics";
+"game_mode_option_live_activity_subtitle" = "Turn off Live Activity while gaming";
+"game_mode_option_silent_np_title" = "Hide Lock Screen / Dynamic Island";
+"game_mode_option_silent_np_subtitle" = "Don't show playback info on lock screen during gaming";
+"game_mode_option_minimal_np_title" = "Keep Minimal Title (Experimental)";
+"game_mode_option_minimal_np_subtitle" = "Show only song title on lock screen, no artwork or progress";
+"game_mode_option_auto_exit_title" = "Auto Exit When Game Closes";
+"game_mode_option_auto_exit_subtitle" = "Experimental: detect audio changes to auto turn off";
+"game_mode_info_title" = "What does Game Mode do?";
+"game_mode_info_body" = "When enabled, audio is forced to mix with other apps so you hear both game audio and music. Since the system no longer treats this app as the primary media, lock screen and Dynamic Island will temporarily hide playback info. Turning off Game Mode restores everything.";
+"game_mode_preferred_quality_entry_title" = "Game Mode Preferred Quality";
+"game_mode_preferred_quality_title" = "Choose Game Mode Quality";
+"game_mode_preferred_quality_desc" = "Pick the quality to use while Game Mode is active. Auto follows the Save Battery toggle.";
+"game_mode_preferred_quality_auto" = "Follow Save Battery Toggle";
+"game_mode_preset_playlist_entry_title" = "Game Soundtrack Playlist";
+"game_mode_preset_playlist_title" = "Choose Game Soundtrack";
+"game_mode_preset_playlist_desc" = "Start this playlist from the first song whenever Game Mode turns on.";
+"game_mode_preset_playlist_none" = "No auto-switch";
+"game_mode_preset_playlist_invalid" = "Playlist removed";
 "settings_app_brand_title" = "App Icon";
 "settings_app_brand_desc" = "Switch the Home Screen icon and the in-app logo together";
 "settings_app_brand_device_hint" = "Home Screen icon switching may require a real device; the in-app logo updates immediately.";

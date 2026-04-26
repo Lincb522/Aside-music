@@ -1,15 +1,56 @@
 import SwiftUI
 
+enum MonologueTimeGreeting {
+    static var localizedKey: String {
+        localizedKey(for: Date())
+    }
+
+    static var localizedText: String {
+        NSLocalizedString(localizedKey, comment: "")
+    }
+
+    static func localizedKey(for date: Date, calendar: Calendar = .current) -> String {
+        let hour = calendar.component(.hour, from: date)
+        switch hour {
+        case 5..<7:
+            return "good_dawn"
+        case 7..<11:
+            return "good_morning"
+        case 11..<14:
+            return "good_noon"
+        case 14..<17:
+            return "good_afternoon"
+        case 17..<19:
+            return "good_dusk"
+        case 19..<23:
+            return "good_evening"
+        default:
+            return "good_late_night"
+        }
+    }
+}
+
 // MARK: - Theme Colors
 // Monologue 设计系统颜色定义 - 支持深色/浅色自适应
 
 extension Color {
     static var monologueBackground: Color {
-        Color(light: Color(hex: "F5F5F7"), dark: Color(hex: "0A0A0A"))
+        if MangaStyle.isActive { return MangaStyle.paper }
+        if MujiStyle.isActive { return MujiStyle.paper }
+        return Color(light: Color(hex: "F5F5F7"), dark: Color(hex: "0A0A0A"))
     }
         
-    static let monologueTextPrimary = Color.primary
-    static let monologueTextSecondary = Color.secondary
+    static var monologueTextPrimary: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return Color.primary
+    }
+
+    static var monologueTextSecondary: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return Color.secondary
+    }
     
     static let monologueBlue = Color(hex: "007AFF")
     static let monologueBlueLight = Color(hex: "007AFF").opacity(0.1)
@@ -25,12 +66,16 @@ extension Color {
     
     /// 主强调色（与 monologueIconBackground 一致，用于 EQ 等交互组件）
     static var monologueAccent: Color {
-        Color(light: .black, dark: .white)
+        if MangaStyle.isActive { return MangaStyle.accentPink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return Color(light: .black, dark: .white)
     }
     
     /// 设置页系统 Toggle 激活色
     static var monologueToggleTint: Color {
-        Color(light: Color.black.opacity(0.88), dark: Color.white.opacity(0.9))
+        if MangaStyle.isActive { return MangaStyle.accentPink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return Color(light: Color.black.opacity(0.88), dark: Color.white.opacity(0.9))
     }
     
     static let monologueAccentYellow = Color(hex: "FFCC00")
@@ -39,81 +84,113 @@ extension Color {
     static let monologueAccentRed = Color(hex: "FF3B30")
     
     static var monologueMilk: Color {
-        Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
+        if MangaStyle.isActive { return MangaStyle.surface.opacity(0.88) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
+        return Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
     }
 
     /// Liquid Glass 专用染色 — 兼顾玻璃效果与无 glassEffect 时的可见兜底
     static var monologueGlassTint: Color {
-        Color(light: Color.white.opacity(0.45), dark: Color.white.opacity(0.12))
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.95) }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.92) }
+        return Color(light: Color.white.opacity(0.45), dark: Color.white.opacity(0.12))
     }
     
     /// 悬浮栏专用填充色 — 更通透的玻璃质感
     static var monologueFloatingBarFill: Color {
-        Color(light: Color.white.opacity(0.18), dark: Color(hex: "1C1C1E").opacity(0.45))
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.96) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
+        return Color(light: Color.white.opacity(0.18), dark: Color(hex: "1C1C1E").opacity(0.45))
     }
     
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueCardBackground: Color {
-        Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5))
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.96) }
+        return Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5))
     }
     
     /// 毛玻璃卡片叠加色（浅色白色半透明，深色浅灰半透明）
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueGlassOverlay: Color {
-        Color(light: Color.white.opacity(0.55), dark: Color(hex: "3A3A3C").opacity(0.4))
+        if MangaStyle.isActive { return MangaStyle.surface.opacity(0.78) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.72) }
+        return Color(light: Color.white.opacity(0.55), dark: Color(hex: "3A3A3C").opacity(0.4))
     }
     
     /// Sheet 面板背景叠加色
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueSheetOverlay: Color {
-        Color(light: Color.white.opacity(0.45), dark: Color(hex: "2C2C2E").opacity(0.45))
+        if MangaStyle.isActive { return MangaStyle.surface.opacity(0.95) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
+        return Color(light: Color.white.opacity(0.45), dark: Color(hex: "2C2C2E").opacity(0.45))
     }
 
     /// 新通用 Sheet 面板主表面（顶部）
     static var monologueSheetSurfaceTop: Color {
-        Color(light: Color(hex: "FFFFFF").opacity(0.98), dark: Color(hex: "242734").opacity(0.98))
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite }
+        if MujiStyle.isActive { return MujiStyle.surface }
+        return Color(light: Color(hex: "FFFFFF").opacity(0.98), dark: Color(hex: "242734").opacity(0.98))
     }
 
     /// 新通用 Sheet 面板主表面（底部）
     static var monologueSheetSurfaceBottom: Color {
-        Color(light: Color(hex: "F3F6FB").opacity(0.98), dark: Color(hex: "161922").opacity(0.98))
+        if MangaStyle.isActive { return MangaStyle.paperWarm }
+        if MujiStyle.isActive { return MujiStyle.paperWarm }
+        return Color(light: Color(hex: "F3F6FB").opacity(0.98), dark: Color(hex: "161922").opacity(0.98))
     }
 
     /// 新通用 Sheet 面板顶部高光
     static var monologueSheetHighlight: Color {
-        Color(light: Color.white.opacity(0.82), dark: Color.white.opacity(0.08))
+        if MangaStyle.isActive { return MangaStyle.labelYellow.opacity(0.15) }
+        if MujiStyle.isActive { return MujiStyle.straw.opacity(0.18) }
+        return Color(light: Color.white.opacity(0.82), dark: Color.white.opacity(0.08))
     }
 
     /// 新通用 Sheet 面板内侧柔光
     static var monologueSheetInnerGlow: Color {
-        Color(light: Color(hex: "DCE9FF").opacity(0.42), dark: Color(hex: "4A5B86").opacity(0.18))
+        if MangaStyle.isActive { return MangaStyle.accentPink.opacity(0.08) }
+        if MujiStyle.isActive { return MujiStyle.tea.opacity(0.12) }
+        return Color(light: Color(hex: "DCE9FF").opacity(0.42), dark: Color(hex: "4A5B86").opacity(0.18))
     }
 
     /// 新通用 Sheet 面板描边
     static var monologueSheetStroke: Color {
-        Color(light: Color.white.opacity(0.72), dark: Color.white.opacity(0.08))
+        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.6) }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.72) }
+        return Color(light: Color.white.opacity(0.72), dark: Color.white.opacity(0.08))
     }
 
     /// 新通用 Sheet 阴影色
     static var monologueSheetShadow: Color {
-        Color(light: Color.black.opacity(0.12), dark: Color.black.opacity(0.34))
+        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.18) }
+        if MujiStyle.isActive { return Color.black.opacity(0.08) }
+        return Color(light: Color.black.opacity(0.12), dark: Color.black.opacity(0.34))
     }
 
     /// 新通用 Sheet 顶部拖拽把手
     static var monologueSheetHandle: Color {
-        Color(light: Color.black.opacity(0.14), dark: Color.white.opacity(0.16))
+        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.3) }
+        if MujiStyle.isActive { return MujiStyle.hairline }
+        return Color(light: Color.black.opacity(0.14), dark: Color.white.opacity(0.16))
     }
     
     static var monologueSeparator: Color {
-        Color(light: Color.black.opacity(0.1), dark: Color.white.opacity(0.1))
+        if MangaStyle.isActive { return MangaStyle.separator }
+        if MujiStyle.isActive { return MujiStyle.separator }
+        return Color(light: Color.black.opacity(0.1), dark: Color.white.opacity(0.1))
     }
     
     static var monologueIconBackground: Color {
-        Color(light: .black, dark: .white)
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return Color(light: .black, dark: .white)
     }
     
     static var monologueIconForeground: Color {
-        Color(light: .white, dark: .black)
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite }
+        if MujiStyle.isActive { return MujiStyle.paper }
+        return Color(light: .white, dark: .black)
     }
 }
 
@@ -185,7 +262,11 @@ struct MonologueGlassCardBackground: View {
     var cornerRadius: CGFloat = 20
 
     var body: some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
+        } else if MujiStyle.isActive {
+            MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true)
+        } else if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(Color.monologueGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -207,7 +288,12 @@ extension View {
     func monologueGlassCard(cornerRadius: CGFloat = 20) -> some View {
         self.background(
             MonologueGlassCardBackground(cornerRadius: cornerRadius)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                .shadow(
+                    color: MangaStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : .black.opacity(0.04)),
+                    radius: MangaStyle.isActive ? 0 : (MujiStyle.isActive ? 10 : 8),
+                    x: 0,
+                    y: MangaStyle.isActive ? 0 : (MujiStyle.isActive ? 4 : 2)
+                )
         )
     }
 }

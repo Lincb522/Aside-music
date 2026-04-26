@@ -882,6 +882,36 @@ class APIService: @unchecked Sendable {
                 availableInfos: availableInfos
             )
 
+            // 快速路径：availableInfos 已知真实可用档位时，直接用第一个（"最高可用"）
+            // 成功即返回，节省串行重试的网络延迟
+            if availableInfos != nil, let best = candidates.first {
+                AppLogger.info("[Netease] 使用最高可用音质: \(best.displayName)")
+                do {
+                    let result = try await self.tryNeteaseLevel(client: client, id: id, level: best.rawValue, isDownload: isDownload)
+                    AppLogger.success("[Netease] \(best.displayName) 获取成功（快速路径）")
+                    return result
+                } catch PlaybackError.tokenRequired {
+                    throw PlaybackError.tokenRequired
+                } catch {
+                    AppLogger.warning("[Netease] 最高可用档 \(best.displayName) 失败，回退到候选链: \(error.localizedDescription)")
+                }
+                // 快速路径失败则走剩余候选链
+                for quality in candidates.dropFirst() {
+                    AppLogger.info("[Netease] 降级尝试: \(quality.displayName)")
+                    do {
+                        let result = try await self.tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
+                        AppLogger.success("[Netease] \(quality.displayName) 获取成功")
+                        return result
+                    } catch PlaybackError.tokenRequired {
+                        throw PlaybackError.tokenRequired
+                    } catch {
+                        AppLogger.debug("[Netease] \(quality.displayName) 失败，继续降级: \(error.localizedDescription)")
+                    }
+                }
+                throw PlaybackError.unavailable
+            }
+
+            // 兜底：availableInfos 查询失败时走盲试候选链
             if candidates.isEmpty {
                 let fallbackQuality = preferredQuality ?? prefetchedQuality ?? .exhigh
                 AppLogger.warning("[Netease] 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
@@ -889,10 +919,10 @@ class APIService: @unchecked Sendable {
             }
 
             for quality in candidates {
-                AppLogger.info("[Netease] 尝试: \(quality.displayName)")
+                AppLogger.info("[Netease] 盲试: \(quality.displayName)")
                 do {
                     let result = try await self.tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
-                    AppLogger.success("[Netease] \(quality.displayName) 获取成功")
+                    AppLogger.success("[Netease] \(quality.displayName) 获取成功（盲试）")
                     return result
                 } catch PlaybackError.tokenRequired {
                     throw PlaybackError.tokenRequired

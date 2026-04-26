@@ -16,8 +16,10 @@ private struct LocalSystemPlaylistDestinationView: View {
     var body: some View {
         if let playlistId {
             LocalPlaylistDetailView(playlistId: playlistId)
+
         } else {
             LocalMusicView(initialFilter: fallbackFilter)
+
         }
     }
 }
@@ -130,6 +132,12 @@ struct LocalModeHomeView: View {
 
                 ScrollView {
                     VStack(spacing: 22) {
+                        if MangaStyle.isActive {
+                            mangaLocalHomeHeader
+                        } else if MujiStyle.isActive {
+                            mujiLocalHomeHeader
+                        }
+
                         homeHeroCard
 
                         actionCards
@@ -165,13 +173,13 @@ struct LocalModeHomeView: View {
 
                         Color.clear.frame(height: 110)
                     }
-                    .padding(.top, DeviceLayout.headerTopPadding + 12)
+                    .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 12)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle(localModeText("tabbar_home"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("tabbar_home"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -212,15 +220,37 @@ struct LocalModeHomeView: View {
         }
     }
 
+    private var mujiLocalHomeHeader: some View {
+        MujiPageHeader(
+            eyebrow: "offline room",
+            title: localModeText("tabbar_home"),
+            subtitle: ""
+        ) {
+            MujiIconBadge(icon: .musicNoteList, tint: MujiStyle.tea, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var mangaLocalHomeHeader: some View {
+        MangaPageHeader(
+            eyebrow: "LOCAL",
+            title: localModeText("tabbar_home"),
+            subtitle: ""
+        ) {
+            MangaIconBadge(systemName: "music.note.list", size: 48, tint: MangaStyle.labelYellow)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
     private var homeHeroCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 28) {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(localModeText("local_home_hero_title"))
-                            .font(.system(size: 28, weight: .heavy, design: .rounded))
+                            .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : .system(size: 28, weight: .heavy, design: .rounded)))
                             .foregroundColor(.monologueTextPrimary)
-                            .tracking(-0.5)
+                            .tracking((MangaStyle.isActive || MujiStyle.isActive) ? 0 : -0.5)
                     }
 
                     Spacer(minLength: 16)
@@ -275,7 +305,9 @@ struct LocalModeHomeView: View {
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     .disabled(localLibrary.songs.isEmpty)
 
-                    NavigationLink(destination: LocalLibraryView()) {
+                    NavigationLink(
+                        destination: LocalLibraryView()
+                    ) {
                         HStack(spacing: 8) {
                             MonologueIcon(icon: .library, size: 14, color: .monologueTextPrimary)
                             Text(localModeText("local_home_open_library"))
@@ -329,7 +361,9 @@ struct LocalModeHomeView: View {
                 columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 2),
                 spacing: 14
             ) {
-                NavigationLink(destination: LocalMusicView(initialFilter: .all)) {
+                NavigationLink(
+                    destination: LocalMusicView(initialFilter: .all)
+                ) {
                     LocalShortcutCard(
                         title: localModeText("local_filter_all"),
                         value: "\(localLibrary.songCount)",
@@ -369,7 +403,9 @@ struct LocalModeHomeView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                NavigationLink(destination: LocalMusicView(initialFilter: .recent)) {
+                NavigationLink(
+                    destination: LocalMusicView(initialFilter: .recent)
+                ) {
                     LocalShortcutCard(
                         title: localModeText("local_filter_recent"),
                         value: "\(recentSongs.count)",
@@ -425,13 +461,17 @@ struct LocalModeHomeView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(customPlaylists.prefix(3), id: \.id) { playlist in
-                        NavigationLink(destination: LocalPlaylistDetailView(playlistId: playlist.id)) {
+                        NavigationLink(
+                            destination: LocalPlaylistDetailView(playlistId: playlist.id)
+                        ) {
                             LocalPlaylistRow(playlist: playlist)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                     }
 
-                    NavigationLink(destination: LocalLibraryView()) {
+                    NavigationLink(
+                        destination: LocalLibraryView()
+                    ) {
                         LocalInlineActionCard(
                             title: localModeText("local_home_manage_playlists"),
                             icon: .library
@@ -564,9 +604,15 @@ struct LocalMusicView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 16) {
+                    if MangaStyle.isActive {
+                        mangaLocalMusicHeader
+                    } else if MujiStyle.isActive {
+                        mujiLocalMusicHeader
+                    }
+
                     overviewCard
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        .padding(.top, DeviceLayout.headerTopPadding + 10)
+                        .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 10)
 
                     filterBar
 
@@ -614,7 +660,7 @@ struct LocalMusicView: View {
                     }
                 }
             }
-            .navigationTitle(localModeText("tabbar_local_music"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("tabbar_local_music"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .searchable(text: $searchText, prompt: localModeText("local_music_search_prompt"))
@@ -684,18 +730,38 @@ struct LocalMusicView: View {
         }
     }
 
+    private var mujiLocalMusicHeader: some View {
+        MujiPageHeader(
+            eyebrow: "local shelf",
+            title: localModeText("tabbar_local_music"),
+            subtitle: ""
+        ) {
+            MujiIconBadge(icon: .musicNoteList, tint: MujiStyle.indigo, size: 48)
+        }
+    }
+
+    private var mangaLocalMusicHeader: some View {
+        MangaPageHeader(
+            eyebrow: "TRACKS",
+            title: localModeText("tabbar_local_music"),
+            subtitle: ""
+        ) {
+            MangaIconBadge(systemName: "waveform", size: 48, tint: MangaStyle.bubbleBlue)
+        }
+    }
+
     private var overviewCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 24) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 12) {
-                    Text(localModeText(selectedFilter.titleKey))
-                        .font(.system(size: 24, weight: .heavy, design: .rounded))
+            Text(localModeText(selectedFilter.titleKey))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : .system(size: 24, weight: .heavy, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
 
                     Spacer(minLength: 16)
 
                     Text("\(filteredSongs.count)")
-                        .font(.system(size: 24, weight: .heavy, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .medium) : .system(size: 24, weight: .heavy, design: .rounded)))
                         .foregroundColor(.monologueAccent)
                 }
 
@@ -739,7 +805,7 @@ struct LocalMusicView: View {
                                 color: selectedFilter == filter ? .monologueIconForeground : .monologueTextPrimary
                             )
                             Text(localModeText(filter.titleKey))
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : .system(size: 13, weight: .bold, design: .rounded)))
                                 .foregroundColor(selectedFilter == filter ? .monologueIconForeground : .monologueTextPrimary)
                         }
                         .padding(.horizontal, 14)
@@ -747,12 +813,12 @@ struct LocalMusicView: View {
                         .background(
                             Group {
                                 if selectedFilter == filter {
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16, style: .continuous)
                                         .fill(Color.monologueIconBackground)
                                 } else {
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16, style: .continuous)
                                         .fill(Color.monologueGlassTint.opacity(0.65))
-                                        .monologueGlass(cornerRadius: 16)
+                                        .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16)
                                 }
                             }
                         )
@@ -827,6 +893,12 @@ struct LocalLibraryView: View {
 
                 ScrollView {
                     VStack(spacing: 22) {
+                        if MangaStyle.isActive {
+                            mangaLocalLibraryHeader
+                        } else if MujiStyle.isActive {
+                            mujiLocalLibraryHeader
+                        }
+
                         libraryOverviewCard
 
                         managementSection
@@ -837,7 +909,7 @@ struct LocalLibraryView: View {
 
                         Color.clear.frame(height: 110)
                     }
-                    .padding(.top, DeviceLayout.headerTopPadding + 12)
+                    .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 12)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
@@ -847,7 +919,7 @@ struct LocalLibraryView: View {
                     _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
                 }
             }
-            .navigationTitle(localModeText("local_library_navigation_title"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("local_library_navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
@@ -866,11 +938,48 @@ struct LocalLibraryView: View {
         }
     }
 
+    private var mujiLocalLibraryHeader: some View {
+        MujiPageHeader(
+            eyebrow: "offline shelves",
+            title: localModeText("local_library_navigation_title"),
+            subtitle: ""
+        ) {
+            MujiIconBadge(icon: .library, tint: MujiStyle.tea, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var mangaLocalLibraryHeader: some View {
+        MangaPageHeader(
+            eyebrow: "SHELF",
+            title: localModeText("local_library_navigation_title"),
+            subtitle: ""
+        ) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(MangaStyle.mint)
+
+                MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.ink, lineWidth: 2)
+            }
+            .frame(width: 48, height: 48)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+            )
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(MangaStyle.ink)
+                    .offset(x: 2.5, y: 2.5)
+            )
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
     private var libraryOverviewCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 24) {
             VStack(alignment: .leading, spacing: 16) {
                 Text(localModeText("local_library_overview_title"))
-                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : .system(size: 24, weight: .heavy, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
 
                 HStack(spacing: 0) {
@@ -926,7 +1035,9 @@ struct LocalLibraryView: View {
                 columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 2),
                 spacing: 14
             ) {
-                NavigationLink(destination: LocalMusicView(initialFilter: .all)) {
+                NavigationLink(
+                    destination: LocalMusicView(initialFilter: .all)
+                ) {
                     LocalShortcutCard(
                         title: localModeText("local_filter_all"),
                         value: "\(localLibrary.songCount)",
@@ -966,7 +1077,9 @@ struct LocalLibraryView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                NavigationLink(destination: LocalMusicView(initialFilter: .recent)) {
+                NavigationLink(
+                    destination: LocalMusicView(initialFilter: .recent)
+                ) {
                     LocalShortcutCard(
                         title: localModeText("local_filter_recent"),
                         value: "\(recentSongs.count)",
@@ -998,7 +1111,9 @@ struct LocalLibraryView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(customPlaylists, id: \.id) { playlist in
-                        NavigationLink(destination: LocalPlaylistDetailView(playlistId: playlist.id)) {
+                        NavigationLink(
+                            destination: LocalPlaylistDetailView(playlistId: playlist.id)
+                        ) {
                             LocalPlaylistRow(playlist: playlist)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
@@ -1153,8 +1268,14 @@ struct LocalModeProfileView: View {
 
                 ScrollView {
                     VStack(spacing: 18) {
+                        if MangaStyle.isActive {
+                            mangaLocalProfileHeader
+                        } else if MujiStyle.isActive {
+                            mujiLocalProfileHeader
+                        }
+
                         profileHeroCard
-                            .padding(.top, DeviceLayout.headerTopPadding + 10)
+                            .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 10)
 
                         statsBar
 
@@ -1175,7 +1296,7 @@ struct LocalModeProfileView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle(localModeText("tabbar_profile"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("tabbar_profile"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
@@ -1186,6 +1307,28 @@ struct LocalModeProfileView: View {
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
             refreshRecentSongs()
         }
+    }
+
+    private var mujiLocalProfileHeader: some View {
+        MujiPageHeader(
+            eyebrow: "local notebook",
+            title: localModeText("tabbar_profile"),
+            subtitle: ""
+        ) {
+            MujiIconBadge(icon: .profileFilled, tint: MujiStyle.indigo, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var mangaLocalProfileHeader: some View {
+        MangaPageHeader(
+            eyebrow: "PROFILE",
+            title: localModeText("tabbar_profile"),
+            subtitle: ""
+        ) {
+            MangaIconBadge(systemName: "person.fill", size: 48, tint: MangaStyle.bubblePink)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
 
     private var profileHeroCard: some View {
@@ -1209,7 +1352,7 @@ struct LocalModeProfileView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(localModeText("local_profile_hero_title"))
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : .system(size: 22, weight: .heavy, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                 }
 
@@ -1258,7 +1401,9 @@ struct LocalModeProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                NavigationLink(destination: LocalMusicView(initialFilter: .recent)) {
+                NavigationLink(
+                    destination: LocalMusicView(initialFilter: .recent)
+                ) {
                     LocalShortcutCard(
                         title: localModeText("local_filter_recent"),
                         value: "\(recentSongs.count)",
@@ -1281,7 +1426,9 @@ struct LocalModeProfileView: View {
 
                 Spacer()
 
-                NavigationLink(destination: RecentPlayHistoryView()) {
+                NavigationLink(
+                    destination: RecentPlayHistoryView()
+                ) {
                     HStack(spacing: 4) {
                         Text(localModeText("view_all"))
                             .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -1315,7 +1462,9 @@ struct LocalModeProfileView: View {
             )
 
             VStack(spacing: 0) {
-                NavigationLink(destination: LocalLibraryView()) {
+                NavigationLink(
+                    destination: LocalLibraryView()
+                ) {
                     ProfileMenuRow(
                         icon: .library,
                         title: localModeText("local_library_navigation_title"),
@@ -1326,7 +1475,9 @@ struct LocalModeProfileView: View {
 
                 Divider().padding(.leading, 56)
 
-                NavigationLink(destination: DownloadManageView()) {
+                NavigationLink(
+                    destination: DownloadManageView()
+                ) {
                     ProfileMenuRow(
                         icon: .download,
                         title: localModeText("local_downloads_title"),
@@ -1337,7 +1488,9 @@ struct LocalModeProfileView: View {
 
                 Divider().padding(.leading, 56)
 
-                NavigationLink(destination: StorageManageView()) {
+                NavigationLink(
+                    destination: StorageManageView()
+                ) {
                     ProfileMenuRow(
                         icon: .storage,
                         title: localModeText("settings_storage_manage")
@@ -1347,7 +1500,9 @@ struct LocalModeProfileView: View {
 
                 Divider().padding(.leading, 56)
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(
+                    destination: SettingsView()
+                ) {
                     ProfileMenuRow(
                         icon: .settings,
                         title: localModeText("settings_title")
@@ -1479,7 +1634,7 @@ private struct LocalPrimaryActionCard: View {
 
     var body: some View {
         Button(action: action) {
-            MonologueLiquidGlassCard(cornerRadius: 24) {
+            MonologueLiquidGlassCard(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 24) {
                 VStack(alignment: .leading, spacing: 16) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1500,13 +1655,13 @@ private struct LocalPrimaryActionCard: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(title)
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .font(MangaStyle.isActive ? MangaStyle.titleFont(19, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : .system(size: 19, weight: .bold, design: .rounded)))
                             .foregroundColor(.monologueTextPrimary)
                             .multilineTextAlignment(.leading)
 
                     if let subtitle {
                         Text(subtitle)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded)))
                             .foregroundColor(.monologueTextSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
@@ -1528,7 +1683,7 @@ private struct LocalShortcutCard: View {
     let accent: Color
 
     var body: some View {
-        MonologueLiquidGlassCard(cornerRadius: 22) {
+        MonologueLiquidGlassCard(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 22) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Circle()
@@ -1541,13 +1696,13 @@ private struct LocalShortcutCard: View {
                     Spacer(minLength: 12)
 
                     Text(value)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .medium) : .system(size: 22, weight: .heavy, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .bold, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                 }
             }
@@ -1564,20 +1719,20 @@ private struct LocalMetricBadge: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : .system(size: 18, weight: .heavy, design: .rounded)))
                 .foregroundColor(.monologueTextPrimary)
 
             Text(title)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.labelFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .medium) : .system(size: 10, weight: .bold, design: .rounded)))
                 .foregroundColor(.monologueTextSecondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16, style: .continuous)
                 .fill(Color.monologueGlassTint.opacity(0.55))
-                .monologueGlass(cornerRadius: 16)
+                .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16)
         )
     }
 }
@@ -1597,7 +1752,7 @@ private struct LocalInlineActionCard: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
             }
 
@@ -1607,9 +1762,9 @@ private struct LocalInlineActionCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 10 : 18, style: .continuous)
                 .fill(Color.monologueGlassTint.opacity(0.7))
-                .monologueGlass(cornerRadius: 18)
+                .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 10 : 18)
         )
     }
 }
@@ -1621,7 +1776,7 @@ private struct LocalManagementButton: View {
 
     var body: some View {
         Button(action: action) {
-            MonologueLiquidGlassCard(cornerRadius: 22) {
+            MonologueLiquidGlassCard(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 22) {
                 VStack(alignment: .leading, spacing: 12) {
                     Circle()
                         .fill(Color.monologueAccent.opacity(0.14))
@@ -1631,7 +1786,7 @@ private struct LocalManagementButton: View {
                         )
 
                 Text(title)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
             }
             .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
@@ -1652,7 +1807,7 @@ private struct LocalInlinePill: View {
             HStack(spacing: 8) {
                 MonologueIcon(icon: icon, size: 12, color: .monologueTextPrimary)
                 Text(title)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
             }
             .padding(.horizontal, 12)
@@ -1684,12 +1839,12 @@ private struct LocalEmptyStateView: View {
 
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(20, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .regular) : .system(size: 20, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
                     .foregroundColor(.monologueTextSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -1697,7 +1852,7 @@ private struct LocalEmptyStateView: View {
             if let buttonTitle, let buttonAction {
                 Button(action: buttonAction) {
                     Text(buttonTitle)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.labelFont(14, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded)))
                         .foregroundColor(.monologueIconForeground)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
@@ -1710,7 +1865,7 @@ private struct LocalEmptyStateView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.vertical, 28)
-        .monologueGlass(cornerRadius: 20)
+        .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 20)
     }
 }
 

@@ -57,8 +57,8 @@ struct FullScreenPlayerView: View {
                     MangaChatPlayerLayout()
                 case .folk:
                     FolkPlayerLayout()
-                case .cosmos:
-                    CosmosPlayerLayout()
+                case .game2048:
+                    Game2048PlayerLayout()
                 }
             }
             .environment(\.colorScheme, themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme)

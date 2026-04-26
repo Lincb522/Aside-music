@@ -29,7 +29,24 @@ extension PlayerManager {
     
     func updateNowPlayingInfo() {
         lastNowPlayingLyricIndex = -1
-        
+
+        // 游戏模式 + 用户开启「隐藏锁屏/灵动岛信息」
+        if GameModeManager.shared.isActive && SettingsManager.shared.gameModeSilentNowPlaying {
+            if SettingsManager.shared.gameModeMinimalNowPlaying {
+                // 最小化模式：保留歌名 + 极简播放状态，隐藏封面 / 歌手 / 时长
+                var minimal = [String: Any]()
+                minimal[MPMediaItemPropertyTitle] = currentSong?.name ?? ""
+                // 不填 Artist / Artwork / Duration，让锁屏只剩一行歌名
+                minimal[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = minimal
+            } else {
+                // 完全隐藏
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            }
+            syncWidgetState()
+            return
+        }
+
         var info = [String: Any]()
         info[MPMediaItemPropertyTitle] = currentSong?.name ?? ""
         info[MPMediaItemPropertyArtist] = currentSong?.artistName ?? ""
@@ -43,6 +60,16 @@ extension PlayerManager {
     }
     
     func updateNowPlayingTime() {
+        // 游戏模式静默：跳过（最小化模式也不更新 time，避免长出进度条）
+        if GameModeManager.shared.isActive && SettingsManager.shared.gameModeSilentNowPlaying {
+            // 最小化模式下只同步播放状态（是否在播）
+            if SettingsManager.shared.gameModeMinimalNowPlaying,
+               var info = MPNowPlayingInfoCenter.default().nowPlayingInfo {
+                info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            }
+            return
+        }
         guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
@@ -114,10 +141,14 @@ extension PlayerManager {
                 
                 await MainActor.run { [weak self] in
                     guard let self = self, self.currentSong?.id == songId else { return }
-                    var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                    info[MPMediaItemPropertyArtwork] = artwork
-                    MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-                    
+                    // 游戏模式静默 + 最小化：不回塞封面，保持锁屏纯文字
+                    let silentMinimal = GameModeManager.shared.isActive
+                        && SettingsManager.shared.gameModeSilentNowPlaying
+                    if !silentMinimal {
+                        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                        info[MPMediaItemPropertyArtwork] = artwork
+                        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                    }
                     WidgetCenter.shared.reloadAllTimelines()
                 }
             } catch {

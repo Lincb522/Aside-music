@@ -140,6 +140,7 @@ extension APIService {
                 throw PlaybackError.tokenRequired
             }
 
+            // 1. 查询这首歌真实可用的所有音质档位
             let availableInfos: [QQSongQualityInfo]?
             do {
                 let infos = try await self.queryQQSongQualities(mid: mid)
@@ -152,12 +153,35 @@ extension APIService {
                 AppLogger.warning("[QQMusic] 音质查询失败，按回退链盲试: \(error.localizedDescription)")
             }
 
+            // 2. 构建候选列表（已过滤不可用档位）
             let candidates = self.buildQQPlaybackCandidates(
                 preferred: quality,
                 prefetched: prefetchedQuality,
                 availableInfos: availableInfos
             )
 
+            // 3. 快速路径：如果已从 availableInfos 查到真实可用档位，直接用第一个候选（即"最高可用"）
+            //    原本要串行重试 2-5 次才能找到能播的档，现在 1 次搞定
+            if availableInfos != nil, let best = candidates.first {
+                AppLogger.info("[QQMusic] 使用最高可用音质: \(best.displayName)")
+                if let result = await self.tryQQQuality(mid: mid, quality: best) {
+                    AppLogger.success("[QQMusic] \(best.displayName) 获取成功（快速路径）")
+                    return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: best)
+                }
+                AppLogger.warning("[QQMusic] 最高可用档 \(best.displayName) 获取失败，回退到候选链")
+                // 跳过已失败的第一个，继续往下试
+                for candidate in candidates.dropFirst() {
+                    AppLogger.info("[QQMusic] 降级尝试: \(candidate.displayName)")
+                    if let result = await self.tryQQQuality(mid: mid, quality: candidate) {
+                        AppLogger.success("[QQMusic] \(candidate.displayName) 获取成功")
+                        return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: candidate)
+                    }
+                }
+                AppLogger.error("[QQMusic] 可用音质候选全部失败: \(mid)")
+                throw PlaybackError.unavailable
+            }
+
+            // 4. 兜底：availableInfos 查询彻底失败（后端异常），按原有候选链盲试
             if candidates.isEmpty {
                 let fallbackQuality = quality ?? prefetchedQuality ?? .mp3_320
                 AppLogger.warning("[QQMusic] 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
@@ -168,9 +192,9 @@ extension APIService {
             }
 
             for candidate in candidates {
-                AppLogger.info("[QQMusic] 尝试: \(candidate.displayName)")
+                AppLogger.info("[QQMusic] 盲试: \(candidate.displayName)")
                 if let result = await self.tryQQQuality(mid: mid, quality: candidate) {
-                    AppLogger.success("[QQMusic] \(candidate.displayName) 获取成功")
+                    AppLogger.success("[QQMusic] \(candidate.displayName) 获取成功（盲试）")
                     return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: candidate)
                 }
             }
@@ -246,19 +270,26 @@ extension APIService {
         availableInfos: [QQSongQualityInfo]?
     ) -> [QQMusicQuality] {
         var candidates = QQMusicQuality.fallbackCandidates(from: preferred)
-        
+
         if let availableInfos {
             let available = Set(availableInfos.map(\.quality))
+            // 只在用户显式选了 master/atmos 档时才保留（避免默认每次都盲试必然失败的高档次）
             let premiumList: Set<QQMusicQuality> = [.master, .atmos2, .atmos51]
-            candidates = candidates.filter { available.contains($0) || premiumList.contains($0) }
+            let userExplicitlyChosePremium = preferred.map { premiumList.contains($0) } ?? false
+            if userExplicitlyChosePremium {
+                candidates = candidates.filter { available.contains($0) || premiumList.contains($0) }
+            } else {
+                // 默认场景：严格按后端返回的可用音质过滤，跳过注定失败的请求
+                candidates = candidates.filter { available.contains($0) }
+            }
         }
-        
+
         if let prefetched,
            let index = candidates.firstIndex(of: prefetched) {
             candidates.remove(at: index)
             candidates.insert(prefetched, at: 0)
         }
-        
+
         return candidates
     }
 

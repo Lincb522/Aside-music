@@ -25,6 +25,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         let config = UISceneConfiguration(name: "Default Configuration",
                                           sessionRole: connectingSceneSession.role)
+        // 指派自定义 scene delegate 以接收 Quick Actions / shortcutItem 回调
+        config.delegateClass = MonologueSceneDelegate.self
         return config
     }
     
@@ -150,6 +152,10 @@ struct MonologueApp: App {
                     Task {
                         MonologueShortcuts.updateAppShortcutParameters()
                         AppLogger.info("[Siri] App Shortcuts 已注册")
+                    }
+
+                    Task { @MainActor in
+                        MonologueQuickActionsManager.refreshAsync()
                     }
                     // 冷启动只恢复 UI 状态（歌曲信息+进度），不自动加载播放
                     // 用户点击播放按钮时 togglePlayPause 会触发 restorePlaybackSessionIfNeeded

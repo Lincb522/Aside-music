@@ -5,20 +5,20 @@ import QQMusicKit
 struct ProfileView: View {
     private var viewModel: HomeViewModel { HomeViewModel.shared }
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
-    
+
     @State private var showLoginView = false
     @State private var showQQAccount = false
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
-    
+
     @State private var userLevel: Int?
     @State private var listenSongs: Int?
-    
-    
+
+
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var localPlaylistManager = LocalPlaylistManager.shared
-    
+
     var body: some View {
         ZStack {
             MonologueBackground()
@@ -65,6 +65,7 @@ struct ProfileView: View {
         }
         .fullScreenCover(isPresented: $showLoginView) {
             LoginView()
+
         }
         .onReceive(playerManager.$currentSong.dropFirst()) { newSong in
             guard newSong != nil, isAppLoggedIn else { return }
@@ -84,6 +85,12 @@ struct ProfileView: View {
 
                 ScrollView {
                     VStack(spacing: 16) {
+                        if MangaStyle.isActive {
+                            mangaProfileHeader
+                        } else if MujiStyle.isActive {
+                            mujiProfileHeader
+                        }
+
                         profileHeroCard
                             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
@@ -105,20 +112,50 @@ struct ProfileView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle(String(localized: "我的"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "我的"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
+                if !MangaStyle.isActive && !MujiStyle.isActive {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(destination: SettingsView()) {
+                    NavigationLink(
+                        destination: SettingsView()
+                    ) {
                         MonologueIcon(icon: .settings, size: 16)
                     }
+                }
                 }
             }
         }
     }
 
     // MARK: - Hero Card
+
+    private var mangaProfileHeader: some View {
+        MangaPageHeader(
+            eyebrow: "PROFILE",
+            title: String(localized: "我的"),
+            subtitle: ""
+        ) {
+            NavigationLink(destination: SettingsView()) {
+                MangaIconBadge(systemName: "gearshape.fill", size: 48, tint: MangaStyle.decoBlue)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var mujiProfileHeader: some View {
+        MujiPageHeader(
+            eyebrow: "listening notebook",
+            title: String(localized: "我的"),
+            subtitle: ""
+        ) {
+            NavigationLink(destination: SettingsView()) {
+                MujiIconBadge(icon: .settings, tint: MujiStyle.indigo, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     private var profileHeroCard: some View {
         let profile = cachedProfile ?? viewModel.userProfile
@@ -143,13 +180,13 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.comicFont(22, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : .system(size: 20, weight: .bold, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
 
                     if let level = userLevel {
                         Text("Lv.\(level)")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded)))
                             .foregroundColor(.monologueIconForeground)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
@@ -160,7 +197,7 @@ struct ProfileView: View {
 
                 if let signature = profile?.signature, !signature.isEmpty {
                     Text(signature)
-                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded)))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                 }
@@ -168,13 +205,55 @@ struct ProfileView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(18)
-        .monologueGlass(cornerRadius: 22)
+        .padding((MangaStyle.isActive || MujiStyle.isActive) ? 16 : 18)
+        .monologueGlass(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : 22))
     }
 
     // MARK: - Stats Bar
 
+    @ViewBuilder
     private var statsBar: some View {
+        if MangaStyle.isActive {
+            HStack(spacing: 10) {
+                MangaMetricTile(
+                    value: formatNumber(listenSongs ?? 0),
+                    label: String(localized: "profile_total_songs"),
+                    tint: MangaStyle.labelYellow
+                )
+                MangaMetricTile(
+                    value: "\(localPlaylistManager.playlists.count)",
+                    label: String(localized: "profile_local_playlists"),
+                    tint: MangaStyle.decoBlue
+                )
+                MangaMetricTile(
+                    value: "\(downloadManager.downloadedSongIds.count)",
+                    label: String(localized: "profile_downloads"),
+                    tint: MangaStyle.accentPink
+                )
+            }
+            .padding(14)
+            .background(MangaCardBackground(cornerRadius: 12, elevated: true))
+        } else if MujiStyle.isActive {
+            HStack(spacing: 10) {
+                MujiMetricTile(
+                    value: formatNumber(listenSongs ?? 0),
+                    label: String(localized: "profile_total_songs"),
+                    tint: MujiStyle.clay
+                )
+                MujiMetricTile(
+                    value: "\(localPlaylistManager.playlists.count)",
+                    label: String(localized: "profile_local_playlists"),
+                    tint: MujiStyle.tea
+                )
+                MujiMetricTile(
+                    value: "\(downloadManager.downloadedSongIds.count)",
+                    label: String(localized: "profile_downloads"),
+                    tint: MujiStyle.indigo
+                )
+            }
+            .padding(14)
+            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+        } else {
         HStack(spacing: 0) {
             StatCell(
                 value: formatNumber(listenSongs ?? 0),
@@ -193,6 +272,7 @@ struct ProfileView: View {
         }
         .padding(.vertical, 14)
         .monologueGlass(cornerRadius: 18)
+        }
     }
 
     private var statDivider: some View {
@@ -207,15 +287,17 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : .system(size: 18, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
 
                 Spacer()
 
-                NavigationLink(destination: RecentPlayHistoryView()) {
+                NavigationLink(
+                    destination: RecentPlayHistoryView()
+                ) {
                     HStack(spacing: 4) {
                         Text(String(format: String(localized: "profile_recent_count"), playerManager.history.count))
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
                             .foregroundColor(.monologueTextSecondary)
                         MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
                     }
@@ -241,12 +323,12 @@ struct ProfileView: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(song.name)
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .semibold, design: .rounded)))
                                         .foregroundColor(.monologueTextPrimary)
                                         .lineLimit(1)
 
                                     Text(song.artistName)
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(11, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded)))
                                         .foregroundColor(.monologueTextSecondary)
                                         .lineLimit(1)
                                 }
@@ -265,55 +347,69 @@ struct ProfileView: View {
     // MARK: - Menu List
 
     private var menuList: some View {
-        VStack(spacing: 0) {
-            Button(action: { showQQAccount = true }) {
-                ProfileMenuRow(
-                    icon: .musicNote,
-                    title: String(localized: "settings_qq_account"),
-                    trailingText: QQUserSession.shared.isLoggedIn
-                        ? String(localized: "settings_qq_logged_in")
-                        : String(localized: "settings_qq_not_logged_in")
-                )
+        VStack(alignment: .leading, spacing: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 0) {
+            if MangaStyle.isActive {
+                MangaSectionTitle(title: String(localized: "profile_settings"))
+            } else if MujiStyle.isActive {
+                MujiSectionTitle(title: String(localized: "profile_settings"))
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-            .sheet(isPresented: $showQQAccount) {
-                NavigationStack {
-                    QQAccountView()
+
+            VStack(spacing: 0) {
+                Button(action: { showQQAccount = true }) {
+                    ProfileMenuRow(
+                        icon: .musicNote,
+                        title: String(localized: "settings_qq_account"),
+                        trailingText: QQUserSession.shared.isLoggedIn
+                            ? String(localized: "settings_qq_logged_in")
+                            : String(localized: "settings_qq_not_logged_in")
+                    )
                 }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                .sheet(isPresented: $showQQAccount) {
+                    NavigationStack {
+                        QQAccountView()
+                    }
+                }
+
+                Divider().padding(.leading, 56)
+
+                NavigationLink(
+                    destination: DownloadManageView()
+                ) {
+                    ProfileMenuRow(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        trailingText: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count)
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+                Divider().padding(.leading, 56)
+
+                NavigationLink(
+                    destination: StorageManageView()
+                ) {
+                    ProfileMenuRow(
+                        icon: .storage,
+                        title: String(localized: "profile_cache_manage")
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+                Divider().padding(.leading, 56)
+
+                NavigationLink(
+                    destination: CloudDiskView()
+                ) {
+                    ProfileMenuRow(
+                        icon: .cloud,
+                        title: NSLocalizedString("profile_cloud_disk", comment: "")
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
-
-            Divider().padding(.leading, 56)
-
-            NavigationLink(destination: DownloadManageView()) {
-                ProfileMenuRow(
-                    icon: .download,
-                    title: NSLocalizedString("profile_downloads", comment: ""),
-                    trailingText: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count)
-                )
-            }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-            Divider().padding(.leading, 56)
-
-            NavigationLink(destination: StorageManageView()) {
-                ProfileMenuRow(
-                    icon: .storage,
-                    title: String(localized: "profile_cache_manage")
-                )
-            }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-            Divider().padding(.leading, 56)
-
-            NavigationLink(destination: CloudDiskView()) {
-                ProfileMenuRow(
-                    icon: .cloud,
-                    title: NSLocalizedString("profile_cloud_disk", comment: "")
-                )
-            }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            .monologueGlass(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : 20))
         }
-        .monologueGlass(cornerRadius: 20)
     }
 
     // MARK: - Logout
@@ -344,7 +440,7 @@ struct ProfileView: View {
             }
         }) {
             Text(LocalizedStringKey("action_logout"))
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
                 .foregroundColor(.monologueTextSecondary.opacity(0.6))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -363,6 +459,12 @@ struct ProfileView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    if MangaStyle.isActive {
+                        mangaProfileHeader
+                    } else if MujiStyle.isActive {
+                        mujiProfileHeader
+                    }
+
                     Spacer()
 
                     VStack(spacing: 28) {
@@ -377,17 +479,17 @@ struct ProfileView: View {
 
                         VStack(spacing: 10) {
                             Text(LocalizedStringKey("profile_not_logged_in"))
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(26, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : .system(size: 26, weight: .bold, design: .rounded)))
                                 .foregroundColor(.monologueTextPrimary)
 
                             Text(LocalizedStringKey("profile_login_hint"))
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : .system(size: 14, weight: .medium, design: .rounded)))
                                 .foregroundColor(.monologueTextSecondary)
                         }
 
                         Button(action: { showLoginView = true }) {
                             Text(LocalizedStringKey("profile_login_button"))
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))
                                 .foregroundColor(.monologueIconForeground)
                                 .frame(width: 200)
                                 .padding(.vertical, 15)
@@ -396,6 +498,15 @@ struct ProfileView: View {
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
                     }
+                    .padding((MangaStyle.isActive || MujiStyle.isActive) ? 24 : 0)
+                    .background {
+                        if MangaStyle.isActive {
+                            MangaCardBackground(cornerRadius: 12, elevated: true)
+                        } else if MujiStyle.isActive {
+                            MujiPaperCardBackground(cornerRadius: 12, elevated: true)
+                        }
+                    }
+                    .padding(.horizontal, (MangaStyle.isActive || MujiStyle.isActive) ? DeviceLayout.homeHorizontalPadding : 0)
 
                     Spacer()
 
@@ -413,12 +524,15 @@ struct ProfileView: View {
                         .sheet(isPresented: $showQQAccount) {
                             NavigationStack {
                                 QQAccountView()
+
                             }
                         }
 
                         Divider().padding(.leading, 56)
 
-                        NavigationLink(destination: DownloadManageView()) {
+                        NavigationLink(
+                            destination: DownloadManageView()
+                        ) {
                             ProfileMenuRow(
                                 icon: .download,
                                 title: NSLocalizedString("profile_downloads", comment: ""),
@@ -429,7 +543,9 @@ struct ProfileView: View {
 
                         Divider().padding(.leading, 56)
 
-                        NavigationLink(destination: StorageManageView()) {
+                        NavigationLink(
+                            destination: StorageManageView()
+                        ) {
                             ProfileMenuRow(
                                 icon: .storage,
                                 title: String(localized: "profile_cache_manage")
@@ -439,7 +555,9 @@ struct ProfileView: View {
 
                         Divider().padding(.leading, 56)
 
-                        NavigationLink(destination: SettingsView()) {
+                        NavigationLink(
+                            destination: SettingsView()
+                        ) {
                             ProfileMenuRow(
                                 icon: .settings,
                                 title: NSLocalizedString("profile_settings", comment: "")
@@ -452,7 +570,7 @@ struct ProfileView: View {
                     .padding(.bottom, 140)
                 }
             }
-            .navigationTitle(String(localized: "我的"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "我的"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
@@ -496,11 +614,11 @@ struct StatCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : .system(size: 18, weight: .bold, design: .rounded)))
                 .foregroundColor(.monologueTextPrimary)
 
             Text(label)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .regular) : .system(size: 10, weight: .medium, design: .rounded)))
                 .foregroundColor(.monologueTextSecondary)
                 .lineLimit(1)
         }
@@ -521,14 +639,14 @@ struct ProfileMenuRow: View {
                 .frame(width: 28, height: 28)
 
             Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .medium, design: .rounded)))
                 .foregroundColor(.monologueTextPrimary)
 
             Spacer()
 
             if let text = trailingText {
                 Text(text)
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .regular, design: .rounded)))
                     .foregroundColor(.monologueTextSecondary)
             }
             MonologueIcon(icon: .chevronRight, size: 13, color: .monologueTextSecondary.opacity(0.4))

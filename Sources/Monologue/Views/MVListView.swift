@@ -232,6 +232,7 @@ struct MVDiscoverView: View {
         }
         .navigationDestination(for: MVListDestination.self) { dest in
             MVFullListView(listType: dest.listType, title: dest.title)
+
         }
         .fullScreenCover(item: $selectedMV) { item in
             MVPlayerView(mvId: item.id)

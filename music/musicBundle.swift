@@ -11,6 +11,7 @@ struct musicBundle: WidgetBundle {
         if #available(iOS 18, *) {
             PlayPauseControlWidget()
             NextTrackControlWidget()
+            GameModeControlWidget()
         }
     }
 }

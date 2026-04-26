@@ -16,7 +16,7 @@ struct SearchView: View {
     @State private var showAlbumDetail = false
     @FocusState private var isFocused: Bool
     @State private var isSearchBarExpanded: Bool = true
-    
+
     // qcm详情导航
     @State private var qqDetailType: QQDetailType?
     @State private var showQQDetail = false
@@ -26,15 +26,21 @@ struct SearchView: View {
     @State private var showSearchBatchPlaylist = false
     @State private var searchFilterText = ""
     @State private var isSearchFiltering = false
-    
+
     var body: some View {
         ZStack {
             MonologueBackground()
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
+                if MangaStyle.isActive && !viewModel.hasSearched {
+                    mangaSearchHeader
+                } else if MujiStyle.isActive && !viewModel.hasSearched {
+                    mujiSearchHeader
+                }
+
                 searchBarSection
-                
+
                 ZStack {
                     searchContentView
                     suggestionsOverlay
@@ -48,6 +54,7 @@ struct SearchView: View {
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
+
             } else {
                 EmptyView()
             }
@@ -55,6 +62,7 @@ struct SearchView: View {
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
+
             } else {
                 EmptyView()
             }
@@ -62,6 +70,7 @@ struct SearchView: View {
         .navigationDestination(isPresented: $showPlaylistDetail) {
             if let playlist = selectedPlaylist {
                 PlaylistDetailView(playlist: playlist, songs: nil)
+
             } else {
                 EmptyView()
             }
@@ -69,6 +78,7 @@ struct SearchView: View {
         .navigationDestination(isPresented: $showAlbumDetail) {
             if let albumId = selectedAlbumId {
                 AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
+
             } else {
                 EmptyView()
             }
@@ -76,6 +86,7 @@ struct SearchView: View {
         .navigationDestination(isPresented: $showQQDetail) {
             if let detail = qqDetailType {
                 QQMusicDetailView(detailType: detail)
+
             } else {
                 EmptyView()
             }
@@ -88,12 +99,48 @@ struct SearchView: View {
         }
         .toolbar(.hidden, for: .tabBar)
     }
-    
+
     // MARK: - 搜索栏
-    
+
+    private var mangaSearchHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
+
+            VStack(alignment: .leading, spacing: 4) {
+                MangaLabel(text: "SEARCH", tint: MangaStyle.labelYellow, small: true)
+
+                Text(String(localized: "搜索"))
+                    .font(MangaStyle.comicFont(26, weight: .black))
+                    .foregroundStyle(MangaStyle.ink)
+            }
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .padding(.bottom, 10)
+    }
+
+    private var mujiSearchHeader: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            Text(String(localized: "搜索"))
+                .font(MujiStyle.titleFont(24, weight: .regular))
+                .foregroundStyle(MujiStyle.ink)
+
+            Rectangle()
+                .fill(MujiStyle.separator)
+                .frame(height: 0.6)
+                .padding(.bottom, 8)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 2)
+        .padding(.bottom, 8)
+    }
+
     private var searchBarSection: some View {
         let showFullSearch = !viewModel.hasSearched || isSearchBarExpanded
-        
+        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (showFullSearch ? 16 : 21))
+
         return HStack(spacing: 12) {
             Button {
                 dismiss()
@@ -102,11 +149,12 @@ struct SearchView: View {
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .frame(width: 42, height: 42)
-                    .background(Color.monologueTextPrimary.opacity(0.04))
-                    .clipShape(Circle())
+                    .background(MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : Color.monologueTextPrimary.opacity(0.04)))
+                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : 21, style: .continuous))
                     .liquidGlassStyle(cornerRadius: 21)
                     .overlay(
-                        Circle().stroke(Color.monologueTextPrimary.opacity(0.05), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : 21, style: .continuous)
+                            .stroke(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : Color.monologueTextPrimary.opacity(0.05)), lineWidth: MangaStyle.isActive ? MangaStyle.strokeWidth : 0.5)
                     )
             }
             .buttonStyle(PlainButtonStyle())
@@ -116,13 +164,13 @@ struct SearchView: View {
             }
 
             HStack(spacing: showFullSearch ? 8 : 0) {
-                MonologueIcon(icon: .magnifyingGlass, size: 18, color: .gray)
-                
+                MonologueIcon(icon: .magnifyingGlass, size: 18, color: MangaStyle.isActive ? MangaStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkMuted : .gray))
+
                 HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
                         if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
                             Text(defaultKw.showKeyword)
-                                .font(.rounded(size: 16, weight: .medium))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : .rounded(size: 16, weight: .medium)))
                                 .foregroundColor(.monologueTextSecondary.opacity(0.6))
                                 .lineLimit(1)
                                 .onTapWithHaptic {
@@ -133,10 +181,10 @@ struct SearchView: View {
                                     }
                                 }
                         }
-                        
+
                         TextField("", text: $viewModel.query)
                             .foregroundColor(.monologueTextPrimary)
-                            .font(.rounded(size: 16, weight: .medium))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : .rounded(size: 16, weight: .medium)))
                             .monologueTextInputBehavior()
                             .focused($isFocused)
                             .submitLabel(.search)
@@ -154,7 +202,7 @@ struct SearchView: View {
                                 }
                             }
                     }
-                    
+
                     if !viewModel.query.isEmpty {
                         Button(action: {
                             viewModel.query = ""
@@ -174,7 +222,16 @@ struct SearchView: View {
             }
             .padding(.horizontal, showFullSearch ? 16 : 12)
             .padding(.vertical, showFullSearch ? 10 : 12)
-            .liquidGlassStyle(cornerRadius: showFullSearch ? 16 : 21)
+            .background(
+                Group {
+                    if MangaStyle.isActive {
+                        MangaCardBackground(cornerRadius: searchRadius, elevated: true)
+                    } else if MujiStyle.isActive {
+                        MujiPaperCardBackground(cornerRadius: searchRadius, elevated: true)
+                    }
+                }
+            )
+            .liquidGlassStyle(cornerRadius: searchRadius)
             .onTapGesture {
                 if !showFullSearch {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -188,8 +245,8 @@ struct SearchView: View {
         }
         .frame(maxWidth: 720)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
+        .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : 4)
+        .padding(.bottom, (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 6)
         .onChange(of: viewModel.hasSearched) { searched in
             if !searched {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -200,8 +257,14 @@ struct SearchView: View {
     }
 
     // MARK: - 搜索类型 Tab 栏
-    
+
+    @ViewBuilder
     private var searchTabBar: some View {
+        if MangaStyle.isActive {
+            mangaSearchTabBar
+        } else if MujiStyle.isActive {
+            mujiSearchTabBar
+        } else {
         HStack(spacing: 0) {
             ForEach(SearchTab.allCases, id: \.self) { tab in
                 Button(action: {
@@ -212,7 +275,7 @@ struct SearchView: View {
                             .font(.rounded(size: 14, weight: viewModel.currentTab == tab ? .bold : .medium))
                             .foregroundColor(viewModel.currentTab == tab ? .monologueTextPrimary : .monologueTextSecondary)
                             .animation(.none, value: viewModel.currentTab)
-                        
+
                         Capsule()
                             .fill(Color.monologueTextPrimary)
                             .frame(width: 24, height: 3)
@@ -227,20 +290,86 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 8)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.currentTab)
+        }
+    }
+
+    private var mujiSearchTabBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        Text(tab.rawValue)
+                            .font(MujiStyle.labelFont(12, weight: viewModel.currentTab == tab ? .semibold : .regular))
+                            .foregroundStyle(viewModel.currentTab == tab ? MujiStyle.paper : MujiStyle.inkSoft)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(viewModel.currentTab == tab ? MujiStyle.ink : MujiStyle.surface.opacity(0.74))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(viewModel.currentTab == tab ? Color.clear : MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, 8)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var mangaSearchTabBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        Text(tab.rawValue)
+                            .font(MangaStyle.labelFont(12, weight: viewModel.currentTab == tab ? .black : .bold))
+                            .foregroundStyle(MangaStyle.ink)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(viewModel.currentTab == tab ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .stroke(MangaStyle.ink, lineWidth: viewModel.currentTab == tab ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
+                            )
+                            .background(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(MangaStyle.ink)
+                                    .offset(x: viewModel.currentTab == tab ? 2 : 0, y: viewModel.currentTab == tab ? 2 : 0)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, 8)
+        }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 搜索内容区域
-    
+
     @ViewBuilder
     private var searchContentView: some View {
         if viewModel.hasSearched {
             VStack(spacing: 0) {
                 searchTabBar
                 platformTabBar
-                
+
                 let platformLoading = isPlatformLoading
                 let platformEmpty = isPlatformEmpty
-                
+
                 if platformLoading && platformEmpty {
                     Spacer()
                     MonologueLoadingView(text: "SEARCHING")
@@ -260,14 +389,14 @@ struct SearchView: View {
             emptySearchView
         }
     }
-    
+
     // MARK: - 歌曲列表工具栏
-    
+
     @ViewBuilder
     private var searchSongsToolbarView: some View {
         let currentSource = viewModel.selectedPlatform
         let currentSongs = expandedFilteredSongs(source: currentSource)
-        
+
         VStack(spacing: 0) {
             if isSearchSelectMode {
                 PlaylistSearchBar(
@@ -307,7 +436,7 @@ struct SearchView: View {
                                 .frame(width: 24, height: 24)
                                 .background(Color.monologueTextPrimary)
                                 .clipShape(Circle())
-                            
+
                             Text(String(localized: "artist_play_all"))
                                 .font(.rounded(size: 14, weight: .semibold))
                                 .foregroundColor(.monologueTextPrimary)
@@ -318,9 +447,9 @@ struct SearchView: View {
                         .clipShape(Capsule())
                     }
                     .buttonStyle(PlainButtonStyle())
-                    
+
                     Spacer()
-                    
+
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchFiltering = true
@@ -331,7 +460,7 @@ struct SearchView: View {
                             .background(Color.monologueTextPrimary.opacity(0.06))
                             .clipShape(Circle())
                     }
-                    
+
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchSelectMode = true
@@ -349,14 +478,20 @@ struct SearchView: View {
             }
         }
     }
-    
+
     // MARK: - 平台标签页
 
+    @ViewBuilder
     private var platformTabBar: some View {
+        if MangaStyle.isActive {
+            mangaPlatformTabBar
+        } else if MujiStyle.isActive {
+            mujiPlatformTabBar
+        } else {
         let platforms: [MusicSource] = viewModel.currentTab == .songs
             ? [.netease, .qqmusic, .qishui]
             : [.netease, .qqmusic]
-        return HStack(spacing: 0) {
+        HStack(spacing: 0) {
             ForEach(platforms, id: \.self) { platform in
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -379,8 +514,79 @@ struct SearchView: View {
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, 4)
+        }
     }
-    
+
+    private var mujiPlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    Text(platformTabName(platform))
+                        .font(MujiStyle.labelFont(11, weight: .semibold))
+                        .foregroundStyle(viewModel.selectedPlatform == platform ? MujiStyle.clay : MujiStyle.inkMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(viewModel.selectedPlatform == platform ? MujiStyle.clay.opacity(0.11) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(MujiStyle.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private var mangaPlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    Text(platformTabName(platform))
+                        .font(MangaStyle.labelFont(11, weight: .black))
+                        .foregroundStyle(MangaStyle.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(viewModel.selectedPlatform == platform ? MangaStyle.bubbleBlue : Color.clear)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(viewModel.selectedPlatform == platform ? MangaStyle.ink : Color.clear, lineWidth: MangaStyle.fineStrokeWidth)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(MangaCardBackground(cornerRadius: 12, elevated: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
     private func platformTabName(_ source: MusicSource) -> String {
         switch source {
         case .netease: return "NCM"
@@ -389,7 +595,7 @@ struct SearchView: View {
         case .local: return "Local"
         }
     }
-    
+
     private var isPlatformLoading: Bool {
         switch viewModel.selectedPlatform {
         case .netease: return viewModel.isNeteaseLoading
@@ -398,7 +604,7 @@ struct SearchView: View {
         case .local: return false
         }
     }
-    
+
     private var isPlatformEmpty: Bool {
         switch viewModel.selectedPlatform {
         case .netease:
@@ -421,9 +627,9 @@ struct SearchView: View {
         case .local: return true
         }
     }
-    
+
     // MARK: - 平台结果列表
-    
+
     private var platformResultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -445,7 +651,7 @@ struct SearchView: View {
             isFocused = false
         })
     }
-    
+
     @ViewBuilder
     private var neteaseResultsContent: some View {
         switch viewModel.currentTab {
@@ -497,7 +703,7 @@ struct SearchView: View {
             .padding(.top, 8)
         }
     }
-    
+
     @ViewBuilder
     private var qqResultsContent: some View {
         switch viewModel.currentTab {
@@ -546,7 +752,7 @@ struct SearchView: View {
             .padding(.top, 8)
         }
     }
-    
+
     @ViewBuilder
     private var qishuiResultsContent: some View {
         if viewModel.currentTab == .songs {
@@ -555,11 +761,11 @@ struct SearchView: View {
             EmptyView()
         }
     }
-    
+
     // MARK: - (旧双列代码已移除，改为标签页模式)
-    
+
     // MARK: - 展开单平台全屏列表
-    
+
     private func expandedResultsView(source: MusicSource) -> some View {
         VStack(spacing: 0) {
             if isSearchSelectMode {
@@ -605,9 +811,9 @@ struct SearchView: View {
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
-                    
+
                     Spacer()
-                    
+
                     if viewModel.currentTab == .songs {
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -619,7 +825,7 @@ struct SearchView: View {
                                 .background(Color.monologueTextPrimary.opacity(0.06))
                                 .clipShape(Circle())
                         }
-                        
+
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 isSearchSelectMode = true
@@ -636,7 +842,7 @@ struct SearchView: View {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.vertical, 8)
             }
-            
+
             ScrollView {
                 LazyVStack(spacing: 0) {
                     switch viewModel.currentTab {
@@ -664,9 +870,9 @@ struct SearchView: View {
             })
         }
     }
-    
+
     // MARK: - 展开歌曲列表
-    
+
     private func expandedSourceName(_ source: MusicSource) -> String {
         switch source {
         case .netease: return String(localized: "search_platform_netease")
@@ -675,7 +881,7 @@ struct SearchView: View {
         case .local: return "本地"
         }
     }
-    
+
     private func expandedFilteredSongs(source: MusicSource) -> [Song] {
         let songs: [Song]
         switch source {
@@ -686,7 +892,7 @@ struct SearchView: View {
         }
         return songs.filtered(by: searchFilterText)
     }
-    
+
     private func expandedSongsList(source: MusicSource) -> some View {
         let allSongs: [Song] = {
             switch source {
@@ -731,7 +937,7 @@ struct SearchView: View {
             BatchAddToPlaylistSheet(songs: songs.filter { searchSelectedIds.contains($0.id) })
         }
     }
-    
+
     private func searchBatchDownload(source: MusicSource) {
         let songs = expandedFilteredSongs(source: source)
         let selected = songs.filter { searchSelectedIds.contains($0.id) }
@@ -745,9 +951,9 @@ struct SearchView: View {
         AlertManager.shared.show(title: String(localized: "已加入下载"), message: String(localized: "已将 \(selected.count) 首歌曲加入下载队列"), primaryButtonTitle: String(localized: "确定"), primaryAction: {})
         withAnimation { isSearchSelectMode = false; searchSelectedIds.removeAll() }
     }
-    
+
     // MARK: - 展开歌手列表
-    
+
     private func expandedArtistsList(source: MusicSource) -> some View {
         let artists = source == .netease ? viewModel.neteaseArtistResults : viewModel.qqArtistResults
         return ForEach(Array(artists.enumerated()), id: \.element.id) { index, artist in
@@ -759,9 +965,9 @@ struct SearchView: View {
                 }
         }
     }
-    
+
     // MARK: - 展开歌单列表
-    
+
     private func expandedPlaylistsList(source: MusicSource) -> some View {
         let playlists = source == .netease ? viewModel.neteasePlaylistResults : viewModel.qqPlaylistResults
         return ForEach(Array(playlists.enumerated()), id: \.element.id) { index, playlist in
@@ -773,9 +979,9 @@ struct SearchView: View {
                 }
         }
     }
-    
+
     // MARK: - 展开专辑列表
-    
+
     private func expandedAlbumsList(source: MusicSource) -> some View {
         let albums = source == .netease ? viewModel.neteaseAlbumResults : viewModel.qqAlbumResults
         return ForEach(Array(albums.enumerated()), id: \.element.id) { index, album in
@@ -787,9 +993,9 @@ struct SearchView: View {
                 }
         }
     }
-    
+
     // MARK: - 展开 MV 列表（仅ncm）
-    
+
     private var expandedMVsList: some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
@@ -813,7 +1019,7 @@ struct SearchView: View {
     }
 
     // MARK: - 通用行组件
-    
+
     private func artistRow(artist: ArtistInfo) -> some View {
         Button(action: {
             if artist.isQQMusic {
@@ -831,13 +1037,13 @@ struct SearchView: View {
                 }
                 .frame(width: 52, height: 52)
                 .clipShape(Circle())
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(artist.name)
                         .font(.rounded(size: 16, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     HStack(spacing: 8) {
                         if let albumSize = artist.albumSize, albumSize > 0 {
                             Text(String(format: String(localized: "search_album_count"), albumSize))
@@ -851,18 +1057,25 @@ struct SearchView: View {
                         }
                     }
                 }
-                
+
                 Spacer()
-                
+
                 MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, 10)
+            .padding(.horizontal, MujiStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+            .background {
+                if MujiStyle.isActive {
+                    MujiPaperCardBackground(cornerRadius: 10)
+                }
+            }
+            .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
+
     private func playlistRow(playlist: Playlist) -> some View {
         Button(action: {
             if playlist.isQQMusic {
@@ -879,13 +1092,13 @@ struct SearchView: View {
                 }
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
                         .font(.rounded(size: 16, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     HStack(spacing: 8) {
                         if let trackCount = playlist.trackCount, trackCount > 0 {
                             Text(String(format: String(localized: "search_track_count"), trackCount))
@@ -900,18 +1113,25 @@ struct SearchView: View {
                         }
                     }
                 }
-                
+
                 Spacer()
-                
+
                 MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, 10)
+            .padding(.horizontal, MujiStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+            .background {
+                if MujiStyle.isActive {
+                    MujiPaperCardBackground(cornerRadius: 10)
+                }
+            }
+            .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
+
     private func albumRow(album: SearchAlbum) -> some View {
         Button(action: {
             if album.isQQMusic {
@@ -929,19 +1149,19 @@ struct SearchView: View {
                 }
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.name)
                         .font(.rounded(size: 16, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     HStack(spacing: 8) {
                         Text(album.artistName)
                             .font(.rounded(size: 12, weight: .regular))
                             .foregroundColor(.monologueTextSecondary)
                             .lineLimit(1)
-                        
+
                         if let size = album.size, size > 0 {
                             Text(String(format: String(localized: "search_track_count"), size))
                                 .font(.rounded(size: 12, weight: .regular))
@@ -949,18 +1169,25 @@ struct SearchView: View {
                         }
                     }
                 }
-                
+
                 Spacer()
-                
+
                 MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, 10)
+            .padding(.horizontal, MujiStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+            .background {
+                if MujiStyle.isActive {
+                    MujiPaperCardBackground(cornerRadius: 10)
+                }
+            }
+            .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
+
     private func mvsResultList(mvs: [MV]) -> some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
@@ -977,9 +1204,9 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 4)
     }
-    
+
     // MARK: - QQ MV 结果列表
-    
+
     private func qqMVsResultList(mvs: [QQMV]) -> some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
@@ -993,9 +1220,9 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 4)
     }
-    
+
     // MARK: - QQ MV 网格卡片
-    
+
     private func qqMVGridCard(mv: QQMV) -> some View {
         Button(action: {
             selectedQQMV = QQMVVidItem(vid: mv.vid)
@@ -1017,7 +1244,7 @@ struct SearchView: View {
                             .frame(height: 100)
                             .aspectRatio(16/9, contentMode: .fit)
                     }
-                    
+
                     if !mv.durationText.isEmpty {
                         Text(mv.durationText)
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
@@ -1029,19 +1256,19 @@ struct SearchView: View {
                             .padding(8)
                     }
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mv.name)
                         .font(.rounded(size: 14, weight: .semibold))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     HStack(spacing: 4) {
                         Text(mv.singerName ?? String(localized: "search_unknown_artist"))
                             .font(.rounded(size: 12))
                             .foregroundColor(.monologueTextSecondary)
                             .lineLimit(1)
-                        
+
                         if !mv.playCountText.isEmpty {
                             Circle()
                                 .fill(Color.monologueTextSecondary.opacity(0.3))
@@ -1057,9 +1284,9 @@ struct SearchView: View {
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
-    
+
     // MARK: - 展开 QQ MV 列表
-    
+
     private var expandedQQMVsList: some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
@@ -1080,7 +1307,7 @@ struct SearchView: View {
     }
 
     // MARK: - 最佳匹配卡片
-    
+
     private func bestMatchSection(match: SearchMultimatchResult) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(LocalizedStringKey("search_best_match"))
@@ -1088,7 +1315,7 @@ struct SearchView: View {
                 .foregroundColor(.monologueTextSecondary)
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.bottom, 10)
-            
+
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     if let artist = match.artist {
@@ -1102,7 +1329,7 @@ struct SearchView: View {
                             showArtistDetail = true
                         }
                     }
-                    
+
                     if let album = match.album {
                         bestMatchCard(
                             imageUrl: album.coverUrl?.sized(200),
@@ -1114,7 +1341,7 @@ struct SearchView: View {
                             showAlbumDetail = true
                         }
                     }
-                    
+
                     if let playlist = match.playlist {
                         bestMatchCard(
                             imageUrl: playlist.coverUrl?.sized(200),
@@ -1133,7 +1360,7 @@ struct SearchView: View {
         }
         .padding(.top, 4)
     }
-    
+
     private func bestMatchCard(
         imageUrl: URL?,
         title: String,
@@ -1149,21 +1376,21 @@ struct SearchView: View {
                 }
                 .frame(width: 50, height: 50)
                 .clipShape(isCircle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 10)))
-                
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.rounded(size: 14, weight: .semibold))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     Text(subtitle)
                         .font(.rounded(size: 12))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                 }
-                
+
                 Spacer(minLength: 0)
-                
+
                 MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
             }
             .padding(12)
@@ -1177,16 +1404,20 @@ struct SearchView: View {
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
-    
+
     // MARK: - 空结果提示
-    
+
     private var emptyResultsView: some View {
         ContentUnavailableView.search(text: viewModel.query)
     }
 
     // MARK: - 搜索历史 & 热搜
-    
+
+    @ViewBuilder
     private var emptySearchView: some View {
+        if MujiStyle.isActive {
+            mujiEmptySearchView
+        } else {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 // 搜索历史
@@ -1195,9 +1426,9 @@ struct SearchView: View {
                         Text(LocalizedStringKey("search_history"))
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(.monologueTextSecondary)
-                        
+
                         Spacer()
-                        
+
                         Button(action: {
                             viewModel.clearAllHistory()
                         }) {
@@ -1207,7 +1438,7 @@ struct SearchView: View {
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 16)
                     .padding(.bottom, 12)
-                    
+
                     ForEach(viewModel.searchHistory, id: \.id) { item in
                         Button(action: {
                             viewModel.performSearch(keyword: item.keyword)
@@ -1215,14 +1446,14 @@ struct SearchView: View {
                         }) {
                             HStack(spacing: 14) {
                                 MonologueIcon(icon: .clock, size: 16, color: .monologueTextSecondary)
-                                
+
                                 Text(item.keyword)
                                     .font(.rounded(size: 16, weight: .regular))
                                     .foregroundColor(.monologueTextPrimary)
                                     .lineLimit(1)
-                                
+
                                 Spacer()
-                                
+
                                 Button(action: {
                                     viewModel.deleteHistoryItem(keyword: item.keyword)
                                 }) {
@@ -1236,7 +1467,7 @@ struct SearchView: View {
                         .buttonStyle(PlainButtonStyle())
                     }
                 }
-                
+
                 // 热门搜索
                 if !viewModel.hotSearchItems.isEmpty {
                     Text(LocalizedStringKey("search_hot"))
@@ -1245,7 +1476,7 @@ struct SearchView: View {
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                         .padding(.top, 20)
                         .padding(.bottom, 12)
-                    
+
                     FlowLayout(spacing: 10) {
                         ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
                             Button(action: {
@@ -1267,6 +1498,110 @@ struct SearchView: View {
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 }
             }
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+        }
+    }
+
+    private var mujiEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if !viewModel.searchHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .center) {
+                            MujiSectionTitle(title: String(localized: "search_history"))
+
+                            Spacer()
+
+                            Button(action: { viewModel.clearAllHistory() }) {
+                                MonologueIcon(icon: .trash, size: 15, color: MujiStyle.inkMuted)
+                                    .frame(width: 34, height: 34)
+                                    .background(MujiStyle.surface, in: Circle())
+                                    .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(viewModel.searchHistory.enumerated()), id: \.element.id) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.keyword)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(MujiStyle.labelFont(10, weight: .semibold))
+                                            .foregroundStyle(MujiStyle.inkMuted)
+                                            .frame(width: 24, alignment: .leading)
+
+                                        Text(item.keyword)
+                                            .font(MujiStyle.bodyFont(15, weight: .regular))
+                                            .foregroundStyle(MujiStyle.ink)
+                                            .lineLimit(1)
+
+                                        Spacer()
+
+                                        Button {
+                                            viewModel.deleteHistoryItem(keyword: item.keyword)
+                                        } label: {
+                                            MonologueIcon(icon: .xmark, size: 11, color: MujiStyle.inkMuted.opacity(0.72))
+                                                .frame(width: 26, height: 26)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 12)
+                                }
+                                .buttonStyle(.plain)
+
+                                if index < viewModel.searchHistory.count - 1 {
+                                    MujiListDivider()
+                                        .padding(.leading, 52)
+                                }
+                            }
+                        }
+                        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+                    }
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        MujiSectionTitle(title: String(localized: "search_hot"))
+
+                        FlowLayout(spacing: 10) {
+                            ForEach(Array(viewModel.hotSearchItems.prefix(20).enumerated()), id: \.element.searchWord) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 7) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(MujiStyle.labelFont(9, weight: .semibold))
+                                            .foregroundStyle(index < 3 ? MujiStyle.clay : MujiStyle.inkMuted)
+
+                                        Text(item.searchWord)
+                                            .font(MujiStyle.labelFont(13, weight: .regular))
+                                            .foregroundStyle(MujiStyle.ink)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 9)
+                                    .background(MujiStyle.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(MujiPaperCardBackground(cornerRadius: 12))
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 4)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)

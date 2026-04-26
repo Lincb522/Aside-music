@@ -4,6 +4,7 @@
 // 播放控制：暂停/恢复、上/下一首、切换模式、停止、切换音质
 
 import Foundation
+import AVFoundation
 import Combine
 
 extension PlayerManager {
@@ -43,6 +44,10 @@ extension PlayerManager {
             refreshPlaybackSurfaceState()
             return currentSong != nil
         case .paused:
+            // 懒激活：确保 session 处于激活态。
+            // 冷启动恢复路径下，setupAudioSession 只预声明了 category，尚未 setActive；
+            // 这里是用户显式点播放，必须在 streamPlayer.resume 前激活音频路由。
+            activateAudioSessionForPlayback(reason: "playPlayback resume")
             streamPlayer.resume()
             isPlaying = true
             refreshPlaybackSurfaceState()
@@ -124,6 +129,13 @@ extension PlayerManager {
         qualitySwitchTimeoutTask = nil
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
+        // 释放音频会话并通知其他 App 恢复播放（如 Apple Music、播客等）
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            lastAppliedAudioSessionOptions = nil
+        } catch {
+            AppLogger.warning("释放音频会话失败: \(error)")
+        }
         isPlaying = false
         currentSong = nil
         streamInfo = nil
@@ -161,11 +173,15 @@ extension PlayerManager {
     
     func switchQuality(_ quality: SoundQuality) {
         guard soundQuality != quality || !hasManualNeteaseQualityOverride else { return }
+
+        // 游戏模式下用户手动切音质 → 同步更新备份值（由 GameModeManager 判断内部/外部）
+        GameModeManager.shared.userDidSwitchSoundQuality(quality)
+
         guard let current = currentSong else {
             soundQuality = quality
             return
         }
-        
+
         soundQuality = quality
         hasManualNeteaseQualityOverride = true
         restartCurrentSongForQualityChange(song: current, startTime: currentTime)

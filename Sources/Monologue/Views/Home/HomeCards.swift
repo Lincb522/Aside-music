@@ -11,12 +11,12 @@ struct SectionHeader: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .regular) : .system(size: 22, weight: .heavy, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
-                    .tracking(-0.3)
+                    .tracking(MujiStyle.isActive ? 0.5 : -0.3)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundColor(.monologueTextSecondary)
                 }
             }
@@ -25,13 +25,14 @@ struct SectionHeader: View {
                 Button(action: action) {
                     HStack(spacing: 4) {
                         Text(LocalizedStringKey("view_all"))
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .semibold) : .system(size: 11, weight: .bold, design: .rounded))
                         MonologueIcon(icon: .chevronRight, size: 8, color: .monologueTextSecondary)
                     }
                     .foregroundColor(.monologueTextSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(Color.monologueTextSecondary.opacity(0.06)))
+                    .background(Capsule().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueTextSecondary.opacity(0.06)))
+                    .overlay(Capsule().stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
                 .padding(.bottom, 1)
@@ -55,12 +56,13 @@ struct SongCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .bottomTrailing) {
                     CachedAsyncImage(url: song.coverUrl) {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous)
                             .fill(Color.monologueSeparator)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: DeviceLayout.isPad ? 180 : 140, height: DeviceLayout.isPad ? 180 : 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous).stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
 
                     if isCurrent {
                         PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
@@ -74,11 +76,11 @@ struct SongCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.name)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(isCurrent ? .monologueAccent : .monologueTextPrimary)
                         .lineLimit(1)
                     Text(song.artistName)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                 }
@@ -98,13 +100,14 @@ struct PlaylistVerticalCard: View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .bottomTrailing) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous)
                         .fill(Color.monologueSeparator)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.isPad ? 190 : 150, height: DeviceLayout.isPad ? 190 : 150)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous).stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
 
                 if let count = playlist.playCount, count > 0 {
                     HStack(spacing: 3) {
@@ -123,7 +126,7 @@ struct PlaylistVerticalCard: View {
             .frame(width: DeviceLayout.isPad ? 190 : 150, height: DeviceLayout.isPad ? 190 : 150)
 
             Text(playlist.name)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundColor(.monologueTextPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)

@@ -426,11 +426,14 @@ class PlayerManager: ObservableObject {
     /// NotificationCenter observer tokens
     var interruptionObserver: Any?
     var mediaResetObserver: Any?
+    /// 次要音频降音提示（其他主媒体 App 开始/停止播放时系统发出的提示）
     var silenceHintObserver: Any?
     var foregroundObserver: Any?
     /// 音频路由变化（其他 App 释放会话等）时用于延迟尝试恢复播放
     var routeChangeObserver: Any?
     var routeChangeResumeWorkItem: DispatchWorkItem?
+    /// 最近一次实际应用到 AVAudioSession 的 options，避免重复 setActive
+    var lastAppliedAudioSessionOptions: AVAudioSession.CategoryOptions?
     
     /// 持久化时的最大 context 大小（防止序列化过大）
     let maxPersistContextSize = 200

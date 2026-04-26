@@ -18,24 +18,69 @@ extension PlayerManager {
     nonisolated static let mixingAudioSessionOptions: AVAudioSession.CategoryOptions = [.mixWithOthers]
 
     private func audioSessionOptions(otherAudioPlaying: Bool? = nil) -> AVAudioSession.CategoryOptions {
+        var base: AVAudioSession.CategoryOptions
         switch SettingsManager.shared.backgroundAudioPolicy {
         case .exclusive:
-            return Self.playbackAudioSessionOptions
+            base = Self.playbackAudioSessionOptions
         case .automatic:
             let shouldMix = otherAudioPlaying ?? AVAudioSession.sharedInstance().isOtherAudioPlaying
-            return shouldMix ? Self.mixingAudioSessionOptions : Self.playbackAudioSessionOptions
+            base = shouldMix ? Self.mixingAudioSessionOptions : Self.playbackAudioSessionOptions
         case .alwaysMix:
-            return Self.mixingAudioSessionOptions
+            base = Self.mixingAudioSessionOptions
         }
+        // 游戏模式 + 用户开启「游戏语音 / 系统语音优先」时，叠加
+        // `.interruptSpokenAudioAndMixWithOthers` —— Siri/VoIP/语音通话开始时自动压低音乐。
+        // 该 option 要求 `.playback` category，与 `.mixWithOthers` 可共存。
+        //
+        // ⚠️ 不直接访问 `GameModeManager.shared.isActive`：
+        // 本方法会在 `PlayerManager.init → setupAudioSession` 流程中同步调用；
+        // 若此时触发 `GameModeManager` 单例首次初始化，`GameModeManager.init`
+        // 又会反向访问 `PlayerManager.shared`（applyEnter 内的 handleBackgroundAudio...）,
+        // 造成冷启动单例循环 → EXC_BREAKPOINT。
+        // 改成从 App Group UserDefaults 直读，零单例依赖。
+        let gameModeActive = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
+            .bool(forKey: "monologue_game_mode_enabled") ?? false
+        if gameModeActive && SettingsManager.shared.gameModeAutoDucking {
+            base.insert(.interruptSpokenAudioAndMixWithOthers)
+        }
+        return base
     }
 
     func handleBackgroundAudioPolicySettingChanged() {
+        reapplyAudioSessionOptions(reason: "策略变更")
+    }
+
+    /// 供 GameModeManager 调用，当游戏模式/自动 ducking 开关变化时重新应用 options
+    func handleGameModeDuckingChanged() {
+        reapplyAudioSessionOptions(reason: "游戏模式 ducking 变更")
+    }
+
+    /// 根据当前策略和 `isOtherAudioPlaying` 状态，按需切换 session options。
+    /// 被以下时机调用：策略变更、其他 App 音频开始/结束、次要音频降音提示、中断恢复。
+    /// 仅在 options 真的发生变化时重写 session，避免无意义的 setActive。
+    ///
+    /// ⚠️ 懒激活策略：
+    ///   - **有当前歌曲**（`currentSong != nil`）才调用 `setActive(true)`
+    ///     激活 session；
+    ///   - **无当前歌曲**（用户只是切了设置但没播放）只更新 category，
+    ///     避免空闲状态下主动抢占音频路由。
+    ///   - 中断恢复/路由重置等必须激活的场景，调用方会先把
+    ///     `lastAppliedAudioSessionOptions` 置 nil 并确保此时 `currentSong`
+    ///     非空；若为空也不需要激活，自然无害。
+    func reapplyAudioSessionOptions(reason: String) {
         let session = AVAudioSession.sharedInstance()
-        let options = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
+        let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
+        guard desired != lastAppliedAudioSessionOptions else { return }
 
         do {
-            try session.setCategory(.playback, mode: .default, options: options)
-            try session.setActive(true)
+            try session.setCategory(.playback, mode: .default, options: desired)
+            if currentSong != nil {
+                try session.setActive(true)
+                AppLogger.info("音频会话已激活 options=\(desired)  原因: \(reason)")
+            } else {
+                AppLogger.info("音频会话仅更新 category options=\(desired)（无当前歌曲，延迟激活） 原因: \(reason)")
+            }
+            lastAppliedAudioSessionOptions = desired
             if currentSong != nil {
                 updateNowPlayingInfo()
                 updateNowPlayingArtwork(for: currentSong)
@@ -45,20 +90,84 @@ extension PlayerManager {
         }
     }
 
+    /// 开播前强制激活音频会话。
+    ///
+    /// `loadAndPlay(song:)` 首次调用此方法以：
+    ///   1. 在 `.automatic` 策略下，按最新的 `isOtherAudioPlaying` 选择 options；
+    ///   2. 把之前 `setupAudioSession` 里只预声明的 category 真正 `setActive(true)`；
+    ///   3. 与 StreamPlayer.play 前置，避免抢占音频路由在 play 之后发生。
+    ///
+    /// 无论 options 是否变化都执行一次 `setActive(true)`，因为即便 options 相同
+    /// 也可能是首次从"空闲未激活"切到"真正播放"的那一刻。
+    func activateAudioSessionForPlayback(reason: String) {
+        let session = AVAudioSession.sharedInstance()
+        let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
+
+        do {
+            if desired != lastAppliedAudioSessionOptions {
+                try session.setCategory(.playback, mode: .default, options: desired)
+                lastAppliedAudioSessionOptions = desired
+            }
+            try session.setActive(true)
+            AppLogger.info("音频会话已激活（开播前） options=\(desired)  原因: \(reason)")
+        } catch {
+            AppLogger.error("开播前激活音频会话失败: \(error)")
+        }
+    }
+
     // MARK: - Setup
 
     func setupAudioSession() {
+        // ⚠️ 懒激活：冷启动只**设置 category**，不 `setActive(true)`。
+        //
+        // 历史问题：App 启动即 `setActive(true)` 会**主动抢占音频路由**。
+        // 若用户设 `.exclusive` 但仅仅是打开 App 还没点播放，
+        // 也会把其他 App（如 Apple Music）打断，这不符合用户预期。
+        //
+        // 正确做法：
+        //   - 这里只预声明 category，让系统知道我们属于 playback；
+        //   - 真正的 `setActive(true)` 推迟到 `loadAndPlay(song:)` 第一次
+        //     开播、或 `reapplyAudioSessionOptions` 被策略变更触发时。
         do {
             let session = AVAudioSession.sharedInstance()
             let otherPlaying = session.isOtherAudioPlaying
             let opts = audioSessionOptions(otherAudioPlaying: otherPlaying)
             try session.setCategory(.playback, mode: .default, options: opts)
-            try session.setActive(true)
+            lastAppliedAudioSessionOptions = opts
             if otherPlaying && opts == Self.mixingAudioSessionOptions {
-                AppLogger.info("启动时检测到其他音频，以共存模式接入")
+                AppLogger.info("启动时检测到其他音频，以共存模式接入（未激活）")
             }
         } catch {
             AppLogger.error("AVAudioSession 配置失败: \(error)")
+        }
+
+        // 监听次要音频降音提示：其他主媒体 App 开始/停止播放时触发
+        // .automatic 策略下，我们据此动态切换 mixWithOthers options
+        if let old = silenceHintObserver {
+            NotificationCenter.default.removeObserver(old)
+        }
+        silenceHintObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.silenceSecondaryAudioHintNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let userInfo = notification.userInfo,
+                  let typeValue = userInfo[AVAudioSessionSilenceSecondaryAudioHintTypeKey] as? UInt,
+                  let hintType = AVAudioSession.SilenceSecondaryAudioHintType(rawValue: typeValue)
+            else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch hintType {
+                case .begin:
+                    AppLogger.info("其他主媒体 App 开始播放，重新评估 options")
+                    self.reapplyAudioSessionOptions(reason: "secondary hint begin")
+                case .end:
+                    AppLogger.info("其他主媒体 App 停止播放，重新评估 options")
+                    self.reapplyAudioSessionOptions(reason: "secondary hint end")
+                @unknown default:
+                    break
+                }
+            }
         }
         
         // 监听音频中断（电话、其他 app 播放等）
@@ -162,18 +271,14 @@ extension PlayerManager {
         if let old = mediaResetObserver {
             NotificationCenter.default.removeObserver(old)
         }
-        mediaResetObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { _ in
+        mediaResetObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in
             AppLogger.warning("媒体服务被重置，重建 audio session")
-            do {
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.playback, mode: .default, options: PlayerManager.playbackAudioSessionOptions)
-                try session.setActive(true)
-            } catch {
-                AppLogger.error("重建 audio session 失败: \(error)")
-            }
-            // 如果正在播放，重新触发当前歌曲播放（让库重新走 AudioRenderer.start 流程）
             Task { @MainActor [weak self] in
-                guard let self = self else { return }
+                guard let self else { return }
+                // 重置缓存，强制重写 options（而非跳过）
+                self.lastAppliedAudioSessionOptions = nil
+                self.reapplyAudioSessionOptions(reason: "media services reset")
+                // 如果正在播放，重新触发当前歌曲播放（让库重新走 AudioRenderer.start 流程）
                 if let song = self.currentSong, self.isPlaying {
                     let time = self.currentTime
                     AppLogger.info("媒体服务重置后重新播放: \(song.name), 从 \(String(format: "%.1f", time))s 继续")
@@ -313,13 +418,9 @@ extension PlayerManager {
     /// 中断恢复：先尝试 resume，如果播放器状态异常则从当前位置重新加载
     func resumeAfterInterruption() {
         AppLogger.info("恢复播放 (state=\(streamPlayer.state))")
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying))
-            try session.setActive(true)
-        } catch {
-            AppLogger.error("重新激活音频会话失败: \(error)")
-        }
+        // 强制重写 options（绕过缓存），中断恢复时确保 session 处于 active
+        lastAppliedAudioSessionOptions = nil
+        reapplyAudioSessionOptions(reason: "interruption resume")
 
         if streamPlayer.state == .paused {
             streamPlayer.resume()

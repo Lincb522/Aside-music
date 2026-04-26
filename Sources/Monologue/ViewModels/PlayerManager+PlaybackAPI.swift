@@ -17,6 +17,26 @@ extension PlayerManager {
         return defaults.bool(forKey: AppConfig.StorageKeys.insertPlaybackContext)
     }
 
+    /// 从"全部播放"等场景传入的列表中过滤掉**不可用**歌曲（无版权 / VIP 限制无 Cookie / 未购数字专辑 / 运行时兜底失败标记）。
+    /// 用户主动点击的 `tappedSong` 保留不过滤，即使它本身 unavailable —— 由 loadAndPlay 负责弹窗。
+    /// 这样做到：点全部播放时自动排除灰色歌，但手动点灰色歌仍给明确反馈。
+    private func filterUnavailable(_ songs: [Song], keeping tappedSong: Song?) -> [Song] {
+        let unavailableManager = UnavailableSongsManager.shared
+        let hasVIPCookie = APIService.shared.hasVIPCookie
+        return songs.filter { candidate in
+            // 用户点击的歌保留
+            if let tapped = tappedSong, tapped.id == candidate.id { return true }
+            // 本地歌曲直接保留（它们通常有文件就能播）
+            if candidate.isLocal { return true }
+            // 明确不可用的跳过
+            if candidate.isNoCopyright { return false }
+            if candidate.isVIPRestricted && !hasVIPCookie { return false }
+            if candidate.isUnpurchasedDigitalAlbum { return false }
+            if unavailableManager.isUnavailable(song: candidate) { return false }
+            return true
+        }
+    }
+
     private func replacePlaybackContext(song: Song, in newContext: [Song]) {
         self.playSource = .normal
         self.queueExhaustionBehavior = .loop
@@ -228,8 +248,11 @@ extension PlayerManager {
             return
         }
 
+        // "全部播放"等场景：过滤无版权/VIP 限制/未购数字专辑/已标灰失败的歌
+        let filteredContext = filterUnavailable(newContext, keeping: song)
+
         if hasRetainableCurrentQueue {
-            if shouldKeepExistingQueuePosition(for: song, in: newContext) {
+            if shouldKeepExistingQueuePosition(for: song, in: filteredContext) {
                 playFromQueue(song: song)
             } else {
                 playSongKeepingCurrentQueue(song: song)
@@ -244,10 +267,13 @@ extension PlayerManager {
         ensureMusicContextRestored()
         let isCurrentSongTarget = currentSong?.id == song.id
 
+        // 过滤灰色歌曲
+        let filteredContext = filterUnavailable(newContext, keeping: song)
+
         if insertsPlaybackContext {
-            insertPlaybackContext(song: song, in: newContext)
+            insertPlaybackContext(song: song, in: filteredContext)
         } else {
-            replacePlaybackContext(song: song, in: newContext)
+            replacePlaybackContext(song: song, in: filteredContext)
         }
 
         if isCurrentSongTarget {

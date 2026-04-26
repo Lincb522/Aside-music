@@ -144,13 +144,7 @@ struct MacHomeView: View {
     }
 
     private var greetingText: String {
-        let h = Calendar.current.component(.hour, from: Date())
-        switch h {
-        case 5..<11:  return NSLocalizedString("good_morning", comment: "")
-        case 11..<14: return NSLocalizedString("good_noon", comment: "")
-        case 14..<18: return NSLocalizedString("good_afternoon", comment: "")
-        default:      return NSLocalizedString("good_evening", comment: "")
-        }
+        MonologueTimeGreeting.localizedText
     }
 
     // MARK: - Banner

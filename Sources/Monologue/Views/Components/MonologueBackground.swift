@@ -44,28 +44,91 @@ struct MonologueBackground: View {
         settings.coverBgGlobal && player.currentSong != nil
     }
 
+    /// 当前全局主题 ID
+    private var themeId: GlobalThemeId {
+        GlobalThemeManager.shared.currentThemeId
+    }
+
     var body: some View {
         ZStack {
-            if useCoverBg {
+            // 根据全局主题决定底层背景
+            themeAwareBackground
+                .opacity(useCoverBg ? 0 : 1)
+
+            if let coverUrl = player.currentSong?.coverUrl?.sized(200),
+               settings.coverBgGlobal {
                 PlaylistColorBackground(
-                    coverUrl: player.currentSong?.coverUrl?.sized(200),
+                    coverUrl: coverUrl,
                     onBrightnessChanged: { isDark in
                         if settings.globalCoverIsDark != isDark {
                             settings.globalCoverIsDark = isDark
                         }
                     }
                 )
-            } else {
-                defaultBackground
+                .opacity(useCoverBg ? 1 : 0)
+                .transition(.opacity)
             }
         }
         .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.45), value: useCoverBg)
         .onChange(of: useCoverBg) { _, active in
             if !active && settings.globalCoverIsDark {
                 settings.globalCoverIsDark = false
             }
         }
     }
+
+    // MARK: - 主题感知的默认背景
+
+    @ViewBuilder
+    private var themeAwareBackground: some View {
+        switch themeId {
+        case .muji:
+            mujiBackground
+        case .manga:
+            mangaBackground
+        case .default:
+            defaultBackground
+        }
+    }
+
+    // MARK: - 无印良品背景
+
+    private var mujiBackground: some View {
+        ZStack {
+            MujiRootBackdrop()
+
+            Canvas { context, size in
+                let w = size.width
+                let h = size.height
+                if colorScheme == .dark {
+                    fillGlow(context, center: CGPoint(x: w * 0.16, y: h * 0.1), radius: w * 0.48,
+                             color: MujiStyle.clay, opacity: 0.12)
+                    fillGlow(context, center: CGPoint(x: w * 0.82, y: h * 0.38), radius: w * 0.42,
+                             color: MujiStyle.tea, opacity: 0.12)
+                } else {
+                    fillGlow(context, center: CGPoint(x: w * 0.16, y: h * 0.06), radius: w * 0.5,
+                             color: MujiStyle.straw, opacity: 0.16)
+                    fillGlow(context, center: CGPoint(x: w * 0.82, y: h * 0.44), radius: w * 0.42,
+                             color: MujiStyle.tea, opacity: 0.1)
+                    fillGlow(context, center: CGPoint(x: w * 0.44, y: h * 0.8), radius: w * 0.48,
+                             color: MujiStyle.indigo, opacity: 0.055)
+                }
+            }
+            .padding(-80)
+            .blur(radius: 58)
+            .ignoresSafeArea()
+            .drawingGroup()
+        }
+    }
+
+    // MARK: - 漫画风背景
+
+    private var mangaBackground: some View {
+        MangaRootBackdrop()
+    }
+
+    // MARK: - 默认背景
 
     private var defaultBackground: some View {
         ZStack {
@@ -161,12 +224,27 @@ struct MonologueLiquidGlassCard<Content: View>: View {
     }
 
     var body: some View {
-        content
-            .background(
-                SwiftUIGlassBackground(cornerRadius: cornerRadius)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 5)
+        if MangaStyle.isActive {
+            content
+                .background(MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true))
+        } else if MujiStyle.isActive {
+            content
+                .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
+        } else {
+            content
+                .background(
+                    SwiftUIGlassBackground(cornerRadius: cornerRadius)
+                )
+                .clipShape(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                )
+                .shadow(
+                    color: .black.opacity(0.08),
+                    radius: 10,
+                    x: 0,
+                    y: 5
+                )
+        }
     }
 }
 
@@ -178,47 +256,53 @@ struct SwiftUIGlassBackground: View {
     var body: some View {
         let isDark = colorScheme == .dark
         ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: cornerRadius)
+            if MangaStyle.isActive {
+                MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true)
+            } else if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.monologueGlassTint)
+                    .monologueGlass(cornerRadius: cornerRadius)
 
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(isDark ? Color.white.opacity(0.06) : Color.white.opacity(0.4))
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(isDark ? Color.white.opacity(0.06) : Color.white.opacity(0.4))
 
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: isDark
-                            ? [
-                                Color.white.opacity(0.15),
-                                Color.white.opacity(0.06),
-                                Color.white.opacity(0.03),
-                                Color.white.opacity(0.08)
-                            ]
-                            : [
-                                Color.white.opacity(0.6),
-                                Color.white.opacity(0.2),
-                                Color.white.opacity(0.1),
-                                Color.white.opacity(0.3)
-                            ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: isDark ? 0.5 : 1
-                )
-
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(isDark ? 0.04 : 0.15),
-                            Color.clear
-                        ],
-                        center: .topLeading,
-                        startRadius: 0,
-                        endRadius: 200
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: isDark
+                                ? [
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.06),
+                                    Color.white.opacity(0.03),
+                                    Color.white.opacity(0.08)
+                                ]
+                                : [
+                                    Color.white.opacity(0.6),
+                                    Color.white.opacity(0.2),
+                                    Color.white.opacity(0.1),
+                                    Color.white.opacity(0.3)
+                                ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: isDark ? 0.5 : 1
                     )
-                )
+
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(isDark ? 0.04 : 0.15),
+                                Color.clear
+                            ],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 200
+                        )
+                    )
+            }
         }
     }
 }

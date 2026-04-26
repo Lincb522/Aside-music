@@ -274,7 +274,7 @@ extension MangaChatPlayerLayout {
             mangaAvatar(size: 50)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(player.currentSong?.name ?? "未在播放")
+                Text(player.currentSong?.name ?? NSLocalizedString("not_playing", comment: "未在播放"))
                     .font(.system(size: 18, weight: .heavy, design: .rounded))
                     .foregroundColor(ink)
                     .lineLimit(1)
@@ -983,8 +983,12 @@ struct FloatingMangaDecorations: View, Equatable {
     }
     
     private func spawnInto(_ array: inout [Floater], initial: Bool, forceMeteor: Bool) {
+        // guard: size 尚未确定（GeometryReader 首次 pass 可能为 0）时直接跳过，
+        // 否则 CGFloat.random(in: 20...(size.width-20)) 会出现 lowerBound>upperBound 的崩溃。
+        guard size.width > 60, size.height > 120 else { return }
+
         let isDark = colorScheme == .dark
-        
+
         let type: DecoType
         if forceMeteor {
             type = .meteor
@@ -992,13 +996,25 @@ struct FloatingMangaDecorations: View, Equatable {
             let types: [DecoType] = isDark ? [.star] : [.sparkle, .star, .heart, .dot, .dot]
             type = types.randomElement()!
         }
-        
+
         let isMeteor = type == .meteor
         // 对流星来说，vx 现在用来当生命周期 tick 计数器，初始化为 0
         let vx: CGFloat = 0
         // 流星严格从屏幕左上方视野外随机范围内生成，配合延迟和多角度，绝对不会并排同频
-        let startX = isMeteor ? CGFloat.random(in: -300...(size.width * 0.2)) : CGFloat.random(in: 20...(size.width - 20))
-        let startY = initial ? CGFloat.random(in: 50...(size.height - 50)) : (isMeteor ? CGFloat.random(in: -300 ... -50) : (isDark ? CGFloat.random(in: 50...size.height - 50) : size.height + 20))
+        let meteorXUpper = max(-280, size.width * 0.2)
+        let startX = isMeteor
+            ? CGFloat.random(in: -300...meteorXUpper)
+            : CGFloat.random(in: 20...max(21, size.width - 20))
+        let startY: CGFloat
+        if initial {
+            startY = CGFloat.random(in: 50...max(51, size.height - 50))
+        } else if isMeteor {
+            startY = CGFloat.random(in: -300 ... -50)
+        } else if isDark {
+            startY = CGFloat.random(in: 50...max(51, size.height - 50))
+        } else {
+            startY = size.height + 20
+        }
         
         // 当深色模式生成星空时，初始就给星星赋予随机位置
         let f = Floater(

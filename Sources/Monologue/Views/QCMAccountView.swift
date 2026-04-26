@@ -6,27 +6,27 @@ import QQMusicKit
 
 struct QQAccountView: View {
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var isLoggedIn = false
     @State private var musicId: Int?
     @State private var loginType: Int?
     @State private var isChecking = true
     @State private var showQQLogin = false
     @State private var appearAnimation = false
-    
+
     // 真实账号信息
     @State private var nickname: String?
     @State private var avatarURL: String?
     @State private var isSVIP = false
     @State private var isVIP = false
-    
+
     private var qqClient: QQMusicClient { APIService.shared.qqClient }
-    
+
     var body: some View {
         ZStack {
             MonologueBackground()
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 28) {
@@ -63,6 +63,7 @@ struct QQAccountView: View {
         .sheet(isPresented: $showQQLogin) {
             NavigationStack {
                 QQLoginView()
+
             }
         }
         .onChange(of: showQQLogin) { _, showing in
@@ -71,9 +72,9 @@ struct QQAccountView: View {
             }
         }
     }
-    
+
     // MARK: - Loading
-    
+
     private var loadingView: some View {
         VStack(spacing: 20) {
             ZStack {
@@ -92,26 +93,26 @@ struct QQAccountView: View {
     }
 
     // MARK: - 已登录
-    
+
     private var loggedInContent: some View {
         VStack(spacing: 24) {
             heroCard
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 20)
-            
+
             detailCards
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 30)
-            
+
             expiryTip
                 .opacity(appearAnimation ? 1 : 0)
-            
+
             actionButtons
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 15)
         }
     }
-    
+
     private var heroCard: some View {
         VStack(spacing: 20) {
             // 头像
@@ -119,7 +120,7 @@ struct QQAccountView: View {
                 Circle()
                     .stroke(Color.monologueAccentGreen.opacity(0.15), lineWidth: 2)
                     .frame(width: 108, height: 108)
-                
+
                 if let urlStr = avatarURL, let url = URL(string: urlStr) {
                     CachedAsyncImage(url: url) {
                         avatarPlaceholder
@@ -132,7 +133,7 @@ struct QQAccountView: View {
                     avatarPlaceholder
                 }
             }
-            
+
             VStack(spacing: 10) {
                 // 昵称
                 HStack(spacing: 8) {
@@ -140,7 +141,7 @@ struct QQAccountView: View {
                         .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     // VIP 徽章
                     if isSVIP {
                         Text("SVIP")
@@ -166,7 +167,7 @@ struct QQAccountView: View {
                             .clipShape(Capsule())
                     }
                 }
-                
+
                 // 状态标签
                 HStack(spacing: 6) {
                     Circle()
@@ -186,14 +187,14 @@ struct QQAccountView: View {
         .padding(.vertical, 32)
         .monologueGlass(cornerRadius: 24)
     }
-    
+
     private var avatarPlaceholder: some View {
         ZStack {
             Circle()
                 .fill(Color.monologueGlassTint)
                 .frame(width: 92, height: 92)
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
-            
+
             ZStack {
                 MonologueIcon(icon: .musicNote, size: 24, color: .monologueIconForeground)
             }
@@ -201,7 +202,7 @@ struct QQAccountView: View {
             .monologueGlassCircle()
         }
     }
-    
+
     private var detailCards: some View {
         VStack(spacing: 0) {
             detailRow(
@@ -216,7 +217,7 @@ struct QQAccountView: View {
         }
         .monologueGlass(cornerRadius: 18)
     }
-    
+
     private func detailRow(icon: MonologueIcon.IconType, title: String, trailing: AnyView) -> some View {
         HStack(spacing: 14) {
             ZStack {
@@ -225,20 +226,20 @@ struct QQAccountView: View {
                     .frame(width: 32, height: 32)
                 MonologueIcon(icon: icon, size: 15, color: .monologueTextSecondary)
             }
-            
+
             Text(title)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundColor(.monologueTextPrimary)
-            
+
             Spacer()
-            
+
             trailing
         }
         .padding(.horizontal, DeviceLayout.isPad ? 20 : 16)
         .padding(.vertical, 14)
     }
-    
-    
+
+
     private var expiryTip: some View {
         HStack(spacing: 10) {
             ZStack {
@@ -247,7 +248,7 @@ struct QQAccountView: View {
                     .frame(width: 28, height: 28)
                 MonologueIcon(icon: .clock, size: 13, color: .monologueOrange)
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(LocalizedStringKey("qq_expiry_title"))
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -256,7 +257,7 @@ struct QQAccountView: View {
                     .font(.system(size: 11, weight: .regular, design: .rounded))
                     .foregroundColor(.monologueTextSecondary)
             }
-            
+
             Spacer()
         }
         .padding(14)
@@ -269,7 +270,7 @@ struct QQAccountView: View {
                 )
         )
     }
-    
+
     private var actionButtons: some View {
         VStack(spacing: 12) {
             Button(action: { showQQLogin = true }) {
@@ -285,7 +286,7 @@ struct QQAccountView: View {
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            
+
             Button(action: {
                 AlertManager.shared.show(
                     title: NSLocalizedString("qq_logout_title", comment: ""),
@@ -310,17 +311,17 @@ struct QQAccountView: View {
     }
 
     // MARK: - 未登录
-    
+
     private var notLoggedInContent: some View {
         VStack(spacing: 0) {
             Spacer().frame(height: 60)
-            
+
             ZStack {
                 Circle()
                     .fill(Color.monologueGlassTint)
                     .frame(width: 120, height: 120)
                     .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
-                
+
                 ZStack {
                     Circle()
                         .fill(Color.monologueSeparator)
@@ -330,14 +331,14 @@ struct QQAccountView: View {
             }
             .opacity(appearAnimation ? 1 : 0)
             .scaleEffect(appearAnimation ? 1 : 0.8)
-            
+
             Spacer().frame(height: 28)
-            
+
             VStack(spacing: 10) {
                 Text(LocalizedStringKey("qq_not_logged_in"))
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
-                
+
                 Text(LocalizedStringKey("qq_not_logged_desc"))
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.monologueTextSecondary)
@@ -346,9 +347,9 @@ struct QQAccountView: View {
             }
             .opacity(appearAnimation ? 1 : 0)
             .offset(y: appearAnimation ? 0 : 15)
-            
+
             Spacer().frame(height: 36)
-            
+
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 10) {
                     MonologueIcon(icon: .qr, size: 18, color: .monologueTextPrimary)
@@ -364,15 +365,15 @@ struct QQAccountView: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .opacity(appearAnimation ? 1 : 0)
             .offset(y: appearAnimation ? 0 : 20)
-            
+
             Spacer().frame(height: 32)
-            
+
             featureList
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 25)
         }
     }
-    
+
     private var featureList: some View {
         VStack(spacing: 0) {
             featureRow(icon: .search, title: NSLocalizedString("qq_feature_search", comment: ""), subtitle: NSLocalizedString("qq_feature_search_desc", comment: ""))
@@ -383,7 +384,7 @@ struct QQAccountView: View {
         }
         .monologueGlass(cornerRadius: 18)
     }
-    
+
     private func featureRow(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             ZStack {
@@ -392,7 +393,7 @@ struct QQAccountView: View {
                     .frame(width: 32, height: 32)
                 MonologueIcon(icon: icon, size: 15, color: .monologueTextSecondary)
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -401,15 +402,15 @@ struct QQAccountView: View {
                     .font(.system(size: 12, weight: .regular, design: .rounded))
                     .foregroundColor(.monologueTextSecondary)
             }
-            
+
             Spacer()
         }
         .padding(.horizontal, DeviceLayout.isPad ? 20 : 16)
         .padding(.vertical, 13)
     }
-    
+
     // MARK: - Actions
-    
+
     private var userSession: QQUserSession { QQUserSession.shared }
 
     private func checkStatus() async {
@@ -480,7 +481,7 @@ struct QQAccountView: View {
             } catch {}
         }
     }
-    
+
     private func performLogout() async {
         userSession.onLogout()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {

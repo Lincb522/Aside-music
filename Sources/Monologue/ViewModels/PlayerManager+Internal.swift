@@ -645,9 +645,12 @@ extension PlayerManager {
                         self.saveState()
                         if autoPlay {
                             if (error as? APIService.PlaybackError) == .unavailable {
-                                AppLogger.info("NCM歌曲无版权，自动跳过: \(song.name)")
-                                self.next()
+                                // 标记为无版权，UI 层据此显示灰色；不再自动跳下一首
+                                UnavailableSongsManager.shared.markUnavailable(song: song)
+                                AppLogger.info("NCM歌曲无版权，标记灰色: \(song.name)")
+                                self.showPlaybackError(song: song, error: error)
                             } else {
+                                UnavailableSongsManager.shared.markTransient(song: song)
                                 self.showPlaybackError(song: song, error: error)
                             }
                         }
@@ -655,6 +658,8 @@ extension PlayerManager {
                 }, receiveValue: { [weak self] result in
                     guard let self = self, let url = URL(string: result.url) else { return }
                     guard self.playbackSessionId == sessionId else { return }
+                    // 成功拿到 URL，清掉之前的失败标记
+                    UnavailableSongsManager.shared.clear(song: song)
                     self.isCurrentSongUnblocked = result.isUnblocked
                     if let actualQuality = result.actualNeteaseQuality {
                         self.soundQuality = actualQuality
@@ -717,13 +722,19 @@ extension PlayerManager {
         self.currentPlayingURL = url.playerInputString
         
         AppLogger.network("开始播放 (FFmpeg): \(url.playerInputString)\(decryptionKey != nil ? " [encrypted]" : "")")
-        
+
         AppLogger.info("startPlayback session=\(playbackSessionId), url=\(url.lastPathComponent)")
-        
+
         playbackStartedAt = Date()
-        
+
+        // 开播前按当前策略激活音频会话（懒激活）：
+        // 冷启动 setupAudioSession 只预声明 category、未 setActive。
+        // 这里是真正需要把 session 接入系统音频路由的第一时间点。
+        // `.automatic` 策略也会在此处按最新的 isOtherAudioPlaying 重新决议 options。
+        activateAudioSessionForPlayback(reason: "loadAndPlay start")
+
         streamPlayer.play(url: url.playerInputString, decryptionKey: decryptionKey)
-        
+
         if !autoPlay {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.streamPlayer.pause()
@@ -774,6 +785,13 @@ extension PlayerManager {
                         self.isLoading = false
                         self.refreshPlaybackSurfaceState()
                         self.saveState()
+                        // 标记失败：unavailable 走无版权，其他走 transient
+                        if (error as? APIService.PlaybackError) == .unavailable {
+                            UnavailableSongsManager.shared.markUnavailable(song: song)
+                            AppLogger.info("[QQMusic] 数字专辑未购/无版权，标记灰色: \(song.name)")
+                        } else {
+                            UnavailableSongsManager.shared.markTransient(song: song)
+                        }
                         if autoPlay {
                             self.showPlaybackError(song: song, error: error)
                         }
@@ -781,6 +799,8 @@ extension PlayerManager {
                 }, receiveValue: { [weak self] result in
                     guard let self = self, let url = URL(string: result.url) else { return }
                     guard self.playbackSessionId == sessionId else { return }
+                    // 成功 → 清掉之前的失败标记
+                    UnavailableSongsManager.shared.clear(song: song)
                     self.isCurrentSongUnblocked = false
                     
                     if let actual = result.actualQQQuality {

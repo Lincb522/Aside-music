@@ -10,7 +10,8 @@ import SwiftUI
 struct PlaybackSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var eqManager = EQManager.shared
-    
+    @ObservedObject private var gameMode = GameModeManager.shared
+
     @State private var showPlaybackQualitySheet = false
     @State private var showQQPlaybackQualitySheet = false
     @State private var showQishuiPlaybackQualitySheet = false
@@ -154,6 +155,36 @@ struct PlaybackSettingsView: View {
                     .opacity(0.4)
                     .padding(.leading, 62)
 
+                NavigationLink(destination: GameModeSettingsView()) {
+                    HStack(spacing: 12) {
+                        SettingsIconBadge(icon: .waveform)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(localized: "game_mode_settings_entry"))
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundColor(.monologueTextPrimary)
+                            Text(gameModeSubtitle)
+                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .opacity(0.4)
+                    .padding(.leading, 62)
+
                 SettingsToggleRow(
                     icon: .waveform,
                     title: String(localized: "settings_global_equalizer"),
@@ -271,6 +302,12 @@ struct PlaybackSettingsView: View {
             return String(format: String(localized: "settings_global_equalizer_enabled"), presetName)
         }
         return String(localized: "settings_global_equalizer_desc")
+    }
+
+    private var gameModeSubtitle: String {
+        gameMode.isActive
+            ? String(localized: "game_mode_settings_subtitle_on")
+            : String(localized: "game_mode_settings_subtitle_off")
     }
 
     private var backgroundAudioPolicySubtitle: String {

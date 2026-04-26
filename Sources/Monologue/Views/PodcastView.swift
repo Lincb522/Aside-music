@@ -50,11 +50,18 @@ struct PodcastView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 28) {
+                            if MangaStyle.isActive {
+                                mangaPodcastHeader
+                            } else if MujiStyle.isActive {
+                                mujiPodcastHeader
+                                mujiPodcastSummary
+                            }
+
                             // 历史记录（如果存在）
                             if !playerManager.podcastHistory.isEmpty {
                                 podcastHistorySection
                             }
-                            
+
                             // DJ Banner 轮播
                             if !viewModel.djBanners.isEmpty {
                                 bannerSection
@@ -113,14 +120,16 @@ struct PodcastView: View {
                     }
                 }
             }
-            .navigationTitle(LocalizedStringKey("tabbar_podcast"))
+            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "tabbar_podcast"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(value: PodcastDestination.search) {
-                        MonologueIcon(icon: .search, size: 16)
-                            .padding(2)
+                if !MangaStyle.isActive && !MujiStyle.isActive {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink(value: PodcastDestination.search) {
+                            MonologueIcon(icon: .search, size: 16)
+                                .padding(2)
+                        }
                     }
                 }
             }
@@ -128,16 +137,22 @@ struct PodcastView: View {
                 switch destination {
                 case .category(let cat):
                     CategoryRadioView(category: cat)
+
                 case .radioDetail(let radioId):
                     RadioDetailView(radioId: radioId)
+
                 case .search:
                     PodcastSearchView()
+
                 case .topList(let title, let listType):
                     TopRadioListView(title: title, listType: listType)
+
                 case .categoryBrowse:
                     RadioCategoryBrowseView()
+
                 case .broadcastList:
                     BroadcastListView()
+
                 }
             }
         }
@@ -156,6 +171,7 @@ struct PodcastView: View {
         }
         .fullScreenCover(item: $bannerWebURL) { url in
             MonologueWebView(url: url, title: nil)
+
         }
         .onChange(of: radioIdToOpen) { _, newId in
             if newId > 0 {
@@ -165,6 +181,107 @@ struct PodcastView: View {
     }
 
     // MARK: - DJ Banner 轮播
+
+    private var mangaPodcastHeader: some View {
+        MangaPageHeader(
+            eyebrow: "RADIO",
+            title: String(localized: "tabbar_podcast"),
+            subtitle: ""
+        ) {
+            NavigationLink(value: PodcastDestination.search) {
+                MangaIconBadge(systemName: "magnifyingglass", size: 48, tint: MangaStyle.bubbleBlue)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var mujiPodcastHeader: some View {
+        MujiPageHeader(
+            eyebrow: "radio archive",
+            title: String(localized: "tabbar_podcast"),
+            subtitle: ""
+        ) {
+            NavigationLink(value: PodcastDestination.search) {
+                MujiIconBadge(icon: .search, tint: MujiStyle.indigo, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var mujiPodcastSummary: some View {
+        HStack(spacing: 10) {
+            MujiMetricTile(value: "\(viewModel.personalizedRadios.count)", label: String(localized: "podcast_for_you"), tint: MujiStyle.clay)
+            MujiMetricTile(value: "\(viewModel.categories.count)", label: String(localized: "podcast_all"), tint: MujiStyle.tea)
+            MujiMetricTile(value: "\(viewModel.broadcastChannels.count)", label: String(localized: "podcast_broadcast"), tint: MujiStyle.indigo)
+        }
+        .padding(14)
+        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+        .padding(.horizontal, padH)
+    }
+
+    @ViewBuilder
+    private func podcastSectionHeader(
+        title: String,
+        detail: String? = nil,
+        destination: PodcastDestination? = nil
+    ) -> some View {
+        if MangaStyle.isActive {
+            HStack(alignment: .center, spacing: 12) {
+                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
+
+                Text(title)
+                    .font(MangaStyle.titleFont(18, weight: .black))
+                    .foregroundStyle(MangaStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                Spacer(minLength: 0)
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        MangaLabel(text: String(localized: "view_all"), tint: MangaStyle.decoBlue, small: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        } else if MujiStyle.isActive {
+            HStack(alignment: .bottom, spacing: 14) {
+                MujiSectionTitle(title: title, detail: detail)
+
+                Spacer(minLength: 0)
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        } else {
+            HStack {
+                Text(title)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer()
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        HStack(spacing: 4) {
+                            Text("mv_more_section")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                        }
+                        .foregroundColor(.monologueTextSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        }
+    }
 
     private var bannerSection: some View {
         HomeBannerSection(
@@ -221,6 +338,26 @@ struct PodcastView: View {
         ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
+                    if MangaStyle.isActive {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: .gridSquare, size: 15, color: MangaStyle.ink, lineWidth: 1.8)
+                            Text(String(localized: "podcast_all"))
+                                .font(MangaStyle.labelFont(12, weight: .black))
+                        }
+                        .foregroundStyle(MangaStyle.ink)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(MangaStyle.labelYellow))
+                        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                        .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                    } else if MujiStyle.isActive {
+                        MujiActionPill(
+                            title: String(localized: "podcast_all"),
+                            icon: .gridSquare,
+                            selected: true,
+                            tint: MujiStyle.clay
+                        )
+                    } else {
                     HStack(spacing: 6) {
                         MonologueIcon(icon: .gridSquare, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
                         Text("podcast_all")
@@ -230,11 +367,30 @@ struct PodcastView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Capsule().fill(Color.monologueIconBackground))
+                    }
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
 
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
+                        if MangaStyle.isActive {
+                            HStack(spacing: 6) {
+                                MonologueIcon(icon: cat.monologueIconType, size: 16, color: MangaStyle.ink, lineWidth: 1.8)
+                                Text(cat.name)
+                                    .font(MangaStyle.labelFont(12, weight: .bold))
+                            }
+                            .foregroundStyle(MangaStyle.ink)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 10)
+                            .background(Capsule().fill(MangaStyle.bubbleWhite))
+                            .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                        } else if MujiStyle.isActive {
+                            MujiActionPill(
+                                title: cat.name,
+                                icon: cat.monologueIconType,
+                                tint: MujiStyle.tea
+                            )
+                        } else {
                         HStack(spacing: 6) {
                             MonologueIcon(icon: cat.monologueIconType, size: 18, color: .monologueTextPrimary, lineWidth: 1.4)
                             Text(cat.name)
@@ -244,6 +400,7 @@ struct PodcastView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(Color.monologueGlassTint))
+                        }
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                     .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
@@ -270,24 +427,10 @@ struct PodcastView: View {
 
     private var personalizedSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("podcast_for_you")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_hot_radios"), .hot)) {
-                    HStack(spacing: 4) {
-                        Text("mv_more_section")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                    }
-                    .foregroundColor(.monologueTextSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(
+                title: String(localized: "podcast_for_you"),
+                destination: PodcastDestination.topList(String(localized: "podcast_hot_radios"), .hot)
+            )
 
             let columns: [GridItem] = DeviceLayout.isPad
                 ? Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
@@ -312,24 +455,10 @@ struct PodcastView: View {
 
     private var todayPerferedSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("podcast_today_pick")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_today_pick"), .hot)) {
-                    HStack(spacing: 4) {
-                        Text("mv_more_section")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                    }
-                    .foregroundColor(.monologueTextSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(
+                title: String(localized: "podcast_today_pick"),
+                destination: PodcastDestination.topList(String(localized: "podcast_today_pick"), .hot)
+            )
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -360,7 +489,7 @@ struct PodcastView: View {
     private func todayPickCard(radio: RadioStation) -> some View {
         let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
         let cardHeight: CGFloat = DeviceLayout.isPad ? 110 : 96
-        let cr: CGFloat = DeviceLayout.isPad ? 18 : 16
+        let cr: CGFloat = MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 10 : (DeviceLayout.isPad ? 18 : 16))
         return HStack(spacing: 0) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 0)
@@ -372,14 +501,14 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(radio.name)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .semibold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 if let dj = radio.dj?.nickname {
-                    Text(dj)
-                        .font(.system(size: 12, design: .rounded))
+                        Text(dj)
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded)))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                 }
@@ -412,24 +541,10 @@ struct PodcastView: View {
 
     private var recommendSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("podcast_featured")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_featured"), .toplist)) {
-                    HStack(spacing: 4) {
-                        Text("mv_more_section")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                    }
-                    .foregroundColor(.monologueTextSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(
+                title: String(localized: "podcast_featured"),
+                destination: PodcastDestination.topList(String(localized: "podcast_featured"), .toplist)
+            )
 
             VStack(spacing: 0) {
                 ForEach(Array(viewModel.recommendRadios.enumerated()), id: \.element.id) { index, radio in
@@ -456,13 +571,7 @@ struct PodcastView: View {
 
     private var newestSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("上新佳作")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(title: String(localized: "上新佳作"))
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -496,13 +605,7 @@ struct PodcastView: View {
 
     private var chartSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("音乐播客榜")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(title: String(localized: "音乐播客榜"))
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -534,8 +637,8 @@ struct PodcastView: View {
 
     private func creativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> some View {
         let s = compactCardSize
-        let cr: CGFloat = DeviceLayout.isPad ? 18 : 16
-        
+        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
+
         let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
         let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
         var coverUrl: URL? = nil
@@ -571,42 +674,36 @@ struct PodcastView: View {
             }
 
             Text(title)
-                .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)))
                 .foregroundColor(.monologueTextPrimary)
                 .lineLimit(2)
                 .frame(width: s, height: 34, alignment: .topLeading)
 
             Text(subTitle)
-                .font(.system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
                 .foregroundColor(.monologueTextSecondary)
                 .lineLimit(1)
                 .frame(width: s, alignment: .leading)
         }
         .frame(width: s)
+        .padding((MangaStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+        .background {
+            if MangaStyle.isActive {
+                MangaCardBackground(cornerRadius: 12)
+            } else if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 10)
+            }
+        }
     }
 
     // MARK: - 新人电台榜
 
     private var newcomerSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("podcast_newcomer")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_newcomer"), .toplist)) {
-                    HStack(spacing: 4) {
-                        Text("mv_more_section")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                    }
-                    .foregroundColor(.monologueTextSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(
+                title: String(localized: "podcast_newcomer"),
+                destination: PodcastDestination.topList(String(localized: "podcast_newcomer"), .toplist)
+            )
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -636,7 +733,7 @@ struct PodcastView: View {
 
     private func rankedCompactCard(radio: RadioStation, rank: Int) -> some View {
         let s = compactCardSize
-        let cr: CGFloat = DeviceLayout.isPad ? 18 : 16
+        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
         return VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: radio.coverUrl) {
@@ -659,14 +756,14 @@ struct PodcastView: View {
             }
 
             Text(radio.name)
-                .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)))
                 .foregroundColor(.monologueTextPrimary)
                 .lineLimit(2)
                 .frame(width: s, height: 34, alignment: .topLeading)
 
             if let dj = radio.dj?.nickname {
                 Text(dj)
-                    .font(.system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
                     .foregroundColor(.monologueTextSecondary)
                     .lineLimit(1)
                     .frame(width: s, alignment: .leading)
@@ -677,30 +774,24 @@ struct PodcastView: View {
             }
         }
         .frame(width: s)
+        .padding((MangaStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+        .background {
+            if MangaStyle.isActive {
+                MangaCardBackground(cornerRadius: 12)
+            } else if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 10)
+            }
+        }
     }
 
     // MARK: - 节目榜
 
     private var programToplistSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("podcast_program_toplist")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(value: PodcastDestination.topList(String(localized: "podcast_program_toplist"), .toplist)) {
-                    HStack(spacing: 4) {
-                        Text("mv_more_section")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                    }
-                    .foregroundColor(.monologueTextSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(
+                title: String(localized: "podcast_program_toplist"),
+                destination: PodcastDestination.topList(String(localized: "podcast_program_toplist"), .toplist)
+            )
 
             VStack(spacing: 0) {
                 ForEach(Array(viewModel.programToplist.enumerated()), id: \.element.id) { index, program in
@@ -728,7 +819,7 @@ struct PodcastView: View {
     // MARK: - 网格卡片
 
     private func radioGridCard(radio: RadioStation) -> some View {
-        let cr: CGFloat = DeviceLayout.isPad ? 18 : 16
+        let cr: CGFloat = MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16)
         return VStack(alignment: .leading, spacing: 0) {
             GeometryReader { _ in
                 CachedAsyncImage(url: radio.coverUrl) {
@@ -758,18 +849,24 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(2)
                     .frame(height: 36, alignment: .topLeading)
 
                 Text(radio.dj?.nickname ?? " ")
-                    .font(.system(size: 12, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
                     .foregroundColor(.monologueTextSecondary)
                     .lineLimit(1)
             }
             .padding(.top, 8)
             .padding(.horizontal, 2)
+        }
+        .padding(MujiStyle.isActive ? 9 : 0)
+        .background {
+            if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 11)
+            }
         }
     }
 
@@ -777,7 +874,7 @@ struct PodcastView: View {
 
     private func radioListRow(radio: RadioStation) -> some View {
         let rowImg: CGFloat = DeviceLayout.isPad ? 72 : 60
-        let cr: CGFloat = 16
+        let cr: CGFloat = MujiStyle.isActive ? 8 : 16
         return HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: cr)
@@ -788,7 +885,7 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .medium, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(1)
 
@@ -814,8 +911,15 @@ struct PodcastView: View {
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.monologueIconBackground))
         }
-        .padding(.horizontal, padH)
-        .padding(.vertical, 10)
+        .padding(.horizontal, MujiStyle.isActive ? 14 : padH)
+        .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+        .background {
+            if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 10)
+            }
+        }
+        .padding(.horizontal, MujiStyle.isActive ? padH : 0)
+        .padding(.vertical, MujiStyle.isActive ? 5 : 0)
         .contentShape(Rectangle())
     }
 
@@ -824,7 +928,7 @@ struct PodcastView: View {
     private func programListRow(program: RadioProgram, rank: Int) -> some View {
         let isTop3 = rank <= 3
         let coverSize: CGFloat = DeviceLayout.isPad ? 60 : 50
-        let cr: CGFloat = 14
+        let cr: CGFloat = MujiStyle.isActive ? 8 : 14
         return HStack(spacing: 14) {
             Text("\(rank)")
                 .font(.system(size: isTop3 ? 20 : 16, weight: .heavy, design: .rounded))
@@ -840,7 +944,7 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(program.name ?? "")
-                    .font(.system(size: isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .medium : .regular) : .system(size: isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(1)
 
@@ -863,13 +967,20 @@ struct PodcastView: View {
                 }
             }
         }
-        .padding(.horizontal, padH)
-        .padding(.vertical, isTop3 ? 10 : 8)
+        .padding(.horizontal, MujiStyle.isActive ? 14 : padH)
+        .padding(.vertical, MujiStyle.isActive ? 12 : (isTop3 ? 10 : 8))
+        .background {
+            if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 10)
+            }
+        }
+        .padding(.horizontal, MujiStyle.isActive ? padH : 0)
+        .padding(.vertical, MujiStyle.isActive ? 5 : 0)
         .contentShape(Rectangle())
     }
 
     // MARK: - 广播电台
-    
+
     private var podcastHistorySection: some View {
         let uniquePodcastHistory: [Song] = {
             var seenIds = Set<Int>()
@@ -882,15 +993,38 @@ struct PodcastView: View {
             }
             return result
         }()
-        
+
         return VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            if MujiStyle.isActive {
+                HStack(alignment: .bottom, spacing: 14) {
+                    MujiSectionTitle(
+                        title: String(localized: "profile_recently_played")
+                    )
+
+                    Spacer(minLength: 0)
+
+                    Button(action: {
+                        HapticStyle.light.trigger()
+                        playerManager.clearPodcastHistory()
+                    }) {
+                        MujiPill(text: String(localized: "storage_clear"), tint: MujiStyle.red)
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
+                        MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, padH)
+            } else {
+                HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
 
                 Spacer()
-                
+
                 HStack(spacing: 12) {
                     Button(action: {
                         HapticStyle.light.trigger()
@@ -917,6 +1051,7 @@ struct PodcastView: View {
                 }
             }
             .padding(.horizontal, padH)
+            }
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -941,9 +1076,9 @@ struct PodcastView: View {
     private func podcastHistoryCard(song: Song) -> some View {
         let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
         let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
-        let cr: CGFloat = 12
+        let cr: CGFloat = MujiStyle.isActive ? 8 : 12
         let isCurrent = playerManager.currentSong?.id == song.id
-        
+
         return Button {
             HapticStyle.light.trigger()
             let rid = song.podcastRadioId ?? song.album?.id ?? 0
@@ -964,7 +1099,7 @@ struct PodcastView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: cardHeight, height: cardHeight)
                     .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
-                    
+
                     if isCurrent {
                         PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .white)
                             .frame(width: 10)
@@ -974,18 +1109,18 @@ struct PodcastView: View {
                             .clipShape(Circle())
                     }
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(isCurrent ? .monologueAccent : .monologueTextPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    
+
                     let subtitle = song.podcastRadioName ?? song.ar?.first?.name ?? ""
                     if !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(.system(size: 11, design: .rounded))
+                            .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, design: .rounded))
                             .foregroundColor(.monologueTextSecondary)
                             .lineLimit(1)
                             .multilineTextAlignment(.leading)
@@ -1004,24 +1139,10 @@ struct PodcastView: View {
 
     private var broadcastSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("podcast_broadcast")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(value: PodcastDestination.broadcastList) {
-                    HStack(spacing: 4) {
-                        Text("mv_more_section")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                    }
-                    .foregroundColor(.monologueTextSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
+            podcastSectionHeader(
+                title: String(localized: "podcast_broadcast"),
+                destination: .broadcastList
+            )
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -1051,7 +1172,7 @@ struct PodcastView: View {
 
     private func broadcastCard(channel: BroadcastChannel) -> some View {
         let bcSize = broadcastCardSize
-        let bcCR: CGFloat = DeviceLayout.isPad ? 18 : 16
+        let bcCR: CGFloat = MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16)
         return VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 if let url = channel.coverImageUrl {
@@ -1096,18 +1217,24 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(channel.displayName)
-                    .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(2)
                     .frame(height: DeviceLayout.isPad ? 36 : 34, alignment: .topLeading)
 
                 Text(channel.displayProgram ?? " ")
-                    .font(.system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))
                     .foregroundColor(.monologueTextSecondary)
                     .lineLimit(1)
             }
         }
         .frame(width: bcSize)
+        .padding(MujiStyle.isActive ? 8 : 0)
+        .background {
+            if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 10)
+            }
+        }
     }
 
     // MARK: - 工具方法

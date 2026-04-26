@@ -10,6 +10,7 @@ struct PlayerMoreMenu: View {
     var onTheme: () -> Void
     
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var gameMode = GameModeManager.shared
     @State private var showTimerSheet = false
 
     private let textColor: Color = .monologueTextPrimary
@@ -74,8 +75,26 @@ struct PlayerMoreMenu: View {
                         isPresented = false
                         onTheme()
                     }
+
+                    Rectangle()
+                        .fill(Color.monologueSeparator)
+                        .frame(height: 0.5)
+
+                    // 游戏模式快捷开关（边打游戏边听歌）
+                    menuItem(
+                        icon: .waveform,
+                        title: gameMode.isActive
+                            ? String(localized: "game_mode_menu_on")
+                            : String(localized: "game_mode_menu_off"),
+                        trailingText: gameMode.isActive
+                            ? String(localized: "game_mode_badge_active")
+                            : nil
+                    ) {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        gameMode.toggle()
+                    }
                 }
-                .frame(width: 182)
+                .frame(width: 200)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
                         .fill(Color.monologueGlassTint)

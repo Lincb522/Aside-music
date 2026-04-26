@@ -72,7 +72,15 @@ extension APIService {
         } else {
             fee = 0
         }
-        
+
+        // 是否数字专辑（需另外购买，VIP 也不能解锁）
+        // 仅使用 `pay.pay_album == 1`：QQ 接口里 `price_album` / `price_track` 常对大量可播歌
+        // 非零（标价、会员价等），若据此标数字专辑会导致「整列表全灰」误伤。
+        let qqIsDigitalAlbum: Bool? = {
+            if let payAlbum = payload["pay"]?["pay_album"]?.intValue, payAlbum == 1 { return true }
+            return nil
+        }()
+
         // MV
         let mvId = payload["mv"]?["id"]?.intValue ?? payload["mv"]?["vid"]?.intValue ?? 0
         
@@ -115,7 +123,8 @@ extension APIService {
             qqMid: mid,
             qqAlbumMid: albumMid,
             qqArtistMid: firstArtistMid,
-            qqMaxQuality: qqMaxQuality
+            qqMaxQuality: qqMaxQuality,
+            qqIsDigitalAlbum: qqIsDigitalAlbum
         )
     }
     

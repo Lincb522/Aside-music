@@ -5,6 +5,7 @@ struct SongListRow: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var settings = SettingsManager.shared
     @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject var unavailableSongs = UnavailableSongsManager.shared
     let song: Song
     let index: Int
     var isSelecting: Bool = false
@@ -27,17 +28,25 @@ struct SongListRow: View {
         player.currentSong?.id == song.id
     }
     
-    /// 灰色条件：无版权歌曲始终灰色；VIP 限制的歌曲无 VIP Cookie 时灰色
+    /// 灰色条件：
+    /// - 无版权歌曲始终灰色
+    /// - VIP 限制歌曲无 VIP Cookie 时灰色
+    /// - 未购买的数字专辑直接灰色（VIP 也不能解锁，需单独购买）
+    /// - 运行时记录的播放失败（兜底全失败）也显示灰色
     var isGrayed: Bool {
         if song.isNoCopyright { return true }
         if song.isVIPRestricted { return !APIService.shared.hasVIPCookie }
+        if song.isUnpurchasedDigitalAlbum { return true }
+        if unavailableSongs.isUnavailable(song: song) { return true }
         return false
     }
     
     private struct Theme {
         static let text = Color.monologueTextPrimary
         static let secondaryText = Color.monologueTextSecondary
-        static let accent = Color.monologueTextPrimary
+        static var accent: Color {
+            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueTextPrimary)
+        }
     }
 
     private enum QuickAction: Hashable {
@@ -105,7 +114,7 @@ struct SongListRow: View {
                                 .foregroundColor(isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4))
                         } else {
                             Text(String(format: "%02d", index + 1))
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))
                                 .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
@@ -118,6 +127,16 @@ struct SongListRow: View {
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 6 : 12), style: .continuous))
+                    .overlay {
+                        if MangaStyle.isActive {
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                        } else if MujiStyle.isActive {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                        }
+                    }
                     .overlay {
                         if isCurrent && !isSelecting {
                             ZStack {
@@ -127,12 +146,11 @@ struct SongListRow: View {
                             }
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .opacity(isGrayed ? 0.4 : 1.0)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
-                            .font(.system(size: 16, weight: isCurrent ? .bold : .medium))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) : .system(size: 16, weight: isCurrent ? .bold : .medium)))
                             .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.4) : (isCurrent ? Theme.accent : Theme.text))
                             .lineLimit(1)
 
@@ -251,7 +269,7 @@ struct SongListRow: View {
                                 }
 
                                 Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
-                                    .font(.system(size: 13))
+                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 13)))
                                     .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.3) : Theme.secondaryText)
                                     .lineLimit(1)
                             }
@@ -291,7 +309,7 @@ struct SongListRow: View {
             if isCurrent {
                 ZStack(alignment: .leading) {
                     // 主体渐变玻璃态
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : 12), style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
@@ -302,10 +320,10 @@ struct SongListRow: View {
                                 endPoint: .trailing
                             )
                         )
-                        .monologueGlass(cornerRadius: 12)
+                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : 12))
                     
                     // 左侧微光描边
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : 12), style: .continuous)
                         .stroke(
                             LinearGradient(
                                 colors: [

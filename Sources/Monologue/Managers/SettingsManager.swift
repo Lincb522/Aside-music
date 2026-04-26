@@ -8,6 +8,20 @@ final class SettingsManager: ObservableObject {
     
     // MARK: - 外观设置
     
+    /// 全局主题 ID
+    @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.default.rawValue {
+        didSet {
+            if let id = GlobalThemeId(rawValue: globalThemeIdRaw) {
+                GlobalThemeManager.shared.switchTheme(to: id)
+            }
+        }
+    }
+
+    var globalThemeId: GlobalThemeId {
+        get { GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default }
+        set { globalThemeIdRaw = newValue.rawValue }
+    }
+
     /// 悬浮栏样式
     @AppStorage("floatingBarStyle") var floatingBarStyleRaw: String = FloatingBarStyle.unified.rawValue
     
@@ -100,6 +114,47 @@ final class SettingsManager: ObservableObject {
     var backgroundAudioPolicy: BackgroundAudioPolicy {
         get { BackgroundAudioPolicy(rawValue: backgroundAudioPolicyRaw) ?? .automatic }
         set { backgroundAudioPolicyRaw = newValue.rawValue }
+    }
+
+    // MARK: - 游戏模式
+
+    /// 游戏模式开关（主开关）
+    @AppStorage(AppConfig.StorageKeys.gameModeEnabled)
+    var gameModeEnabled: Bool = false
+
+    /// 游戏出枪声等提示时自动降低音乐音量
+    @AppStorage(AppConfig.StorageKeys.gameModeAutoDucking)
+    var gameModeAutoDucking: Bool = true
+
+    /// 游戏模式下自动降低音质（节省 CPU/电量）
+    @AppStorage(AppConfig.StorageKeys.gameModeLowerQuality)
+    var gameModeLowerQuality: Bool = true
+
+    /// 检测到游戏退出后自动关闭游戏模式
+    @AppStorage(AppConfig.StorageKeys.gameModeAutoExit)
+    var gameModeAutoExit: Bool = false
+
+    /// 游戏模式下隐藏锁屏 / 灵动岛的播放信息
+    @AppStorage(AppConfig.StorageKeys.gameModeDisableLiveActivity)
+    var gameModeSilentNowPlaying: Bool = false
+
+    /// 【实验性】当 `gameModeSilentNowPlaying` 为 true 时，是否保留最小锁屏信息（仅歌名，无封面 / 歌手 / 时间）
+    /// - false（默认）→ 完全清空 NowPlayingInfo（iOS 把 App 从锁屏/灵动岛移除）
+    /// - true → 保留「歌名」作为唯一 now playing 信息，不提供其他内容也不参与播放控制
+    @AppStorage(AppConfig.StorageKeys.gameModeMinimalNowPlaying)
+    var gameModeMinimalNowPlaying: Bool = false
+
+    /// 游戏模式自动播放的本地歌单 ID（空字符串表示禁用）
+    @AppStorage(AppConfig.StorageKeys.gameModeAutoPlaylistLocalId)
+    var gameModeAutoPlaylistLocalId: String = ""
+
+    /// 游戏模式首选音质（空字符串 = 使用"降音质"的默认行为，即 .standard）
+    @AppStorage(AppConfig.StorageKeys.gameModePreferredQuality)
+    var gameModePreferredQualityRaw: String = ""
+
+    var gameModePreferredQuality: SoundQuality? {
+        get { SoundQuality(rawValue: gameModePreferredQualityRaw) }
+        set { gameModePreferredQualityRaw = newValue?.rawValue ?? "" }
     }
 
     /// 应用图标 / Logo 风格

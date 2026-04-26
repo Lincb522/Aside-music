@@ -27,7 +27,11 @@ struct LiquidGlassBlur: View {
     var useFloatingBarFill: Bool = false
     
     var body: some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
+        } else if MujiStyle.isActive {
+            MujiPaperCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
+        } else if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(useFloatingBarFill ? Color.monologueFloatingBarFill : Color.monologueGlassTint)
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -53,7 +57,13 @@ struct MonologueLiquidCard<Content: View>: View {
     }
     
     var body: some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            content
+                .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true))
+        } else if MujiStyle.isActive {
+            content
+                .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
+        } else if #available(iOS 26, *) {
             content
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
@@ -75,8 +85,13 @@ extension View {
     /// Monologue 统一液态玻璃效果（iOS 26+: glassEffect，低版本: ultraThinMaterial）
     @ViewBuilder
     func monologueGlass(cornerRadius: CGFloat = 16) -> some View {
-        if #available(iOS 26, *) {
-            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        if MangaStyle.isActive {
+            self.background(MangaCardBackground(cornerRadius: cornerRadius))
+        } else if MujiStyle.isActive {
+            self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16)))
+        } else if #available(iOS 26, *) {
+            self
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -92,8 +107,22 @@ extension View {
     /// 圆形液态玻璃效果
     @ViewBuilder
     func monologueGlassCircle() -> some View {
-        if #available(iOS 26, *) {
-            self.glassEffect(.regular, in: .circle)
+        if MangaStyle.isActive {
+            self.background(
+                Circle()
+                    .fill(MangaStyle.bubbleWhite)
+                    .overlay(Circle().stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+            )
+        } else if MujiStyle.isActive {
+            self.background(
+                Circle()
+                    .fill(MujiStyle.surfaceRaised)
+                    .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
+                    .shadow(color: Color.black.opacity(0.045), radius: 8, x: 0, y: 3)
+            )
+        } else if #available(iOS 26, *) {
+            self
+                .glassEffect(.regular, in: .circle)
         } else {
             self.background(
                 Circle()
@@ -106,8 +135,22 @@ extension View {
     /// 胶囊形液态玻璃效果
     @ViewBuilder
     func monologueGlassCapsule() -> some View {
-        if #available(iOS 26, *) {
-            self.glassEffect(.regular, in: .capsule)
+        if MangaStyle.isActive {
+            self.background(
+                Capsule()
+                    .fill(MangaStyle.bubbleWhite)
+                    .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+            )
+        } else if MujiStyle.isActive {
+            self.background(
+                Capsule()
+                    .fill(MujiStyle.surfaceRaised)
+                    .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+            )
+        } else if #available(iOS 26, *) {
+            self
+                .glassEffect(.regular, in: .capsule)
         } else {
             self.background(
                 Capsule()
@@ -120,7 +163,11 @@ extension View {
     /// 毛玻璃背景（兼容旧调用）
     @ViewBuilder
     func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            self.background(MangaCardBackground(cornerRadius: cornerRadius))
+        } else if MujiStyle.isActive {
+            self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16)))
+        } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(
@@ -137,7 +184,11 @@ extension View {
     /// 液态玻璃样式（兼容旧调用）
     @ViewBuilder
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = false) -> some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            self.background(MangaCardBackground(cornerRadius: cornerRadius, elevated: useMetal))
+        } else if MujiStyle.isActive {
+            self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: useMetal))
+        } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(
@@ -174,7 +225,9 @@ extension View {
     /// 条件液态玻璃效果
     @ViewBuilder
     func monologueGlassConditional(isActive: Bool, cornerRadius: CGFloat) -> some View {
-        if #available(iOS 26, *) {
+        if (MangaStyle.isActive || MujiStyle.isActive) && isActive {
+            self.background(MangaStyle.isActive ? AnyView(MangaCardBackground(cornerRadius: cornerRadius)) : AnyView(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))))
+        } else if #available(iOS 26, *) {
             self.glassEffect(isActive ? .regular : .clear, in: .rect(cornerRadius: cornerRadius))
         } else if isActive {
             self.background(
@@ -190,7 +243,9 @@ extension View {
     /// 条件液态玻璃 (identity vs regular)
     @ViewBuilder
     func monologueGlassIdentityOrRegular(isIdentity: Bool, cornerRadius: CGFloat) -> some View {
-        if #available(iOS 26, *) {
+        if (MangaStyle.isActive || MujiStyle.isActive) && !isIdentity {
+            self.background(MangaStyle.isActive ? AnyView(MangaCardBackground(cornerRadius: cornerRadius)) : AnyView(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))))
+        } else if #available(iOS 26, *) {
             self.glassEffect(isIdentity ? .identity : .regular, in: .rect(cornerRadius: cornerRadius))
         } else if !isIdentity {
             self.background(
@@ -226,7 +281,11 @@ extension View {
     /// buttonStyle(.glass) 兼容
     @ViewBuilder
     func monologueGlassButtonStyle() -> some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            self.buttonStyle(.plain)
+        } else if MujiStyle.isActive {
+            self.buttonStyle(.plain)
+        } else if #available(iOS 26, *) {
             self.buttonStyle(.glass)
         } else {
             self.buttonStyle(.plain)
@@ -286,7 +345,16 @@ struct MonologueGlassContainer<Content: View>: View {
 extension Shape {
     @ViewBuilder
     func fillWithGlass(_ color: Color = .monologueGlassTint, cornerRadius: CGFloat = 16) -> some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            self
+                .fill(color)
+                .overlay(self.stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+        } else if MujiStyle.isActive {
+            self
+                .fill(color)
+                .overlay(self.stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
+                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+        } else if #available(iOS 26, *) {
             self.fill(color).glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             ZStack {
@@ -298,7 +366,15 @@ extension Shape {
 
     @ViewBuilder
     func fillWithGlassCircle(_ color: Color = .monologueGlassTint) -> some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            self
+                .fill(color)
+                .overlay(self.stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+        } else if MujiStyle.isActive {
+            self
+                .fill(color)
+                .overlay(self.stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
+        } else if #available(iOS 26, *) {
             self.fill(color).glassEffect(.regular, in: .circle)
         } else {
             ZStack {
@@ -310,7 +386,15 @@ extension Shape {
 
     @ViewBuilder
     func fillWithGlassCapsule(_ color: Color = .monologueGlassTint) -> some View {
-        if #available(iOS 26, *) {
+        if MangaStyle.isActive {
+            self
+                .fill(color)
+                .overlay(self.stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+        } else if MujiStyle.isActive {
+            self
+                .fill(color)
+                .overlay(self.stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
+        } else if #available(iOS 26, *) {
             self.fill(color).glassEffect(.regular, in: .capsule)
         } else {
             ZStack {

@@ -29,7 +29,7 @@ struct MonologueLoadingView: View {
             // 文字
             if let text = text, !text.isEmpty {
                 Text(text)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded)))
                     .tracking(2)
                     .foregroundColor(.monologueTextPrimary.opacity(0.8))
                     .textCase(.uppercase)
@@ -45,7 +45,7 @@ private struct LoadingBar: View {
     
     var body: some View {
         Capsule()
-            .fill(Color.monologueTextPrimary)
+            .fill(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueTextPrimary))
             .frame(width: 5, height: 32)
             .scaleEffect(y: isAnimating ? 1.0 : 0.4)
             .opacity(isAnimating ? 1.0 : 0.6)

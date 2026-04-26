@@ -43,6 +43,9 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
     var qqArtistMid: String?
     /// qcm 最高可用音质（从搜索结果 file 字段解析）
     var qqMaxQuality: QQMusicQuality?
+    /// qcm 是否为数字专辑（需单独购买，VIP 也不能解锁）
+    /// 仅当 `pay.pay_album == 1` 时置 true（勿用 price 字段，易误伤整列表）
+    var qqIsDigitalAlbum: Bool?
     /// 本地导入音乐的相对文件路径
     var localRelativePath: String?
     /// 本地导入时间
@@ -55,7 +58,7 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, name, ar, al, dt, fee, mv
         case h, m, l, sq, hr, alia, privilege
-        case source, qqMid, qqAlbumMid, qqArtistMid, qqMaxQuality
+        case source, qqMid, qqAlbumMid, qqArtistMid, qqMaxQuality, qqIsDigitalAlbum
         case localRelativePath, localImportedAt
         case qishuiTrackId
         case podcastCoverUrl
@@ -187,9 +190,35 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
         return false
     }
 
-    /// 判断歌曲是否不可用（无版权 或 VIP 限制）
+    /// 数字专辑歌曲：
+    /// - 网易云：`fee == 4` 或 `privilege.fee == 4`
+    /// - qcm：由 `convertQQSongToSong` 在 `pay.pay_album == 1` 时写入 `qqIsDigitalAlbum`
+    /// 数字专辑需要另外购买，VIP Cookie 也不能自动解锁。
+    var isDigitalAlbum: Bool {
+        if fee == 4 { return true }
+        if let pfee = privilege?.fee, pfee == 4 { return true }
+        if qqIsDigitalAlbum == true { return true }
+        return false
+    }
+
+    /// 是否为"未购买"的数字专辑（即使是 VIP 也需单独购买）。
+    /// - 网易云：数字专辑 + privilege 表明未购（payed == 0 或 pl == 0 或 st < 0）
+    /// - qcm：`qqIsDigitalAlbum == true`（仅 pay_album）时标灰；其余数字专辑仍靠播放失败
+    ///   由 `UnavailableSongsManager` 标灰。
+    var isUnpurchasedDigitalAlbum: Bool {
+        if qqIsDigitalAlbum == true { return true }
+        guard isDigitalAlbum else { return false }
+        guard let privilege else { return false }
+        if let payed = privilege.payed, payed == 1 { return false }
+        if let pl = privilege.pl, pl == 0 { return true }
+        if let st = privilege.st, st < 0 { return true }
+        if let payed = privilege.payed, payed == 0 { return true }
+        return false
+    }
+
+    /// 判断歌曲是否不可用（无版权 或 VIP 限制 或 未购数字专辑）
     var isUnavailable: Bool {
-        isNoCopyright || isVIPRestricted
+        isNoCopyright || isVIPRestricted || isUnpurchasedDigitalAlbum
     }
 }
 

@@ -16,7 +16,7 @@ final class AudioMatchViewModel: ObservableObject {
         case found
         case notFound
         case error(String)
-        
+
         static func == (lhs: MatchState, rhs: MatchState) -> Bool {
             switch (lhs, rhs) {
             case (.idle, .idle), (.listening, .listening), (.matching, .matching),
@@ -29,21 +29,21 @@ final class AudioMatchViewModel: ObservableObject {
             }
         }
     }
-    
+
     @Published var state: MatchState = .idle
     @Published var matchedSongs: [Song] = []
     @Published var shazamTitle: String?
     @Published var shazamArtist: String?
     @Published var shazamArtworkURL: URL?
     @Published var listenProgress: CGFloat = 0
-    
+
     private var session: SHSession?
     private var audioEngine: AVAudioEngine?
     private var listenTimer: Timer?
     private var listenDuration: TimeInterval = 0
     private let maxListenDuration: TimeInterval = 15
     private var shazamDelegate: ShazamDelegate?
-    
+
     func startListening() {
         AVAudioApplication.requestRecordPermission { [weak self] granted in
             Task { @MainActor in
@@ -56,7 +56,7 @@ final class AudioMatchViewModel: ObservableObject {
             }
         }
     }
-    
+
     func stopListening() {
         stopAudioEngine()
         listenTimer?.invalidate()
@@ -67,7 +67,7 @@ final class AudioMatchViewModel: ObservableObject {
             state = .idle
         }
     }
-    
+
     func reset() {
         stopListening()
         state = .idle
@@ -76,39 +76,39 @@ final class AudioMatchViewModel: ObservableObject {
         shazamArtist = nil
         shazamArtworkURL = nil
     }
-    
+
     // MARK: - ShazamKit
-    
+
     private func beginShazamSession() {
         state = .listening
         listenDuration = 0
         listenProgress = 0
-        
+
         session = SHSession()
         shazamDelegate = ShazamDelegate(viewModel: self)
         session?.delegate = shazamDelegate
-        
+
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.record, mode: .default)
             try audioSession.setActive(true)
-            
+
             let audioEngine = AVAudioEngine()
             self.audioEngine = audioEngine
-            
+
             let inputNode = audioEngine.inputNode
             inputNode.installTap(onBus: 0, bufferSize: 2048, format: nil) { [weak self] buffer, _ in
                 self?.session?.matchStreamingBuffer(buffer, at: nil)
             }
-            
+
             try audioEngine.start()
-            
+
             listenTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     guard let self, self.state == .listening else { return }
                     self.listenDuration += 0.1
                     self.listenProgress = min(CGFloat(self.listenDuration / self.maxListenDuration), 1.0)
-                    
+
                     if self.listenDuration >= self.maxListenDuration {
                         self.stopListening()
                         if self.state == .listening {
@@ -122,7 +122,7 @@ final class AudioMatchViewModel: ObservableObject {
             state = .error(NSLocalizedString("audio_match_error", comment: ""))
         }
     }
-    
+
     private func stopAudioEngine() {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
@@ -130,7 +130,7 @@ final class AudioMatchViewModel: ObservableObject {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: PlayerManager.playbackAudioSessionOptions)
         try? AVAudioSession.sharedInstance().setActive(true)
     }
-    
+
     fileprivate func handleMatch(_ match: SHMatch) {
         stopListening()
         guard let item = match.mediaItems.first else {
@@ -144,15 +144,15 @@ final class AudioMatchViewModel: ObservableObject {
         AppLogger.info("AudioMatch: Shazam 识别成功 - \(item.title ?? "") by \(item.artist ?? "")")
         searchMatchedSong(title: item.title, artist: item.artist)
     }
-    
+
     fileprivate func handleNoMatch() {}
-    
+
     fileprivate func handleError(_ error: Error) {
         stopListening()
         AppLogger.error("AudioMatch: Shazam 错误 - \(error)")
         state = .error(NSLocalizedString("audio_match_error", comment: ""))
     }
-    
+
     private func searchMatchedSong(title: String?, artist: String?) {
         guard let title, !title.isEmpty else {
             state = .notFound
@@ -182,7 +182,7 @@ final class AudioMatchViewModel: ObservableObject {
 private class ShazamDelegate: NSObject, SHSessionDelegate {
     weak var viewModel: AudioMatchViewModel?
     init(viewModel: AudioMatchViewModel) { self.viewModel = viewModel }
-    
+
     func session(_ session: SHSession, didFind match: SHMatch) {
         let vm = UnsafeSendableBox(viewModel)
         Task { @MainActor in vm.value?.handleMatch(match) }
@@ -205,27 +205,27 @@ struct AudioMatchView: View {
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
     @State private var pulsePhase: CGFloat = 0
-    
+
     var body: some View {
         ZStack {
             MonologueBackground()
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 0) {
                         Spacer().frame(height: 40)
-                        
+
                         // 中心识别区域
                         centerContent
                             .frame(minHeight: 360)
-                        
+
                         // 结果区域
                         if viewModel.state == .found && !viewModel.matchedSongs.isEmpty {
                             resultsSection
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                        
+
                         Spacer().frame(height: 100)
                     }
                 }
@@ -237,13 +237,16 @@ struct AudioMatchView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .navigationDestination(isPresented: $showSongDetail) {
-            if let song = selectedSongForDetail { SongDetailView(song: song) }
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+
+            }
         }
         .onDisappear { viewModel.stopListening() }
     }
-    
+
     // MARK: - 中心内容
-    
+
     @ViewBuilder
     private var centerContent: some View {
         switch viewModel.state {
@@ -255,9 +258,9 @@ struct AudioMatchView: View {
         case .error(let m): errorView(message: m)
         }
     }
-    
+
     // MARK: - 空闲状态
-    
+
     private var idleView: some View {
         VStack(spacing: 36) {
             // 主按钮
@@ -276,25 +279,25 @@ struct AudioMatchView: View {
                             lineWidth: 2
                         )
                         .frame(width: 190, height: 190)
-                    
+
                     // 主圆
                     Circle()
                         .fill(Color.monologueGlassTint)
                         .frame(width: 150, height: 150)
                         .monologueGlassCircle()
                         .shadow(color: .black.opacity(0.08), radius: 24, x: 0, y: 10)
-                    
+
                     // 图标
                     MonologueIcon(icon: .audioWave, size: 52, color: .monologueTextPrimary, lineWidth: 1.8)
                 }
             }
             .buttonStyle(MonologueBouncingButtonStyle())
-            
+
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("audio_match_tap_to_start"))
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundColor(.monologueTextPrimary)
-                
+
                 Text(LocalizedStringKey("audio_match_hint"))
                     .font(.rounded(size: 14))
                     .foregroundColor(.monologueTextSecondary)
@@ -303,9 +306,9 @@ struct AudioMatchView: View {
             }
         }
     }
-    
+
     // MARK: - 监听中
-    
+
     private var listeningView: some View {
         VStack(spacing: 36) {
             Button(action: {
@@ -327,7 +330,7 @@ struct AudioMatchView: View {
                                 value: pulsePhase
                             )
                     }
-                    
+
                     // 进度环
                     Circle()
                         .trim(from: 0, to: viewModel.listenProgress)
@@ -338,14 +341,14 @@ struct AudioMatchView: View {
                         .frame(width: 190, height: 190)
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 0.1), value: viewModel.listenProgress)
-                    
+
                     // 主圆
                     Circle()
                         .fill(Color.monologueGlassTint)
                         .frame(width: 150, height: 150)
                         .monologueGlassCircle()
                         .shadow(color: .black.opacity(0.08), radius: 24, x: 0, y: 10)
-                    
+
                     // 音纹动画
                     HStack(spacing: 5) {
                         ForEach(0..<5, id: \.self) { i in
@@ -357,21 +360,21 @@ struct AudioMatchView: View {
             .buttonStyle(PlainButtonStyle())
             .onAppear { pulsePhase = 1 }
             .onDisappear { pulsePhase = 0 }
-            
+
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("audio_match_listening"))
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundColor(.monologueTextPrimary)
-                
+
                 Text(LocalizedStringKey("audio_match_listening_hint"))
                     .font(.rounded(size: 14))
                     .foregroundColor(.monologueTextSecondary)
             }
         }
     }
-    
+
     // MARK: - 匹配中
-    
+
     private var matchingView: some View {
         VStack(spacing: 28) {
             if let artworkURL = viewModel.shazamArtworkURL {
@@ -382,7 +385,7 @@ struct AudioMatchView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 24))
                 .shadow(color: .black.opacity(0.12), radius: 20, x: 0, y: 10)
             }
-            
+
             VStack(spacing: 6) {
                 if let title = viewModel.shazamTitle {
                     Text(title)
@@ -398,7 +401,7 @@ struct AudioMatchView: View {
                 }
             }
             .padding(.horizontal, 40)
-            
+
             HStack(spacing: 8) {
                 ProgressView()
                     .scaleEffect(0.8)
@@ -408,9 +411,9 @@ struct AudioMatchView: View {
             }
         }
     }
-    
+
     // MARK: - 找到结果
-    
+
     private var foundView: some View {
         VStack(spacing: 24) {
             if let artworkURL = viewModel.shazamArtworkURL {
@@ -421,7 +424,7 @@ struct AudioMatchView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 24))
                 .shadow(color: .black.opacity(0.1), radius: 16, x: 0, y: 8)
             }
-            
+
             VStack(spacing: 6) {
                 if let title = viewModel.shazamTitle {
                     Text(title)
@@ -437,7 +440,7 @@ struct AudioMatchView: View {
                 }
             }
             .padding(.horizontal, 40)
-            
+
             // 重新识别
             Button(action: {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -456,9 +459,9 @@ struct AudioMatchView: View {
             .buttonStyle(PlainButtonStyle())
         }
     }
-    
+
     // MARK: - 未找到
-    
+
     private var notFoundView: some View {
         VStack(spacing: 28) {
             ZStack {
@@ -467,22 +470,22 @@ struct AudioMatchView: View {
                     .frame(width: 120, height: 120)
                     .monologueGlassCircle()
                     .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 6)
-                
+
                 MonologueIcon(icon: .audioWave, size: 44, color: .monologueTextSecondary.opacity(0.4), lineWidth: 1.6)
             }
-            
+
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("audio_match_not_found"))
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundColor(.monologueTextPrimary)
-                
+
                 Text(LocalizedStringKey("audio_match_not_found_hint"))
                     .font(.rounded(size: 14))
                     .foregroundColor(.monologueTextSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 48)
             }
-            
+
             Button(action: {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 viewModel.reset()
@@ -502,9 +505,9 @@ struct AudioMatchView: View {
             .buttonStyle(MonologueBouncingButtonStyle())
         }
     }
-    
+
     // MARK: - 错误
-    
+
     private func errorView(message: String) -> some View {
         VStack(spacing: 28) {
             ZStack {
@@ -513,22 +516,22 @@ struct AudioMatchView: View {
                     .frame(width: 120, height: 120)
                     .monologueGlassCircle()
                     .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 6)
-                
+
                 MonologueIcon(icon: .warning, size: 44, color: .monologueTextSecondary.opacity(0.4))
             }
-            
+
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("audio_match_error"))
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundColor(.monologueTextPrimary)
-                
+
                 Text(message)
                     .font(.rounded(size: 14))
                     .foregroundColor(.monologueTextSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 48)
             }
-            
+
             Button(action: {
                 viewModel.reset()
                 viewModel.startListening()
@@ -548,9 +551,9 @@ struct AudioMatchView: View {
         }
     }
 
-    
+
     // MARK: - 搜索结果列表
-    
+
     private var resultsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             // 分隔线
@@ -558,12 +561,12 @@ struct AudioMatchView: View {
                 .fill(Color.monologueSeparator)
                 .frame(height: 0.5)
                 .padding(.horizontal, 24)
-            
+
             Text(LocalizedStringKey("audio_match_results"))
                 .font(.rounded(size: 17, weight: .bold))
                 .foregroundColor(.monologueTextPrimary)
                 .padding(.horizontal, 24)
-            
+
             LazyVStack(spacing: 0) {
                 ForEach(Array(viewModel.matchedSongs.enumerated()), id: \.element.id) { index, song in
                     matchResultRow(song: song, index: index)
@@ -572,7 +575,7 @@ struct AudioMatchView: View {
         }
         .padding(.top, 8)
     }
-    
+
     private func matchResultRow(song: Song, index: Int) -> some View {
         Button(action: {
             PlayerManager.shared.play(song: song, in: viewModel.matchedSongs)
@@ -586,21 +589,21 @@ struct AudioMatchView: View {
                 }
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    
+
                     Text(song.artistName)
                         .font(.system(size: 13, design: .rounded))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                 }
-                
+
                 Spacer()
-                
+
                 // 匹配度标签（第一个最匹配）
                 if index == 0 {
                     Text(LocalizedStringKey("search_best_match"))
@@ -611,7 +614,7 @@ struct AudioMatchView: View {
                         .background(Capsule().fill(Color.monologueGlassTint))
                         .monologueGlassCapsule()
                 }
-                
+
                 MonologueIcon(icon: .play, size: 14, color: .monologueTextSecondary)
                     .frame(width: 32, height: 32)
                     .background(Color.monologueGlassTint)
@@ -638,7 +641,7 @@ struct AudioMatchView: View {
 private struct AudioWaveBar: View {
     let index: Int
     @State private var animating = false
-    
+
     var body: some View {
         RoundedRectangle(cornerRadius: 2)
             .fill(Color.monologueTextPrimary)

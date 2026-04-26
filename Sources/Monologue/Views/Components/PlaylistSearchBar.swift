@@ -28,18 +28,18 @@ struct PlaylistSearchBar: View {
             }
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, selectMode || isSearching ? 6 : 2)
+        .padding(.vertical, MangaStyle.isActive ? (selectMode || isSearching ? 8 : 6) : (selectMode || isSearching ? 6 : 2))
     }
     
     private var searchBar: some View {
         Group {
             HStack(spacing: 8) {
-                MonologueIcon(icon: .search, size: 14, color: .monologueTextSecondary)
+                MonologueIcon(icon: .search, size: 14, color: MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
                 
                 TextField(String(localized: "搜索歌曲"), text: $searchText)
-                    .font(.system(size: 14, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .bold) : .system(size: 14, design: .rounded))
                     .monologueTextInputBehavior()
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : .monologueTextPrimary)
                     .focused($isFocused)
                     .submitLabel(.search)
                 
@@ -47,14 +47,21 @@ struct PlaylistSearchBar: View {
                     Button {
                         searchText = ""
                     } label: {
-                        MonologueIcon(icon: .xmarkCircle, size: 14, color: .monologueTextSecondary.opacity(0.6))
+                        MonologueIcon(icon: .xmarkCircle, size: 14, color: MangaStyle.isActive ? MangaStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
                     }
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.monologueTextPrimary.opacity(0.06))
-            .clipShape(Capsule())
+            .padding(.vertical, MangaStyle.isActive ? 10 : 8)
+            .background {
+                if MangaStyle.isActive {
+                    MangaCardBackground(cornerRadius: 12, elevated: false, tint: MangaStyle.bubbleWhite)
+                } else {
+                    Capsule()
+                        .fill(Color.monologueTextPrimary.opacity(0.06))
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : 20, style: .continuous))
             .transition(.asymmetric(
                 insertion: .move(edge: .trailing).combined(with: .opacity),
                 removal: .move(edge: .trailing).combined(with: .opacity)
@@ -68,8 +75,8 @@ struct PlaylistSearchBar: View {
                 }
             } label: {
                 Text("取消")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : .system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
             }
             .transition(.opacity)
         }
@@ -89,7 +96,12 @@ struct PlaylistSearchBar: View {
                 }
             } label: {
                 MonologueIcon(icon: .search, size: 14, color: .monologueTextSecondary)
-                    .frame(width: 28, height: 28)
+                    .frame(width: MangaStyle.isActive ? 34 : 28, height: MangaStyle.isActive ? 34 : 28)
+                    .background {
+                        if MangaStyle.isActive {
+                            MangaCardBackground(cornerRadius: 10, tint: MangaStyle.paperCool)
+                        }
+                    }
             }
             .transition(.opacity)
             
@@ -101,7 +113,12 @@ struct PlaylistSearchBar: View {
                     }
                 } label: {
                     MonologueIcon(icon: .checkmark, size: 14, color: .monologueTextSecondary)
-                        .frame(width: 28, height: 28)
+                        .frame(width: MangaStyle.isActive ? 34 : 28, height: MangaStyle.isActive ? 34 : 28)
+                        .background {
+                            if MangaStyle.isActive {
+                                MangaCardBackground(cornerRadius: 10, tint: MangaStyle.labelYellow)
+                            }
+                        }
                 }
                 .transition(.opacity)
             }
@@ -119,14 +136,14 @@ struct PlaylistSearchBar: View {
                 }
             } label: {
                 Text(selectedIds?.wrappedValue.count == songs?.count ? String(localized: "取消全选") : String(localized: "全选"))
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : .system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : .monologueTextPrimary)
             }
             .buttonStyle(.plain)
             
             Text("已选 \(selectedIds?.wrappedValue.count ?? 0) 首")
-                .font(.system(size: 12, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : .system(size: 12, design: .rounded))
+                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
             
             Spacer()
             
@@ -135,8 +152,8 @@ struct PlaylistSearchBar: View {
                     Button { onBatchQueue?() } label: {
                         MonologueIcon(icon: .add, size: 18, color: .monologueTextPrimary)
                             .frame(width: 32, height: 32)
-                            .background(Color.monologueTextPrimary.opacity(0.06))
-                            .clipShape(Circle())
+                            .background(MangaStyle.isActive ? MangaStyle.bubbleBlue : Color.monologueTextPrimary.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -144,16 +161,16 @@ struct PlaylistSearchBar: View {
                 Button { onBatchCollect?() } label: {
                     MonologueIcon(icon: .like, size: 18, color: .monologueTextPrimary)
                         .frame(width: 32, height: 32)
-                        .background(Color.monologueTextPrimary.opacity(0.06))
-                        .clipShape(Circle())
+                        .background(MangaStyle.isActive ? MangaStyle.bubblePink : Color.monologueTextPrimary.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 
                 Button { onBatchDownload?() } label: {
                     MonologueIcon(icon: .download, size: 18, color: .monologueTextPrimary)
                         .frame(width: 32, height: 32)
-                        .background(Color.monologueTextPrimary.opacity(0.06))
-                        .clipShape(Circle())
+                        .background(MangaStyle.isActive ? MangaStyle.labelYellow : Color.monologueTextPrimary.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -165,10 +182,17 @@ struct PlaylistSearchBar: View {
                 }
             } label: {
                 Text("取消")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : .system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
             }
             .buttonStyle(.plain)
+        }
+        .padding(.horizontal, MangaStyle.isActive ? 12 : 0)
+        .padding(.vertical, MangaStyle.isActive ? 9 : 0)
+        .background {
+            if MangaStyle.isActive {
+                MangaCardBackground(cornerRadius: 14, elevated: false, tint: MangaStyle.bubbleWhite)
+            }
         }
         .transition(.asymmetric(
             insertion: .move(edge: .trailing).combined(with: .opacity),

@@ -17,16 +17,47 @@ struct NewSongExpressView: View {
     @State private var showBatchAddToPlaylist = false
     @State private var newSongSearch = ""
     @State private var isNewSongSearching = false
-    
+
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
-            
+            if MangaStyle.isActive {
+                MangaRootBackdrop()
+            } else if MujiStyle.isActive {
+                MujiRootBackdrop()
+            } else {
+                MonologueBackground()
+                    .ignoresSafeArea()
+            }
+
             VStack(spacing: 0) {
+                if MangaStyle.isActive {
+                    MangaPageHeader(
+                        eyebrow: "NEW SONGS",
+                        title: String(localized: "new_song_express"),
+                        subtitle: ""
+                    ) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(MangaStyle.labelYellow)
+                            MonologueIcon(icon: .musicNote, size: 23, color: MangaStyle.ink, lineWidth: 2)
+                        }
+                        .frame(width: 48, height: 48)
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.ink).offset(x: 2.5, y: 2.5))
+                    }
+                } else if MujiStyle.isActive {
+                    MujiPageHeader(
+                        eyebrow: String(localized: "new_song_express"),
+                        title: String(localized: "new_song_express"),
+                        subtitle: ""
+                    ) {
+                        MujiIconBadge(icon: .musicNote, tint: MujiStyle.clay, size: 48)
+                    }
+                }
+
                 typeSelector
-                    .padding(.top, 8)
-                
+                    .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : 8)
+
                 if viewModel.isLoading {
                     Spacer()
                     ProgressView()
@@ -48,7 +79,7 @@ struct NewSongExpressView: View {
                 }
             }
         }
-        .navigationTitle(LocalizedStringKey("new_song_express"))
+        .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "new_song_express"))
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -66,13 +97,22 @@ struct NewSongExpressView: View {
             }
         }
         .navigationDestination(isPresented: $showArtistDetail) {
-            if let id = selectedArtistId { ArtistDetailView(artistId: id) }
+            if let id = selectedArtistId {
+                ArtistDetailView(artistId: id)
+
+            }
         }
         .navigationDestination(isPresented: $showSongDetail) {
-            if let song = selectedSongForDetail { SongDetailView(song: song) }
+            if let song = selectedSongForDetail {
+                SongDetailView(song: song)
+
+            }
         }
         .navigationDestination(isPresented: $showAlbumDetail) {
-            if let id = selectedAlbumId { AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil) }
+            if let id = selectedAlbumId {
+                AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
+
+            }
         }
         .onAppear {
             if viewModel.songs.isEmpty {
@@ -80,9 +120,9 @@ struct NewSongExpressView: View {
             }
         }
     }
-    
+
     // MARK: - 语种选择
-    
+
     private var typeSelector: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 10) {
@@ -94,12 +134,16 @@ struct NewSongExpressView: View {
                     } label: {
                         let isSelected = viewModel.selectedType == type.id
                         Text(LocalizedStringKey(type.nameKey))
-                            .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                            .foregroundColor(isSelected ? .monologueIconForeground : .monologueTextSecondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
+                            .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)))
+                            .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? (isSelected ? MujiStyle.paper : MujiStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextSecondary)))
+                            .padding(.horizontal, MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 13 : 16))
+                            .padding(.vertical, (MangaStyle.isActive || MujiStyle.isActive) ? 9 : 8)
                             .background(
-                                Capsule().fill(isSelected ? Color.monologueAccent : Color.clear)
+                                Capsule().fill(MangaStyle.isActive ? (isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.72)) : (MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78)) : (isSelected ? Color.monologueAccent : Color.clear)))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear), lineWidth: MangaStyle.isActive ? MangaStyle.fineStrokeWidth : 0.6)
                             )
                             .clipShape(Capsule())
                             .contentShape(Capsule())
@@ -112,9 +156,9 @@ struct NewSongExpressView: View {
         }
         .scrollIndicators(.hidden)
     }
-    
+
     // MARK: - 空状态
-    
+
     private var emptyState: some View {
         VStack(spacing: 12) {
             MonologueIcon(icon: .musicNote, size: 40, color: .monologueTextSecondary.opacity(0.3))
@@ -123,9 +167,9 @@ struct NewSongExpressView: View {
                 .foregroundColor(.monologueTextSecondary)
         }
     }
-    
+
     // MARK: - 完整列表
-    
+
     private var fullListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // 播放全部按钮
@@ -135,27 +179,43 @@ struct NewSongExpressView: View {
                         playerManager.playReplacingContext(song: first, in: viewModel.songs)
                     }
                 }) {
-                    HStack(spacing: 6) {
-                        MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
-                        Text(LocalizedStringKey("artist_play_all"))
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
+                    if MangaStyle.isActive {
+                        HStack(spacing: 7) {
+                            MonologueIcon(icon: .play, size: 13, color: MangaStyle.ink, lineWidth: 2)
+                            Text(LocalizedStringKey("artist_play_all"))
+                                .font(MangaStyle.labelFont(12, weight: .black))
+                        }
+                        .foregroundStyle(MangaStyle.ink)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(MangaStyle.labelYellow))
+                        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                        .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                    } else if MujiStyle.isActive {
+                        MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
+                    } else {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
+                            Text(LocalizedStringKey("artist_play_all"))
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundColor(.monologueTextPrimary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.monologueTextPrimary.opacity(0.08))
+                        .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.monologueTextPrimary.opacity(0.08))
-                    .clipShape(Capsule())
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                
+
                 Spacer()
-                
+
                 Text(String(format: NSLocalizedString("songs_count_format", comment: ""), viewModel.songs.count))
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            
+
             PlaylistSearchBar(
                 searchText: $newSongSearch,
                 isSearching: $isNewSongSearching,
@@ -172,7 +232,7 @@ struct NewSongExpressView: View {
                 onBatchDownload: { newSongBatchDownload() },
                 onBatchCollect: { showBatchAddToPlaylist = true }
             )
-            
+
             LazyVStack(spacing: 0) {
                 ForEach(Array(newSongFiltered.enumerated()), id: \.element.id) { index, song in
                     SongListRow(
@@ -205,7 +265,7 @@ struct NewSongExpressView: View {
                         }
                     )
                 }
-                
+
                 NoMoreDataView()
             }
         }
@@ -213,9 +273,9 @@ struct NewSongExpressView: View {
             BatchAddToPlaylistSheet(songs: newSongFiltered.filter { selectedSongIds.contains($0.id) })
         }
     }
-    
+
     private var newSongFiltered: [Song] { viewModel.songs.filtered(by: newSongSearch) }
-    
+
     private func newSongBatchDownload() {
         let selected = newSongFiltered.filter { selectedSongIds.contains($0.id) }
         for song in selected {

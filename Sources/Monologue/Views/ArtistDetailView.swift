@@ -31,9 +31,14 @@ struct ArtistDetailView: View {
 
     var body: some View {
         ZStack {
-            // 背景色
-            (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
-                .ignoresSafeArea()
+            if MangaStyle.isActive {
+                MangaRootBackdrop()
+            } else if MujiStyle.isActive {
+                MujiRootBackdrop()
+            } else {
+                (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
+                    .ignoresSafeArea()
+            }
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -43,11 +48,11 @@ struct ArtistDetailView: View {
                     // 信息区域（名字、粉丝、关注按钮、播放按钮）
                     infoSection
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                        .padding(.top, -40)
+                        .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 12 : -40)
 
                     // Tab 栏
                     tabBar
-                        .padding(.top, 20)
+                        .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 14 : 20)
 
                     // Tab 内容
                     tabContent
@@ -65,16 +70,19 @@ struct ArtistDetailView: View {
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
+
             }
         }
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
                 SongDetailView(song: song)
+
             }
         }
         .navigationDestination(isPresented: $showAlbumDetail) {
             if let albumId = selectedAlbumId {
                 AlbumDetailView(albumId: albumId, albumName: nil, albumCoverUrl: nil)
+
             }
         }
         .fullScreenCover(item: $selectedMV) { item in
@@ -100,10 +108,16 @@ struct ArtistDetailView: View {
 
 extension ArtistDetailView {
 
+    @ViewBuilder
     private var heroSection: some View {
+        if MangaStyle.isActive {
+            mangaHeroSection
+        } else if MujiStyle.isActive {
+            mujiHeroSection
+        } else {
         let stretchHeight = headerImageHeight - scrollOffset
-        
-        return ZStack(alignment: .bottom) {
+
+        ZStack(alignment: .bottom) {
             // 歌手大图（弹性拉伸）
             if let artist = viewModel.artist, let coverUrl = artist.coverUrl?.sized(800) {
                 CachedAsyncImage(url: coverUrl) {
@@ -135,6 +149,56 @@ extension ArtistDetailView {
         .frame(height: stretchHeight)
         .padding(.bottom, scrollOffset)
         .offset(y: scrollOffset)
+        }
+    }
+
+    private var mangaHeroSection: some View {
+        ZStack(alignment: .bottomTrailing) {
+            CachedAsyncImage(url: viewModel.artist?.coverUrl?.sized(800)) {
+                MangaStyle.paperCool
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(height: DeviceLayout.isPad ? 300 : 240)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(MangaStyle.ink, lineWidth: 2.4)
+            )
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(MangaStyle.ink)
+                    .offset(x: 3, y: 3)
+            )
+
+            MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 34)
+                .padding(14)
+        }
+        .rotationEffect(.degrees(-1.2))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 22)
+        .padding(.bottom, 2)
+    }
+
+    private var mujiHeroSection: some View {
+        VStack(spacing: 0) {
+            CachedAsyncImage(url: viewModel.artist?.coverUrl?.sized(800)) {
+                MujiStyle.surfaceRaised
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: DeviceLayout.isPad ? 230 : 190, height: DeviceLayout.isPad ? 230 : 190)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
+            )
+            .shadow(color: Color.black.opacity(0.055), radius: 10, x: 0, y: 5)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, DeviceLayout.headerTopPadding + 22)
+        .padding(.bottom, 4)
     }
 }
 
@@ -142,7 +206,13 @@ extension ArtistDetailView {
 
 extension ArtistDetailView {
 
+    @ViewBuilder
     private var infoSection: some View {
+        if MangaStyle.isActive {
+            mangaInfoSection
+        } else if MujiStyle.isActive {
+            mujiInfoSection
+        } else {
         VStack(alignment: .leading, spacing: 12) {
             Text(viewModel.artist?.name ?? "")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -208,6 +278,131 @@ extension ArtistDetailView {
             }
             .padding(.top, 4)
         }
+        }
+    }
+
+    private var mangaInfoSection: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(spacing: 8) {
+                MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 23)
+                MangaLabel(text: "ARTIST", tint: MangaStyle.labelYellow, small: true)
+            }
+
+            Text(viewModel.artist?.name ?? "")
+                .font(MangaStyle.titleFont(30, weight: .black))
+                .foregroundColor(MangaStyle.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                if viewModel.fansCount > 0 {
+                    MangaLabel(text: formatFansCount(viewModel.fansCount), tint: MangaStyle.bubbleBlue, small: true)
+                }
+
+                if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
+                    MangaLabel(text: String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize), tint: MangaStyle.mint, small: true)
+                }
+
+                if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
+                    MangaLabel(text: String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize), tint: MangaStyle.paperCool, small: true)
+                }
+            }
+
+            if let desc = viewModel.artist?.briefDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 6) {
+                        Text(desc)
+                            .font(MangaStyle.bodyFont(13, weight: .bold))
+                            .foregroundColor(MangaStyle.inkSub)
+                            .lineLimit(2)
+                        MonologueIcon(icon: .chevronRight, size: 10, color: MangaStyle.inkSub)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 12, weight: .black))
+                    Text(LocalizedStringKey("artist_play_all"))
+                        .font(MangaStyle.labelFont(13, weight: .black))
+                }
+                .foregroundColor(MangaStyle.ink)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                .background(Capsule().fill(MangaStyle.labelYellow))
+                .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1.5))
+                .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+            .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
+            .disabled(viewModel.songs.isEmpty)
+        }
+        .padding(16)
+        .background(MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite))
+    }
+
+    private var mujiInfoSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                MujiPill(text: "ARTIST", tint: MujiStyle.clay)
+                if viewModel.fansCount > 0 {
+                    MujiPill(text: formatFansCount(viewModel.fansCount), tint: MujiStyle.indigo)
+                }
+            }
+
+            Text(viewModel.artist?.name ?? "")
+                .font(MujiStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .regular))
+                .foregroundStyle(MujiStyle.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
+                    MujiPill(text: String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize), tint: MujiStyle.tea)
+                }
+
+                if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
+                    MujiPill(text: String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize), tint: MujiStyle.clay)
+                }
+            }
+
+            if let desc = viewModel.artist?.briefDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 6) {
+                        Text(desc)
+                            .font(MujiStyle.bodyFont(13, weight: .regular))
+                            .foregroundStyle(MujiStyle.inkSoft)
+                            .lineLimit(2)
+                        MonologueIcon(icon: .chevronRight, size: 10, color: MujiStyle.inkSoft)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                MujiActionPill(
+                    title: String(localized: "artist_play_all"),
+                    icon: .play,
+                    selected: true,
+                    tint: MujiStyle.clay
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+            .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
+            .disabled(viewModel.songs.isEmpty)
+
+            MujiListDivider()
+        }
     }
 
     private func formatFansCount(_ count: Int) -> String {
@@ -224,15 +419,41 @@ extension ArtistDetailView {
 
 extension ArtistDetailView {
 
+    @ViewBuilder
     private var tabBar: some View {
-        HStack(spacing: 28) {
-            tabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0)
-            tabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1)
-            tabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2)
-            tabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3)
+        if MangaStyle.isActive {
+            HStack(spacing: 8) {
+                mangaTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0, tint: MangaStyle.labelYellow)
+                mangaTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1, tint: MangaStyle.bubbleBlue)
+                mangaTabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2, tint: MangaStyle.mint)
+                mangaTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3, tint: MangaStyle.bubblePink)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        } else if MujiStyle.isActive {
+            HStack(spacing: 24) {
+                mujiTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0, tint: MujiStyle.clay)
+                mujiTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1, tint: MujiStyle.tea)
+                mujiTabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2, tint: MujiStyle.indigo)
+                mujiTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3, tint: MujiStyle.straw)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(MujiStyle.separator.opacity(0.72))
+                    .frame(height: 0.6)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+        } else {
+            HStack(spacing: 28) {
+                tabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0)
+                tabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1)
+                tabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2)
+                tabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func tabItem(_ title: String, index: Int) -> some View {
@@ -249,6 +470,65 @@ extension ArtistDetailView {
                     .frame(width: 20, height: 3)
             }
         }
+    }
+
+    private func mangaTabItem(_ title: String, index: Int, tint: Color) -> some View {
+        let isSelected = selectedTab == index
+
+        return Button(action: {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { selectedTab = index }
+        }) {
+            Text(title)
+                .font(MangaStyle.labelFont(12, weight: isSelected ? .black : .bold))
+                .foregroundColor(isSelected ? MangaStyle.ink : MangaStyle.inkSub)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background {
+                    if isSelected {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .fill(MangaStyle.ink)
+                                .offset(x: 1.5, y: 1.5)
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .fill(tint)
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .stroke(MangaStyle.ink, lineWidth: 1.4)
+                        }
+                    } else {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(MangaStyle.bubbleWhite.opacity(0.6))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                    .stroke(MangaStyle.ink.opacity(0.28), lineWidth: 1)
+                            )
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func mujiTabItem(_ title: String, index: Int, tint: Color) -> some View {
+        let isSelected = selectedTab == index
+
+        return Button(action: {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { selectedTab = index }
+        }) {
+            VStack(spacing: 7) {
+                Text(title)
+                    .font(MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? MujiStyle.ink : MujiStyle.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                Rectangle()
+                    .fill(isSelected ? tint : Color.clear)
+                    .frame(width: 18, height: 1.2)
+            }
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -275,7 +555,7 @@ extension ArtistDetailView {
     // MARK: 音乐 Tab
 
     private var artistSongFiltered: [Song] { viewModel.songs.filtered(by: artistSongSearch) }
-    
+
     private var songsTab: some View {
         Group {
             if viewModel.isLoading && viewModel.songs.isEmpty {
@@ -300,7 +580,7 @@ extension ArtistDetailView {
                         onBatchDownload: { artistBatchDownload() },
                         onBatchCollect: { showArtistBatchPlaylist = true }
                     )
-                    
+
                     LazyVStack(spacing: 0) {
                         ForEach(Array(artistSongFiltered.enumerated()), id: \.element.id) { index, song in
                             SongListRow(song: song, index: index, isSelecting: isArtistSelectMode, isSelected: artistSelectedSongIds.contains(song.id), onArtistTap: { artistId in
@@ -333,7 +613,7 @@ extension ArtistDetailView {
             }
         }
     }
-    
+
     private func artistBatchDownload() {
         let selected = artistSongFiltered.filter { artistSelectedSongIds.contains($0.id) }
         for song in selected {
@@ -368,7 +648,8 @@ extension ArtistDetailView {
     }
 
     private func albumRow(_ album: AlbumInfo) -> some View {
-        Button(action: {
+        let coverRadius: CGFloat = MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : 10)
+        return Button(action: {
             selectedAlbumId = album.id
             showAlbumDetail = true
         }) {
@@ -376,48 +657,64 @@ extension ArtistDetailView {
                 // 专辑封面
                 if let coverUrl = album.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint)
+                        RoundedRectangle(cornerRadius: coverRadius)
+                            .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                    .overlay {
+                        if MangaStyle.isActive {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(MangaStyle.ink, lineWidth: 1.5)
+                        } else if MujiStyle.isActive {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
+                        }
+                    }
                 } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: coverRadius)
+                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                         .frame(width: 72, height: 72)
-                        .overlay(MonologueIcon(icon: .album, size: 24, color: .monologueTextSecondary.opacity(0.3)))
+                        .overlay(MonologueIcon(icon: .album, size: 24, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(album.name)
-                        .font(.rounded(size: 16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(16, weight: .regular) : .rounded(size: 16, weight: .medium)))
+                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if !album.publishDateText.isEmpty {
                             Text(album.publishDateText)
-                                .font(.rounded(size: 12))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))
+                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                         }
                         if let size = album.size, size > 0 {
                             Text("\(size) Tracks")
-                                .font(.rounded(size: 12))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))
+                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
                         }
                     }
                 }
 
                 Spacer(minLength: 0)
 
-                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.4))
+                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextSecondary.opacity(0.4)))
             }
             .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.monologueGlassTint)
-                    .monologueGlass(cornerRadius: 20)
-            )
+            .background {
+                if MangaStyle.isActive {
+                    MangaCardBackground(cornerRadius: 15, elevated: true, tint: MangaStyle.bubbleWhite)
+                } else if MujiStyle.isActive {
+                    MujiPaperCardBackground(cornerRadius: 10)
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.monologueGlassTint)
+                        .monologueGlass(cornerRadius: 20)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
@@ -472,22 +769,40 @@ extension ArtistDetailView {
                             VStack(spacing: 10) {
                                 if let coverUrl = artist.coverUrl?.sized(300) {
                                     CachedAsyncImage(url: coverUrl) {
-                                        Circle().fill(Color.monologueGlassTint)
+                                        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : 45))
+                                            .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                                     }
                                     .aspectRatio(contentMode: .fill)
                                     .frame(width: 90, height: 90)
-                                    .clipShape(Circle())
+                                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : 45), style: .continuous))
+                                    .overlay {
+                                        if MangaStyle.isActive {
+                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                .stroke(MangaStyle.ink, lineWidth: 1.5)
+                                        } else if MujiStyle.isActive {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
+                                        }
+                                    }
                                 } else {
-                                    Circle()
-                                        .fill(Color.monologueGlassTint)
+                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : 45))
+                                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                                         .frame(width: 90, height: 90)
-                                        .overlay(MonologueIcon(icon: .personCircle, size: 32, color: .monologueTextSecondary.opacity(0.3)))
+                                        .overlay(MonologueIcon(icon: .personCircle, size: 32, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
                                 }
-                                
+
                                 Text(artist.name)
-                                    .font(.rounded(size: 13, weight: .medium))
-                                    .foregroundColor(.monologueTextPrimary)
+                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .rounded(size: 13, weight: .medium)))
+                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
                                     .lineLimit(1)
+                            }
+                            .padding((MangaStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+                            .background {
+                                if MangaStyle.isActive {
+                                    MangaCardBackground(cornerRadius: 15, elevated: true, tint: MangaStyle.bubbleWhite)
+                                } else if MujiStyle.isActive {
+                                    MujiPaperCardBackground(cornerRadius: 10)
+                                }
                             }
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
