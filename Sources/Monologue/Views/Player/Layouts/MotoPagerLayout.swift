@@ -216,7 +216,7 @@ struct MotoPagerLayout: View {
         .monologueSheet(isPresented: $showEQSettings, preset: .large){
             NavigationStack { EQSettingsView() }
         }
-        .monologueSheet(isPresented: $showThemePicker, preset: .compact){
+        .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
         }
         .monologueSheet(isPresented: $showComments, preset: .large){

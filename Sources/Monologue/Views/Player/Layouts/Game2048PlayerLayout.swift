@@ -283,7 +283,7 @@ struct Game2048PlayerLayout: View {
             )
         }
         .monologueSheet(isPresented: $showEQSettings, preset: .large) { NavigationStack { EQSettingsView() } }
-        .monologueSheet(isPresented: $showThemePicker, preset: .compact) { PlayerThemePickerSheet() }
+        .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
         .monologueSheet(isPresented: $showComments, preset: .large) {
             if let s = player.currentSong {
                 CommentView(resourceId: s.id, resourceType: .song,

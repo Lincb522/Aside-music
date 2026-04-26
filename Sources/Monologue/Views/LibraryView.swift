@@ -2879,13 +2879,54 @@ struct LibraryPlaylistRow: View {
 // MARK: - Manga Library Redesign
 
 private struct MangaLibraryExperience: View {
+    private enum MangaMyLibraryColumn: CaseIterable, Hashable {
+        case localPlaylists
+        case ncmPlaylists
+        case qcmPlaylists
+        case localPodcasts
+        case ncmPodcasts
+
+        var title: String {
+            switch self {
+            case .localPlaylists: return String(localized: "lib_local_playlists")
+            case .ncmPlaylists: return String(localized: "lib_netease_playlists")
+            case .qcmPlaylists: return String(localized: "QCM歌单")
+            case .localPodcasts: return String(localized: "本地播客")
+            case .ncmPodcasts: return String(localized: "NCM 播客")
+            }
+        }
+
+        var icon: MonologueIcon.IconType {
+            switch self {
+            case .localPlaylists: return .musicNoteList
+            case .ncmPlaylists, .qcmPlaylists: return .list
+            case .localPodcasts, .ncmPodcasts: return .radio
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .localPlaylists: return MangaStyle.labelYellow
+            case .ncmPlaylists: return MangaStyle.bubbleBlue
+            case .qcmPlaylists: return MangaStyle.bubblePink
+            case .localPodcasts: return MangaStyle.mint
+            case .ncmPodcasts: return MangaStyle.decoBlue
+            }
+        }
+    }
+
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
     @ObservedObject private var localManager = LocalPlaylistManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var qqSession = QQUserSession.shared
     @State private var showFileImporter = false
     @State private var showQQImport = false
     @State private var isImporting = false
+    @State private var selectedMyLibraryColumn: MangaMyLibraryColumn = .localPlaylists
+    @State private var qqUserPlaylists: [Playlist] = []
+    @State private var isLoadingQQUserPlaylists = false
+    @State private var hasLoadedQQUserPlaylists = false
 
     private let tabs = LibraryViewModel.LibraryTab.allCases
     private let twoColumns = [
@@ -2925,6 +2966,15 @@ private struct MangaLibraryExperience: View {
         }
         .onChange(of: tabIndex) { _, _ in
             loadCurrentTab()
+        }
+        .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
+            if isLoggedIn {
+                hasLoadedQQUserPlaylists = false
+                loadQQUserPlaylistsIfNeeded(force: true)
+            } else {
+                qqUserPlaylists = []
+                hasLoadedQQUserPlaylists = false
+            }
         }
         .sheet(isPresented: $showQQImport) {
             QQPlaylistImportView()
@@ -3039,52 +3089,185 @@ private struct MangaLibraryExperience: View {
     private var myLibraryPage: some View {
         VStack(alignment: .leading, spacing: 16) {
             mangaImportActionStrip
+            mangaMyLibraryColumnStrip
+            mangaMyLibraryColumnContent
+        }
+    }
 
-            compactShelf(
-                title: String(localized: "lib_local_playlists")
-            ) {
-                if localManager.playlists.isEmpty {
-                    MangaEmptyPanel(icon: .musicNoteList, title: String(localized: "lib_no_local_playlists"))
-                        .frame(width: 210)
-                } else {
+    private var mangaMyLibraryColumnStrip: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(MangaMyLibraryColumn.allCases, id: \.self) { column in
+                    Button {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                            selectedMyLibraryColumn = column
+                        }
+                        if column == .qcmPlaylists {
+                            loadQQUserPlaylistsIfNeeded()
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            MonologueIcon(
+                                icon: column.icon,
+                                size: 14,
+                                color: MangaStyle.ink,
+                                lineWidth: selectedMyLibraryColumn == column ? 2 : 1.6
+                            )
+
+                            Text(column.title)
+                                .font(MangaStyle.labelFont(11, weight: .black))
+                                .foregroundStyle(selectedMyLibraryColumn == column ? MangaStyle.ink : MangaStyle.inkSub)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(
+                            Capsule()
+                                .fill(selectedMyLibraryColumn == column ? column.tint : MangaStyle.bubbleWhite.opacity(0.74))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                        )
+                        .clipShape(Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.bottom, 2)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var mangaMyLibraryColumnContent: some View {
+        switch selectedMyLibraryColumn {
+        case .localPlaylists:
+            mangaLocalPlaylistsGrid
+        case .ncmPlaylists:
+            mangaNCMPlaylistsGrid
+        case .qcmPlaylists:
+            mangaQCMPlaylistsGrid
+        case .localPodcasts:
+            mangaLocalPodcastsGrid
+        case .ncmPodcasts:
+            mangaNCMPodcastsGrid
+        }
+    }
+
+    private var mangaLocalPlaylistsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaLibrarySectionHeader(title: MangaMyLibraryColumn.localPlaylists.title)
+
+            if localManager.playlists.isEmpty {
+                MangaEmptyPanel(icon: .musicNoteList, title: String(localized: "lib_no_local_playlists"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else {
+                LazyVGrid(columns: twoColumns, spacing: 14) {
                     ForEach(localManager.playlists, id: \.id) { playlist in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
                             MangaLocalPlaylistPoster(playlist: playlist)
-                                .frame(width: DeviceLayout.isPad ? 176 : 148)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     }
                 }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
+        }
+    }
 
-            compactShelf(title: String(localized: "lib_podcasts")) {
-                if favoriteRadios.isEmpty {
-                    MangaEmptyPanel(icon: .radio, title: String(localized: "lib_no_podcasts"))
-                        .frame(width: 210)
-                } else {
-                    ForEach(favoriteRadios) { radio in
+    private var mangaNCMPlaylistsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaLibrarySectionHeader(title: MangaMyLibraryColumn.ncmPlaylists.title)
+
+            if viewModel.userPlaylists.isEmpty {
+                MangaEmptyPanel(icon: .list, title: String(localized: "empty_no_playlists"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else {
+                mangaPlaylistGrid(playlists: viewModel.userPlaylists, isLoading: false)
+            }
+        }
+    }
+
+    private var mangaQCMPlaylistsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaLibrarySectionHeader(title: MangaMyLibraryColumn.qcmPlaylists.title)
+
+            if isLoadingQQUserPlaylists && qqUserPlaylists.isEmpty {
+                MonologueLoadingView(text: "LOADING QCM")
+                    .padding(.top, 22)
+            } else if !qqSession.isLoggedIn {
+                MangaEmptyPanel(icon: .musicNoteList, title: String(localized: "请先登录 QCM"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else if qqUserPlaylists.isEmpty {
+                MangaEmptyPanel(icon: .list, title: String(localized: "暂无 QCM 歌单"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else {
+                LazyVGrid(columns: twoColumns, spacing: 14) {
+                    ForEach(qqUserPlaylists) { playlist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                            MangaPlaylistPoster(playlist: playlist, tint: MangaStyle.bubblePink)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+        }
+    }
+
+    private var mangaLocalPodcastsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaLibrarySectionHeader(title: MangaMyLibraryColumn.localPodcasts.title)
+
+            if subManager.localSubscribedRadios.isEmpty {
+                MangaEmptyPanel(icon: .radio, title: String(localized: "暂无本地收藏"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else {
+                LazyVGrid(columns: twoColumns, spacing: 14) {
+                    ForEach(subManager.localSubscribedRadios) { radio in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
                             MangaPodcastPoster(radio: radio)
-                                .frame(width: DeviceLayout.isPad ? 176 : 148)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    subManager.removeLocalRadio(radio)
+                                }
+                            } label: {
+                                Label(String(localized: "lib_unsubscribe"), systemImage: "heart.slash")
+                            }
+                        }
                     }
                 }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
+        }
+    }
 
-            compactShelf(title: String(localized: "lib_netease_playlists")) {
-                if viewModel.userPlaylists.isEmpty {
-                    MangaEmptyPanel(icon: .list, title: String(localized: "empty_no_playlists"))
-                        .frame(width: 210)
-                } else {
-                    ForEach(viewModel.userPlaylists) { playlist in
-                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
-                            MangaPlaylistPoster(playlist: playlist, tint: MangaStyle.bubbleBlue)
-                                .frame(width: DeviceLayout.isPad ? 176 : 148)
+    private var mangaNCMPodcastsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaLibrarySectionHeader(title: MangaMyLibraryColumn.ncmPodcasts.title)
+
+            if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
+                MonologueLoadingView(text: "LOADING PODCASTS")
+                    .padding(.top, 22)
+            } else if subManager.subscribedRadios.isEmpty {
+                MangaEmptyPanel(icon: .radio, title: String(localized: "lib_no_podcasts"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else {
+                LazyVGrid(columns: twoColumns, spacing: 14) {
+                    ForEach(subManager.subscribedRadios) { radio in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                            MangaPodcastPoster(radio: radio)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     }
                 }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
         }
     }
@@ -3131,35 +3314,6 @@ private struct MangaLibraryExperience: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         }
         .scrollIndicators(.hidden)
-    }
-
-    private func compactShelf<Content: View>(
-        title: String,
-        actionTitle: String? = nil,
-        action: (() -> Void)? = nil,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            MangaLibrarySectionHeader(title: title, actionTitle: actionTitle, action: action)
-
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    content()
-                }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                .padding(.bottom, 4)
-            }
-            .scrollIndicators(.hidden)
-        }
-    }
-
-    private var favoriteRadios: [RadioStation] {
-        var seen = Set<Int>()
-        return (subManager.localSubscribedRadios + subManager.subscribedRadios).filter { radio in
-            if seen.contains(radio.id) { return false }
-            seen.insert(radio.id)
-            return true
-        }
     }
 
     private var playlistSquarePage: some View {
@@ -3218,6 +3372,8 @@ private struct MangaLibraryExperience: View {
 
             if viewModel.artistSource == .qq {
                 qqArtistFilterBar
+                qqArtistSexBar
+                qqArtistGenreBar
                 artistGrid(artists: viewModel.qqArtists, isLoading: viewModel.isLoadingQQArtists)
                 if viewModel.hasMoreQQArtists && !viewModel.qqArtists.isEmpty {
                     loadMorePanel {
@@ -3226,6 +3382,8 @@ private struct MangaLibraryExperience: View {
                 }
             } else {
                 ncmArtistFilterBar
+                ncmArtistTypeBar
+                ncmArtistInitialBar
                 artistGrid(artists: viewModel.topArtists, isLoading: viewModel.isLoadingArtists)
                 if viewModel.hasMoreArtists && !viewModel.topArtists.isEmpty {
                     loadMorePanel {
@@ -3354,6 +3512,44 @@ private struct MangaLibraryExperience: View {
         .scrollIndicators(.hidden)
     }
 
+    private var ncmArtistTypeBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 9) {
+                ForEach(viewModel.artistTypes, id: \.value) { type in
+                    MangaFilterChip(
+                        title: NSLocalizedString(type.name, comment: ""),
+                        selected: viewModel.artistType == type.value,
+                        tint: MangaStyle.bubbleBlue
+                    ) {
+                        viewModel.artistType = type.value
+                        viewModel.fetchArtistData(reset: true)
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var ncmArtistInitialBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 9) {
+                ForEach(viewModel.artistInitials, id: \.self) { initial in
+                    MangaFilterChip(
+                        title: initial == "-1" ? NSLocalizedString("search_hot", comment: "") : initial,
+                        selected: viewModel.artistInitial == initial,
+                        tint: MangaStyle.labelYellow
+                    ) {
+                        viewModel.artistInitial = initial
+                        viewModel.fetchArtistData(reset: true)
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        }
+        .scrollIndicators(.hidden)
+    }
+
     private var qqArtistFilterBar: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 9) {
@@ -3364,6 +3560,44 @@ private struct MangaLibraryExperience: View {
                         tint: MangaStyle.bubblePink
                     ) {
                         viewModel.qqArtistArea = area.value
+                        viewModel.fetchQQArtistData(reset: true)
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var qqArtistSexBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 9) {
+                ForEach(viewModel.qqArtistSexes, id: \.value) { sex in
+                    MangaFilterChip(
+                        title: NSLocalizedString(sex.name, comment: ""),
+                        selected: viewModel.qqArtistSex == sex.value,
+                        tint: MangaStyle.labelYellow
+                    ) {
+                        viewModel.qqArtistSex = sex.value
+                        viewModel.fetchQQArtistData(reset: true)
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var qqArtistGenreBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 9) {
+                ForEach(viewModel.qqArtistGenres, id: \.value) { genre in
+                    MangaFilterChip(
+                        title: NSLocalizedString(genre.name, comment: ""),
+                        selected: viewModel.qqArtistGenre == genre.value,
+                        tint: MangaStyle.mint
+                    ) {
+                        viewModel.qqArtistGenre = genre.value
                         viewModel.fetchQQArtistData(reset: true)
                     }
                 }
@@ -3419,11 +3653,13 @@ private struct MangaLibraryExperience: View {
 
     private func loadMorePanel(action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            MangaLabel(text: String(localized: "view_all"), tint: MangaStyle.decoBlue, small: true)
+            MangaLabel(text: String(localized: "查看更多"), tint: MangaStyle.decoBlue, small: true)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
         .frame(maxWidth: .infinity)
-        .padding(.top, 2)
+        .frame(minHeight: 50)
+        .padding(.top, 6)
+        .padding(.bottom, 78)
     }
 
     private func selectTab(_ tab: LibraryViewModel.LibraryTab, index: Int) {
@@ -3446,6 +3682,10 @@ private struct MangaLibraryExperience: View {
         switch tab {
         case .my:
             viewModel.fetchPlaylists()
+            loadQQUserPlaylistsIfNeeded()
+            if subManager.subscribedRadios.isEmpty {
+                subManager.fetchSubscribedRadios()
+            }
         case .square:
             if viewModel.squareSource == .qq {
                 viewModel.fetchQQSquareData()
@@ -3464,6 +3704,65 @@ private struct MangaLibraryExperience: View {
             } else {
                 viewModel.fetchTopLists()
             }
+        }
+    }
+
+    private func loadQQUserPlaylistsIfNeeded(force: Bool = false) {
+        guard force || !hasLoadedQQUserPlaylists else { return }
+        guard !isLoadingQQUserPlaylists else { return }
+
+        guard qqSession.isLoggedIn, let mid = qqSession.musicId else {
+            qqUserPlaylists = []
+            hasLoadedQQUserPlaylists = true
+            return
+        }
+
+        isLoadingQQUserPlaylists = true
+
+        Task { @MainActor in
+            defer {
+                isLoadingQQUserPlaylists = false
+                hasLoadedQQUserPlaylists = true
+            }
+
+            do {
+                let result: JSON = try await QQUserSession.shared.withUserSession { client in
+                    try await client.createdSonglist(uin: String(mid))
+                }
+                qqUserPlaylists = Self.parseQQUserPlaylists(result)
+            } catch {
+                AppLogger.error("[MangaLibrary] 加载 QCM 歌单失败: \(error)")
+            }
+        }
+    }
+
+    private static func parseQQUserPlaylists(_ result: JSON) -> [Playlist] {
+        let list = result["v_playlist"]?.arrayValue ?? result.arrayValue ?? []
+
+        return list.compactMap { json in
+            guard let obj = json.objectValue else { return nil }
+            let tid = obj["tid"]?.intValue ?? 0
+            let name = obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
+            let cover = obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
+            let songCount = obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
+
+            guard !name.isEmpty else { return nil }
+
+            return Playlist(
+                id: tid,
+                name: name,
+                coverImgUrl: cover,
+                picUrl: nil,
+                trackCount: songCount,
+                playCount: nil,
+                subscribedCount: nil,
+                shareCount: nil,
+                commentCount: nil,
+                creator: nil,
+                description: nil,
+                tags: nil,
+                source: .qqmusic
+            )
         }
     }
 
@@ -3869,7 +4168,7 @@ private struct MangaLibraryActionChip: View {
                     .minimumScaleFactor(0.72)
             }
             .padding(.horizontal, 13)
-            .frame(height: 42)
+            .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(tint.opacity(0.92))
@@ -3878,11 +4177,8 @@ private struct MangaLibraryActionChip: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
             )
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(MangaStyle.ink)
-                    .offset(x: 1.6, y: 1.6)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .compositingGroup()
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
     }
@@ -3901,13 +4197,14 @@ private struct MangaFilterChip: View {
                 .foregroundStyle(selected ? MangaStyle.ink : MangaStyle.inkSub)
                 .lineLimit(1)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .frame(minHeight: 36)
                 .background(
                     Capsule()
                         .fill(selected ? tint : MangaStyle.bubbleWhite.opacity(0.72))
                 )
                 .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-                .background(Capsule().fill(MangaStyle.ink).offset(x: selected ? 2 : 1, y: selected ? 2 : 1))
+                .clipShape(Capsule())
+                .compositingGroup()
         }
         .buttonStyle(.plain)
     }

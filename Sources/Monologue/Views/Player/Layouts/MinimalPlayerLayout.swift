@@ -86,7 +86,7 @@ struct MinimalPlayerLayout: View {
             NavigationStack { EQSettingsView() }
 
         }
-        .monologueSheet(isPresented: $showThemePicker, preset: .compact){
+        .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
 
         }

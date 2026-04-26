@@ -4,7 +4,6 @@ import SwiftUI
 struct MujiHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
-    @ObservedObject private var settings = SettingsManager.shared
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
@@ -29,9 +28,8 @@ struct MujiHomeView: View {
             }
             .onAppear {
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
-                if settings.hitokotoEnabled,
-                   viewModel.hitokoto?.isEmpty != false {
-                    viewModel.refreshHitokoto()
+                if viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    viewModel.refreshHitokoto(ignoresSetting: true)
                 }
                 if !appeared {
                     withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
@@ -173,7 +171,10 @@ struct MujiHomeView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .refreshable { viewModel.fetchData() }
+        .refreshable {
+            viewModel.fetchData()
+            viewModel.refreshHitokoto(force: true, ignoresSetting: true)
+        }
     }
 
     private var mujiIntroCard: some View {
@@ -201,6 +202,7 @@ struct MujiHomeView: View {
                     .foregroundStyle(textPrimary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 50, alignment: .leading)
                     .layoutPriority(1)
                     .textSelection(.disabled)
             }
@@ -210,21 +212,12 @@ struct MujiHomeView: View {
     }
 
     private var mujiHeaderQuote: String {
-        if settings.hitokotoEnabled,
-           let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
+        if let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
            !hitokoto.isEmpty {
             return hitokoto
         }
 
-        if let firstSong = viewModel.dailySongs.first {
-            let artist = firstSong.artistName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if artist.isEmpty {
-                return firstSong.name
-            }
-            return "\(firstSong.name) · \(artist)"
-        }
-
-        return String(localized: "daily_recommend")
+        return ""
     }
 
     // MARK: - 问候
@@ -563,6 +556,7 @@ private struct MujiHomeBannerSection: View {
                     MujiHomeBannerCard(banner: banner) {
                         onTap(banner)
                     }
+                    .padding(.horizontal, 28)
                     .tag(offset)
                 }
             }
@@ -613,6 +607,7 @@ private struct MujiHomeBannerCard: View {
                     startPoint: .center,
                     endPoint: .bottom
                 )
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
 
                 HStack(spacing: 10) {
                     Text(bannerLabel)
@@ -636,6 +631,7 @@ private struct MujiHomeBannerCard: View {
             }
             .frame(height: DeviceLayout.isPad ? 190 : 130)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .compositingGroup()
             .overlay(

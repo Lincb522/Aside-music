@@ -691,6 +691,7 @@ struct SettingsToggleRow: View {
     let title: String
     let subtitle: String?
     @Binding var isOn: Bool
+    var isEnabled: Bool = true
 
     var body: some View {
         HStack(spacing: 12) {
@@ -713,9 +714,11 @@ struct SettingsToggleRow: View {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(SettingsSwitchToggleStyle())
+                .disabled(!isEnabled)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+        .opacity(isEnabled ? 1 : 0.42)
     }
 }
 

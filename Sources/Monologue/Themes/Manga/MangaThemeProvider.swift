@@ -62,10 +62,6 @@ struct MangaThemeProvider: GlobalThemeProvider {
         )
     }
 
-    // ── 推荐播放器主题 ──
-
-    var suggestedPlayerTheme: PlayerTheme? { .mangaChat }
-
     // ── 布局工厂 ──
 
     func makeHomeView() -> AnyView {

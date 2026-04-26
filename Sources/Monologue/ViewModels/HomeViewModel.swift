@@ -22,6 +22,10 @@ class HomeViewModel: ObservableObject {
     @Published var hitokoto: String?
     
     private var cancellables = Set<AnyCancellable>()
+    private var hitokotoFetchTask: Task<Void, Never>?
+    private var lastHitokotoAttempt: Date?
+    private var lastHitokotoFailure: Date?
+    private var lastHitokotoSuccess: Date?
     private let apiService = APIService.shared
     private let styleManager = StyleManager.shared
     
@@ -316,48 +320,200 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Hitokoto 一言
 
-    func refreshHitokoto() {
-        fetchHitokoto()
+    func refreshHitokoto(force: Bool = false, ignoresSetting: Bool = false) {
+        fetchHitokoto(force: force, ignoresSetting: ignoresSetting)
     }
 
+    private static let hitokotoMinimumRequestInterval: TimeInterval = 8
+    private static let hitokotoFailureCooldown: TimeInterval = 10 * 60
+    private static let hitokotoSuccessRefreshInterval: TimeInterval = 30 * 60
+
     private static let hitokotoHosts = [
-        "https://v1.hitokoto.cn/",
-        "https://international.v1.hitokoto.cn/"
+        "https://v1.hitokoto.cn/"
     ]
 
-    private func fetchHitokoto() {
+    private struct HitokotoResponse: Decodable {
+        let hitokoto: String
+    }
+
+    private func fetchHitokoto(force: Bool = false, ignoresSetting: Bool = false) {
         let settings = SettingsManager.shared
-        guard settings.hitokotoEnabled else {
+        guard ignoresSetting || settings.hitokotoEnabled else {
             hitokoto = nil
             return
         }
 
-        let type = settings.hitokotoType
-        let suffix = type.isEmpty ? "" : "?c=\(type)"
+        let now = Date()
+        if hitokotoFetchTask != nil {
+            return
+        }
 
-        Task {
-            for host in Self.hitokotoHosts {
-                guard let url = URL(string: host + suffix) else { continue }
+        if !force,
+           let lastHitokotoFailure,
+           now.timeIntervalSince(lastHitokotoFailure) < Self.hitokotoFailureCooldown {
+            return
+        }
+
+        if let lastHitokotoSuccess,
+           !force,
+           now.timeIntervalSince(lastHitokotoSuccess) < Self.hitokotoSuccessRefreshInterval,
+           hasUsableHitokoto {
+            return
+        }
+
+        if !force,
+           let lastHitokotoAttempt,
+           now.timeIntervalSince(lastHitokotoAttempt) < Self.hitokotoMinimumRequestInterval {
+            return
+        }
+
+        lastHitokotoAttempt = now
+
+        let type = settings.hitokotoType
+        let urls = Self.hitokotoURLs(type: type)
+
+        hitokotoFetchTask = Task { [weak self, urls] in
+            var failures: [String] = []
+
+            for url in urls {
                 do {
-                    let (data, response) = try await URLSession.shared.data(from: url)
-                    if let httpResponse = response as? HTTPURLResponse,
-                       httpResponse.statusCode != 200 {
-                        continue
+                    let hitokotoString = try await Self.requestHitokoto(url: url)
+                    await MainActor.run {
+                        self?.storeHitokoto(hitokotoString)
                     }
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let hitokotoString = json["hitokoto"] as? String {
-                        await MainActor.run {
-                            self.hitokoto = hitokotoString
-                        }
-                        return
-                    }
+                    return
                 } catch {
-                    AppLogger.warning("Hitokoto \(host) 失败: \(error.localizedDescription)")
+                    failures.append("\(url.absoluteString): \(Self.describeHitokotoError(error))")
                     continue
                 }
             }
-            AppLogger.error("Hitokoto 所有节点均不可用")
+
+            await MainActor.run {
+                self?.handleHitokotoFailure(failures)
+            }
         }
+    }
+
+    private static func hitokotoURLs(type: String) -> [URL] {
+        hitokotoHosts.compactMap { host in
+            guard var components = URLComponents(string: host) else { return nil }
+            var queryItems = [URLQueryItem(name: "encode", value: "json")]
+            if !type.isEmpty {
+                queryItems.append(URLQueryItem(name: "c", value: type))
+            }
+            components.queryItems = queryItems
+            return components.url
+        }
+    }
+
+    private static func requestHitokoto(url: URL) async throws -> String {
+        var lastError: Error?
+
+        for attempt in 0..<2 {
+            do {
+                return try await performHitokotoRequest(url: url)
+            } catch {
+                lastError = error
+                if attempt == 0 {
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                }
+            }
+        }
+
+        throw lastError ?? URLError(.cannotLoadFromNetwork)
+    }
+
+    private static func performHitokotoRequest(url: URL) async throws -> String {
+        var request = URLRequest(url: url, timeoutInterval: 12)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        request.setValue(hitokotoUserAgent, forHTTPHeaderField: "User-Agent")
+        request.networkServiceType = .responsiveData
+
+        if #available(iOS 14.5, *) {
+            request.assumesHTTP3Capable = false
+        }
+
+        let configuration = URLSessionConfiguration.default
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = 12
+        configuration.timeoutIntervalForResource = 15
+        configuration.waitsForConnectivity = true
+
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        let (data, response) = try await session.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse,
+           httpResponse.statusCode != 200 {
+            throw URLError(.badServerResponse)
+        }
+
+        let responseBody: HitokotoResponse
+        do {
+            responseBody = try JSONDecoder().decode(HitokotoResponse.self, from: data)
+        } catch {
+            throw URLError(.cannotParseResponse)
+        }
+
+        let trimmed = responseBody.hitokoto.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw URLError(.zeroByteResource)
+        }
+
+        return trimmed
+    }
+
+    private static var hitokotoUserAgent: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return "Monologue/\(version) CFNetwork HitokotoClient"
+    }
+
+    private static func describeHitokotoError(_ error: Error) -> String {
+        let nsError = error as NSError
+        var parts = ["\(nsError.domain)#\(nsError.code)", nsError.localizedDescription]
+
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+            parts.append("underlying=\(underlying.domain)#\(underlying.code)")
+            if let streamCode = underlying.userInfo["_kCFStreamErrorCodeKey"] {
+                parts.append("streamCode=\(streamCode)")
+            }
+            if let streamDomain = underlying.userInfo["_kCFStreamErrorDomainKey"] {
+                parts.append("streamDomain=\(streamDomain)")
+            }
+        }
+
+        return parts.joined(separator: " ")
+    }
+
+    private var hasUsableHitokoto: Bool {
+        hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private func storeHitokoto(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            handleHitokotoFailure(["empty response"])
+            return
+        }
+
+        hitokoto = trimmed
+        let successDate = Date()
+        lastHitokotoSuccess = successDate
+        lastHitokotoFailure = nil
+        hitokotoFetchTask = nil
+    }
+
+    private func handleHitokotoFailure(_ failures: [String]) {
+        lastHitokotoFailure = Date()
+        hitokotoFetchTask = nil
+        if !hasUsableHitokoto {
+            hitokoto = nil
+        }
+
+        let details = failures.isEmpty ? "" : "：\(failures.joined(separator: "；"))"
+        AppLogger.warning("Hitokoto 暂不可用\(details)")
     }
 
     // MARK: - Actions

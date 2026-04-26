@@ -30,6 +30,9 @@ struct AppearanceSettingsView: View {
         .navigationTitle(String(localized: "settings_navigation_appearance_title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear {
+            settings.enforceCoverBackgroundPolicyForCurrentTheme()
+        }
     }
 
     // MARK: - 外观
@@ -131,7 +134,8 @@ struct AppearanceSettingsView: View {
                     icon: .layers,
                     title: String(localized: "settings_cover_bg_global"),
                     subtitle: String(localized: "settings_cover_bg_global_desc"),
-                    isOn: $settings.coverBgGlobal
+                    isOn: $settings.coverBgGlobal,
+                    isEnabled: !settings.locksCoverBackgroundSettings
                 )
 
                 Divider()
@@ -142,7 +146,8 @@ struct AppearanceSettingsView: View {
                     icon: .layers,
                     title: String(localized: "settings_cover_bg_playlist"),
                     subtitle: String(localized: "settings_cover_bg_playlist_desc"),
-                    isOn: $settings.coverBgPlaylist
+                    isOn: $settings.coverBgPlaylist,
+                    isEnabled: !settings.locksCoverBackgroundSettings
                 )
 
                 Divider()
@@ -153,7 +158,8 @@ struct AppearanceSettingsView: View {
                     icon: .layers,
                     title: String(localized: "settings_cover_bg_player"),
                     subtitle: String(localized: "settings_cover_bg_player_desc"),
-                    isOn: $settings.coverBgPlayer
+                    isOn: $settings.coverBgPlayer,
+                    isEnabled: !settings.locksCoverBackgroundSettings
                 )
             }
         }

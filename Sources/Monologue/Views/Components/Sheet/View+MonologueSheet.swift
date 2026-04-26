@@ -46,11 +46,10 @@ private func monologueSystemSheetContent<SheetContent: View>(
     dismissAction: MonologueSheetDismissAction,
     @ViewBuilder content: () -> SheetContent
 ) -> some View {
+    let attachesToBottom = MonologueSheetThemeStyle.attachesSurfaceToBottom
     let root = VStack(spacing: 0) {
         if preset.showsHandle {
-            Capsule()
-                .fill(Color.monologueSheetHandle)
-                .frame(width: 42, height: 5)
+            MonologueSheetHandleView()
                 .padding(.top, 12)
                 .padding(.bottom, 14)
                 .frame(maxWidth: .infinity)
@@ -63,14 +62,44 @@ private func monologueSystemSheetContent<SheetContent: View>(
     .environment(\.monologueSheetContext, MonologueSheetContext(preset: preset))
     .environment(\.monologueSheetDismiss, dismissAction)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .background {
+        if MonologueSheetThemeStyle.usesCustomThemeSurface && !supportsPresentationBackground {
+            monologueSheetBottomAttachedSurface(
+                MonologueSheetSurfaceBackground(cornerRadius: preset.monologueResolvedCornerRadius),
+                attachesToBottom: attachesToBottom
+            )
+        }
+    }
+    .overlay {
+        if MonologueSheetThemeStyle.usesCustomThemeSurface {
+            monologueSheetBottomAttachedSurface(
+                MonologueSheetSurfaceOverlay(cornerRadius: preset.monologueResolvedCornerRadius),
+                attachesToBottom: attachesToBottom
+            )
+        }
+    }
 
     if #available(iOS 16.0, macOS 13.0, *) {
         if #available(iOS 16.4, macOS 13.3, *) {
-            root
-                .presentationDetents(preset.systemDetents)
-                .presentationDragIndicator(.hidden)
-                .interactiveDismissDisabled(!preset.allowsDragToDismiss)
-                .presentationCornerRadius(preset.cornerRadius)
+            if MonologueSheetThemeStyle.usesCustomThemeSurface {
+                root
+                    .presentationDetents(preset.systemDetents)
+                    .presentationBackground {
+                        monologueSheetBottomAttachedSurface(
+                            MonologueSheetSurfaceBackground(cornerRadius: preset.monologueResolvedCornerRadius),
+                            attachesToBottom: attachesToBottom
+                        )
+                    }
+                    .presentationDragIndicator(.hidden)
+                    .interactiveDismissDisabled(!preset.allowsDragToDismiss)
+                    .presentationCornerRadius(preset.monologueResolvedCornerRadius)
+            } else {
+                root
+                    .presentationDetents(preset.systemDetents)
+                    .presentationDragIndicator(.hidden)
+                    .interactiveDismissDisabled(!preset.allowsDragToDismiss)
+                    .presentationCornerRadius(preset.cornerRadius)
+            }
         } else {
             root
                 .presentationDetents(preset.systemDetents)
@@ -79,5 +108,24 @@ private func monologueSystemSheetContent<SheetContent: View>(
         }
     } else {
         root
+    }
+}
+
+private var supportsPresentationBackground: Bool {
+    if #available(iOS 16.4, macOS 13.3, *) {
+        return true
+    }
+    return false
+}
+
+@ViewBuilder
+private func monologueSheetBottomAttachedSurface<Content: View>(
+    _ content: Content,
+    attachesToBottom: Bool
+) -> some View {
+    if attachesToBottom {
+        content.ignoresSafeArea(edges: .bottom)
+    } else {
+        content
     }
 }

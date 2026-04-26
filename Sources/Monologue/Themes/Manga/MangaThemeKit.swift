@@ -285,10 +285,12 @@ struct MangaLabel: View {
             .lineLimit(1)
             .minimumScaleFactor(0.78)
             .padding(.horizontal, small ? 9 : 11)
-            .padding(.vertical, small ? 5 : 6)
+            .padding(.vertical, small ? 4 : 5)
+            .frame(minHeight: small ? 23 : 27)
             .background(Capsule().fill(tint))
             .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-            .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+            .clipShape(Capsule())
+            .compositingGroup()
     }
 }
 

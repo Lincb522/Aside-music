@@ -3,7 +3,6 @@ import SwiftUI
 struct MangaHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
-    @ObservedObject private var settings = SettingsManager.shared
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
@@ -24,8 +23,8 @@ struct MangaHomeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
-                if settings.hitokotoEnabled, viewModel.hitokoto?.isEmpty != false {
-                    viewModel.refreshHitokoto()
+                if viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    viewModel.refreshHitokoto(ignoresSetting: true)
                 }
                 if !appeared {
                     withAnimation(.spring(response: 0.52, dampingFraction: 0.76).delay(0.06)) {
@@ -52,7 +51,7 @@ struct MangaHomeView: View {
                     .mangaStagger(appeared, order: 0)
 
                 mangaHeroPanel
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.horizontal, mangaHomeFeatureHorizontalPadding)
                     .mangaStagger(appeared, order: 1)
 
                 if !viewModel.banners.isEmpty {
@@ -95,9 +94,7 @@ struct MangaHomeView: View {
         .scrollIndicators(.hidden)
         .refreshable {
             viewModel.fetchData()
-            if settings.hitokotoEnabled {
-                viewModel.refreshHitokoto()
-            }
+            viewModel.refreshHitokoto(force: true, ignoresSetting: true)
         }
     }
 
@@ -185,6 +182,7 @@ struct MangaHomeView: View {
                     .foregroundStyle(MangaStyle.ink)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 58, alignment: .leading)
                     .layoutPriority(1)
 
                 HStack(spacing: 8) {
@@ -286,7 +284,7 @@ struct MangaHomeView: View {
     }
 
     private var mangaHeroSong: Song? {
-        playerManager.currentSong ?? viewModel.dailySongs.first
+        playerManager.currentSong ?? playerManager.history.first ?? viewModel.dailySongs.first
     }
 
     private func playHeroSong(_ song: Song) {
@@ -350,7 +348,11 @@ struct MangaHomeView: View {
         MangaHomeBannerSection(banners: viewModel.banners) { banner in
             handleBannerTap(banner)
         }
-        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .padding(.horizontal, mangaHomeFeatureHorizontalPadding)
+    }
+
+    private var mangaHomeFeatureHorizontalPadding: CGFloat {
+        DeviceLayout.isPad ? DeviceLayout.homeHorizontalPadding : 12
     }
 
     private func mangaSongPanel(_ song: Song, index: Int) -> some View {
@@ -648,18 +650,12 @@ struct MangaHomeView: View {
     }
 
     private var mangaHeaderLine: String {
-        if settings.hitokotoEnabled,
-           let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
+        if let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
            !hitokoto.isEmpty {
             return hitokoto
         }
 
-        if let firstSong = viewModel.dailySongs.first {
-            let artist = firstSong.artistName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return artist.isEmpty ? firstSong.name : "\(firstSong.name) · \(artist)"
-        }
-
-        return String(localized: "每日推荐")
+        return ""
     }
 
     private var mangaGreetingText: String {
@@ -748,11 +744,13 @@ private struct MangaHomeBannerSection: View {
                     MangaHomeBannerCard(banner: banner) {
                         onTap(banner)
                     }
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 5)
                     .tag(offset)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: DeviceLayout.isPad ? 202 : 142)
+            .frame(height: DeviceLayout.isPad ? 214 : 154)
             .onReceive(timer) { _ in
                 guard banners.count > 1 else { return }
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {

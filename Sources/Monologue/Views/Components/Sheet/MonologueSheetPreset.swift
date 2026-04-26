@@ -8,6 +8,7 @@ enum MonologueSheetHeightConstraint: Equatable {
 enum MonologueSheetPreset: Equatable {
     case compact
     case standard
+    case themePicker
     case large
     case detail
     case custom(
@@ -29,6 +30,8 @@ enum MonologueSheetPreset: Equatable {
             return .maximumRatio(0.52)
         case .standard:
             return .maximumRatio(0.72)
+        case .themePicker:
+            return .maximumRatio(0.76)
         case .large:
             return .maximumRatio(0.84)
         case .detail:
@@ -44,6 +47,8 @@ enum MonologueSheetPreset: Equatable {
             return 560
         case .standard:
             return 620
+        case .themePicker:
+            return 640
         case .large:
             return 720
         case .detail:
@@ -55,7 +60,7 @@ enum MonologueSheetPreset: Equatable {
 
     var horizontalPadding: CGFloat {
         switch self {
-        case .compact, .standard, .large, .detail:
+        case .compact, .standard, .themePicker, .large, .detail:
             return 12
         case .custom(_, _, let horizontalPadding, _, _, _, _, _, _, _):
             return horizontalPadding
@@ -64,7 +69,7 @@ enum MonologueSheetPreset: Equatable {
 
     var bottomPadding: CGFloat {
         switch self {
-        case .compact, .standard, .large, .detail:
+        case .compact, .standard, .themePicker, .large, .detail:
             return 10
         case .custom(_, _, _, let bottomPadding, _, _, _, _, _, _):
             return bottomPadding
@@ -73,16 +78,26 @@ enum MonologueSheetPreset: Equatable {
 
     var cornerRadius: CGFloat {
         switch self {
-        case .compact, .standard, .large, .detail:
+        case .compact, .standard, .themePicker, .large, .detail:
             return 30
         case .custom(_, _, _, _, let cornerRadius, _, _, _, _, _):
             return cornerRadius
         }
     }
 
+    var monologueResolvedCornerRadius: CGFloat {
+        if MangaStyle.isActive {
+            return min(cornerRadius, 22)
+        }
+        if MujiStyle.isActive {
+            return min(cornerRadius, 20)
+        }
+        return cornerRadius
+    }
+
     var showsHandle: Bool {
         switch self {
-        case .compact, .standard, .large, .detail:
+        case .compact, .standard, .themePicker, .large, .detail:
             return true
         case .custom(_, _, _, _, _, let showsHandle, _, _, _, _):
             return showsHandle
@@ -95,6 +110,8 @@ enum MonologueSheetPreset: Equatable {
             return 96
         case .standard:
             return 56
+        case .themePicker:
+            return 44
         case .large:
             return 32
         case .detail:
@@ -106,7 +123,7 @@ enum MonologueSheetPreset: Equatable {
 
     var allowsBackgroundDismiss: Bool {
         switch self {
-        case .compact, .standard, .large, .detail:
+        case .compact, .standard, .themePicker, .large, .detail:
             return true
         case .custom(_, _, _, _, _, _, _, let allowsBackgroundDismiss, _, _):
             return allowsBackgroundDismiss
@@ -115,7 +132,7 @@ enum MonologueSheetPreset: Equatable {
 
     var allowsDragToDismiss: Bool {
         switch self {
-        case .compact, .standard, .large, .detail:
+        case .compact, .standard, .themePicker, .large, .detail:
             return true
         case .custom(_, _, _, _, _, _, _, _, let allowsDragToDismiss, _):
             return allowsDragToDismiss
@@ -128,6 +145,8 @@ enum MonologueSheetPreset: Equatable {
             return 0.12
         case .standard:
             return 0.15
+        case .themePicker:
+            return 0.16
         case .large:
             return 0.18
         case .detail:

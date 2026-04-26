@@ -13,6 +13,7 @@ final class SettingsManager: ObservableObject {
         didSet {
             if let id = GlobalThemeId(rawValue: globalThemeIdRaw) {
                 GlobalThemeManager.shared.switchTheme(to: id)
+                enforceCoverBackgroundPolicyForCurrentTheme()
             }
         }
     }
@@ -260,6 +261,10 @@ final class SettingsManager: ObservableObject {
     /// 全局封面背景是否为深色（由亮度检测自动更新）
     @Published var globalCoverIsDark: Bool = false
 
+    var locksCoverBackgroundSettings: Bool {
+        globalThemeId != .default
+    }
+
     // MARK: - 歌词设置
     
     /// 歌词颜色模式: "default" / "solid" / "gradient"
@@ -275,8 +280,17 @@ final class SettingsManager: ObservableObject {
     @AppStorage("lyricGradientEndHex") var lyricGradientEndHex: String = "4ECDC4"
     
     private init() {
+        enforceCoverBackgroundPolicyForCurrentTheme()
         // 启动时应用一次主题
         applyTheme()
+    }
+
+    func enforceCoverBackgroundPolicyForCurrentTheme() {
+        guard locksCoverBackgroundSettings else { return }
+        coverBgGlobal = false
+        coverBgPlaylist = false
+        coverBgPlayer = false
+        globalCoverIsDark = false
     }
 
     func selectAppBrandStyle(_ style: AppBrandStyle) async {
