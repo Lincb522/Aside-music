@@ -95,7 +95,7 @@ struct PlaylistSearchBar: View {
                     isFocused = true
                 }
             } label: {
-                MonologueIcon(icon: .search, size: 14, color: .monologueTextSecondary)
+                MonologueIcon(icon: .search, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextSecondary)
                     .frame(width: MangaStyle.isActive ? 34 : 28, height: MangaStyle.isActive ? 34 : 28)
                     .background {
                         if MangaStyle.isActive {
@@ -112,7 +112,7 @@ struct PlaylistSearchBar: View {
                         selectedIds?.wrappedValue.removeAll()
                     }
                 } label: {
-                    MonologueIcon(icon: .checkmark, size: 14, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .checkmark, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextSecondary)
                         .frame(width: MangaStyle.isActive ? 34 : 28, height: MangaStyle.isActive ? 34 : 28)
                         .background {
                             if MangaStyle.isActive {
@@ -150,7 +150,7 @@ struct PlaylistSearchBar: View {
             if let ids = selectedIds, !ids.wrappedValue.isEmpty {
                 if onBatchQueue != nil {
                     Button { onBatchQueue?() } label: {
-                        MonologueIcon(icon: .add, size: 18, color: .monologueTextPrimary)
+                        MonologueIcon(icon: .add, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextPrimary)
                             .frame(width: 32, height: 32)
                             .background(MangaStyle.isActive ? MangaStyle.bubbleBlue : Color.monologueTextPrimary.opacity(0.06))
                             .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
@@ -159,7 +159,7 @@ struct PlaylistSearchBar: View {
                 }
 
                 Button { onBatchCollect?() } label: {
-                    MonologueIcon(icon: .like, size: 18, color: .monologueTextPrimary)
+                    MonologueIcon(icon: .like, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextPrimary)
                         .frame(width: 32, height: 32)
                         .background(MangaStyle.isActive ? MangaStyle.bubblePink : Color.monologueTextPrimary.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
@@ -167,7 +167,7 @@ struct PlaylistSearchBar: View {
                 .buttonStyle(.plain)
                 
                 Button { onBatchDownload?() } label: {
-                    MonologueIcon(icon: .download, size: 18, color: .monologueTextPrimary)
+                    MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextPrimary)
                         .frame(width: 32, height: 32)
                         .background(MangaStyle.isActive ? MangaStyle.labelYellow : Color.monologueTextPrimary.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))

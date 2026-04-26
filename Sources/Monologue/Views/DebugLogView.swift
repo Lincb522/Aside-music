@@ -41,7 +41,7 @@ struct DebugLogView: View {
         NavigationStack {
             ZStack {
                 // 背景
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
@@ -84,7 +84,7 @@ struct DebugLogView: View {
                     logsList
                 }
             }
-            .navigationTitle("debug_title")
+            .themedNavigationChrome(title: String(localized: "debug_title"), eyebrow: "DEBUG", icon: .logDebug)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -170,7 +170,7 @@ struct DebugLogView: View {
             )
         }
         .padding(16)
-        .monologueGlass(cornerRadius: 20)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     // MARK: - 搜索框
@@ -192,7 +192,7 @@ struct DebugLogView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .monologueGlass(cornerRadius: 12)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 14 : 12, elevated: false)
     }
     
     // MARK: - 过滤标签
@@ -425,7 +425,7 @@ struct LogRowView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(levelColor.opacity(0.2), lineWidth: 1)
             )
-            .monologueGlass(cornerRadius: 12)
+            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 14 : 12, elevated: false, mangaTint: MangaStyle.bubbleWhite)
             .onTapGesture {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded.toggle()
@@ -448,20 +448,49 @@ struct FilterChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let icon = icon {
-                    MonologueIcon(icon: icon, size: 12, color: isSelected ? .monologueIconForeground : color)
+                    MonologueIcon(icon: icon, size: 12, color: isSelected ? selectedForeground : color)
                 }
                 Text(title)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(isSelected ? .monologueIconForeground : .monologueTextSecondary)
+                    .foregroundColor(isSelected ? selectedForeground : .monologueTextSecondary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(
-                Capsule().fill(isSelected ? color : Color.clear)
+                Capsule().fill(isSelected ? selectedBackground : Color.clear)
             )
+            .overlay {
+                if MangaStyle.isActive {
+                    Capsule()
+                        .stroke(isSelected ? MangaStyle.strokeInk : color.opacity(0.35), lineWidth: isSelected ? MangaStyle.fineStrokeWidth : 0.8)
+                } else if MujiStyle.isActive {
+                    Capsule()
+                        .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                }
+            }
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    private var selectedBackground: Color {
+        if MangaStyle.isActive {
+            return MangaStyle.labelYellow
+        } else if MujiStyle.isActive {
+            return MujiStyle.clay
+        } else {
+            return color
+        }
+    }
+
+    private var selectedForeground: Color {
+        if MangaStyle.isActive {
+            return MangaStyle.ink
+        } else if MujiStyle.isActive {
+            return MujiStyle.paper
+        } else {
+            return .monologueIconForeground
+        }
     }
 }
 

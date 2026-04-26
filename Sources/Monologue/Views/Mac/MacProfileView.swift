@@ -13,7 +13,7 @@ struct MacProfileView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground().ignoresSafeArea()
+            ThemedPageBackground().ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 28) {

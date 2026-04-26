@@ -21,7 +21,7 @@ struct SongDetailView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
 
             ScrollView {
                 VStack(spacing: 0) {

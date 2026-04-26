@@ -11,7 +11,7 @@ struct MonologueWebView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -40,7 +40,7 @@ struct MonologueWebView: View {
             Spacer()
             
             Text(title ?? pageTitle ?? String(localized: "详情"))
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .medium) : .system(size: 16, weight: .semibold, design: .rounded)))
                 .foregroundColor(.monologueTextPrimary)
                 .lineLimit(1)
             
@@ -50,6 +50,9 @@ struct MonologueWebView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 14, elevated: false)
+        .padding(.horizontal, ThemedPageStyle.horizontalInset)
+        .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
     }
 }
 

@@ -122,13 +122,8 @@ struct DownloadQualitySheet: View {
 
             Spacer()
 
-            Text((song.source ?? (isQQ ? .qqmusic : .netease)).displayName)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueIconForeground)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.monologueIconBackground)
-                .cornerRadius(4)
+            let source = song.source ?? (isQQ ? MusicSource.qqmusic : MusicSource.netease)
+            PlatformBadgeLabel(text: source.displayName, source: source)
 
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
                 MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)

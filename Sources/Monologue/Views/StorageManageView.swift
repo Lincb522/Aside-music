@@ -21,8 +21,7 @@ struct StorageManageView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
             
             VStack(spacing: 0) {
                 if isLoading {
@@ -43,7 +42,7 @@ struct StorageManageView: View {
                             // 快速清理
                             quickCleanCard
                             
-                            Color.clear.frame(height: 100)
+                            FloatingBarBottomSpacer()
                         }
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     }
@@ -51,7 +50,7 @@ struct StorageManageView: View {
                 }
             }
         }
-        .navigationTitle(String(localized: "storage_title"))
+        .themedNavigationChrome(title: String(localized: "storage_title"), eyebrow: "STORAGE", icon: .storage)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
@@ -88,7 +87,7 @@ struct StorageManageView: View {
         .padding(.vertical, 28)
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity)
-        .monologueGlass(cornerRadius: 24)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 24 : 20, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     private var totalDiskSpace: Int64 {
@@ -159,7 +158,7 @@ struct StorageManageView: View {
             )
         }
         .padding(.vertical, 4)
-        .monologueGlass(cornerRadius: 20)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     private func storageCategoryRow(
@@ -233,7 +232,7 @@ struct StorageManageView: View {
                 MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
             }
             .padding(16)
-            .monologueGlass(cornerRadius: 20)
+            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 16, elevated: true, mangaTint: MangaStyle.bubblePink.opacity(0.92))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
     }

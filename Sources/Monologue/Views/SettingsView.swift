@@ -15,6 +15,22 @@ private func settingsFormat(_ key: String, _ arguments: CVarArg...) -> String {
     String(format: settingsText(key), locale: Locale.current, arguments: arguments)
 }
 
+private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if MangaStyle.isActive {
+        return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
+    }
+    if MujiStyle.isActive {
+        return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
+    }
+    return .system(size: size, weight: weight, design: .rounded)
+}
+
+struct ThemedSettingsBackground: View {
+    var body: some View {
+        ThemedPageBackground()
+    }
+}
+
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var systemColorScheme
@@ -30,30 +46,19 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 20) {
-                    settingsHeaderCard
-                        .padding(.top, 8)
-
-                    themeSection
-
-                    navigationCardsSection
-
-                    if qqDevMode {
-                        otherSection
-                    }
-
-                    Spacer(minLength: 100)
+                VStack(spacing: themedSettingsSpacing) {
+                    settingsContent
+                    FloatingBarBottomSpacer()
                 }
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle(String(localized: "settings_title"))
+        .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "settings_title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -75,6 +80,80 @@ struct SettingsView: View {
             }
         }
         .id(viewRefreshID)
+    }
+
+    private var themedSettingsSpacing: CGFloat {
+        if MangaStyle.isActive { return 16 }
+        if MujiStyle.isActive { return 18 }
+        return 20
+    }
+
+    @ViewBuilder
+    private var settingsContent: some View {
+        if MangaStyle.isActive {
+            mangaSettingsContent
+        } else if MujiStyle.isActive {
+            mujiSettingsContent
+        } else {
+            defaultSettingsContent
+        }
+    }
+
+    @ViewBuilder
+    private var defaultSettingsContent: some View {
+        settingsHeaderCard
+            .padding(.top, 8)
+        themeSection
+        navigationCardsSection
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var mangaSettingsContent: some View {
+        MangaPageHeader(
+            eyebrow: "CONTROL",
+            title: String(localized: "settings_title"),
+            subtitle: ""
+        ) {
+            NavigationLink(destination: AboutView()) {
+                MangaIconBadge(icon: .infoCircle, size: 48, tint: MangaStyle.labelYellow)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+
+        settingsHeaderCard
+
+        mangaSettingsModePanel
+        mangaSettingsPortalGrid
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var mujiSettingsContent: some View {
+        MujiPageHeader(
+            eyebrow: "settings",
+            title: String(localized: "settings_title"),
+            subtitle: ""
+        ) {
+            NavigationLink(destination: AboutView()) {
+                MujiIconBadge(icon: .infoCircle, tint: MujiStyle.indigo, size: 46)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+
+        settingsHeaderCard
+        mujiSettingsNotebook
+
+        if qqDevMode {
+            otherSection
+        }
     }
 
     // MARK: - 日夜模式
@@ -100,9 +179,7 @@ struct SettingsView: View {
                 destination: AppearanceSettingsView(),
                 verticalPadding: 16
             )
-            .monologueGlass(cornerRadius: 22)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+            .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.bubblePink)
 
             SettingsLinkRow(
                 icon: .soundQuality,
@@ -111,9 +188,7 @@ struct SettingsView: View {
                 destination: PlaybackSettingsView(),
                 verticalPadding: 16
             )
-            .monologueGlass(cornerRadius: 22)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+            .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.bubbleBlue)
 
             SettingsLinkRow(
                 icon: .cloud,
@@ -122,9 +197,169 @@ struct SettingsView: View {
                 destination: CloudSyncSettingsView(),
                 verticalPadding: 16
             )
-            .monologueGlass(cornerRadius: 22)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+            .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.labelYellow)
+        }
+    }
+
+    private var mangaSettingsModePanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaSectionTitle(title: String(localized: "settings_appearance"), mark: .star)
+
+            SettingsThemeRow(
+                icon: .sparkle,
+                title: String(localized: "settings_theme_mode"),
+                selection: $settings.themeMode
+            )
+            .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite))
+        }
+    }
+
+    private var mangaSettingsPortalGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaSectionTitle(title: String(localized: "profile_settings"), mark: .heart)
+
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12)
+                ],
+                spacing: 12
+            ) {
+                NavigationLink(destination: AppearanceSettingsView()) {
+                    MangaSettingsPortalCard(
+                        icon: .sparkle,
+                        title: settingsText("settings_navigation_appearance_title"),
+                        badge: "STYLE",
+                        tint: MangaStyle.bubblePink
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: PlaybackSettingsView()) {
+                    MangaSettingsPortalCard(
+                        icon: .soundQuality,
+                        title: settingsText("settings_navigation_playback_title"),
+                        badge: "PLAY",
+                        tint: MangaStyle.bubbleBlue
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: CloudSyncSettingsView()) {
+                    MangaSettingsPortalCard(
+                        icon: .cloud,
+                        title: settingsText("settings_navigation_cloud_sync_title"),
+                        badge: hasToken ? "SYNC" : "OFF",
+                        tint: MangaStyle.labelYellow
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: StorageManageView()) {
+                    MangaSettingsPortalCard(
+                        icon: .storage,
+                        title: String(localized: "settings_storage_manage"),
+                        badge: cacheSize,
+                        tint: MangaStyle.mint
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: DownloadManageView()) {
+                    MangaSettingsPortalCard(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        badge: "DL",
+                        tint: MangaStyle.decoBlue
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: AboutView()) {
+                    MangaSettingsPortalCard(
+                        icon: .infoCircle,
+                        title: String(localized: "settings_about"),
+                        badge: appVersion,
+                        tint: MangaStyle.paperWarm
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var mujiSettingsNotebook: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MujiSectionTitle(title: String(localized: "profile_settings"))
+
+            VStack(spacing: 0) {
+                SettingsThemeRow(
+                    icon: .sparkle,
+                    title: String(localized: "settings_theme_mode"),
+                    selection: $settings.themeMode
+                )
+
+                MujiSettingsDivider()
+
+                MujiSettingsLedgerLink(
+                    number: "01",
+                    icon: .sparkle,
+                    title: settingsText("settings_navigation_appearance_title"),
+                    value: "style",
+                    destination: AppearanceSettingsView()
+                )
+
+                MujiSettingsDivider()
+
+                MujiSettingsLedgerLink(
+                    number: "02",
+                    icon: .soundQuality,
+                    title: settingsText("settings_navigation_playback_title"),
+                    value: "play",
+                    destination: PlaybackSettingsView()
+                )
+
+                MujiSettingsDivider()
+
+                MujiSettingsLedgerLink(
+                    number: "03",
+                    icon: .cloud,
+                    title: settingsText("settings_navigation_cloud_sync_title"),
+                    value: hasToken ? "sync" : "off",
+                    destination: CloudSyncSettingsView()
+                )
+
+                MujiSettingsDivider()
+
+                MujiSettingsLedgerLink(
+                    number: "04",
+                    icon: .storage,
+                    title: String(localized: "settings_storage_manage"),
+                    value: cacheSize,
+                    destination: StorageManageView()
+                )
+
+                MujiSettingsDivider()
+
+                MujiSettingsLedgerLink(
+                    number: "05",
+                    icon: .download,
+                    title: String(localized: "settings_download_manage"),
+                    value: "download",
+                    destination: DownloadManageView()
+                )
+
+                MujiSettingsDivider()
+
+                MujiSettingsLedgerLink(
+                    number: "06",
+                    icon: .infoCircle,
+                    title: String(localized: "settings_about"),
+                    value: appVersion,
+                    destination: AboutView()
+                )
+            }
+            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
         }
     }
 
@@ -178,8 +413,8 @@ struct SettingsView: View {
         return settingsText("settings_header_footer_unauthorized")
     }
 
-    private var headerFooterIconName: String {
-        hasToken ? "heart.fill" : "info.circle.fill"
+    private var headerFooterIcon: MonologueIcon.IconType {
+        hasToken ? .liked : .infoCircle
     }
 
     private var headerFooterIconColor: Color {
@@ -219,7 +454,7 @@ struct SettingsView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ZIJIU522")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : .system(size: 17, weight: .bold, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
@@ -227,7 +462,7 @@ struct SettingsView: View {
                     HStack(spacing: 5) {
                         MonologueIcon(icon: .comment, size: 12, color: .green)
                         Text(settingsText("settings_developer_status"))
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(themedSettingsFont(11, weight: .medium))
                             .foregroundColor(.monologueTextSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -242,7 +477,7 @@ struct SettingsView: View {
                         destination: AboutView()
                     ) {
                         Text(String(localized: "settings_about"))
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(themedSettingsFont(11, weight: .semibold))
                             .foregroundColor(.monologueTextSecondary)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)
@@ -267,11 +502,11 @@ struct SettingsView: View {
                             )
 
                             Text(tokenStatusText)
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .font(themedSettingsFont(11, weight: .semibold))
                                 .minimumScaleFactor(0.84)
 
-                            Image(systemName: isHeaderCardExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 10, weight: .bold))
+                            MonologueIcon(icon: .chevronRight, size: 10, color: tokenStatusColor, lineWidth: 1.8)
+                                .rotationEffect(.degrees(isHeaderCardExpanded ? -90 : 90))
                         }
                         .foregroundColor(tokenStatusColor)
                         .lineLimit(1)
@@ -305,7 +540,7 @@ struct SettingsView: View {
                             HStack(spacing: 6) {
                                 MonologueIcon(icon: wechatCopied ? .checkmark : .save, size: 13, color: wechatCopied ? .green : .monologueTextPrimary)
                                 Text(wechatCopied ? settingsText("settings_contact_copied") : "Fallin-Out0122")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .font(themedSettingsFont(13, weight: .semibold))
                             }
                             .foregroundColor(wechatCopied ? .green : .monologueTextPrimary)
                             .frame(maxWidth: .infinity)
@@ -327,7 +562,7 @@ struct SettingsView: View {
                             HStack(spacing: 6) {
                                 MonologueIcon(icon: .send, size: 13, color: .white)
                                 Text(settingsText("settings_open_wechat"))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .font(themedSettingsFont(13, weight: .semibold))
                             }
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -352,7 +587,7 @@ struct SettingsView: View {
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(settingsText("access_token_title"))
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .font(themedSettingsFont(12, weight: .semibold))
                                     .foregroundColor(.monologueTextPrimary)
 
                                 if hasToken {
@@ -367,7 +602,7 @@ struct SettingsView: View {
                                     }
                                 } else {
                                     Text(settingsText("settings_token_hint"))
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                                        .font(themedSettingsFont(13, weight: .medium))
                                         .foregroundColor(.monologueTextSecondary.opacity(0.7))
                                 }
                             }
@@ -448,7 +683,7 @@ struct SettingsView: View {
                                 }
                             } label: {
                                 Text(settingsText("common_save"))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .font(themedSettingsFont(13, weight: .semibold))
                                     .foregroundColor(Color(light: .white, dark: .black))
                                     .frame(width: 44, height: 36)
                                     .background(
@@ -467,12 +702,10 @@ struct SettingsView: View {
             }
 
             HStack(spacing: 6) {
-                Image(systemName: headerFooterIconName)
-                    .font(.system(size: 10))
-                    .foregroundColor(headerFooterIconColor)
+                MonologueIcon(icon: headerFooterIcon, size: 11, color: headerFooterIconColor)
 
                 Text(headerFooterText)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(themedSettingsFont(12, weight: .medium))
                     .foregroundColor(headerFooterTextColor)
                     .lineLimit(2)
                     .minimumScaleFactor(0.84)
@@ -483,8 +716,7 @@ struct SettingsView: View {
             .transition(.opacity)
         }
         .padding(16)
-        .monologueGlass(cornerRadius: 22)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .themedSettingsStandaloneCard(cornerRadius: 22, tint: MangaStyle.paperWarm)
     }
 
     private var otherSection: some View {
@@ -570,17 +802,143 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - Themed Settings Navigation
+
+private struct MangaSettingsPortalCard: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let badge: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                MangaIconBadge(icon: icon, size: 38, tint: tint)
+
+                Spacer()
+
+                MangaLabel(text: badge, tint: MangaStyle.bubbleWhite, small: true)
+                    .frame(maxWidth: 74, alignment: .trailing)
+            }
+
+            Text(title)
+                .font(MangaStyle.comicFont(15, weight: .black))
+                .foregroundStyle(MangaStyle.ink)
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: 116, alignment: .topLeading)
+        .padding(14)
+        .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: tint.opacity(0.72)))
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct MujiSettingsLedgerLink<Destination: View>: View {
+    let number: String
+    let icon: MonologueIcon.IconType
+    let title: String
+    let value: String
+    let destination: Destination
+
+    var body: some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                Text(number)
+                    .font(MujiStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(MujiStyle.inkMuted)
+                    .frame(width: 24, alignment: .leading)
+
+                MujiIconBadge(icon: icon, tint: ledgerTint, size: 34)
+
+                Text(title)
+                    .font(MujiStyle.bodyFont(15, weight: .regular))
+                    .foregroundStyle(MujiStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                Spacer(minLength: 8)
+
+                Text(value)
+                    .font(MujiStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(MujiStyle.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                MonologueIcon(icon: .chevronRight, size: 11, color: MujiStyle.inkMuted, lineWidth: 1.4)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var ledgerTint: Color {
+        switch icon {
+        case .cloud:
+            return MujiStyle.tea
+        case .download, .storage:
+            return MujiStyle.indigo
+        case .soundQuality:
+            return MujiStyle.straw
+        default:
+            return MujiStyle.clay
+        }
+    }
+}
+
+private struct MujiSettingsDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(MujiStyle.separator.opacity(0.58))
+            .frame(height: 0.6)
+            .padding(.leading, 64)
+            .padding(.trailing, 14)
+    }
+}
+
 // MARK: - Settings Icon Badge
 
 struct SettingsIconBadge: View {
     let icon: MonologueIcon.IconType
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.monologueIconBackground)
-                .frame(width: 30, height: 30)
-            MonologueIcon(icon: icon, size: 14, color: .monologueIconForeground)
+        if MangaStyle.isActive {
+            MonologueIcon(icon: icon, size: 15, color: MangaStyle.strokeInk, lineWidth: 1.8)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(MangaStyle.labelYellow)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: 1.7)
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(MangaStyle.strokeInk)
+                        .offset(x: 1.8, y: 1.8)
+                )
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(MujiStyle.clay.opacity(0.11))
+                .frame(width: 31, height: 31)
+                .overlay(
+                    MonologueIcon(icon: icon, size: 14, color: MujiStyle.clay, lineWidth: 1.4)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+                )
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.monologueIconBackground)
+                    .frame(width: 30, height: 30)
+                MonologueIcon(icon: icon, size: 14, color: .monologueIconForeground)
+            }
         }
     }
 }
@@ -599,10 +957,10 @@ struct SettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded)))
+                .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.inkSoft : Color.secondary))
                 .padding(.leading, 14)
-                .tracking(0.4)
+                .tracking(MujiStyle.isActive ? 1.0 : 0.4)
 
             VStack(spacing: 0) {
                 content
@@ -610,6 +968,8 @@ struct SettingsSection<Content: View>: View {
             .background {
                 if MangaStyle.isActive {
                     MangaCardBackground(cornerRadius: 20, elevated: true, tint: MangaStyle.bubbleWhite)
+                } else if MujiStyle.isActive {
+                    MujiPaperCardBackground(cornerRadius: 14, elevated: false)
                 }
             }
             .monologueGlassConditionalForSettings(cornerRadius: 20)
@@ -621,12 +981,28 @@ struct SettingsSection<Content: View>: View {
 private extension View {
     @ViewBuilder
     func monologueGlassConditionalForSettings(cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive {
+        if MangaStyle.isActive || MujiStyle.isActive {
             self
         } else {
             self
                 .monologueGlass(cornerRadius: cornerRadius)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    func themedSettingsStandaloneCard(cornerRadius: CGFloat, tint: Color = MangaStyle.bubbleWhite) -> some View {
+        if MangaStyle.isActive {
+            self
+                .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint))
+        } else if MujiStyle.isActive {
+            self
+                .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true))
+        } else {
+            self
+                .monologueGlass(cornerRadius: cornerRadius)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
         }
     }
 }
@@ -699,12 +1075,12 @@ struct SettingsToggleRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .font(themedSettingsFont(15, weight: .medium))
                     .foregroundColor(.monologueTextPrimary)
 
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .font(themedSettingsFont(11, weight: .regular))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -752,17 +1128,17 @@ struct SettingsNavigationRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(15, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
 
                     if let subtitle {
                         if let subtitleColor {
                             Text(subtitle)
-                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                                .font(themedSettingsFont(11, weight: .regular))
                                 .foregroundColor(subtitleColor)
                         } else {
                             Text(subtitle)
-                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                                .font(themedSettingsFont(11, weight: .regular))
                                 .foregroundStyle(.tertiary)
                         }
                     }
@@ -772,7 +1148,7 @@ struct SettingsNavigationRow: View {
 
                 if let value {
                     Text(value)
-                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .font(themedSettingsFont(14, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
 
@@ -803,12 +1179,12 @@ struct SettingsLinkRow<Destination: View>: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(15, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
 
                     if let subtitle {
                         Text(subtitle)
-                            .font(.system(size: 11, weight: .regular, design: .rounded))
+                            .font(themedSettingsFont(11, weight: .regular))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -817,7 +1193,7 @@ struct SettingsLinkRow<Destination: View>: View {
 
                 if let value {
                     Text(value)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
 
@@ -840,13 +1216,13 @@ struct SettingsInfoRow: View {
             SettingsIconBadge(icon: icon)
 
             Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(themedSettingsFont(15, weight: .medium))
                 .foregroundColor(.monologueTextPrimary)
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 14, weight: .regular, design: .rounded))
+                .font(themedSettingsFont(14, weight: .regular))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)
@@ -866,7 +1242,7 @@ struct SettingsButtonRow: View {
                 SettingsIconBadge(icon: icon)
 
                 Text(title)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .font(themedSettingsFont(15, weight: .medium))
                     .foregroundColor(titleColor)
 
                 Spacer()
@@ -903,7 +1279,7 @@ struct SettingsThemeRow: View {
                 SettingsIconBadge(icon: icon)
 
                 Text(String(localized: "settings_theme_auto"))
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .font(themedSettingsFont(16, weight: .medium))
                     .foregroundColor(.monologueTextPrimary)
 
                 Spacer()
@@ -931,7 +1307,7 @@ struct SettingsThemeRow: View {
                     SettingsIconBadge(icon: isDark ? .moon : .sun)
 
                     Text(isDark ? String(localized: "settings_theme_dark") : String(localized: "settings_theme_light"))
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(16, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
 
                     Spacer()
@@ -970,11 +1346,11 @@ struct SettingsFloatingBarRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(16, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
 
                     Text(selection.description)
-                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .font(themedSettingsFont(12, weight: .regular))
                         .foregroundStyle(.tertiary)
                 }
 
@@ -995,7 +1371,7 @@ struct SettingsFloatingBarRow: View {
                                 color: selection == style ? .monologueIconForeground : .monologueTextSecondary
                             )
                             Text(style.displayName)
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .font(themedSettingsFont(11, weight: .medium))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1050,18 +1426,17 @@ struct SettingsHitokotoTypeRow: View {
                     SettingsIconBadge(icon: icon)
 
                     Text(title)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(16, weight: .medium))
                         .foregroundColor(.monologueTextPrimary)
 
                     Spacer()
 
                     Text(Self.types.first { $0.key == selection }?.label ?? String(localized: "随机"))
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .font(themedSettingsFont(14, weight: .medium))
                         .foregroundStyle(.secondary)
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.monologueTextSecondary.opacity(0.8))
+                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                        .rotationEffect(.degrees(isExpanded ? -90 : 90))
                 }
             }
             .buttonStyle(.plain)
@@ -1076,7 +1451,7 @@ struct SettingsHitokotoTypeRow: View {
                             }
                         } label: {
                             Text(type.label)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .font(themedSettingsFont(13, weight: .medium))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(

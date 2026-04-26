@@ -19,20 +19,19 @@ struct PlaybackSettingsView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
                 VStack(spacing: 20) {
                     playbackSection
-                    Spacer(minLength: 100)
+                    FloatingBarBottomSpacer()
                 }
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle(String(localized: "settings_navigation_playback_title"))
+        .themedNavigationChrome(title: String(localized: "settings_navigation_playback_title"), eyebrow: "PLAY", icon: .soundQuality)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onChange(of: settings.gaplessPlaybackEnabled) { _, enabled in
@@ -171,9 +170,7 @@ struct PlaybackSettingsView: View {
 
                         Spacer()
 
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.tertiary)
+                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.6)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)

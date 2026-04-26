@@ -357,9 +357,7 @@ extension FolkPlayerLayout {
                 // 无歌词纯净信纸
                 VStack {
                     Spacer()
-                    Image(systemName: "pencil.and.outline")
-                        .font(.system(size: 32, weight: .ultraLight))
-                        .foregroundColor(inkFaded.opacity(0.4))
+                    MonologueSymbolIcon(name: "pencil.and.outline", size: 32, color: inkFaded.opacity(0.4))
                         .padding(.bottom, 8)
                     Text("Dear listener,\nInstrumental track playing.")
                         .font(.system(size: 14, weight: .medium, design: .monospaced))

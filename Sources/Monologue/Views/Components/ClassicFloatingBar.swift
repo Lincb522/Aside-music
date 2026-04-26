@@ -4,6 +4,20 @@ import SwiftUI
 struct ClassicFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
+
+    private var dividerColor: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.82) }
+        if MujiStyle.isActive { return MujiStyle.separator.opacity(0.82) }
+        return Color.monologueSeparator.opacity(0.3)
+    }
+
+    private var dividerHeight: CGFloat {
+        MangaStyle.isActive ? 1.4 : 0.5
+    }
+
+    private var bottomSink: CGFloat {
+        DeviceLayout.isPad ? 6 : 8
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -25,8 +39,8 @@ struct ClassicFloatingBar: View {
                     
                     // 分隔线 - 更柔和
                     Rectangle()
-                        .fill(Color.monologueSeparator.opacity(0.3))
-                        .frame(height: 0.5)
+                        .fill(dividerColor)
+                        .frame(height: dividerHeight)
                         .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
                 }
                 
@@ -34,20 +48,37 @@ struct ClassicFloatingBar: View {
                 ClassicTabBarSection(currentTab: $currentTab)
             }
             .background {
-                Rectangle()
-                    .fill(Color.monologueFloatingBarFill)
-                    .monologueGlassPlainRect()
+                barBackground
                     .ignoresSafeArea(.container, edges: .bottom)
             }
             .overlay(alignment: .top) {
                 Rectangle()
-                    .fill(Color.monologueSeparator.opacity(0.3))
-                    .frame(height: 0.5)
+                    .fill(dividerColor)
+                    .frame(height: dividerHeight)
             }
+            .offset(y: bottomSink)
+            .padding(.bottom, -bottomSink)
         }
         .padding(.bottom, 0)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+
+    @ViewBuilder
+    private var barBackground: some View {
+        if MangaStyle.isActive {
+            Rectangle()
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(MangaDotsTexture(opacity: 0.02, gap: 14))
+        } else if MujiStyle.isActive {
+            Rectangle()
+                .fill(MujiStyle.surfaceRaised)
+                .overlay(MujiPaperTexture(opacity: 0.08))
+        } else {
+            Rectangle()
+                .fill(Color.monologueFloatingBarFill)
+                .monologueGlassPlainRect()
+        }
     }
 }
 
@@ -66,17 +97,22 @@ private struct ClassicMiniPlayerSection: View {
         }
         return song.artistName
     }
+
+    private var coverCornerRadius: CGFloat {
+        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 6 : 8)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.gray.opacity(0.15))
+                    RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                        .fill(coverPlaceholderFill)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 38, height: 38)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous))
+                .overlay(coverStroke)
                 .overlay {
                     if player.playSource == .fm {
                         sourceIndicator(icon: .fm)
@@ -88,16 +124,16 @@ private struct ClassicMiniPlayerSection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     MarqueeText(
                         text: song.name,
-                        font: .system(size: 13, weight: .semibold, design: .rounded),
-                        color: .monologueTextPrimary,
+                        font: titleFont,
+                        color: titleColor,
                         speed: 25,
                         alignment: .leading
                     )
                     .frame(height: 16)
                     
                     Text(subtitleText)
-                        .font(.rounded(size: 11, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(subtitleFont)
+                        .foregroundColor(subtitleColor)
                         .lineLimit(1)
                         .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
                 }
@@ -110,18 +146,19 @@ private struct ClassicMiniPlayerSection: View {
                     Button(action: togglePlayPause) {
                         ZStack {
                             Circle()
-                                .fill(Color.monologueIconBackground)
+                                .fill(controlFill)
                                 .frame(width: 34, height: 34)
+                                .overlay(controlStroke)
                             
                             if player.isLoading {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .monologueIconForeground))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: controlForeground))
                                     .scaleEffect(0.55)
                             } else {
                                 MonologueIcon(
                                     icon: isPlaying ? .pause : .play,
                                     size: 14,
-                                    color: .monologueIconForeground
+                                    color: controlForeground
                                 )
                             }
                         }
@@ -129,7 +166,7 @@ private struct ClassicMiniPlayerSection: View {
                     .buttonStyle(MonologueBouncingButtonStyle())
                     
                     Button(action: { showPlaylist.toggle() }) {
-                        MonologueIcon(icon: .list, size: 16, color: .monologueTextPrimary.opacity(0.7))
+                        MonologueIcon(icon: .list, size: 16, color: titleColor.opacity(0.72))
                             .frame(width: 34, height: 34)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
@@ -140,10 +177,11 @@ private struct ClassicMiniPlayerSection: View {
                                 player.stopAndClear()
                             }
                         }) {
-                            MonologueIcon(icon: .close, size: 10, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .close, size: 10, color: subtitleColor)
                                 .frame(width: 28, height: 28)
-                                .background(Color.monologueTextPrimary.opacity(0.08))
+                                .background(closeFill)
                                 .clipShape(Circle())
+                                .overlay(closeStroke)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
                         .transition(.scale.combined(with: .opacity))
@@ -152,7 +190,8 @@ private struct ClassicMiniPlayerSection: View {
                 .zIndex(1)
             }
             .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
-            .padding(.vertical, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 5)
             .background {
                 Color.clear
                     .contentShape(Rectangle())
@@ -173,7 +212,7 @@ private struct ClassicMiniPlayerSection: View {
             ProgressBarView()
                 .frame(height: 2.5)
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
-                .padding(.bottom, 4)
+                .padding(.bottom, 3)
                 .opacity(0.6)
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
@@ -186,7 +225,90 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private func sourceIndicator(icon: MonologueIcon.IconType) -> some View {
-        MonologueIcon(icon: icon, size: 12, color: .white, lineWidth: 1.6)
+        MonologueIcon(icon: icon, size: 12, color: sourceIndicatorForeground, lineWidth: 1.6)
+    }
+
+    private var titleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 13, weight: .semibold, design: .rounded)
+    }
+
+    private var subtitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
+        return .rounded(size: 11, weight: .medium)
+    }
+
+    private var titleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var subtitleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var coverPlaceholderFill: Color {
+        if MangaStyle.isActive { return MangaStyle.paperCool }
+        if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.74) }
+        return Color.gray.opacity(0.15)
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                .stroke(MangaStyle.strokeInk, lineWidth: 1.6)
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+        }
+    }
+
+    private var controlFill: Color {
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
+        return .monologueIconBackground
+    }
+
+    private var controlForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueIconForeground
+    }
+
+    @ViewBuilder
+    private var controlStroke: some View {
+        if MangaStyle.isActive {
+            Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.5)
+        } else if MujiStyle.isActive {
+            Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+        }
+    }
+
+    private var closeFill: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.12) }
+        if MujiStyle.isActive { return MujiStyle.ink.opacity(0.06) }
+        return Color.monologueTextPrimary.opacity(0.08)
+    }
+
+    @ViewBuilder
+    private var closeStroke: some View {
+        if MangaStyle.isActive {
+            Circle().stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1)
+        } else if MujiStyle.isActive {
+            Circle().stroke(MujiStyle.hairline.opacity(0.3), lineWidth: 0.6)
+        }
+    }
+
+    private var sourceIndicatorForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        return .white
     }
 }
 
@@ -231,7 +353,7 @@ private struct ClassicTabBarSection: View {
                             MonologueIcon(
                                 icon: isSelected ? icons.filled : icons.outline,
                                 size: 20,
-                                color: isSelected ? .monologueTextPrimary : .monologueTextPrimary.opacity(0.35)
+                                color: tabForeground(index, isSelected: isSelected)
                             )
                             .contentTransition(.interpolate)
                             .scaleEffect(values.scale)
@@ -256,16 +378,76 @@ private struct ClassicTabBarSection: View {
                         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
                         
                         Text(label)
-                            .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
-                            .foregroundColor(isSelected ? .monologueTextPrimary : .monologueTextPrimary.opacity(0.35))
+                            .font(tabFont(isSelected: isSelected))
+                            .foregroundColor(tabForeground(index, isSelected: isSelected))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 5)
+                    .background {
+                        if ThemedPageStyle.isActive && isSelected {
+                            tabSelectionBackground(index)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 8)
-        .padding(.bottom, 2)
+        .padding(.bottom, 0)
+    }
+
+    private func tabFont(isSelected: Bool) -> Font {
+        if MangaStyle.isActive {
+            return MangaStyle.labelFont(10, weight: isSelected ? .black : .bold)
+        }
+        if MujiStyle.isActive {
+            return MujiStyle.labelFont(10, weight: isSelected ? .semibold : .medium)
+        }
+        return .system(size: 10, weight: isSelected ? .semibold : .medium)
+    }
+
+    private func tabForeground(_ index: Int, isSelected: Bool) -> Color {
+        guard isSelected else {
+            if MangaStyle.isActive { return MangaStyle.inkMuted }
+            if MujiStyle.isActive { return MujiStyle.inkMuted }
+            return .monologueTextPrimary.opacity(0.35)
+        }
+
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return mujiTabTint(index) }
+        return .monologueTextPrimary
+    }
+
+    @ViewBuilder
+    private func tabSelectionBackground(_ index: Int) -> some View {
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(mangaTabTint(index).opacity(0.86))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.4))
+                .padding(.horizontal, 4)
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.72))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.32), lineWidth: 0.6))
+                .padding(.horizontal, 5)
+        }
+    }
+
+    private func mangaTabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return MangaStyle.labelYellow
+        case 1: return MangaStyle.bubbleBlue
+        case 2: return MangaStyle.mint
+        default: return MangaStyle.bubblePink
+        }
+    }
+
+    private func mujiTabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return MujiStyle.clay
+        case 1: return MujiStyle.tea
+        case 2: return MujiStyle.indigo
+        default: return MujiStyle.straw
+        }
     }
 }

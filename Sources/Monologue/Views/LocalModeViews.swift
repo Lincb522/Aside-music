@@ -127,7 +127,7 @@ struct LocalModeHomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -171,7 +171,7 @@ struct LocalModeHomeView: View {
                             )
                         }
 
-                        Color.clear.frame(height: 110)
+                        FloatingBarBottomSpacer()
                     }
                     .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 12)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -237,7 +237,7 @@ struct LocalModeHomeView: View {
             title: localModeText("tabbar_home"),
             subtitle: ""
         ) {
-            MangaIconBadge(systemName: "music.note.list", size: 48, tint: MangaStyle.labelYellow)
+            MangaIconBadge(icon: .musicNoteList, size: 48, tint: MangaStyle.labelYellow)
         }
         .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
@@ -600,7 +600,7 @@ struct LocalMusicView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
 
                 VStack(spacing: 16) {
@@ -746,7 +746,7 @@ struct LocalMusicView: View {
             title: localModeText("tabbar_local_music"),
             subtitle: ""
         ) {
-            MangaIconBadge(systemName: "waveform", size: 48, tint: MangaStyle.bubbleBlue)
+            MangaIconBadge(icon: .waveform, size: 48, tint: MangaStyle.bubbleBlue)
         }
     }
 
@@ -888,7 +888,7 @@ struct LocalLibraryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -907,7 +907,7 @@ struct LocalLibraryView: View {
 
                         customPlaylistsSection
 
-                        Color.clear.frame(height: 110)
+                        FloatingBarBottomSpacer()
                     }
                     .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 12)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -959,16 +959,16 @@ struct LocalLibraryView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(MangaStyle.mint)
 
-                MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.ink, lineWidth: 2)
+                MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.strokeInk, lineWidth: 2)
             }
             .frame(width: 48, height: 48)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
             )
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 2.5, y: 2.5)
             )
         }
@@ -1263,7 +1263,7 @@ struct LocalModeProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -1289,7 +1289,7 @@ struct LocalModeProfileView: View {
 
                         localAccessCard
 
-                        Color.clear.frame(height: 110)
+                        FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
@@ -1326,7 +1326,7 @@ struct LocalModeProfileView: View {
             title: localModeText("tabbar_profile"),
             subtitle: ""
         ) {
-            MangaIconBadge(systemName: "person.fill", size: 48, tint: MangaStyle.bubblePink)
+            MangaIconBadge(icon: .profileFilled, size: 48, tint: MangaStyle.bubblePink)
         }
         .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
@@ -1645,9 +1645,7 @@ private struct LocalPrimaryActionCard: View {
                             ProgressView()
                                 .tint(.monologueIconForeground)
                         } else {
-                            Image(systemName: systemImage)
-                                .font(.system(size: 21, weight: .bold))
-                                .foregroundColor(.monologueIconForeground)
+                            MonologueSymbolIcon(name: systemImage, size: 23, color: .monologueIconForeground)
                         }
                     }
 

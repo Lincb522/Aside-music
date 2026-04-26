@@ -16,7 +16,7 @@ struct AudioLabView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -37,10 +37,7 @@ struct AudioLabView: View {
                             }
                         }
                         
-                        // 功能说明
-                        featureDescriptionCard
-                        
-                        Spacer(minLength: 120)
+                        FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, 20)
                 }
@@ -68,7 +65,7 @@ struct AudioLabView: View {
                 .zIndex(100)
             }
         }
-        .navigationTitle(String(localized: "音频实验室"))
+        .themedNavigationChrome(title: String(localized: "音频实验室"), eyebrow: "LAB", icon: .equalizer)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
     }
@@ -112,7 +109,7 @@ struct AudioLabView: View {
             }
         }
         .padding(16)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     private func analysisModeButton(_ mode: AudioLabManager.AnalysisMode) -> some View {
@@ -175,7 +172,7 @@ struct AudioLabView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     // MARK: - 分析结果卡片
@@ -396,7 +393,7 @@ struct AudioLabView: View {
             .buttonStyle(.plain)
         }
         .padding(20)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     // 音色指标条
@@ -587,7 +584,7 @@ struct AudioLabView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     // MARK: - 功能说明卡片
@@ -637,7 +634,7 @@ struct AudioLabView: View {
             }
         }
         .padding(20)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     private func featureRow(icon: MonologueIcon.IconType, title: String, description: String) -> some View {

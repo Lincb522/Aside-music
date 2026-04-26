@@ -80,7 +80,7 @@ struct Game2048MiniPreview: View {
                     miniBlock(t256, w: dbl, h: dbl)
                         .overlay(
                             VStack(spacing: 1) {
-                                Image(systemName: "text.quote").font(.system(size: 7, weight: .semibold))
+                                MonologueSymbolIcon(name: "text.quote", size: 7, color: lightFg)
                                 Text("256").font(.system(size: 4.5, weight: .black, design: .rounded)).opacity(0.5)
                             }.foregroundColor(lightFg)
                         )
@@ -104,13 +104,11 @@ struct Game2048MiniPreview: View {
                         .offset(off(L.like))
 
                     miniBlock(t8, w: cell, h: cell)
-                        .overlay(Image(systemName: "backward.fill").font(.system(size: 5, weight: .bold))
-                            .foregroundColor(lightFg))
+                        .overlay(MonologueIcon(icon: .previous, size: 6, color: lightFg, lineWidth: 1.3))
                         .offset(off(L.prev))
 
                     miniBlock(t16, w: cell, h: cell)
-                        .overlay(Image(systemName: "forward.fill").font(.system(size: 5, weight: .bold))
-                            .foregroundColor(lightFg))
+                        .overlay(MonologueIcon(icon: .next, size: 6, color: lightFg, lineWidth: 1.3))
                         .offset(off(L.next))
 
                     miniBlock(t32, w: cell, h: cell)

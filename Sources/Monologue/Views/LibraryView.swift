@@ -23,7 +23,7 @@ struct LibraryView: View {
                     MangaLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
                 } else {
                     ZStack {
-                        MonologueBackground()
+                        ThemedPageBackground()
                             .ignoresSafeArea()
 
                         VStack(spacing: 0) {
@@ -157,16 +157,16 @@ struct LibraryView: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(MangaStyle.decoBlue)
 
-                        MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.ink, lineWidth: 2)
+                        MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.strokeInk, lineWidth: 2)
                     }
                     .frame(width: 48, height: 48)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(MangaStyle.ink)
+                            .fill(MangaStyle.strokeInk)
                             .offset(x: 2.5, y: 2.5)
                     )
                 }
@@ -211,7 +211,7 @@ struct LibraryView: View {
                     VStack(spacing: 5) {
                         Text(tab.localizedKey)
                             .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: tabIndex == index ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: tabIndex == index ? .semibold : .regular) : .system(size: 15, weight: tabIndex == index ? .bold : .medium, design: .rounded)))
-                            .foregroundColor(tabIndex == index ? (MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : Theme.text)) : (MangaStyle.isActive ? MangaStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : Theme.secondaryText.opacity(0.7))))
+                            .foregroundColor(tabIndex == index ? (MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.onTint : Theme.text)) : (MangaStyle.isActive ? MangaStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : Theme.secondaryText.opacity(0.7))))
                             .animation(.none, value: tabIndex)
 
                         Capsule()
@@ -226,7 +226,7 @@ struct LibraryView: View {
                             if tabIndex == index {
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                                     .fill(MangaStyle.decoBlue)
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                             }
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -243,8 +243,8 @@ struct LibraryView: View {
             if MangaStyle.isActive {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(MangaStyle.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
-                    .shadow(color: MangaStyle.ink, radius: 0, x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset)
+                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .shadow(color: MangaStyle.strokeInk, radius: 0, x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(MujiStyle.surface.opacity(0.78))
@@ -318,12 +318,12 @@ struct MyPlaylistsContainerView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                         )
                 } else if MujiStyle.isActive {
                     Text(title)
                         .font(MujiStyle.labelFont(12, weight: selectedSubTab == index ? .semibold : .regular))
-                        .foregroundStyle(selectedSubTab == index ? MujiStyle.paper : MujiStyle.inkSoft)
+                        .foregroundStyle(selectedSubTab == index ? MujiStyle.onTint : MujiStyle.inkSoft)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(
@@ -588,7 +588,7 @@ struct LocalPlaylistsView: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
                     }
 
-                    Color.clear.frame(height: 120)
+                    FloatingBarBottomSpacer()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -1367,7 +1367,7 @@ struct MyPodcastsView: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
                     }
 
-                    Color.clear.frame(height: 100)
+                    FloatingBarBottomSpacer()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -1421,7 +1421,7 @@ struct MyPodcastsView: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
                     }
 
-                    Color.clear.frame(height: 100)
+                    FloatingBarBottomSpacer()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -1547,7 +1547,7 @@ struct NetEasePlaylistsView: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
                     }
 
-                    Color.clear.frame(height: 100)
+                    FloatingBarBottomSpacer()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -1626,7 +1626,7 @@ struct QQPlaylistsView: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
                     }
 
-                    Color.clear.frame(height: 100)
+                    FloatingBarBottomSpacer()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -1700,15 +1700,16 @@ struct MusicSourcePicker: View {
                         source = s
                     }
                 } label: {
+                    let tint = s == .ncm ? MusicSource.netease.themedBadgeColor : MusicSource.qqmusic.themedBadgeColor
                     Text(s == .ncm ? "NCM" : "QCM")
                         .font(.system(size: 13, weight: source == s ? .bold : .medium, design: .rounded))
-                        .foregroundColor(source == s ? .monologueIconForeground : Theme.text.opacity(0.6))
+                        .foregroundColor(source == s ? tint : tint.opacity(0.66))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background {
                             if source == s {
                                 Capsule()
-                                    .fill(Color.monologueIconBackground)
+                                    .fill(tint.opacity(0.13))
                                     .matchedGeometryEffect(id: "sourcePill", in: ns)
                             }
                         }
@@ -1801,7 +1802,7 @@ struct PlaylistSquareView: View {
                     .padding(.top, 8)
                 }
 
-                Color.clear.frame(height: 120)
+                FloatingBarBottomSpacer()
             }
             .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
@@ -1860,7 +1861,7 @@ struct PlaylistSquareView: View {
                     .padding(.top, 8)
                 }
 
-                Color.clear.frame(height: 120)
+                FloatingBarBottomSpacer()
             }
             .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
@@ -2018,8 +2019,7 @@ private struct CinematicCard: View {
 
                     if let count = playlist.playCount, count > 0 {
                         HStack(spacing: 4) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 7))
+                            MonologueIcon(icon: .play, size: 8, color: .white.opacity(0.75), lineWidth: 1.8)
                             Text(cinematicFormatCount(count))
                                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                         }
@@ -2030,9 +2030,7 @@ private struct CinematicCard: View {
                 Spacer()
 
                 if height > 200 {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                    MonologueIcon(icon: .play, size: 15, color: .white, lineWidth: 2)
                         .padding(13)
                         .background(.ultraThinMaterial, in: Circle())
                 }
@@ -2200,7 +2198,7 @@ struct ArtistLibraryView: View {
             .padding(.bottom, 12)
             .padding(.top, 8)
 
-            if !viewModel.isSearchingArtists && showFilters {
+            LibraryDisclosureReveal(isExpanded: !viewModel.isSearchingArtists && showFilters) {
                 VStack(alignment: .leading, spacing: 12) {
                     ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea) {
@@ -2225,7 +2223,6 @@ struct ArtistLibraryView: View {
                     .scrollIndicators(.hidden)
                 }
                 .padding(.bottom, 16)
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             artistGrid(
@@ -2300,7 +2297,7 @@ struct ArtistLibraryView: View {
             .padding(.bottom, 12)
             .padding(.top, 8)
 
-            if !viewModel.isSearchingQQArtists && showQQFilters {
+            LibraryDisclosureReveal(isExpanded: !viewModel.isSearchingQQArtists && showQQFilters) {
                 VStack(alignment: .leading, spacing: 12) {
                     ScrollView(.horizontal) {
                         qqFilterRow(options: viewModel.qqArtistAreas, selected: $viewModel.qqArtistArea)
@@ -2319,7 +2316,6 @@ struct ArtistLibraryView: View {
                     .scrollIndicators(.hidden)
                 }
                 .padding(.bottom, 16)
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             artistGrid(
@@ -2391,7 +2387,7 @@ struct ArtistLibraryView: View {
                 }
             }
 
-            Color.clear.frame(height: 120)
+            FloatingBarBottomSpacer()
         }
         .scrollDismissesKeyboard(.immediately)
         .simultaneousGesture(
@@ -2458,6 +2454,49 @@ struct ArtistLibraryView: View {
 
     private func dismissArtistSearchKeyboard() {
         focusedSearchField = nil
+    }
+}
+
+private struct LibraryDisclosureReveal<Content: View>: View {
+    let isExpanded: Bool
+    let content: Content
+    @State private var measuredHeight: CGFloat = 0
+
+    init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
+        self.isExpanded = isExpanded
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: LibraryDisclosureHeightPreferenceKey.self,
+                        value: proxy.size.height
+                    )
+                }
+            )
+            .onPreferenceChange(LibraryDisclosureHeightPreferenceKey.self) { height in
+                if height > 0 {
+                    measuredHeight = height
+                }
+            }
+            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
+            .opacity(isExpanded ? 1 : 0.001)
+            .clipped()
+            .compositingGroup()
+            .allowsHitTesting(isExpanded)
+            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
+    }
+}
+
+private struct LibraryDisclosureHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
@@ -2559,7 +2598,7 @@ struct ChartsLibraryView: View {
                 .padding(.top, 8)
             }
 
-            Color.clear.frame(height: 120)
+            FloatingBarBottomSpacer()
         }
         .scrollIndicators(.hidden)
         .scrollContentBackground(.hidden)
@@ -2623,7 +2662,7 @@ struct ChartsLibraryView: View {
                 .padding(.top, 8)
             }
 
-            Color.clear.frame(height: 120)
+            FloatingBarBottomSpacer()
         }
         .scrollIndicators(.hidden)
         .scrollContentBackground(.hidden)
@@ -2924,6 +2963,7 @@ private struct MangaLibraryExperience: View {
     @State private var showQQImport = false
     @State private var isImporting = false
     @State private var selectedMyLibraryColumn: MangaMyLibraryColumn = .localPlaylists
+    @State private var isLibraryActionsExpanded = false
     @State private var qqUserPlaylists: [Playlist] = []
     @State private var isLoadingQQUserPlaylists = false
     @State private var hasLoadedQQUserPlaylists = false
@@ -2932,6 +2972,10 @@ private struct MangaLibraryExperience: View {
     private let twoColumns = [
         GridItem(.flexible(), spacing: 13),
         GridItem(.flexible(), spacing: 13)
+    ]
+    private let controlColumns = [
+        GridItem(.flexible(), spacing: 9),
+        GridItem(.flexible(), spacing: 9)
     ]
     private let threeColumns = [
         GridItem(.flexible(), spacing: 12),
@@ -2944,9 +2988,8 @@ private struct MangaLibraryExperience: View {
             MangaRootBackdrop()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
                     magazineHeader
-                    mangaTabStrip
                     tabContent
                 }
                 .padding(.bottom, 128)
@@ -3000,76 +3043,86 @@ private struct MangaLibraryExperience: View {
     }
 
     private var magazineHeader: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(MangaStyle.bubblePink)
-                MangaDotsTexture(opacity: 0.05, gap: 8)
-                MonologueIcon(icon: .libraryFilled, size: 23, color: MangaStyle.ink, lineWidth: 2)
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(MangaStyle.bubblePink)
+                    MangaDotsTexture(opacity: 0.05, gap: 8)
+                    MonologueIcon(icon: .libraryFilled, size: 23, color: MangaStyle.ink, lineWidth: 2)
+                }
+                .frame(width: 54, height: 54)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(MangaStyle.strokeInk)
+                        .offset(x: 2, y: 2)
+                )
+                .rotationEffect(.degrees(-2))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    MangaLabel(text: "LIBRARY", tint: MangaStyle.labelYellow, small: true)
+
+                    Text(LocalizedStringKey("tabbar_library"))
+                        .font(MangaStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .black))
+                        .foregroundStyle(MangaStyle.ink)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
             }
-            .frame(width: 54, height: 54)
-            .overlay(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(MangaStyle.ink)
-                    .offset(x: 2, y: 2)
-            )
-            .rotationEffect(.degrees(-2))
 
-            VStack(alignment: .leading, spacing: 6) {
-                MangaLabel(text: "LIBRARY", tint: MangaStyle.labelYellow, small: true)
-
-                Text(LocalizedStringKey("tabbar_library"))
-                    .font(MangaStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
+            mangaTabStrip
         }
-        .padding(12)
-        .background(MangaCardBackground(cornerRadius: 18, elevated: true, tint: MangaStyle.bubbleWhite))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
     }
 
     private var mangaTabStrip: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 Button {
                     selectTab(tab, index: index)
                 } label: {
-                    VStack(spacing: 7) {
-                        MonologueIcon(icon: icon(for: tab), size: 16, color: MangaStyle.ink, lineWidth: 1.8)
+                    HStack(spacing: 5) {
+                        MonologueIcon(icon: icon(for: tab), size: 13, color: tabForeground(for: tab, selected: tabIndex == index), lineWidth: 1.8)
                         Text(tab.localizedKey)
-                            .font(MangaStyle.labelFont(11, weight: .black))
-                            .foregroundStyle(MangaStyle.ink)
+                            .font(MangaStyle.labelFont(10, weight: .black))
+                            .foregroundStyle(tabForeground(for: tab, selected: tabIndex == index))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.68)
+                            .minimumScaleFactor(0.62)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 58)
+                    .frame(height: 38)
                     .background(
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .fill(tabIndex == index ? tint(for: tab) : MangaStyle.bubbleWhite.opacity(0.72))
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(tabIndex == index ? tint(for: tab) : MangaStyle.surface.opacity(0.58))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .stroke(MangaStyle.ink, lineWidth: tabIndex == index ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(MangaStyle.strokeInk, lineWidth: tabIndex == index ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
                     )
                     .background(
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .fill(MangaStyle.ink)
-                            .offset(x: tabIndex == index ? 2.5 : 1.2, y: tabIndex == index ? 2.5 : 1.2)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(MangaStyle.strokeInk)
+                            .offset(x: tabIndex == index ? 2 : 0.8, y: tabIndex == index ? 2 : 0.8)
                     )
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(5)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(MangaStyle.surface.opacity(0.78))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(MangaStyle.strokeInk.opacity(0.9), lineWidth: MangaStyle.fineStrokeWidth)
+        )
     }
 
     @ViewBuilder
@@ -3088,10 +3141,49 @@ private struct MangaLibraryExperience: View {
 
     private var myLibraryPage: some View {
         VStack(alignment: .leading, spacing: 16) {
-            mangaImportActionStrip
-            mangaMyLibraryColumnStrip
+            mangaMyLibraryControlPanel
             mangaMyLibraryColumnContent
         }
+    }
+
+    private var mangaMyLibraryControlPanel: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .center, spacing: 8) {
+                mangaMyLibraryColumnStrip
+                    .layoutPriority(1)
+
+                Button {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        isLibraryActionsExpanded.toggle()
+                    }
+                } label: {
+                    MonologueIcon(
+                        icon: isLibraryActionsExpanded ? .close : .more,
+                        size: 16,
+                        color: MangaStyle.strokeInk,
+                        lineWidth: 1.8
+                    )
+                    .frame(width: 42, height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(isLibraryActionsExpanded ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.82))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            }
+
+            LibraryDisclosureReveal(isExpanded: isLibraryActionsExpanded) {
+                mangaImportActionStrip
+                    .padding(10)
+                    .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite))
+            }
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
 
     private var mangaMyLibraryColumnStrip: some View {
@@ -3110,13 +3202,13 @@ private struct MangaLibraryExperience: View {
                             MonologueIcon(
                                 icon: column.icon,
                                 size: 14,
-                                color: MangaStyle.ink,
+                                color: columnForeground(for: column, selected: selectedMyLibraryColumn == column),
                                 lineWidth: selectedMyLibraryColumn == column ? 2 : 1.6
                             )
 
                             Text(column.title)
                                 .font(MangaStyle.labelFont(11, weight: .black))
-                                .foregroundStyle(selectedMyLibraryColumn == column ? MangaStyle.ink : MangaStyle.inkSub)
+                                .foregroundStyle(columnForeground(for: column, selected: selectedMyLibraryColumn == column))
                                 .lineLimit(1)
                         }
                         .padding(.horizontal, 12)
@@ -3127,7 +3219,7 @@ private struct MangaLibraryExperience: View {
                         )
                         .overlay(
                             Capsule()
-                                .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
                         )
                         .clipShape(Capsule())
                         .contentShape(Capsule())
@@ -3135,7 +3227,6 @@ private struct MangaLibraryExperience: View {
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                 }
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.bottom, 2)
         }
         .scrollIndicators(.hidden)
@@ -3273,47 +3364,43 @@ private struct MangaLibraryExperience: View {
     }
 
     private var mangaImportActionStrip: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 9) {
-                MangaLibraryActionChip(
-                    title: String(localized: "lib_create"),
-                    icon: .add,
-                    tint: MangaStyle.labelYellow
-                ) {
-                    createLocalPlaylist()
-                }
-
-                MangaLibraryActionChip(
-                    title: String(localized: "lib_import_playlist"),
-                    icon: .download,
-                    tint: MangaStyle.bubbleBlue,
-                    isLoading: isImporting
-                ) {
-                    showFileImporter = true
-                }
-                .disabled(isImporting)
-
-                MangaLibraryActionChip(
-                    title: String(localized: "从链接导入"),
-                    icon: .share,
-                    tint: MangaStyle.mint,
-                    isLoading: isImporting
-                ) {
-                    showImportLinkPrompt()
-                }
-                .disabled(isImporting)
-
-                MangaLibraryActionChip(
-                    title: String(localized: "QCM歌单"),
-                    icon: .musicNoteList,
-                    tint: MangaStyle.bubblePink
-                ) {
-                    showQQImport = true
-                }
+        LazyVGrid(columns: controlColumns, spacing: 9) {
+            MangaLibraryActionChip(
+                title: String(localized: "lib_create"),
+                icon: .add,
+                tint: MangaStyle.labelYellow
+            ) {
+                createLocalPlaylist()
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+            MangaLibraryActionChip(
+                title: String(localized: "lib_import_playlist"),
+                icon: .download,
+                tint: MangaStyle.bubbleBlue,
+                isLoading: isImporting
+            ) {
+                showFileImporter = true
+            }
+            .disabled(isImporting)
+
+            MangaLibraryActionChip(
+                title: String(localized: "从链接导入"),
+                icon: .share,
+                tint: MangaStyle.mint,
+                isLoading: isImporting
+            ) {
+                showImportLinkPrompt()
+            }
+            .disabled(isImporting)
+
+            MangaLibraryActionChip(
+                title: String(localized: "QCM歌单"),
+                icon: .musicNoteList,
+                tint: MangaStyle.bubblePink
+            ) {
+                showQQImport = true
+            }
         }
-        .scrollIndicators(.hidden)
     }
 
     private var playlistSquarePage: some View {
@@ -3707,6 +3794,16 @@ private struct MangaLibraryExperience: View {
         }
     }
 
+    private func columnForeground(for column: MangaMyLibraryColumn, selected: Bool) -> Color {
+        guard selected else { return MangaStyle.inkSub }
+        switch column {
+        case .localPlaylists, .localPodcasts, .ncmPodcasts:
+            return MangaStyle.strokeInk
+        case .ncmPlaylists, .qcmPlaylists:
+            return MangaStyle.ink
+        }
+    }
+
     private func loadQQUserPlaylistsIfNeeded(force: Bool = false) {
         guard force || !hasLoadedQQUserPlaylists else { return }
         guard !isLoadingQQUserPlaylists else { return }
@@ -4043,6 +4140,16 @@ private struct MangaLibraryExperience: View {
         }
     }
 
+    private func tabForeground(for tab: LibraryViewModel.LibraryTab, selected: Bool) -> Color {
+        guard selected else { return MangaStyle.ink }
+        switch tab {
+        case .my, .artists:
+            return MangaStyle.strokeInk
+        case .square, .charts:
+            return MangaStyle.ink
+        }
+    }
+
     private func chartDestination(_ list: TopList) -> LibraryViewModel.NavigationDestination {
         .playlist(Playlist(
             id: list.id,
@@ -4112,8 +4219,8 @@ private struct MangaLibrarySourceStrip: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            sourceButton(title: firstTitle, source: .ncm, tint: MangaStyle.labelYellow)
-            sourceButton(title: secondTitle, source: .qq, tint: MangaStyle.bubbleBlue)
+            sourceButton(title: firstTitle, source: .ncm, tint: MusicSource.netease.themedBadgeColor)
+            sourceButton(title: secondTitle, source: .qq, tint: MusicSource.qqmusic.themedBadgeColor)
             Spacer(minLength: 0)
         }
         .padding(7)
@@ -4135,7 +4242,7 @@ private struct MangaLibrarySourceStrip: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
                 )
         }
         .buttonStyle(.plain)
@@ -4168,6 +4275,7 @@ private struct MangaLibraryActionChip: View {
                     .minimumScaleFactor(0.72)
             }
             .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity)
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -4175,7 +4283,7 @@ private struct MangaLibraryActionChip: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .compositingGroup()
@@ -4202,7 +4310,7 @@ private struct MangaFilterChip: View {
                     Capsule()
                         .fill(selected ? tint : MangaStyle.bubbleWhite.opacity(0.72))
                 )
-                .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
                 .clipShape(Capsule())
                 .compositingGroup()
         }
@@ -4227,7 +4335,7 @@ private struct MangaPodcastPoster: View {
                 .aspectRatio(1, contentMode: .fill)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
                 Text(radio.name)
                     .font(MangaStyle.bodyFont(14, weight: .black))
@@ -4269,7 +4377,7 @@ private struct MangaLocalPlaylistPoster: View {
             .aspectRatio(1, contentMode: .fill)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
         } else {
             placeholder
         }
@@ -4301,7 +4409,7 @@ private struct MangaPlaylistPoster: View {
                 .aspectRatio(1, contentMode: .fill)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
                 Text(playlist.name)
                     .font(MangaStyle.bodyFont(14, weight: .black))
@@ -4314,7 +4422,7 @@ private struct MangaPlaylistPoster: View {
                         MangaLabel(text: "\(count)", tint: MangaStyle.mint, small: true)
                     }
                     if let playCount = playlist.playCount {
-                        MangaLabel(text: mangaFormatCount(playCount), tint: MangaStyle.bubblePink, small: true)
+                        MangaLabel(text: mangaFormatCount(playCount), tint: MangaStyle.bubblePink, small: true, foreground: MangaStyle.ink)
                     }
                 }
             }
@@ -4335,7 +4443,7 @@ private struct MangaArtistPoster: View {
             .aspectRatio(1, contentMode: .fill)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
             Text(artist.name)
                 .font(MangaStyle.bodyFont(12, weight: .black))
@@ -4361,7 +4469,7 @@ private struct MangaChartPoster: View {
                 .aspectRatio(1, contentMode: .fill)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
                 Text(list.name)
                     .font(MangaStyle.bodyFont(14, weight: .black))
@@ -4388,7 +4496,7 @@ private struct MangaQQChartPoster: View {
                 .aspectRatio(1, contentMode: .fill)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
                 Text(item.title)
                     .font(MangaStyle.bodyFont(14, weight: .black))

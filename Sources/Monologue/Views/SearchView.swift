@@ -29,7 +29,7 @@ struct SearchView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -145,9 +145,7 @@ struct SearchView: View {
             Button {
                 dismiss()
             } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                MonologueIcon(icon: .chevronLeft, size: 18, color: .monologueTextPrimary, lineWidth: 1.8)
                     .frame(width: 42, height: 42)
                     .background(MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : Color.monologueTextPrimary.opacity(0.04)))
                     .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : 21, style: .continuous))
@@ -302,7 +300,7 @@ struct SearchView: View {
                     } label: {
                         Text(tab.rawValue)
                             .font(MujiStyle.labelFont(12, weight: viewModel.currentTab == tab ? .semibold : .regular))
-                            .foregroundStyle(viewModel.currentTab == tab ? MujiStyle.paper : MujiStyle.inkSoft)
+                            .foregroundStyle(viewModel.currentTab == tab ? MujiStyle.onTint : MujiStyle.inkSoft)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 9)
                             .background(
@@ -341,11 +339,11 @@ struct SearchView: View {
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .stroke(MangaStyle.ink, lineWidth: viewModel.currentTab == tab ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
+                                    .stroke(MangaStyle.strokeInk, lineWidth: viewModel.currentTab == tab ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
                             )
                             .background(
                                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(MangaStyle.ink)
+                                    .fill(MangaStyle.strokeInk)
                                     .offset(x: viewModel.currentTab == tab ? 2 : 0, y: viewModel.currentTab == tab ? 2 : 0)
                             )
                     }
@@ -498,14 +496,15 @@ struct SearchView: View {
                         viewModel.selectedPlatform = platform
                     }
                 }) {
+                    let tint = platform.themedBadgeColor
                     Text(platformTabName(platform))
                         .font(.rounded(size: 13, weight: viewModel.selectedPlatform == platform ? .bold : .medium))
-                        .foregroundColor(viewModel.selectedPlatform == platform ? .monologueTextPrimary : .monologueTextSecondary)
+                        .foregroundColor(viewModel.selectedPlatform == platform ? tint : tint.opacity(0.72))
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
                         .background(
                             viewModel.selectedPlatform == platform
-                                ? Capsule().fill(Color.monologueTextPrimary.opacity(0.08))
+                                ? Capsule().fill(tint.opacity(0.12))
                                 : nil
                         )
                 }
@@ -529,14 +528,15 @@ struct SearchView: View {
                         viewModel.selectedPlatform = platform
                     }
                 } label: {
+                    let tint = platform.themedBadgeColor
                     Text(platformTabName(platform))
                         .font(MujiStyle.labelFont(11, weight: .semibold))
-                        .foregroundStyle(viewModel.selectedPlatform == platform ? MujiStyle.clay : MujiStyle.inkMuted)
+                        .foregroundStyle(viewModel.selectedPlatform == platform ? tint : tint.opacity(0.68))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(viewModel.selectedPlatform == platform ? MujiStyle.clay.opacity(0.11) : Color.clear)
+                                .fill(viewModel.selectedPlatform == platform ? tint.opacity(0.12) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -564,18 +564,19 @@ struct SearchView: View {
                         viewModel.selectedPlatform = platform
                     }
                 } label: {
+                    let tint = platform.themedBadgeColor
                     Text(platformTabName(platform))
                         .font(MangaStyle.labelFont(11, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
+                        .foregroundStyle(tint)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(viewModel.selectedPlatform == platform ? MangaStyle.bubbleBlue : Color.clear)
+                                .fill(viewModel.selectedPlatform == platform ? tint.opacity(0.18) : Color.clear)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(viewModel.selectedPlatform == platform ? MangaStyle.ink : Color.clear, lineWidth: MangaStyle.fineStrokeWidth)
+                                .stroke(viewModel.selectedPlatform == platform ? MangaStyle.strokeInk : Color.clear, lineWidth: MangaStyle.fineStrokeWidth)
                         )
                 }
                 .buttonStyle(.plain)

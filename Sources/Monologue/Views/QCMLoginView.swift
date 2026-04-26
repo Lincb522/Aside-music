@@ -16,11 +16,19 @@ struct QQLoginView: View {
         case qr
         case phone
     }
+
+    private var themeAccent: Color {
+        MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueIconBackground)
+    }
+
+    private var themeAccentText: Color {
+        MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : Color.monologueIconForeground)
+    }
     
     var body: some View {
         ZStack {
             MonologueSheetAwareBackground {
-                MonologueBackground()
+                ThemedPageBackground()
             }
             
             VStack(spacing: 0) {
@@ -101,8 +109,7 @@ struct QQLoginView: View {
             tabButton(title: NSLocalizedString("qq_tab_phone", comment: ""), icon: .phone, tab: .phone)
         }
         .padding(4)
-        .background(Color.monologueGlassTint)
-        .cornerRadius(16)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 16, elevated: false)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
     
@@ -116,15 +123,21 @@ struct QQLoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? .monologueIconForeground : .monologueTextSecondary)
+                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? themeAccentText : .monologueTextSecondary)
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? .monologueIconForeground : .monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .medium) : .system(size: 14, weight: .semibold, design: .rounded)))
+                    .foregroundColor(selectedTab == tab ? themeAccentText : .monologueTextSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(selectedTab == tab ? Color.monologueIconBackground : Color.clear)
-            .cornerRadius(12)
+            .background(selectedTab == tab ? themeAccent : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : 12, style: .continuous))
+            .overlay {
+                if MangaStyle.isActive && selectedTab == tab {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                }
+            }
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
     }
@@ -169,10 +182,10 @@ struct QQLoginView: View {
                             Button(action: { viewModel.refreshQR() }) {
                                 Text(LocalizedStringKey("qq_qr_refresh"))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(.monologueIconForeground)
+                                    .foregroundColor(themeAccentText)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 10)
-                                    .background(Color.monologueIconBackground)
+                                    .background(themeAccent)
                                     .cornerRadius(20)
                             }
                             .buttonStyle(MonologueBouncingButtonStyle())
@@ -182,7 +195,7 @@ struct QQLoginView: View {
                 }
             }
             .frame(width: DeviceLayout.isPad ? 300 : 240, height: DeviceLayout.isPad ? 300 : 240)
-            .monologueGlass(cornerRadius: 24)
+            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 22 : 24, elevated: true, mangaTint: MangaStyle.bubbleWhite)
             
             HStack(spacing: 16) {
                 Text(viewModel.qrStatusMessage)
@@ -193,14 +206,14 @@ struct QQLoginView: View {
                 if viewModel.qrCodeImage != nil && !viewModel.isQRExpired {
                     Button(action: { saveQRToAlbum() }) {
                         HStack(spacing: 4) {
-                            MonologueIcon(icon: .download, size: 12, color: .monologueIconForeground)
+                            MonologueIcon(icon: .download, size: 12, color: themeAccentText)
                             Text("保存")
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueIconForeground)
+                                .foregroundColor(themeAccentText)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Color.monologueIconBackground)
+                        .background(themeAccent)
                         .cornerRadius(12)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
@@ -302,8 +315,7 @@ struct QQLoginView: View {
                         .padding(.leading, 8)
                 }
                 .padding(16)
-                .background(Color.monologueGlassTint)
-                .cornerRadius(16)
+                .themedPageSurface(cornerRadius: 16, elevated: false)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
             
@@ -332,8 +344,7 @@ struct QQLoginView: View {
                     .disabled(viewModel.phoneNumber.count != 11 || (viewModel.isLoading && !viewModel.isCaptchaSent))
                 }
                 .padding(16)
-                .background(Color.monologueGlassTint)
-                .cornerRadius(16)
+                .themedPageSurface(cornerRadius: 16, elevated: false)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
             
@@ -355,12 +366,12 @@ struct QQLoginView: View {
                     Text(LocalizedStringKey("qq_login_btn"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.monologueIconForeground)
+                .foregroundColor(themeAccentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
                     (viewModel.phoneNumber.count == 11 && viewModel.captchaCode.count >= 4)
-                    ? Color.monologueIconBackground
+                    ? themeAccent
                     : Color.monologueSeparator
                 )
                 .cornerRadius(16)

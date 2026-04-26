@@ -410,13 +410,7 @@ struct QQArtistDetailView: View {
                     .lineLimit(2)
                 Spacer()
                 
-                // QCM 标签
-                Text("QCM")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.green.opacity(0.8)))
+                PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 11)
             }
             
             // 统计信息
@@ -968,7 +962,7 @@ struct QQAlbumDetailView: View {
                 if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                 } else {
-                    MonologueBackground()
+                    ThemedPageBackground()
                 }
             }
 
@@ -1039,12 +1033,7 @@ struct QQAlbumDetailView: View {
                 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 6) {
-                        Text("QCM")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
                         
                         Text(displayName)
                             .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -1156,7 +1145,7 @@ struct QQAlbumDetailView: View {
                 if !isAlbumSearching {
                     NoMoreDataView()
                 }
-                Color.clear.frame(height: 100)
+                FloatingBarBottomSpacer()
             }
         }
         .monologueSheet(isPresented: $showAlbumBatchPlaylist, preset: .standard){
@@ -1268,12 +1257,7 @@ struct QQArtistBioSheet: View {
                         .font(.rounded(size: 20, weight: .bold))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
-                    Text("QCM")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                    PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
                 }
 
                 Spacer()
@@ -1453,7 +1437,7 @@ struct QQPlaylistDetailView: View {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                         .ignoresSafeArea()
                 } else {
-                    MonologueBackground().ignoresSafeArea()
+                    ThemedPageBackground().ignoresSafeArea()
                 }
             }
             
@@ -1544,12 +1528,7 @@ struct QQPlaylistDetailView: View {
                     }
                     
                     HStack(spacing: 6) {
-                        Text("QCM")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
                     }
                     
                     Spacer().frame(height: 4)

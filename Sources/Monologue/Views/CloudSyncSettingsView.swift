@@ -9,21 +9,20 @@ struct CloudSyncSettingsView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
                 VStack(spacing: 20) {
                     syncSection
                     actionSection
-                    Spacer(minLength: 100)
+                    FloatingBarBottomSpacer()
                 }
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle(String(localized: "settings_navigation_cloud_sync_title"))
+        .themedNavigationChrome(title: String(localized: "settings_navigation_cloud_sync_title"), eyebrow: "SYNC", icon: .cloud)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onChange(of: settings.playlistSyncAutoEnabled) { _, enabled in

@@ -18,7 +18,7 @@ public struct ContentView: View {
 
     public var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             tabViewContent
@@ -219,7 +219,7 @@ public struct ContentView: View {
                 Image(uiImage: currentTab == .podcast ? Hicon.microphone4 : Hicon.microphone3)
                     .renderingMode(.template)
             } else {
-                Image(systemName: currentTab == .podcast ? "music.note.list" : "music.note")
+                MonologueIcon(icon: currentTab == .podcast ? .musicNoteList : .musicNote, size: 23)
             }
         case .library:
             Image(uiImage: currentTab == .library ? Hicon.headphone2 : Hicon.headphone1)
@@ -272,6 +272,7 @@ public struct ContentView: View {
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 20, coordinateSpace: .local)
             .onEnded { value in
+                guard !isFloatingBarGestureArea(value.startLocation) else { return }
                 guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
 
                 let allTabs = Tab.allCases
@@ -295,6 +296,27 @@ public struct ContentView: View {
                     }
                 }
             }
+    }
+
+    private var floatingBarGestureExclusionHeight: CGFloat {
+        switch settings.floatingBarStyle {
+        case .minimal:
+            return playerAwareBottomGestureHeight(hasMiniPlayer: PlayerManager.shared.currentSong != nil)
+        case .floatingBall:
+            return 112
+        case .unified, .classic:
+            return 0
+        }
+    }
+
+    private func playerAwareBottomGestureHeight(hasMiniPlayer: Bool) -> CGFloat {
+        hasMiniPlayer ? 148 : 112
+    }
+
+    private func isFloatingBarGestureArea(_ location: CGPoint) -> Bool {
+        let exclusionHeight = floatingBarGestureExclusionHeight
+        guard exclusionHeight > 0 else { return false }
+        return location.y >= UIScreen.main.bounds.height - exclusionHeight
     }
 }
 
@@ -856,12 +878,12 @@ enum Tab: Int, CaseIterable, Hashable {
     case library = 2
     case profile = 3
 
-    var icon: String {
+    var icon: MonologueIcon.IconType {
         switch self {
-        case .home: return "house.fill"
-        case .podcast: return "mic.fill"
-        case .library: return "square.stack.3d.up.fill"
-        case .profile: return "person.fill"
+        case .home: return .homeFilled
+        case .podcast: return .podcastFilled
+        case .library: return .libraryFilled
+        case .profile: return .profileFilled
         }
     }
 

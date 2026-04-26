@@ -5,7 +5,6 @@ import SwiftUI
 struct DailyRecommendView: View {
     @StateObject private var viewModel = DailyRecommendViewModel()
     @ObservedObject private var styleManager = StyleManager.shared
-    @Namespace private var animationNamespace
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
@@ -27,33 +26,10 @@ struct DailyRecommendView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
             }
 
             mainContent
-
-            Group {
-                if viewModel.showStyleMenu {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                viewModel.showStyleMenu = false
-                            }
-                        }
-                        .zIndex(1)
-                }
-
-                if viewModel.showStyleMenu {
-                    StyleSelectionMorphView(
-                        styleManager: styleManager,
-                        isPresented: $viewModel.showStyleMenu,
-                        namespace: animationNamespace
-                    )
-                    .zIndex(2)
-                }
-            }
         }
         .monologueSheet(isPresented: $viewModel.showHistorySheet, preset: .standard) {
             DailyHistoryView(dates: viewModel.historyDates)
@@ -90,29 +66,35 @@ struct DailyRecommendView: View {
 
             }
         }
-        .onChange(of: viewModel.showStyleMenu) { _, isShown in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                PlayerManager.shared.isTabBarHidden = isShown
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        if viewModel.isLoading && viewModel.songs.isEmpty {
+            scrollableDailyShell {
+                headerSection
+                MonologueLoadingView(text: "LOADING...")
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 72)
             }
+        } else if let error = viewModel.errorMessage {
+            scrollableDailyShell {
+                headerSection
+                errorView(msg: error)
+            }
+        } else {
+            songList
         }
     }
 
-    private var mainContent: some View {
-        VStack(spacing: 0) {
-            headerSection
-
-            if viewModel.isLoading && viewModel.songs.isEmpty {
-                Spacer()
-                VStack {
-                    MonologueLoadingView(text: "LOADING...")
-                }
-                Spacer()
-            } else if let error = viewModel.errorMessage {
-                errorView(msg: error)
-            } else {
-                songList
+    private func scrollableDailyShell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                content()
             }
+            .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - Subviews
@@ -124,41 +106,41 @@ struct DailyRecommendView: View {
         } else if MujiStyle.isActive {
             mujiHeaderSection
         } else {
+            defaultHeaderSection
+        }
+    }
+
+    private var defaultHeaderSection: some View {
+        VStack(spacing: 0) {
             VStack(spacing: 16) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .lastTextBaseline, spacing: 4) {
-                        Text(dayString)
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(Theme.text)
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .lastTextBaseline, spacing: 4) {
+                            Text(dayString)
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundColor(Theme.text)
 
-                        Text("/ \(monthString)")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
-                            .foregroundColor(Theme.secondaryText)
-                            .padding(.bottom, 4)
-                    }
+                            Text("/ \(monthString)")
+                                .font(.system(size: 18, weight: .medium, design: .rounded))
+                                .foregroundColor(Theme.secondaryText)
+                                .padding(.bottom, 4)
+                        }
 
-                    if !viewModel.showStyleMenu {
                         HStack(spacing: 10) {
-                            Button(action: {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                    viewModel.showStyleMenu = true
-                                }
-                            }) {
+                            Button(action: toggleStyleMenu) {
                                 HStack(spacing: 6) {
-                                    Text(styleManager.currentStyle == nil ? NSLocalizedString("daily_recommend", comment: "") : styleManager.currentStyleName)
+                                    Text(dailyStyleChipTitle)
                                         .font(.system(size: 14, weight: .medium, design: .rounded))
                                         .foregroundColor(Theme.secondaryText)
-                                        .matchedGeometryEffect(id: "filter_text", in: animationNamespace)
 
                                     MonologueIcon(icon: .chevronRight, size: 12, color: Theme.secondaryText)
+                                        .rotationEffect(.degrees(viewModel.showStyleMenu ? -90 : 90))
                                 }
                                 .padding(.vertical, 6)
                                 .padding(.horizontal, 12)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 16)
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .fill(Color.monologueSeparator)
-                                        .matchedGeometryEffect(id: "filter_bg", in: animationNamespace)
                                 )
                             }
 
@@ -174,115 +156,106 @@ struct DailyRecommendView: View {
                                 .padding(.vertical, 6)
                                 .padding(.horizontal, 12)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 16)
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .fill(Color.monologueSeparator)
                                 )
                             }
                             .buttonStyle(ScaleButtonStyle())
                         }
-                    } else {
-                        Rectangle()
-                            .fill(Color.clear)
-                            .frame(height: 32)
-                            .frame(width: 200, alignment: .leading)
+                    }
+
+                    Spacer()
+
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
+                                Text(LocalizedStringKey("artist_play_all"))
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(.monologueIconForeground)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Theme.accent)
+                            .clipShape(Capsule())
+                            .shadow(color: Theme.accent.opacity(0.2), radius: 8, x: 0, y: 4)
+                        }
+                        .buttonStyle(ScaleButtonStyle())
                     }
                 }
-
-                Spacer()
-
-                if !viewModel.songs.isEmpty {
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                            PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                        }
-                    }) {
-                        HStack(spacing: 8) {
-                            MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
-                            Text(LocalizedStringKey("artist_play_all"))
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                                .foregroundColor(.monologueIconForeground)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Theme.accent)
-                        .clipShape(Capsule())
-                        .shadow(color: Theme.accent.opacity(0.2), radius: 8, x: 0, y: 4)
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-                }
+                .padding(.top, 4)
             }
-            .padding(.top, 4)
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 16)
-        .padding(.bottom, 10)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, viewModel.showStyleMenu ? 8 : 10)
+
+            attachedStylePanel
         }
     }
 
     private var mujiHeaderSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(dayString)
-                        .font(MujiStyle.titleFont(52, weight: .light))
-                        .foregroundStyle(MujiStyle.ink)
-                        .lineLimit(1)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(dayString)
+                            .font(MujiStyle.titleFont(52, weight: .light))
+                            .foregroundStyle(MujiStyle.ink)
+                            .lineLimit(1)
 
-                    Text("/ \(monthString)")
-                        .font(MujiStyle.labelFont(12, weight: .regular))
-                        .foregroundStyle(MujiStyle.inkMuted)
-                }
-                .frame(width: 72, alignment: .leading)
+                        Text("/ \(monthString)")
+                            .font(MujiStyle.labelFont(12, weight: .regular))
+                            .foregroundStyle(MujiStyle.inkMuted)
+                    }
+                    .frame(width: 72, alignment: .leading)
 
-                Rectangle()
-                    .fill(MujiStyle.separator)
-                    .frame(width: 0.65, height: 68)
-                    .padding(.top, 4)
+                    Rectangle()
+                        .fill(MujiStyle.separator)
+                        .frame(width: 0.65, height: 68)
+                        .padding(.top, 4)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 7) {
-                        MujiPill(text: String(localized: "daily_recommend"), tint: MujiStyle.clay)
-                        if !viewModel.songs.isEmpty {
-                            MujiPill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            MujiPill(text: String(localized: "daily_recommend"), tint: MujiStyle.clay)
+                            if !viewModel.songs.isEmpty {
+                                MujiPill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
+                            }
                         }
+
+                        Text(dailyHeaderTitle)
+                            .font(MujiStyle.titleFont(24, weight: .regular))
+                            .foregroundStyle(MujiStyle.ink)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Text(styleManager.currentStyle == nil ? NSLocalizedString("daily_recommend", comment: "") : styleManager.currentStyleName)
-                        .font(MujiStyle.titleFont(24, weight: .regular))
-                        .foregroundStyle(MujiStyle.ink)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                    Spacer(minLength: 8)
 
-                Spacer(minLength: 8)
-
-                if !viewModel.songs.isEmpty {
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                            PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            MonologueIcon(icon: .play, size: 15, color: MujiStyle.onTint, lineWidth: 1.5)
+                                .frame(width: 42, height: 42)
+                                .background(MujiStyle.clay, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                         }
-                    }) {
-                        MonologueIcon(icon: .play, size: 15, color: MujiStyle.paper, lineWidth: 1.5)
-                            .frame(width: 42, height: 42)
-                            .background(MujiStyle.clay, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                 }
-            }
 
-            if !viewModel.showStyleMenu {
                 HStack(spacing: 9) {
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            viewModel.showStyleMenu = true
-                        }
-                    }) {
+                    Button(action: toggleStyleMenu) {
                         mujiHeaderChip(
-                            text: styleManager.currentStyle == nil ? NSLocalizedString("daily_recommend", comment: "") : styleManager.currentStyleName,
+                            text: dailyStyleChipTitle,
                             icon: .sparkle,
-                            tint: MujiStyle.indigo
+                            tint: viewModel.showStyleMenu ? MujiStyle.clay : MujiStyle.indigo
                         )
-                        .matchedGeometryEffect(id: "filter_bg", in: animationNamespace)
                     }
                     .buttonStyle(.plain)
 
@@ -297,15 +270,18 @@ struct DailyRecommendView: View {
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                 }
-            } else {
-                Color.clear.frame(height: 34)
-            }
 
-            MujiListDivider()
+                if !viewModel.showStyleMenu {
+                    MujiListDivider()
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, viewModel.showStyleMenu ? 8 : 10)
+
+            attachedStylePanel
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 16)
-        .padding(.bottom, 10)
+        .background(mujiHeaderBackground)
     }
 
     private func mujiHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
@@ -327,70 +303,63 @@ struct DailyRecommendView: View {
     }
 
     private var mangaHeaderSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 13) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(dayString)
-                        .font(MangaStyle.titleFont(42, weight: .black))
-                        .foregroundColor(MangaStyle.ink)
-                        .lineLimit(1)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 13) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(dayString)
+                            .font(MangaStyle.titleFont(42, weight: .black))
+                            .foregroundColor(MangaStyle.ink)
+                            .lineLimit(1)
 
-                    Text("/ \(monthString)")
-                        .font(MangaStyle.labelFont(13, weight: .black))
-                        .foregroundColor(MangaStyle.inkSub)
-                }
-                .frame(width: 64, alignment: .leading)
+                        Text("/ \(monthString)")
+                            .font(MangaStyle.labelFont(13, weight: .black))
+                            .foregroundColor(MangaStyle.inkSub)
+                    }
+                    .frame(width: 64, alignment: .leading)
 
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(spacing: 7) {
-                        MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 22)
-                        MangaLabel(text: String(localized: "daily_recommend"), tint: MangaStyle.labelYellow, small: true)
+                    VStack(alignment: .leading, spacing: 9) {
+                        HStack(spacing: 7) {
+                            MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 22, foreground: MangaStyle.ink)
+                            MangaLabel(text: String(localized: "daily_recommend"), tint: MangaStyle.labelYellow, small: true)
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(MangaStyle.titleFont(24, weight: .black))
+                            .foregroundColor(MangaStyle.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+
+                        if !viewModel.songs.isEmpty {
+                            MangaLabel(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
+                        }
                     }
 
-                    Text(styleManager.currentStyle == nil ? NSLocalizedString("daily_recommend", comment: "") : styleManager.currentStyleName)
-                        .font(MangaStyle.titleFont(24, weight: .black))
-                        .foregroundColor(MangaStyle.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
+                    Spacer(minLength: 8)
 
                     if !viewModel.songs.isEmpty {
-                        MangaLabel(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true)
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                if !viewModel.songs.isEmpty {
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                            PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            MonologueIcon(icon: .play, size: 16, color: MangaStyle.strokeInk, lineWidth: 2)
+                                .frame(width: 44, height: 44)
+                                .background(MangaStyle.labelYellow, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
+                                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                         }
-                    }) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14, weight: .black))
-                            .foregroundColor(MangaStyle.ink)
-                            .frame(width: 44, height: 44)
-                            .background(MangaStyle.labelYellow, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.ink, lineWidth: 1.6))
-                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(MangaStyle.ink).offset(x: 2, y: 2))
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                 }
-            }
 
-            if !viewModel.showStyleMenu {
                 HStack(spacing: 9) {
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            viewModel.showStyleMenu = true
-                        }
-                    }) {
+                    Button(action: toggleStyleMenu) {
                         mangaHeaderChip(
-                            text: styleManager.currentStyle == nil ? NSLocalizedString("daily_recommend", comment: "") : styleManager.currentStyleName,
+                            text: dailyStyleChipTitle,
                             icon: .sparkle,
-                            tint: MangaStyle.bubbleBlue
+                            tint: viewModel.showStyleMenu ? MangaStyle.labelYellow : MangaStyle.bubbleBlue
                         )
-                        .matchedGeometryEffect(id: "filter_bg", in: animationNamespace)
                     }
                     .buttonStyle(.plain)
 
@@ -400,35 +369,59 @@ struct DailyRecommendView: View {
                         mangaHeaderChip(
                             text: NSLocalizedString("daily_history", comment: ""),
                             icon: .history,
-                            tint: MangaStyle.mint
+                            tint: MangaStyle.mint,
+                            foreground: MangaStyle.strokeInk
                         )
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                 }
-            } else {
-                Color.clear.frame(height: 34)
             }
+            .padding(16)
+
+            attachedStylePanel
         }
-        .padding(16)
-        .background(MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite))
+        .background(mangaHeaderBackground)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 16)
         .padding(.bottom, 10)
     }
 
-    private func mangaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
+    @ViewBuilder
+    private var attachedStylePanel: some View {
+        DailyStylePanelReveal(isExpanded: viewModel.showStyleMenu) {
+            StyleSelectionMorphView(
+                styleManager: styleManager,
+                isPresented: $viewModel.showStyleMenu,
+                placement: .attachedToHeader
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var mujiHeaderBackground: some View {
+        if viewModel.showStyleMenu {
+            MujiPaperCardBackground(cornerRadius: 18, elevated: false)
+        }
+    }
+
+    @ViewBuilder
+    private var mangaHeaderBackground: some View {
+        MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
+    }
+
+    private func mangaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color, foreground: Color = MangaStyle.ink) -> some View {
         HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 13, color: MangaStyle.ink, lineWidth: 1.7)
+            MonologueIcon(icon: icon, size: 13, color: foreground, lineWidth: 1.7)
             Text(text)
                 .font(MangaStyle.labelFont(12, weight: .black))
-                .foregroundColor(MangaStyle.ink)
+                .foregroundColor(foreground)
                 .lineLimit(1)
                 .minimumScaleFactor(0.74)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(Capsule().fill(tint))
-        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1.3))
+        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.3))
     }
 
     private var dailyFilteredSongs: [Song] { viewModel.songs.filtered(by: searchText) }
@@ -436,49 +429,54 @@ struct DailyRecommendView: View {
     private var songList: some View {
         ScrollView {
             VStack(spacing: 0) {
-                PlaylistSearchBar(
-                    searchText: $searchText,
-                    isSearching: $isSearching,
-                    isSelectMode: $isSelectMode,
-                    selectedIds: $selectedSongIds,
-                    songs: dailyFilteredSongs,
-                    onBatchQueue: {
-                        let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.id) }
-                        SongBatchActionHelper.addToQueue(selected) {
-                            isSelectMode = false
-                            selectedSongIds.removeAll()
-                        }
-                    },
-                    onBatchDownload: { batchDownloadSelected() },
-                    onBatchCollect: { showBatchAddToPlaylist = true }
-                )
+                headerSection
+
+                if !viewModel.showStyleMenu {
+                    PlaylistSearchBar(
+                        searchText: $searchText,
+                        isSearching: $isSearching,
+                        isSelectMode: $isSelectMode,
+                        selectedIds: $selectedSongIds,
+                        songs: dailyFilteredSongs,
+                        onBatchQueue: {
+                            let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.id) }
+                            SongBatchActionHelper.addToQueue(selected) {
+                                isSelectMode = false
+                                selectedSongIds.removeAll()
+                            }
+                        },
+                        onBatchDownload: { batchDownloadSelected() },
+                        onBatchCollect: { showBatchAddToPlaylist = true }
+                    )
+                }
 
                 LazyVStack(spacing: 0) {
                     ForEach(Array(dailyFilteredSongs.enumerated()), id: \.element.id) { index, song in
-                    SongListRow(song: song, index: index, isSelecting: isSelectMode, isSelected: selectedSongIds.contains(song.id), onArtistTap: { artistId in
-                        selectedArtistId = artistId
-                        showArtistDetail = true
-                    }, onDetailTap: { detailSong in
-                        selectedSongForDetail = detailSong
-                        showSongDetail = true
-                    }, onAlbumTap: { albumId in
-                        selectedAlbumId = albumId
-                        showAlbumDetail = true
-                    }, onTap: {
-                        if isSelectMode {
-                            if selectedSongIds.contains(song.id) {
-                                selectedSongIds.remove(song.id)
+                        SongListRow(song: song, index: index, isSelecting: isSelectMode, isSelected: selectedSongIds.contains(song.id), onArtistTap: { artistId in
+                            selectedArtistId = artistId
+                            showArtistDetail = true
+                        }, onDetailTap: { detailSong in
+                            selectedSongForDetail = detailSong
+                            showSongDetail = true
+                        }, onAlbumTap: { albumId in
+                            selectedAlbumId = albumId
+                            showAlbumDetail = true
+                        }, onTap: {
+                            if isSelectMode {
+                                if selectedSongIds.contains(song.id) {
+                                    selectedSongIds.remove(song.id)
+                                } else {
+                                    selectedSongIds.insert(song.id)
+                                }
                             } else {
-                                selectedSongIds.insert(song.id)
+                                PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
                             }
-                        } else {
-                            PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
-                        }
-                    })
+                        })
                     }
                 }
             }
             .padding(.bottom, 120)
+            .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
         }
         .scrollIndicators(.hidden)
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
@@ -500,16 +498,33 @@ struct DailyRecommendView: View {
     }
 
     private func errorView(msg: String) -> some View {
-        VStack {
-            Spacer()
+        VStack(spacing: 14) {
             MonologueIcon(icon: .warning, size: 48, color: .monologueTextSecondary)
             Text(msg)
                 .foregroundColor(.monologueTextSecondary)
-                .padding()
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             Button("Retry") {
                 viewModel.loadStandardRecommend()
             }
-            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 72)
+    }
+
+    private var dailyHeaderTitle: String {
+        styleManager.currentStyle == nil ? String(localized: "made_for_you") : styleManager.currentStyleName
+    }
+
+    private var dailyStyleChipTitle: String {
+        styleManager.currentStyle == nil ? String(localized: "style_default") : styleManager.currentStyleName
+    }
+
+    private func toggleStyleMenu() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            isSelectMode = false
+            selectedSongIds.removeAll()
+            viewModel.showStyleMenu.toggle()
         }
     }
 
@@ -534,6 +549,49 @@ struct DailyRecommendView: View {
     }
 }
 
+private struct DailyStylePanelReveal<Content: View>: View {
+    let isExpanded: Bool
+    let content: Content
+    @State private var measuredHeight: CGFloat = 0
+
+    init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
+        self.isExpanded = isExpanded
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: DailyStylePanelHeightPreferenceKey.self,
+                        value: proxy.size.height
+                    )
+                }
+            )
+            .onPreferenceChange(DailyStylePanelHeightPreferenceKey.self) { height in
+                if height > 0 {
+                    measuredHeight = height
+                }
+            }
+            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
+            .opacity(isExpanded ? 1 : 0.001)
+            .clipped()
+            .compositingGroup()
+            .allowsHitTesting(isExpanded)
+            .animation(.spring(response: 0.34, dampingFraction: 0.9), value: isExpanded)
+    }
+}
+
+private struct DailyStylePanelHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 // MARK: - History View
 
 struct DailyHistoryView: View {
@@ -550,7 +608,7 @@ struct DailyHistoryView: View {
     var body: some View {
         ZStack {
             MonologueSheetAwareBackground {
-                MonologueBackground()
+                ThemedPageBackground()
             }
 
             VStack(spacing: 0) {
@@ -661,7 +719,7 @@ struct DailyHistoryView: View {
         }) {
             Text(displayDate)
                 .font(MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.paper : MujiStyle.ink) : (isSelected ? .monologueIconForeground : .monologueTextPrimary))
+                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (isSelected ? .monologueIconForeground : .monologueTextPrimary))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(

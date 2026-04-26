@@ -212,7 +212,7 @@ struct MVPlayerView: View {
 
     private var normalView: some View {
         ZStack {
-            MonologueBackground().ignoresSafeArea()
+            ThemedPageBackground().ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // 顶部栏

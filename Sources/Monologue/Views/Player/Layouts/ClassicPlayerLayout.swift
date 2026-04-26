@@ -327,7 +327,7 @@ struct ClassicPlayerLayout: View {
                 MonologueIcon(icon: .karaoke, size: 16, color: MangaStyle.ink, lineWidth: 1.6)
                     .frame(width: 34, height: 34)
                     .background(MangaStyle.bubbleWhite, in: Circle())
-                    .overlay(Circle().stroke(MangaStyle.ink, lineWidth: 1.2))
+                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
             }
         }
         .padding(18)
@@ -335,7 +335,7 @@ struct ClassicPlayerLayout: View {
         .overlay(alignment: .topTrailing) {
             MangaStar()
                 .fill(MangaStyle.labelYellow)
-                .overlay(MangaStar().stroke(MangaStyle.ink, lineWidth: 1.5))
+                .overlay(MangaStar().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
                 .frame(width: 42, height: 42)
                 .padding(10)
                 .rotationEffect(.degrees(8))
@@ -365,11 +365,16 @@ struct ClassicPlayerLayout: View {
         Capsule()
             .fill(color)
             .frame(width: 38, height: 12)
-            .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1.2))
+            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
     }
 
     private var mangaTransportPanel: some View {
         VStack(spacing: 16) {
+            if showLyrics {
+                lyricsModeSongInfo
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+
             progressSection
                 .padding(.top, 2)
 
@@ -435,6 +440,11 @@ struct ClassicPlayerLayout: View {
 
     private var mujiTransportPanel: some View {
         VStack(spacing: 16) {
+            if showLyrics {
+                lyricsModeSongInfo
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+
             progressSection
 
             Rectangle()
@@ -453,7 +463,7 @@ struct ClassicPlayerLayout: View {
         Button(action: { showQualitySheet = true }) {
             Text(player.qualityButtonText)
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(contentColor)
+                .foregroundColor(qualityBadgeForeground)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(qualityBadgeBackground)
@@ -574,11 +584,11 @@ struct ClassicPlayerLayout: View {
             content
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth + 0.6)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth + 0.6)
                 )
                 .background(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(MangaStyle.ink)
+                        .fill(MangaStyle.strokeInk)
                         .offset(x: 5, y: 5)
                 )
                 .rotationEffect(.degrees(-1.6))
@@ -624,7 +634,7 @@ struct ClassicPlayerLayout: View {
             Button(action: { showQualitySheet = true }) {
                 Text(player.qualityButtonText)
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(contentColor)
+                    .foregroundColor(qualityBadgeForeground)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(qualityBadgeBackground)
@@ -672,9 +682,14 @@ struct ClassicPlayerLayout: View {
     }
 
     private var qualityBadgeStroke: Color {
-        if MangaStyle.isActive { return MangaStyle.ink }
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.hairline }
         return contentColor.opacity(0.5)
+    }
+
+    private var qualityBadgeForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        return contentColor
     }
 
     private var lyricsModeSongInfo: some View {
@@ -762,10 +777,10 @@ struct ClassicPlayerLayout: View {
             Circle()
                 .fill(MangaStyle.labelYellow)
                 .frame(width: size, height: size)
-                .overlay(Circle().stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                 .background(
                     Circle()
-                        .fill(MangaStyle.ink)
+                        .fill(MangaStyle.strokeInk)
                         .offset(x: 3.5, y: 3.5)
                 )
         } else if MujiStyle.isActive {
@@ -783,7 +798,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var classicPlayIconColor: Color {
-        if MangaStyle.isActive { return MangaStyle.ink }
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.clay }
         return .monologueTextPrimary
     }
@@ -842,7 +857,6 @@ struct ClassicPlayerLayout: View {
                 .frame(width: 44)
             }
 
-            // 评论 + 下载
             if let song = player.currentSong {
                 HStack(spacing: 0) {
                     Button { showComments = true } label: {

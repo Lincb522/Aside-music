@@ -5,20 +5,22 @@ enum MujiStyle {
         UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.muji.rawValue
     }
 
-    static let paper = Color(light: Color(hex: "F7F1E8"), dark: Color(hex: "171410"))
-    static let paperWarm = Color(light: Color(hex: "EFE5D6"), dark: Color(hex: "211B15"))
-    static let surface = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "221D18"))
-    static let surfaceRaised = Color(light: Color(hex: "FCF7EF"), dark: Color(hex: "2A241E"))
-    static let ink = Color(light: Color(hex: "302B26"), dark: Color(hex: "EEE5D8"))
-    static let inkSoft = Color(light: Color(hex: "6F665C"), dark: Color(hex: "B7AA9B"))
-    static let inkMuted = Color(light: Color(hex: "9A8F83"), dark: Color(hex: "80766B"))
-    static let clay = Color(hex: "B56B4B")
-    static let tea = Color(hex: "78846B")
-    static let indigo = Color(hex: "56677A")
-    static let straw = Color(hex: "D8B56D")
-    static let red = Color(hex: "B94E3D")
-    static let separator = Color(light: Color(hex: "DED3C4"), dark: Color(hex: "3A3129"))
-    static let hairline = Color(light: Color(hex: "CDBFAC"), dark: Color(hex: "51463B"))
+    static let paper = Color(light: Color(hex: "F7F1E8"), dark: Color(hex: "29241E"))
+    static let paperWarm = Color(light: Color(hex: "EFE5D6"), dark: Color(hex: "342D25"))
+    static let surface = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "332C25"))
+    static let surfaceRaised = Color(light: Color(hex: "FCF7EF"), dark: Color(hex: "40372E"))
+    static let ink = Color(light: Color(hex: "302B26"), dark: Color(hex: "F5EDE1"))
+    static let inkSoft = Color(light: Color(hex: "6F665C"), dark: Color(hex: "D8CBBB"))
+    static let inkMuted = Color(light: Color(hex: "9A8F83"), dark: Color(hex: "B1A493"))
+    static let onTint = Color(light: Color(hex: "FFF8EF"), dark: Color(hex: "211A15"))
+    static let onImage = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "FFF7EA"))
+    static let clay = Color(light: Color(hex: "B56B4B"), dark: Color(hex: "C98261"))
+    static let tea = Color(light: Color(hex: "78846B"), dark: Color(hex: "96A382"))
+    static let indigo = Color(light: Color(hex: "56677A"), dark: Color(hex: "8191A1"))
+    static let straw = Color(light: Color(hex: "D8B56D"), dark: Color(hex: "E0C37D"))
+    static let red = Color(light: Color(hex: "B94E3D"), dark: Color(hex: "CF6858"))
+    static let separator = Color(light: Color(hex: "DED3C4"), dark: Color(hex: "6C5E50"))
+    static let hairline = Color(light: Color(hex: "CDBFAC"), dark: Color(hex: "827263"))
 
     static let cardRadius: CGFloat = 12
     static let buttonRadius: CGFloat = 9
@@ -45,22 +47,31 @@ enum MujiStyle {
 }
 
 struct MujiRootBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
             MujiStyle.paper
 
             LinearGradient(
-                colors: [
-                    MujiStyle.paperWarm.opacity(0.62),
-                    MujiStyle.paper.opacity(0.2),
-                    MujiStyle.tea.opacity(0.08),
-                    MujiStyle.indigo.opacity(0.05)
-                ],
+                colors: colorScheme == .dark
+                    ? [
+                        MujiStyle.paperWarm.opacity(0.64),
+                        MujiStyle.surfaceRaised.opacity(0.2),
+                        MujiStyle.clay.opacity(0.08),
+                        MujiStyle.indigo.opacity(0.06)
+                    ]
+                    : [
+                        MujiStyle.paperWarm.opacity(0.62),
+                        MujiStyle.paper.opacity(0.2),
+                        MujiStyle.tea.opacity(0.08),
+                        MujiStyle.indigo.opacity(0.05)
+                    ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
-            MujiPaperTexture(opacity: 0.34)
+            MujiPaperTexture(opacity: colorScheme == .dark ? 0.18 : 0.34)
         }
         .ignoresSafeArea()
     }
@@ -105,18 +116,25 @@ struct MujiPaperTexture: View {
 }
 
 struct MujiPaperCardBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var cornerRadius: CGFloat = MujiStyle.cardRadius
     var elevated: Bool = false
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(elevated ? MujiStyle.surface : MujiStyle.surfaceRaised)
-            .overlay(MujiPaperTexture(opacity: 0.12).clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)))
+            .fill(elevated ? MujiStyle.surfaceRaised : MujiStyle.surface)
+            .overlay(MujiPaperTexture(opacity: colorScheme == .dark ? 0.07 : 0.12).clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(MujiStyle.hairline.opacity(elevated ? 0.72 : 0.54), lineWidth: 0.65)
+                    .stroke(MujiStyle.hairline.opacity(colorScheme == .dark ? (elevated ? 0.5 : 0.38) : (elevated ? 0.72 : 0.54)), lineWidth: 0.65)
             )
-            .shadow(color: Color.black.opacity(elevated ? 0.075 : 0.045), radius: elevated ? 14 : 8, x: 0, y: elevated ? 7 : 3)
+            .shadow(
+                color: Color.black.opacity(colorScheme == .dark ? (elevated ? 0.04 : 0.025) : (elevated ? 0.075 : 0.045)),
+                radius: elevated ? 14 : 8,
+                x: 0,
+                y: elevated ? 7 : 3
+            )
     }
 }
 
@@ -326,10 +344,10 @@ struct MujiActionPill: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 13, color: selected ? MujiStyle.paper : tint, lineWidth: 1.5)
+            MonologueIcon(icon: icon, size: 13, color: selected ? MujiStyle.onTint : tint, lineWidth: 1.5)
             Text(title)
                 .font(MujiStyle.labelFont(12, weight: .semibold))
-                .foregroundStyle(selected ? MujiStyle.paper : MujiStyle.ink)
+                .foregroundStyle(selected ? MujiStyle.onTint : MujiStyle.ink)
                 .lineLimit(1)
         }
         .padding(.horizontal, 12)

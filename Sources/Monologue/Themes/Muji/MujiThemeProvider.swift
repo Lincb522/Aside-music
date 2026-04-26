@@ -17,7 +17,7 @@ struct MujiThemeProvider: GlobalThemeProvider {
             separator: MujiStyle.separator,
             navBarTint: MujiStyle.ink,
             iconBackground: MujiStyle.ink,
-            iconForeground: MujiStyle.paper,
+            iconForeground: MujiStyle.onTint,
             cardBackground: MujiStyle.surfaceRaised,
             floatingBarFill: MujiStyle.surface.opacity(0.94),
             destructive: MujiStyle.red

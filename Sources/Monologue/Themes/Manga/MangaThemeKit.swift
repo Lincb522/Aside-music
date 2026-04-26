@@ -8,6 +8,9 @@ enum MangaStyle {
     static let ink = Color(light: Color(hex: "17151F"), dark: Color(hex: "F5F0E8"))
     static let inkSub = Color(light: Color(hex: "595260"), dark: Color(hex: "B8B0BE"))
     static let inkMuted = Color(light: Color(hex: "8A8190"), dark: Color(hex: "756D7B"))
+    static let strokeInk = Color(light: Color(hex: "17151F"), dark: Color(hex: "0E0A13"))
+    static let strokeInkMuted = Color(light: Color(hex: "595260"), dark: Color(hex: "2E2434"))
+    static let onStrokeInk = Color(light: Color(hex: "FFFDF5"), dark: Color(hex: "F5F0E8"))
     static let paper = Color(light: Color(hex: "FFF3D7"), dark: Color(hex: "121018"))
     static let paperWarm = Color(light: Color(hex: "FFE5B8"), dark: Color(hex: "1F1724"))
     static let paperCool = Color(light: Color(hex: "E8F1FF"), dark: Color(hex: "142033"))
@@ -15,11 +18,11 @@ enum MangaStyle {
     static let bubbleWhite = Color(light: Color(hex: "FFFDF5"), dark: Color(hex: "231F2A"))
     static let bubblePink = Color(light: Color(hex: "FFD6E4"), dark: Color(hex: "3A1C2A"))
     static let bubbleBlue = Color(light: Color(hex: "D5EAFF"), dark: Color(hex: "192D42"))
-    static let labelYellow = Color(light: Color(hex: "FFE067"), dark: Color(hex: "F0C64F"))
-    static let accentPink = Color(light: Color(hex: "FF4F84"), dark: Color(hex: "FF7AA1"))
-    static let decoBlue = Color(light: Color(hex: "58B9FF"), dark: Color(hex: "75C8FF"))
-    static let mint = Color(light: Color(hex: "8DE4B8"), dark: Color(hex: "5CD49C"))
-    static let red = Color(light: Color(hex: "F04452"), dark: Color(hex: "FF5A66"))
+    static let labelYellow = Color(light: Color(hex: "FFE067"), dark: Color(hex: "C99D37"))
+    static let accentPink = Color(light: Color(hex: "FF4F84"), dark: Color(hex: "D65C84"))
+    static let decoBlue = Color(light: Color(hex: "58B9FF"), dark: Color(hex: "4E8FC8"))
+    static let mint = Color(light: Color(hex: "8DE4B8"), dark: Color(hex: "4BA979"))
+    static let red = Color(light: Color(hex: "F04452"), dark: Color(hex: "D64D58"))
     static let separator = Color(light: Color(hex: "241F2B").opacity(0.18), dark: Color(hex: "F7EFE5").opacity(0.18))
 
     static let cardRadius: CGFloat = 14
@@ -71,7 +74,7 @@ struct MangaPaperGrainTexture: View {
 
     var body: some View {
         Canvas { context, size in
-            let color = (colorScheme == .dark ? Color.white : MangaStyle.ink).opacity(opacity)
+            let color = (colorScheme == .dark ? MangaStyle.ink : MangaStyle.strokeInk).opacity(opacity)
             let count = max(Int((size.width * size.height) / 520), 80)
 
             for index in 0..<count {
@@ -99,7 +102,7 @@ struct MangaDotsTexture: View {
     var body: some View {
         Canvas { context, size in
             let dotRadius: CGFloat = 0.9
-            let dotColor = (colorScheme == .dark ? Color.white : MangaStyle.ink).opacity(opacity)
+            let dotColor = (colorScheme == .dark ? MangaStyle.ink : MangaStyle.strokeInk).opacity(opacity)
             var y = gap / 2
             var stagger = false
 
@@ -126,7 +129,7 @@ struct MangaPageGridTexture: View {
 
     var body: some View {
         Canvas { context, size in
-            let color = (colorScheme == .dark ? Color.white : MangaStyle.ink).opacity(opacity)
+            let color = (colorScheme == .dark ? MangaStyle.ink : MangaStyle.strokeInk).opacity(opacity)
             let widths: [CGFloat] = [0.7, 1.1, 0.7, 1.6]
 
             for index in 0..<5 {
@@ -163,7 +166,7 @@ struct MangaSpeedLineTexture: View {
                 path.addLine(to: CGPoint(x: endX, y: size.height))
                 context.stroke(
                     path,
-                    with: .color(MangaStyle.ink.opacity(opacity * (index % 3 == 0 ? 1 : 0.55))),
+                    with: .color(MangaStyle.strokeInk.opacity(opacity * (index % 3 == 0 ? 1 : 0.55))),
                     lineWidth: index % 4 == 0 ? 1.6 : 0.7
                 )
             }
@@ -181,7 +184,7 @@ struct MangaCardBackground: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(MangaStyle.ink)
+                .fill(MangaStyle.strokeInk)
                 .offset(x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset)
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -191,7 +194,7 @@ struct MangaCardBackground: View {
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
         }
     }
 }
@@ -247,6 +250,7 @@ struct MangaSectionMark: View {
     var kind: MangaSectionMarkKind = .star
     var tint: Color = MangaStyle.labelYellow
     var size: CGFloat = 24
+    var foreground: Color = MangaStyle.strokeInk
 
     var body: some View {
         ZStack {
@@ -254,22 +258,103 @@ struct MangaSectionMark: View {
                 .fill(tint)
                 .rotationEffect(.degrees(-8))
 
-            Image(systemName: kind == .heart ? "heart.fill" : "star.fill")
-                .font(.system(size: size * 0.48, weight: .black))
-                .foregroundStyle(MangaStyle.ink)
+            if kind == .heart {
+                MangaRoundedHeartShape()
+                    .fill(foreground)
+                    .frame(width: size * 0.52, height: size * 0.52)
+            } else {
+                MangaRoundedStarShape()
+                    .fill(foreground)
+                    .frame(width: size * 0.52, height: size * 0.52)
+            }
         }
         .frame(width: size, height: size)
         .overlay(
             RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-                .stroke(MangaStyle.ink, lineWidth: 1.35)
+                .stroke(MangaStyle.strokeInk, lineWidth: 1.35)
                 .rotationEffect(.degrees(-8))
         )
         .background(
             RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-                .fill(MangaStyle.ink)
+                .fill(MangaStyle.strokeInk)
                 .rotationEffect(.degrees(-8))
                 .offset(x: 1.8, y: 1.8)
         )
+    }
+}
+
+struct MangaRoundedHeartShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+        let x = rect.minX
+        let y = rect.minY
+
+        path.move(to: CGPoint(x: x + w * 0.5, y: y + h * 0.88))
+        path.addCurve(
+            to: CGPoint(x: x + w * 0.08, y: y + h * 0.34),
+            control1: CGPoint(x: x + w * 0.24, y: y + h * 0.68),
+            control2: CGPoint(x: x + w * 0.05, y: y + h * 0.55)
+        )
+        path.addCurve(
+            to: CGPoint(x: x + w * 0.5, y: y + h * 0.26),
+            control1: CGPoint(x: x + w * 0.08, y: y + h * 0.09),
+            control2: CGPoint(x: x + w * 0.36, y: y + h * 0.08)
+        )
+        path.addCurve(
+            to: CGPoint(x: x + w * 0.92, y: y + h * 0.34),
+            control1: CGPoint(x: x + w * 0.64, y: y + h * 0.08),
+            control2: CGPoint(x: x + w * 0.92, y: y + h * 0.09)
+        )
+        path.addCurve(
+            to: CGPoint(x: x + w * 0.5, y: y + h * 0.88),
+            control1: CGPoint(x: x + w * 0.95, y: y + h * 0.55),
+            control2: CGPoint(x: x + w * 0.76, y: y + h * 0.68)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct MangaRoundedStarShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) * 0.48
+        let inner = outer * 0.56
+        let points = (0..<10).map { index -> CGPoint in
+            let radius = index.isMultiple(of: 2) ? outer : inner
+            let angle = CGFloat(index) * .pi / 5 - .pi / 2
+            return CGPoint(
+                x: center.x + cos(angle) * radius,
+                y: center.y + sin(angle) * radius
+            )
+        }
+
+        var path = Path()
+        for index in points.indices {
+            let previous = points[(index - 1 + points.count) % points.count]
+            let current = points[index]
+            let next = points[(index + 1) % points.count]
+            let smoothing: CGFloat = index.isMultiple(of: 2) ? 0.22 : 0.28
+            let start = CGPoint(
+                x: current.x + (previous.x - current.x) * smoothing,
+                y: current.y + (previous.y - current.y) * smoothing
+            )
+            let end = CGPoint(
+                x: current.x + (next.x - current.x) * smoothing,
+                y: current.y + (next.y - current.y) * smoothing
+            )
+
+            if index == 0 {
+                path.move(to: start)
+            } else {
+                path.addLine(to: start)
+            }
+            path.addQuadCurve(to: end, control: current)
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -277,32 +362,32 @@ struct MangaLabel: View {
     let text: String
     var tint: Color = MangaStyle.labelYellow
     var small: Bool = false
+    var foreground: Color = MangaStyle.strokeInk
 
     var body: some View {
         Text(text)
             .font(MangaStyle.labelFont(small ? 10 : 11))
-            .foregroundStyle(MangaStyle.ink)
+            .foregroundStyle(foreground)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
             .padding(.horizontal, small ? 9 : 11)
             .padding(.vertical, small ? 4 : 5)
             .frame(minHeight: small ? 23 : 27)
             .background(Capsule().fill(tint))
-            .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
             .clipShape(Capsule())
             .compositingGroup()
     }
 }
 
 struct MangaIconBadge: View {
-    let systemName: String
+    let icon: MonologueIcon.IconType
     var size: CGFloat = 44
     var tint: Color = MangaStyle.decoBlue
+    var foreground: Color = MangaStyle.strokeInk
 
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: size * 0.38, weight: .black))
-            .foregroundColor(MangaStyle.ink)
+        MonologueIcon(icon: icon, size: size * 0.42, color: foreground, lineWidth: 1.8)
             .frame(width: size, height: size)
             .background(
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
@@ -310,26 +395,25 @@ struct MangaIconBadge: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
             )
             .background(
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 2.5, y: 2.5)
             )
     }
 }
 
 struct MangaActionButton: View {
-    let systemName: String
+    let icon: MonologueIcon.IconType
     var tint: Color = MangaStyle.bubbleWhite
+    var foreground: Color = MangaStyle.strokeInk
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .black))
-                .foregroundColor(MangaStyle.ink)
+            MonologueIcon(icon: icon, size: 18, color: foreground, lineWidth: 1.8)
                 .frame(width: 44, height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
@@ -337,11 +421,11 @@ struct MangaActionButton: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                 )
                 .background(
                     RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
-                        .fill(MangaStyle.ink)
+                        .fill(MangaStyle.strokeInk)
                         .offset(x: 2.5, y: 2.5)
                 )
         }
@@ -423,11 +507,11 @@ struct MangaNowPlayingIndicator: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: 1.5)
+                    .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
             )
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 1.5, y: 1.5)
             )
         }
@@ -457,7 +541,7 @@ struct MangaNowPlayingIndicator: View {
 struct MangaListDivider: View {
     var body: some View {
         Rectangle()
-            .fill(MangaStyle.ink.opacity(0.2))
+            .fill(MangaStyle.strokeInk.opacity(0.2))
             .frame(height: 1.4)
             .overlay(alignment: .bottom) {
                 Rectangle()
@@ -537,7 +621,7 @@ struct MangaMetricTile: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
         )
     }
 }

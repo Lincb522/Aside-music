@@ -21,7 +21,7 @@ struct TopRadioListView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.radios.isEmpty {
@@ -35,7 +35,7 @@ struct TopRadioListView: View {
                 }
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                         ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
                                 radioRow(radio: radio)
@@ -57,12 +57,14 @@ struct TopRadioListView: View {
                             NoMoreDataView()
                         }
                     }
+                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                    .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle(title)
+        .themedNavigationChrome(title: title, eyebrow: "RANK", icon: .chart)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -106,8 +108,9 @@ struct TopRadioListView: View {
 
             MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 20)
         .padding(.vertical, 12)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
     }
 }

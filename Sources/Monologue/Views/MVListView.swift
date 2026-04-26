@@ -165,7 +165,7 @@ struct MVDiscoverView: View {
     var body: some View {
         ZStack {
             MonologueSheetAwareBackground {
-                MonologueBackground().ignoresSafeArea()
+                ThemedPageBackground().ignoresSafeArea()
             }
 
             VStack(spacing: 0) {
@@ -222,7 +222,7 @@ struct MVDiscoverView: View {
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle("MV")
+        .themedNavigationChrome(title: "MV", eyebrow: "VIDEO", icon: .mv)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -594,7 +594,7 @@ struct MVFullListView: View {
     var body: some View {
         ZStack {
             MonologueSheetAwareBackground {
-                MonologueBackground().ignoresSafeArea()
+                ThemedPageBackground().ignoresSafeArea()
             }
 
             VStack(spacing: 0) {
@@ -632,12 +632,12 @@ struct MVFullListView: View {
                         NoMoreDataView()
                     }
 
-                    Color.clear.frame(height: 100)
+                    FloatingBarBottomSpacer()
                 }
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle(title)
+        .themedNavigationChrome(title: title, eyebrow: "MV", icon: .mv)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {

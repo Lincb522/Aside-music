@@ -13,7 +13,7 @@ struct CategoryRadioView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.radios.isEmpty {
@@ -28,7 +28,7 @@ struct CategoryRadioView: View {
                 }
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                         ForEach(viewModel.radios) { radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
                                 radioRow(radio: radio)
@@ -54,12 +54,14 @@ struct CategoryRadioView: View {
                             NoMoreDataView()
                         }
                     }
+                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                    .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle(category.name)
+        .themedNavigationChrome(title: category.name, eyebrow: "RADIO", icon: .radio)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -105,7 +107,8 @@ struct CategoryRadioView: View {
 
             MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 20)
         .padding(.vertical, 12)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
     }
 }

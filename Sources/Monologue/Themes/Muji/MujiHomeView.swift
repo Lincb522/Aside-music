@@ -49,17 +49,13 @@ struct MujiHomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         Button(action: { showPersonalFM = true }) {
-                            Image(systemName: "radio")
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundColor(textSecondary)
+                            MonologueIcon(icon: .radio, size: 15, color: textSecondary, lineWidth: 1.4)
                                 .frame(width: 36, height: 36)
                                 .background(MujiStyle.surfaceRaised, in: Circle())
                                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
                         }
                         Button(action: { navigationPath.append(HomeView.HomeDestination.search) }) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundColor(textSecondary)
+                            MonologueIcon(icon: .magnifyingGlass, size: 15, color: textSecondary, lineWidth: 1.4)
                                 .frame(width: 36, height: 36)
                                 .background(MujiStyle.surfaceRaised, in: Circle())
                                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
@@ -113,14 +109,14 @@ struct MujiHomeView: View {
     private var scrollBody: some View {
         ScrollView {
             VStack(spacing: 0) {
-                mujiIntroCard
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 28)
-                    .mujiStagger(appeared, order: 0)
-
                 mujiGreeting
                     .padding(.horizontal, 28)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 14)
+                    .mujiStagger(appeared, order: 0)
+
+                mujiIntroCard
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 30)
                     .mujiStagger(appeared, order: 1)
 
                 if !viewModel.banners.isEmpty {
@@ -146,20 +142,20 @@ struct MujiHomeView: View {
                     .padding(.bottom, 36)
                 }
 
+                if !viewModel.qqNewSongs.isEmpty {
+                    mujiNewSongsSection
+                        .mujiStagger(appeared, order: 5)
+                        .padding(.bottom, 34)
+                }
+
                 if !viewModel.qqRecommendPlaylists.isEmpty {
                     mujiPlaylistSection(
                         title: String(localized: "更多发现"),
                         playlists: viewModel.qqRecommendPlaylists,
                         action: openLibrarySquare
                     )
-                    .mujiStagger(appeared, order: 5)
+                    .mujiStagger(appeared, order: 6)
                     .padding(.bottom, 36)
-                }
-
-                if !viewModel.qqNewSongs.isEmpty {
-                    mujiNewSongsSection
-                        .mujiStagger(appeared, order: 6)
-                        .padding(.bottom, 34)
                 }
 
                 mujiEntryCards
@@ -167,7 +163,7 @@ struct MujiHomeView: View {
                     .mujiStagger(appeared, order: 7)
                     .padding(.bottom, 36)
 
-                Color.clear.frame(height: 100)
+                FloatingBarBottomSpacer()
             }
         }
         .scrollIndicators(.hidden)
@@ -178,36 +174,50 @@ struct MujiHomeView: View {
     }
 
     private var mujiIntroCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 10) {
                 MujiPill(text: String(localized: "settings_hitokoto"), tint: MujiStyle.clay)
 
                 Spacer(minLength: 10)
 
-                Text(mujiGreetingText)
-                    .font(MujiStyle.labelFont(10, weight: .semibold))
-                    .foregroundStyle(textSecondary)
-                    .tracking(1.2)
-                    .textCase(.uppercase)
+                MonologueIcon(icon: .hitokoto, size: 15, color: MujiStyle.inkMuted, lineWidth: 1.4)
+                    .frame(width: 28, height: 28)
+                    .background(MujiStyle.surface.opacity(0.74), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
+                    )
             }
 
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "quote.opening")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(MujiStyle.clay.opacity(0.72))
-                    .padding(.top, 3)
+                MonologueSymbolIcon(name: "quote.opening", size: 16, color: MujiStyle.clay.opacity(0.72))
+                    .padding(.top, 2)
 
                 Text(mujiHeaderQuote)
-                    .font(MujiStyle.bodyFont(17, weight: .regular))
+                    .font(MujiStyle.bodyFont(18, weight: .regular))
                     .foregroundStyle(textPrimary)
-                    .lineSpacing(4)
+                    .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 50, alignment: .leading)
+                    .frame(minHeight: 58, alignment: .leading)
                     .layoutPriority(1)
                     .textSelection(.disabled)
             }
+
+            HStack(spacing: 10) {
+                Rectangle()
+                    .fill(MujiStyle.separator.opacity(0.78))
+                    .frame(width: 42, height: 0.65)
+
+                Text("HITOKOTO")
+                    .font(MujiStyle.labelFont(9, weight: .semibold))
+                    .foregroundStyle(MujiStyle.inkMuted)
+                    .tracking(1.4)
+
+                Spacer(minLength: 0)
+            }
         }
-        .padding(16)
+        .padding(.horizontal, 17)
+        .padding(.vertical, 16)
         .mujiCard(cornerRadius: 14, elevated: true)
     }
 
@@ -223,24 +233,24 @@ struct MujiHomeView: View {
     // MARK: - 问候
 
     private var mujiGreeting: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(mujiGreetingText)
-                .font(MujiStyle.labelFont(11, weight: .medium))
-                .foregroundColor(textSecondary)
-                .tracking(2)
-                .textCase(.uppercase)
-
+        VStack(alignment: .leading, spacing: 7) {
             if let nick = viewModel.userProfile?.nickname {
                 Text(nick)
-                    .font(MujiStyle.titleFont(28, weight: .light))
+                    .font(MujiStyle.titleFont(28, weight: .regular))
                     .foregroundColor(textPrimary)
                     .tracking(0.5)
             }
 
+            Text(mujiGreetingText)
+                .font(MujiStyle.labelFont(11, weight: .medium))
+                .foregroundColor(textSecondary)
+                .tracking(1.6)
+                .textCase(.uppercase)
+
             Rectangle()
                 .fill(separator)
-                .frame(width: 40, height: 1)
-                .padding(.top, 4)
+                .frame(width: 36, height: 0.8)
+                .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -331,9 +341,7 @@ struct MujiHomeView: View {
     private var mujiNewSongsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             MujiSectionTitle(
-                title: String(localized: "qq_new_songs"),
-                actionTitle: String(localized: "view_all"),
-                action: { navigationPath.append(HomeView.HomeDestination.newSongExpress) }
+                title: String(localized: "qq_new_songs")
             )
             .padding(.horizontal, 28)
 
@@ -556,12 +564,14 @@ private struct MujiHomeBannerSection: View {
                     MujiHomeBannerCard(banner: banner) {
                         onTap(banner)
                     }
-                    .padding(.horizontal, 28)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 6)
                     .tag(offset)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: DeviceLayout.isPad ? 204 : 144)
+            .frame(maxWidth: .infinity)
+            .frame(height: DeviceLayout.isPad ? 216 : 156)
             .onReceive(timer) { _ in
                 guard banners.count > 1 else { return }
                 withAnimation(.easeInOut(duration: 0.36)) {
@@ -588,31 +598,37 @@ private struct MujiHomeBannerCard: View {
     let action: () -> Void
     private let cornerRadius: CGFloat = 12
 
+    private var cardHeight: CGFloat {
+        DeviceLayout.isPad ? 190 : 130
+    }
+
+    private var cardShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
                 CachedAsyncImage(url: banner.imageUrl) {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    cardShape
                         .fill(MujiStyle.surfaceRaised)
                         .overlay(MujiPaperTexture(opacity: 0.12))
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity)
-                .frame(height: DeviceLayout.isPad ? 190 : 130)
+                .frame(height: cardHeight)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
 
                 LinearGradient(
                     colors: [.clear, Color.black.opacity(0.48)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
 
                 HStack(spacing: 10) {
                     Text(bannerLabel)
                         .font(MujiStyle.labelFont(10, weight: .semibold))
-                        .foregroundStyle(MujiStyle.surface)
+                        .foregroundStyle(MujiStyle.onImage)
                         .tracking(1.1)
                         .textCase(.uppercase)
                         .lineLimit(1)
@@ -623,20 +639,18 @@ private struct MujiHomeBannerCard: View {
 
                     Spacer(minLength: 8)
 
-                    MonologueIcon(icon: .chevronRight, size: 12, color: MujiStyle.surface, lineWidth: 1.4)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: MujiStyle.onImage, lineWidth: 1.4)
                         .frame(width: 28, height: 28)
                         .background(Color.black.opacity(0.22), in: Circle())
                 }
                 .padding(12)
             }
-            .frame(height: DeviceLayout.isPad ? 190 : 130)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .compositingGroup()
+            .frame(height: cardHeight)
+            .clipShape(cardShape)
+            .contentShape(cardShape)
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
+                cardShape
+                    .stroke(MujiStyle.hairline.opacity(0.68), lineWidth: 0.75)
             )
             .shadow(color: Color.black.opacity(0.055), radius: 10, x: 0, y: 5)
         }
@@ -667,46 +681,40 @@ private struct MujiHomeEntryCard: View {
     let tint: Color
     let action: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         Button(action: action) {
-            TimelineView(.animation) { timeline in
-                let pulse = reduceMotion ? 0 : (sin(timeline.date.timeIntervalSinceReferenceDate * 1.9) + 1) * 0.5
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    MonologueIcon(icon: icon, size: 18, color: tint, lineWidth: 1.6)
+                        .frame(width: 38, height: 38)
+                        .background(MujiStyle.surface, in: Circle())
+                        .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.6))
 
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        MonologueIcon(icon: icon, size: 18, color: tint, lineWidth: 1.6)
-                            .frame(width: 38, height: 38)
-                            .background(MujiStyle.surface, in: Circle())
-                            .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.6))
+                    Spacer()
 
-                        Spacer()
-
-                        Circle()
-                            .fill(tint.opacity(0.28 + pulse * 0.16))
-                            .frame(width: 8, height: 8)
-                    }
-
-                    Spacer(minLength: 2)
-
-                    Text(title)
-                        .font(MujiStyle.titleFont(16, weight: .regular))
-                        .foregroundStyle(MujiStyle.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
-
-                    Rectangle()
-                        .fill(tint.opacity(0.64))
-                        .frame(width: 34 + CGFloat(pulse) * 10, height: 1)
+                    Circle()
+                        .fill(tint.opacity(0.36))
+                        .frame(width: 8, height: 8)
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: DeviceLayout.entryCardHeight)
-                .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+
+                Spacer(minLength: 2)
+
+                Text(title)
+                    .font(MujiStyle.titleFont(16, weight: .regular))
+                    .foregroundStyle(MujiStyle.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+
+                Rectangle()
+                    .fill(tint.opacity(0.64))
+                    .frame(width: 38, height: 1)
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: DeviceLayout.entryCardHeight)
+            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
+        .buttonStyle(.plain)
     }
 }
 

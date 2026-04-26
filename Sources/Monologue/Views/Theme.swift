@@ -156,21 +156,21 @@ extension Color {
 
     /// 新通用 Sheet 面板描边
     static var monologueSheetStroke: Color {
-        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.6) }
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.74) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.72) }
         return Color(light: Color.white.opacity(0.72), dark: Color.white.opacity(0.08))
     }
 
     /// 新通用 Sheet 阴影色
     static var monologueSheetShadow: Color {
-        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.18) }
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
         if MujiStyle.isActive { return Color.black.opacity(0.08) }
         return Color(light: Color.black.opacity(0.12), dark: Color.black.opacity(0.34))
     }
 
     /// 新通用 Sheet 顶部拖拽把手
     static var monologueSheetHandle: Color {
-        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.3) }
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.46) }
         if MujiStyle.isActive { return MujiStyle.hairline }
         return Color(light: Color.black.opacity(0.14), dark: Color.white.opacity(0.16))
     }
@@ -182,14 +182,14 @@ extension Color {
     }
     
     static var monologueIconBackground: Color {
-        if MangaStyle.isActive { return MangaStyle.ink }
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.ink }
         return Color(light: .black, dark: .white)
     }
     
     static var monologueIconForeground: Color {
-        if MangaStyle.isActive { return MangaStyle.bubbleWhite }
-        if MujiStyle.isActive { return MujiStyle.paper }
+        if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
         return Color(light: .white, dark: .black)
     }
 }

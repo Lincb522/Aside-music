@@ -429,6 +429,8 @@
 "settings_app_brand_monologue_desc" = "Classic ghost mark";
 "settings_app_brand_aurora" = "Aurora";
 "settings_app_brand_aurora_desc" = "Headphone waveform mark";
+"settings_app_brand_music_cat" = "Music Cat";
+"settings_app_brand_music_cat_desc" = "Cat note mark";
 "settings_app_brand_appearance_title" = "Icon Appearance";
 "settings_app_brand_appearance_desc" = "Choose light or dark manually instead of following the system";
 "settings_app_brand_appearance_light" = "Light";
@@ -904,10 +906,16 @@
 "radio_category_browse" = "Browse Categories";
 
 /* Style Selection - New */
-"style_select_title" = "Select Style";
+"style_select_title" = "Recommendation Type";
 "style_tab_genre" = "Genre";
-"style_default" = "Default";
-"style_confirm" = "Confirm";
+"style_tab_mood" = "Mood";
+"style_tab_scene" = "Scene";
+"style_tab_language" = "Language";
+"style_tab_theme" = "Theme";
+"style_default" = "Daily Picks";
+"style_confirm" = "Apply";
+"style_unknown" = "Unnamed Type";
+"style_category_empty" = "No tags in this category yet";
 
 /* Player Theme - New */
 "theme_title" = "Player Theme";

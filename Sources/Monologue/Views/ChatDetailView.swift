@@ -15,7 +15,7 @@ struct ChatDetailView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -55,7 +55,8 @@ struct ChatDetailView: View {
                         .monologueTextInputBehavior()
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Color.monologueGlassTint)
+                        .background(ThemedPageStyle.isActive ? Color.clear : Color.monologueGlassTint)
+                        .themedOnlyPageSurface(cornerRadius: 20, elevated: false)
                         .clipShape(Capsule())
                         .focused($isInputFocused)
                     
@@ -70,10 +71,10 @@ struct ChatDetailView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(.clear).monologueGlass(cornerRadius: 16)
+                .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 16, elevated: false)
             }
         }
-        .navigationTitle(nickname)
+        .themedNavigationChrome(title: nickname, eyebrow: "CHAT", icon: .comment)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchHistory(uid: userId) }
@@ -114,12 +115,21 @@ private struct ChatBubble: View {
             
             VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
                 Text(message.msg)
-                    .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundColor(isMe ? .white : .monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .regular, design: .rounded)))
+                    .foregroundColor(bubbleTextColor)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(isMe ? Color.monologueAccent.opacity(0.15) : Color.monologueGlassTint)
+                    .background(bubbleBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        if MangaStyle.isActive {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                        } else if MujiStyle.isActive {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(MujiStyle.hairline.opacity(0.35), lineWidth: 0.6)
+                        }
+                    }
                     .monologueGlass(cornerRadius: 16)
                 
                 Text(message.timeText)
@@ -128,6 +138,26 @@ private struct ChatBubble: View {
             }
             
             if !isMe { Spacer(minLength: 60) }
+        }
+    }
+
+    private var bubbleBackground: Color {
+        if MangaStyle.isActive {
+            return isMe ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+        } else if MujiStyle.isActive {
+            return isMe ? MujiStyle.clay : MujiStyle.surfaceRaised
+        } else {
+            return isMe ? Color.monologueAccent.opacity(0.15) : Color.monologueGlassTint
+        }
+    }
+
+    private var bubbleTextColor: Color {
+        if MangaStyle.isActive {
+            return MangaStyle.ink
+        } else if MujiStyle.isActive {
+            return isMe ? MujiStyle.paper : .monologueTextPrimary
+        } else {
+            return isMe ? .white : .monologueTextPrimary
         }
     }
 }

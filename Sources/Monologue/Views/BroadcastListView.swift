@@ -8,7 +8,7 @@ struct BroadcastListView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
 
             VStack(spacing: 0) {
                 // 地区筛选标签
@@ -28,7 +28,7 @@ struct BroadcastListView: View {
                     Spacer()
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                             ForEach(viewModel.channels) { channel in
                                 channelRow(channel: channel)
                                     .onTapWithHaptic {
@@ -36,13 +36,15 @@ struct BroadcastListView: View {
                                     }
                             }
                         }
+                        .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                        .padding(.top, ThemedPageStyle.isActive ? 4 : 0)
                         .padding(.bottom, 100)
                     }
                     .scrollIndicators(.hidden)
                 }
             }
         }
-        .navigationTitle(NSLocalizedString("broadcast_title", comment: ""))
+        .themedNavigationChrome(title: NSLocalizedString("broadcast_title", comment: ""), eyebrow: "RADIO", icon: .radio)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -84,13 +86,32 @@ struct BroadcastListView: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : .monologueTextPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.monologueTextPrimary : Color.monologueGlassTint)
-                .clipShape(Capsule())
+                            .foregroundColor(isSelected ? (MangaStyle.isActive ? MangaStyle.ink : .white) : .monologueTextPrimary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(chipBackground(isSelected: isSelected))
+                            .clipShape(Capsule())
+                            .overlay {
+                                if MangaStyle.isActive {
+                                    Capsule()
+                                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                                } else if MujiStyle.isActive {
+                                    Capsule()
+                                        .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                                }
+                            }
         }
         .buttonStyle(ScaleButtonStyle())
+    }
+
+    private func chipBackground(isSelected: Bool) -> Color {
+        if MangaStyle.isActive {
+            return isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+        } else if MujiStyle.isActive {
+            return isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised
+        } else {
+            return isSelected ? Color.monologueTextPrimary : Color.monologueGlassTint
+        }
     }
 
     // MARK: - 频道行
@@ -138,8 +159,9 @@ struct BroadcastListView: View {
 
             MonologueIcon(icon: .playCircle, size: 26, color: .monologueTextSecondary, lineWidth: 1.4)
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 10)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
     }
 }

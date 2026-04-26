@@ -80,9 +80,7 @@ struct PlayerThemePickerSheet: View {
                 // 标签
                 HStack(spacing: 6) {
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.monologueAccent)
+                        MonologueSymbolIcon(name: "checkmark.circle.fill", size: 14, color: .monologueAccent)
                     }
 
                     Text(theme.displayName)

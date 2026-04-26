@@ -32,10 +32,10 @@ final class CarPlayContentManager: NSObject {
         
         configureNowPlaying(CPNowPlayingTemplate.shared)
         
-        recommend.tabImage = UIImage(systemName: "star.fill")
-        playlists.tabImage = UIImage(systemName: "music.note.list")
-        search.tabImage = UIImage(systemName: "magnifyingglass")
-        nowPlayingEntry.tabImage = UIImage(systemName: "play.circle.fill")
+        recommend.tabImage = UIImage.monologueSymbol(named: "star.fill")
+        playlists.tabImage = UIImage.monologueSymbol(named: "music.note.list")
+        search.tabImage = UIImage.monologueSymbol(named: "magnifyingglass")
+        nowPlayingEntry.tabImage = UIImage.monologueSymbol(named: "play.circle.fill")
         
         let tabBar = CPTabBarTemplate(templates: [recommend, playlists, search, nowPlayingEntry])
         interfaceController.setRootTemplate(tabBar, animated: true, completion: nil)
@@ -128,28 +128,28 @@ final class CarPlayContentManager: NSObject {
     
     private func loadPlaylistData() {
         let ncmSquare = CPListItem(text: String(localized: "NCM·歌单广场"), detailText: String(localized: "发现更多好歌单"))
-        ncmSquare.setImage(UIImage(systemName: "square.grid.2x2.fill"))
+        ncmSquare.setImage(UIImage.monologueSymbol(named: "square.grid.2x2.fill"))
         ncmSquare.handler = { [weak self] _, completion in
             Task { @MainActor in self?.pushPlaylistSquare() }
             completion()
         }
         
         let qqSquare = CPListItem(text: String(localized: "QCM·歌单广场"), detailText: String(localized: "发现QCM好歌单"))
-        qqSquare.setImage(UIImage(systemName: "square.grid.2x2"))
+        qqSquare.setImage(UIImage.monologueSymbol(named: "square.grid.2x2"))
         qqSquare.handler = { [weak self] _, completion in
             Task { @MainActor in self?.pushQQPlaylistSquare() }
             completion()
         }
         
         let ncmArtists = CPListItem(text: String(localized: "NCM·歌手"), detailText: String(localized: "按地区浏览歌手"))
-        ncmArtists.setImage(UIImage(systemName: "person.2.fill"))
+        ncmArtists.setImage(UIImage.monologueSymbol(named: "person.2.fill"))
         ncmArtists.handler = { [weak self] _, completion in
             Task { @MainActor in self?.pushNCMArtistCategories() }
             completion()
         }
         
         let qqArtists = CPListItem(text: String(localized: "QCM·歌手"), detailText: String(localized: "按地区浏览歌手"))
-        qqArtists.setImage(UIImage(systemName: "person.2"))
+        qqArtists.setImage(UIImage.monologueSymbol(named: "person.2"))
         qqArtists.handler = { [weak self] _, completion in
             Task { @MainActor in self?.pushQQArtistCategories() }
             completion()
@@ -749,7 +749,7 @@ final class CarPlayContentManager: NSObject {
     
     private func makeNowPlayingEntryTab() -> CPListTemplate {
         let item = CPListItem(text: String(localized: "正在播放"), detailText: String(localized: "查看当前播放信息"))
-        item.setImage(UIImage(systemName: "play.circle.fill"))
+        item.setImage(UIImage.monologueSymbol(named: "play.circle.fill"))
         item.handler = { [weak self] _, completion in
             Task { @MainActor in
                 guard let self else { return }
@@ -776,13 +776,13 @@ final class CarPlayContentManager: NSObject {
         let modeTitle: String
         switch player.mode {
         case .sequence:
-            modeImage = UIImage(systemName: "repeat")
+            modeImage = UIImage.monologueSymbol(named: "repeat")
             modeTitle = String(localized: "顺序播放")
         case .loopSingle:
-            modeImage = UIImage(systemName: "repeat.1")
+            modeImage = UIImage.monologueSymbol(named: "repeat.1")
             modeTitle = String(localized: "单曲循环")
         case .shuffle:
-            modeImage = UIImage(systemName: "shuffle")
+            modeImage = UIImage.monologueSymbol(named: "shuffle")
             modeTitle = String(localized: "随机播放")
         }
         
@@ -859,4 +859,3 @@ extension CarPlayContentManager: @preconcurrency CPNowPlayingTemplateObserver {
     func nowPlayingTemplateUpNextButtonTapped(_ nowPlayingTemplate: CPNowPlayingTemplate) {}
     func nowPlayingTemplateAlbumArtistButtonTapped(_ nowPlayingTemplate: CPNowPlayingTemplate) {}
 }
-

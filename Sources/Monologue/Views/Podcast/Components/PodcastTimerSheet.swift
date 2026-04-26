@@ -148,7 +148,7 @@ struct PodcastTimerSheet: View {
         }
         .background {
             MonologueSheetAwareBackground {
-                MonologueBackground()
+                ThemedPageBackground()
             }
         }
     }

@@ -154,9 +154,7 @@ extension CardPlayerLayout {
     var topBar: some View {
         HStack {
             Button(action: { dismiss() }) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
+                MonologueSymbolIcon(name: "chevron.down", size: 23, color: .primary)
                     .frame(width: 44, height: 44)
                     .monologueGlassCircle()
                     .contentShape(Circle())
@@ -178,9 +176,7 @@ extension CardPlayerLayout {
             Spacer()
             
             Button(action: { showMoreMenu.toggle() }) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
+                MonologueIcon(icon: .more, size: 23, color: .primary, lineWidth: 1.5)
                     .frame(width: 44, height: 44)
                     .background(Color(UIColor.systemBackground).opacity(0.5))
                     .clipShape(Circle())
@@ -257,9 +253,7 @@ extension CardPlayerLayout {
             
             // "Throw" Indicator
             if abs(dragOffset.width) > 50 {
-                Image(systemName: dragOffset.width > 0 ? "backward.fill" : "forward.fill")
-                    .font(.system(size: 40))
-                    .foregroundColor(.white)
+                MonologueSymbolIcon(name: dragOffset.width > 0 ? "backward.fill" : "forward.fill", size: 40, color: .white)
                     .padding()
                     .background(Circle().fill(Color.black.opacity(0.5)))
                     .opacity(min(abs(dragOffset.width) / 150.0, 1.0))
@@ -291,9 +285,7 @@ extension CardPlayerLayout {
         } else {
             ZStack {
                 Color.gray.opacity(0.1)
-                Image(systemName: "music.note")
-                    .font(.system(size: 80))
-                    .foregroundColor(.secondary.opacity(0.3))
+                MonologueIcon(icon: .musicNote, size: 80, color: .secondary.opacity(0.3), lineWidth: 1.5)
             }
         }
     }

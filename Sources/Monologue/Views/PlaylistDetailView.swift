@@ -51,7 +51,7 @@ struct PlaylistDetailView: View {
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist.coverUrl?.sized(200))
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
             }
 
             ScrollView {
@@ -383,18 +383,18 @@ struct PlaylistDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: 2.2)
+                        .stroke(MangaStyle.strokeInk, lineWidth: 2.2)
                 )
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(MangaStyle.ink)
+                        .fill(MangaStyle.strokeInk)
                         .offset(x: 3, y: 3)
                 )
                 .rotationEffect(.degrees(-1.6))
 
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 7) {
-                        MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 22)
+                        MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 22, foreground: MangaStyle.ink)
                         MangaLabel(text: "PLAYLIST", tint: MangaStyle.labelYellow, small: true)
                     }
 
@@ -413,7 +413,7 @@ struct PlaylistDetailView: View {
 
                     HStack(spacing: 7) {
                         if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
-                            MangaLabel(text: "\(count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true)
+                            MangaLabel(text: "\(count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
                         }
                         if let playCount = playlist.playCount, playCount > 0 {
                             MangaLabel(text: formatCount(playCount), tint: MangaStyle.mint, small: true)
@@ -431,17 +431,16 @@ struct PlaylistDetailView: View {
                     }
                 }) {
                     HStack(spacing: 7) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 11, weight: .black))
+                        MonologueIcon(icon: .play, size: 12, color: MangaStyle.strokeInk, lineWidth: 2)
                         Text(LocalizedStringKey("play_now"))
                             .font(MangaStyle.labelFont(12, weight: .black))
                     }
-                    .foregroundColor(MangaStyle.ink)
+                    .foregroundColor(MangaStyle.strokeInk)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 10)
                     .background(Capsule().fill(MangaStyle.labelYellow))
-                    .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1.5))
-                    .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
+                    .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
 
@@ -592,7 +591,7 @@ struct PlaylistDetailView: View {
                     }
                 }
 
-                Color.clear.frame(height: 100)
+                FloatingBarBottomSpacer()
             }
         }
     }
@@ -649,7 +648,7 @@ struct PlaylistDetailView: View {
                                 .overlay {
                                     if MangaStyle.isActive {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(MangaStyle.ink, lineWidth: 1.4)
+                                            .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
                                     } else if MujiStyle.isActive {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                                             .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)

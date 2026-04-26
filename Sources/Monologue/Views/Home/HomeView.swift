@@ -37,7 +37,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                MonologueBackground().ignoresSafeArea()
+                ThemedPageBackground().ignoresSafeArea()
 
                 if viewModel.isLoading {
                     MonologueLoadingView(text: "LOADING HOME")
@@ -167,15 +167,7 @@ struct HomeView: View {
 
     private func hitokotoCard(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "quote.opening")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.monologueTextPrimary.opacity(0.5), .monologueTextPrimary.opacity(0.2)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+            MonologueSymbolIcon(name: "quote.opening", size: 17, color: .monologueTextPrimary.opacity(0.42))
                 .padding(.top, 2)
 
             Text(text)
@@ -194,9 +186,7 @@ struct HomeView: View {
                     withAnimation { hitokotoRefreshing = false }
                 }
             } label: {
-                Image(systemName: "arrow.trianglehead.2.clockwise")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .refresh, size: 12, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.5)
                     .rotationEffect(.degrees(hitokotoRefreshing ? 360 : 0))
             }
             .buttonStyle(.plain)
@@ -282,7 +272,7 @@ struct HomeView: View {
                 )
                 .stagger(appeared, order: 5)
 
-                Color.clear.frame(height: 100)
+                FloatingBarBottomSpacer()
             }
         }
         .scrollIndicators(.hidden)

@@ -8,7 +8,7 @@ struct PodcastSearchView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -33,7 +33,7 @@ struct PodcastSearchView: View {
                 }
             }
         }
-        .navigationTitle(String(localized: "podcast_title"))
+        .themedNavigationChrome(title: String(localized: "podcast_title"), eyebrow: "PODCAST", icon: .magnifyingGlass)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -63,11 +63,7 @@ struct PodcastSearchView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.monologueGlassTint)
-                    .monologueGlass(cornerRadius: 12)
-            )
+            .themedPageSurface(cornerRadius: 12, elevated: false)
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Button(String(localized: "podcast_search_cancel")) {
@@ -86,7 +82,7 @@ struct PodcastSearchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("podcast_hot_radios")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .medium) : .system(size: 18, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
@@ -98,7 +94,7 @@ struct PodcastSearchView: View {
                     }
                     .padding(.top, 40)
                 } else {
-                    LazyVStack(spacing: 0) {
+                    LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                         ForEach(viewModel.hotRadios) { radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
                                 radioRow(radio: radio)
@@ -106,6 +102,7 @@ struct PodcastSearchView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
                 }
             }
             .padding(.top, 8)
@@ -118,7 +115,7 @@ struct PodcastSearchView: View {
 
     private var searchResultsList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                 ForEach(viewModel.results) { radio in
                     NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
                         radioRow(radio: radio)
@@ -141,6 +138,8 @@ struct PodcastSearchView: View {
                     NoMoreDataView()
                 }
             }
+            .padding(.horizontal, ThemedPageStyle.horizontalInset)
+            .padding(.top, ThemedPageStyle.isActive ? 4 : 0)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
@@ -194,8 +193,9 @@ struct PodcastSearchView: View {
 
             MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
         }
-        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.homeHorizontalPadding)
         .padding(.vertical, 12)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
     }
 }

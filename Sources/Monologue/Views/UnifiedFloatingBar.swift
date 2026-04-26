@@ -462,7 +462,8 @@ private struct MujiUnifiedFloatingBar: View {
                 .contentShape(Rectangle())
                 .simultaneousGesture(tabSwipeGesture)
         }
-        .padding(7)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
         .background(MujiPaperCardBackground(cornerRadius: 18, elevated: true))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -521,7 +522,7 @@ private struct MujiMiniPlayerStrip: View {
                         .fill(MujiStyle.separator.opacity(0.45))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 42, height: 42)
+                .frame(width: 40, height: 40)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -564,7 +565,7 @@ private struct MujiMiniPlayerStrip: View {
                         ZStack {
                             Circle()
                                 .fill(MujiStyle.paperWarm.opacity(0.72))
-                                .frame(width: 34, height: 34)
+                                .frame(width: 32, height: 32)
                                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
 
                             if player.isLoading {
@@ -586,7 +587,7 @@ private struct MujiMiniPlayerStrip: View {
 
                     Button(action: { showPlaylist.toggle() }) {
                         MonologueIcon(icon: .list, size: 16, color: MujiStyle.inkSoft, lineWidth: 1.6)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 34, height: 32)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
@@ -608,8 +609,8 @@ private struct MujiMiniPlayerStrip: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .padding(.bottom, 7)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
             .background {
                 Color.clear
                     .contentShape(Rectangle())
@@ -621,7 +622,7 @@ private struct MujiMiniPlayerStrip: View {
             ProgressBarView()
                 .frame(height: 2)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 8)
+                .padding(.bottom, 5)
                 .opacity(0.82)
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
@@ -634,7 +635,7 @@ private struct MujiMiniPlayerStrip: View {
     }
 
     private func sourceIndicator(icon: MonologueIcon.IconType) -> some View {
-        MonologueIcon(icon: icon, size: 10, color: MujiStyle.surface, lineWidth: 1.5)
+        MonologueIcon(icon: icon, size: 10, color: MujiStyle.onTint, lineWidth: 1.5)
             .frame(width: 18, height: 18)
             .background(MujiStyle.ink.opacity(0.52), in: Circle())
             .padding(3)
@@ -674,8 +675,8 @@ private struct MujiDedicatedTabBar: View {
             }
         }
         .padding(.horizontal, 4)
-        .padding(.vertical, 5)
-        .frame(height: 58)
+        .padding(.vertical, 4)
+        .frame(height: 52)
     }
 
     private func tabButton(tab: Tab, index: Int, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType) -> some View {
@@ -712,7 +713,7 @@ private struct MujiDedicatedTabBar: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
-            .frame(maxWidth: .infinity, minHeight: 46)
+            .frame(maxWidth: .infinity, minHeight: 42)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -776,7 +777,7 @@ private struct MangaUnifiedFloatingBar: View {
                 .simultaneousGesture(tabSwipeGesture)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 7)
+        .padding(.vertical, 5)
         .background(mangaFloatingShell)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
@@ -785,14 +786,14 @@ private struct MangaUnifiedFloatingBar: View {
     private var mangaFloatingShell: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(MangaStyle.ink)
+                .fill(MangaStyle.strokeInk)
                 .offset(x: 2.5, y: 2.5)
 
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(MangaStyle.bubbleWhite)
 
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(MangaStyle.ink, lineWidth: 2)
+                .stroke(MangaStyle.strokeInk, lineWidth: 2)
         }
     }
 
@@ -844,15 +845,15 @@ private struct MangaMiniPlayerStrip: View {
                         .fill(MangaStyle.paperCool)
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 42, height: 42)
+                .frame(width: 40, height: 40)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: 1.8)
+                        .stroke(MangaStyle.strokeInk, lineWidth: 1.8)
                 )
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(MangaStyle.ink)
+                        .fill(MangaStyle.strokeInk)
                         .offset(x: 1.5, y: 1.5)
                 )
                 .overlay(alignment: .bottomTrailing) {
@@ -892,10 +893,10 @@ private struct MangaMiniPlayerStrip: View {
                         ZStack {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(MangaStyle.labelYellow)
-                                .frame(width: 34, height: 34)
+                                .frame(width: 32, height: 32)
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(MangaStyle.ink, lineWidth: 1.6)
-                                .frame(width: 34, height: 34)
+                                .stroke(MangaStyle.strokeInk, lineWidth: 1.6)
+                                .frame(width: 32, height: 32)
 
                             if player.isLoading {
                                 ProgressView()
@@ -905,15 +906,15 @@ private struct MangaMiniPlayerStrip: View {
                                 MonologueIcon(
                                     icon: player.isPlaying ? .pause : .play,
                                     size: 14,
-                                    color: MangaStyle.ink,
+                                    color: MangaStyle.strokeInk,
                                     lineWidth: 1.8
                                 )
                             }
                         }
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(MangaStyle.ink)
-                                .frame(width: 34, height: 34)
+                                .fill(MangaStyle.strokeInk)
+                                .frame(width: 32, height: 32)
                                 .offset(x: 1.5, y: 1.5)
                         )
                         .contentShape(Rectangle())
@@ -923,7 +924,7 @@ private struct MangaMiniPlayerStrip: View {
                     // 列表
                     Button(action: { showPlaylist.toggle() }) {
                         MonologueIcon(icon: .list, size: 16, color: MangaStyle.inkSub, lineWidth: 1.8)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 34, height: 32)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
@@ -937,8 +938,8 @@ private struct MangaMiniPlayerStrip: View {
                         }) {
                             MonologueIcon(icon: .close, size: 10, color: MangaStyle.inkMuted, lineWidth: 1.8)
                                 .frame(width: 28, height: 28)
-                                .background(MangaStyle.ink.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.ink, lineWidth: 1))
+                                .background(MangaStyle.strokeInk.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1))
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
@@ -947,8 +948,8 @@ private struct MangaMiniPlayerStrip: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .padding(.bottom, 7)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
             .background {
                 Color.clear
                     .contentShape(Rectangle())
@@ -960,7 +961,7 @@ private struct MangaMiniPlayerStrip: View {
             ProgressBarView()
                 .frame(height: 2.5)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 8)
+                .padding(.bottom, 5)
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
@@ -972,10 +973,10 @@ private struct MangaMiniPlayerStrip: View {
     }
 
     private func mangaSourceIndicator(icon: MonologueIcon.IconType) -> some View {
-        MonologueIcon(icon: icon, size: 10, color: MangaStyle.bubbleWhite, lineWidth: 1.5)
+        MonologueIcon(icon: icon, size: 10, color: MangaStyle.onStrokeInk, lineWidth: 1.5)
             .frame(width: 18, height: 18)
-            .background(MangaStyle.ink.opacity(0.72), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(MangaStyle.ink, lineWidth: 1))
+            .background(MangaStyle.strokeInk.opacity(0.86), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1))
             .padding(3)
     }
 
@@ -1013,8 +1014,8 @@ private struct MangaDedicatedTabBar: View {
             }
         }
         .padding(.horizontal, 2)
-        .padding(.vertical, 4)
-        .frame(height: 62)
+        .padding(.vertical, 3)
+        .frame(height: 56)
     }
 
     private func tabButton(tab: Tab, index: Int, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType) -> some View {
@@ -1027,22 +1028,23 @@ private struct MangaDedicatedTabBar: View {
                 currentTab = tab
             }
         } label: {
-            VStack(spacing: 5) {
+            VStack(spacing: 4) {
                 ZStack {
                     MonologueIcon(
                         icon: isSelected ? filled : outline,
                         size: isSelected ? 19 : 17,
-                        color: isSelected ? MangaStyle.ink : MangaStyle.inkMuted,
+                        color: isSelected ? selectedForeground(index) : MangaStyle.inkMuted,
                         lineWidth: isSelected ? 2.0 : 1.55
                     )
-                    .frame(width: 30, height: 24)
+                    .frame(width: 30, height: 22)
                     .scaleEffect(isSelected ? 1.05 : 1)
 
                     if isSelected {
                         MangaSectionMark(
                             kind: index == 3 ? .heart : .star,
                             tint: MangaStyle.bubbleWhite,
-                            size: 14
+                            size: 14,
+                            foreground: MangaStyle.ink
                         )
                         .offset(x: 16, y: -8)
                     }
@@ -1050,23 +1052,23 @@ private struct MangaDedicatedTabBar: View {
 
                 Text(label)
                     .font(MangaStyle.labelFont(9, weight: isSelected ? .black : .bold))
-                    .foregroundStyle(isSelected ? MangaStyle.ink : MangaStyle.inkMuted)
+                    .foregroundStyle(isSelected ? selectedForeground(index) : MangaStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 46)
             .background {
                 if isSelected {
                     ZStack {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(MangaStyle.ink)
+                            .fill(MangaStyle.strokeInk)
                             .offset(x: 1.6, y: 1.6)
 
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(tabTint(index).opacity(0.82))
 
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(MangaStyle.ink, lineWidth: 1.6)
+                            .stroke(MangaStyle.strokeInk, lineWidth: 1.6)
                     }
                     .matchedGeometryEffect(id: "mangaTabSelection", in: selectionNS)
                 }
@@ -1074,7 +1076,7 @@ private struct MangaDedicatedTabBar: View {
             .overlay(alignment: .bottom) {
                 if isSelected {
                     Capsule()
-                        .fill(MangaStyle.ink)
+                        .fill(selectedForeground(index))
                         .frame(width: 18, height: 2.4)
                         .padding(.bottom, 4)
                 }
@@ -1090,6 +1092,13 @@ private struct MangaDedicatedTabBar: View {
         case 1: return MangaStyle.bubbleBlue
         case 2: return MangaStyle.mint
         default: return MangaStyle.bubblePink
+        }
+    }
+
+    private func selectedForeground(_ index: Int) -> Color {
+        switch index {
+        case 0, 2: return MangaStyle.strokeInk
+        default: return MangaStyle.ink
         }
     }
 }

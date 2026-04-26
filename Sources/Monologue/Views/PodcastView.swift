@@ -43,7 +43,7 @@ struct PodcastView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                MonologueBackground()
+                ThemedPageBackground()
 
                 if viewModel.isLoading && viewModel.personalizedRadios.isEmpty {
                     MonologueLoadingView(text: "LOADING")
@@ -189,7 +189,7 @@ struct PodcastView: View {
             subtitle: ""
         ) {
             NavigationLink(value: PodcastDestination.search) {
-                MangaIconBadge(systemName: "magnifyingglass", size: 48, tint: MangaStyle.bubbleBlue)
+                MangaIconBadge(icon: .magnifyingGlass, size: 48, tint: MangaStyle.bubbleBlue)
             }
             .buttonStyle(.plain)
         }
@@ -340,16 +340,16 @@ struct PodcastView: View {
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
                     if MangaStyle.isActive {
                         HStack(spacing: 6) {
-                            MonologueIcon(icon: .gridSquare, size: 15, color: MangaStyle.ink, lineWidth: 1.8)
+                            MonologueIcon(icon: .gridSquare, size: 15, color: MangaStyle.strokeInk, lineWidth: 1.8)
                             Text(String(localized: "podcast_all"))
                                 .font(MangaStyle.labelFont(12, weight: .black))
                         }
-                        .foregroundStyle(MangaStyle.ink)
+                        .foregroundStyle(MangaStyle.strokeInk)
                         .padding(.horizontal, 13)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(MangaStyle.labelYellow))
-                        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-                        .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                        .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                     } else if MujiStyle.isActive {
                         MujiActionPill(
                             title: String(localized: "podcast_all"),
@@ -383,7 +383,7 @@ struct PodcastView: View {
                             .padding(.horizontal, 13)
                             .padding(.vertical, 10)
                             .background(Capsule().fill(MangaStyle.bubbleWhite))
-                            .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
                         } else if MujiStyle.isActive {
                             MujiActionPill(
                                 title: cat.name,

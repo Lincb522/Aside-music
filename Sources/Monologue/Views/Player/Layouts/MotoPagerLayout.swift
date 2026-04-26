@@ -504,9 +504,7 @@ extension MotoPagerLayout {
                     
                     // 上一首
                     Button(action: { player.previous() }) {
-                        Image(systemName: "backward.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(brandSubColor)
+                        MonologueIcon(icon: .previous, size: 11, color: brandSubColor, lineWidth: 1.5)
                             .frame(width: 25, height: 25)
                             .background(smallBtnColor)
                             .clipShape(Circle())
@@ -517,9 +515,7 @@ extension MotoPagerLayout {
                     
                     // 下一首
                     Button(action: { player.next() }) {
-                        Image(systemName: "forward.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(brandSubColor)
+                        MonologueIcon(icon: .next, size: 11, color: brandSubColor, lineWidth: 1.5)
                             .frame(width: 25, height: 25)
                             .background(smallBtnColor)
                             .clipShape(Circle())
@@ -735,9 +731,7 @@ extension MotoPagerLayout {
         VStack {
             HStack {
                 Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundColor(topBtnFgColor)
+                    MonologueSymbolIcon(name: "chevron.down", size: 23, color: topBtnFgColor)
                         .frame(width: 44, height: 44)
                         .monologueGlassCircle()
                         .contentShape(Circle())
@@ -747,9 +741,7 @@ extension MotoPagerLayout {
                 Spacer()
                 
                 Button(action: { showMoreMenu = true }) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundColor(topBtnFgColor)
+                    MonologueIcon(icon: .more, size: 23, color: topBtnFgColor, lineWidth: 1.5)
                         .frame(width: 44, height: 44)
                         .monologueGlassCircle()
                         .contentShape(Circle())

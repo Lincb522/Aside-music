@@ -305,7 +305,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 25;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -340,7 +340,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 25;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -512,7 +512,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "MonologueDarkAppIcon AuroraAppIcon AuroraDarkAppIcon";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "MonologueDarkAppIcon AuroraAppIcon AuroraDarkAppIcon MusicCatAppIcon MusicCatDarkAppIcon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -553,7 +553,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F4096B1D2F457B85006F9554 /* Secrets.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "MonologueDarkAppIcon AuroraAppIcon AuroraDarkAppIcon";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "MonologueDarkAppIcon AuroraAppIcon AuroraDarkAppIcon MusicCatAppIcon MusicCatDarkAppIcon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;

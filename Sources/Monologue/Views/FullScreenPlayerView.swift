@@ -16,7 +16,7 @@ struct FullScreenPlayerView: View {
                 if SettingsManager.shared.coverBgPlayer {
                     PlaylistColorBackground(coverUrl: player.currentSong?.coverUrl?.sized(200))
                 } else {
-                    MonologueBackground()
+                    ThemedPageBackground()
                 }
             }
             .ignoresSafeArea()

@@ -22,9 +22,17 @@ struct QQAccountView: View {
 
     private var qqClient: QQMusicClient { APIService.shared.qqClient }
 
+    private var themeAccent: Color {
+        MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : MusicSource.qqmusic.themedBadgeColor)
+    }
+
+    private var themeAccentText: Color {
+        MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : .white)
+    }
+
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -46,7 +54,7 @@ struct QQAccountView: View {
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle("qq_account_title")
+        .themedNavigationChrome(title: String(localized: "qq_account_title"), eyebrow: "QCM", icon: .personCircle)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -118,7 +126,7 @@ struct QQAccountView: View {
             // 头像
             ZStack {
                 Circle()
-                    .stroke(Color.monologueAccentGreen.opacity(0.15), lineWidth: 2)
+                    .stroke(themeAccent.opacity(0.24), lineWidth: MangaStyle.isActive ? 2.4 : 2)
                     .frame(width: 108, height: 108)
 
                 if let urlStr = avatarURL, let url = URL(string: urlStr) {
@@ -138,7 +146,7 @@ struct QQAccountView: View {
                 // 昵称
                 HStack(spacing: 8) {
                     Text(nickname ?? NSLocalizedString("qq_user_default", comment: ""))
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(23, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .medium) : .system(size: 22, weight: .bold, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
 
@@ -171,21 +179,21 @@ struct QQAccountView: View {
                 // 状态标签
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color.monologueAccentGreen)
+                        .fill(themeAccent)
                         .frame(width: 7, height: 7)
                     Text(LocalizedStringKey("qq_connected"))
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueAccentGreen)
+                        .foregroundColor(themeAccent)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
-                .background(Color.monologueAccentGreen.opacity(0.1))
+                .background(themeAccent.opacity(0.12))
                 .clipShape(Capsule())
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
-        .monologueGlass(cornerRadius: 24)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 24 : 20, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private var avatarPlaceholder: some View {
@@ -275,14 +283,21 @@ struct QQAccountView: View {
         VStack(spacing: 12) {
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 8) {
-                    MonologueIcon(icon: .refresh, size: 15, color: .monologueTextPrimary)
+                    MonologueIcon(icon: .refresh, size: 15, color: themeAccentText)
                     Text(LocalizedStringKey("qq_relogin"))
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(themeAccentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
-                .monologueGlass(cornerRadius: 14)
+                .background(themeAccent)
+                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 16 : 14, style: .continuous))
+                .overlay {
+                    if MangaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                    }
+                }
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -317,10 +332,16 @@ struct QQAccountView: View {
             Spacer().frame(height: 60)
 
             ZStack {
-                Circle()
-                    .fill(Color.monologueGlassTint)
+                RoundedRectangle(cornerRadius: MangaStyle.isActive ? 24 : 36, style: .continuous)
+                    .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                     .frame(width: 120, height: 120)
                     .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
+                    .overlay {
+                        if MangaStyle.isActive {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                        }
+                    }
 
                 ZStack {
                     Circle()
@@ -352,14 +373,15 @@ struct QQAccountView: View {
 
             Button(action: { showQQLogin = true }) {
                 HStack(spacing: 10) {
-                    MonologueIcon(icon: .qr, size: 18, color: .monologueTextPrimary)
+                    MonologueIcon(icon: .qr, size: 18, color: themeAccentText)
                     Text(LocalizedStringKey("qq_login_action"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(themeAccentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .monologueGlass(cornerRadius: 20)
+                .background(themeAccent)
+                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 18 : 20, style: .continuous))
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

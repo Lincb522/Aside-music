@@ -15,7 +15,7 @@ struct BroadcastPlayerView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {

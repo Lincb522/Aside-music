@@ -89,19 +89,15 @@ struct FolkThemePreview: View {
 
                     // 按钮
                     HStack(spacing: 8) {
-                        Image(systemName: "backward.end.alt.fill")
-                            .font(.system(size: 4))
-                            .foregroundColor(inkDark)
+                        MonologueIcon(icon: .previous, size: 5, color: inkDark, lineWidth: 1.3)
                             .background(Circle().stroke(inkFaded.opacity(0.3), lineWidth: 0.5).frame(width: 8, height: 8))
                         
                         ZStack {
                             Circle().fill(inkDark).frame(width: 14, height: 14)
-                            Image(systemName: "play.fill").font(.system(size: 4)).foregroundColor(paperBg)
+                            MonologueIcon(icon: .play, size: 5, color: paperBg, lineWidth: 1.3)
                         }
 
-                        Image(systemName: "forward.end.alt.fill")
-                            .font(.system(size: 4))
-                            .foregroundColor(inkDark)
+                        MonologueIcon(icon: .next, size: 5, color: inkDark, lineWidth: 1.3)
                             .background(Circle().stroke(inkFaded.opacity(0.3), lineWidth: 0.5).frame(width: 8, height: 8))
                     }
                 }

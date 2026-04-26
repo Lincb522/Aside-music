@@ -3,7 +3,6 @@ import SwiftUI
 struct SongListRow: View {
     
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject var settings = SettingsManager.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var unavailableSongs = UnavailableSongsManager.shared
     let song: Song
@@ -90,15 +89,19 @@ struct SongListRow: View {
     }
     
     private var ncmBrandColor: Color {
-        settings.coverBgGlobal ? Theme.accent : .red
+        MusicSource.netease.themedBadgeColor
     }
     
     private var qcmBrandColor: Color {
-        settings.coverBgGlobal ? Theme.accent : Color(light: .blue, dark: .blue)
+        MusicSource.qqmusic.themedBadgeColor
     }
     
     private var qsmBrandColor: Color {
-        settings.coverBgGlobal ? Theme.accent : Color(light: .orange, dark: .orange)
+        MusicSource.qishui.themedBadgeColor
+    }
+
+    private var localBrandColor: Color {
+        MusicSource.local.themedBadgeColor
     }
     
     var body: some View {
@@ -109,9 +112,11 @@ struct SongListRow: View {
                 HStack(spacing: 10) {
                     ZStack {
                         if isSelecting {
-                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 18))
-                                .foregroundColor(isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4))
+                            MonologueSymbolIcon(
+                                name: isSelected ? "checkmark.circle.fill" : "circle",
+                                size: 18,
+                                color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
+                            )
                         } else {
                             Text(String(format: "%02d", index + 1))
                                 .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))
@@ -131,7 +136,7 @@ struct SongListRow: View {
                     .overlay {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
@@ -156,114 +161,33 @@ struct SongListRow: View {
 
                         HStack(spacing: 6) {
                             if song.isNoCopyright {
-                                Text(String(localized: "song_no_copyright"))
-                                    .font(.system(size: 7, weight: .bold))
-                                    .foregroundColor(Theme.accent)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Theme.accent.opacity(0.1).cornerRadius(2))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 2)
-                                            .stroke(Theme.accent, lineWidth: 0.5)
-                                    )
+                                songMetaBadge(String(localized: "song_no_copyright"), color: Theme.accent, fontSize: 7)
                             }
 
                             HStack(spacing: 4) {
                                 if song.isQQMusic {
-                                    Text("QCM")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(qcmBrandColor)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(qcmBrandColor.opacity(0.1).cornerRadius(2))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .stroke(qcmBrandColor, lineWidth: 0.5)
-                                        )
+                                    songMetaBadge("QCM", color: qcmBrandColor)
 
                                     if let badge = song.qqMaxQuality?.badgeText {
-                                        Text(badge)
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(Theme.accent)
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 1)
-                                            .background(Theme.accent.opacity(0.1).cornerRadius(2))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 2)
-                                                    .stroke(Theme.accent, lineWidth: 0.5)
-                                            )
+                                        songMetaBadge(badge, color: qcmBrandColor)
                                     }
                                 } else if song.isQishui {
-                                    Text("QSM")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(qsmBrandColor)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(qsmBrandColor.opacity(0.1).cornerRadius(2))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .stroke(qsmBrandColor, lineWidth: 0.5)
-                                        )
+                                    songMetaBadge("QSM", color: qsmBrandColor)
                                     
                                     if let badge = song.qualityBadge {
-                                        Text(badge)
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(Theme.accent)
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 1)
-                                            .background(Theme.accent.opacity(0.1).cornerRadius(2))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 2)
-                                                    .stroke(Theme.accent, lineWidth: 0.5)
-                                            )
+                                        songMetaBadge(badge, color: qsmBrandColor)
                                     }
                                 } else if isLocalSong {
-                                    Text("LOCAL")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.blue)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(Color.blue.opacity(0.1).cornerRadius(2))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .stroke(Color.blue, lineWidth: 0.5)
-                                        )
+                                    songMetaBadge("LOCAL", color: localBrandColor)
                                 } else if let radioName = song.podcastRadioName {
-                                    Text(radioName.uppercased())
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(ncmBrandColor)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(ncmBrandColor.opacity(0.1).cornerRadius(2))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .stroke(ncmBrandColor, lineWidth: 0.5)
-                                        )
+                                    songMetaBadge(radioName.uppercased(), color: ncmBrandColor)
                                 } else {
-                                    Text("NCM")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(ncmBrandColor)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(ncmBrandColor.opacity(0.1).cornerRadius(2))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .stroke(ncmBrandColor, lineWidth: 0.5)
-                                        )
+                                    songMetaBadge("NCM", color: ncmBrandColor)
                                     
                                     if let badge = song.qualityBadge {
                                         let maxQ = song.maxQuality
                                         if maxQ.isVIP || maxQ == .lossless || maxQ == .hires {
-                                            Text(badge)
-                                                .font(.system(size: maxQ.isBadgeChinese ? 7 : 8, weight: .bold))
-                                                .foregroundColor(Theme.accent)
-                                                .padding(.horizontal, 4)
-                                                .padding(.vertical, 1)
-                                                .background(Theme.accent.opacity(0.1).cornerRadius(2))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 2)
-                                                        .stroke(Theme.accent, lineWidth: 0.5)
-                                                )
+                                            songMetaBadge(badge, color: ncmBrandColor, fontSize: maxQ.isBadgeChinese ? 7 : 8)
                                         }
                                     }
                                 }
@@ -493,6 +417,22 @@ struct SongListRow: View {
                 }
             }
         }
+    }
+
+    private func songMetaBadge(_ text: String, color: Color, fontSize: CGFloat = 8) -> some View {
+        return Text(text)
+            .font(.system(size: fontSize, weight: .bold))
+            .foregroundColor(color)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(color.opacity(MangaStyle.isActive ? 0.16 : 0.11))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .stroke(color, lineWidth: 0.5)
+            )
     }
 
     private func quickActionButton(

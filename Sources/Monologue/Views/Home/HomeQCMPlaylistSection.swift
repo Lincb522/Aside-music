@@ -33,8 +33,7 @@ struct HomeQQPlaylistSection: View {
                         HStack(spacing: 4) {
                             Text(LocalizedStringKey("view_all"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .bold))
+                            MonologueIcon(icon: .chevronRight, size: 9, color: .monologueTextSecondary, lineWidth: 1.6)
                         }
                         .foregroundColor(.monologueTextSecondary)
                         .padding(.horizontal, 10)

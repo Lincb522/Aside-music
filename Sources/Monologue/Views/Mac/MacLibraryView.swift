@@ -16,7 +16,7 @@ struct MacLibraryView: View {
     var body: some View {
         NavigationStack(path: $viewModel.navigationPath) {
             ZStack {
-                MonologueBackground().ignoresSafeArea()
+                ThemedPageBackground().ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     macLibraryHeader

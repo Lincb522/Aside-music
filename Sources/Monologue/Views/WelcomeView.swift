@@ -88,7 +88,7 @@ struct WelcomeView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
 
             backgroundOrbs
                 .opacity(backgroundOpacity)

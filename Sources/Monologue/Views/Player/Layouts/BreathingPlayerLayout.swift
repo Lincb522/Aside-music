@@ -252,9 +252,7 @@ extension BreathingPlayerLayout {
                 portraitSongCluster(song, in: size, metrics: metrics)
             }
         } else {
-            Image(systemName: "dot.radiowaves.left.and.right")
-                .font(.system(size: metrics.emptyStateFont, weight: .regular))
-                .foregroundStyle(textColor.opacity(0.72))
+            MonologueIcon(icon: .radio, size: metrics.emptyStateFont, color: textColor.opacity(0.72), lineWidth: 1.4)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -671,9 +669,7 @@ extension BreathingPlayerLayout {
                 Button {
                     dismiss()
                 } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(textColor.opacity(0.92))
+                    MonologueSymbolIcon(name: "chevron.down", size: 16, color: textColor.opacity(0.92))
                         .frame(width: 42, height: 42)
                         .background(
                             Circle()
@@ -693,9 +689,7 @@ extension BreathingPlayerLayout {
                         showMoreMenu.toggle()
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(textColor.opacity(0.92))
+                    MonologueIcon(icon: .more, size: 18, color: textColor.opacity(0.92), lineWidth: 1.5)
                         .frame(width: 42, height: 42)
                         .background(
                             Circle()

@@ -134,7 +134,7 @@ struct PersonalFMView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
 
             VStack(spacing: 0) {
                 Spacer()

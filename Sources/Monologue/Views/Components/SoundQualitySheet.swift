@@ -53,21 +53,9 @@ struct SoundQualitySheet: View {
                         .foregroundColor(.monologueTextPrimary)
                     
                     if isQishui {
-                        Text("QSM")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueIconForeground)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.monologueIconBackground)
-                            .cornerRadius(4)
+                        PlatformBadgeLabel(text: "QSM", source: .qishui)
                     } else if isUnblocked || isQQMusic {
-                        Text(LocalizedStringKey("quality_qq_source"))
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueIconForeground)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.monologueIconBackground)
-                            .cornerRadius(4)
+                        PlatformBadgeLabel(text: String(localized: "quality_qq_source"), source: .qqmusic)
                     }
                     
                     Spacer()

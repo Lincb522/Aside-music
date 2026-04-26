@@ -100,8 +100,7 @@ struct MonologueAlertView: View {
                     if let link = purchaseLink, let url = URL(string: link) {
                         Link(destination: url) {
                             HStack(spacing: 4) {
-                                Image(systemName: "cart")
-                                    .font(.system(size: 13))
+                                MonologueIcon(icon: .download, size: 13, color: .monologueAccent, lineWidth: 1.4)
                                 Text(NSLocalizedString("access_token_get", comment: ""))
                                     .font(.system(size: 13, weight: .medium, design: .rounded))
                             }

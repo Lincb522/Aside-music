@@ -25,7 +25,7 @@ struct NewSongExpressView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
             }
 
@@ -39,11 +39,11 @@ struct NewSongExpressView: View {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(MangaStyle.labelYellow)
-                            MonologueIcon(icon: .musicNote, size: 23, color: MangaStyle.ink, lineWidth: 2)
+                            MonologueIcon(icon: .musicNote, size: 23, color: MangaStyle.strokeInk, lineWidth: 2)
                         }
                         .frame(width: 48, height: 48)
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.ink).offset(x: 2.5, y: 2.5))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
                     }
                 } else if MujiStyle.isActive {
                     MujiPageHeader(
@@ -133,9 +133,10 @@ struct NewSongExpressView: View {
                         }
                     } label: {
                         let isSelected = viewModel.selectedType == type.id
+                        let mangaForeground = isSelected ? MangaStyle.strokeInk : MangaStyle.ink
                         Text(LocalizedStringKey(type.nameKey))
                             .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)))
-                            .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? (isSelected ? MujiStyle.paper : MujiStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextSecondary)))
+                            .foregroundColor(MangaStyle.isActive ? mangaForeground : (MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextSecondary)))
                             .padding(.horizontal, MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 13 : 16))
                             .padding(.vertical, (MangaStyle.isActive || MujiStyle.isActive) ? 9 : 8)
                             .background(
@@ -143,7 +144,7 @@ struct NewSongExpressView: View {
                             )
                             .overlay(
                                 Capsule()
-                                    .stroke(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear), lineWidth: MangaStyle.isActive ? MangaStyle.fineStrokeWidth : 0.6)
+                                    .stroke(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear), lineWidth: MangaStyle.isActive ? MangaStyle.fineStrokeWidth : 0.6)
                             )
                             .clipShape(Capsule())
                             .contentShape(Capsule())
@@ -181,16 +182,16 @@ struct NewSongExpressView: View {
                 }) {
                     if MangaStyle.isActive {
                         HStack(spacing: 7) {
-                            MonologueIcon(icon: .play, size: 13, color: MangaStyle.ink, lineWidth: 2)
+                            MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
                             Text(LocalizedStringKey("artist_play_all"))
                                 .font(MangaStyle.labelFont(12, weight: .black))
                         }
-                        .foregroundStyle(MangaStyle.ink)
+                        .foregroundStyle(MangaStyle.strokeInk)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 9)
                         .background(Capsule().fill(MangaStyle.labelYellow))
-                        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-                        .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                        .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                     } else if MujiStyle.isActive {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
                     } else {

@@ -201,9 +201,7 @@ extension MangaChatPlayerLayout {
     var topBar: some View {
         HStack {
             Button(action: { dismiss() }) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: .black))
-                    .foregroundColor(ink)
+                MonologueSymbolIcon(name: "chevron.down", size: 16, color: ink)
                     .frame(width: 34, height: 34)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -225,8 +223,7 @@ extension MangaChatPlayerLayout {
 
             // NOW PLAYING 标签
             HStack(spacing: 3) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 9, weight: .black))
+                MonologueIcon(icon: .comment, size: 10, color: ink, lineWidth: 1.8)
                 Text("CHAT")
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .tracking(1)
@@ -241,9 +238,7 @@ extension MangaChatPlayerLayout {
             Spacer()
 
             Button(action: { showMoreMenu.toggle() }) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .black))
-                    .foregroundColor(ink)
+                MonologueIcon(icon: .more, size: 16, color: ink, lineWidth: 1.8)
                     .frame(width: 34, height: 34)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -340,9 +335,7 @@ extension MangaChatPlayerLayout {
             } else {
                 ZStack {
                     labelYellow.opacity(0.4)
-                    Image(systemName: "music.note")
-                        .font(.system(size: size * 0.35, weight: .bold))
-                        .foregroundColor(inkSub.opacity(0.5))
+                    MonologueIcon(icon: .musicNote, size: size * 0.35, color: inkSub.opacity(0.5), lineWidth: 1.8)
                 }
             }
         }
@@ -418,9 +411,7 @@ extension MangaChatPlayerLayout {
 
                     // 中央对话泡
                     VStack(spacing: 12) {
-                        Image(systemName: "ellipsis.bubble.fill")
-                            .font(.system(size: 50))
-                            .foregroundColor(inkSub.opacity(0.25))
+                        MonologueIcon(icon: .comment, size: 50, color: inkSub.opacity(0.25), lineWidth: 1.8)
 
                         Text("纯音乐，无歌词")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
@@ -475,9 +466,7 @@ extension MangaChatPlayerLayout {
                 } else {
                     ZStack {
                         labelYellow.opacity(0.4)
-                        Image(systemName: "music.mic")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(inkSub)
+                        MonologueIcon(icon: .microphone, size: 13, color: inkSub, lineWidth: 1.7)
                     }
                 }
             } else {
@@ -489,9 +478,7 @@ extension MangaChatPlayerLayout {
                 } else {
                     ZStack {
                         decoBlue.opacity(0.5)
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(ink.opacity(0.5))
+                        MonologueIcon(icon: .profileFilled, size: 17, color: ink.opacity(0.5), lineWidth: 1.7)
                     }
                 }
             }
@@ -593,7 +580,7 @@ extension MangaChatPlayerLayout {
 
                 // 评论
                 Button { showComments = true } label: {
-                    mangaControlIcon(systemName: "bubble.left.fill", size: 16)
+                    mangaControlIcon(symbolName: "bubble.left.fill", size: 16)
                         .frame(width: 36, height: 36)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -602,7 +589,7 @@ extension MangaChatPlayerLayout {
 
                 // 上一首
                 Button(action: { player.previous() }) {
-                    mangaButton(systemName: "backward.fill", w: 38, h: 32, isPlay: false)
+                    mangaButton(symbolName: "backward.fill", w: 38, h: 32, isPlay: false)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
 
@@ -610,7 +597,7 @@ extension MangaChatPlayerLayout {
 
                 // 播放/暂停
                 Button(action: { player.togglePlayPause() }) {
-                    mangaButton(systemName: player.isPlaying ? "pause.fill" : "play.fill", w: 46, h: 46, isPlay: true)
+                    mangaButton(symbolName: player.isPlaying ? "pause.fill" : "play.fill", w: 46, h: 46, isPlay: true)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
 
@@ -618,7 +605,7 @@ extension MangaChatPlayerLayout {
 
                 // 下一首
                 Button(action: { player.next() }) {
-                    mangaButton(systemName: "forward.fill", w: 38, h: 32, isPlay: false)
+                    mangaButton(symbolName: "forward.fill", w: 38, h: 32, isPlay: false)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
 
@@ -631,7 +618,7 @@ extension MangaChatPlayerLayout {
                             showDownloadSheet = true
                         }
                     } label: {
-                        mangaControlIcon(systemName: "arrow.down.circle.fill", size: 16,
+                        mangaControlIcon(symbolName: "arrow.down.circle.fill", size: 16,
                                         dimmed: downloadManager.isDownloaded(songId: song.id))
                             .frame(width: 36, height: 36)
                     }
@@ -645,7 +632,7 @@ extension MangaChatPlayerLayout {
 
                 // 播放列表
                 Button(action: { showPlaylist = true }) {
-                    mangaControlIcon(systemName: "list.bullet", size: 16)
+                    mangaControlIcon(symbolName: "list.bullet", size: 16)
                         .frame(width: 36, height: 36)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -711,10 +698,8 @@ extension MangaChatPlayerLayout {
         .padding(.horizontal, 10)
     }
 
-    func mangaButton(systemName: String, w: CGFloat, h: CGFloat, isPlay: Bool) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: min(w, h) * 0.4, weight: .black))
-            .foregroundColor(isPlay ? .white : ink)
+    func mangaButton(symbolName: String, w: CGFloat, h: CGFloat, isPlay: Bool) -> some View {
+        MonologueSymbolIcon(name: symbolName, size: min(w, h) * 0.44, color: isPlay ? .white : ink)
             .frame(width: w, height: h)
             .background(
                 RoundedRectangle(cornerRadius: min(w, h) * 0.32, style: .continuous)
@@ -732,10 +717,8 @@ extension MangaChatPlayerLayout {
     }
 
     @ViewBuilder
-    func mangaControlIcon(systemName: String, size: CGFloat, dimmed: Bool = false) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: size, weight: .bold))
-            .foregroundColor(dimmed ? inkSub.opacity(0.3) : inkSub)
+    func mangaControlIcon(symbolName: String, size: CGFloat, dimmed: Bool = false) -> some View {
+        MonologueSymbolIcon(name: symbolName, size: size, color: dimmed ? inkSub.opacity(0.3) : inkSub)
     }
 
     func formatTime(_ seconds: Double) -> String {

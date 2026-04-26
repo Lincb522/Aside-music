@@ -40,7 +40,7 @@ struct LocalPlaylistDetailView: View {
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist?.displayCoverUrl?.sized(200))
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
             }
 
             if MangaStyle.isActive || MujiStyle.isActive {
@@ -311,13 +311,13 @@ struct LocalPlaylistDetailView: View {
                     }
                     .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
-                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.ink).offset(x: 3, y: 3))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
                     .rotationEffect(.degrees(-1.1))
 
                     VStack(alignment: .leading, spacing: 9) {
                         HStack(spacing: 7) {
-                            MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 22)
+                            MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 22, foreground: MangaStyle.ink)
                             MangaLabel(text: String(localized: "local_playlist_label"), tint: MangaStyle.labelYellow, small: true)
                         }
 
@@ -334,7 +334,7 @@ struct LocalPlaylistDetailView: View {
                                 .lineLimit(2)
                         }
 
-                        MangaLabel(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true)
+                        MangaLabel(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -347,16 +347,16 @@ struct LocalPlaylistDetailView: View {
                         }
                     }) {
                         HStack(spacing: 7) {
-                            MonologueIcon(icon: .play, size: 13, color: MangaStyle.ink, lineWidth: 2)
+                            MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
                             Text(LocalizedStringKey("play_now"))
                                 .font(MangaStyle.labelFont(12, weight: .black))
                         }
-                        .foregroundStyle(MangaStyle.ink)
+                        .foregroundStyle(MangaStyle.strokeInk)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(MangaStyle.labelYellow))
-                        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-                        .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                        .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                     .opacity(p.songs.isEmpty ? 0.55 : 1)
@@ -429,8 +429,8 @@ struct LocalPlaylistDetailView: View {
         MonologueIcon(icon: icon, size: 14, color: MangaStyle.ink, lineWidth: 1.8)
             .frame(width: 36, height: 36)
             .background(tint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.ink).offset(x: 2, y: 2))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
     }
 
     private var mujiHeaderView: some View {
@@ -577,7 +577,7 @@ struct LocalPlaylistDetailView: View {
     private func toolbarTrackCountView(_ count: Int) -> some View {
         Group {
             if MangaStyle.isActive {
-                MangaLabel(text: "\(count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true)
+                MangaLabel(text: "\(count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
             } else if MujiStyle.isActive {
                 MujiPill(text: "\(count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
             } else {
@@ -662,7 +662,7 @@ struct LocalPlaylistDetailView: View {
                 }
             }
 
-            Color.clear.frame(height: 100)
+            FloatingBarBottomSpacer()
         }
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
             let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }

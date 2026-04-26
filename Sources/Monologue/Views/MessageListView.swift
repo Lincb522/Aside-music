@@ -9,7 +9,7 @@ struct MessageListView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -28,7 +28,7 @@ struct MessageListView: View {
                     Spacer()
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                             ForEach(viewModel.messages) { msg in
                                 NavigationLink(destination: ChatDetailView(userId: msg.userId, nickname: msg.nickname, avatarUrl: msg.avatarUrl)) {
                                     MessageRow(message: msg)
@@ -36,15 +36,16 @@ struct MessageListView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                        .padding(.horizontal, ThemedPageStyle.horizontalInset)
                         .padding(.top, 8)
                         
-                        Color.clear.frame(height: 100)
+                        FloatingBarBottomSpacer()
                     }
                     .scrollIndicators(.hidden)
                 }
             }
         }
-        .navigationTitle(LocalizedStringKey("message_title"))
+        .themedNavigationChrome(title: String(localized: "message_title"), eyebrow: "MESSAGE", icon: .bell)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchMessages() }
@@ -105,8 +106,9 @@ private struct MessageRow: View {
                     .lineLimit(1)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 20)
         .padding(.vertical, 12)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
     }
 }

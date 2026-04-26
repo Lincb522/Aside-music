@@ -48,7 +48,7 @@ struct AlbumDetailView: View {
                 } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: effectiveCoverUrl)
                 } else {
-                    MonologueBackground()
+                    ThemedPageBackground()
                 }
             }
 
@@ -203,14 +203,14 @@ struct AlbumDetailView: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.ink).offset(x: 3, y: 3))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
                 .rotationEffect(.degrees(-1.2))
 
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 7) {
                         MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 22)
-                        MangaLabel(text: "ALBUM", tint: MangaStyle.bubbleBlue, small: true)
+                        MangaLabel(text: "ALBUM", tint: MangaStyle.bubbleBlue, small: true, foreground: MangaStyle.ink)
                     }
 
                     Text(viewModel.albumInfo?.name ?? albumName ?? "")
@@ -239,7 +239,7 @@ struct AlbumDetailView: View {
                             MangaLabel(text: date, tint: MangaStyle.mint, small: true)
                         }
                         if let size = viewModel.albumInfo?.size, size > 0 {
-                            MangaLabel(text: "\(size) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true)
+                            MangaLabel(text: "\(size) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
                         }
                     }
                 }
@@ -253,16 +253,16 @@ struct AlbumDetailView: View {
                     }
                 }) {
                     HStack(spacing: 7) {
-                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.ink, lineWidth: 2)
+                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
                         Text(LocalizedStringKey("play_now"))
                             .font(MangaStyle.labelFont(12, weight: .black))
                     }
-                    .foregroundStyle(MangaStyle.ink)
+                    .foregroundStyle(MangaStyle.strokeInk)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 10)
                     .background(Capsule().fill(MangaStyle.labelYellow))
-                    .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-                    .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                    .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
@@ -469,7 +469,7 @@ struct AlbumDetailView: View {
                 }
 
                 NoMoreDataView()
-                Color.clear.frame(height: 100)
+                FloatingBarBottomSpacer()
             }
         }
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
@@ -580,7 +580,7 @@ struct AlbumDescSheet: View {
         }
         .background {
             MonologueSheetAwareBackground {
-                MonologueBackground()
+                ThemedPageBackground()
             }
         }
     }

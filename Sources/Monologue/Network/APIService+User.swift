@@ -164,15 +164,22 @@ extension APIService {
         let colorString: String?
         let rawId: Int?
         let rawName: String?
+        let category: String?
+        let source: String?
+        let playlistTagId: Int?
+        let playlistCategory: Int?
 
         enum CodingKeys: String, CodingKey {
-            case tagId, tagName, colorString
+            case tagId, tagName, colorString, category, source, playlistTagId, playlistCategory
             case rawId = "id"
             case rawName = "name"
         }
 
         var finalId: Int { tagId ?? rawId ?? 0 }
         var finalName: String { tagName ?? rawName ?? "Unknown" }
+        var localizedDisplayName: String { Self.presentableName(for: finalName) }
+        var isDefaultRecommendTag: Bool { Self.isDefaultRecommendName(finalName) || finalId <= 0 }
+        var categoryRawValue: String { Self.normalizedCategory(category) ?? "genre" }
 
         var id: Int { finalId }
 
@@ -182,6 +189,10 @@ extension APIService {
             self.rawId = id.hashValue
             self.rawName = name
             self.colorString = nil
+            self.category = "genre"
+            self.source = "style"
+            self.playlistTagId = nil
+            self.playlistCategory = nil
         }
 
         init(from decoder: Decoder) throws {
@@ -191,29 +202,226 @@ extension APIService {
             colorString = try container.decodeIfPresent(String.self, forKey: .colorString)
             rawId = try container.decodeIfPresent(Int.self, forKey: .rawId)
             rawName = try container.decodeIfPresent(String.self, forKey: .rawName)
+            category = try container.decodeIfPresent(String.self, forKey: .category)
+            source = try container.decodeIfPresent(String.self, forKey: .source)
+            playlistTagId = try container.decodeIfPresent(Int.self, forKey: .playlistTagId)
+            playlistCategory = try container.decodeIfPresent(Int.self, forKey: .playlistCategory)
+        }
+
+        init?(dictionary: [String: Any], categoryOverride: String? = nil) {
+            let parsedTagId = Self.intValue(
+                dictionary["tagId"] ??
+                dictionary["tagID"] ??
+                dictionary["tag_id"] ??
+                dictionary["resourceId"] ??
+                dictionary["resource_id"]
+            )
+            let parsedRawId = Self.intValue(
+                dictionary["id"] ??
+                dictionary["tag_id"] ??
+                dictionary["resourceId"] ??
+                dictionary["resource_id"]
+            )
+            let parsedTagName = Self.stringValue(
+                dictionary["tagName"] ??
+                dictionary["name"] ??
+                dictionary["title"] ??
+                dictionary["label"] ??
+                dictionary["text"]
+            )
+
+            let finalId = parsedTagId ?? parsedRawId ?? 0
+            let finalName = (parsedTagName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard finalId > 0, !finalName.isEmpty else { return nil }
+
+            tagId = parsedTagId
+            tagName = finalName
+            colorString = Self.stringValue(dictionary["colorString"] ?? dictionary["color"] ?? dictionary["colorStr"])
+            rawId = parsedRawId
+            rawName = finalName
+            category = Self.normalizedCategory(
+                categoryOverride ??
+                Self.stringValue(dictionary["category"] ?? dictionary["categoryId"] ?? dictionary["group"])
+            )
+            source = Self.stringValue(dictionary["source"] ?? dictionary["tagSource"])
+            playlistTagId = Self.intValue(dictionary["playlistTagId"] ?? dictionary["playlist_tag_id"])
+            playlistCategory = Self.intValue(dictionary["playlistCategory"] ?? dictionary["playlist_category"])
+        }
+
+        private static func intValue(_ value: Any?) -> Int? {
+            switch value {
+            case let intValue as Int:
+                return intValue
+            case let int64Value as Int64:
+                return Int(int64Value)
+            case let doubleValue as Double:
+                return Int(doubleValue)
+            case let numberValue as NSNumber:
+                return numberValue.intValue
+            case let stringValue as String:
+                return Int(stringValue.trimmingCharacters(in: .whitespacesAndNewlines))
+            default:
+                return nil
+            }
+        }
+
+        private static func stringValue(_ value: Any?) -> String? {
+            switch value {
+            case let stringValue as String:
+                let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            case let numberValue as NSNumber:
+                return numberValue.stringValue
+            default:
+                return nil
+            }
+        }
+
+        private static func normalizedName(_ value: String) -> String {
+            value
+                .lowercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: " ", with: "")
+                .replacingOccurrences(of: "_", with: "")
+                .replacingOccurrences(of: "-", with: "")
+                .replacingOccurrences(of: "/", with: "")
+                .replacingOccurrences(of: "&", with: "")
+        }
+
+        private static func normalizedCategory(_ value: String?) -> String? {
+            guard let value else { return nil }
+            let key = normalizedName(value)
+            switch key {
+            case "genre", "style", "styles", "曲风", "风格":
+                return "genre"
+            case "mood", "emotion", "emotions", "情绪", "情感":
+                return "mood"
+            case "scene", "scenes", "场景":
+                return "scene"
+            case "language", "languages", "lang", "语种":
+                return "language"
+            case "theme", "themes", "topic", "主题":
+                return "theme"
+            default:
+                return nil
+            }
+        }
+
+        private static func isDefaultRecommendName(_ value: String) -> Bool {
+            let key = normalizedName(value)
+            return [
+                "default",
+                "dailyrecommend",
+                "dailypicks",
+                "每日推荐",
+                "默认推荐"
+            ].contains(key)
+        }
+
+        private static func presentableName(for rawName: String) -> String {
+            let cleaned = rawName
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: "-", with: " ")
+                .replacingOccurrences(of: "  ", with: " ")
+
+            guard !cleaned.isEmpty else {
+                return String(localized: "style_unknown")
+            }
+
+            guard Locale.preferredLanguages.first?.lowercased().hasPrefix("zh") == true else {
+                return cleaned
+            }
+
+            let compactKey = cleaned
+                .lowercased()
+                .replacingOccurrences(of: " ", with: "")
+                .replacingOccurrences(of: "/", with: "")
+                .replacingOccurrences(of: "&", with: "")
+
+            let exactMap: [String: String] = [
+                "unknown": String(localized: "style_unknown"),
+                "default": String(localized: "style_default"),
+                "pop": "流行",
+                "popular": "流行",
+                "rock": "摇滚",
+                "folk": "民谣",
+                "electronic": "电子",
+                "electronica": "电子",
+                "edm": "电子",
+                "dance": "舞曲",
+                "hiphop": "说唱",
+                "hiphoprap": "说唱",
+                "rap": "说唱",
+                "rnb": "R&B",
+                "soul": "灵魂乐",
+                "jazz": "爵士",
+                "blues": "布鲁斯",
+                "classical": "古典",
+                "country": "乡村",
+                "metal": "金属",
+                "reggae": "雷鬼",
+                "latin": "拉丁",
+                "world": "世界音乐",
+                "acg": "ACG",
+                "anime": "ACG",
+                "game": "游戏",
+                "soundtrack": "原声",
+                "ost": "原声",
+                "lightmusic": "轻音乐",
+                "newage": "新世纪",
+                "indie": "独立",
+                "chinese": "华语",
+                "mandarin": "国语",
+                "cantonese": "粤语",
+                "western": "欧美",
+                "japanese": "日语",
+                "korean": "韩语",
+                "healing": "治愈",
+                "sleep": "睡眠",
+                "relax": "放松",
+                "study": "学习",
+                "workout": "运动",
+                "drive": "驾驶",
+                "travel": "旅行",
+                "party": "派对"
+            ]
+
+            if let mapped = exactMap[compactKey] {
+                return mapped
+            }
+
+            return cleaned
         }
     }
 
     func fetchStyleList() -> AnyPublisher<[StyleTag], Error> {
         ncm.publisher { [ncm] in
             let response = try await ncm.styleList()
-            guard let dataArray = response.body["data"] as? [[String: Any]] else {
-                return [StyleTag]()
-            }
-            let data = try JSONSerialization.data(withJSONObject: dataArray)
-            return try JSONDecoder().decode([StyleTag].self, from: data)
+            let groupedTags = Self.extractStyleTags(from: [
+                response.body["categoryGroups"],
+                response.body["styleTagCategories"]
+            ])
+            let tags = groupedTags.isEmpty
+                ? Self.extractStyleTags(from: [response.body["data"], response.body["tags"], response.body])
+                : groupedTags
+            AppLogger.debug("Style list parsed tags: \(tags.count)")
+            return tags
         }
     }
 
     func fetchStylePreference() -> AnyPublisher<[StyleTag], Error> {
         ncm.publisher { [ncm] in
             let response = try await ncm.stylePreference()
-            guard let dataDict = response.body["data"] as? [String: Any],
-                  let tagArray = dataDict["tagPreference"] as? [[String: Any]] else {
-                return [StyleTag]()
-            }
-            let data = try JSONSerialization.data(withJSONObject: tagArray)
-            return try JSONDecoder().decode([StyleTag].self, from: data)
+            let dataDict = response.body["data"] as? [String: Any]
+            let tags = Self.extractStyleTags(from: [
+                dataDict?["tagPreference"],
+                dataDict?["tags"],
+                dataDict?["tagList"],
+                response.body["tagPreference"]
+            ])
+            AppLogger.debug("Style preference parsed tags: \(tags.count)")
+            return tags
         }
     }
 
@@ -235,6 +443,112 @@ extension APIService {
             return try JSONDecoder().decode([Song].self, from: songsData)
         }
     }
+
+    private static func extractStyleTags(from roots: [Any?]) -> [StyleTag] {
+        var result: [StyleTag] = []
+        var seen = Set<Int>()
+
+        func append(_ tag: StyleTag) {
+            guard tag.finalId > 0, !tag.isDefaultRecommendTag, !seen.contains(tag.id) else { return }
+            seen.insert(tag.id)
+            result.append(tag)
+        }
+
+        func walk(_ value: Any?, category: String? = nil) {
+            guard let value else { return }
+
+            if let array = value as? [Any] {
+                array.forEach { walk($0, category: category) }
+                return
+            }
+
+            guard let dict = value as? [String: Any] else { return }
+
+            if let tag = StyleTag(dictionary: dict, categoryOverride: category) {
+                append(tag)
+            }
+
+            let childCategory = styleCategoryValue(
+                dict["category"] ??
+                dict["id"] ??
+                dict["title"]
+            ) ?? category
+
+            for key in styleTagContainerKeys {
+                walk(dict[key], category: childCategory)
+            }
+        }
+
+        roots.forEach { walk($0) }
+        return result
+    }
+
+    private static func styleCategoryValue(_ value: Any?) -> String? {
+        let raw: String?
+        switch value {
+        case let stringValue as String:
+            raw = stringValue
+        case let numberValue as NSNumber:
+            switch numberValue.intValue {
+            case 0: raw = "language"
+            case 1: raw = "genre"
+            case 2: raw = "scene"
+            case 3: raw = "mood"
+            case 4: raw = "theme"
+            default: raw = nil
+            }
+        default:
+            raw = nil
+        }
+
+        guard let raw else { return nil }
+        let key = raw
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "/", with: "")
+            .replacingOccurrences(of: "&", with: "")
+
+        switch key {
+        case "genre", "style", "styles", "曲风", "风格":
+            return "genre"
+        case "mood", "emotion", "emotions", "情绪", "情感":
+            return "mood"
+        case "scene", "scenes", "场景":
+            return "scene"
+        case "language", "languages", "lang", "语种":
+            return "language"
+        case "theme", "themes", "topic", "主题":
+            return "theme"
+        default:
+            return nil
+        }
+    }
+
+    private static let styleTagContainerKeys = [
+        "data",
+        "tags",
+        "tagList",
+        "tagPreference",
+        "list",
+        "items",
+        "children",
+        "child",
+        "childrenTags",
+        "childTags",
+        "subTags",
+        "subTagList",
+        "groups",
+        "groupList",
+        "categories",
+        "categoryList",
+        "categoryGroups",
+        "styleTagCategories",
+        "styleTags",
+        "allTags"
+    ]
 
     // MARK: - 搜索默认词
 

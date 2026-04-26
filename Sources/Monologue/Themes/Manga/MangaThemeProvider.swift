@@ -16,8 +16,8 @@ struct MangaThemeProvider: GlobalThemeProvider {
             accentGradient: [MangaStyle.accentPink, MangaStyle.labelYellow, MangaStyle.decoBlue, MangaStyle.mint],
             separator: MangaStyle.separator,
             navBarTint: MangaStyle.ink,
-            iconBackground: MangaStyle.ink,
-            iconForeground: MangaStyle.bubbleWhite,
+            iconBackground: MangaStyle.strokeInk,
+            iconForeground: MangaStyle.onStrokeInk,
             cardBackground: MangaStyle.bubbleWhite,
             floatingBarFill: MangaStyle.bubbleWhite.opacity(0.94),
             destructive: MangaStyle.red

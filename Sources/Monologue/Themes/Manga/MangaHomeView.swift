@@ -73,13 +73,13 @@ struct MangaHomeView: View {
                     .mangaStagger(appeared, order: 4)
                 }
 
-                if !viewModel.qqRecommendPlaylists.isEmpty {
-                    mangaDiscoverySection
+                if !viewModel.qqNewSongs.isEmpty {
+                    mangaNewSongsSection
                         .mangaStagger(appeared, order: 5)
                 }
 
-                if !viewModel.qqNewSongs.isEmpty {
-                    mangaNewSongsSection
+                if !viewModel.qqRecommendPlaylists.isEmpty {
+                    mangaDiscoverySection
                         .mangaStagger(appeared, order: 6)
                 }
 
@@ -87,7 +87,7 @@ struct MangaHomeView: View {
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .mangaStagger(appeared, order: 7)
 
-                Color.clear.frame(height: 108)
+                FloatingBarBottomSpacer()
             }
             .padding(.top, DeviceLayout.headerTopPadding + 6)
         }
@@ -119,11 +119,11 @@ struct MangaHomeView: View {
 
             Spacer(minLength: 12)
 
-            MangaActionButton(systemName: "radio", tint: MangaStyle.bubbleBlue) {
+            MangaActionButton(icon: .radio, tint: MangaStyle.bubbleBlue, foreground: MangaStyle.ink) {
                 showPersonalFM = true
             }
 
-            MangaActionButton(systemName: "magnifyingglass", tint: MangaStyle.bubblePink) {
+            MangaActionButton(icon: .magnifyingGlass, tint: MangaStyle.bubblePink, foreground: MangaStyle.ink) {
                 navigationPath.append(HomeView.HomeDestination.search)
             }
         }
@@ -153,9 +153,7 @@ struct MangaHomeView: View {
             } else {
                 ZStack {
                     MangaStyle.labelYellow.opacity(0.75)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 16, weight: .black))
-                        .foregroundColor(MangaStyle.ink)
+                    MonologueIcon(icon: .profileFilled, size: 18, color: MangaStyle.strokeInk, lineWidth: 1.8)
                 }
             }
         }
@@ -163,11 +161,11 @@ struct MangaHomeView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
         )
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(MangaStyle.ink)
+                .fill(MangaStyle.strokeInk)
                 .offset(x: 2.5, y: 2.5)
         )
     }
@@ -196,17 +194,17 @@ struct MangaHomeView: View {
                                 MonologueIcon(
                                     icon: playerManager.currentSong?.id == featuredSong.id && playerManager.isPlaying ? .pause : .play,
                                     size: 11,
-                                    color: MangaStyle.ink,
+                                    color: MangaStyle.strokeInk,
                                     lineWidth: 2
                                 )
                                 Text(String(localized: "action_play"))
                                     .font(MangaStyle.labelFont(11, weight: .black))
                             }
-                            .foregroundStyle(MangaStyle.ink)
+                            .foregroundStyle(MangaStyle.strokeInk)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
                             .background(Capsule().fill(MangaStyle.labelYellow))
-                            .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
                         }
                         .buttonStyle(.plain)
                     }
@@ -271,11 +269,11 @@ struct MangaHomeView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: isCurrent ? 3 : MangaStyle.strokeWidth)
+                    .stroke(MangaStyle.strokeInk, lineWidth: isCurrent ? 3 : MangaStyle.strokeWidth)
             )
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 3, y: 3)
             )
         }
@@ -311,7 +309,7 @@ struct MangaHomeView: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
         .background(Capsule().fill(MangaStyle.bubbleBlue))
-        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
     }
 
     private var mangaDailySection: some View {
@@ -379,11 +377,11 @@ struct MangaHomeView: View {
                     } else {
                         Text(String(format: "%02d", index + 1))
                             .font(.system(size: 9, weight: .black, design: .monospaced))
-                            .foregroundStyle(MangaStyle.ink)
+                            .foregroundStyle(MangaStyle.strokeInk)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(Capsule().fill(MangaStyle.labelYellow))
-                            .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1))
+                            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1))
                             .padding(7)
                     }
                 }
@@ -408,11 +406,11 @@ struct MangaHomeView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: isCurrent ? 3 : MangaStyle.strokeWidth)
+                    .stroke(MangaStyle.strokeInk, lineWidth: isCurrent ? 3 : MangaStyle.strokeWidth)
             )
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 2.5, y: 2.5)
             )
         }
@@ -423,11 +421,8 @@ struct MangaHomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(
                 title: String(localized: "qq_new_songs"),
-                actionTitle: String(localized: "view_all"),
                 mark: .star
-            ) {
-                navigationPath.append(HomeView.HomeDestination.newSongExpress)
-            }
+            )
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             ScrollView(.horizontal) {
@@ -463,7 +458,7 @@ struct MangaHomeView: View {
                     .frame(width: 70, height: 70)
                     .clipped()
 
-                    MangaLabel(text: "\(rank)", tint: MangaStyle.bubblePink, small: true)
+                    MangaLabel(text: "\(rank)", tint: MangaStyle.bubblePink, small: true, foreground: MangaStyle.ink)
                         .padding(5)
 
                     if isCurrent {
@@ -475,7 +470,7 @@ struct MangaHomeView: View {
                 }
                 .frame(width: 70, height: 70)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(song.name)
@@ -547,7 +542,7 @@ struct MangaHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
                 )
 
                 Text(playlist.name)
@@ -594,7 +589,7 @@ struct MangaHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
                 )
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -608,12 +603,10 @@ struct MangaHomeView: View {
 
                 Spacer(minLength: 8)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
+                MonologueIcon(icon: .chevronRight, size: 13, color: MangaStyle.ink, lineWidth: 1.8)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(index.isMultiple(of: 2) ? MangaStyle.bubblePink : MangaStyle.bubbleBlue))
-                    .overlay(Circle().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
             }
             .padding(10)
             .background(
@@ -633,6 +626,7 @@ struct MangaHomeView: View {
                 icon: .musicNoteList,
                 title: String(localized: "new_song_express"),
                 tint: MangaStyle.labelYellow,
+                foreground: MangaStyle.strokeInk,
                 angle: -1.6
             ) {
                 navigationPath.append(HomeView.HomeDestination.newSongExpress)
@@ -800,7 +794,7 @@ private struct MangaHomeBannerCard: View {
                     MonologueIcon(icon: .chevronRight, size: 13, color: MangaStyle.ink, lineWidth: 2)
                         .frame(width: 30, height: 30)
                         .background(MangaStyle.bubbleWhite, in: Circle())
-                        .overlay(Circle().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
+                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
                 }
                 .padding(11)
             }
@@ -808,11 +802,11 @@ private struct MangaHomeBannerCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
             )
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 3, y: 3)
             )
         }
@@ -841,58 +835,51 @@ private struct MangaHomeEntryCard: View {
     let icon: MonologueIcon.IconType
     let title: String
     let tint: Color
+    var foreground: Color = MangaStyle.ink
     let angle: Double
     let action: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         Button(action: action) {
-            TimelineView(.animation) { timeline in
-                let pulse = reduceMotion ? 0 : sin(timeline.date.timeIntervalSinceReferenceDate * 2.2)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .top) {
-                        ZStack {
-                            Circle()
-                                .fill(tint)
-                            MonologueIcon(icon: icon, size: 20, color: MangaStyle.ink, lineWidth: 2)
-                                .scaleEffect(1 + CGFloat(pulse) * 0.025)
-                        }
-                        .frame(width: 42, height: 42)
-                        .overlay(Circle().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-
-                        Spacer()
-
-                        MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.ink, lineWidth: 2)
-                            .frame(width: 28, height: 28)
-                            .background(MangaStyle.bubbleWhite, in: Circle())
-                            .overlay(Circle().stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth))
-                            .offset(x: CGFloat(pulse) * 1.4)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    ZStack {
+                        Circle()
+                            .fill(tint)
+                        MonologueIcon(icon: icon, size: 20, color: foreground, lineWidth: 2)
                     }
+                    .frame(width: 42, height: 42)
+                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
-                    Spacer(minLength: 4)
+                    Spacer()
 
-                    Text(title)
-                        .font(MangaStyle.titleFont(16, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.ink, lineWidth: 2)
+                        .frame(width: 28, height: 28)
+                        .background(MangaStyle.bubbleWhite, in: Circle())
+                        .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: DeviceLayout.entryCardHeight)
-                .background(
-                    MangaCardBackground(
-                        cornerRadius: 18,
-                        elevated: true,
-                        tint: tint.opacity(0.9)
-                    )
-                )
-                .rotationEffect(.degrees(reduceMotion ? 0 : angle + pulse * 0.35))
+
+                Spacer(minLength: 4)
+
+                Text(title)
+                    .font(MangaStyle.titleFont(16, weight: .black))
+                    .foregroundStyle(foreground)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: DeviceLayout.entryCardHeight)
+            .background(
+                MangaCardBackground(
+                    cornerRadius: 18,
+                    elevated: true,
+                    tint: tint.opacity(0.9)
+                )
+            )
+            .rotationEffect(.degrees(angle))
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+        .buttonStyle(.plain)
     }
 }

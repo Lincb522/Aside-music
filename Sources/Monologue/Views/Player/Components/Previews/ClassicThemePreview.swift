@@ -90,10 +90,10 @@ struct ClassicThemePreview: View {
                         )
                         .frame(width: 52, height: 58)
                         .overlay(MonologueIcon(icon: .musicNote, size: 17, color: MangaStyle.ink))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.ink, lineWidth: 2))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 2))
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(MangaStyle.ink)
+                                .fill(MangaStyle.strokeInk)
                                 .offset(x: 3, y: 3)
                         )
                         .rotationEffect(.degrees(-4))
@@ -104,12 +104,12 @@ struct ClassicThemePreview: View {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(MangaStyle.labelYellow)
                             .frame(width: 50, height: 12)
-                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(MangaStyle.ink, lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1))
 
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(MangaStyle.bubbleWhite)
                             .frame(width: 66, height: 20)
-                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(MangaStyle.ink, lineWidth: 1.2))
+                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
 
                         HStack(spacing: 5) {
                             mangaDot(size: 8, fill: MangaStyle.bubbleBlue)
@@ -121,7 +121,7 @@ struct ClassicThemePreview: View {
 
                 HStack(spacing: 8) {
                     progressLine(width: 78, height: 4, fill: MangaStyle.accentPink, track: MangaStyle.ink.opacity(0.18))
-                        .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1))
+                        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1))
 
                     mangaDot(size: 18, fill: MangaStyle.labelYellow)
                         .scaleEffect(isPlaying ? 1.12 : 1)
@@ -130,7 +130,7 @@ struct ClassicThemePreview: View {
             }
             .padding(10)
             .background(MangaStyle.bubbleWhite.opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.ink, lineWidth: 1.7))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.7))
             .padding(10)
         }
     }
@@ -203,6 +203,6 @@ struct ClassicThemePreview: View {
         Circle()
             .fill(fill)
             .frame(width: size, height: size)
-            .overlay(Circle().stroke(MangaStyle.ink, lineWidth: 1.2))
+            .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
     }
 }

@@ -59,10 +59,10 @@ struct BatchAddToPlaylistSheet: View {
             .scrollIndicators(.hidden)
             .background {
                 MonologueSheetAwareBackground {
-                    MonologueBackground()
+                    ThemedPageBackground()
                 }
             }
-            .navigationTitle(LocalizedStringKey("add_to_playlist_title"))
+            .themedNavigationChrome(title: String(localized: "add_to_playlist_title"), eyebrow: "PLAYLIST", icon: .addToQueue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {

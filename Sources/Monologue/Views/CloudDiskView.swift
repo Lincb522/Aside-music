@@ -24,15 +24,19 @@ struct CloudDiskView: View {
     private let pageSize = 30
 
     private struct Theme {
-        static let accent = Color.monologueIconBackground
-        static let accentForeground = Color.monologueIconForeground
+        static var accent: Color {
+            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueIconBackground)
+        }
+        static var accentForeground: Color {
+            MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : Color.monologueIconForeground)
+        }
         static let text = Color.monologueTextPrimary
         static let secondaryText = Color.monologueTextSecondary
     }
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -48,7 +52,7 @@ struct CloudDiskView: View {
                 }
             }
         }
-        .navigationTitle("cloud_title")
+        .themedNavigationChrome(title: String(localized: "cloud_title"), eyebrow: "CLOUD", icon: .cloud)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -124,8 +128,10 @@ struct CloudDiskView: View {
                         .foregroundColor(Theme.secondaryText)
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
             .padding(.vertical, 12)
+            .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
+            .padding(.horizontal, ThemedPageStyle.horizontalInset)
             
             // 全部播放按钮
             Button {
@@ -143,17 +149,22 @@ struct CloudDiskView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Theme.accent)
-                .cornerRadius(20)
-                .monologueGlassCapsule()
+                .clipShape(Capsule())
+                .overlay {
+                    if MangaStyle.isActive {
+                        Capsule()
+                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                    }
+                }
                 .shadow(color: Theme.accent.opacity(0.18), radius: 6, x: 0, y: 2)
             }
             .buttonStyle(MonologueBouncingButtonStyle())
-            .padding(.horizontal, 24)
+            .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 24)
             .padding(.bottom, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                     ForEach(songs) { song in
                         cloudSongRow(song)
                             .onAppear {
@@ -170,6 +181,7 @@ struct CloudDiskView: View {
                             .padding(.vertical, 20)
                     }
                 }
+                .padding(.horizontal, ThemedPageStyle.horizontalInset)
                 .padding(.bottom, 120)
             }
             .scrollIndicators(.hidden)
@@ -212,12 +224,12 @@ struct CloudDiskView: View {
                     HStack(spacing: 6) {
                         Text(song.bitrateText)
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(Theme.accent)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 2)
-                                    .stroke(Color.monologueTextPrimary, lineWidth: 0.5)
+                                RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
+                                    .stroke(Theme.accent, lineWidth: 0.5)
                             )
                         
                         Text("\(song.artist) · \(song.fileSizeText)")
@@ -234,9 +246,14 @@ struct CloudDiskView: View {
                         .frame(width: 20)
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
             .padding(.vertical, 8)
             .background(isCurrent ? Color.monologueTextPrimary.opacity(0.05) : Color.clear)
+            .themedOnlyPageSurface(
+                cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
+                elevated: isCurrent,
+                mangaTint: isCurrent ? MangaStyle.labelYellow.opacity(0.92) : MangaStyle.bubbleWhite
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98, opacity: 0.8))

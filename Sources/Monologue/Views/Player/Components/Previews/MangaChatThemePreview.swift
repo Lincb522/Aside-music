@@ -40,8 +40,7 @@ struct MangaChatThemePreview: View {
             VStack(spacing: 6) {
                 // CHAT 标签
                 HStack(spacing: 2) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
-                        .font(.system(size: 6, weight: .black))
+                    MonologueIcon(icon: .comment, size: 7, color: ink, lineWidth: 1.4)
                     Text("CHAT")
                         .font(.system(size: 7, weight: .black, design: .rounded))
                         .tracking(0.5)

@@ -147,7 +147,7 @@ struct QQMVPlayerView: View {
     
     private var normalView: some View {
         ZStack {
-            MonologueBackground().ignoresSafeArea()
+            ThemedPageBackground().ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // 顶部栏
@@ -249,12 +249,7 @@ struct QQMVPlayerView: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text("QCM")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.8)))
+                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
                         
                         Text(viewModel.mvDetail?.name ?? String(localized: "qqmv_loading"))
                             .font(.rounded(size: 20, weight: .bold))

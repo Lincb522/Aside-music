@@ -21,8 +21,7 @@ struct GameModeSettingsView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
                 VStack(spacing: 20) {
@@ -31,7 +30,7 @@ struct GameModeSettingsView: View {
                     optionsSection
                     presetsSection
                     infoSection
-                    Spacer(minLength: 100)
+                    FloatingBarBottomSpacer()
                 }
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
                 .iPadContentWidth(700)
@@ -42,7 +41,7 @@ struct GameModeSettingsView: View {
             .onChange(of: settings.gameModeSilentNowPlaying) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeAutoExit) { _, _ in refreshMatchedPreset() }
         }
-        .navigationTitle(String(localized: "game_mode_settings_title"))
+        .themedNavigationChrome(title: String(localized: "game_mode_settings_title"), eyebrow: "GAME", icon: .gridSquare)
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
             String(localized: "game_mode_preferred_quality_title"),
@@ -182,9 +181,11 @@ struct GameModeSettingsView: View {
             }
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: preset.systemIconName)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(isSelected ? .white : .monologueTextPrimary)
+                MonologueSymbolIcon(
+                    name: preset.systemIconName,
+                    size: 19,
+                    color: isSelected ? .white : .monologueTextPrimary
+                )
                     .frame(width: 32, height: 32)
                     .background(
                         Circle().fill(
@@ -345,9 +346,7 @@ struct GameModeSettingsView: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tertiary)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.6)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -375,9 +374,7 @@ struct GameModeSettingsView: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tertiary)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.6)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

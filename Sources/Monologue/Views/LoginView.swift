@@ -16,7 +16,7 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
             
             VStack(spacing: 0) {
                 HStack {

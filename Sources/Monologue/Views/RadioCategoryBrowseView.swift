@@ -7,7 +7,7 @@ struct RadioCategoryBrowseView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -32,7 +32,7 @@ struct RadioCategoryBrowseView: View {
                     Spacer()
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                             ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                                 NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
                                     radioRow(radio: radio)
@@ -54,13 +54,15 @@ struct RadioCategoryBrowseView: View {
                                 NoMoreDataView()
                             }
                         }
+                        .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                        .padding(.top, ThemedPageStyle.isActive ? 4 : 0)
                         .padding(.bottom, 120)
                     }
                     .scrollIndicators(.hidden)
                 }
             }
         }
-        .navigationTitle("radio_category_browse")
+        .themedNavigationChrome(title: String(localized: "radio_category_browse"), eyebrow: "RADIO", icon: .gridSquare)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -80,11 +82,20 @@ struct RadioCategoryBrowseView: View {
                     }) {
                         Text(cat.name)
                             .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(isSelected ? .monologueIconForeground : .monologueTextPrimary)
+                            .foregroundColor(categoryTextColor(isSelected: isSelected))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(isSelected ? Color.monologueIconBackground : Color.monologueGlassTint)
+                            .background(categoryChipBackground(isSelected: isSelected))
                             .clipShape(Capsule())
+                            .overlay {
+                                if MangaStyle.isActive {
+                                    Capsule()
+                                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                                } else if MujiStyle.isActive {
+                                    Capsule()
+                                        .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -93,6 +104,26 @@ struct RadioCategoryBrowseView: View {
             .padding(.vertical, 12)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func categoryTextColor(isSelected: Bool) -> Color {
+        if MangaStyle.isActive {
+            return isSelected ? MangaStyle.ink : .monologueTextPrimary
+        } else if MujiStyle.isActive {
+            return isSelected ? MujiStyle.paper : .monologueTextPrimary
+        } else {
+            return isSelected ? .monologueIconForeground : .monologueTextPrimary
+        }
+    }
+
+    private func categoryChipBackground(isSelected: Bool) -> Color {
+        if MangaStyle.isActive {
+            return isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+        } else if MujiStyle.isActive {
+            return isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised
+        } else {
+            return isSelected ? Color.monologueIconBackground : Color.monologueGlassTint
+        }
     }
 
     // MARK: - 电台行
@@ -131,8 +162,9 @@ struct RadioCategoryBrowseView: View {
 
             MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 12)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
     }
 }

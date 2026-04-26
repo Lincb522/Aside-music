@@ -1,181 +1,677 @@
 import SwiftUI
 
-// MARK: - Morph Style Selection View
+// MARK: - Daily Recommend Type Panel
+
 struct StyleSelectionMorphView: View {
+    enum Placement {
+        case standalone
+        case attachedToHeader
+    }
+
     @ObservedObject var styleManager: StyleManager
     @Binding var isPresented: Bool
-    
+    var placement: Placement = .standalone
+
     @State private var tempSelectedStyle: APIService.StyleTag?
-    @State private var selectedTab: String = String(localized: "style_tab_genre")
-    
-    var namespace: Namespace.ID
-    
-    private let tabs = [String(localized: "style_tab_genre")]
-    private let columns = [GridItem(.adaptive(minimum: 80, maximum: 120), spacing: 12)]
-    
+    @State private var selectedCategory: DailyRecommendStyleCategory = .genre
+    @Environment(\.colorScheme) private var colorScheme
+    @Namespace private var tabNamespace
+
+    private let columns = [GridItem(.adaptive(minimum: 66, maximum: 96), spacing: 10)]
+
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                HStack {
-                    ZStack(alignment: .leading) {
-                        Text(styleManager.currentStyle == nil ? "Fresh tunes daily" : styleManager.currentStyleName)
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.clear)
-                            .matchedGeometryEffect(id: "filter_text", in: namespace)
-                        
-                        Text("style_select_title")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary.opacity(0.85))
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            isPresented = false
-                        }
-                    }) {
-                        MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
-                            .padding(8)
-                            .background(Color.monologueSeparator)
-                            .clipShape(Circle())
-                    }
+        panelContent
+            .background {
+                if drawsOwnChrome {
+                    panelBackground
                 }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding) 
-                .padding(.top, 20)       
-                .padding(.bottom, 16)
-                
-                tabBar
-                    .padding(.bottom, 20)
-                
-                ScrollView(.vertical) {
-                    VStack(spacing: 20) {
-                        if styleManager.isLoadingStyles {
-                            ProgressView()
-                                .frame(height: 100)
-                        } else {
-                            styleGrid
-                        }
-                    }
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .padding(.bottom, 20)
-                }
-                .scrollIndicators(.hidden)
-                .frame(maxHeight: DeviceLayout.isPad ? 400 : 320)
-                
-                actionBar
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .padding(.bottom, 20)
-                    .padding(.top, 16)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.monologueGlassTint)
-                    .monologueGlass(cornerRadius: 20)
-                    .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
-                    .matchedGeometryEffect(id: "filter_bg", in: namespace)
-            )
-            .padding(.horizontal, 0)
-            .padding(.top, 0)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, DeviceLayout.isPad ? 32 : 16)
-            .padding(.top, DeviceLayout.isPad ? 120 : 140)
-        }
-        .onAppear {
-            tempSelectedStyle = styleManager.currentStyle
+            .clipShape(panelShape)
+            .overlay {
+                if drawsOwnChrome {
+                    panelStroke
+                }
+            }
+            .shadow(color: panelShadowColor, radius: panelShadowRadius, x: 0, y: panelShadowY)
+            .padding(.horizontal, panelHorizontalPadding)
+            .padding(.top, panelTopPadding)
+            .onAppear {
+                syncTemporarySelection()
+            }
+            .onChange(of: isPresented) { _, newValue in
+                if newValue {
+                    syncTemporarySelection()
+                }
+            }
+    }
+
+    private var panelContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !isAttachedToHeader {
+                panelHeader
+            }
+            categoryTabs
+
+            Group {
+                if styleManager.isLoadingStyles {
+                    loadingView
+                } else {
+                    styleGrid
+                }
+            }
+
+            actionBar
         }
     }
-    
-    // MARK: - Subviews
-    
-    private var tabBar: some View {
+
+    private var panelHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Button {
+                dismiss()
+            } label: {
+                HStack(spacing: 7) {
+                    Text(tempSelectedStyle?.localizedDisplayName ?? String(localized: "style_default"))
+                        .font(headerFont)
+                        .foregroundStyle(primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    MonologueIcon(icon: .chevronRight, size: 11, color: secondaryTextColor)
+                        .rotationEffect(.degrees(-90))
+                }
+                .padding(.horizontal, currentPillHorizontalPadding)
+                .padding(.vertical, currentPillVerticalPadding)
+                .background(currentPillFill, in: currentPillShape)
+                .overlay(currentPillStroke)
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, innerHorizontalPadding)
+        .padding(.top, headerTopPadding)
+        .padding(.bottom, 10)
+    }
+
+    private var categoryTabs: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 20) {
-                ForEach(tabs, id: \.self) { tab in
-                    Button(action: {
-                        withAnimation(.spring()) { selectedTab = tab }
-                    }) {
+            HStack(spacing: MangaStyle.isActive ? 12 : 18) {
+                ForEach(DailyRecommendStyleCategory.allCases) { category in
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {
+                            selectedCategory = category
+                        }
+                    } label: {
                         VStack(spacing: 6) {
-                            Text(tab)
-                                .font(.system(size: 16, weight: selectedTab == tab ? .bold : .medium, design: .rounded))
-                                .foregroundColor(selectedTab == tab ? .monologueTextPrimary.opacity(0.85) : .monologueTextSecondary)
-                            
-                            if selectedTab == tab {
+                            Text(category.title)
+                                .font(tabFont(isSelected: selectedCategory == category))
+                                .foregroundStyle(selectedCategory == category ? tabSelectedColor : tabNormalColor)
+                                .lineLimit(1)
+
+                            ZStack {
                                 Capsule()
-                                    .fill(Color.monologueIconBackground.opacity(0.85))
-                                    .frame(width: 20, height: 3)
-                                    .matchedGeometryEffect(id: "tab_indicator", in: namespace)
-                            } else {
-                                Capsule().fill(Color.clear).frame(width: 20, height: 3)
+                                    .fill(Color.clear)
+                                    .frame(width: 22, height: indicatorHeight)
+
+                                if selectedCategory == category {
+                                    Capsule()
+                                        .fill(tabIndicatorColor)
+                                        .frame(width: MangaStyle.isActive ? 24 : 20, height: indicatorHeight)
+                                        .matchedGeometryEffect(id: "daily_style_tab_indicator", in: tabNamespace)
+                                }
                             }
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.horizontal, innerHorizontalPadding)
         }
         .scrollIndicators(.hidden)
+        .padding(.top, isAttachedToHeader ? 12 : 0)
+        .padding(.bottom, 12)
     }
-    
+
+    private var loadingView: some View {
+        VStack {
+            ProgressView()
+                .tint(selectionTint)
+                .frame(width: 44, height: 44)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: gridHeight)
+    }
+
     private var styleGrid: some View {
-        LazyVGrid(columns: columns, spacing: 10) {
-            tagButton(name: String(localized: "style_default"), isSelected: tempSelectedStyle == nil) {
-                tempSelectedStyle = nil
-            }
-            
-            ForEach(styleManager.availableStyles) { style in
-                tagButton(name: style.finalName, isSelected: tempSelectedStyle?.id == style.id) {
-                    tempSelectedStyle = style
+        ScrollView(.vertical) {
+            LazyVGrid(columns: columns, spacing: 10) {
+                if selectedCategory == .genre {
+                    tagButton(
+                        name: String(localized: "style_default"),
+                        isSelected: tempSelectedStyle == nil,
+                        tint: selectionTint
+                    ) {
+                        tempSelectedStyle = nil
+                    }
+                }
+
+                ForEach(Array(visibleStyles.enumerated()), id: \.element.id) { index, style in
+                    tagButton(
+                        name: style.localizedDisplayName,
+                        isSelected: tempSelectedStyle?.id == style.id,
+                        tint: tagTint(for: index)
+                    ) {
+                        tempSelectedStyle = style
+                    }
+                }
+
+                if visibleStyles.isEmpty && selectedCategory != .genre {
+                    emptyCategoryView
+                        .gridCellColumns(3)
                 }
             }
+            .padding(.horizontal, innerHorizontalPadding)
+            .padding(.top, 2)
+            .padding(.bottom, 8)
+            .animation(.spring(response: 0.28, dampingFraction: 0.9), value: selectedCategory)
         }
+        .scrollIndicators(.hidden)
+        .frame(height: gridHeight)
+        .transition(.opacity.combined(with: .move(edge: .trailing)))
     }
-    
-    private func tagButton(name: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(name)
-                .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : .monologueTextPrimary.opacity(0.85))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(
-                    Group {
-                        if isSelected {
-                            Capsule()
-                                .fill(Color.monologueIconBackground.opacity(0.85))
-                        } else {
-                            Capsule()
-                                .fill(Color.monologueGlassTint)
-                                .monologueGlassCapsule()
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.monologueSeparator, lineWidth: 1)
-                                )
-                        }
-                    }
-                )
-        }
-        .buttonStyle(ScaleButtonStyle())
+
+    private var emptyCategoryView: some View {
+        Text(LocalizedStringKey("style_category_empty"))
+            .font(emptyFont)
+            .foregroundStyle(secondaryTextColor)
+            .frame(maxWidth: .infinity, minHeight: 96)
     }
-    
-    private var actionBar: some View {
-        Button(action: {
-            styleManager.selectStyle(tempSelectedStyle)
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                isPresented = false
+
+    private func tagButton(
+        name: String,
+        isSelected: Bool,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.88)) {
+                action()
             }
-        }) {
-            Text("style_confirm")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+        } label: {
+            Text(name)
+                .font(tagFont(isSelected: isSelected))
+                .foregroundStyle(isSelected ? selectedTagForeground : primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    Capsule()
-                        .fill(Color.monologueIconBackground.opacity(0.85))
-                        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+                .frame(height: tagHeight)
+                .padding(.horizontal, 7)
+                .background(tagBackground(isSelected: isSelected, tint: tint))
+                .overlay(tagStroke(isSelected: isSelected, tint: tint))
+                .contentShape(RoundedRectangle(cornerRadius: tagRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var actionBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                dismiss()
+            } label: {
+                Text(LocalizedStringKey("cancel"))
+                    .font(actionFont(isPrimary: false))
+                    .foregroundStyle(secondaryTextColor)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: actionHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                styleManager.selectStyle(tempSelectedStyle)
+                dismiss()
+            } label: {
+                Text(LocalizedStringKey("style_confirm"))
+                    .font(actionFont(isPrimary: true))
+                    .foregroundStyle(confirmForeground)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: actionHeight)
+                    .background(confirmFill, in: confirmShape)
+                    .overlay(confirmStroke)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
+        }
+        .padding(.horizontal, innerHorizontalPadding)
+        .padding(.top, 12)
+        .padding(.bottom, actionBottomPadding)
+    }
+
+    private var visibleStyles: [APIService.StyleTag] {
+        let styles = styleManager.availableStyles.filter { style in
+            selectedCategory.matches(style)
+        }
+
+        if selectedCategory == .genre {
+            let nonGenreUnmatched = styleManager.availableStyles.filter { style in
+                DailyRecommendStyleCategory.category(for: style) == .genre
+            }
+            return styles.isEmpty ? nonGenreUnmatched : styles
+        }
+
+        return styles
+    }
+
+    private func category(for style: APIService.StyleTag?) -> DailyRecommendStyleCategory {
+        guard let style else { return .genre }
+        return DailyRecommendStyleCategory.category(for: style)
+    }
+
+    private func syncTemporarySelection() {
+        tempSelectedStyle = styleManager.currentStyle
+        selectedCategory = category(for: styleManager.currentStyle)
+    }
+
+    private func dismiss() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
+            isPresented = false
+        }
+    }
+
+    @ViewBuilder
+    private var panelBackground: some View {
+        if MangaStyle.isActive {
+            panelShape
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(
+                    MangaDotsTexture(opacity: 0.024, gap: 12)
+                        .clipShape(panelShape)
+                )
+        } else if MujiStyle.isActive {
+            panelShape
+                .fill(MujiStyle.surfaceRaised)
+                .overlay(
+                    MujiPaperTexture(opacity: colorScheme == .dark ? 0.07 : 0.12)
+                        .clipShape(panelShape)
+                )
+        } else {
+            panelShape
+                .fill(Color(light: .white.opacity(0.92), dark: Color(hex: "1E2028").opacity(0.92)))
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.04 : 0.3),
+                            Color.monologueGlassTint.opacity(colorScheme == .dark ? 0.16 : 0.42)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .clipShape(panelShape)
                 )
         }
-        .buttonStyle(ScaleButtonStyle())
+    }
+
+    private var panelShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: isAttachedToHeader ? 0 : panelRadius,
+            bottomLeadingRadius: panelRadius,
+            bottomTrailingRadius: panelRadius,
+            topTrailingRadius: isAttachedToHeader ? 0 : panelRadius,
+            style: .continuous
+        )
+    }
+
+    @ViewBuilder
+    private var panelStroke: some View {
+        if MangaStyle.isActive {
+            if isAttachedToHeader {
+                MangaConnectedPanelOutline(radius: panelRadius)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+            } else {
+                panelShape.stroke(MangaStyle.strokeInk, lineWidth: 1.8)
+            }
+        } else if MujiStyle.isActive {
+            if isAttachedToHeader {
+                MangaConnectedPanelOutline(radius: panelRadius)
+                    .stroke(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.48 : 0.64), lineWidth: 0.7)
+            } else {
+                panelShape.stroke(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.48 : 0.64), lineWidth: 0.7)
+            }
+        } else {
+            if isAttachedToHeader {
+                MangaConnectedPanelOutline(radius: panelRadius)
+                    .stroke(Color.monologueSeparator.opacity(0.54), lineWidth: 0.8)
+            } else {
+                panelShape.stroke(Color.monologueSeparator.opacity(0.76), lineWidth: 0.8)
+            }
+        }
+    }
+
+    private var currentPillShape: some Shape {
+        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : 15), style: .continuous)
+    }
+
+    @ViewBuilder
+    private var currentPillStroke: some View {
+        if MangaStyle.isActive {
+            currentPillShape.stroke(MangaStyle.strokeInk, lineWidth: 1.1)
+        } else if MujiStyle.isActive {
+            currentPillShape.stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
+        }
+    }
+
+    private func tagBackground(isSelected: Bool, tint: Color) -> some View {
+        RoundedRectangle(cornerRadius: tagRadius, style: .continuous)
+            .fill(isSelected ? tint : tagFill)
+    }
+
+    private func tagStroke(isSelected: Bool, tint: Color) -> some View {
+        RoundedRectangle(cornerRadius: tagRadius, style: .continuous)
+            .stroke(isSelected ? selectedTagStroke(tint) : tagBorder, lineWidth: tagStrokeWidth(isSelected: isSelected))
+    }
+
+    private var confirmShape: some Shape {
+        RoundedRectangle(cornerRadius: confirmRadius, style: .continuous)
+    }
+
+    @ViewBuilder
+    private var confirmStroke: some View {
+        if MangaStyle.isActive {
+            confirmShape.stroke(MangaStyle.strokeInk, lineWidth: 1.55)
+        } else if MujiStyle.isActive {
+            confirmShape.stroke(MujiStyle.hairline.opacity(0.28), lineWidth: 0.6)
+        }
+    }
+
+    private func tagTint(for index: Int) -> Color {
+        if MangaStyle.isActive {
+            return [MangaStyle.labelYellow, MangaStyle.bubblePink, MangaStyle.bubbleBlue, MangaStyle.mint][index % 4]
+        }
+
+        if MujiStyle.isActive {
+            return [MujiStyle.clay, MujiStyle.tea, MujiStyle.indigo, MujiStyle.straw][index % 4]
+        }
+
+        return [Color(hex: "D7264D"), Color(hex: "E85C72"), Color(hex: "C6315B"), Color(hex: "EC7890")][index % 4]
+    }
+
+    private func selectedTagStroke(_ tint: Color) -> Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return tint.opacity(0.18) }
+        return tint.opacity(0.18)
+    }
+
+    private func tagStrokeWidth(isSelected: Bool) -> CGFloat {
+        if MangaStyle.isActive { return isSelected ? 1.35 : 1.0 }
+        return isSelected ? 0.4 : 0.65
+    }
+
+    private func tagFont(isSelected: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: isSelected ? .semibold : .regular) }
+        return .system(size: 12, weight: isSelected ? .semibold : .medium, design: .rounded)
+    }
+
+    private func tabFont(isSelected: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
+        return .system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded)
+    }
+
+    private func actionFont(isPrimary: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(14, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(14, weight: isPrimary ? .semibold : .regular) }
+        return .system(size: 14, weight: isPrimary ? .bold : .medium, design: .rounded)
+    }
+
+    private var headerFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(15, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .semibold) }
+        return .system(size: 15, weight: .semibold, design: .rounded)
+    }
+
+    private var currentFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(11, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
+        return .system(size: 11, weight: .medium, design: .rounded)
+    }
+
+    private var emptyFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
+        return .system(size: 13, weight: .medium, design: .rounded)
+    }
+
+    private var primaryTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var tabSelectedColor: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var tabNormalColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var tabIndicatorColor: Color {
+        if MangaStyle.isActive { return MangaStyle.bubblePink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return Color(hex: "D7264D")
+    }
+
+    private var selectionTint: Color {
+        if MangaStyle.isActive { return MangaStyle.bubblePink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return Color(hex: "D7264D")
+    }
+
+    private var selectedTagForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        return .white
+    }
+
+    private var tagFill: Color {
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
+        return Color.monologueGlassTint.opacity(0.64)
+    }
+
+    private var tagBorder: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.68) }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.42) }
+        return Color.monologueSeparator.opacity(0.42)
+    }
+
+    private var currentPillFill: Color {
+        if MangaStyle.isActive { return MangaStyle.bubbleBlue.opacity(0.72) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.76) }
+        return Color.monologueSeparator.opacity(0.42)
+    }
+
+    private var confirmFill: Color {
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return Color(hex: "D7264D")
+    }
+
+    private var confirmForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        return .white
+    }
+
+    private var panelRadius: CGFloat {
+        if MangaStyle.isActive { return 22 }
+        if MujiStyle.isActive { return 14 }
+        return 20
+    }
+
+    private var tagRadius: CGFloat {
+        if MangaStyle.isActive { return 12 }
+        if MujiStyle.isActive { return 8 }
+        return 12
+    }
+
+    private var confirmRadius: CGFloat {
+        if MangaStyle.isActive { return 15 }
+        if MujiStyle.isActive { return 20 }
+        return 20
+    }
+
+    private var panelHorizontalPadding: CGFloat {
+        isAttachedToHeader ? 0 : (MangaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+    }
+
+    private var innerHorizontalPadding: CGFloat {
+        MangaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding
+    }
+
+    private var headerTopPadding: CGFloat {
+        if isAttachedToHeader { return MangaStyle.isActive ? 14 : 12 }
+        return MangaStyle.isActive ? 16 : 18
+    }
+
+    private var actionBottomPadding: CGFloat {
+        if isAttachedToHeader { return MangaStyle.isActive ? 18 : 20 }
+        return MangaStyle.isActive ? 18 : 16
+    }
+
+    private var currentPillHorizontalPadding: CGFloat {
+        MangaStyle.isActive ? 10 : 11
+    }
+
+    private var currentPillVerticalPadding: CGFloat {
+        MangaStyle.isActive ? 7 : 6
+    }
+
+    private var tagHeight: CGFloat {
+        MangaStyle.isActive ? 34 : 32
+    }
+
+    private var actionHeight: CGFloat {
+        MangaStyle.isActive ? 42 : 40
+    }
+
+    private var gridHeight: CGFloat {
+        DeviceLayout.isPad ? 310 : 246
+    }
+
+    private var indicatorHeight: CGFloat {
+        MangaStyle.isActive ? 4 : 3
+    }
+
+    private var panelShadowRadius: CGFloat {
+        if isAttachedToHeader { return MujiStyle.isActive ? 10 : 0 }
+        return MangaStyle.isActive ? 0 : 14
+    }
+
+    private var panelShadowY: CGFloat {
+        if isAttachedToHeader { return MujiStyle.isActive ? 5 : 0 }
+        return MangaStyle.isActive ? 0 : 8
+    }
+
+    private var panelShadowColor: Color {
+        if !drawsOwnChrome { return .clear }
+        if isAttachedToHeader { return MujiStyle.isActive ? Color.black.opacity(colorScheme == .dark ? 0.025 : 0.045) : .clear }
+        if MangaStyle.isActive { return .clear }
+        if MujiStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.05 : 0.08) }
+        return Color.black.opacity(0.12)
+    }
+
+    private var isAttachedToHeader: Bool {
+        placement == .attachedToHeader
+    }
+
+    private var drawsOwnChrome: Bool {
+        !isAttachedToHeader || (!MangaStyle.isActive && !MujiStyle.isActive)
+    }
+
+    private var panelTopPadding: CGFloat {
+        isAttachedToHeader ? 0 : (MangaStyle.isActive ? 4 : 0)
+    }
+}
+
+struct MangaConnectedHeaderOutline: Shape {
+    var radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + radius),
+            control: CGPoint(x: rect.maxX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + radius, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        return path
+    }
+}
+
+struct MangaConnectedPanelOutline: Shape {
+    var radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + radius, y: rect.maxY),
+            control: CGPoint(x: rect.minX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.maxY - radius),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        return path
+    }
+}
+
+private enum DailyRecommendStyleCategory: String, CaseIterable, Identifiable {
+    case genre
+    case mood
+    case scene
+    case language
+    case theme
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .genre: return String(localized: "style_tab_genre")
+        case .mood: return String(localized: "style_tab_mood")
+        case .scene: return String(localized: "style_tab_scene")
+        case .language: return String(localized: "style_tab_language")
+        case .theme: return String(localized: "style_tab_theme")
+        }
+    }
+
+    func matches(_ style: APIService.StyleTag) -> Bool {
+        Self.category(for: style) == self
+    }
+
+    static func category(for style: APIService.StyleTag) -> DailyRecommendStyleCategory {
+        DailyRecommendStyleCategory(rawValue: style.categoryRawValue) ?? .genre
     }
 }

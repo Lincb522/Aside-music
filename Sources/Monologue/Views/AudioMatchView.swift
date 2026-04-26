@@ -208,7 +208,7 @@ struct AudioMatchView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -226,13 +226,13 @@ struct AudioMatchView: View {
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
 
-                        Spacer().frame(height: 100)
+                        FloatingBarBottomSpacer()
                     }
                 }
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle(LocalizedStringKey("audio_match_title"))
+        .themedNavigationChrome(title: String(localized: "audio_match_title"), eyebrow: "MATCH", icon: .audioWave)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
@@ -567,11 +567,12 @@ struct AudioMatchView: View {
                 .foregroundColor(.monologueTextPrimary)
                 .padding(.horizontal, 24)
 
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                 ForEach(Array(viewModel.matchedSongs.enumerated()), id: \.element.id) { index, song in
                     matchResultRow(song: song, index: index)
                 }
             }
+            .padding(.horizontal, ThemedPageStyle.horizontalInset)
         }
         .padding(.top, 8)
     }
@@ -620,8 +621,9 @@ struct AudioMatchView: View {
                     .background(Color.monologueGlassTint)
                     .clipShape(Circle())
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
             .padding(.vertical, 10)
+            .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: index == 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))

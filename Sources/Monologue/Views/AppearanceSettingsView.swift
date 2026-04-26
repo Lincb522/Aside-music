@@ -7,27 +7,38 @@
 
 import SwiftUI
 
+private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if MangaStyle.isActive {
+        return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
+    }
+    if MujiStyle.isActive {
+        return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
+    }
+    return .system(size: size, weight: weight, design: .rounded)
+}
+
 struct AppearanceSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @State private var isGlobalThemeExpanded = false
+    @State private var isAppBrandStyleExpanded = false
 
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
                 VStack(spacing: 20) {
                     globalThemeSection
                     appearanceSection
                     lyricSection
-                    Spacer(minLength: 100)
+                    FloatingBarBottomSpacer()
                 }
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle(String(localized: "settings_navigation_appearance_title"))
+        .themedNavigationChrome(title: String(localized: "settings_navigation_appearance_title"), eyebrow: "STYLE", icon: .sparkle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -46,22 +57,13 @@ struct AppearanceSettingsView: View {
                     selection: settings.appBrandStyle,
                     appearance: settings.appBrandAppearance,
                     supportsAlternateIcons: settings.supportsAlternateAppIcons,
+                    isExpanded: $isAppBrandStyleExpanded,
                     onSelect: { style in
                         Task {
                             await settings.selectAppBrandStyle(style)
                         }
-                    }
-                )
-
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                SettingsAppBrandAppearanceRow(
-                    title: String(localized: "settings_app_brand_appearance_title"),
-                    subtitle: String(localized: "settings_app_brand_appearance_desc"),
-                    selection: settings.appBrandAppearance,
-                    onSelect: { appearance in
+                    },
+                    onSelectAppearance: { appearance in
                         Task {
                             await settings.selectAppBrandAppearance(appearance)
                         }
@@ -170,23 +172,36 @@ struct AppearanceSettingsView: View {
     private var globalThemeSection: some View {
         SettingsSection(title: String(localized: "全局主题")) {
             VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 14) {
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                        isGlobalThemeExpanded.toggle()
+                    }
+                } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .playerTheme)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "主题风格"))
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .font(appearanceSettingsFont(15, weight: .medium))
                                 .foregroundColor(.monologueTextPrimary)
 
-                            Text(String(localized: "切换整个 App 的视觉风格与布局"))
-                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                            Text(settings.globalThemeId.displayName)
+                                .font(appearanceSettingsFont(11, weight: .regular))
                                 .foregroundStyle(.tertiary)
                         }
 
                         Spacer()
-                    }
 
+                        MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                            .rotationEffect(.degrees(isGlobalThemeExpanded ? -90 : 90))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+
+                SettingsDisclosureReveal(isExpanded: isGlobalThemeExpanded) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(GlobalThemeId.allCases) { themeId in
@@ -204,9 +219,9 @@ struct AppearanceSettingsView: View {
                             }
                         }
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
             }
         }
     }
@@ -342,93 +357,131 @@ private struct SettingsAppBrandRow: View {
     let selection: AppBrandStyle
     let appearance: AppBrandAppearance
     let supportsAlternateIcons: Bool
+    @Binding var isExpanded: Bool
     let onSelect: (AppBrandStyle) -> Void
+    let onSelectAppearance: (AppBrandAppearance) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                SettingsIconBadge(icon: .sparkle)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
-
-                    Text(subtitle)
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
-                        .foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                    isExpanded.toggle()
                 }
+            } label: {
+                HStack(spacing: 12) {
+                    SettingsIconBadge(icon: .sparkle)
 
-                Spacer()
-            }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(appearanceSettingsFont(15, weight: .medium))
+                            .foregroundColor(.monologueTextPrimary)
 
-            HStack(spacing: 10) {
-                ForEach(AppBrandStyle.allCases) { style in
-                    Button {
-                        onSelect(style)
-                    } label: {
-                        AppBrandOptionCard(
-                            style: style,
-                            appearance: appearance,
-                            isSelected: selection == style
-                        )
+                        Text("\(selection.displayName) · \(appearance.displayName)")
+                            .font(appearanceSettingsFont(11, weight: .regular))
+                            .foregroundStyle(.tertiary)
                     }
-                    .buttonStyle(.plain)
-                }
-            }
 
-            if !supportsAlternateIcons {
-                Text(String(localized: "settings_app_brand_device_hint"))
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer()
+
+                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                        .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            SettingsDisclosureReveal(isExpanded: isExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        ForEach(AppBrandStyle.allCases) { style in
+                            Button {
+                                onSelect(style)
+                            } label: {
+                                AppBrandOptionCard(
+                                    style: style,
+                                    appearance: appearance,
+                                    isSelected: selection == style
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        ForEach(AppBrandAppearance.allCases) { item in
+                            Button {
+                                onSelectAppearance(item)
+                            } label: {
+                                Text(item.displayName)
+                                    .font(appearanceSettingsFont(12, weight: appearance == item ? .semibold : .regular))
+                                    .foregroundStyle(appearance == item ? Color.monologueIconForeground : Color.monologueTextSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(appearance == item ? Color.monologueIconBackground : Color.monologueSeparator.opacity(0.42))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if !supportsAlternateIcons {
+                        Text(String(localized: "settings_app_brand_device_hint"))
+                            .font(appearanceSettingsFont(11, weight: .regular))
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 12)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
     }
 }
 
-private struct SettingsAppBrandAppearanceRow: View {
-    let title: String
-    let subtitle: String
-    let selection: AppBrandAppearance
-    let onSelect: (AppBrandAppearance) -> Void
+private struct SettingsDisclosureReveal<Content: View>: View {
+    let isExpanded: Bool
+    let content: Content
+    @State private var measuredHeight: CGFloat = 0
+
+    init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
+        self.isExpanded = isExpanded
+        self.content = content()
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                SettingsIconBadge(icon: .playerTheme)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
-
-                    Text(subtitle)
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
-                        .foregroundStyle(.tertiary)
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: SettingsDisclosureHeightPreferenceKey.self,
+                        value: proxy.size.height
+                    )
                 }
-
-                Spacer()
-            }
-
-            HStack(spacing: 10) {
-                ForEach(AppBrandAppearance.allCases) { appearance in
-                    Button {
-                        onSelect(appearance)
-                    } label: {
-                        AppBrandAppearanceCard(
-                            appearance: appearance,
-                            isSelected: selection == appearance
-                        )
-                    }
-                    .buttonStyle(.plain)
+            )
+            .onPreferenceChange(SettingsDisclosureHeightPreferenceKey.self) { height in
+                if height > 0 {
+                    measuredHeight = height
                 }
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
+            .opacity(isExpanded ? 1 : 0.001)
+            .clipped()
+            .compositingGroup()
+            .allowsHitTesting(isExpanded)
+            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
+    }
+}
+
+private struct SettingsDisclosureHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
@@ -438,45 +491,33 @@ private struct AppBrandOptionCard: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(previewBackground)
-                    .frame(height: 92)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(previewStrokeColor, lineWidth: 1)
-                    }
-                    .overlay {
-                        Image(style.previewAssetName(for: appearance))
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 72, height: 72)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .shadow(color: .black.opacity(appearance == .dark ? 0.26 : 0.12), radius: 10, x: 0, y: 4)
-                    }
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white, Color.monologueAccent)
-                        .padding(8)
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(previewBackground)
+                .frame(height: 94)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(previewStrokeColor, lineWidth: 1)
                 }
-            }
+                .overlay {
+                    Image(style.previewAssetName(for: appearance))
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 76, height: 76)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .shadow(color: .black.opacity(appearance == .dark ? 0.26 : 0.12), radius: 10, x: 0, y: 4)
+                }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(style.displayName)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Text(style.detailText)
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(2)
+            if isSelected {
+                Circle()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 20, height: 20)
+                    .overlay(MonologueIcon(icon: .checkmark, size: 11, color: .white, lineWidth: 2.1))
+                    .padding(7)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
+        .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(isSelected ? Color.monologueIconBackground.opacity(0.14) : Color.monologueSeparator.opacity(0.38))
@@ -500,41 +541,5 @@ private struct AppBrandOptionCard: View {
 
     private var previewStrokeColor: Color {
         appearance == .dark ? Color.white.opacity(0.08) : Color.white.opacity(0.42)
-    }
-}
-
-private struct AppBrandAppearanceCard: View {
-    let appearance: AppBrandAppearance
-    let isSelected: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: appearance == .light ? "sun.max.fill" : "moon.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(appearance == .light ? Color.orange : Color(hex: "8BA7FF"))
-
-                Text(appearance.displayName)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-            }
-
-            Text(appearance.detailText)
-                .font(.system(size: 11, weight: .regular, design: .rounded))
-                .foregroundStyle(.tertiary)
-                .lineLimit(2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isSelected ? Color.monologueIconBackground.opacity(0.14) : Color.monologueSeparator.opacity(0.38))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isSelected ? Color.monologueAccent.opacity(0.4) : Color.clear, lineWidth: 1.2)
-        }
     }
 }

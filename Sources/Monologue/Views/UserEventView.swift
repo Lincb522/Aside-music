@@ -10,7 +10,7 @@ struct UserEventView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -53,13 +53,13 @@ struct UserEventView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
                         
-                        Color.clear.frame(height: 100)
+                        FloatingBarBottomSpacer()
                     }
                     .scrollIndicators(.hidden)
                 }
             }
         }
-        .navigationTitle(LocalizedStringKey("event_title"))
+        .themedNavigationChrome(title: String(localized: "event_title"), eyebrow: "EVENT", icon: .bell)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchEvents() }

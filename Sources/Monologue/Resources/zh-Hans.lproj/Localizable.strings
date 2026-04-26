@@ -429,6 +429,8 @@
 "settings_app_brand_monologue_desc" = "经典幽灵标识";
 "settings_app_brand_aurora" = "Aurora";
 "settings_app_brand_aurora_desc" = "耳机声波标识";
+"settings_app_brand_music_cat" = "喵音";
+"settings_app_brand_music_cat_desc" = "猫咪音符标识";
 "settings_app_brand_appearance_title" = "图标外观";
 "settings_app_brand_appearance_desc" = "手动切换浅色或深色，不跟随系统";
 "settings_app_brand_appearance_light" = "浅色";
@@ -904,10 +906,16 @@
 "radio_category_browse" = "分类浏览";
 
 /* Style Selection - New */
-"style_select_title" = "选择风格";
+"style_select_title" = "推荐类型";
 "style_tab_genre" = "曲风";
-"style_default" = "默认推荐";
-"style_confirm" = "确认选择";
+"style_tab_mood" = "情绪";
+"style_tab_scene" = "场景";
+"style_tab_language" = "语种";
+"style_tab_theme" = "主题";
+"style_default" = "每日推荐";
+"style_confirm" = "应用";
+"style_unknown" = "未命名类型";
+"style_category_empty" = "这个分类暂时没有可选标签";
 
 /* Player Theme - New */
 "theme_title" = "播放器主题";

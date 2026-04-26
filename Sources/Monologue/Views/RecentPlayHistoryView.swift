@@ -29,7 +29,7 @@ struct RecentPlayHistoryView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
             }
             
@@ -45,11 +45,11 @@ struct RecentPlayHistoryView: View {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                                         .fill(MangaStyle.mint)
-                                    MonologueIcon(icon: .history, size: 23, color: MangaStyle.ink, lineWidth: 2)
+                                    MonologueIcon(icon: .history, size: 23, color: MangaStyle.strokeInk, lineWidth: 2)
                                 }
                                 .frame(width: 48, height: 48)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
-                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.ink).offset(x: 2.5, y: 2.5))
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
                             }
                         } else if MujiStyle.isActive {
                             MujiPageHeader(
@@ -109,46 +109,46 @@ struct RecentPlayHistoryView: View {
                         }
                     }
                     
-                    Color.clear.frame(height: 120)
+                    FloatingBarBottomSpacer()
                 }
                 .scrollIndicators(.hidden)
             }
         }
         .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "profile_recently_played"))
         .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-                HStack {
-                    if explicitSongs == nil {
-                        Button {
-                            showClearConfirm = true
-                        } label: {
-                            MonologueIcon(icon: .trash, size: 16, color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : .monologueTextPrimary))
-                        }
-                        .disabled(playerManager.history.isEmpty)
-                    }
-                    
+            HStack {
+                if explicitSongs == nil {
                     Button {
-                        if let first = displaySongs.first {
-                            playerManager.playReplacingContext(song: first, in: displaySongs)
-                        }
+                        showClearConfirm = true
                     } label: {
-                        if MangaStyle.isActive {
-                            MangaLabel(text: String(localized: "artist_play_all"), tint: MangaStyle.labelYellow, small: true)
-                        } else if MujiStyle.isActive {
-                            MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
-                        } else {
-                            HStack(spacing: 6) {
-                                MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
-                                Text(LocalizedStringKey("artist_play_all"))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.monologueTextPrimary)
-                            }
+                        MonologueIcon(icon: .trash, size: 16, color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : .monologueTextPrimary))
+                    }
+                    .disabled(playerManager.history.isEmpty)
+                }
+                
+                Button {
+                    if let first = displaySongs.first {
+                        playerManager.playReplacingContext(song: first, in: displaySongs)
+                    }
+                } label: {
+                    if MangaStyle.isActive {
+                        MangaLabel(text: String(localized: "artist_play_all"), tint: MangaStyle.labelYellow, small: true)
+                    } else if MujiStyle.isActive {
+                        MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
+                    } else {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
+                            Text(LocalizedStringKey("artist_play_all"))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(.monologueTextPrimary)
                         }
                     }
-                    .disabled(displaySongs.isEmpty)
                 }
+                .disabled(displaySongs.isEmpty)
             }
+        }
         .alert(String(localized: "清空播放历史"), isPresented: $showClearConfirm) {
             Button(String(localized: "取消"), role: .cancel) { }
             Button(String(localized: "清空"), role: .destructive) {

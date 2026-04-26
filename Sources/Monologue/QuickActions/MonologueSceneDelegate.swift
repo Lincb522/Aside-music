@@ -89,7 +89,7 @@ enum MonologueQuickActionsManager {
                 comment: ""
             ),
             localizedSubtitle: nil,
-            icon: UIApplicationShortcutIcon(systemImageName: "gamecontroller.fill"),
+            icon: UIApplicationShortcutIcon(type: .play),
             userInfo: nil
         )
 
@@ -97,7 +97,7 @@ enum MonologueQuickActionsManager {
             type: MonologueQuickActionType.openPlayer,
             localizedTitle: NSLocalizedString("quick_action_open_player", comment: ""),
             localizedSubtitle: nil,
-            icon: UIApplicationShortcutIcon(systemImageName: "music.note"),
+            icon: UIApplicationShortcutIcon(type: .play),
             userInfo: nil
         )
 

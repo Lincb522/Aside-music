@@ -164,11 +164,11 @@ extension ArtistDetailView {
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(MangaStyle.ink, lineWidth: 2.4)
+                    .stroke(MangaStyle.strokeInk, lineWidth: 2.4)
             )
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(MangaStyle.ink)
+                    .fill(MangaStyle.strokeInk)
                     .offset(x: 3, y: 3)
             )
 
@@ -284,7 +284,7 @@ extension ArtistDetailView {
     private var mangaInfoSection: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(spacing: 8) {
-                MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 23)
+                MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 23, foreground: MangaStyle.ink)
                 MangaLabel(text: "ARTIST", tint: MangaStyle.labelYellow, small: true)
             }
 
@@ -296,7 +296,7 @@ extension ArtistDetailView {
 
             HStack(spacing: 8) {
                 if viewModel.fansCount > 0 {
-                    MangaLabel(text: formatFansCount(viewModel.fansCount), tint: MangaStyle.bubbleBlue, small: true)
+                    MangaLabel(text: formatFansCount(viewModel.fansCount), tint: MangaStyle.bubbleBlue, small: true, foreground: MangaStyle.ink)
                 }
 
                 if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
@@ -304,7 +304,7 @@ extension ArtistDetailView {
                 }
 
                 if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
-                    MangaLabel(text: String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize), tint: MangaStyle.paperCool, small: true)
+                    MangaLabel(text: String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize), tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
                 }
             }
 
@@ -327,17 +327,16 @@ extension ArtistDetailView {
                 }
             }) {
                 HStack(spacing: 8) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 12, weight: .black))
+                    MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
                     Text(LocalizedStringKey("artist_play_all"))
                         .font(MangaStyle.labelFont(13, weight: .black))
                 }
-                .foregroundColor(MangaStyle.ink)
+                .foregroundColor(MangaStyle.strokeInk)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
                 .background(Capsule().fill(MangaStyle.labelYellow))
-                .overlay(Capsule().stroke(MangaStyle.ink, lineWidth: 1.5))
-                .background(Capsule().fill(MangaStyle.ink).offset(x: 2, y: 2))
+                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
+                .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
             .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
@@ -489,19 +488,19 @@ extension ArtistDetailView {
                     if isSelected {
                         ZStack {
                             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .fill(MangaStyle.ink)
+                                .fill(MangaStyle.strokeInk)
                                 .offset(x: 1.5, y: 1.5)
                             RoundedRectangle(cornerRadius: 13, style: .continuous)
                                 .fill(tint)
                             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .stroke(MangaStyle.ink, lineWidth: 1.4)
+                                .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
                         }
                     } else {
                         RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .fill(MangaStyle.bubbleWhite.opacity(0.6))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                    .stroke(MangaStyle.ink.opacity(0.28), lineWidth: 1)
+                                    .stroke(MangaStyle.strokeInk.opacity(0.28), lineWidth: 1)
                             )
                     }
                 }
@@ -666,7 +665,7 @@ extension ArtistDetailView {
                     .overlay {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(MangaStyle.ink, lineWidth: 1.5)
+                                .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
@@ -778,7 +777,7 @@ extension ArtistDetailView {
                                     .overlay {
                                         if MangaStyle.isActive {
                                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                                .stroke(MangaStyle.ink, lineWidth: 1.5)
+                                                .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
                                         } else if MujiStyle.isActive {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                                 .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)

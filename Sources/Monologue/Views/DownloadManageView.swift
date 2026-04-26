@@ -18,8 +18,7 @@ struct DownloadManageView: View {
     
     var body: some View {
         ZStack {
-            MonologueBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
             
             VStack(spacing: 0) {
                 tabBar
@@ -32,7 +31,7 @@ struct DownloadManageView: View {
                 }
             }
         }
-        .navigationTitle(String(localized: "下载管理"))
+        .themedNavigationChrome(title: String(localized: "下载管理"), eyebrow: "DOWNLOAD", icon: .download)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -107,6 +106,8 @@ struct DownloadManageView: View {
             tabButton(title: String(localized: "已下载"), index: 0)
             tabButton(title: String(localized: "下载中"), index: 1)
         }
+        .padding(ThemedPageStyle.isActive ? 4 : 0)
+        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 14, elevated: false)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
     
@@ -114,19 +115,52 @@ struct DownloadManageView: View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: ThemedPageStyle.isActive ? 0 : 8) {
                 Text(title)
-                    .font(.system(size: 15, weight: selectedTab == index ? .bold : .medium, design: .rounded))
-                    .foregroundColor(selectedTab == index ? .monologueTextPrimary : .monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: selectedTab == index ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: selectedTab == index ? .medium : .regular) : .system(size: 15, weight: selectedTab == index ? .bold : .medium, design: .rounded)))
+                    .foregroundColor(tabTextColor(isSelected: selectedTab == index))
                 
-                Rectangle()
-                    .fill(selectedTab == index ? Color.monologueTextPrimary : Color.clear)
-                    .frame(height: 2)
-                    .frame(width: 40)
+                if !ThemedPageStyle.isActive {
+                    Rectangle()
+                        .fill(selectedTab == index ? Color.monologueTextPrimary : Color.clear)
+                        .frame(height: 2)
+                        .frame(width: 40)
+                }
+            }
+            .frame(height: ThemedPageStyle.isActive ? 38 : 44)
+            .frame(maxWidth: .infinity)
+            .background(tabBackground(isSelected: selectedTab == index))
+            .clipShape(Capsule())
+            .overlay {
+                if MangaStyle.isActive && selectedTab == index {
+                    Capsule()
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                }
             }
         }
         .frame(maxWidth: .infinity)
         .buttonStyle(.plain)
+    }
+
+    private func tabTextColor(isSelected: Bool) -> Color {
+        if MangaStyle.isActive {
+            return isSelected ? MangaStyle.ink : .monologueTextSecondary
+        } else if MujiStyle.isActive {
+            return isSelected ? MujiStyle.paper : .monologueTextSecondary
+        } else {
+            return isSelected ? .monologueTextPrimary : .monologueTextSecondary
+        }
+    }
+
+    private func tabBackground(isSelected: Bool) -> Color {
+        guard ThemedPageStyle.isActive, isSelected else { return .clear }
+        if MangaStyle.isActive {
+            return MangaStyle.labelYellow
+        } else if MujiStyle.isActive {
+            return MujiStyle.clay
+        } else {
+            return .clear
+        }
     }
     
     // MARK: - 已下载列表
@@ -186,15 +220,19 @@ struct DownloadManageView: View {
                                 .foregroundColor(.monologueTextSecondary)
                         }
                     }
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
                     .padding(.vertical, 12)
+                    .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
+                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
                     
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                             ForEach(songs, id: \.id) { song in
                                 downloadedRow(song: song)
                             }
                         }
+                        .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                        .padding(.top, ThemedPageStyle.isActive ? 4 : 0)
                         .padding(.bottom, 120)
                     }
                     .scrollIndicators(.hidden)
@@ -208,9 +246,11 @@ struct DownloadManageView: View {
         
         return HStack(spacing: 12) {
             if isEditing {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundColor(isSelected ? .monologueAccentBlue : .monologueTextSecondary.opacity(0.4))
+                MonologueSymbolIcon(
+                    name: isSelected ? "checkmark.circle.fill" : "circle",
+                    size: 22,
+                    color: isSelected ? .monologueAccentBlue : .monologueTextSecondary.opacity(0.4)
+                )
                     .animation(.easeInOut(duration: 0.15), value: isSelected)
             }
             
@@ -239,12 +279,12 @@ struct DownloadManageView: View {
                     if let badge = song.quality.badgeText {
                         Text(badge)
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(MangaStyle.isActive ? MusicSource.netease.themedBadgeColor : .monologueTextPrimary)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 2)
-                                    .stroke(Color.monologueTextPrimary, lineWidth: 0.5)
+                                RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
+                                    .stroke(MangaStyle.isActive ? MusicSource.netease.themedBadgeColor : Color.monologueTextPrimary, lineWidth: 0.5)
                             )
                     }
                     Text("\(song.artistName) · \(song.fileSizeText)")
@@ -256,8 +296,13 @@ struct DownloadManageView: View {
             
             Spacer()
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 8)
+        .themedOnlyPageSurface(
+            cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
+            elevated: isSelected,
+            mangaTint: isSelected ? MangaStyle.labelYellow.opacity(0.88) : MangaStyle.bubbleWhite
+        )
         .contentShape(Rectangle())
         .onTapWithHaptic {
             if isEditing {
@@ -301,11 +346,13 @@ struct DownloadManageView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                         ForEach(tasks, id: \.id) { song in
                             downloadingRow(song: song)
                         }
                     }
+                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                    .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
@@ -366,8 +413,9 @@ struct DownloadManageView: View {
             }
             .buttonStyle(ScaleButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 8)
+        .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
     }
     
     // MARK: - Actions

@@ -27,7 +27,7 @@ struct AboutView: View {
 
     var body: some View {
         ZStack {
-            MonologueBackground()
+            ThemedPageBackground()
                 .ignoresSafeArea()
 
             ScrollView {
@@ -57,14 +57,14 @@ struct AboutView: View {
                     footerSection
                         .opacity(cardsVisible ? 1 : 0)
 
-                    Spacer(minLength: 100)
+                    FloatingBarBottomSpacer()
                 }
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 20)
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle(String(localized: "关于"))
+        .themedNavigationChrome(title: String(localized: "关于"), eyebrow: "ABOUT", icon: .infoCircle)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {

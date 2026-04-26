@@ -162,7 +162,7 @@ enum MonologueSheetThemeStyle {
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MangaStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive
     }
 
     static var shadowColor: Color {
@@ -232,7 +232,7 @@ struct MonologueSheetHandleView: View {
                 .frame(width: 48, height: 7)
                 .overlay(
                     Capsule()
-                        .stroke(MangaStyle.ink, lineWidth: 1.4)
+                        .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
                 )
         } else if MujiStyle.isActive {
             Capsule()
@@ -337,7 +337,7 @@ struct MonologueSheetSurfaceOverlay: View {
         ZStack(alignment: .top) {
             if MangaStyle.isActive {
                 shape
-                    .strokeBorder(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                    .strokeBorder(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
 
                 if !isInteractiveMotionActive {
                     shape

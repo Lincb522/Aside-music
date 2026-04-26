@@ -3,6 +3,7 @@ import Foundation
 enum AppBrandStyle: String, CaseIterable, Identifiable {
     case monologue
     case aurora
+    case musicCat
 
     var id: String { rawValue }
 
@@ -12,6 +13,8 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return String(localized: "settings_app_brand_monologue")
         case .aurora:
             return String(localized: "settings_app_brand_aurora")
+        case .musicCat:
+            return String(localized: "settings_app_brand_music_cat")
         }
     }
 
@@ -21,6 +24,8 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return String(localized: "settings_app_brand_monologue_desc")
         case .aurora:
             return String(localized: "settings_app_brand_aurora_desc")
+        case .musicCat:
+            return String(localized: "settings_app_brand_music_cat_desc")
         }
     }
 
@@ -34,6 +39,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "AuroraLogoLight"
         case (.aurora, .dark):
             return "AuroraLogoDark"
+        case (.musicCat, .light):
+            return "MusicCatLogoLight"
+        case (.musicCat, .dark):
+            return "MusicCatLogoDark"
         }
     }
 
@@ -47,6 +56,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "AuroraPreviewLight"
         case (.aurora, .dark):
             return "AuroraPreviewDark"
+        case (.musicCat, .light):
+            return "MusicCatPreviewLight"
+        case (.musicCat, .dark):
+            return "MusicCatPreviewDark"
         }
     }
 
@@ -60,6 +73,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "AuroraAppIcon"
         case (.aurora, .dark):
             return "AuroraDarkAppIcon"
+        case (.musicCat, .light):
+            return "MusicCatAppIcon"
+        case (.musicCat, .dark):
+            return "MusicCatDarkAppIcon"
         }
     }
 
@@ -73,6 +90,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "F4F4F5"
         case (.aurora, .dark):
             return "111827"
+        case (.musicCat, .light):
+            return "FFFFFF"
+        case (.musicCat, .dark):
+            return "08080A"
         }
     }
 
@@ -86,6 +107,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return ["FFFFFF", "EEF2F8"]
         case (.aurora, .dark):
             return ["1A2234", "0E1524"]
+        case (.musicCat, .light):
+            return ["FFFFFF", "F4F4F4"]
+        case (.musicCat, .dark):
+            return ["141414", "050506"]
         }
     }
 
@@ -108,6 +133,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "FFFFFF"
         case (.aurora, .dark):
             return "7C90FF"
+        case (.musicCat, .light):
+            return "FFFFFF"
+        case (.musicCat, .dark):
+            return "F4F1E8"
         }
     }
 }

@@ -10,6 +10,10 @@ struct MinimalMiniPlayer: View {
     
     @State private var showingTabs = false
 
+    private var shellCornerRadius: CGFloat {
+        MangaStyle.isActive ? 20 : (MujiStyle.isActive ? 16 : 18)
+    }
+
     private var subtitleText: String {
         if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
             return text
@@ -36,37 +40,38 @@ struct MinimalMiniPlayer: View {
         .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.monologueFloatingBarFill)
+            RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
         )
-        .monologueGlass(cornerRadius: 18)
+        .monologueGlass(cornerRadius: shellCornerRadius)
         .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 15)
-                .onEnded { value in
-                    let threshold: CGFloat = 15
-                    let maxTabSwitchDistance: CGFloat = 44
-                    // 只处理水平滑动（宽度大于高度的 1.5 倍）
-                    guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
-
-                    // 迷你播放器可见时，较长的横滑交给切歌手势处理
-                    if player.currentSong != nil && !showingTabs,
-                       abs(value.translation.width) > maxTabSwitchDistance {
-                        return
-                    }
-                    
-                    withAnimation(MonologueAnimation.panelToggle) {
-                        if value.translation.width < -threshold {
-                            // 左滑显示 Tab
-                            showingTabs = true
-                        } else if value.translation.width > threshold {
-                            // 右滑显示播放器
-                            showingTabs = false
-                        }
-                    }
-                }
-        )
+        .simultaneousGesture(panelSwitchGesture)
         .animation(MonologueAnimation.panelToggle, value: showingTabs)
+    }
+
+    private var panelSwitchGesture: some Gesture {
+        DragGesture(minimumDistance: 15, coordinateSpace: .local)
+            .onEnded { value in
+                guard player.currentSong != nil else { return }
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+
+                let shortSwitchLimit: CGFloat = 44
+                let threshold: CGFloat = 15
+
+                if !showingTabs {
+                    guard value.translation.width < -threshold,
+                          abs(value.translation.width) <= shortSwitchLimit else { return }
+                    withAnimation(MonologueAnimation.panelToggle) {
+                        showingTabs = true
+                    }
+                    return
+                }
+
+                guard value.translation.width > threshold else { return }
+                withAnimation(MonologueAnimation.panelToggle) {
+                    showingTabs = false
+                }
+            }
     }
     
     // MARK: - 迷你播放器内容
@@ -95,17 +100,17 @@ struct MinimalMiniPlayer: View {
             }
             
             VStack(alignment: .leading, spacing: 2) {
-                MarqueeText(
-                    text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: String(localized: "未在播放")),
-                    font: .system(size: 13, weight: .semibold, design: .rounded),
-                    color: .monologueTextPrimary,
-                    speed: 25
-                )
-                .frame(height: 16)
+                    MarqueeText(
+                        text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: String(localized: "未在播放")),
+                        font: titleFont,
+                        color: titleColor,
+                        speed: 25
+                    )
+                    .frame(height: 16)
                 
                 Text(subtitleText)
-                    .font(.rounded(size: 11, weight: .medium))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(subtitleFont)
+                    .foregroundColor(subtitleColor)
                     .lineLimit(1)
                     .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
             }
@@ -113,36 +118,46 @@ struct MinimalMiniPlayer: View {
             Spacer(minLength: 4)
             
             // 控制按钮
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                transportButton(icon: .previous, accessibilityLabel: String(localized: "上一首")) {
+                    player.previous()
+                }
+
                 Button(action: { player.togglePlayPause() }) {
                     ZStack {
                         Circle()
-                            .fill(Color.monologueIconBackground)
+                            .fill(controlFill)
                             .frame(width: 34, height: 34)
+                            .overlay(controlStroke)
                         
                         if player.isLoading {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .monologueIconForeground))
+                                .progressViewStyle(CircularProgressViewStyle(tint: controlForeground))
                                 .scaleEffect(0.55)
                         } else {
                             MonologueIcon(
                                 icon: player.isPlaying ? .pause : .play,
                                 size: 14,
-                                color: .monologueIconForeground
+                                color: controlForeground
                             )
                         }
                     }
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
+
+                transportButton(icon: .next, accessibilityLabel: NSLocalizedString("playback_next_track", comment: "")) {
+                    player.next()
+                }
                 
                 Button(action: { showPlaylist.toggle() }) {
-                    MonologueIcon(icon: .list, size: 16, color: .monologueTextPrimary.opacity(0.7))
-                        .frame(width: 34, height: 34)
+                    MonologueIcon(icon: .list, size: 15, color: transportControlColor, lineWidth: 1.7)
+                        .frame(width: 30, height: 34)
+                        .background(compactControlBackground)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
             }
         }
-        .swipeToSkip()
         .onTapWithHaptic {
             if player.currentSong != nil {
                 openPlayer()
@@ -165,22 +180,37 @@ struct MinimalMiniPlayer: View {
     
     private var defaultVinylCover: some View {
         ZStack {
-            Circle()
-                .fill(Color(hex: "1A1A1A"))
+            if MangaStyle.isActive {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(MangaStyle.paperCool)
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
+
+                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 18, foreground: MangaStyle.strokeInk)
+            } else if MujiStyle.isActive {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(MujiStyle.paperWarm)
+                    .overlay(MujiPaperTexture(opacity: 0.1).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+
+                MonologueIcon(icon: .musicNote, size: 13, color: MujiStyle.inkSoft, lineWidth: 1.5)
+            } else {
+                Circle()
+                    .fill(Color(hex: "1A1A1A"))
             
-            Circle()
-                .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
-                .padding(4)
-            Circle()
-                .stroke(Color.white.opacity(0.05), lineWidth: 0.5)
-                .padding(8)
-            
-            Circle()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 14, height: 14)
-                .overlay(
-                    MonologueIcon(icon: .musicNote, size: 8, color: .white.opacity(0.6))
-                )
+                Circle()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                    .padding(4)
+                Circle()
+                    .stroke(Color.white.opacity(0.05), lineWidth: 0.5)
+                    .padding(8)
+                
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 14, height: 14)
+                    .overlay(
+                        MonologueIcon(icon: .musicNote, size: 8, color: .white.opacity(0.6))
+                    )
+            }
         }
     }
     
@@ -199,13 +229,19 @@ struct MinimalMiniPlayer: View {
                         MonologueIcon(
                             icon: tab.monologueIcon,
                             size: 18,
-                            color: currentTab == tab ? .monologueAccent : .monologueTextSecondary.opacity(0.4)
+                            color: tabForeground(tab, selected: currentTab == tab)
                         )
                         Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
-                            .font(.system(size: 9, weight: currentTab == tab ? .semibold : .medium))
-                            .foregroundColor(currentTab == tab ? .monologueAccent : .monologueTextSecondary.opacity(0.4))
+                            .font(tabFont(selected: currentTab == tab))
+                            .foregroundColor(tabForeground(tab, selected: currentTab == tab))
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background {
+                        if ThemedPageStyle.isActive && currentTab == tab {
+                            tabSelectionBackground(tab)
+                        }
+                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -216,7 +252,152 @@ struct MinimalMiniPlayer: View {
     // MARK: - 辅助方法
     
     private func sourceIndicator(icon: MonologueIcon.IconType) -> some View {
-        MonologueIcon(icon: icon, size: 12, color: .white, lineWidth: 1.6)
+        MonologueIcon(icon: icon, size: 12, color: sourceIndicatorForeground, lineWidth: 1.6)
+    }
+
+    private func transportButton(
+        icon: MonologueIcon.IconType,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            HapticManager.shared.light()
+            action()
+        } label: {
+            MonologueIcon(icon: icon, size: 14, color: transportControlColor, lineWidth: 1.7)
+                .frame(width: 30, height: 34)
+                .background(compactControlBackground)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
+        .accessibilityLabel(Text(accessibilityLabel))
+    }
+
+    private var titleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 13, weight: .semibold, design: .rounded)
+    }
+
+    private var subtitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
+        return .rounded(size: 11, weight: .medium)
+    }
+
+    private var titleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var subtitleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var controlFill: Color {
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.78) }
+        return .monologueIconBackground
+    }
+
+    private var controlForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueIconForeground
+    }
+
+    private var transportControlColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return titleColor.opacity(0.72)
+    }
+
+    @ViewBuilder
+    private var compactControlBackground: some View {
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(MangaStyle.bubbleWhite.opacity(0.72))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(MangaStyle.strokeInk.opacity(0.42), lineWidth: 1.1)
+                )
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.54))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(MujiStyle.hairline.opacity(0.28), lineWidth: 0.6)
+                )
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private var controlStroke: some View {
+        if MangaStyle.isActive {
+            Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.6)
+        } else if MujiStyle.isActive {
+            Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+        }
+    }
+
+    private var sourceIndicatorForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        return .white
+    }
+
+    private func tabFont(selected: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(9, weight: selected ? .black : .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: selected ? .semibold : .medium) }
+        return .system(size: 9, weight: selected ? .semibold : .medium)
+    }
+
+    private func tabForeground(_ tab: Tab, selected: Bool) -> Color {
+        guard selected else {
+            if MangaStyle.isActive { return MangaStyle.inkMuted }
+            if MujiStyle.isActive { return MujiStyle.inkMuted }
+            return .monologueTextSecondary.opacity(0.4)
+        }
+
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return mujiTabTint(tab) }
+        return .monologueAccent
+    }
+
+    @ViewBuilder
+    private func tabSelectionBackground(_ tab: Tab) -> some View {
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(mangaTabTint(tab).opacity(0.86))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.5))
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.74))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.34), lineWidth: 0.6))
+        }
+    }
+
+    private func mangaTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return MangaStyle.labelYellow
+        case .podcast: return MangaStyle.bubbleBlue
+        case .library: return MangaStyle.mint
+        case .profile: return MangaStyle.bubblePink
+        }
+    }
+
+    private func mujiTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return MujiStyle.clay
+        case .podcast: return MujiStyle.tea
+        case .library: return MujiStyle.indigo
+        case .profile: return MujiStyle.straw
+        }
     }
     
     private func openPlayer() {

@@ -39,8 +39,7 @@ struct EQSettingsView: View {
     var body: some View {
         ZStack {
             MonologueSheetAwareBackground {
-                MonologueBackground()
-                    .ignoresSafeArea()
+                ThemedSettingsBackground()
             }
 
             VStack(spacing: 0) {
@@ -76,7 +75,7 @@ struct EQSettingsView: View {
                             saveButton
                         }
 
-                        Spacer(minLength: 120)
+                        FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .iPadContentWidth()
@@ -116,7 +115,7 @@ struct EQSettingsView: View {
             }
             */
         }
-        .navigationTitle(LocalizedStringKey("eq_title"))
+        .themedNavigationChrome(title: String(localized: "eq_title"), eyebrow: "EQ", icon: .equalizer)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -740,7 +739,7 @@ struct EQSettingsView: View {
         NavigationStack {
             ZStack {
                 MonologueSheetAwareBackground {
-                    MonologueBackground()
+                    ThemedPageBackground()
                         .ignoresSafeArea()
                 }
 

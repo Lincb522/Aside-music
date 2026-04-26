@@ -22,7 +22,7 @@ struct QQPlaylistImportView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
@@ -35,7 +35,7 @@ struct QQPlaylistImportView: View {
                     }
                 }
             }
-            .navigationTitle(String(localized: "QCM歌单导入"))
+            .themedNavigationChrome(title: String(localized: "QCM歌单导入"), eyebrow: "IMPORT", icon: .download)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -66,15 +66,24 @@ struct QQPlaylistImportView: View {
                 Spacer().frame(height: 40)
                 
                 ZStack {
-                    Circle()
-                        .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 18 : 24, style: .continuous)
+                        .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
                         .frame(width: 80, height: 80)
+                        .overlay {
+                            if MangaStyle.isActive {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                            } else if MujiStyle.isActive {
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                            }
+                        }
                     MonologueIcon(icon: .musicNoteList, size: 32, color: .monologueTextSecondary.opacity(0.5))
                 }
                 
                 VStack(spacing: 8) {
                     Text("导入 QCM歌单")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(21, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .medium) : .system(size: 20, weight: .bold, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                     Text("输入 QCM 号或用户名可添加用户歌单")
                         .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -95,14 +104,14 @@ struct QQPlaylistImportView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
-                    .monologueGlass(cornerRadius: 14)
+                    .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : 14, elevated: false)
                     
                     Button {
                         Task { await smartSearch() }
                     } label: {
                         MonologueIcon(icon: .search, size: 18, color: .monologueTextPrimary)
                             .frame(width: 48, height: 48)
-                            .monologueGlass(cornerRadius: 14)
+                            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : 14, elevated: true, mangaTint: MangaStyle.labelYellow)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                     .disabled(uin.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -211,7 +220,7 @@ struct QQPlaylistImportView: View {
                 MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
             }
             .padding(12)
-            .monologueGlass(cornerRadius: 14)
+            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : 14, elevated: false)
         }
         .buttonStyle(MonologueBouncingButtonStyle())
         .padding(.horizontal, 24)
@@ -254,21 +263,21 @@ struct QQPlaylistImportView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             
-            List {
-                ForEach(playlists) { playlist in
-                    Button {
-                        toggleSelection(playlist.id)
-                    } label: {
-                        qqPlaylistRow(playlist)
+            ScrollView {
+                LazyVStack(spacing: ThemedPageStyle.listSpacing) {
+                    ForEach(playlists) { playlist in
+                        Button {
+                            toggleSelection(playlist.id)
+                        } label: {
+                            qqPlaylistRow(playlist)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
                 }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, ThemedPageStyle.isActive ? 6 : 4)
+                .padding(.bottom, 120)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
         }
         .disabled(isImporting)
@@ -311,18 +320,22 @@ struct QQPlaylistImportView: View {
             
             ZStack {
                 Circle()
-                    .stroke(isSelected ? Color.accentColor : Color.monologueTextSecondary.opacity(0.3), lineWidth: 2)
+                    .stroke(isSelected ? MusicSource.qqmusic.themedBadgeColor : Color.monologueTextSecondary.opacity(0.3), lineWidth: MangaStyle.isActive ? 2.2 : 2)
                     .frame(width: 24, height: 24)
                 if isSelected {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(MusicSource.qqmusic.themedBadgeColor)
                         .frame(width: 24, height: 24)
-                    MonologueIcon(icon: .checkmark, size: 12, color: .white)
+                    MonologueIcon(icon: .checkmark, size: 12, color: MangaStyle.isActive ? MangaStyle.ink : .white)
                 }
             }
         }
         .padding(12)
-        .monologueGlass(cornerRadius: 16)
+        .themedPageSurface(
+            cornerRadius: MangaStyle.isActive ? 16 : 14,
+            elevated: isSelected,
+            mangaTint: isSelected ? MangaStyle.labelYellow.opacity(0.92) : MangaStyle.bubbleWhite
+        )
     }
     
     private var importProgressBar: some View {

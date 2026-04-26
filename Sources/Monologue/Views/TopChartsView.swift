@@ -21,7 +21,7 @@ struct TopChartsView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
             }
 
             if isLoading {
@@ -51,8 +51,8 @@ struct TopChartsView: View {
                                     MonologueIcon(icon: .chart, size: 23, color: MangaStyle.ink, lineWidth: 2)
                                 }
                                 .frame(width: 48, height: 48)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth))
-                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.ink).offset(x: 2.5, y: 2.5))
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
                             }
                         } else if MujiStyle.isActive {
                             MujiPageHeader(
@@ -102,7 +102,7 @@ struct TopChartsView: View {
                     .overlay {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(MangaStyle.ink, lineWidth: MangaStyle.fineStrokeWidth)
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
@@ -118,7 +118,7 @@ struct TopChartsView: View {
                         MonologueIcon(
                             icon: isSubscribed ? .liked : .like,
                             size: 14,
-                            color: MangaStyle.isActive ? (isSubscribed ? MangaStyle.red : MangaStyle.ink) : (MujiStyle.isActive ? (isSubscribed ? MujiStyle.red : MujiStyle.inkSoft) : (isSubscribed ? .red : .primary)),
+                            color: MangaStyle.isActive ? (isSubscribed ? MangaStyle.red : MangaStyle.strokeInk) : (MujiStyle.isActive ? (isSubscribed ? MujiStyle.red : MujiStyle.inkSoft) : (isSubscribed ? .red : .primary)),
                             lineWidth: 1.4
                         )
                         .padding(6)

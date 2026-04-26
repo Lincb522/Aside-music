@@ -26,13 +26,7 @@ struct QishuiQualityPickerSheet: View {
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
 
-                Text("QSM")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueIconForeground)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.monologueIconBackground)
-                    .cornerRadius(4)
+                PlatformBadgeLabel(text: "QSM", source: .qishui)
 
                 Spacer()
 

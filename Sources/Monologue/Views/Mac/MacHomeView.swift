@@ -13,7 +13,7 @@ struct MacHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                MonologueBackground().ignoresSafeArea()
+                ThemedPageBackground().ignoresSafeArea()
 
                 if viewModel.isLoading {
                     MonologueLoadingView(text: "LOADING HOME")

@@ -27,11 +27,11 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    var iconName: String {
+    var iconType: MonologueIcon.IconType {
         switch self {
-        case .default:   return "paintbrush"
-        case .muji:      return "leaf"
-        case .manga:     return "book.fill"
+        case .default:   return .playerTheme
+        case .muji:      return .catLife
+        case .manga:     return .catBook
         }
     }
 }

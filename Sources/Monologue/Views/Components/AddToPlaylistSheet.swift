@@ -81,10 +81,10 @@ struct AddToPlaylistSheet: View {
             .scrollIndicators(.hidden)
             .background {
                 MonologueSheetAwareBackground {
-                    MonologueBackground()
+                    ThemedPageBackground()
                 }
             }
-            .navigationTitle(LocalizedStringKey("add_to_playlist_title"))
+            .themedNavigationChrome(title: String(localized: "add_to_playlist_title"), eyebrow: "PLAYLIST", icon: .addToQueue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -156,7 +156,7 @@ struct AddToPlaylistSheet: View {
                     HStack(spacing: 8) {
                         PlaylistPickerStatusBadge(
                             text: song.musicSource.widgetDisplayName,
-                            tint: song.isQQMusic ? .green : .red
+                            tint: song.musicSource.themedBadgeColor
                         )
 
                         if isFavorite {

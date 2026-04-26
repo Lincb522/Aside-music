@@ -311,8 +311,8 @@ extension Game2048PlayerLayout {
     private func scoreHeader(cell: CGFloat) -> some View {
         HStack(alignment: .top) {
             Button { dismiss() } label: {
-                Image(systemName: "chevron.down").font(.system(size: 14, weight: .bold))
-                    .foregroundColor(headerText.opacity(0.6)).frame(width: 32, height: 32)
+                MonologueSymbolIcon(name: "chevron.down", size: 15, color: headerText.opacity(0.6))
+                    .frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
             }.buttonStyle(MonologueBouncingButtonStyle())
 
@@ -333,8 +333,8 @@ extension Game2048PlayerLayout {
             }
 
             Button { showMoreMenu.toggle() } label: {
-                Image(systemName: "ellipsis").font(.system(size: 14, weight: .bold))
-                    .foregroundColor(headerText.opacity(0.6)).frame(width: 32, height: 32)
+                MonologueIcon(icon: .more, size: 15, color: headerText.opacity(0.6), lineWidth: 1.5)
+                    .frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
             }.buttonStyle(MonologueBouncingButtonStyle())
         }
@@ -469,9 +469,7 @@ extension Game2048PlayerLayout {
             }
 
             // 半透明播放/暂停按钮
-            Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundColor(.white.opacity(0.85))
+            MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 27, color: .white.opacity(0.85), lineWidth: 2)
                 .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
 
             VStack { Spacer(); HStack { Spacer()
@@ -526,7 +524,7 @@ extension Game2048PlayerLayout {
                         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: lyricVM.currentLineIndex)
                 } else {
                     VStack(spacing: 4) {
-                        Image(systemName: "text.quote").font(.system(size: 20, weight: .medium))
+                        MonologueSymbolIcon(name: "text.quote", size: 21, color: tileFg(256).opacity(0.4))
                         Text("歌词").font(.system(size: 11, weight: .semibold, design: .rounded))
                     }.foregroundColor(tileFg(256).opacity(0.4))
                 }
@@ -560,9 +558,7 @@ extension Game2048PlayerLayout {
             LikeManager.shared.toggleLike(songId: s.id, isQQMusic: s.isQQMusic, song: s)
         } label: {
             gameTile(value: 4, cell: cell) {
-                Image(systemName: isLiked ? "heart.fill" : "heart")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(isLiked ? .red : tileFg(4))
+                MonologueIcon(icon: isLiked ? .liked : .like, size: 17, color: isLiked ? .red : tileFg(4), lineWidth: 1.8)
                     .symbolEffect(.bounce, value: isLiked)
             }
         }.buttonStyle(MonologueBouncingButtonStyle())
@@ -572,8 +568,7 @@ extension Game2048PlayerLayout {
     private func prevTile(cell: CGFloat) -> some View {
         Button(action: { player.previous() }) {
             gameTile(value: 8, cell: cell) {
-                Image(systemName: "backward.fill").font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tileFg(8))
+                MonologueIcon(icon: .previous, size: 17, color: tileFg(8), lineWidth: 1.8)
             }
         }.buttonStyle(MonologueBouncingButtonStyle())
     }
@@ -582,8 +577,7 @@ extension Game2048PlayerLayout {
     private func nextTile(cell: CGFloat) -> some View {
         Button(action: { player.next() }) {
             gameTile(value: 16, cell: cell) {
-                Image(systemName: "forward.fill").font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tileFg(16))
+                MonologueIcon(icon: .next, size: 17, color: tileFg(16), lineWidth: 1.8)
             }
         }.buttonStyle(MonologueBouncingButtonStyle())
     }
@@ -626,7 +620,7 @@ extension Game2048PlayerLayout {
                 Text("64").font(.system(size: 8, weight: .black, design: .rounded))
                     .foregroundColor(tileFg(64).opacity(0.25)).padding(4)
                 VStack(spacing: 2) {
-                    Image(systemName: "waveform").font(.system(size: 14, weight: .bold))
+                    MonologueIcon(icon: .waveform, size: 15, color: tileFg(64), lineWidth: 1.8)
                     Text(player.qualityButtonText).font(.system(size: 9, weight: .heavy, design: .rounded))
                 }.foregroundColor(tileFg(64)).frame(maxWidth: .infinity, maxHeight: .infinity)
             }.frame(width: cell, height: cell)
@@ -693,7 +687,7 @@ extension Game2048PlayerLayout {
             bottomBtn(icon: "paintpalette", label: "16") { showThemePicker = true }
             Spacer()
             HStack(spacing: 3) {
-                Image(systemName: "hand.draw").font(.system(size: 10, weight: .medium))
+                MonologueSymbolIcon(name: "hand.draw", size: 11, color: headerText.opacity(0.25))
                 Text("滑动切歌").font(.system(size: 10, weight: .medium, design: .rounded))
             }.foregroundColor(headerText.opacity(0.25))
         }
@@ -703,7 +697,7 @@ extension Game2048PlayerLayout {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 2) {
-                Image(systemName: icon).font(.system(size: 13, weight: .semibold))
+                MonologueSymbolIcon(name: icon, size: 14, color: dim ? headerText.opacity(0.2) : headerText.opacity(0.6))
                 Text(label).font(.system(size: 8, weight: .heavy, design: .rounded)).opacity(0.45)
             }
             .foregroundColor(dim ? headerText.opacity(0.2) : headerText.opacity(0.6))
@@ -731,8 +725,8 @@ extension Game2048PlayerLayout {
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { showLyrics = false }
                     } label: {
-                        Image(systemName: "xmark").font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white.opacity(0.6)).frame(width: 28, height: 28)
+                        MonologueIcon(icon: .close, size: 14, color: .white.opacity(0.6), lineWidth: 1.6)
+                            .frame(width: 28, height: 28)
                             .background(Circle().fill(Color.white.opacity(0.12)))
                     }
                 }.padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 4)

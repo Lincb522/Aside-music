@@ -24,7 +24,7 @@ struct RadioDetailView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else {
-                MonologueBackground()
+                ThemedPageBackground()
                     .ignoresSafeArea()
             }
 
@@ -84,7 +84,7 @@ struct RadioDetailView: View {
                 viewModel.fetchDetail()
             }
             .font(MangaStyle.isActive ? MangaStyle.labelFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded)))
-            .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : .monologueIconForeground))
+            .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : .monologueIconForeground))
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
             .background(MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueIconBackground), in: Capsule())
@@ -106,7 +106,7 @@ struct RadioDetailView: View {
                 .overlay {
                     if MangaStyle.isActive {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(MangaStyle.ink, lineWidth: MangaStyle.strokeWidth)
+                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                     } else if MujiStyle.isActive {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
@@ -115,7 +115,7 @@ struct RadioDetailView: View {
                 .background {
                     if MangaStyle.isActive {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(MangaStyle.ink)
+                            .fill(MangaStyle.strokeInk)
                             .offset(x: 3, y: 3)
                     }
                 }
