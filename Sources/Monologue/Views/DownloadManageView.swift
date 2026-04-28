@@ -118,7 +118,7 @@ struct DownloadManageView: View {
         }
         .padding(ThemedPageStyle.isActive ? 4 : 0)
         .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 20 : 14), elevated: false)
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
     }
     
     private func tabButton(title: String, index: Int) -> some View {

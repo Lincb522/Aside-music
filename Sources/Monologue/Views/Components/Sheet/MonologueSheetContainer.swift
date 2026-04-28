@@ -252,7 +252,7 @@ struct MonologueSheetHandleView: View {
                 Capsule()
                     .fill(Color.clear)
                     .frame(width: 54, height: 12)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, lightweight: true))
 
                 Capsule()
                     .fill(NeumorphicStyle.inkMuted.opacity(0.36))

@@ -40,7 +40,7 @@ struct HomeQQPlaylistSection: View {
                         .padding(.vertical, 5)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
                             } else {
                                 Capsule().fill(Color.monologueGlassTint)
                             }
@@ -108,7 +108,7 @@ struct HomeQQPlaylistSection: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                 }
             }
             .modifier(QQPlaylistInfoSurfaceModifier())

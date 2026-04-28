@@ -477,7 +477,7 @@ struct AlbumDetailView: View {
                 .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
                 .background {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
                     }
                 }
                 .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -651,7 +651,7 @@ struct AlbumDescSheet: View {
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }

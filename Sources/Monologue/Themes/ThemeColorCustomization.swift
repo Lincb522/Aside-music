@@ -138,7 +138,7 @@ enum ThemeColorCustomization {
     }
 
     static func supports(_ theme: GlobalThemeId) -> Bool {
-        theme == .muji || theme == .manga || theme == .neumorphic
+        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic
     }
 
     static func key(_ theme: GlobalThemeId, _ role: ThemeCustomColorRole, _ suffix: String) -> String {
@@ -177,6 +177,23 @@ enum ThemeColorCustomization {
         return stored?.isEmpty == false ? stored : nil
     }
 
+    static func hasStoredAccent(for theme: GlobalThemeId) -> Bool {
+        storedHex(theme, .accent, "solid") != nil
+    }
+
+    static func hasStoredBackground(for theme: GlobalThemeId) -> Bool {
+        let defaults = UserDefaults.standard
+        return defaults.string(forKey: key(theme, .background, "mode")) != nil
+            || defaults.string(forKey: key(theme, .background, "gradientStyle")) != nil
+            || storedHex(theme, .background, "solid") != nil
+            || storedHex(theme, .background, "start") != nil
+            || storedHex(theme, .background, "end") != nil
+    }
+
+    static func usesCustomBackground(for theme: GlobalThemeId) -> Bool {
+        customColorsEnabled && hasStoredBackground(for: theme)
+    }
+
     static func mangaHex(_ suffix: String, fallback: String) -> String {
         let stored = UserDefaults.standard.string(forKey: mangaKey(suffix))?.trimmingCharacters(in: .whitespacesAndNewlines)
         return stored?.isEmpty == false ? stored! : fallback
@@ -187,7 +204,7 @@ enum ThemeColorCustomization {
         case .muji: return "B56B4B"
         case .neumorphic: return "4F8E86"
         case .manga: return "FF4F84"
-        case .default: return "000000"
+        case .default: return "4D6F95"
         }
     }
 
@@ -196,7 +213,7 @@ enum ThemeColorCustomization {
         case .muji: return "F7F1E8"
         case .neumorphic: return "E9EDF0"
         case .manga: return "FFF3D7"
-        case .default: return "FFFFFF"
+        case .default: return "F8FAFC"
         }
     }
 
@@ -205,7 +222,7 @@ enum ThemeColorCustomization {
         case .muji: return "F7F1E8"
         case .neumorphic: return "F2EEE8"
         case .manga: return "E8F1FF"
-        case .default: return "FFFFFF"
+        case .default: return "E6EDF6"
         }
     }
 
@@ -310,13 +327,23 @@ enum ThemeColorCustomization {
                 ThemeColorPreset(id: "manga-candy", name: "Candy", accentStartHex: "F06DA6", accentEndHex: "F06DA6", backgroundStartHex: "FFF0FA", backgroundEndHex: "EAF6FF", gradientStyle: .radial, mangaBlockAHex: "FFA6D9", mangaBlockBHex: "8FE7E1", mangaBlockCHex: "C9A8FF", mangaStrokeHex: "694E67", mangaSettingsIconHex: "302039"),
             ]
         case .default:
-            return []
+            return [
+                ThemeColorPreset(id: "default-mist", name: "Mist", accentStartHex: "4D6F95", accentEndHex: "4D6F95", backgroundStartHex: "F8FAFC", backgroundEndHex: "E6EDF6", gradientStyle: .diffuse),
+                ThemeColorPreset(id: "default-dawn", name: "Dawn", accentStartHex: "B66E57", accentEndHex: "B66E57", backgroundStartHex: "FFF6EB", backgroundEndHex: "EAF0FA", gradientStyle: .diagonal),
+                ThemeColorPreset(id: "default-lake", name: "Lake", accentStartHex: "4D8196", accentEndHex: "4D8196", backgroundStartHex: "EEF6FA", backgroundEndHex: "E9F2EC", gradientStyle: .radial),
+                ThemeColorPreset(id: "default-sage", name: "Sage", accentStartHex: "6A8368", accentEndHex: "6A8368", backgroundStartHex: "F5F7EF", backgroundEndHex: "E8EFE7", gradientStyle: .diffuse),
+                ThemeColorPreset(id: "default-iris", name: "Iris", accentStartHex: "6E72A7", accentEndHex: "6E72A7", backgroundStartHex: "F6F4FB", backgroundEndHex: "E9EEF8", gradientStyle: .vertical),
+                ThemeColorPreset(id: "default-clay", name: "Clay", accentStartHex: "9F7559", accentEndHex: "9F7559", backgroundStartHex: "F8F1EA", backgroundEndHex: "EAF0F3", gradientStyle: .diagonal),
+            ]
         }
     }
 
     static func isPresetSelected(_ preset: ThemeColorPreset, for theme: GlobalThemeId) -> Bool {
         guard supports(theme) else { return false }
         guard mode(for: theme, role: .accent) == .solid else { return false }
+        if theme == .default {
+            guard hasStoredAccent(for: theme), hasStoredBackground(for: theme) else { return false }
+        }
 
         let presetBackgroundMode = preset.backgroundMode ?? (theme == .muji ? .solid : .gradient)
         guard mode(for: theme, role: .background) == presetBackgroundMode else { return false }
@@ -386,6 +413,15 @@ enum ThemeColorCustomization {
             if let value = preset.mangaSettingsIconHex { defaults.set(value, forKey: mangaKey("settingsIcon")) }
         }
 
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    static func resetBackground(for theme: GlobalThemeId) {
+        let defaults = UserDefaults.standard
+        ["mode", "gradientStyle", "solid", "start", "end"].forEach { suffix in
+            defaults.removeObject(forKey: key(theme, .background, suffix))
+        }
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }
 

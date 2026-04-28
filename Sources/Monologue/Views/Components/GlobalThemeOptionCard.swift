@@ -368,7 +368,7 @@ struct GlobalThemeOptionCard: View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
             .fill(Color.clear)
             .frame(width: width, height: height)
-            .background(NeumorphicSurfaceBackground(cornerRadius: radius, elevated: elevated, pressed: !elevated, tint: tint.opacity(colorScheme == .dark ? 0.5 : 0.42)))
+            .background(NeumorphicSurfaceBackground(cornerRadius: radius, elevated: elevated, pressed: !elevated, tint: tint.opacity(colorScheme == .dark ? 0.5 : 0.42), lightweight: true))
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 
@@ -391,7 +391,7 @@ struct GlobalThemeOptionCard: View {
             Capsule()
                 .fill(Color.clear)
                 .frame(width: 70, height: 8)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 4, elevated: false, pressed: true))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 4, elevated: false, pressed: true, lightweight: true))
                 .clipShape(Capsule())
 
             Capsule()

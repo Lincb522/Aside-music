@@ -60,7 +60,7 @@ struct StorageManageView: View {
 
                                 FloatingBarBottomSpacer()
                             }
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                            .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                         }
                     }
                     .scrollIndicators(.hidden)

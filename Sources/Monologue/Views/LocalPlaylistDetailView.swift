@@ -763,7 +763,7 @@ struct LocalPlaylistDetailView: View {
                     .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
                     .background {
                         if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
                         }
                     }
                     .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)

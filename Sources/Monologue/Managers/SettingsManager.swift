@@ -178,6 +178,19 @@ final class SettingsManager: ObservableObject {
         set { appBrandAppearanceRaw = newValue.rawValue }
     }
 
+    /// 界面图标库风格
+    @AppStorage(AppConfig.StorageKeys.interfaceIconSet)
+    var interfaceIconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
+
+    var interfaceIconSet: AppInterfaceIconSet {
+        get { AppInterfaceIconSet(rawValue: interfaceIconSetRaw) ?? .hicon }
+        set {
+            guard interfaceIconSet != newValue else { return }
+            objectWillChange.send()
+            interfaceIconSetRaw = newValue.rawValue
+        }
+    }
+
     var appLogoAssetName: String {
         appBrandStyle.logoAssetName(for: appBrandAppearance)
     }

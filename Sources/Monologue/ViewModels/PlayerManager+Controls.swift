@@ -187,6 +187,38 @@ extension PlayerManager {
         }
         #endif
     }
+
+    func dismissMiniPlayerPreservingQueue() {
+        isUserStopping = true
+        nextTrackCancellable?.cancel()
+        qmcPrefetchTask?.cancel()
+        nextQualityPrefetchTask?.cancel()
+        qualitySwitchTimeoutTask?.cancel()
+        qualitySwitchTimeoutTask = nil
+        streamPlayer.cancelNextPreparation()
+        streamPlayer.stop()
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            lastAppliedAudioSessionOptions = nil
+        } catch {
+            AppLogger.warning("释放音频会话失败: \(error)")
+        }
+        isPlaying = false
+        currentSong = nil
+        streamInfo = nil
+        currentTime = 0
+        duration = 0
+        hasPendingTrackTransition = false
+        pendingNextSong = nil
+        pendingTransitionStartedAt = nil
+        pendingRestoreTime = nil
+        needsPlaybackRestoration = false
+        shouldAutoResumeAfterRestore = false
+        isUserStopping = false
+
+        refreshPlaybackSurfaceState()
+        saveStateImmediately()
+    }
     
     func switchQuality(_ quality: SoundQuality) {
         guard soundQuality != quality || !hasManualNeteaseQualityOverride else { return }

@@ -60,7 +60,7 @@ struct PlaylistSearchBar: View {
                 if MangaStyle.isActive {
                     MangaCardBackground(cornerRadius: 12, elevated: false, tint: MangaStyle.bubbleWhite)
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                 } else {
                     Capsule()
                         .fill(Color.monologueTextPrimary.opacity(0.06))
@@ -110,7 +110,7 @@ struct PlaylistSearchBar: View {
                         if MangaStyle.isActive {
                             MangaCardBackground(cornerRadius: 10, tint: MangaStyle.paperCool)
                         } else if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true)
+                            NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                         }
                     }
             }
@@ -129,7 +129,7 @@ struct PlaylistSearchBar: View {
                             if MangaStyle.isActive {
                                 MangaCardBackground(cornerRadius: 10, tint: MangaStyle.labelYellow)
                             } else if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                             }
                         }
                 }
@@ -206,7 +206,7 @@ struct PlaylistSearchBar: View {
             if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: 14, elevated: false, tint: MangaStyle.bubbleWhite)
             } else if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
             }
         }
         .transition(.asymmetric(

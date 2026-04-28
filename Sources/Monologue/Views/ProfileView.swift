@@ -309,7 +309,7 @@ struct ProfileView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true))
         }
         .padding(18)
         .background(
@@ -832,7 +832,7 @@ struct ProfileView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true))
         }
         .padding(18)
         .background(
@@ -1887,7 +1887,7 @@ private struct NeumorphicProfileShortcutTile: View {
 
                 MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.inkMuted, lineWidth: 1.6)
                     .frame(width: 28, height: 28)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, lightweight: true))
             }
 
             VStack(alignment: .leading, spacing: 4) {

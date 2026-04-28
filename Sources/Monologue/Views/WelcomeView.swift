@@ -257,7 +257,7 @@ struct WelcomeView: View {
                 RoundedRectangle(cornerRadius: plateSize * 0.18, style: .continuous)
                     .fill(Color.clear)
                     .frame(width: plateSize * 0.68, height: plateSize * 0.68)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: plateSize * 0.18, elevated: false, pressed: true))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: plateSize * 0.18, elevated: false, pressed: true, lightweight: true))
                     .opacity(0.92)
 
                 welcomeLogoImage(size: logoSize)
@@ -382,7 +382,7 @@ struct WelcomeView: View {
                     Capsule()
                         .fill(index == 1 ? NeumorphicStyle.accent : NeumorphicStyle.separator.opacity(0.65))
                         .frame(width: index == 1 ? 28 : 16, height: 5)
-                        .background(NeumorphicSurfaceBackground(cornerRadius: 5, elevated: false, pressed: true))
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 5, elevated: false, pressed: true, lightweight: true))
                 }
             }
             .scaleEffect(x: accentScaleX, y: 1)

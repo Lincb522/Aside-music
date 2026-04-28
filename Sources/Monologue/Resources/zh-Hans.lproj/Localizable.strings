@@ -444,6 +444,8 @@
 "settings_app_brand_appearance_light_desc" = "使用明亮底色版本";
 "settings_app_brand_appearance_dark" = "深色";
 "settings_app_brand_appearance_dark_desc" = "使用深色底色版本";
+"settings_interface_icon_set_title" = "界面图标";
+"settings_interface_icon_set_hicon_desc" = "保留原有图标风格";
 "settings_cover_bg_global" = "全局动态背景";
 "settings_cover_bg_global_desc" = "首页等页面跟随当前播放歌曲封面";
 "settings_cover_bg_playlist" = "歌单封面背景";
@@ -1113,3 +1115,7 @@
 "unblock_warning_confirm" = "我知道了";
 "unblock_warning_cancel" = "取消";
 "unblock_warning_message" = "解灰功能通过第三方音源匹配实现，可能存在以下情况：\n\n· 匹配结果不一定准确\n· 音质可能与原版有差异\n· 部分歌曲仍然无法播放\n· 该功能随时可能失效\n\n仅供学习交流使用，请支持正版音乐。";
+"settings_playback_quality_section" = "播放音质";
+"settings_playback_queue_section" = "播放队列";
+"settings_playback_effects_section" = "音效与模式";
+"settings_playback_local_sync_section" = "本地与同步";

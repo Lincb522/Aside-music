@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import CoreText
 import CarPlay
 import HiconIcons
 import UserNotifications
@@ -62,10 +61,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func applicationWillTerminate(_ application: UIApplication) {
         // App被划掉后台时，强制小组件回退到暂停态，但保留最后播放的歌曲信息
-        if let groupDefaults = UserDefaults(suiteName: "group.zijiu.Monologue.com") {
-            groupDefaults.set("paused", forKey: "widget_playbackState")
-            groupDefaults.synchronize()
-        }
+        UserDefaults(suiteName: "group.zijiu.Monologue.com")?
+            .set("paused", forKey: "widget_playbackState")
         WidgetCenter.shared.reloadAllTimelines()
 
         #if canImport(ActivityKit) && os(iOS)
@@ -86,9 +83,6 @@ struct MonologueApp: App {
         // 检测是否为全新安装（删除 App 后 UserDefaults 会被清除，Keychain 不会）
         // 如果是重新安装，清除上次残留的 Keychain 数据
         Self.cleanupKeychainIfNeeded()
-        
-        // 注册 SPM 包中的自定义字体
-        Self.registerBundledFonts()
         
         _ = EQManager.shared
         
@@ -228,49 +222,6 @@ struct MonologueApp: App {
         }
     }
     
-    /// 注册自定义字体 — 搜索主 bundle 和所有子 bundle
-    private static func registerBundledFonts() {
-        let fontFiles = [
-            "SanJiPoMoTi",
-            "HYPixel11pxU",
-            "ZihunBantianyun",
-            "YeZiGongChangGangFengSong",
-        ]
-        
-        // 收集所有可能包含资源的 bundle
-        var bundles: [Bundle] = [Bundle.main]
-        // SPM 资源可能在子 bundle 中（如 Monologue_Monologue.bundle）
-        if let resourceURL = Bundle.main.resourceURL,
-           let contents = try? FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil) {
-            for item in contents where item.pathExtension == "bundle" {
-                if let sub = Bundle(url: item) {
-                    bundles.append(sub)
-                }
-            }
-        }
-        
-        for fontName in fontFiles {
-            var registered = false
-            for bundle in bundles {
-                if let url = bundle.url(forResource: fontName, withExtension: "ttf") {
-                    var error: Unmanaged<CFError>?
-                    if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
-                        registered = true
-                        break
-                    } else {
-                        // 已注册过也算成功（error domain kCTFontManagerErrorAlreadyRegistered）
-                        registered = true
-                        error?.release()
-                        break
-                    }
-                }
-            }
-            if !registered {
-                AppLogger.warning("[Font] 未找到字体文件: \(fontName).ttf")
-            }
-        }
-    }
-
     /// 检测 App 是否为重新安装，若是则清除上次残留的 Keychain 数据
     private static func cleanupKeychainIfNeeded() {
         let hasLaunchedKey = "monologue_has_launched_before"

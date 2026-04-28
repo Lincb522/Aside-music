@@ -39,7 +39,7 @@ struct GameModeSettingsView: View {
                         infoSection
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(700)
                 }
             }

@@ -14,6 +14,8 @@ struct LibraryView: View {
     @State private var tabIndex: Int = 0
     /// 拖拽偏移量
     @State private var dragOffset: CGFloat = 0
+    @State private var libraryHeaderCollapseProgress: CGFloat = 0
+    @State private var libraryHeaderDragStart: CGFloat?
 
     private let allTabs = LibraryViewModel.LibraryTab.allCases
 
@@ -22,55 +24,8 @@ struct LibraryView: View {
             Group {
                 if MangaStyle.isActive {
                     MangaLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
-                } else if NeumorphicStyle.isActive {
-                    NeumorphicLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
                 } else {
-                    ZStack {
-                        ThemedPageBackground()
-                            .ignoresSafeArea()
-
-                        VStack(spacing: 0) {
-                            libraryHeaderView
-
-                            GeometryReader { geo in
-                                let width = geo.size.width
-                                HStack(spacing: 0) {
-                                    MyPlaylistsContainerView(viewModel: viewModel)
-                                        .frame(width: width)
-                                    PlaylistSquareView(viewModel: viewModel)
-                                        .frame(width: width)
-                                    ArtistLibraryView(viewModel: viewModel)
-                                        .frame(width: width)
-                                    ChartsLibraryView(viewModel: viewModel)
-                                        .frame(width: width)
-                                }
-                                .offset(x: -CGFloat(tabIndex) * width + dragOffset)
-                                .animation(.spring(response: 0.35, dampingFraction: 0.86), value: tabIndex)
-                                .gesture(
-                                    DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                                        .onChanged { value in
-                                            if abs(value.translation.width) > abs(value.translation.height) {
-                                                dragOffset = value.translation.width
-                                            }
-                                        }
-                                        .onEnded { value in
-                                            let threshold: CGFloat = width * 0.2
-                                            var newIndex = tabIndex
-                                            if value.translation.width < -threshold || value.predictedEndTranslation.width < -width * 0.4 {
-                                                newIndex = min(tabIndex + 1, allTabs.count - 1)
-                                            } else if value.translation.width > threshold || value.predictedEndTranslation.width > width * 0.4 {
-                                                newIndex = max(tabIndex - 1, 0)
-                                            }
-                                            dragOffset = 0
-                                            tabIndex = newIndex
-                                            viewModel.currentTab = allTabs[newIndex]
-                                        }
-                                )
-                            }
-                            .clipped()
-                        }
-                        .ignoresSafeArea(edges: .bottom)
-                    }
+                    ScrollableLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -153,6 +108,34 @@ struct LibraryView: View {
         viewModel.currentTab = tab
     }
 
+    private var libraryHeaderCollapseDistance: CGFloat {
+        if MujiStyle.isActive {
+            return 156
+        }
+        return 132
+    }
+
+    private var libraryHeaderScrollGesture: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .local)
+            .onChanged { value in
+                guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                if libraryHeaderDragStart == nil {
+                    libraryHeaderDragStart = libraryHeaderCollapseProgress
+                }
+                let start = libraryHeaderDragStart ?? libraryHeaderCollapseProgress
+                let next = start - value.translation.height / max(libraryHeaderCollapseDistance, 1)
+                libraryHeaderCollapseProgress = min(max(next, 0), 1)
+            }
+            .onEnded { value in
+                guard libraryHeaderDragStart != nil else { return }
+                let projected = libraryHeaderCollapseProgress - value.predictedEndTranslation.height / max(libraryHeaderCollapseDistance, 1) * 0.14
+                libraryHeaderDragStart = nil
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    libraryHeaderCollapseProgress = projected > 0.42 ? 1 : 0
+                }
+            }
+    }
+
     @ViewBuilder
     private var libraryHeaderView: some View {
         if MangaStyle.isActive {
@@ -233,16 +216,16 @@ struct LibraryView: View {
                     VStack(spacing: 5) {
                         Text(tab.localizedKey)
                             .font(libraryTabFont(isSelected: tabIndex == index))
-                            .foregroundColor(libraryTabForeground(index: index))
+                            .foregroundStyle(libraryTabForeground(index: index))
                             .animation(.none, value: tabIndex)
 
                         Capsule()
-                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent : (MujiStyle.isActive ? MujiStyle.clay : Theme.text))
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueAccent))
                             .frame(width: 20, height: 2.5)
-                            .opacity(ThemedPageStyle.isActive ? 0 : (tabIndex == index ? 1 : 0))
+                            .opacity((ThemedPageStyle.isActive || defaultLibraryTabsUsePill) ? 0 : (tabIndex == index ? 1 : 0))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, ThemedPageStyle.isActive ? 9 : 0)
+                    .padding(.vertical, (ThemedPageStyle.isActive || defaultLibraryTabsUsePill) ? 9 : 0)
                     .background {
                         if MangaStyle.isActive {
                             if tabIndex == index {
@@ -256,7 +239,10 @@ struct LibraryView: View {
                         } else if NeumorphicStyle.isActive, tabIndex == index {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(NeumorphicStyle.accent.opacity(0.12))
-                                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+                                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true))
+                        } else if defaultLibraryTabsUsePill, tabIndex == index {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(defaultLibrarySelectedTabFill)
                         }
                     }
                     .contentShape(Rectangle())
@@ -264,7 +250,7 @@ struct LibraryView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(ThemedPageStyle.isActive ? 5 : 0)
+        .padding((ThemedPageStyle.isActive || defaultLibraryTabsUsePill) ? 5 : 0)
         .background {
             if MangaStyle.isActive {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -280,10 +266,29 @@ struct LibraryView: View {
                     )
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
+            } else if defaultLibraryTabsUsePill {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.monologueGlassTint)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.monologueSeparator.opacity(0.68), lineWidth: 0.7)
+                    )
             }
         }
         .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
+    }
+
+    private var defaultLibraryTabsUsePill: Bool {
+        !ThemedPageStyle.isActive
+    }
+
+    private var defaultLibrarySelectedTabFill: Color {
+        Color(light: Color.black.opacity(0.88), dark: Color.white.opacity(0.9))
+    }
+
+    private var defaultLibrarySelectedTabForeground: Color {
+        Color(light: Color.white, dark: Color(hex: "111111"))
     }
 
     private func libraryTabFont(isSelected: Bool) -> Font {
@@ -310,16 +315,1358 @@ struct LibraryView: View {
         if NeumorphicStyle.isActive {
             return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft
         }
-        return isSelected ? Theme.text : Theme.secondaryText.opacity(0.7)
+        return isSelected ? defaultLibrarySelectedTabForeground : Color.monologueTextSecondary.opacity(0.82)
     }
 }
 
 // MARK: - Neumorphic Library Redesign
 
+private struct LibraryCollapsingHeader<Content: View>: View {
+    @Binding var progress: CGFloat
+    let collapseDistance: CGFloat
+    let content: Content
+
+    init(progress: Binding<CGFloat>, collapseDistance: CGFloat, @ViewBuilder content: () -> Content) {
+        self._progress = progress
+        self.collapseDistance = collapseDistance
+        self.content = content()
+    }
+
+    private var visibleHeight: CGFloat? {
+        progress <= 0.001 ? nil : max(0, collapseDistance * (1 - progress))
+    }
+
+    var body: some View {
+        content
+            .offset(y: -collapseDistance * progress)
+            .opacity(1 - progress * 0.2)
+            .frame(height: visibleHeight, alignment: .top)
+            .clipped()
+            .animation(.spring(response: 0.32, dampingFraction: 0.86), value: progress)
+    }
+}
+
+// MARK: - Shared Scrollable Library
+
+private struct ScrollableLibraryExperience: View {
+    private enum MyLibraryColumn: CaseIterable, Hashable {
+        case localPlaylists, ncmPlaylists, qcmPlaylists, localPodcasts, ncmPodcasts
+
+        var title: String {
+            switch self {
+            case .localPlaylists: return String(localized: "lib_local_playlists")
+            case .ncmPlaylists: return String(localized: "lib_netease_playlists")
+            case .qcmPlaylists: return String(localized: "QCM歌单")
+            case .localPodcasts: return String(localized: "本地播客")
+            case .ncmPodcasts: return String(localized: "NCM 播客")
+            }
+        }
+
+        var icon: MonologueIcon.IconType {
+            switch self {
+            case .localPlaylists: return .musicNoteList
+            case .ncmPlaylists, .qcmPlaylists: return .list
+            case .localPodcasts, .ncmPodcasts: return .radio
+            }
+        }
+    }
+
+    @ObservedObject var viewModel: LibraryViewModel
+    @Binding var tabIndex: Int
+    @ObservedObject private var localManager = LocalPlaylistManager.shared
+    @ObservedObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var qqSession = QQUserSession.shared
+    @State private var selectedMyLibraryColumn: MyLibraryColumn = .localPlaylists
+    @State private var isLibraryActionsExpanded = false
+    @State private var showFileImporter = false
+    @State private var showQQImport = false
+    @State private var isImporting = false
+    @State private var qqUserPlaylists: [Playlist] = []
+    @State private var isLoadingQQUserPlaylists = false
+    @State private var hasLoadedQQUserPlaylists = false
+
+    private let tabs = LibraryViewModel.LibraryTab.allCases
+    private let twoColumns = [GridItem(.flexible(), spacing: 13), GridItem(.flexible(), spacing: 13)]
+    private let actionColumns = [GridItem(.flexible(), spacing: 9), GridItem(.flexible(), spacing: 9)]
+    private let artistColumns = Array(repeating: GridItem(.flexible(), spacing: 14), count: DeviceLayout.artistGridColumns)
+
+    private var selectedTab: LibraryViewModel.LibraryTab {
+        tabs[min(max(tabIndex, 0), tabs.count - 1)]
+    }
+
+    var body: some View {
+        ZStack {
+            if NeumorphicStyle.isActive {
+                NeumorphicRootBackdrop()
+                    .ignoresSafeArea()
+            } else {
+                ThemedPageBackground()
+                    .ignoresSafeArea()
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    header
+                    tabContent
+                }
+                .padding(.bottom, 128)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .onAppear {
+            syncTabFromViewModel()
+            loadCurrentTab()
+            if subManager.subscribedRadios.isEmpty {
+                subManager.fetchSubscribedRadios()
+            }
+        }
+        .onChange(of: viewModel.currentTab) { _, _ in
+            syncTabFromViewModel()
+            loadCurrentTab()
+        }
+        .onChange(of: tabIndex) { _, _ in
+            loadCurrentTab()
+        }
+        .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
+            if isLoggedIn {
+                hasLoadedQQUserPlaylists = false
+                loadQQUserPlaylistsIfNeeded(force: true)
+            } else {
+                qqUserPlaylists = []
+                hasLoadedQQUserPlaylists = false
+            }
+        }
+        .sheet(isPresented: $showQQImport) {
+            QQPlaylistImportView()
+        }
+        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+            switch result {
+            case let .success(urls):
+                guard let url = urls.first else { return }
+                importPlaylistFromFile(url: url)
+            case let .failure(error):
+                AlertManager.shared.show(
+                    title: String(localized: "lib_import_failed"),
+                    message: error.localizedDescription,
+                    primaryButtonTitle: String(localized: "lib_confirm"),
+                    primaryAction: {}
+                )
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if NeumorphicStyle.isActive {
+                NeumorphicPageHeader(eyebrow: "library", title: String(localized: "tabbar_library"), subtitle: "") {
+                    NeumorphicIconBadge(icon: .library, tint: NeumorphicStyle.sage, size: 48)
+                }
+            } else if MujiStyle.isActive {
+                MujiPageHeader(eyebrow: "collection shelves", title: String(localized: "tabbar_library"), subtitle: "") {
+                    MujiIconBadge(icon: .library, tint: MujiStyle.tea, size: 48)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    MonologueIcon(icon: .libraryFilled, size: 24, color: .monologueIconForeground, lineWidth: 2)
+                        .frame(width: 50, height: 50)
+                        .background(Color.monologueIconBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: Color.monologueIconBackground.opacity(0.18), radius: 10, y: 5)
+
+                    Text(LocalizedStringKey("tabbar_library"))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            tabStrip
+        }
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
+    private var tabStrip: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                let selected = tabIndex == index
+                Button {
+                    selectTab(tab, index: index)
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(icon: icon(for: tab), size: 13, color: tabForeground(selected: selected), lineWidth: 1.8)
+                        Text(tab.localizedKey)
+                            .font(tabFont(selected: selected))
+                            .foregroundColor(tabForeground(selected: selected))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: NeumorphicStyle.isActive ? 40 : 38)
+                    .background(tabBackground(selected: selected, tint: tint(for: tab)))
+                    .contentShape(RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(NeumorphicStyle.isActive ? 5 : 4)
+        .background(panelBackground(cornerRadius: NeumorphicStyle.isActive ? 20 : 14))
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: tabIndex)
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .my:
+            myLibraryPage
+        case .square:
+            playlistSquarePage
+        case .artists:
+            artistsPage
+        case .charts:
+            chartsPage
+        }
+    }
+
+    private var myLibraryPage: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            myLibraryControlPanel
+            myLibraryColumnContent
+        }
+    }
+
+    private var myLibraryControlPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                columnStrip.layoutPriority(1)
+
+                Button {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        isLibraryActionsExpanded.toggle()
+                    }
+                } label: {
+                    MonologueIcon(icon: isLibraryActionsExpanded ? .close : .more, size: 16, color: isLibraryActionsExpanded ? selectedChipText : secondaryText, lineWidth: 1.8)
+                        .frame(width: 42, height: 42)
+                        .background(panelBackground(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isLibraryActionsExpanded ? defaultAccent.opacity(0.14) : .clear)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            }
+
+            LibraryDisclosureReveal(isExpanded: isLibraryActionsExpanded) {
+                actionStrip
+                    .padding(10)
+                    .background(panelBackground(cornerRadius: 18))
+            }
+        }
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+    }
+
+    private var columnStrip: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(MyLibraryColumn.allCases, id: \.self) { column in
+                    let selected = selectedMyLibraryColumn == column
+                    Button {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                            selectedMyLibraryColumn = column
+                        }
+                        if column == .qcmPlaylists {
+                            loadQQUserPlaylistsIfNeeded()
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            MonologueIcon(icon: column.icon, size: 14, color: selected ? selectedChipText : secondaryText, lineWidth: selected ? 2 : 1.6)
+                            Text(column.title)
+                                .font(chipFont(selected: selected))
+                                .foregroundColor(selected ? selectedChipText : secondaryText)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 42)
+                        .background(chipBackground(selected: selected, tint: tint(for: column), capsule: true))
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(.vertical, 1)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var myLibraryColumnContent: some View {
+        switch selectedMyLibraryColumn {
+        case .localPlaylists: localPlaylistsSection
+        case .ncmPlaylists: ncmPlaylistsSection
+        case .qcmPlaylists: qcmPlaylistsSection
+        case .localPodcasts: localPodcastsSection
+        case .ncmPodcasts: ncmPodcastsSection
+        }
+    }
+
+    private var actionStrip: some View {
+        LazyVGrid(columns: actionColumns, spacing: 9) {
+            actionChip(title: String(localized: "lib_create"), icon: .add, tint: defaultAccent) {
+                createLocalPlaylist()
+            }
+
+            actionChip(title: String(localized: "lib_import_playlist"), icon: .download, tint: secondaryAccent, isLoading: isImporting) {
+                showFileImporter = true
+            }
+            .disabled(isImporting)
+
+            actionChip(title: String(localized: "从链接导入"), icon: .share, tint: tertiaryAccent, isLoading: isImporting) {
+                showImportLinkPrompt()
+            }
+            .disabled(isImporting)
+
+            actionChip(title: String(localized: "QCM歌单"), icon: .musicNoteList, tint: MusicSource.qqmusic.themedBadgeColor) {
+                showQQImport = true
+            }
+        }
+    }
+
+    private var localPlaylistsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ThemedLibrarySectionHeader(title: MyLibraryColumn.localPlaylists.title)
+
+            if localManager.playlists.isEmpty {
+                ThemedLibraryEmptyState(icon: .musicNoteList, title: String(localized: "lib_no_local_playlists"), tint: defaultAccent)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(localManager.playlists, id: \.id) { playlist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
+                            LocalPlaylistRow(playlist: playlist)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private var ncmPlaylistsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ThemedLibrarySectionHeader(title: MyLibraryColumn.ncmPlaylists.title)
+
+            if viewModel.userPlaylists.isEmpty {
+                ThemedLibraryEmptyState(icon: .list, title: String(localized: "empty_no_playlists"), tint: MusicSource.netease.themedBadgeColor)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(viewModel.userPlaylists) { playlist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                            LibraryPlaylistRow(playlist: playlist)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private var qcmPlaylistsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ThemedLibrarySectionHeader(title: MyLibraryColumn.qcmPlaylists.title)
+
+            if isLoadingQQUserPlaylists && qqUserPlaylists.isEmpty {
+                MonologueLoadingView(centered: false)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.top, 12)
+            } else if !qqSession.isLoggedIn {
+                ThemedLibraryEmptyState(icon: .musicNoteList, title: String(localized: "请先登录 QCM"), tint: MusicSource.qqmusic.themedBadgeColor)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else if qqUserPlaylists.isEmpty {
+                ThemedLibraryEmptyState(icon: .list, title: String(localized: "暂无 QCM 歌单"), tint: MusicSource.qqmusic.themedBadgeColor)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(qqUserPlaylists) { playlist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                            LibraryPlaylistRow(playlist: playlist)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private var localPodcastsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ThemedLibrarySectionHeader(title: MyLibraryColumn.localPodcasts.title)
+
+            if subManager.localSubscribedRadios.isEmpty {
+                ThemedLibraryEmptyState(icon: .radio, title: String(localized: "暂无本地收藏"), tint: tertiaryAccent)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(subManager.localSubscribedRadios) { radio in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                            ThemedLibraryPodcastRow(radio: radio, tint: tertiaryAccent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private var ncmPodcastsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ThemedLibrarySectionHeader(title: MyLibraryColumn.ncmPodcasts.title)
+
+            if subManager.isLoadingRadios && subManager.subscribedRadios.isEmpty {
+                MonologueLoadingView(centered: false)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.top, 12)
+            } else if subManager.subscribedRadios.isEmpty {
+                ThemedLibraryEmptyState(icon: .radio, title: String(localized: "lib_no_podcasts"), tint: secondaryAccent)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(subManager.subscribedRadios) { radio in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.radioDetail(radio.id)) {
+                            ThemedLibraryPodcastRow(radio: radio, tint: secondaryAccent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private var playlistSquarePage: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sourceStrip(selected: viewModel.squareSource) { source in
+                viewModel.squareSource = source
+                source == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+
+            if viewModel.squareSource == .qq {
+                qqCategoryBar
+                playlistGrid(playlists: viewModel.qqSquarePlaylists, isLoading: viewModel.isLoadingQQSquare, emptyTitle: String(localized: "暂无QCM推荐歌单"))
+
+                if viewModel.hasMoreQQSquare && !viewModel.qqSquarePlaylists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreQQSquarePlaylists() }
+                }
+            } else {
+                ncmCategoryBar
+                playlistGrid(playlists: viewModel.squarePlaylists, isLoading: viewModel.isLoadingSquare, emptyTitle: String(localized: "empty_no_playlists"))
+
+                if viewModel.hasMoreSquarePlaylists && !viewModel.squarePlaylists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreSquarePlaylists() }
+                }
+            }
+        }
+    }
+
+    private var artistsPage: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sourceStrip(selected: viewModel.artistSource) { source in
+                viewModel.artistSource = source
+                source == .qq ? viewModel.fetchQQArtistData(reset: true) : viewModel.fetchArtistData(reset: true)
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+
+            if viewModel.artistSource == .qq {
+                qqArtistFilterBars
+                artistGrid(artists: viewModel.qqArtists, isLoading: viewModel.isLoadingQQArtists, tint: MusicSource.qqmusic.themedBadgeColor)
+                if viewModel.hasMoreQQArtists && !viewModel.qqArtists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreQQArtists() }
+                }
+            } else {
+                ncmArtistFilterBars
+                artistGrid(artists: viewModel.topArtists, isLoading: viewModel.isLoadingArtists, tint: tertiaryAccent)
+                if viewModel.hasMoreArtists && !viewModel.topArtists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreArtists() }
+                }
+            }
+        }
+    }
+
+    private var chartsPage: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if viewModel.isLoadingCharts && viewModel.topLists.isEmpty {
+                MonologueLoadingView(centered: false)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else if viewModel.topLists.isEmpty {
+                ThemedLibraryEmptyState(icon: .chart, title: String(localized: "empty_no_charts"), tint: secondaryAccent)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                let officialIds: Set<Int> = [19_723_756, 3_779_629, 2_884_035, 3_778_678]
+                let official = viewModel.topLists.filter { officialIds.contains($0.id) }
+                let others = viewModel.topLists.filter { !officialIds.contains($0.id) }
+
+                if !official.isEmpty {
+                    ThemedLibrarySectionHeader(title: String(localized: "charts_official"))
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 14) {
+                            ForEach(official) { list in
+                                NavigationLink(value: chartDestination(list)) {
+                                    OfficialChartCard(list: list)
+                                }
+                                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                            }
+                        }
+                        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    }
+                    .scrollIndicators(.hidden)
+                }
+
+                if !others.isEmpty {
+                    ThemedLibrarySectionHeader(title: String(localized: "charts_more"))
+                    LazyVGrid(columns: artistColumns, spacing: 16) {
+                        ForEach(others) { list in
+                            NavigationLink(value: chartDestination(list)) {
+                                CompactChartCard(list: list)
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                }
+            }
+        }
+    }
+
+    private var ncmCategoryBar: some View {
+        horizontalFilterBar {
+            ForEach(viewModel.playlistCategories, id: \.idString) { category in
+                filterChip(title: category.name, selected: viewModel.selectedCategory == category.name, tint: MusicSource.netease.themedBadgeColor) {
+                    viewModel.selectedCategory = category.name
+                    viewModel.loadSquarePlaylists(cat: category.name, reset: true)
+                }
+            }
+        }
+    }
+
+    private var qqCategoryBar: some View {
+        horizontalFilterBar {
+            ForEach(filteredQQCategories, id: \.id) { category in
+                filterChip(title: category.name, selected: viewModel.selectedQQCategoryId == category.id, tint: MusicSource.qqmusic.themedBadgeColor) {
+                    viewModel.selectQQCategory(id: category.id, name: category.name)
+                }
+            }
+        }
+    }
+
+    private var filteredQQCategories: [(id: Int, name: String)] {
+        let hidden: Set<String> = [String(localized: "全部"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
+        return viewModel.qqPlaylistCategories.filter { !hidden.contains($0.name.lowercased()) }
+    }
+
+    private var ncmArtistFilterBars: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            horizontalFilterBar {
+                ForEach(viewModel.artistAreas, id: \.value) { area in
+                    filterChip(title: NSLocalizedString(area.name, comment: ""), selected: viewModel.artistArea == area.value, tint: tertiaryAccent) {
+                        viewModel.artistArea = area.value
+                        viewModel.fetchArtistData(reset: true)
+                    }
+                }
+            }
+            horizontalFilterBar {
+                ForEach(viewModel.artistTypes, id: \.value) { type in
+                    filterChip(title: NSLocalizedString(type.name, comment: ""), selected: viewModel.artistType == type.value, tint: secondaryAccent) {
+                        viewModel.artistType = type.value
+                        viewModel.fetchArtistData(reset: true)
+                    }
+                }
+            }
+            horizontalFilterBar {
+                ForEach(viewModel.artistInitials, id: \.self) { initial in
+                    filterChip(title: initial == "-1" ? NSLocalizedString("search_hot", comment: "") : initial, selected: viewModel.artistInitial == initial, tint: defaultAccent) {
+                        viewModel.artistInitial = initial
+                        viewModel.fetchArtistData(reset: true)
+                    }
+                }
+            }
+        }
+    }
+
+    private var qqArtistFilterBars: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            horizontalFilterBar {
+                ForEach(viewModel.qqArtistAreas, id: \.value) { area in
+                    filterChip(title: NSLocalizedString(area.name, comment: ""), selected: viewModel.qqArtistArea == area.value, tint: MusicSource.qqmusic.themedBadgeColor) {
+                        viewModel.qqArtistArea = area.value
+                        viewModel.fetchQQArtistData(reset: true)
+                    }
+                }
+            }
+            horizontalFilterBar {
+                ForEach(viewModel.qqArtistSexes, id: \.value) { sex in
+                    filterChip(title: NSLocalizedString(sex.name, comment: ""), selected: viewModel.qqArtistSex == sex.value, tint: defaultAccent) {
+                        viewModel.qqArtistSex = sex.value
+                        viewModel.fetchQQArtistData(reset: true)
+                    }
+                }
+            }
+            horizontalFilterBar {
+                ForEach(viewModel.qqArtistGenres, id: \.value) { genre in
+                    filterChip(title: NSLocalizedString(genre.name, comment: ""), selected: viewModel.qqArtistGenre == genre.value, tint: tertiaryAccent) {
+                        viewModel.qqArtistGenre = genre.value
+                        viewModel.fetchQQArtistData(reset: true)
+                    }
+                }
+            }
+        }
+    }
+
+    private func playlistGrid(playlists: [Playlist], isLoading: Bool, emptyTitle: String) -> some View {
+        Group {
+            if isLoading && playlists.isEmpty {
+                MonologueLoadingView(centered: false)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else if playlists.isEmpty {
+                ThemedLibraryEmptyState(icon: .list, title: emptyTitle, tint: defaultAccent)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVGrid(columns: twoColumns, spacing: 14) {
+                    ForEach(playlists) { playlist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                            CinematicCard(playlist: playlist, height: 168)
+                        }
+                        .buttonStyle(CinematicPressStyle())
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private func artistGrid(artists: [ArtistInfo], isLoading: Bool, tint: Color) -> some View {
+        Group {
+            if isLoading && artists.isEmpty {
+                MonologueLoadingView(centered: false)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else if artists.isEmpty {
+                ThemedLibraryEmptyState(icon: .personEmpty, title: String(localized: "empty_no_artists"), tint: tint)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            } else {
+                LazyVGrid(columns: artistColumns, spacing: 18) {
+                    ForEach(artists) { artist in
+                        NavigationLink(value: LibraryViewModel.NavigationDestination.artistInfo(artist)) {
+                            ThemedLibraryArtistCard(artist: artist, tint: tint)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            }
+        }
+    }
+
+    private func sourceStrip(selected: LibraryViewModel.MusicSource, onSelect: @escaping (LibraryViewModel.MusicSource) -> Void) -> some View {
+        HStack(spacing: 6) {
+            ForEach(LibraryViewModel.MusicSource.allCases, id: \.self) { source in
+                let isSelected = selected == source
+                let tint = source == .ncm ? MusicSource.netease.themedBadgeColor : MusicSource.qqmusic.themedBadgeColor
+                Button {
+                    guard !isSelected else { return }
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        onSelect(source)
+                    }
+                } label: {
+                    Text(source == .ncm ? "NCM" : "QCM")
+                        .font(chipFont(selected: isSelected))
+                        .foregroundColor(isSelected ? selectedChipText : secondaryText)
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 9)
+                        .background(chipBackground(selected: isSelected, tint: tint, capsule: false))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(panelBackground(cornerRadius: 18))
+    }
+
+    private func horizontalFilterBar<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 9) {
+                content()
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func filterChip(title: String, selected: Bool, tint: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            guard !selected else { return }
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                action()
+            }
+        } label: {
+            Text(title)
+                .font(chipFont(selected: selected))
+                .foregroundColor(selected ? selectedChipText : secondaryText)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(chipBackground(selected: selected, tint: tint, capsule: false))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+    }
+
+    private func actionChip(title: String, icon: MonologueIcon.IconType, tint: Color, isLoading: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                if isLoading {
+                    ProgressView()
+                        .tint(tint)
+                        .scaleEffect(0.68)
+                        .frame(width: 14, height: 14)
+                } else {
+                    MonologueIcon(icon: icon, size: 14, color: tint, lineWidth: 1.7)
+                }
+
+                Text(title)
+                    .font(chipFont(selected: true))
+                    .foregroundColor(primaryText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 42)
+            .background(chipBackground(selected: false, tint: tint, capsule: false))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+    }
+
+    private func loadMoreButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(LocalizedStringKey("查看更多"))
+                .font(chipFont(selected: true))
+                .foregroundColor(selectedChipText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(chipBackground(selected: true, tint: defaultAccent, capsule: false))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.top, 4)
+    }
+
+    private func selectTab(_ tab: LibraryViewModel.LibraryTab, index: Int) {
+        tabIndex = index
+        viewModel.currentTab = tab
+        load(tab)
+    }
+
+    private func syncTabFromViewModel() {
+        if let index = tabs.firstIndex(of: viewModel.currentTab), index != tabIndex {
+            tabIndex = index
+        }
+    }
+
+    private func loadCurrentTab() {
+        load(selectedTab)
+    }
+
+    private func load(_ tab: LibraryViewModel.LibraryTab) {
+        switch tab {
+        case .my:
+            viewModel.fetchPlaylists()
+            if selectedMyLibraryColumn == .qcmPlaylists {
+                loadQQUserPlaylistsIfNeeded()
+            }
+            if subManager.subscribedRadios.isEmpty {
+                subManager.fetchSubscribedRadios()
+            }
+        case .square:
+            viewModel.squareSource == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
+        case .artists:
+            viewModel.artistSource == .qq ? viewModel.fetchQQArtistData() : viewModel.fetchArtistData()
+        case .charts:
+            viewModel.fetchTopLists()
+        }
+    }
+
+    private func loadQQUserPlaylistsIfNeeded(force: Bool = false) {
+        guard force || !hasLoadedQQUserPlaylists else { return }
+        guard !isLoadingQQUserPlaylists else { return }
+        guard qqSession.isLoggedIn, let mid = qqSession.musicId else {
+            qqUserPlaylists = []
+            hasLoadedQQUserPlaylists = true
+            return
+        }
+
+        isLoadingQQUserPlaylists = true
+        Task { @MainActor in
+            defer {
+                isLoadingQQUserPlaylists = false
+                hasLoadedQQUserPlaylists = true
+            }
+
+            do {
+                let result: JSON = try await QQUserSession.shared.withUserSession { client in
+                    try await client.createdSonglist(uin: String(mid))
+                }
+                qqUserPlaylists = Self.parseQQUserPlaylists(result)
+            } catch {
+                AppLogger.error("[Library] 加载 QCM 歌单失败: \(error)")
+            }
+        }
+    }
+
+    private static func parseQQUserPlaylists(_ result: JSON) -> [Playlist] {
+        let list = result["v_playlist"]?.arrayValue ?? result.arrayValue ?? []
+        return list.compactMap { json in
+            guard let obj = json.objectValue else { return nil }
+            let tid = obj["tid"]?.intValue ?? 0
+            let name = obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
+            let cover = obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
+            let songCount = obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
+            guard !name.isEmpty else { return nil }
+            return Playlist(
+                id: tid,
+                name: name,
+                coverImgUrl: cover,
+                picUrl: nil,
+                trackCount: songCount,
+                playCount: nil,
+                subscribedCount: nil,
+                shareCount: nil,
+                commentCount: nil,
+                creator: nil,
+                description: nil,
+                tags: nil,
+                source: .qqmusic
+            )
+        }
+    }
+
+    private func createLocalPlaylist() {
+        AlertManager.shared.showInput(
+            title: String(localized: "lib_create_playlist"),
+            message: "",
+            placeholder: String(localized: "lib_playlist_name"),
+            primaryButtonTitle: String(localized: "lib_create"),
+            secondaryButtonTitle: String(localized: "alert_cancel"),
+            onConfirm: { name in
+                guard !name.isEmpty else { return }
+                _ = localManager.createPlaylist(name: name)
+            }
+        )
+    }
+
+    private func showImportLinkPrompt() {
+        AlertManager.shared.showInput(
+            title: String(localized: "从链接导入歌单"),
+            message: "",
+            placeholder: String(localized: "粘贴歌单链接"),
+            primaryButtonTitle: String(localized: "导入"),
+            secondaryButtonTitle: String(localized: "取消"),
+            onConfirm: { url in
+                importPlaylistFromURL(url)
+            }
+        )
+    }
+
+    private func importPlaylistFromFile(url: URL) {
+        isImporting = true
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        do {
+            let parsed = try LocalPlaylistManager.parseExportFile(url: url)
+            let ids = parsed.songIds
+            let name = parsed.name
+            guard !ids.isEmpty else {
+                AlertManager.shared.show(
+                    title: String(localized: "lib_import_failed"),
+                    message: String(localized: "lib_import_no_songs"),
+                    primaryButtonTitle: String(localized: "lib_confirm"),
+                    primaryAction: {}
+                )
+                isImporting = false
+                return
+            }
+
+            Task {
+                var allSongs: [Song] = []
+                for i in stride(from: 0, to: ids.count, by: 50) {
+                    let batch = Array(ids[i ..< min(i + 50, ids.count)])
+                    do {
+                        let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                            var cancellable: AnyCancellable?
+                            cancellable = APIService.shared.fetchSongDetails(ids: batch)
+                                .sink(receiveCompletion: { completion in
+                                    if case let .failure(error) = completion {
+                                        continuation.resume(throwing: error)
+                                    }
+                                    cancellable?.cancel()
+                                }, receiveValue: { songs in
+                                    continuation.resume(returning: songs)
+                                    cancellable?.cancel()
+                                })
+                        }
+                        allSongs.append(contentsOf: songs)
+                    } catch {
+                        AppLogger.error("导入歌单批次获取失败: \(error)")
+                    }
+                }
+
+                await MainActor.run {
+                    if allSongs.isEmpty {
+                        AlertManager.shared.show(
+                            title: String(localized: "lib_import_failed"),
+                            message: String(localized: "lib_import_fetch_failed"),
+                            primaryButtonTitle: String(localized: "lib_confirm"),
+                            primaryAction: {}
+                        )
+                    } else {
+                        localManager.importPlaylist(name: name, songs: allSongs)
+                    }
+                    isImporting = false
+                }
+            }
+        } catch {
+            AlertManager.shared.show(
+                title: String(localized: "lib_import_failed"),
+                message: error.localizedDescription,
+                primaryButtonTitle: String(localized: "lib_confirm"),
+                primaryAction: {}
+            )
+            isImporting = false
+        }
+    }
+
+    private func importPlaylistFromURL(_ urlString: String) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isImporting = true
+
+        if let qqId = extractQQPlaylistId(from: trimmed) {
+            importQQPlaylist(id: qqId)
+        } else if let ncmId = extractNCMPlaylistId(from: trimmed) {
+            importNCMPlaylist(id: ncmId)
+        } else {
+            AlertManager.shared.show(
+                title: String(localized: "lib_import_failed"),
+                message: String(localized: "无法识别的歌单链接"),
+                primaryButtonTitle: String(localized: "lib_confirm"),
+                primaryAction: {}
+            )
+            isImporting = false
+        }
+    }
+
+    private func extractQQPlaylistId(from url: String) -> Int? {
+        if let range = url.range(of: #"playlist/(\d+)"#, options: .regularExpression) {
+            return Int(url[range].replacingOccurrences(of: "playlist/", with: ""))
+        }
+        if let range = url.range(of: #"id=(\d+)"#, options: .regularExpression), url.contains("y.qq.com") {
+            return Int(String(url[range]).replacingOccurrences(of: "id=", with: ""))
+        }
+        return nil
+    }
+
+    private func extractNCMPlaylistId(from url: String) -> Int? {
+        if let range = url.range(of: #"playlist\?id=(\d+)"#, options: .regularExpression) {
+            return Int(String(url[range]).replacingOccurrences(of: "playlist?id=", with: ""))
+        }
+        if let range = url.range(of: #"id=(\d+)"#, options: .regularExpression), url.contains("music.163.com") {
+            return Int(String(url[range]).replacingOccurrences(of: "id=", with: ""))
+        }
+        return nil
+    }
+
+    private func importQQPlaylist(id: Int) {
+        Task {
+            do {
+                let detail = try await APIService.shared.qqClient.songlistDetail(songlistId: id, num: 1, page: 1)
+                let name = detail["dirinfo"]?["title"]?.stringValue ?? String(localized: "QCM歌单")
+                var allSongs: [Song] = []
+                var page = 1
+                var hasMore = true
+
+                while hasMore {
+                    let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                        var resumed = false
+                        var cancellable: AnyCancellable?
+                        cancellable = APIService.shared.fetchQQPlaylistSongs(playlistId: id, page: page, num: 50)
+                            .sink(receiveCompletion: { completion in
+                                if case let .failure(error) = completion, !resumed {
+                                    resumed = true
+                                    continuation.resume(throwing: error)
+                                }
+                                cancellable?.cancel()
+                            }, receiveValue: { songs in
+                                guard !resumed else { return }
+                                resumed = true
+                                continuation.resume(returning: songs)
+                                cancellable?.cancel()
+                            })
+                    }
+                    allSongs.append(contentsOf: songs)
+                    hasMore = songs.count >= 50
+                    page += 1
+                }
+
+                await MainActor.run {
+                    if allSongs.isEmpty {
+                        AlertManager.shared.show(
+                            title: String(localized: "lib_import_failed"),
+                            message: String(localized: "歌单为空或获取失败"),
+                            primaryButtonTitle: String(localized: "lib_confirm"),
+                            primaryAction: {}
+                        )
+                    } else {
+                        localManager.importPlaylist(name: name, songs: allSongs)
+                    }
+                    isImporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    AlertManager.shared.show(
+                        title: String(localized: "lib_import_failed"),
+                        message: String(localized: "QCM歌单导入失败: \(error.localizedDescription)"),
+                        primaryButtonTitle: String(localized: "lib_confirm"),
+                        primaryAction: {}
+                    )
+                    isImporting = false
+                }
+            }
+        }
+    }
+
+    private func importNCMPlaylist(id: Int) {
+        Task {
+            var allSongs: [Song] = []
+            var offset = 0
+            let limit = 50
+            var hasMore = true
+
+            while hasMore {
+                do {
+                    let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
+                        var resumed = false
+                        var cancellable: AnyCancellable?
+                        cancellable = APIService.shared.fetchPlaylistTracks(id: id, limit: limit, offset: offset)
+                            .sink(receiveCompletion: { completion in
+                                if case let .failure(error) = completion, !resumed {
+                                    resumed = true
+                                    continuation.resume(throwing: error)
+                                }
+                                cancellable?.cancel()
+                            }, receiveValue: { songs in
+                                guard !resumed else { return }
+                                resumed = true
+                                continuation.resume(returning: songs)
+                                cancellable?.cancel()
+                            })
+                    }
+                    allSongs.append(contentsOf: songs)
+                    hasMore = songs.count >= limit
+                    offset += limit
+                } catch {
+                    hasMore = false
+                }
+            }
+
+            await MainActor.run {
+                if allSongs.isEmpty {
+                    AlertManager.shared.show(
+                        title: String(localized: "lib_import_failed"),
+                        message: String(localized: "歌单为空或获取失败"),
+                        primaryButtonTitle: String(localized: "lib_confirm"),
+                        primaryAction: {}
+                    )
+                } else {
+                    localManager.importPlaylist(name: String(localized: "NCM歌单"), songs: allSongs)
+                }
+                isImporting = false
+            }
+        }
+    }
+
+    private func chartDestination(_ list: TopList) -> LibraryViewModel.NavigationDestination {
+        .playlist(Playlist(
+            id: list.id,
+            name: list.name,
+            coverImgUrl: list.coverImgUrl,
+            picUrl: nil,
+            trackCount: nil,
+            playCount: nil,
+            subscribedCount: nil,
+            shareCount: nil,
+            commentCount: nil,
+            creator: nil,
+            description: nil,
+            tags: nil,
+            isTopList: true
+        ))
+    }
+
+    private func icon(for tab: LibraryViewModel.LibraryTab) -> MonologueIcon.IconType {
+        switch tab {
+        case .my: return .libraryFilled
+        case .square: return .gridSquare
+        case .artists: return .personCircle
+        case .charts: return .chart
+        }
+    }
+
+    private func tint(for tab: LibraryViewModel.LibraryTab) -> Color {
+        switch tab {
+        case .my: return defaultAccent
+        case .square: return secondaryAccent
+        case .artists: return tertiaryAccent
+        case .charts: return quaternaryAccent
+        }
+    }
+
+    private func tint(for column: MyLibraryColumn) -> Color {
+        switch column {
+        case .localPlaylists: return defaultAccent
+        case .ncmPlaylists: return MusicSource.netease.themedBadgeColor
+        case .qcmPlaylists: return MusicSource.qqmusic.themedBadgeColor
+        case .localPodcasts: return tertiaryAccent
+        case .ncmPodcasts: return secondaryAccent
+        }
+    }
+
+    private var primaryText: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryText: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var defaultAccent: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if MujiStyle.isActive { return MujiStyle.tea }
+        return .monologueAccent
+    }
+
+    private var secondaryAccent: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return .monologueAccentBlue
+    }
+
+    private var tertiaryAccent: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.warm }
+        if MujiStyle.isActive { return MujiStyle.indigo }
+        return .monologueAccentGreen
+    }
+
+    private var quaternaryAccent: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.red }
+        if MujiStyle.isActive { return MujiStyle.red }
+        return .monologueAccentRed
+    }
+
+    private var selectedChipText: Color {
+        MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueIconForeground)
+    }
+
+    private var tabCornerRadius: CGFloat {
+        NeumorphicStyle.isActive ? 15 : (MujiStyle.isActive ? 8 : 14)
+    }
+
+    private func tabFont(selected: Bool) -> Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
+        return .system(size: 13, weight: selected ? .bold : .medium, design: .rounded)
+    }
+
+    private func chipFont(selected: Bool) -> Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
+        return .system(size: 13, weight: selected ? .semibold : .medium, design: .rounded)
+    }
+
+    private func tabForeground(selected: Bool) -> Color {
+        selected ? primaryText : secondaryText
+    }
+
+    private func tabBackground(selected: Bool, tint: Color) -> some View {
+        Group {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, tint: selected ? tint.opacity(0.15) : NeumorphicStyle.surface, lightweight: true)
+            } else if MujiStyle.isActive {
+                RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
+                    .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
+                    .overlay(RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous).stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))
+            } else {
+                RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
+                    .fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
+            }
+        }
+    }
+
+    private func chipBackground(selected: Bool, tint: Color, capsule: Bool) -> some View {
+        Group {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, pressed: !selected, tint: selected ? tint.opacity(0.16) : NeumorphicStyle.surface, lightweight: true)
+            } else if MujiStyle.isActive {
+                let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 8, style: .continuous)
+                shape
+                    .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
+                    .overlay(shape.stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+            } else if capsule {
+                Capsule().fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
+            } else {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
+            }
+        }
+    }
+
+    private func panelBackground(cornerRadius: CGFloat) -> some View {
+        Group {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true, lightweight: true)
+            } else if MujiStyle.isActive {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(MujiStyle.surface.opacity(0.82))
+                    .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+            } else {
+                Color.clear.monologueGlass(cornerRadius: cornerRadius)
+            }
+        }
+    }
+}
+
+private struct ThemedLibrarySectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(17, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .semibold) : .system(size: 17, weight: .bold, design: .rounded)))
+            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+    }
+}
+
+private struct ThemedLibraryEmptyState: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 12) {
+            MonologueIcon(icon: icon, size: 28, color: tint.opacity(0.72), lineWidth: 1.8)
+            Text(title)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 30)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
+            } else if MujiStyle.isActive {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(MujiStyle.surface.opacity(0.76))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+            } else {
+                Color.clear.monologueGlass(cornerRadius: 18)
+            }
+        }
+    }
+}
+
+private struct ThemedLibraryPodcastRow: View {
+    let radio: RadioStation
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 14) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                Color.gray.opacity(0.1)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: DeviceLayout.listRowCoverStandard, height: DeviceLayout.listRowCoverStandard)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(radio.name)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
+                    .lineLimit(1)
+
+                Text(radio.dj?.nickname ?? radio.category ?? "Podcast")
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            MonologueIcon(icon: .chevronRight, size: 12, color: tint.opacity(0.72), lineWidth: 1.8)
+        }
+        .padding(14)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, tint: tint.opacity(0.08), lightweight: true)
+            } else if MujiStyle.isActive {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(MujiStyle.surface.opacity(0.82))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+            } else {
+                Color.clear.monologueGlass(cornerRadius: 18)
+            }
+        }
+    }
+}
+
+private struct ThemedLibraryArtistCard: View {
+    let artist: ArtistInfo
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 10) {
+            CachedAsyncImage(url: artist.coverUrl?.sized(400)) {
+                NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.1)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: DeviceLayout.artistAvatarSize - (NeumorphicStyle.isActive ? 12 : 0), height: DeviceLayout.artistAvatarSize - (NeumorphicStyle.isActive ? 12 : 0))
+            .clipShape(Circle())
+            .shadow(color: tint.opacity(0.14), radius: 7, y: 3)
+
+            Text(artist.name)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded)))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
+                .lineLimit(1)
+        }
+        .padding(NeumorphicStyle.isActive ? 12 : 0)
+        .frame(maxWidth: .infinity)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, tint: tint.opacity(0.06), lightweight: true)
+            }
+        }
+    }
+}
+
 private struct NeumorphicLibraryExperience: View {
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
     @State private var dragOffset: CGFloat = 0
+    @State private var headerCollapseProgress: CGFloat = 0
+    @State private var headerDragStart: CGFloat?
 
     private let tabs = LibraryViewModel.LibraryTab.allCases
 
@@ -328,12 +1675,14 @@ private struct NeumorphicLibraryExperience: View {
             NeumorphicRootBackdrop()
 
             VStack(spacing: 0) {
-                headerConsole
+                LibraryCollapsingHeader(progress: $headerCollapseProgress, collapseDistance: headerCollapseDistance) {
+                    headerConsole
+                }
 
                 GeometryReader { geo in
-                    let width = geo.size.width
+                    let width = max(geo.size.width, 1)
 
-                    LazyHStack(spacing: 0) {
+                    HStack(spacing: 0) {
                         MyPlaylistsContainerView(viewModel: viewModel)
                             .frame(width: width)
                         PlaylistSquareView(viewModel: viewModel)
@@ -343,13 +1692,22 @@ private struct NeumorphicLibraryExperience: View {
                         ChartsLibraryView(viewModel: viewModel)
                             .frame(width: width)
                     }
+                    .frame(width: width * CGFloat(tabs.count), alignment: .leading)
                     .offset(x: -CGFloat(tabIndex) * width + dragOffset)
-                    .animation(.spring(response: 0.36, dampingFraction: 0.86), value: tabIndex)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.9), value: tabIndex)
                     .gesture(pagingGesture(width: width))
+                    .simultaneousGesture(headerScrollGesture)
+                    .transaction { transaction in
+                        transaction.disablesAnimations = width <= 1
+                    }
                 }
                 .clipped()
             }
             .ignoresSafeArea(edges: .bottom)
+        }
+        .onAppear(perform: clampTabIndex)
+        .onChange(of: tabIndex) { _, _ in
+            clampTabIndex()
         }
     }
 
@@ -405,6 +1763,29 @@ private struct NeumorphicLibraryExperience: View {
         .padding(.bottom, 8)
     }
 
+    private var headerCollapseDistance: CGFloat { 168 }
+
+    private var headerScrollGesture: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .local)
+            .onChanged { value in
+                guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                if headerDragStart == nil {
+                    headerDragStart = headerCollapseProgress
+                }
+                let start = headerDragStart ?? headerCollapseProgress
+                let next = start - value.translation.height / max(headerCollapseDistance, 1)
+                headerCollapseProgress = min(max(next, 0), 1)
+            }
+            .onEnded { value in
+                guard headerDragStart != nil else { return }
+                let projected = headerCollapseProgress - value.predictedEndTranslation.height / max(headerCollapseDistance, 1) * 0.14
+                headerDragStart = nil
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    headerCollapseProgress = projected > 0.42 ? 1 : 0
+                }
+            }
+    }
+
     private func neumorphicTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
         let selected = tabIndex == index
         let tint = tabTint(tab)
@@ -433,7 +1814,8 @@ private struct NeumorphicLibraryExperience: View {
                     cornerRadius: 13,
                     elevated: selected,
                     pressed: !selected,
-                    tint: selected ? tint.opacity(0.17) : NeumorphicStyle.surface
+                    tint: selected ? tint.opacity(0.17) : NeumorphicStyle.surface,
+                    lightweight: true
                 )
             )
         }
@@ -474,10 +1856,16 @@ private struct NeumorphicLibraryExperience: View {
     }
 
     private func switchToTab(_ tab: LibraryViewModel.LibraryTab, index: Int) {
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
             tabIndex = index
             viewModel.currentTab = tab
         }
+    }
+
+    private func clampTabIndex() {
+        guard !tabs.indices.contains(tabIndex) else { return }
+        tabIndex = 0
+        viewModel.currentTab = tabs[0]
     }
 
     private func pagingGesture(width: CGFloat) -> some Gesture {
@@ -535,45 +1923,25 @@ struct MyPlaylistsContainerView: View {
                 .padding(.bottom, 14)
             }
 
-            if NeumorphicStyle.isActive {
-                activeSubTabContent
-                    .id(selectedSubTab)
-                    .transition(.opacity)
-            } else {
-                ZStack {
-                    LocalPlaylistsView(viewModel: viewModel)
-                        .opacity(selectedSubTab == 0 ? 1 : 0)
-                        .allowsHitTesting(selectedSubTab == 0)
+            ZStack {
+                LocalPlaylistsView(viewModel: viewModel)
+                    .opacity(selectedSubTab == 0 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 0)
 
-                    NetEasePlaylistsView(viewModel: viewModel)
-                        .opacity(selectedSubTab == 1 ? 1 : 0)
-                        .allowsHitTesting(selectedSubTab == 1)
+                NetEasePlaylistsView(viewModel: viewModel)
+                    .opacity(selectedSubTab == 1 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 1)
 
-                    QQPlaylistsView(viewModel: viewModel)
-                        .opacity(selectedSubTab == 2 ? 1 : 0)
-                        .allowsHitTesting(selectedSubTab == 2)
+                QQPlaylistsView(viewModel: viewModel)
+                    .opacity(selectedSubTab == 2 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 2)
 
-                    MyPodcastsView()
-                        .opacity(selectedSubTab == 3 ? 1 : 0)
-                        .allowsHitTesting(selectedSubTab == 3)
-                }
+                MyPodcastsView()
+                    .opacity(selectedSubTab == 3 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 3)
             }
         }
         .background(Color.clear)
-    }
-
-    @ViewBuilder
-    private var activeSubTabContent: some View {
-        switch selectedSubTab {
-        case 0:
-            LocalPlaylistsView(viewModel: viewModel)
-        case 1:
-            NetEasePlaylistsView(viewModel: viewModel)
-        case 2:
-            QQPlaylistsView(viewModel: viewModel)
-        default:
-            MyPodcastsView()
-        }
     }
 
     private func subTabButton(title: String, index: Int) -> some View {
@@ -632,7 +2000,8 @@ struct MyPlaylistsContainerView: View {
                             cornerRadius: 15,
                             elevated: selectedSubTab == index,
                             pressed: selectedSubTab != index,
-                            tint: selectedSubTab == index ? neumorphicSubTabTint(index).opacity(0.18) : NeumorphicStyle.surface
+                            tint: selectedSubTab == index ? neumorphicSubTabTint(index).opacity(0.18) : NeumorphicStyle.surface,
+                            lightweight: true
                         )
                     )
                 } else {
@@ -962,7 +2331,8 @@ struct LocalPlaylistsView: View {
                 NeumorphicSurfaceBackground(
                     cornerRadius: 16,
                     elevated: true,
-                    tint: tint.opacity(0.11)
+                    tint: tint.opacity(0.11),
+                    lightweight: true
                 )
             )
         }
@@ -1666,7 +3036,7 @@ struct LocalPlaylistRow: View {
         .padding(14)
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             } else {
                 Color.clear
                     .monologueGlass(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : 18))
@@ -1986,7 +3356,7 @@ struct MyPodcastsView: View {
         .padding(.vertical, NeumorphicStyle.isActive ? 0 : 5)
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             }
         }
     }
@@ -2252,7 +3622,8 @@ struct MusicSourcePicker: View {
                                     cornerRadius: 14,
                                     elevated: selected,
                                     pressed: !selected,
-                                    tint: selected ? tint.opacity(0.16) : NeumorphicStyle.surface
+                                    tint: selected ? tint.opacity(0.16) : NeumorphicStyle.surface,
+                                    lightweight: true
                                 )
                             } else if selected {
                                 Capsule()
@@ -2465,7 +3836,8 @@ struct PlaylistSquareView: View {
                                         cornerRadius: 16,
                                         elevated: selected,
                                         pressed: !selected,
-                                        tint: selected ? MusicSource.qqmusic.themedBadgeColor.opacity(0.16) : NeumorphicStyle.surface
+                                        tint: selected ? MusicSource.qqmusic.themedBadgeColor.opacity(0.16) : NeumorphicStyle.surface,
+                                        lightweight: true
                                     )
                                 } else if selected {
                                     Capsule()
@@ -2525,7 +3897,8 @@ struct PlaylistSquareView: View {
                                         cornerRadius: 16,
                                         elevated: selected,
                                         pressed: !selected,
-                                        tint: selected ? MusicSource.netease.themedBadgeColor.opacity(0.16) : NeumorphicStyle.surface
+                                        tint: selected ? MusicSource.netease.themedBadgeColor.opacity(0.16) : NeumorphicStyle.surface,
+                                        lightweight: true
                                     )
                                 } else if selected {
                                     Capsule()
@@ -2811,7 +4184,7 @@ struct ArtistLibraryView: View {
                 .padding(.vertical, 14)
                 .background {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                     } else {
                         Color.clear.monologueGlass(cornerRadius: 20)
                     }
@@ -2833,7 +4206,8 @@ struct ArtistLibraryView: View {
                                             cornerRadius: 14,
                                             elevated: hasActiveFilter,
                                             pressed: !hasActiveFilter,
-                                            tint: hasActiveFilter ? NeumorphicStyle.sage.opacity(0.16) : NeumorphicStyle.surface
+                                            tint: hasActiveFilter ? NeumorphicStyle.sage.opacity(0.16) : NeumorphicStyle.surface,
+                                            lightweight: true
                                         )
                                     } else {
                                         Color.clear.monologueGlass(cornerRadius: 14)
@@ -2927,7 +4301,7 @@ struct ArtistLibraryView: View {
                 .padding(.vertical, 14)
                 .background {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                     } else {
                         Color.clear.monologueGlass(cornerRadius: 20)
                     }
@@ -2949,7 +4323,8 @@ struct ArtistLibraryView: View {
                                             cornerRadius: 14,
                                             elevated: hasActiveQQFilter,
                                             pressed: !hasActiveQQFilter,
-                                            tint: hasActiveQQFilter ? MusicSource.qqmusic.themedBadgeColor.opacity(0.15) : NeumorphicStyle.surface
+                                            tint: hasActiveQQFilter ? MusicSource.qqmusic.themedBadgeColor.opacity(0.15) : NeumorphicStyle.surface,
+                                            lightweight: true
                                         )
                                     } else {
                                         Color.clear.monologueGlass(cornerRadius: 14)
@@ -3062,7 +4437,7 @@ struct ArtistLibraryView: View {
                             .frame(maxWidth: .infinity)
                             .background {
                                 if NeumorphicStyle.isActive {
-                                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true)
+                                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
                                 }
                             }
                         }
@@ -3503,7 +4878,7 @@ private struct QQChartCard: View {
         .padding(NeumorphicStyle.isActive ? 8 : 0)
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             }
         }
     }
@@ -3638,7 +5013,7 @@ private struct CompactChartCard: View {
         .padding(NeumorphicStyle.isActive ? 8 : 0)
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             }
         }
     }
@@ -3678,7 +5053,7 @@ struct LibraryPlaylistRow: View {
         .padding(14)
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }

@@ -139,7 +139,7 @@ struct MiniPlayerSection: View {
                     if !isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
-                                player.stopAndClear()
+                                player.dismissMiniPlayerPreservingQueue()
                             }
                         }) {
                             MonologueIcon(icon: .close, size: 10, color: secondaryTextColor)
@@ -668,7 +668,7 @@ private struct NeumorphicMiniPlayerStrip: View {
                     if !player.isPlaying {
                         neumorphicControl(icon: .close, tint: NeumorphicStyle.inkMuted, size: 9) {
                             withAnimation(MonologueAnimation.floatingBar) {
-                                player.stopAndClear()
+                                player.dismissMiniPlayerPreservingQueue()
                             }
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -749,7 +749,7 @@ private struct NeumorphicDedicatedTabBar: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 4)
         .frame(height: 50)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true))
+        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true))
     }
 
     private func tabButton(tab: Tab, index: Int, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType) -> some View {
@@ -900,7 +900,7 @@ private struct MujiMiniPlayerStrip: View {
                     if !player.isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
-                                player.stopAndClear()
+                                player.dismissMiniPlayerPreservingQueue()
                             }
                         }) {
                             MonologueIcon(icon: .close, size: 10, color: MujiStyle.inkMuted, lineWidth: 1.6)
@@ -1275,7 +1275,7 @@ private struct MangaMiniPlayerStrip: View {
                     if !player.isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
-                                player.stopAndClear()
+                                player.dismissMiniPlayerPreservingQueue()
                             }
                         }) {
                             MonologueIcon(icon: .close, size: 10, color: MangaStyle.inkMuted, lineWidth: 1.8)

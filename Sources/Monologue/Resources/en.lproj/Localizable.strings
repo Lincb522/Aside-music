@@ -444,6 +444,8 @@
 "settings_app_brand_appearance_light_desc" = "Use the bright background version";
 "settings_app_brand_appearance_dark" = "Dark";
 "settings_app_brand_appearance_dark_desc" = "Use the dark background version";
+"settings_interface_icon_set_title" = "Interface Icons";
+"settings_interface_icon_set_hicon_desc" = "Keep the original icon style";
 "settings_cover_bg_global" = "Global Dynamic Background";
 "settings_cover_bg_global_desc" = "Use the current cover art as a blurred background across the app";
 "settings_cover_bg_playlist" = "Playlist Cover Background";
@@ -1114,3 +1116,7 @@
 "unblock_warning_confirm" = "Got it";
 "unblock_warning_cancel" = "Cancel";
 "unblock_warning_message" = "Song unblocking uses third-party sources to match unavailable tracks. Please note:\n\n· Matches may not always be accurate\n· Audio quality may differ from the original\n· Some songs may still be unavailable\n· This feature may stop working at any time\n\nFor learning and personal use only. Please support official music.";
+"settings_playback_quality_section" = "Audio Quality";
+"settings_playback_queue_section" = "Playback Queue";
+"settings_playback_effects_section" = "Effects & Modes";
+"settings_playback_local_sync_section" = "Local & Sync";

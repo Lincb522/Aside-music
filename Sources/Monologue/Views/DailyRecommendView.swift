@@ -743,7 +743,7 @@ struct DailyHistoryView: View {
                     .padding(10)
                     .background {
                         if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                            NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                         } else {
                             Circle().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.6))
                         }
@@ -891,7 +891,7 @@ struct DailyHistoryView: View {
                     .padding(.vertical, 12)
                     .background {
                         if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true)
+                            NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true)
                                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                         }
                     }

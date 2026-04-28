@@ -30,7 +30,7 @@ struct HomeEntryCards: View {
                     .frame(width: 38, height: 38)
                     .background {
                         if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true)
+                            NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, lightweight: true)
                         } else {
                             Circle().fill(Color.monologueTextPrimary.opacity(0.07))
                         }

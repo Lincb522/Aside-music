@@ -136,19 +136,19 @@ struct NeumorphicReliefTexture: View {
             let highlight = Color.white.opacity(opacity)
             let shadow = Color.black.opacity(opacity * 0.22)
 
-            for index in stride(from: -80, through: Int(size.width + size.height) + 80, by: 42) {
+            for index in stride(from: -80, through: Int(size.width + size.height) + 80, by: 74) {
                 let start = CGPoint(x: CGFloat(index) - size.height * 0.32, y: 0)
                 let end = CGPoint(x: CGFloat(index), y: size.height)
 
                 var hi = Path()
                 hi.move(to: start)
                 hi.addLine(to: end)
-                context.stroke(hi, with: .color(highlight.opacity(index.isMultiple(of: 3) ? 0.36 : 0.18)), lineWidth: 0.7)
+                context.stroke(hi, with: .color(highlight.opacity(index.isMultiple(of: 3) ? 0.26 : 0.12)), lineWidth: 0.48)
 
                 var low = Path()
                 low.move(to: CGPoint(x: start.x + 2, y: start.y))
                 low.addLine(to: CGPoint(x: end.x + 2, y: end.y))
-                context.stroke(low, with: .color(shadow.opacity(0.38)), lineWidth: 0.55)
+                context.stroke(low, with: .color(shadow.opacity(0.22)), lineWidth: 0.38)
             }
         }
         .drawingGroup(opaque: false, colorMode: .linear)
@@ -165,11 +165,19 @@ struct NeumorphicSurfaceBackground: View {
     var elevated: Bool = true
     var pressed: Bool = false
     var tint: Color? = nil
+    var lightweight: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let darkShadowRadius: CGFloat = lightweight ? (elevated ? 7 : 3) : (elevated ? 10 : 5)
+        let lightShadowRadius: CGFloat = lightweight ? (elevated ? 6 : 3) : (elevated ? 9 : 5)
+        let darkOffset: CGFloat = lightweight ? (elevated ? 4 : 2) : (elevated ? 6 : 2.5)
+        let lightOffset: CGFloat = lightweight ? (elevated ? -3 : -2) : (elevated ? -5 : -2.5)
+        let darkIntensity: Double = lightweight ? (elevated ? 0.52 : 0.24) : (elevated ? 0.68 : 0.34)
+        let lightIntensity: Double = lightweight ? (elevated ? 0.7 : 0.34) : (elevated ? 0.86 : 0.48)
+
         shape
             .fill(
                 LinearGradient(
@@ -191,34 +199,38 @@ struct NeumorphicSurfaceBackground: View {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: pressed ? 1.2 : 0.8
+                    lineWidth: lightweight ? (pressed ? 0.85 : 0.65) : (pressed ? 1.2 : 0.8)
                 )
             )
             .shadow(
-                color: pressed ? .clear : NeumorphicStyle.darkShadow(colorScheme, intensity: elevated ? 0.78 : 0.42),
-                radius: elevated ? 16 : 8,
-                x: elevated ? 9 : 4,
-                y: elevated ? 9 : 4
+                color: pressed ? .clear : NeumorphicStyle.darkShadow(colorScheme, intensity: darkIntensity),
+                radius: darkShadowRadius,
+                x: darkOffset,
+                y: darkOffset
             )
             .shadow(
-                color: pressed ? .clear : NeumorphicStyle.lightShadow(colorScheme, intensity: elevated ? 0.95 : 0.55),
-                radius: elevated ? 14 : 7,
-                x: elevated ? -8 : -4,
-                y: elevated ? -8 : -4
+                color: pressed ? .clear : NeumorphicStyle.lightShadow(colorScheme, intensity: lightIntensity),
+                radius: lightShadowRadius,
+                x: lightOffset,
+                y: lightOffset
             )
             .overlay {
-                if pressed {
+                if pressed && !lightweight {
                     shape
                         .stroke(NeumorphicStyle.darkShadow(colorScheme, intensity: 0.52), lineWidth: 1)
-                        .blur(radius: 1.2)
-                        .offset(x: 1.8, y: 1.8)
+                        .blur(radius: 0.8)
+                        .offset(x: 1.3, y: 1.3)
                         .clipShape(shape)
                     shape
                         .stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.78), lineWidth: 1)
-                        .blur(radius: 1.2)
-                        .offset(x: -1.8, y: -1.8)
+                        .blur(radius: 0.8)
+                        .offset(x: -1.3, y: -1.3)
                         .clipShape(shape)
                 }
+            }
+            .transaction { transaction in
+                transaction.animation = nil
+                transaction.disablesAnimations = true
             }
     }
 }
@@ -263,7 +275,8 @@ struct NeumorphicPill: View {
                 cornerRadius: compact ? 12 : 15,
                 elevated: selected,
                 pressed: !selected,
-                tint: selected ? tint.opacity(0.22) : NeumorphicStyle.surface
+                tint: selected ? tint.opacity(0.22) : NeumorphicStyle.surface,
+                lightweight: true
             )
         )
     }
@@ -352,7 +365,7 @@ struct NeumorphicSectionTitle: View {
                         .foregroundStyle(NeumorphicStyle.accent)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
-                        .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false))
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, lightweight: true))
                 }
                 .buttonStyle(.plain)
             }

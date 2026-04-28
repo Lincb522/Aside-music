@@ -1211,7 +1211,7 @@ struct QQAlbumDescSheet: View {
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }
@@ -1295,7 +1295,7 @@ struct QQArtistBioSheet: View {
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }

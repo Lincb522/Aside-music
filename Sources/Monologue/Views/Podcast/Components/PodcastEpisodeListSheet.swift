@@ -253,7 +253,7 @@ struct PodcastEpisodeListSheet: View {
                 .padding(.vertical, 10)
                 .background {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                     } else {
                         Color.monologueSeparator.opacity(0.85)
                     }
@@ -348,7 +348,7 @@ struct PodcastEpisodeListSheet: View {
     @ViewBuilder
     private func podcastControlBackground(cornerRadius: CGFloat) -> some View {
         if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true)
+            NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true, lightweight: true)
         } else {
             Color.monologueSeparator.opacity(0.9)
         }

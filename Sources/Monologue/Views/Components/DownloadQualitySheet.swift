@@ -264,12 +264,17 @@ struct DownloadQualitySheet: View {
 
                     if let badge {
                         Text(badge)
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .font(qualityBadgeFont)
                             .foregroundColor(qualityBadgeForeground(isLocked: isLocked))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(qualityBadgeBackground(isLocked: isLocked))
-                            .cornerRadius(4)
+                            .tracking(MujiStyle.isActive ? 0.5 : 0)
+                            .padding(.horizontal, qualityBadgeHorizontalPadding)
+                            .padding(.vertical, qualityBadgeVerticalPadding)
+                            .background {
+                                qualityBadgeBackground(isLocked: isLocked)
+                            }
+                            .overlay {
+                                qualityBadgeStroke(isLocked: isLocked)
+                            }
                     }
 
                     if isLocked {
@@ -317,7 +322,7 @@ struct DownloadQualitySheet: View {
     @ViewBuilder
     private var closeButtonBackground: some View {
         if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true)
+            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
                 .clipShape(Circle())
         } else {
             Circle()
@@ -344,16 +349,68 @@ struct DownloadQualitySheet: View {
 
     private func qualityIconColor(isLocked: Bool) -> Color {
         if isLocked { return .monologueTextSecondary.opacity(0.4) }
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var qualityBadgeFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(9.5, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: .semibold) }
+        return .system(size: 9, weight: .bold, design: .rounded)
+    }
+
+    private var qualityBadgeHorizontalPadding: CGFloat {
+        MangaStyle.isActive ? 6 : 5
+    }
+
+    private var qualityBadgeVerticalPadding: CGFloat {
+        MangaStyle.isActive ? 2.5 : 2
+    }
+
+    private var qualityBadgeCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 6 }
+        if MujiStyle.isActive { return 5 }
+        if NeumorphicStyle.isActive { return 6 }
+        return 4
     }
 
     private func qualityBadgeForeground(isLocked: Bool) -> Color {
         if isLocked { return .monologueTextSecondary.opacity(0.4) }
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.clay }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
     }
 
-    private func qualityBadgeBackground(isLocked: Bool) -> Color {
-        if isLocked { return Color.monologueIconBackground.opacity(0.3) }
-        return NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.18 : 0.13) : .monologueIconBackground
+    @ViewBuilder
+    private func qualityBadgeBackground(isLocked: Bool) -> some View {
+        let tint = MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
+        if isLocked {
+            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
+                .fill(Color.monologueIconBackground.opacity(0.3))
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: qualityBadgeCornerRadius,
+                elevated: false,
+                pressed: true,
+                tint: tint.opacity(colorScheme == .dark ? 0.18 : 0.13)
+            )
+        } else {
+            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
+                .fill(tint.opacity(MangaStyle.isActive ? 0.26 : (MujiStyle.isActive ? 0.10 : 1)))
+        }
+    }
+
+    @ViewBuilder
+    private func qualityBadgeStroke(isLocked: Bool) -> some View {
+        let tint = MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.clear))
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
+                .stroke(tint, lineWidth: MangaStyle.fineStrokeWidth)
+        } else if MujiStyle.isActive || NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
+                .stroke(tint.opacity(isLocked ? 0.12 : 0.28), lineWidth: 0.6)
+        }
     }
 }

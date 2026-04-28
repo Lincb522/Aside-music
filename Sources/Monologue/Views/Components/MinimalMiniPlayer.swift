@@ -250,7 +250,7 @@ struct MinimalMiniPlayer: View {
             } else if NeumorphicStyle.isActive {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(NeumorphicStyle.surfacePressed)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, lightweight: true))
 
                 Circle()
                     .stroke(NeumorphicStyle.accent.opacity(0.32), lineWidth: 1)
@@ -466,7 +466,7 @@ struct MinimalMiniPlayer: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(neumorphicTabTint(tab).opacity(0.16))
-                .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
         }
     }
 

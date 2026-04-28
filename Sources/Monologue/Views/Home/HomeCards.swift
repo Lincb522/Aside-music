@@ -62,7 +62,7 @@ struct SectionHeader: View {
     private var actionBackground: some View {
         Group {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
             } else {
                 Capsule().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueTextSecondary.opacity(0.06))
             }

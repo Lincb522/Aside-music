@@ -30,10 +30,13 @@ struct PlaybackSettingsView: View {
                     )
 
                     VStack(spacing: 20) {
-                        playbackSection
+                        qualitySection
+                        queueSection
+                        effectsSection
+                        storageSyncSection
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(700)
                 }
             }
@@ -60,12 +63,48 @@ struct PlaybackSettingsView: View {
         } message: {
             Text(backgroundAudioPolicySubtitle)
         }
+        .monologueSheet(isPresented: $showPlaybackQualitySheet, preset: .standard) {
+            SoundQualitySheet(
+                currentQuality: SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard,
+                currentQQQuality: .mp3_320,
+                isUnblocked: false,
+                isQQMusic: false,
+                onSelectNetease: { quality in
+                    settings.defaultPlaybackQuality = quality.rawValue
+                    showPlaybackQualitySheet = false
+                },
+                onSelectQQ: { _ in }
+            )
+        }
+        .monologueSheet(isPresented: $showQQPlaybackQualitySheet, preset: .standard) {
+            SoundQualitySheet(
+                currentQuality: .standard,
+                currentQQQuality: QQMusicQuality(rawValue: settings.defaultQQPlaybackQuality) ?? .mp3_320,
+                isUnblocked: false,
+                isQQMusic: true,
+                onSelectNetease: { _ in },
+                onSelectQQ: { quality in
+                    settings.defaultQQPlaybackQuality = quality.rawValue
+                    showQQPlaybackQualitySheet = false
+                }
+            )
+        }
+        .monologueSheet(isPresented: $showQishuiPlaybackQualitySheet, preset: .standard) {
+            QishuiQualityPickerSheet(
+                currentQuality: settings.defaultQishuiPlaybackQuality,
+                onSelect: { quality in
+                    settings.defaultQishuiPlaybackQuality = quality
+                    PlayerManager.shared.qishuiSelectedQuality = quality
+                    showQishuiPlaybackQualitySheet = false
+                }
+            )
+        }
     }
 
-    // MARK: - 播放
+    // MARK: - Sections
 
-    private var playbackSection: some View {
-        SettingsSection(title: String(localized: "settings_playback")) {
+    private var qualitySection: some View {
+        SettingsSection(title: String(localized: "settings_playback_quality_section")) {
             VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .soundQuality,
@@ -111,11 +150,14 @@ struct PlaybackSettingsView: View {
                         showQishuiPlaybackQualitySheet = true
                     }
                 }
+            }
+            .animation(.spring(response: 0.28, dampingFraction: 0.86), value: settings.preferHighestPlaybackQuality)
+        }
+    }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
+    private var queueSection: some View {
+        SettingsSection(title: String(localized: "settings_playback_queue_section")) {
+            VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .musicNoteList,
                     title: String(localized: "settings_insert_playback_context"),
@@ -157,34 +199,19 @@ struct PlaybackSettingsView: View {
                 ) {
                     showBackgroundAudioPolicyDialog = true
                 }
+            }
+        }
+    }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                NavigationLink(destination: GameModeSettingsView()) {
-                    HStack(spacing: 12) {
-                        SettingsIconBadge(icon: .waveform)
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(String(localized: "game_mode_settings_entry"))
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
-                            Text(gameModeSubtitle)
-                                .font(.system(size: 11, weight: .regular, design: .rounded))
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(2)
-                        }
-
-                        Spacer()
-
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.6)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+    private var effectsSection: some View {
+        SettingsSection(title: String(localized: "settings_playback_effects_section")) {
+            VStack(spacing: 0) {
+                SettingsLinkRow(
+                    icon: .waveform,
+                    title: String(localized: "game_mode_settings_entry"),
+                    subtitle: gameModeSubtitle,
+                    destination: GameModeSettingsView()
+                )
 
                 Divider()
                     .opacity(0.4)
@@ -196,11 +223,13 @@ struct PlaybackSettingsView: View {
                     subtitle: globalEqualizerSubtitle,
                     isOn: $eqManager.isEnabled
                 )
+            }
+        }
+    }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
+    private var storageSyncSection: some View {
+        SettingsSection(title: String(localized: "settings_playback_local_sync_section")) {
+            VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .lock,
                     title: String(localized: "settings_qmc_decrypt"),
@@ -241,43 +270,6 @@ struct PlaybackSettingsView: View {
                     isOn: $settings.likeToChoosePlaylist
                 )
             }
-            .animation(.spring(response: 0.28, dampingFraction: 0.86), value: settings.preferHighestPlaybackQuality)
-        }
-        .monologueSheet(isPresented: $showPlaybackQualitySheet, preset: .standard) {
-            SoundQualitySheet(
-                currentQuality: SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard,
-                currentQQQuality: .mp3_320,
-                isUnblocked: false,
-                isQQMusic: false,
-                onSelectNetease: { quality in
-                    settings.defaultPlaybackQuality = quality.rawValue
-                    showPlaybackQualitySheet = false
-                },
-                onSelectQQ: { _ in }
-            )
-        }
-        .monologueSheet(isPresented: $showQQPlaybackQualitySheet, preset: .standard) {
-            SoundQualitySheet(
-                currentQuality: .standard,
-                currentQQQuality: QQMusicQuality(rawValue: settings.defaultQQPlaybackQuality) ?? .mp3_320,
-                isUnblocked: false,
-                isQQMusic: true,
-                onSelectNetease: { _ in },
-                onSelectQQ: { quality in
-                    settings.defaultQQPlaybackQuality = quality.rawValue
-                    showQQPlaybackQualitySheet = false
-                }
-            )
-        }
-        .monologueSheet(isPresented: $showQishuiPlaybackQualitySheet, preset: .standard) {
-            QishuiQualityPickerSheet(
-                currentQuality: settings.defaultQishuiPlaybackQuality,
-                onSelect: { quality in
-                    settings.defaultQishuiPlaybackQuality = quality
-                    PlayerManager.shared.qishuiSelectedQuality = quality
-                    showQishuiPlaybackQualitySheet = false
-                }
-            )
         }
     }
 

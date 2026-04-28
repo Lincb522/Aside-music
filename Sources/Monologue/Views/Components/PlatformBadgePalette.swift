@@ -69,17 +69,84 @@ struct PlatformBadgeLabel: View {
         let tint = source.themedBadgeColor
 
         Text(text)
-            .font(.system(size: fontSize, weight: .semibold, design: .rounded))
-            .foregroundColor(tint)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(
-                RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 6 : 4, style: .continuous)
-                    .fill(tint.opacity(MangaStyle.isActive ? 0.16 : (NeumorphicStyle.isActive ? 0.13 : 0.12)))
+            .font(badgeFont)
+            .foregroundColor(badgeForeground(tint))
+            .tracking(badgeTracking)
+            .padding(.horizontal, badgeHorizontalPadding)
+            .padding(.vertical, badgeVerticalPadding)
+            .background {
+                badgeBackground(tint)
+            }
+            .overlay {
+                badgeStroke(tint)
+            }
+    }
+
+    private var badgeFont: Font {
+        if MangaStyle.isActive {
+            return MangaStyle.labelFont(fontSize, weight: .black)
+        }
+        if MujiStyle.isActive {
+            return MujiStyle.labelFont(fontSize, weight: .semibold)
+        }
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(fontSize, weight: .semibold)
+        }
+        return .system(size: fontSize, weight: .semibold, design: .rounded)
+    }
+
+    private var badgeTracking: CGFloat {
+        MujiStyle.isActive ? 0.6 : 0
+    }
+
+    private var badgeHorizontalPadding: CGFloat {
+        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : 7)
+    }
+
+    private var badgeVerticalPadding: CGFloat {
+        MangaStyle.isActive ? 3.5 : 3
+    }
+
+    private var badgeCornerRadius: CGFloat {
+        MangaStyle.isActive ? 7 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 8 : 4))
+    }
+
+    private func badgeForeground(_ tint: Color) -> Color {
+        if MangaStyle.isActive {
+            return MangaStyle.ink
+        }
+        return tint
+    }
+
+    @ViewBuilder
+    private func badgeBackground(_ tint: Color) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: badgeCornerRadius,
+                elevated: false,
+                pressed: true,
+                tint: tint.opacity(0.12)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 6 : 4, style: .continuous)
-                    .stroke(tint.opacity(NeumorphicStyle.isActive ? 0.42 : 0.72), lineWidth: 0.6)
-            )
+        } else {
+            RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
+                .fill(tint.opacity(MangaStyle.isActive ? 0.22 : (MujiStyle.isActive ? 0.10 : 0.12)))
+        }
+    }
+
+    @ViewBuilder
+    private func badgeStroke(_ tint: Color) -> some View {
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
+                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
+                .stroke(tint.opacity(0.34), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
+                .stroke(tint.opacity(0.22), lineWidth: 0.6)
+        } else {
+            RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
+                .stroke(tint.opacity(0.72), lineWidth: 0.6)
+        }
     }
 }

@@ -121,7 +121,7 @@ struct QishuiQualityPickerSheet: View {
     @ViewBuilder
     private var closeButtonBackground: some View {
         if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true)
+            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
                 .clipShape(Circle())
         } else {
             Circle()

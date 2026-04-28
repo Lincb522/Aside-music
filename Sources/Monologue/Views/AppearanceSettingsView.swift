@@ -50,7 +50,7 @@ struct AppearanceSettingsView: View {
                         lyricSection
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(700)
                 }
             }
@@ -91,6 +91,18 @@ struct AppearanceSettingsView: View {
                             await settings.selectAppBrandAppearance(appearance)
                         }
                     }
+                )
+
+                Divider()
+                    .opacity(0.4)
+                    .padding(.leading, 62)
+
+                SettingsInterfaceIconSetRow(
+                    title: String(localized: "settings_interface_icon_set_title"),
+                    selection: Binding(
+                        get: { settings.interfaceIconSet },
+                        set: { settings.interfaceIconSet = $0 }
+                    )
                 )
             }
         }
@@ -202,9 +214,7 @@ struct AppearanceSettingsView: View {
         SettingsSection(title: String(localized: "settings_appearance_global_theme_section")) {
             VStack(spacing: 0) {
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                        isGlobalThemeExpanded.toggle()
-                    }
+                    isGlobalThemeExpanded.toggle()
                 } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .playerTheme)
@@ -223,6 +233,7 @@ struct AppearanceSettingsView: View {
 
                         MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                             .rotationEffect(.degrees(isGlobalThemeExpanded ? -90 : 90))
+                            .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isGlobalThemeExpanded)
                     }
                     .contentShape(Rectangle())
                 }
@@ -235,9 +246,7 @@ struct AppearanceSettingsView: View {
                         HStack(spacing: 10) {
                             ForEach(GlobalThemeId.allCases) { themeId in
                                 Button {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        applyGlobalTheme(themeId)
-                                    }
+                                    applyGlobalTheme(themeId)
                                 } label: {
                                     GlobalThemeOptionCard(
                                         themeId: themeId,
@@ -407,9 +416,7 @@ private struct ThemeColorCustomizationSection: View {
         SettingsSection(title: String(localized: "主题颜色")) {
             VStack(alignment: .leading, spacing: 0) {
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                        isExpanded.toggle()
-                    }
+                    isExpanded.toggle()
                 } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .sparkle)
@@ -428,6 +435,7 @@ private struct ThemeColorCustomizationSection: View {
 
                         MonologueIcon(icon: .chevronRight, size: 11, color: Color.monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                             .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                            .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
                     }
                     .contentShape(Rectangle())
                 }
@@ -448,6 +456,10 @@ private struct ThemeColorCustomizationSection: View {
 
                         colorRoleEditor(role: .background)
 
+                        if theme == .default {
+                            restoreDefaultBackgroundButton
+                        }
+
                         if theme == .manga {
                             Divider().opacity(0.35)
                             mangaExtraEditor
@@ -466,6 +478,32 @@ private struct ThemeColorCustomizationSection: View {
                 color: binding(for: target)
             )
         }
+    }
+
+    private var restoreDefaultBackgroundButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                ThemeColorCustomization.resetBackground(for: .default)
+            }
+        } label: {
+            HStack(spacing: 9) {
+                MonologueIcon(icon: .refresh, size: 11, color: themeSubtextColor, lineWidth: 1.7)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(themeStrokeColor.opacity(0.12)))
+
+                Text(String(localized: "恢复默认背景"))
+                    .font(appearanceSettingsFont(12, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer()
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 9)
+            .background(fieldBackground)
+            .opacity(ThemeColorCustomization.hasStoredBackground(for: .default) ? 1 : 0.58)
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+        .disabled(!ThemeColorCustomization.hasStoredBackground(for: .default))
     }
 
     private var presetRail: some View {
@@ -745,6 +783,10 @@ private struct ThemeColorCustomizationSection: View {
         case (.manga, .accent, _): return "FF4F84"
         case (.manga, .background, "end"): return "E8F1FF"
         case (.manga, .background, _): return "FFF3D7"
+        case (.default, .accent, "end"): return "4D6F95"
+        case (.default, .accent, _): return "4D6F95"
+        case (.default, .background, "end"): return "E6EDF6"
+        case (.default, .background, _): return "F8FAFC"
         default: return "FFFFFF"
         }
     }
@@ -777,8 +819,12 @@ private struct ThemeColorCustomizationSection: View {
                 .fill(isSelected ? MujiStyle.clay.opacity(0.14) : MujiStyle.surface.opacity(0.78))
                 .overlay(Capsule().stroke(isSelected ? MujiStyle.clay.opacity(0.42) : MujiStyle.hairline.opacity(0.48), lineWidth: isSelected ? 0.9 : 0.65))
                 .overlay(MujiPaperTexture(opacity: isSelected ? 0.04 : 0.08).clipShape(Capsule()))
+        } else if theme == .neumorphic {
+            NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, tint: isSelected ? NeumorphicStyle.accent.opacity(0.14) : nil, lightweight: true)
         } else {
-            NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, tint: isSelected ? NeumorphicStyle.accent.opacity(0.14) : nil)
+            Capsule()
+                .fill(isSelected ? Color.monologueAccent.opacity(0.12) : Color.monologueGlassTint)
+                .overlay(Capsule().stroke(isSelected ? Color.monologueAccent.opacity(0.32) : Color.monologueSeparator.opacity(0.72), lineWidth: isSelected ? 0.9 : 0.65))
         }
     }
 
@@ -792,38 +838,47 @@ private struct ThemeColorCustomizationSection: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MujiStyle.surface.opacity(0.72))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
+        } else if theme == .neumorphic {
+            NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true)
         } else {
-            NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.monologueSeparator.opacity(0.68), lineWidth: 0.65))
         }
     }
 
     private var themeTextColor: Color {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
+        if theme == .default { return Color.monologueTextPrimary }
         return NeumorphicStyle.ink
     }
 
     private var themeSubtextColor: Color {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
+        if theme == .default { return Color.monologueTextSecondary }
         return NeumorphicStyle.inkSoft
     }
 
     private var themeStrokeColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
+        if theme == .default { return Color.monologueSeparator }
         return NeumorphicStyle.separator.opacity(0.62)
     }
 
     private var selectedPresetTextColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
+        if theme == .default { return Color.monologueAccent }
         return NeumorphicStyle.accent
     }
 
     private var selectedPresetMarkColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.onTint }
+        if theme == .default { return Color.monologueIconForeground }
         return Color(light: .white, dark: .black)
     }
 
@@ -836,6 +891,9 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .muji {
             Circle()
                 .fill(MujiStyle.tea)
+        } else if theme == .default {
+            Circle()
+                .fill(Color.monologueIconBackground)
         } else {
             Circle()
                 .fill(NeumorphicStyle.accent)
@@ -845,6 +903,7 @@ private struct ThemeColorCustomizationSection: View {
     private var savePresetIconColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.onTint }
+        if theme == .default { return Color.monologueIconForeground }
         return Color(light: .white, dark: .black)
     }
 
@@ -857,10 +916,13 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .muji {
             Circle()
                 .fill(MujiStyle.clay.opacity(0.82))
-        } else {
+        } else if theme == .neumorphic {
             Circle()
                 .fill(NeumorphicStyle.accent)
                 .shadow(color: NeumorphicStyle.accent.opacity(0.18), radius: 5, x: 0, y: 3)
+        } else {
+            Circle()
+                .fill(Color.monologueIconBackground)
         }
     }
 
@@ -876,8 +938,12 @@ private struct ThemeColorCustomizationSection: View {
                 .fill(MujiStyle.surface.opacity(0.74))
                 .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
                 .overlay(MujiPaperTexture(opacity: 0.065).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous)))
+        } else if theme == .neumorphic {
+            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08), lightweight: true)
         } else {
-            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08))
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(Color.monologueSeparator.opacity(0.65), lineWidth: 0.65))
         }
     }
 }
@@ -1149,6 +1215,10 @@ private struct ThemeColorPickerSheet: View {
             return ["B56B4B", "D8B56D", "78846B", "56677A", "B96D55", "CFA66F", "F7F1E8", "EFE5D6", "F3EEE3", "E4E8D9", "F4E8DC", "EAD9C8"]
         }
 
+        if theme == .default {
+            return ["4D6F95", "B66E57", "4D8196", "6A8368", "6E72A7", "9F7559", "F8FAFC", "E6EDF6", "FFF6EB", "EAF0FA", "EEF6FA", "E9F2EC"]
+        }
+
         return ["4F8E86", "7D9475", "C59A66", "C65A58", "5E7FA4", "7AB9B0", "E9EDF0", "F2EEE8", "EEE8E1", "E7EDF0", "E8EDF4", "F0F2F4"]
     }
 
@@ -1164,6 +1234,8 @@ private struct ThemeColorPickerSheet: View {
                 MujiStyle.paper
                 MujiPaperTexture(opacity: 0.09)
             }
+        } else if theme == .default {
+            Color.monologueSheetSurfaceBottom
         } else {
             NeumorphicStyle.base
         }
@@ -1181,8 +1253,12 @@ private struct ThemeColorPickerSheet: View {
                 .fill(MujiStyle.surface.opacity(0.82))
                 .overlay(MujiPaperTexture(opacity: 0.07).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous)))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.65))
+        } else if theme == .default {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
         } else {
-            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
         }
     }
 
@@ -1196,8 +1272,12 @@ private struct ThemeColorPickerSheet: View {
             Circle()
                 .fill(MujiStyle.surface.opacity(0.86))
                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+        } else if theme == .default {
+            Circle()
+                .fill(Color.monologueGlassTint)
+                .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
         } else {
-            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true)
+            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true, lightweight: true)
         }
     }
 
@@ -1214,6 +1294,13 @@ private struct ThemeColorPickerSheet: View {
         } else if theme == .muji {
             MujiPaperTexture(opacity: 0.1)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else if theme == .default {
+            LinearGradient(
+                colors: [.white.opacity(0.24), .clear, Color.monologueAccent.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         } else {
             LinearGradient(
                 colors: [.white.opacity(0.32), .clear, .black.opacity(0.08)],
@@ -1227,60 +1314,70 @@ private struct ThemeColorPickerSheet: View {
     private var titleFont: Font {
         if theme == .manga { return MangaStyle.titleFont(19, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(18, weight: .semibold) }
+        if theme == .default { return .system(size: 18, weight: .semibold, design: .rounded) }
         return NeumorphicStyle.labelFont(18, weight: .semibold)
     }
 
     private var labelFont: Font {
         if theme == .manga { return MangaStyle.labelFont(13, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(13, weight: .semibold) }
+        if theme == .default { return .system(size: 13, weight: .semibold, design: .rounded) }
         return NeumorphicStyle.labelFont(13, weight: .semibold)
     }
 
     private var titleColor: Color {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
+        if theme == .default { return Color.monologueTextPrimary }
         return NeumorphicStyle.ink
     }
 
     private var subtitleColor: Color {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
+        if theme == .default { return Color.monologueTextSecondary }
         return NeumorphicStyle.inkSoft
     }
 
     private var closeIconColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.inkSoft }
+        if theme == .default { return Color.monologueTextSecondary }
         return NeumorphicStyle.inkSoft
     }
 
     private var previewStrokeColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.55) }
+        if theme == .default { return Color.monologueSeparator.opacity(0.72) }
         return NeumorphicStyle.separator.opacity(0.58)
     }
 
     private var selectedStrokeColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
+        if theme == .default { return Color.monologueAccent }
         return NeumorphicStyle.accent
     }
 
     private var selectedCheckColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.onTint }
+        if theme == .default { return Color.monologueIconForeground }
         return Color(light: .white, dark: .black)
     }
 
     private var selectedCheckBackground: Color {
         if theme == .manga { return MangaStyle.labelYellow }
         if theme == .muji { return MujiStyle.tea }
+        if theme == .default { return Color.monologueIconBackground }
         return NeumorphicStyle.accent
     }
 
     private var previewShadowColor: Color {
         if theme == .manga { return MangaStyle.strokeInk.opacity(0.12) }
         if theme == .muji { return MujiStyle.ink.opacity(0.08) }
+        if theme == .default { return Color.black.opacity(0.1) }
         return NeumorphicStyle.darkShadow(.light, intensity: 0.42)
     }
 }
@@ -1296,9 +1393,7 @@ private struct SettingsAppBrandRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                    isExpanded.toggle()
-                }
+                isExpanded.toggle()
             } label: {
                 HStack(spacing: 12) {
                     SettingsIconBadge(icon: .sparkle)
@@ -1308,7 +1403,7 @@ private struct SettingsAppBrandRow: View {
                             .font(appearanceSettingsFont(15, weight: .medium))
                             .foregroundColor(.monologueTextPrimary)
 
-                        Text("\(selection.displayName) · \(appearance.displayName)")
+                        Text(selectionSummary)
                             .font(appearanceSettingsFont(11, weight: .regular))
                             .foregroundStyle(.tertiary)
                     }
@@ -1317,6 +1412,7 @@ private struct SettingsAppBrandRow: View {
 
                     MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                        .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -1326,19 +1422,23 @@ private struct SettingsAppBrandRow: View {
 
             SettingsDisclosureReveal(isExpanded: isExpanded) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
-                        ForEach(AppBrandStyle.allCases) { style in
-                            Button {
-                                onSelect(style)
-                            } label: {
-                                AppBrandOptionCard(
-                                    style: style,
-                                    appearance: appearance,
-                                    isSelected: selection == style
-                                )
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(AppBrandStyle.allCases) { style in
+                                Button {
+                                    onSelect(style)
+                                } label: {
+                                    AppBrandOptionCard(
+                                        style: style,
+                                        appearance: appearance,
+                                        isSelected: selection == style
+                                    )
+                                    .frame(width: 104)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.vertical, 1)
                     }
 
                     HStack(spacing: 8) {
@@ -1365,6 +1465,172 @@ private struct SettingsAppBrandRow: View {
             }
         }
     }
+
+    private var selectionSummary: String {
+        let name = selection.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? appearance.displayName : "\(name) · \(appearance.displayName)"
+    }
+}
+
+private struct SettingsInterfaceIconSetRow: View {
+    let title: String
+    @Binding var selection: AppInterfaceIconSet
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: 12) {
+                    SettingsIconBadge(icon: .gridSquare)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(appearanceSettingsFont(15, weight: .medium))
+                            .foregroundColor(.monologueTextPrimary)
+
+                        Text(selection.displayName)
+                            .font(appearanceSettingsFont(11, weight: .regular))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Spacer()
+
+                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                        .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                        .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            SettingsDisclosureReveal(isExpanded: isExpanded) {
+                HStack(spacing: 10) {
+                    ForEach(AppInterfaceIconSet.allCases) { iconSet in
+                        Button {
+                            selection = iconSet
+                        } label: {
+                            InterfaceIconSetOptionCard(
+                                iconSet: iconSet,
+                                isSelected: selection == iconSet
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 12)
+            }
+        }
+    }
+}
+
+private struct InterfaceIconSetOptionCard: View {
+    let iconSet: AppInterfaceIconSet
+    let isSelected: Bool
+
+    private let samples: [MonologueIcon.IconType] = [
+        .homeFilled,
+        .search,
+        .play,
+        .profileFilled,
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                ForEach(samples.indices, id: \.self) { index in
+                    Image(uiImage: iconSet.image(for: samples[index]))
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(previewIconColor)
+                        .frame(width: 30, height: 30)
+                        .background(previewIconBackground, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+            }
+
+            HStack(spacing: 6) {
+                Text(iconSet.displayName)
+                    .font(appearanceSettingsFont(12, weight: .semibold))
+                    .foregroundColor(titleColor)
+                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+
+                if isSelected {
+                    MonologueIcon(icon: .checkmark, size: 10, color: checkColor, lineWidth: 2)
+                        .frame(width: 18, height: 18)
+                        .background(checkBackground, in: Circle())
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(cardBackground)
+        .overlay {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(cardStroke, lineWidth: isSelected ? 1.4 : 0.8)
+        }
+    }
+
+    private var previewIconColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var previewIconBackground: Color {
+        if MangaStyle.isActive { return isSelected ? MangaStyle.labelYellow.opacity(0.85) : MangaStyle.paperCool.opacity(0.9) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(isSelected ? 0.88 : 0.58) }
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surfacePressed }
+        return isSelected ? Color.monologueIconBackground.opacity(0.16) : Color.monologueSeparator.opacity(0.35)
+    }
+
+    private var titleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var checkColor: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .white
+    }
+
+    private var checkBackground: Color {
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        return .monologueAccent
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 15, style: .continuous)
+            .fill(backgroundFill)
+    }
+
+    private var backgroundFill: Color {
+        if MangaStyle.isActive { return isSelected ? MangaStyle.bubbleBlue.opacity(0.38) : MangaStyle.bubbleWhite.opacity(0.72) }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.paperWarm.opacity(0.82) : MujiStyle.surface.opacity(0.5) }
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.surfaceRaised.opacity(0.92) : NeumorphicStyle.surface.opacity(0.6) }
+        return isSelected ? Color.monologueIconBackground.opacity(0.12) : Color.monologueSeparator.opacity(0.28)
+    }
+
+    private var cardStroke: Color {
+        if MangaStyle.isActive { return isSelected ? MangaStyle.strokeInk : MangaStyle.strokeInk.opacity(0.22) }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.clay.opacity(0.5) : MujiStyle.hairline.opacity(0.32) }
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent.opacity(0.45) : NeumorphicStyle.separator.opacity(0.32) }
+        return isSelected ? Color.monologueAccent.opacity(0.42) : Color.clear
+    }
 }
 
 private struct SettingsDisclosureReveal<Content: View>: View {
@@ -1372,33 +1638,62 @@ private struct SettingsDisclosureReveal<Content: View>: View {
     let content: Content
     @State private var measuredHeight: CGFloat = 0
 
+    private var targetHeight: CGFloat {
+        isExpanded ? measuredHeight : 0
+    }
+
+    private var revealAnimation: Animation {
+        .timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.24)
+    }
+
+    private var contentAnimation: Animation {
+        .timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.16).delay(0.03)
+    }
+
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
         self.isExpanded = isExpanded
         self.content = content()
     }
 
     var body: some View {
-        content
-            .fixedSize(horizontal: false, vertical: true)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: SettingsDisclosureHeightPreferenceKey.self,
-                        value: proxy.size.height
-                    )
+        ZStack(alignment: .top) {
+            content
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(isExpanded ? 1 : 0)
+                .offset(y: isExpanded ? 0 : -6)
+                .animation(isExpanded ? contentAnimation : nil, value: isExpanded)
+                .transaction { transaction in
+                    if !isExpanded {
+                        transaction.disablesAnimations = true
+                    }
                 }
-            )
-            .onPreferenceChange(SettingsDisclosureHeightPreferenceKey.self) { height in
-                if height > 0 {
-                    measuredHeight = height
-                }
-            }
-            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
-            .opacity(isExpanded ? 1 : 0.001)
-            .clipped()
-            .compositingGroup()
-            .allowsHitTesting(isExpanded)
-            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: SettingsDisclosureHeightPreferenceKey.self,
+                            value: proxy.size.height
+                        )
+                    }
+                )
+        }
+        .frame(height: targetHeight, alignment: .top)
+        .clipShape(Rectangle())
+        .clipped()
+        .onPreferenceChange(SettingsDisclosureHeightPreferenceKey.self) { height in
+            updateMeasuredHeight(height)
+        }
+        .contentShape(Rectangle())
+        .allowsHitTesting(isExpanded)
+        .animation(revealAnimation, value: isExpanded)
+    }
+
+    private func updateMeasuredHeight(_ height: CGFloat) {
+        guard height > 0, abs(measuredHeight - height) > 0.5 else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            measuredHeight = height
+        }
     }
 }
 

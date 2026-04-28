@@ -417,7 +417,7 @@ struct FloatingBallView: View {
         } else if NeumorphicStyle.isActive {
             Circle()
                 .fill(neumorphicTabTint(tab).opacity(0.16))
-                .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true))
         } else {
             Circle()
                 .fill(Color.monologueFloatingBarFill)

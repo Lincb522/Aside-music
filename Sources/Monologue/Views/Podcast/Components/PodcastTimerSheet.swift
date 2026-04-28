@@ -176,7 +176,7 @@ struct PodcastTimerSheet: View {
                         .frame(width: 34, height: 34)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
                             }
                         }
 
@@ -509,7 +509,7 @@ private struct TimerStatusBadge: View {
             .padding(.vertical, 6)
             .background {
                 if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15))
+                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15), lightweight: true)
                 } else {
                     tint.opacity(0.12)
                 }

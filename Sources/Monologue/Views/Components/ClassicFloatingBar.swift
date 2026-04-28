@@ -221,7 +221,7 @@ private struct ClassicMiniPlayerSection: View {
                     if !isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
-                                player.stopAndClear()
+                                player.dismissMiniPlayerPreservingQueue()
                             }
                         }) {
                             MonologueIcon(icon: .close, size: 10, color: subtitleColor)
@@ -507,7 +507,7 @@ private struct ClassicTabBarSection: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(NeumorphicStyle.accent.opacity(0.12))
-                .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true).padding(.horizontal, 4))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true).padding(.horizontal, 4))
                 .padding(.horizontal, 5)
         }
     }

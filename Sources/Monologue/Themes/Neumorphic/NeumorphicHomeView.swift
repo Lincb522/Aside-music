@@ -282,7 +282,7 @@ struct NeumorphicHomeView: View {
                     }
                     .padding(.horizontal, 15)
                     .padding(.vertical, 13)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
             }
@@ -513,7 +513,7 @@ struct NeumorphicHomeView: View {
 
                 MonologueIcon(icon: .chevronRight, size: 13, color: MusicSource.netease.themedBadgeColor, lineWidth: 1.7)
                     .frame(width: 34, height: 34)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
             }
             .padding(14)
             .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: MusicSource.netease.themedBadgeColor.opacity(0.08)))
@@ -560,7 +560,7 @@ struct NeumorphicHomeView: View {
             }
         }
         .padding(5)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true))
+        .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true, lightweight: true))
     }
 
     private var dailyDrawer: some View {
@@ -672,7 +672,7 @@ struct NeumorphicHomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true))
+        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true))
     }
 
     private var moduleSubtitle: String {
@@ -830,7 +830,7 @@ private struct NeumorphicHomeSpinningCover: View {
     private let degreesPerSecond: Double = 10
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: !isPlaying)) { timeline in
+        TimelineView(.animation(minimumInterval: 1 / 24, paused: !isPlaying)) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
             CachedAsyncImage(url: coverUrl) {
@@ -951,11 +951,11 @@ private struct NeumorphicHomeSongRow: View {
                 } else {
                     MonologueIcon(icon: .play, size: 12, color: NeumorphicStyle.inkMuted, lineWidth: 1.7)
                         .frame(width: 32, height: 32)
-                        .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true))
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
                 }
             }
             .padding(10)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: !isPlaying, tint: isPlaying ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface))
+            .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: !isPlaying, tint: isPlaying ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface, lightweight: true))
         }
         .buttonStyle(.plain)
     }
@@ -1018,7 +1018,7 @@ private struct NeumorphicMiniPlaylistCard: View {
         }
         .padding(10)
         .frame(minHeight: 74)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true))
+        .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true, lightweight: true))
     }
 }
 

@@ -120,7 +120,7 @@ private struct PlaylistCountSurfaceModifier: ViewModifier {
         if NeumorphicStyle.isActive {
             content
                 .foregroundStyle(NeumorphicStyle.ink)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true))
         } else {
             content.monologueGlassCapsule()
         }

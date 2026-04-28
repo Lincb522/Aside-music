@@ -24,7 +24,7 @@ struct CloudSyncSettingsView: View {
                         actionSection
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(700)
                 }
             }

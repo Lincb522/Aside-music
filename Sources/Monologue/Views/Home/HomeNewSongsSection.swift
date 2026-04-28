@@ -58,7 +58,7 @@ struct HomeNewSongsSection: View {
                         .padding(.vertical, 5)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
                             } else if MujiStyle.isActive {
                                 Capsule().fill(MujiStyle.surfaceRaised)
                                     .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))

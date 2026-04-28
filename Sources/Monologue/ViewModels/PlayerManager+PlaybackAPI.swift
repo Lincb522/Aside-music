@@ -83,7 +83,7 @@ extension PlayerManager {
 
     private var hasRetainableCurrentQueue: Bool {
         let list = currentContextList
-        guard currentSong != nil, !list.isEmpty else { return false }
+        guard !list.isEmpty else { return false }
         return list.indices.contains(contextIndex)
     }
 
@@ -258,6 +258,9 @@ extension PlayerManager {
                 playSongKeepingCurrentQueue(song: song)
                 loadAndPlay(song: song)
             }
+        } else if filteredContext.count > 1 {
+            replacePlaybackContext(song: song, in: filteredContext)
+            loadAndPlay(song: song)
         } else {
             playSingle(song: song)
         }
@@ -433,6 +436,12 @@ extension PlayerManager {
         ensureMusicContextRestored()
         if currentSong?.id == song.id {
             togglePlayPause()
+            return
+        }
+
+        if currentSong == nil, hasRetainableCurrentQueue {
+            playSongKeepingCurrentQueue(song: song)
+            loadAndPlay(song: song)
             return
         }
         

@@ -63,19 +63,34 @@ extension Color {
     static var monologueGradientBottom: Color {
         Color(light: Color(hex: "E8E8ED"), dark: Color(hex: "000000"))
     }
+
+    private static var monologueDefaultAccent: Color {
+        let activeThemeRaw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.default.rawValue
+        guard activeThemeRaw == GlobalThemeId.default.rawValue,
+              ThemeColorCustomization.customColorsEnabled,
+              ThemeColorCustomization.hasStoredAccent(for: .default)
+        else {
+            return Color(light: .black, dark: .white)
+        }
+        return ThemeColorCustomization.accentColor(
+            for: .default,
+            fallback: Color(light: .black, dark: .white),
+            fallbackHex: ThemeColorCustomization.defaultAccentHex(for: .default)
+        )
+    }
     
     /// 主强调色（与 monologueIconBackground 一致，用于 EQ 等交互组件）
     static var monologueAccent: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
-        return Color(light: .black, dark: .white)
+        return monologueDefaultAccent
     }
     
     /// 设置页系统 Toggle 激活色
     static var monologueToggleTint: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
-        return Color(light: Color.black.opacity(0.88), dark: Color.white.opacity(0.9))
+        return monologueDefaultAccent.opacity(0.9)
     }
     
     static let monologueAccentYellow = Color(hex: "FFCC00")
@@ -184,7 +199,7 @@ extension Color {
     static var monologueIconBackground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.ink }
-        return Color(light: .black, dark: .white)
+        return monologueDefaultAccent
     }
     
     static var monologueIconForeground: Color {

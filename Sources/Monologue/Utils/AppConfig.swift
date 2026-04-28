@@ -73,6 +73,7 @@ enum AppConfig {
         static let backgroundAudioPolicy = "monologue_background_audio_policy"
         static let appBrandStyle = "monologue_app_brand_style"
         static let appBrandAppearance = "monologue_app_brand_appearance"
+        static let interfaceIconSet = "monologue_interface_icon_set"
         static let playlistSyncDeviceId = "monologue_playlist_sync_device_id"
         static let playlistSyncLastSyncedAt = "monologue_playlist_sync_last_synced_at"
         static let playlistSyncLastMessage = "monologue_playlist_sync_last_message"

@@ -58,6 +58,15 @@ struct DeviceLayout {
     
     /// 通用页面水平内边距
     static var viewHorizontalPadding: CGFloat { isPad ? 32 : 24 }
+
+    /// 设置页顶部标题的水平内边距
+    static var settingsHeaderHorizontalPadding: CGFloat { isPad ? 40 : 30 }
+
+    /// 设置页类目卡片的水平内边距
+    static var settingsSectionHorizontalPadding: CGFloat { isPad ? 32 : 20 }
+
+    /// 旧设置页间距入口，保持给零散页面复用
+    static var settingsPageHorizontalPadding: CGFloat { settingsSectionHorizontalPadding }
     
     /// 每日推荐卡片尺寸
     static var dailyCardSize: CGFloat { isPad ? 170 : 120 }

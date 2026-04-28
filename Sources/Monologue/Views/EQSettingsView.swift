@@ -83,7 +83,7 @@ struct EQSettingsView: View {
 
                             FloatingBarBottomSpacer()
                         }
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                         .iPadContentWidth()
                     }
                 }
@@ -734,7 +734,7 @@ struct EQSettingsView: View {
         )
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 14, elevated: isSelected, pressed: !isSelected)
+                NeumorphicSurfaceBackground(cornerRadius: 14, elevated: isSelected, pressed: !isSelected, lightweight: true)
             }
         }
     }

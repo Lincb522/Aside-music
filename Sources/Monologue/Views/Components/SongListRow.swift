@@ -198,52 +198,24 @@ struct SongListRow: View {
                     }
                     .opacity(isGrayed ? 0.4 : 1.0)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: songInfoVerticalSpacing) {
                         Text(song.name)
                             .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) : .system(size: 16, weight: isCurrent ? .bold : .medium))))
                             .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.4) : (isCurrent ? Theme.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
                             .lineLimit(1)
+                            .layoutPriority(2)
 
-                        HStack(spacing: 6) {
-                            if song.isNoCopyright {
-                                songMetaBadge(String(localized: "song_no_copyright"), color: Theme.accent, fontSize: 7)
-                            }
+                        Text(songArtistAlbumText)
+                            .font(songArtistAlbumFont)
+                            .foregroundColor(songArtistAlbumColor)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .layoutPriority(1)
 
-                            HStack(spacing: 4) {
-                                if song.isQQMusic {
-                                    songMetaBadge("QCM", color: qcmBrandColor)
-
-                                    if let badge = song.qqMaxQuality?.badgeText {
-                                        songMetaBadge(badge, color: qcmBrandColor)
-                                    }
-                                } else if song.isQishui {
-                                    songMetaBadge("QSM", color: qsmBrandColor)
-                                    
-                                    if let badge = song.qualityBadge {
-                                        songMetaBadge(badge, color: qsmBrandColor)
-                                    }
-                                } else if isLocalSong {
-                                    songMetaBadge("LOCAL", color: localBrandColor)
-                                } else if let radioName = song.podcastRadioName {
-                                    songMetaBadge(radioName.uppercased(), color: ncmBrandColor)
-                                } else {
-                                    songMetaBadge("NCM", color: ncmBrandColor)
-                                    
-                                    if let badge = song.qualityBadge {
-                                        let maxQ = song.maxQuality
-                                        if maxQ.isVIP || maxQ == .lossless || maxQ == .hires {
-                                            songMetaBadge(badge, color: ncmBrandColor, fontSize: maxQ.isBadgeChinese ? 7 : 8)
-                                        }
-                                    }
-                                }
-
-                                Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
-                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13))))
-                                    .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.3) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText))
-                                    .lineLimit(1)
-                            }
-                        }
+                        songBadgeRail
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
 
                     Spacer(minLength: 0)
                 }
@@ -464,20 +436,168 @@ struct SongListRow: View {
         }
     }
 
-    private func songMetaBadge(_ text: String, color: Color, fontSize: CGFloat = 8) -> some View {
+    private var songInfoVerticalSpacing: CGFloat {
+        if MangaStyle.isActive { return 3.5 }
+        if MujiStyle.isActive { return 3 }
+        if NeumorphicStyle.isActive { return 3.5 }
+        return 3
+    }
+
+    private var songArtistAlbumText: String {
+        let albumName = song.al?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !albumName.isEmpty else { return song.artistName }
+        return "\(song.artistName) · \(albumName)"
+    }
+
+    private var songArtistAlbumFont: Font {
+        if MangaStyle.isActive {
+            return MangaStyle.comicFont(12, weight: .medium)
+        }
+        if MujiStyle.isActive {
+            return MujiStyle.labelFont(12, weight: .regular)
+        }
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(12, weight: .medium)
+        }
+        return .system(size: 13)
+    }
+
+    private var songArtistAlbumColor: Color {
+        isGrayed ? Theme.secondaryText.opacity(0.3) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)
+    }
+
+    private var songBadgeRailSpacing: CGFloat {
+        if MangaStyle.isActive { return 5 }
+        if MujiStyle.isActive { return 4 }
+        if NeumorphicStyle.isActive { return 5 }
+        return 4
+    }
+
+    @ViewBuilder
+    private var songBadgeRail: some View {
+        HStack(spacing: songBadgeRailSpacing) {
+            if song.isNoCopyright {
+                songMetaBadge(String(localized: "song_no_copyright"), color: Theme.accent, fontSize: 7)
+            }
+
+            if song.isQQMusic {
+                songMetaBadge("QCM", color: qcmBrandColor)
+
+                if let badge = song.qqMaxQuality?.badgeText {
+                    songMetaBadge(badge, color: qcmBrandColor)
+                }
+            } else if song.isQishui {
+                songMetaBadge("QSM", color: qsmBrandColor)
+
+                if let badge = song.qualityBadge {
+                    songMetaBadge(badge, color: qsmBrandColor)
+                }
+            } else if isLocalSong {
+                songMetaBadge("LOCAL", color: localBrandColor)
+            } else if let radioName = song.podcastRadioName {
+                songMetaBadge(radioName.uppercased(), color: ncmBrandColor, maxWidth: 92)
+            } else {
+                songMetaBadge("NCM", color: ncmBrandColor)
+
+                if let badge = song.qualityBadge {
+                    let maxQ = song.maxQuality
+                    if maxQ.isVIP || maxQ == .lossless || maxQ == .hires {
+                        songMetaBadge(badge, color: ncmBrandColor, fontSize: maxQ.isBadgeChinese ? 7 : 8)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .allowsHitTesting(false)
+    }
+
+    private func songMetaBadge(_ text: String, color: Color, fontSize: CGFloat = 8, maxWidth: CGFloat? = nil) -> some View {
         return Text(text)
-            .font(.system(size: fontSize, weight: .bold))
-            .foregroundColor(color)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(color.opacity(MangaStyle.isActive ? 0.16 : 0.11))
+            .font(songMetaBadgeFont(fontSize: fontSize))
+            .foregroundColor(songMetaBadgeForeground(color))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .tracking(MujiStyle.isActive ? 0.35 : 0)
+            .padding(.horizontal, songMetaBadgeHorizontalPadding)
+            .padding(.vertical, songMetaBadgeVerticalPadding)
+            .frame(maxWidth: maxWidth, alignment: .leading)
+            .background {
+                songMetaBadgeBackground(color)
+            }
+            .overlay {
+                songMetaBadgeStroke(color)
+            }
+    }
+
+    private func songMetaBadgeFont(fontSize: CGFloat) -> Font {
+        if MangaStyle.isActive {
+            return MangaStyle.labelFont(max(fontSize + 1, 8), weight: .black)
+        }
+        if MujiStyle.isActive {
+            return MujiStyle.labelFont(max(fontSize + 0.5, 8), weight: .semibold)
+        }
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(max(fontSize + 0.5, 8), weight: .semibold)
+        }
+        return .system(size: fontSize, weight: .bold, design: .rounded)
+    }
+
+    private var songMetaBadgeHorizontalPadding: CGFloat {
+        if MangaStyle.isActive { return 5.5 }
+        if MujiStyle.isActive { return 5 }
+        if NeumorphicStyle.isActive { return 5.5 }
+        return 4
+    }
+
+    private var songMetaBadgeVerticalPadding: CGFloat {
+        if MangaStyle.isActive { return 2 }
+        if MujiStyle.isActive { return 1.5 }
+        if NeumorphicStyle.isActive { return 2 }
+        return 1
+    }
+
+    private var songMetaBadgeCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 6 }
+        if MujiStyle.isActive { return 5 }
+        if NeumorphicStyle.isActive { return 6 }
+        return 2
+    }
+
+    private func songMetaBadgeForeground(_ color: Color) -> Color {
+        MangaStyle.isActive ? MangaStyle.ink : color
+    }
+
+    @ViewBuilder
+    private func songMetaBadgeBackground(_ color: Color) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: songMetaBadgeCornerRadius,
+                elevated: false,
+                pressed: true,
+                tint: color.opacity(0.12),
+                lightweight: true
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .stroke(color, lineWidth: 0.5)
-            )
+        } else {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .fill(color.opacity(MangaStyle.isActive ? 0.22 : (MujiStyle.isActive ? 0.10 : 0.11)))
+        }
+    }
+
+    @ViewBuilder
+    private func songMetaBadgeStroke(_ color: Color) -> some View {
+        if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(color.opacity(0.32), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(color.opacity(0.2), lineWidth: 0.5)
+        } else {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(color, lineWidth: 0.5)
+        }
     }
 
     private func quickActionButton(
@@ -556,7 +676,8 @@ struct SongListRow: View {
                             cornerRadius: radius,
                             elevated: isActive && !isDisabled,
                             pressed: !isActive,
-                            tint: tint.opacity(isDisabled ? 0.08 : (isActive ? 0.22 : 0.12))
+                            tint: tint.opacity(isDisabled ? 0.08 : (isActive ? 0.22 : 0.12)),
+                            lightweight: true
                         )
                     )
                     .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -665,7 +786,8 @@ struct SongListRow: View {
                     NeumorphicSurfaceBackground(
                         cornerRadius: 13,
                         elevated: true,
-                        tint: tint.opacity(0.14)
+                        tint: tint.opacity(0.14),
+                        lightweight: true
                     )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))

@@ -673,7 +673,7 @@ private struct TabBottomAccessoryContent: View {
                 if !player.isPlaying {
                     Button {
                         withAnimation(.easeInOut(duration: 0.22)) {
-                            player.stopAndClear()
+                            player.dismissMiniPlayerPreservingQueue()
                         }
                     } label: {
                         MonologueIcon(icon: .close, size: 9, color: secondaryTextColor)
@@ -821,7 +821,7 @@ private struct CompactMiniPlayerView: View {
                     if !player.isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
-                                player.stopAndClear()
+                                player.dismissMiniPlayerPreservingQueue()
                             }
                         }) {
                             MonologueIcon(icon: .close, size: 9, color: .monologueTextSecondary)

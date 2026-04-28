@@ -154,13 +154,14 @@ struct MonologueIcon: View {
     var size: CGFloat = 24
     var color: Color = .primary
     var lineWidth: CGFloat? = nil
+    @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     
     var body: some View {
         Group {
             if icon == .liked {
                 likedIcon
-        } else {
-                Image(uiImage: icon.hiconImage)
+            } else {
+                Image(uiImage: iconSet.image(for: icon))
                     .renderingMode(.template)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -169,15 +170,19 @@ struct MonologueIcon: View {
         .frame(width: size, height: size)
         .foregroundColor(color)
     }
+
+    private var iconSet: AppInterfaceIconSet {
+        AppInterfaceIconSet(rawValue: iconSetRaw) ?? .hicon
+    }
     
     private var likedIcon: some View {
-            ZStack {
-            Image(uiImage: Hicon.heart2)
+        ZStack {
+            Image(uiImage: iconSet.image(for: .like))
                 .renderingMode(.template)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .foregroundColor(color.opacity(0.25))
-            Image(uiImage: Hicon.heart2)
+            Image(uiImage: iconSet.image(for: .liked))
                 .renderingMode(.template)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -458,10 +463,20 @@ extension MonologueIcon.IconType {
     }
 }
 
+extension AppInterfaceIconSet {
+    func image(for icon: MonologueIcon.IconType) -> UIImage {
+        switch self {
+        case .hicon:
+            return icon.hiconImage
+        }
+    }
+}
+
 #if os(iOS)
 extension UIImage {
     static func monologueSymbol(named name: String) -> UIImage {
-        MonologueIcon.IconType.fromSystemName(name).icon.hiconImage.withRenderingMode(.alwaysTemplate)
+        let icon = MonologueIcon.IconType.fromSystemName(name).icon
+        return AppInterfaceIconSet.selectedFromDefaults.image(for: icon).withRenderingMode(.alwaysTemplate)
     }
 }
 #endif

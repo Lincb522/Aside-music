@@ -677,7 +677,7 @@ struct PlaylistDetailView: View {
                     .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
                     .background {
                         if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
                         }
                     }
                     .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -823,7 +823,7 @@ struct PlaylistDetailView: View {
                                 } else if MujiStyle.isActive {
                                     MujiPaperCardBackground(cornerRadius: 10)
                                 } else if NeumorphicStyle.isActive {
-                                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false)
+                                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, lightweight: true)
                                 }
                             }
                         }

@@ -78,7 +78,7 @@ struct PlaylistPickerStatusBadge: View {
             .padding(.vertical, 6)
             .background {
                 if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15))
+                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15), lightweight: true)
                 } else {
                     tint.opacity(0.12)
                 }
@@ -109,7 +109,7 @@ struct PlaylistPickerActionCard: View {
                             .frame(width: 46, height: 46)
                             .background {
                                 if NeumorphicStyle.isActive {
-                                    NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, tint: tint.opacity(0.16))
+                                    NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, tint: tint.opacity(0.16), lightweight: true)
                                 } else {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                                         .fill(tint.opacity(0.12))
@@ -255,7 +255,7 @@ private struct PlaylistPickerArtwork: View {
                 .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
                 .background {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                     }
                 }
 

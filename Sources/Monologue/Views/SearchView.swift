@@ -32,26 +32,8 @@ struct SearchView: View {
             ThemedPageBackground()
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                if !viewModel.hasSearched {
-                    if MangaStyle.isActive {
-                        mangaSearchHeader
-                    } else if NeumorphicStyle.isActive {
-                        neumorphicSearchHeader
-                    } else if MujiStyle.isActive {
-                        mujiSearchHeader
-                    }
-
-                    searchBarSection
-                }
-
-                ZStack {
-                    searchContentView
-                    suggestionsOverlay
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .iPadContentWidth()
+            searchRootContent
+                .iPadContentWidth()
         }
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(true)
@@ -102,6 +84,35 @@ struct SearchView: View {
             QQMVPlayerView(vid: item.vid)
         }
         .toolbar(.hidden, for: .tabBar)
+    }
+
+    @ViewBuilder
+    private var searchRootContent: some View {
+        if viewModel.hasSearched {
+            ZStack {
+                searchContentView
+                suggestionsOverlay
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            VStack(spacing: 0) {
+                if MangaStyle.isActive {
+                    mangaSearchHeader
+                } else if NeumorphicStyle.isActive {
+                    neumorphicSearchHeader
+                } else if MujiStyle.isActive {
+                    mujiSearchHeader
+                }
+
+                searchBarSection
+
+                ZStack {
+                    searchContentView
+                    suggestionsOverlay
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
     }
 
     // MARK: - 搜索栏
@@ -559,7 +570,7 @@ struct SearchView: View {
             }
             .frame(minWidth: 42, minHeight: 38)
             .padding(.horizontal, 6)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true))
+            .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
@@ -710,7 +721,7 @@ struct SearchView: View {
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true))
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     .disabled(currentSongs.isEmpty)
@@ -745,7 +756,7 @@ struct SearchView: View {
         Button(action: action) {
             MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.6)
                 .frame(width: 32, height: 32)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: true))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: true, lightweight: true))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
     }
@@ -948,7 +959,7 @@ struct SearchView: View {
             }
         }
         .padding(viewModel.hasSearched ? 4 : 5)
-        .background(NeumorphicSurfaceBackground(cornerRadius: viewModel.hasSearched ? 13 : 15, elevated: false, pressed: true))
+        .background(NeumorphicSurfaceBackground(cornerRadius: viewModel.hasSearched ? 13 : 15, elevated: false, pressed: true, lightweight: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, viewModel.hasSearched ? 2 : 8)
     }
@@ -1373,7 +1384,7 @@ struct SearchView: View {
             .padding(.vertical, 12)
             .background {
                 if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, tint: source.themedBadgeColor.opacity(0.1))
+                    NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, tint: source.themedBadgeColor.opacity(0.1), lightweight: true)
                 } else {
                     Capsule().fill(source.themedBadgeColor.opacity(0.1))
                 }
@@ -1521,7 +1532,7 @@ struct SearchView: View {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                 }
             }
             .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -1586,7 +1597,7 @@ struct SearchView: View {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                 }
             }
             .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -1651,7 +1662,7 @@ struct SearchView: View {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                 }
             }
             .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -1757,7 +1768,7 @@ struct SearchView: View {
             .padding(NeumorphicStyle.isActive ? 10 : 0)
             .background {
                 if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
                 }
             }
         }
@@ -1877,7 +1888,7 @@ struct SearchView: View {
             .background(
                 Group {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
                     } else {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(Color.monologueGlassTint)
@@ -2038,7 +2049,7 @@ struct SearchView: View {
 
                             MonologueIcon(icon: .chevronRight, size: 13, color: NeumorphicStyle.accent, lineWidth: 1.6)
                                 .frame(width: 34, height: 34)
-                                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+                                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true))
                         }
                         .padding(15)
                         .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
@@ -2080,7 +2091,7 @@ struct SearchView: View {
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
-                                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+                                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -2112,7 +2123,7 @@ struct SearchView: View {
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 9)
-                                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+                                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true))
                                 }
                                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                             }
@@ -2149,7 +2160,7 @@ struct SearchView: View {
                     Button(action: action) {
                         MonologueIcon(icon: actionIcon, size: 14, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
                             .frame(width: 34, height: 34)
-                            .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+                            .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true))
                     }
                     .buttonStyle(.plain)
                 }
@@ -2329,7 +2340,7 @@ struct SearchView: View {
                         HStack(spacing: 11) {
                             MonologueIcon(icon: .magnifyingGlass, size: 13, color: NeumorphicStyle.accent, lineWidth: 1.55)
                                 .frame(width: 30, height: 30)
-                                .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true))
+                                .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, lightweight: true))
 
                             Text(suggestion)
                                 .font(NeumorphicStyle.bodyFont(15, weight: .medium))
@@ -2342,7 +2353,7 @@ struct SearchView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .background(NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true))
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true))
                     }
                     .buttonStyle(.plain)
                 }

@@ -56,12 +56,12 @@ struct SettingsView: View {
                     settingsContent
                     FloatingBarBottomSpacer()
                 }
-                .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                .padding(.horizontal, settingsOuterHorizontalPadding)
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "settings_title"))
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -92,6 +92,10 @@ struct SettingsView: View {
         return 20
     }
 
+    private var settingsOuterHorizontalPadding: CGFloat {
+        DeviceLayout.settingsSectionHorizontalPadding
+    }
+
     @ViewBuilder
     private var settingsContent: some View {
         if MangaStyle.isActive {
@@ -107,8 +111,9 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var defaultSettingsContent: some View {
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
         settingsHeaderCard
-            .padding(.top, 8)
         themeSection
         navigationCardsSection
         if qqDevMode {
@@ -118,17 +123,8 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var mangaSettingsContent: some View {
-        MangaPageHeader(
-            eyebrow: "CONTROL",
-            title: String(localized: "settings_title"),
-            subtitle: ""
-        ) {
-            NavigationLink(destination: AboutView()) {
-                MangaIconBadge(icon: .infoCircle, size: 48, tint: MangaStyle.labelYellow)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
 
         settingsHeaderCard
 
@@ -142,17 +138,8 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var neumorphicSettingsContent: some View {
-        NeumorphicPageHeader(
-            eyebrow: "control",
-            title: String(localized: "settings_title"),
-            subtitle: ""
-        ) {
-            NavigationLink(destination: AboutView()) {
-                NeumorphicIconBadge(icon: .infoCircle, tint: NeumorphicStyle.accent, size: 48)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
 
         settingsHeaderCard
         themeSection
@@ -165,17 +152,8 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var mujiSettingsContent: some View {
-        MujiPageHeader(
-            eyebrow: "settings",
-            title: String(localized: "settings_title"),
-            subtitle: ""
-        ) {
-            NavigationLink(destination: AboutView()) {
-                MujiIconBadge(icon: .infoCircle, tint: MujiStyle.indigo, size: 46)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
 
         settingsHeaderCard
         mujiSettingsNotebook
@@ -183,6 +161,14 @@ struct SettingsView: View {
         if qqDevMode {
             otherSection
         }
+    }
+
+    private var settingsMainPageHeader: some View {
+        SettingsScrollablePageHeader(
+            title: String(localized: "settings_title"),
+            eyebrow: "SETTINGS",
+            icon: .infoCircle
+        )
     }
 
     // MARK: - 日夜模式
@@ -607,9 +593,7 @@ struct SettingsView: View {
 
                     Button {
                         apiTokenInput = SecureConfig.apiToken ?? apiTokenInput
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                            isHeaderCardExpanded.toggle()
-                        }
+                        isHeaderCardExpanded.toggle()
                     } label: {
                         HStack(spacing: 6) {
                             MonologueIcon(
@@ -624,6 +608,7 @@ struct SettingsView: View {
 
                             MonologueIcon(icon: .chevronRight, size: 10, color: tokenStatusColor, lineWidth: 1.8)
                                 .rotationEffect(.degrees(isHeaderCardExpanded ? -90 : 90))
+                                .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isHeaderCardExpanded)
                         }
                         .foregroundColor(tokenStatusColor)
                         .lineLimit(1)
@@ -759,10 +744,8 @@ struct SettingsView: View {
                                         switch status {
                                         case .valid, .validationDisabled:
                                             HapticManager.shared.success()
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
-                                                tokenSaved = !trimmed.isEmpty
-                                                isHeaderCardExpanded = trimmed.isEmpty
-                                            }
+                                            tokenSaved = !trimmed.isEmpty
+                                            isHeaderCardExpanded = trimmed.isEmpty
 
                                             if tokenSaved {
                                                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -770,10 +753,8 @@ struct SettingsView: View {
                                                 }
                                             }
                                         case .missing:
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
-                                                tokenSaved = false
-                                                isHeaderCardExpanded = true
-                                            }
+                                            tokenSaved = false
+                                            isHeaderCardExpanded = true
                                         case .invalid:
                                             AlertManager.shared.show(
                                                 title: settingsText("access_invalid_title"),
@@ -1085,11 +1066,11 @@ struct SettingsSection<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title.uppercased())
                 .font(sectionTitleFont)
                 .foregroundColor(sectionTitleColor)
-                .padding(.leading, 14)
+                .padding(.leading, 16)
                 .tracking(MujiStyle.isActive || NeumorphicStyle.isActive ? 1.0 : 0.4)
 
             VStack(spacing: 0) {
@@ -1097,15 +1078,15 @@ struct SettingsSection<Content: View>: View {
             }
             .background {
                 if MangaStyle.isActive {
-                    MangaCardBackground(cornerRadius: 20, elevated: true, tint: MangaStyle.bubbleWhite)
+                    MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
                 } else if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 14, elevated: false)
+                    MujiPaperCardBackground(cornerRadius: 15, elevated: false)
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true)
                 }
             }
-            .monologueGlassConditionalForSettings(cornerRadius: 20)
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .monologueGlassConditionalForSettings(cornerRadius: 22)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
     }
 
@@ -1189,9 +1170,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.84)) {
-                configuration.isOn.toggle()
-            }
+            configuration.isOn.toggle()
         } label: {
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                 Capsule()
@@ -1208,6 +1187,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
                     .padding(2)
                     .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.32 : 0.12), radius: 6, x: 0, y: 2)
             }
+            .animation(.spring(response: 0.25, dampingFraction: 0.84), value: configuration.isOn)
         }
         .buttonStyle(.plain)
     }
@@ -1247,8 +1227,8 @@ struct SettingsToggleRow: View {
                 .toggleStyle(SettingsSwitchToggleStyle())
                 .disabled(!isEnabled)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
         .opacity(isEnabled ? 1 : 0.42)
     }
 }
@@ -1309,8 +1289,8 @@ struct SettingsNavigationRow: View {
 
                 MonologueIcon(icon: .chevronRight, size: 11, color: .secondary)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
         }
         .buttonStyle(.plain)
     }
@@ -1323,7 +1303,7 @@ struct SettingsLinkRow<Destination: View>: View {
     var value: String? = nil
     let destination: Destination
     /// 相对默认行略增高入口卡片（设置主页「外观/播放」等）
-    var verticalPadding: CGFloat = 11
+    var verticalPadding: CGFloat = 13
 
     var body: some View {
         NavigationLink(
@@ -1354,7 +1334,7 @@ struct SettingsLinkRow<Destination: View>: View {
 
                 MonologueIcon(icon: .chevronRight, size: 11, color: .secondary)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.vertical, verticalPadding)
         }
         .buttonStyle(.plain)
@@ -1380,8 +1360,8 @@ struct SettingsInfoRow: View {
                 .font(themedSettingsFont(14, weight: .regular))
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
     }
 }
 
@@ -1402,8 +1382,8 @@ struct SettingsButtonRow: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
         }
         .buttonStyle(.plain)
     }
@@ -1444,9 +1424,7 @@ struct SettingsThemeRow: View {
                 Toggle("", isOn: Binding(
                     get: { isAuto },
                     set: { newValue in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
-                            selection = newValue ? "system" : (systemColorScheme == .dark ? "dark" : "light")
-                        }
+                        selection = newValue ? "system" : (systemColorScheme == .dark ? "dark" : "light")
                     }
                 ))
                 .labelsHidden()
@@ -1455,7 +1433,8 @@ struct SettingsThemeRow: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
 
-            if !isAuto {
+            SettingsHeaderReveal(isExpanded: !isAuto) {
+                VStack(spacing: 0) {
                 Divider()
                     .opacity(0.4)
                     .padding(.leading, 62)
@@ -1472,9 +1451,7 @@ struct SettingsThemeRow: View {
                     Toggle("", isOn: Binding(
                         get: { isDark },
                         set: { newValue in
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
-                                selection = newValue ? "dark" : "light"
-                            }
+                            selection = newValue ? "dark" : "light"
                         }
                     ))
                     .labelsHidden()
@@ -1482,7 +1459,7 @@ struct SettingsThemeRow: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 13)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                }
             }
         }
     }
@@ -1495,27 +1472,56 @@ private struct SettingsHeaderReveal<Content: View>: View {
     let content: Content
     @State private var measuredHeight: CGFloat = 0
 
+    private var targetHeight: CGFloat {
+        isExpanded ? measuredHeight : 0
+    }
+
+    private var revealAnimation: Animation {
+        .timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22)
+    }
+
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
         self.isExpanded = isExpanded
         self.content = content()
     }
 
     var body: some View {
-        content
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { measuredHeight = proxy.size.height }
-                        .onChange(of: proxy.size.height) { _, newValue in
-                            measuredHeight = newValue
-                        }
+        ZStack(alignment: .top) {
+            content
+                .fixedSize(horizontal: false, vertical: true)
+                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { updateMeasuredHeight(proxy.size.height) }
+                            .onChange(of: proxy.size.height) { _, newValue in
+                                updateMeasuredHeight(newValue)
+                            }
+                    }
                 }
+
+            if isExpanded {
+                content
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.identity)
             }
-            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
-            .opacity(isExpanded ? 1 : 0.001)
-            .clipped()
-            .allowsHitTesting(isExpanded)
-            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
+        }
+        .frame(height: targetHeight, alignment: .top)
+        .clipShape(Rectangle())
+        .clipped()
+        .allowsHitTesting(isExpanded)
+        .animation(revealAnimation, value: isExpanded)
+    }
+
+    private func updateMeasuredHeight(_ height: CGFloat) {
+        guard height > 0, abs(measuredHeight - height) > 0.5 else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            measuredHeight = height
+        }
     }
 }
 
@@ -1530,9 +1536,7 @@ struct SettingsFloatingBarRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                    isExpanded.toggle()
-                }
+                isExpanded.toggle()
             } label: {
                 HStack(spacing: 14) {
                     SettingsIconBadge(icon: icon)
@@ -1559,18 +1563,17 @@ struct SettingsFloatingBarRow: View {
                         lineWidth: 1.7
                     )
                     .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                    .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
                 }
             }
             .buttonStyle(.plain)
 
-            if isExpanded {
+            SettingsHeaderReveal(isExpanded: isExpanded) {
                 LazyVGrid(columns: optionColumns, spacing: 8) {
                     ForEach(FloatingBarStyle.allCases) { style in
                         Button {
-                            withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
-                                selection = style
-                                isExpanded = false
-                            }
+                            selection = style
+                            isExpanded = false
                         } label: {
                             SettingsFloatingBarOptionCard(
                                 style: style,
@@ -1581,7 +1584,6 @@ struct SettingsFloatingBarRow: View {
                     }
                 }
                 .padding(.top, 12)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
         .padding(.horizontal, 16)
@@ -1606,7 +1608,7 @@ struct SettingsFloatingBarRow: View {
                 .fill(MujiStyle.clay.opacity(0.12))
                 .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.6))
         } else if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
+            NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true)
         } else {
             Capsule()
                 .fill(Color.monologueIconBackground.opacity(0.16))
@@ -1708,7 +1710,7 @@ private struct SettingsFloatingBarOptionCard: View {
         } else if NeumorphicStyle.isActive {
             MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.55)
                 .frame(width: 32, height: 32)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: isSelected))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: isSelected, lightweight: true))
         } else {
             MonologueIcon(icon: style.iconType, size: 18, color: iconColor, lineWidth: 1.6)
                 .frame(width: 32, height: 32)
@@ -1782,7 +1784,8 @@ private struct SettingsFloatingBarOptionCard: View {
                 cornerRadius: cardRadius,
                 elevated: isSelected,
                 pressed: !isSelected,
-                tint: isSelected ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface
+                tint: isSelected ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface,
+                lightweight: true
             )
         } else {
             RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
@@ -1819,9 +1822,7 @@ struct SettingsHitokotoTypeRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                    isExpanded.toggle()
-                }
+                isExpanded.toggle()
             } label: {
                 HStack(spacing: 14) {
                     SettingsIconBadge(icon: icon)
@@ -1838,18 +1839,17 @@ struct SettingsHitokotoTypeRow: View {
 
                     MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                        .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
                 }
             }
             .buttonStyle(.plain)
 
-            if isExpanded {
+            SettingsHeaderReveal(isExpanded: isExpanded) {
                 SettingsHitokotoFlowLayout(spacing: 8) {
                     ForEach(Self.types, id: \.key) { type in
                         Button {
-                            withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
-                                selection = type.key
-                                isExpanded = false
-                            }
+                            selection = type.key
+                            isExpanded = false
                         } label: {
                             hitokotoTypeChip(label: type.label, selected: selection == type.key)
                         }
@@ -1857,7 +1857,6 @@ struct SettingsHitokotoTypeRow: View {
                     }
                 }
                 .padding(.top, 12)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
         .padding(.horizontal, 16)
@@ -1911,7 +1910,8 @@ struct SettingsHitokotoTypeRow: View {
                 cornerRadius: 15,
                 elevated: selected,
                 pressed: !selected,
-                tint: selected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+                tint: selected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface,
+                lightweight: true
             )
         } else {
             Capsule()

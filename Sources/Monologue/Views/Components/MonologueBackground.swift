@@ -139,7 +139,25 @@ struct MonologueBackground: View {
 
     // MARK: - 默认背景
 
+    @ViewBuilder
     private var defaultBackground: some View {
+        if ThemeColorCustomization.usesCustomBackground(for: .default) {
+            ThemeCustomDiffuseBackground(
+                theme: .default,
+                fallbackHexes: [
+                    ThemeColorCustomization.defaultBackgroundStartHex(for: .default),
+                    ThemeColorCustomization.defaultBackgroundEndHex(for: .default),
+                ],
+                accentFallbackHexes: [ThemeColorCustomization.defaultAccentHex(for: .default)],
+                opacity: 0.92
+            )
+            .ignoresSafeArea()
+        } else {
+            defaultSystemBackground
+        }
+    }
+
+    private var defaultSystemBackground: some View {
         ZStack {
             (colorScheme == .dark ? Color(hex: "050507") : Color(hex: "F8F9FB"))
                 .ignoresSafeArea()

@@ -513,7 +513,7 @@ extension ArtistDetailView {
                 neumorphicTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3, tint: NeumorphicStyle.red)
             }
             .padding(5)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true))
+            .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true))
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         } else if MujiStyle.isActive {
             HStack(spacing: 24) {
@@ -962,7 +962,7 @@ extension ArtistDetailView {
         .frame(maxWidth: .infinity)
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
             }
         }
         .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -1029,7 +1029,7 @@ struct ArtistBioSheet: View {
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }

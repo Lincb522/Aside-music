@@ -72,7 +72,7 @@ struct HomeDailySection: View {
                 .padding(.vertical, 5)
                 .background {
                     if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+                        NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
                     } else {
                         Capsule().fill(Color.monologueTextSecondary.opacity(0.06))
                     }
@@ -157,7 +157,7 @@ struct HomeDailySection: View {
     private var rankBackground: some View {
         Group {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 7, elevated: false, pressed: true)
+                NeumorphicSurfaceBackground(cornerRadius: 7, elevated: false, pressed: true, lightweight: true)
             } else {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Color(light: .black.opacity(0.15), dark: .white.opacity(0.12)))

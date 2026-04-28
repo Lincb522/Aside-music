@@ -66,7 +66,7 @@ struct AboutView: View {
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 20)
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(700)
                 }
             }

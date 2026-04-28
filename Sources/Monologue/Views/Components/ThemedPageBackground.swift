@@ -120,6 +120,7 @@ struct SettingsScrollablePageHeader: View {
                 subtitle: subtitle,
                 icon: icon
             )
+            .padding(.horizontal, settingsHeaderHorizontalInset)
             .padding(.bottom, -2)
         } else {
             HStack(alignment: .center, spacing: 14) {
@@ -149,11 +150,15 @@ struct SettingsScrollablePageHeader: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+            .padding(.horizontal, DeviceLayout.settingsHeaderHorizontalPadding)
             .padding(.top, 12)
             .padding(.bottom, 4)
             .iPadContentWidth(700)
         }
+    }
+
+    private var settingsHeaderHorizontalInset: CGFloat {
+        DeviceLayout.settingsHeaderHorizontalPadding - DeviceLayout.homeHorizontalPadding
     }
 }
 
@@ -201,7 +206,8 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                 .background(
                     NeumorphicSurfaceBackground(
                         cornerRadius: min(max(cornerRadius, 18), 28),
-                        elevated: elevated
+                        elevated: elevated,
+                        lightweight: !elevated
                     )
                 )
         } else {

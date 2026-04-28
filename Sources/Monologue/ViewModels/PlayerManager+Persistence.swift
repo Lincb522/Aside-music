@@ -114,11 +114,8 @@ extension PlayerManager {
         self.savedPodcastContextIndex = state.savedPodcastContextIndex ?? 0
         self.savedPodcastRadioId = state.savedPodcastRadioId
         self.savedPodcastSong = state.savedPodcastSong
-        
-        guard let song = state.currentSong else { return }
-        
-        self.currentSong = song
-        
+        self.currentSong = state.currentSong
+
         if let savedContext = state.context, !savedContext.isEmpty {
             self.context = savedContext
             self.contextIndex = state.contextIndex ?? 0
@@ -128,9 +125,11 @@ extension PlayerManager {
                 self.generateShuffledContext()
             }
         } else {
-            self.context = [song]
+            self.context = state.currentSong.map { [$0] } ?? []
             self.contextIndex = 0
         }
+
+        guard let song = currentSong else { return }
         
         let restoredDuration = state.duration ?? song.dt.map { Double($0) / 1000 }
         let restoredTime = min(max(state.currentTime ?? 0, 0), max((restoredDuration ?? 0) - 0.5, 0))
