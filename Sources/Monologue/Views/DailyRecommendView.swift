@@ -25,6 +25,8 @@ struct DailyRecommendView: View {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
+            } else if NeumorphicStyle.isActive {
+                NeumorphicRootBackdrop()
             } else {
                 ThemedPageBackground()
             }
@@ -103,6 +105,8 @@ struct DailyRecommendView: View {
     private var headerSection: some View {
         if MangaStyle.isActive {
             mangaHeaderSection
+        } else if NeumorphicStyle.isActive {
+            neumorphicHeaderSection
         } else if MujiStyle.isActive {
             mujiHeaderSection
         } else {
@@ -284,6 +288,87 @@ struct DailyRecommendView: View {
         .background(mujiHeaderBackground)
     }
 
+    private var neumorphicHeaderSection: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(dayString)
+                            .font(NeumorphicStyle.titleFont(48, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineLimit(1)
+
+                        Text("/ \(monthString)")
+                            .font(NeumorphicStyle.labelFont(13, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.inkMuted)
+                            .padding(.leading, 3)
+                    }
+                    .frame(width: 74, alignment: .leading)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            NeumorphicPill(text: String(localized: "daily_recommend"), tint: NeumorphicStyle.accent, selected: true, compact: true)
+                            if !viewModel.songs.isEmpty {
+                                NeumorphicPill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: NeumorphicStyle.sage, compact: true)
+                            }
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(NeumorphicStyle.titleFont(24, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            MonologueIcon(icon: .play, size: 16, color: Color(light: .white, dark: .black), lineWidth: 1.8)
+                                .frame(width: 44, height: 44)
+                                .background(NeumorphicStyle.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .shadow(color: NeumorphicStyle.accent.opacity(0.24), radius: 10, x: 0, y: 5)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+                }
+
+                HStack(spacing: 9) {
+                    Button(action: toggleStyleMenu) {
+                        NeumorphicPill(
+                            text: dailyStyleChipTitle,
+                            tint: NeumorphicStyle.accent,
+                            icon: .sparkle,
+                            selected: viewModel.showStyleMenu
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        viewModel.loadHistoryDates()
+                    }) {
+                        NeumorphicPill(
+                            text: NSLocalizedString("daily_history", comment: ""),
+                            tint: NeumorphicStyle.warm,
+                            icon: .history
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(17)
+
+            attachedStylePanel
+        }
+        .background(neumorphicHeaderBackground)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 16)
+        .padding(.bottom, 10)
+    }
+
     private func mujiHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
         HStack(spacing: 7) {
             MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.5)
@@ -399,14 +484,17 @@ struct DailyRecommendView: View {
 
     @ViewBuilder
     private var mujiHeaderBackground: some View {
-        if viewModel.showStyleMenu {
-            MujiPaperCardBackground(cornerRadius: 18, elevated: false)
-        }
+        EmptyView()
     }
 
     @ViewBuilder
     private var mangaHeaderBackground: some View {
         MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
+    }
+
+    @ViewBuilder
+    private var neumorphicHeaderBackground: some View {
+        NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true)
     }
 
     private func mangaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color, foreground: Color = MangaStyle.ink) -> some View {
@@ -499,14 +587,20 @@ struct DailyRecommendView: View {
 
     private func errorView(msg: String) -> some View {
         VStack(spacing: 14) {
-            MonologueIcon(icon: .warning, size: 48, color: .monologueTextSecondary)
+            if NeumorphicStyle.isActive {
+                NeumorphicIconBadge(icon: .warning, tint: NeumorphicStyle.red, size: 56)
+            } else {
+                MonologueIcon(icon: .warning, size: 48, color: .monologueTextSecondary)
+            }
             Text(msg)
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .body)
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             Button("Retry") {
                 viewModel.loadStandardRecommend()
             }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 72)
@@ -608,7 +702,11 @@ struct DailyHistoryView: View {
     var body: some View {
         ZStack {
             MonologueSheetAwareBackground {
-                ThemedPageBackground()
+                if NeumorphicStyle.isActive {
+                    NeumorphicRootBackdrop()
+                } else {
+                    ThemedPageBackground()
+                }
             }
 
             VStack(spacing: 0) {
@@ -641,9 +739,15 @@ struct DailyHistoryView: View {
     private var headerSection: some View {
         HStack {
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                MonologueIcon(icon: .close, size: 20, color: MujiStyle.isActive ? MujiStyle.inkSoft : Theme.text)
+                MonologueIcon(icon: .close, size: 20, color: MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.text))
                     .padding(10)
-                    .background(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.6))
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
+                        } else {
+                            Circle().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.6))
+                        }
+                    }
                     .clipShape(Circle())
             }
 
@@ -651,12 +755,12 @@ struct DailyHistoryView: View {
 
             VStack(spacing: 2) {
                 Text(LocalizedStringKey("daily_history_title"))
-                    .font(MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : .system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : Theme.text)
+                    .font(MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded)))
+                    .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text))
 
                 Text(LocalizedStringKey("daily_history_subtitle"))
-                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : Theme.secondaryText)
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded)))
+                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText))
             }
 
             Spacer()
@@ -669,6 +773,8 @@ struct DailyHistoryView: View {
                 }) {
                     if MujiStyle.isActive {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
+                    } else if NeumorphicStyle.isActive {
+                        NeumorphicPlayPill(title: String(localized: "artist_play_all"), tint: NeumorphicStyle.accent)
                     } else {
                         HStack(spacing: 8) {
                             MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
@@ -718,20 +824,32 @@ struct DailyHistoryView: View {
             }
         }) {
             Text(displayDate)
-                .font(MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (isSelected ? .monologueIconForeground : .monologueTextPrimary))
+                .font(MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)))
+                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (NeumorphicStyle.isActive ? (isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextPrimary)))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised) : (isSelected ? Color.monologueIconBackground.opacity(0.85) : Color.monologueGlassTint))
-                        .overlay(
-                            Capsule()
-                                .stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(isSelected ? 0 : 0.5) : Color.monologueSeparator, lineWidth: isSelected ? 0 : 1)
-                        )
-                )
+                .background(dateButtonBackground(isSelected: isSelected))
         }
         .buttonStyle(ScaleButtonStyle())
+    }
+
+    @ViewBuilder
+    private func dateButtonBackground(isSelected: Bool) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 17,
+                elevated: isSelected,
+                pressed: !isSelected,
+                tint: isSelected ? NeumorphicStyle.accent.opacity(0.18) : NeumorphicStyle.surface
+            )
+        } else {
+            Capsule()
+                .fill(MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised) : (isSelected ? Color.monologueIconBackground.opacity(0.85) : Color.monologueGlassTint))
+                .overlay(
+                    Capsule()
+                        .stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(isSelected ? 0 : 0.5) : Color.monologueSeparator, lineWidth: isSelected ? 0 : 1)
+                )
+        }
     }
 
     // MARK: - Content
@@ -740,11 +858,15 @@ struct DailyHistoryView: View {
         VStack(spacing: 16) {
             Spacer()
 
-            MonologueIcon(icon: .clock, size: 48, color: .monologueTextSecondary.opacity(0.5))
+            if NeumorphicStyle.isActive {
+                NeumorphicIconBadge(icon: .clock, tint: NeumorphicStyle.warm, size: 56)
+            } else {
+                MonologueIcon(icon: .clock, size: 48, color: .monologueTextSecondary.opacity(0.5))
+            }
 
             Text(LocalizedStringKey("daily_select_date"))
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
 
             Spacer()
         }
@@ -756,17 +878,23 @@ struct DailyHistoryView: View {
                 if let date = selectedDate {
                     HStack {
                         Text(formatFullDate(date))
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(Theme.secondaryText)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.secondaryText)
 
                         Spacer()
 
                         Text(String(format: NSLocalizedString("daily_song_count", comment: ""), songs.count))
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(Theme.secondaryText.opacity(0.7))
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText.opacity(0.7))
                     }
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.vertical, 12)
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true)
+                                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        }
+                    }
                 }
 
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in

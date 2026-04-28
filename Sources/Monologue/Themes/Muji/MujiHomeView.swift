@@ -4,16 +4,28 @@ import SwiftUI
 struct MujiHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
     @State private var appeared = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textPrimary: Color { MujiStyle.ink }
-    private var textSecondary: Color { MujiStyle.inkSoft }
-    private var accent: Color { MujiStyle.clay }
-    private var separator: Color { MujiStyle.separator }
+    private var textPrimary: Color {
+        MujiStyle.ink
+    }
+
+    private var textSecondary: Color {
+        MujiStyle.inkSoft
+    }
+
+    private var accent: Color {
+        MujiStyle.clay
+    }
+
+    private var separator: Color {
+        MujiStyle.separator
+    }
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -28,8 +40,9 @@ struct MujiHomeView: View {
             }
             .onAppear {
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
-                if viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    viewModel.refreshHitokoto(ignoresSetting: true)
+                if hitokotoEnabled,
+                   viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    viewModel.refreshHitokoto()
                 }
                 if !appeared {
                     withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
@@ -121,7 +134,7 @@ struct MujiHomeView: View {
 
                 if !viewModel.banners.isEmpty {
                     mujiBannerSection
-                        .padding(.horizontal, 28)
+                        .padding(.horizontal, 12)
                         .padding(.bottom, 34)
                         .mujiStagger(appeared, order: 2)
                 }
@@ -169,14 +182,16 @@ struct MujiHomeView: View {
         .scrollIndicators(.hidden)
         .refreshable {
             viewModel.fetchData()
-            viewModel.refreshHitokoto(force: true, ignoresSetting: true)
+            if hitokotoEnabled {
+                viewModel.refreshHitokoto(force: true)
+            }
         }
     }
 
     private var mujiIntroCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 10) {
-                MujiPill(text: String(localized: "settings_hitokoto"), tint: MujiStyle.clay)
+                MujiPill(text: hitokotoLabel, tint: MujiStyle.clay)
 
                 Spacer(minLength: 10)
 
@@ -208,7 +223,7 @@ struct MujiHomeView: View {
                     .fill(MujiStyle.separator.opacity(0.78))
                     .frame(width: 42, height: 0.65)
 
-                Text("HITOKOTO")
+                Text(hitokotoFootnote)
                     .font(MujiStyle.labelFont(9, weight: .semibold))
                     .foregroundStyle(MujiStyle.inkMuted)
                     .tracking(1.4)
@@ -222,12 +237,23 @@ struct MujiHomeView: View {
     }
 
     private var mujiHeaderQuote: String {
+        guard hitokotoEnabled else { return "Monologue" }
+
         if let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !hitokoto.isEmpty {
+           !hitokoto.isEmpty
+        {
             return hitokoto
         }
 
-        return ""
+        return "Monologue"
+    }
+
+    private var hitokotoLabel: String {
+        hitokotoEnabled ? String(localized: "settings_hitokoto") : "Monologue"
+    }
+
+    private var hitokotoFootnote: String {
+        hitokotoEnabled ? "HITOKOTO" : "MONOLOGUE"
     }
 
     // MARK: - 问候
@@ -268,7 +294,7 @@ struct MujiHomeView: View {
                 actionTitle: String(localized: "view_all"),
                 action: { navigationPath.append(HomeView.HomeDestination.dailyRecommend) }
             )
-                .padding(.horizontal, 28)
+            .padding(.horizontal, 28)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 16) {
@@ -281,8 +307,8 @@ struct MujiHomeView: View {
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
                         .scrollTransition(.animated(.easeInOut(duration: 0.24))) { content, phase in
                             content
-                                .opacity(phase.isIdentity ? 1 : 0.7)
                                 .scaleEffect(phase.isIdentity ? 1 : 0.95)
+                                .opacity(phase.isIdentity ? 1 : 0.7)
                         }
                     }
                 }
@@ -341,7 +367,9 @@ struct MujiHomeView: View {
     private var mujiNewSongsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             MujiSectionTitle(
-                title: String(localized: "qq_new_songs")
+                title: String(localized: "qq_new_songs"),
+                actionTitle: String(localized: "view_all"),
+                action: { navigationPath.append(HomeView.HomeDestination.qcmNewSongs) }
             )
             .padding(.horizontal, 28)
 
@@ -356,8 +384,8 @@ struct MujiHomeView: View {
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
                         .scrollTransition(.animated(.easeInOut(duration: 0.24))) { content, phase in
                             content
-                                .opacity(phase.isIdentity ? 1 : 0.72)
                                 .scaleEffect(phase.isIdentity ? 1 : 0.96)
+                                .opacity(phase.isIdentity ? 1 : 0.72)
                         }
                     }
                 }
@@ -370,6 +398,7 @@ struct MujiHomeView: View {
 
     private func mujiNewSongCard(_ song: Song, rank: Int) -> some View {
         let isCurrent = playerManager.currentSong?.id == song.id
+        let cardShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
         return HStack(spacing: 11) {
             CachedAsyncImage(url: song.coverUrl) {
@@ -410,8 +439,13 @@ struct MujiHomeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(10)
-        .frame(width: 228, alignment: .leading)
+        .frame(width: DeviceLayout.isPad ? 268 : 246, alignment: .leading)
         .background(MujiPaperCardBackground(cornerRadius: 12, elevated: false))
+        .clipShape(cardShape)
+        .overlay {
+            cardShape
+                .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.65)
+        }
     }
 
     // MARK: - 歌单
@@ -427,12 +461,12 @@ struct MujiHomeView: View {
                 actionTitle: action == nil ? nil : String(localized: "view_all"),
                 action: action
             )
-                .padding(.horizontal, 28)
+            .padding(.horizontal, 28)
 
             LazyVGrid(
                 columns: [
                     GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16)
+                    GridItem(.flexible(), spacing: 16),
                 ],
                 spacing: 20
             ) {
@@ -539,13 +573,14 @@ struct MujiHomeView: View {
     @ViewBuilder
     private func mujiDestination(for dest: HomeView.HomeDestination) -> some View {
         switch dest {
-        case .search:           SearchView()
-        case .dailyRecommend:   DailyRecommendView()
-        case .playlist(let p):  PlaylistDetailView(playlist: p)
-        case .artist(let id):   ArtistDetailView(artistId: id)
-        case .album(let id):    AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
-        case .mvDiscover:       MVDiscoverView()
-        case .newSongExpress:   NewSongExpressView()
+        case .search: SearchView()
+        case .dailyRecommend: DailyRecommendView()
+        case let .playlist(p): PlaylistDetailView(playlist: p)
+        case let .artist(id): ArtistDetailView(artistId: id)
+        case let .album(id): AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
+        case .mvDiscover: MVDiscoverView()
+        case .newSongExpress: NewSongExpressView()
+        case .qcmNewSongs: QCMNewSongsView()
         }
     }
 }
@@ -564,14 +599,14 @@ private struct MujiHomeBannerSection: View {
                     MujiHomeBannerCard(banner: banner) {
                         onTap(banner)
                     }
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 7)
                     .tag(offset)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxWidth: .infinity)
-            .frame(height: DeviceLayout.isPad ? 216 : 156)
+            .frame(height: DeviceLayout.isPad ? 222 : 166)
             .onReceive(timer) { _ in
                 guard banners.count > 1 else { return }
                 withAnimation(.easeInOut(duration: 0.36)) {
@@ -596,10 +631,10 @@ private struct MujiHomeBannerSection: View {
 private struct MujiHomeBannerCard: View {
     let banner: Banner
     let action: () -> Void
-    private let cornerRadius: CGFloat = 12
+    private let cornerRadius: CGFloat = 16
 
     private var cardHeight: CGFloat {
-        DeviceLayout.isPad ? 190 : 130
+        DeviceLayout.isPad ? 192 : 136
     }
 
     private var cardShape: RoundedRectangle {
@@ -618,6 +653,8 @@ private struct MujiHomeBannerCard: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: cardHeight)
                 .clipped()
+                .compositingGroup()
+                .clipShape(cardShape)
 
                 LinearGradient(
                     colors: [.clear, Color.black.opacity(0.48)],
@@ -646,6 +683,7 @@ private struct MujiHomeBannerCard: View {
                 .padding(12)
             }
             .frame(height: cardHeight)
+            .compositingGroup()
             .clipShape(cardShape)
             .contentShape(cardShape)
             .overlay(
@@ -722,8 +760,7 @@ private struct MujiHomeEntryCard: View {
 
 private extension View {
     func mujiStagger(_ appeared: Bool, order: Int) -> some View {
-        self
-            .opacity(appeared ? 1 : 0)
+        opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 10)
             .animation(
                 .easeOut(duration: 0.42).delay(Double(order) * 0.06),

@@ -73,14 +73,14 @@ struct BroadcastPlayerView: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("FM")
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(broadcastSecondary)
                 Text(viewModel.frequencyText)
                     .font(.system(size: 56, weight: .ultraLight, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(broadcastPrimary)
                     .monospacedDigit()
                 Text("MHz")
                     .font(.system(size: 14, weight: .medium, design: .monospaced))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(broadcastSecondary)
             }
             frequencyRuler
                 .frame(height: 24)
@@ -121,8 +121,8 @@ struct BroadcastPlayerView: View {
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(
                         viewModel.isPlaying
-                            ? Color.monologueTextPrimary.opacity(0.6 + viewModel.waveHeights[i] * 0.4)
-                            : Color.monologueTextSecondary.opacity(0.15)
+                            ? broadcastPrimary.opacity(0.6 + viewModel.waveHeights[i] * 0.4)
+                            : broadcastSecondary.opacity(0.15)
                     )
                     .frame(width: 3, height: viewModel.isPlaying ? CGFloat(viewModel.waveHeights[i]) * 28 + 4 : 4)
                     .animation(.easeInOut(duration: 0.15).delay(Double(i) * 0.02), value: viewModel.waveHeights[i])
@@ -136,7 +136,7 @@ struct BroadcastPlayerView: View {
         VStack(spacing: 14) {
             if let url = channel.coverImageUrl {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 16).fill(Color.monologueGlassTint).monologueGlass(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 16).fill(broadcastSurfaceFill).monologueGlass(cornerRadius: 16)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 80, height: 80)
@@ -144,7 +144,7 @@ struct BroadcastPlayerView: View {
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             } else {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.monologueGlassTint)
+                    .fill(broadcastSurfaceFill)
                     .frame(width: 80, height: 80)
                     .monologueGlass(cornerRadius: 16)
                     .overlay(MonologueIcon(icon: .radio, size: 32, color: .monologueTextSecondary, lineWidth: 1.4))
@@ -152,7 +152,7 @@ struct BroadcastPlayerView: View {
 
             Text(channel.displayName)
                 .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(broadcastPrimary)
                 .lineLimit(1)
 
             if let program = viewModel.currentProgram, !program.isEmpty {
@@ -160,13 +160,13 @@ struct BroadcastPlayerView: View {
                     Circle().fill(Color.monologueAccentGreen).frame(width: 6, height: 6)
                     Text(program)
                         .font(.system(size: 13, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(broadcastSecondary)
                         .lineLimit(1)
                 }
             } else if viewModel.isPlaying {
                 Text("直播中")
                     .font(.system(size: 13, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(broadcastSecondary)
             }
         }
     }
@@ -176,7 +176,7 @@ struct BroadcastPlayerView: View {
         Button { viewModel.togglePlay() } label: {
             ZStack {
                 Circle()
-                    .fill(Color.monologueIconBackground)
+                    .fill(broadcastButtonFill)
                     .frame(width: 72, height: 72)
                     .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
                 if viewModel.isLoading {
@@ -186,13 +186,33 @@ struct BroadcastPlayerView: View {
                 } else {
                     MonologueIcon(
                         icon: viewModel.isPlaying ? .pause : .play,
-                        size: 28, color: .monologueIconForeground, lineWidth: 2.0
+                        size: 28, color: broadcastButtonForeground, lineWidth: 2.0
                     )
                     .offset(x: viewModel.isPlaying ? 0 : 2)
                 }
             }
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+    }
+
+    private var broadcastPrimary: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var broadcastSecondary: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    private var broadcastSurfaceFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint
+    }
+
+    private var broadcastButtonFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+    }
+
+    private var broadcastButtonForeground: Color {
+        NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground
     }
 }
 
@@ -309,4 +329,3 @@ class BroadcastPlayerViewModel: ObservableObject {
         }
     }
 }
-

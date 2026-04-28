@@ -38,6 +38,7 @@ struct MacHomeView: View {
                 case .album(let id):    AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
                 case .mvDiscover:       MVDiscoverView()
                 case .newSongExpress:   NewSongExpressView()
+                case .qcmNewSongs:      QCMNewSongsView()
                 }
             }
             .sheet(isPresented: $showPersonalFM) {
@@ -208,7 +209,17 @@ struct MacHomeView: View {
 
     private var macNewSongsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            macSectionTitle(String(localized: "QCM新歌速递"))
+            HStack(alignment: .bottom) {
+                macSectionTitle(String(localized: "QCM新歌速递"))
+                Spacer()
+                Button {
+                    navigationPath.append(HomeView.HomeDestination.qcmNewSongs)
+                } label: {
+                    Text(LocalizedStringKey("view_all"))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                }
+                .buttonStyle(.plain)
+            }
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 8) {
                 ForEach(Array(viewModel.qqNewSongs.prefix(9).enumerated()), id: \.element.id) { idx, song in

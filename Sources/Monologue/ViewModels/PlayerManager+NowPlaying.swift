@@ -110,7 +110,7 @@ extension PlayerManager {
                 
                 let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                 
-                let thumbSize = CGSize(width: 300, height: 300)
+                let thumbSize = CGSize(width: 220, height: 220)
                 let renderer = UIGraphicsImageRenderer(size: thumbSize)
                 let thumbnail = renderer.image { _ in
                     image.draw(in: CGRect(origin: .zero, size: thumbSize))
@@ -129,7 +129,7 @@ extension PlayerManager {
                 coverIsDark = colors.isDark
                 
                 if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) {
-                    if let jpegData = thumbnail.jpegData(compressionQuality: 0.8) {
+                    if let jpegData = thumbnail.jpegData(compressionQuality: 0.72) {
                         let fileURL = containerURL.appendingPathComponent("widget_cover.jpg")
                         try? jpegData.write(to: fileURL, options: .atomic)
                     }

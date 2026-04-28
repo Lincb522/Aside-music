@@ -25,13 +25,17 @@ struct CloudDiskView: View {
 
     private struct Theme {
         static var accent: Color {
-            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueIconBackground)
+            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
         }
         static var accentForeground: Color {
-            MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : Color.monologueIconForeground)
+            MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : Color.monologueIconForeground))
         }
-        static let text = Color.monologueTextPrimary
-        static let secondaryText = Color.monologueTextSecondary
+        static var text: Color {
+            NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary
+        }
+        static var secondaryText: Color {
+            NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary
+        }
     }
     
     var body: some View {
@@ -96,8 +100,8 @@ struct CloudDiskView: View {
             Spacer()
             MonologueIcon(icon: .cloud, size: 48, color: .monologueTextSecondary.opacity(0.3), lineWidth: 1.4)
             Text(LocalizedStringKey("cloud_empty"))
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.secondaryText)
             Spacer()
         }
     }
@@ -109,7 +113,7 @@ struct CloudDiskView: View {
             // 统计信息
             HStack {
                 Text(String(format: NSLocalizedString("cloud_song_count", comment: ""), totalCount))
-                    .font(.system(size: 13, design: .rounded))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
                     .foregroundColor(Theme.secondaryText)
                 if isEnrichingMetadata {
                     HStack(spacing: 6) {
@@ -117,14 +121,14 @@ struct CloudDiskView: View {
                             .controlSize(.mini)
                             .tint(.monologueTextSecondary)
                         Text(LocalizedStringKey("cloud_syncing_metadata"))
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
                     }
                 }
                 Spacer()
                 if !usedSpace.isEmpty && !totalSpace.isEmpty {
                     Text("\(formatBytes(usedSpace)) / \(formatBytes(totalSpace))")
-                        .font(.system(size: 13, design: .rounded))
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
@@ -140,23 +144,27 @@ struct CloudDiskView: View {
                     playerManager.playReplacingContext(song: first, in: allSongs)
                 }
             } label: {
-                HStack(spacing: 8) {
-                    MonologueIcon(icon: .play, size: 16, color: Theme.accentForeground, lineWidth: 1.6)
-                    Text(LocalizedStringKey("cloud_play_all"))
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.accentForeground)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(Theme.accent)
-                .clipShape(Capsule())
-                .overlay {
-                    if MangaStyle.isActive {
-                        Capsule()
-                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                if NeumorphicStyle.isActive {
+                    NeumorphicPlayPill(title: String(localized: "cloud_play_all"), tint: NeumorphicStyle.accent)
+                } else {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 16, color: Theme.accentForeground, lineWidth: 1.6)
+                        Text(LocalizedStringKey("cloud_play_all"))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(Theme.accentForeground)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(Theme.accent)
+                    .clipShape(Capsule())
+                    .overlay {
+                        if MangaStyle.isActive {
+                            Capsule()
+                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                        }
+                    }
+                    .shadow(color: Theme.accent.opacity(0.18), radius: 6, x: 0, y: 2)
                 }
-                .shadow(color: Theme.accent.opacity(0.18), radius: 6, x: 0, y: 2)
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 24)
@@ -200,41 +208,47 @@ struct CloudDiskView: View {
                 // 封面
                 if let coverUrl = song.simpleSong?.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.monologueGlassTint)
+                        RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                    .overlay(coverStroke)
                 } else {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                         .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
                         .overlay(
-                            MonologueIcon(icon: .cloud, size: 20, color: .monologueTextSecondary.opacity(0.4), lineWidth: 1.4)
+                            MonologueIcon(icon: .cloud, size: 20, color: Theme.secondaryText.opacity(0.5), lineWidth: 1.4)
                         )
+                        .overlay(coverStroke)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.songName)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(isCurrent ? .monologueTextPrimary : .monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundColor(isCurrent && NeumorphicStyle.isActive ? NeumorphicStyle.accent : Theme.text)
                         .lineLimit(1)
                     
                     HStack(spacing: 6) {
-                        Text(song.bitrateText)
-                            .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(Theme.accent)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
-                                    .stroke(Theme.accent, lineWidth: 0.5)
-                            )
+                        if NeumorphicStyle.isActive {
+                            NeumorphicPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
+                        } else {
+                            Text(song.bitrateText)
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(Theme.accent)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
+                                        .stroke(Theme.accent, lineWidth: 0.5)
+                                )
+                        }
                         
                         Text("\(song.artist) · \(song.fileSizeText)")
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
                     }
                 }
@@ -242,7 +256,7 @@ struct CloudDiskView: View {
                 Spacer()
                 
                 if isCurrent {
-                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .monologueTextPrimary)
+                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
                         .frame(width: 20)
                 }
             }
@@ -283,6 +297,18 @@ struct CloudDiskView: View {
             } label: {
                 Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
             }
+        }
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 10
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         }
     }
     

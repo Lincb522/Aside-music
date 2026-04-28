@@ -1,5 +1,5 @@
-import SwiftUI
 import FFmpegSwiftSDK
+import SwiftUI
 
 /// 黑胶唱片布局 - 浅色背景 + 超大唱片 + 白色唱臂 + Apple 风格极简控制
 struct VinylPlayerLayout: View {
@@ -10,6 +10,7 @@ struct VinylPlayerLayout: View {
     @ObservedObject var lyricVM = LyricViewModel.shared
 
     // MARK: - 状态
+
     @State private var isDragging = false
     @State private var dragValue: Double = 0
     @State private var tonearmAngle: Double = -38
@@ -27,7 +28,8 @@ struct VinylPlayerLayout: View {
     /// 唱片旋转角度 — 匀速自旋转
     @State private var discRotation: Double = 0
     @State private var isSpinning = false
-    
+    @State private var spinGeneration = 0
+
     /// 切歌动画状态
     @State private var isChangingSong = false
     @State private var discOffset: CGFloat = 0
@@ -40,17 +42,18 @@ struct VinylPlayerLayout: View {
     private var contentColor: Color {
         colorScheme == .dark ? .white : Color(hex: "1A1A1A")
     }
+
     private var secondaryColor: Color {
         contentColor.opacity(0.45)
     }
 
     // MARK: - Body
+
     var body: some View {
         GeometryReader { geo in
             let discSize = min(geo.size.width * 0.88, DeviceLayout.playerArtworkMaxSize)
 
             ZStack {
-
                 VStack(spacing: 0) {
                     // 顶栏（极简）
                     headerBar
@@ -77,7 +80,7 @@ struct VinylPlayerLayout: View {
                                     .frame(width: discSize * 0.85, height: discSize * 0.25)
                                     .blur(radius: 25)
                                     .offset(y: discSize * 0.5)
-                                
+
                                 vinylDisc(size: discSize)
                                 tonearm(discSize: discSize)
                             }
@@ -133,11 +136,10 @@ struct VinylPlayerLayout: View {
             }
             lastSongId = newId
         }
-        .monologueSheet(isPresented: $showPlaylist, preset: .standard){
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             PlaylistPopupView()
-
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -151,24 +153,20 @@ struct VinylPlayerLayout: View {
                 qishuiTrackId: player.currentSong?.qishuiTrackId,
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
-
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
+        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
             NavigationStack { EQSettingsView() }
-
         }
-        .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
+        .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
-
         }
-        .monologueSheet(isPresented: $showComments, preset: .large){
+        .monologueSheet(isPresented: $showComments, preset: .large) {
             if let song = player.currentSong {
                 CommentView(resourceId: song.id, resourceType: .song,
-                           songName: song.name, artistName: song.artistName, coverUrl: song.coverUrl)
-
+                            songName: song.name, artistName: song.artistName, coverUrl: song.coverUrl)
             }
         }
-        .monologueSheet(isPresented: $showArtistDetail, preset: .detail){
+        .monologueSheet(isPresented: $showArtistDetail, preset: .detail) {
             if let song = player.currentSong {
                 NavigationStack {
                     if song.isQQMusic, let mid = song.qqArtistMid {
@@ -177,23 +175,21 @@ struct VinylPlayerLayout: View {
                         ArtistDetailView(artistId: artistId)
                     }
                 }
-
             }
         }
-        .monologueSheet(isPresented: $showDownloadSheet, preset: .compact){
+        .monologueSheet(isPresented: $showDownloadSheet, preset: .compact) {
             if let song = player.currentSong {
                 DownloadQualitySheet(song: song) {
                     showDownloadSheet = false
                 }
-
             }
         }
     }
 }
 
 // MARK: - 顶栏
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     var headerBar: some View {
         HStack {
             Button(action: { dismiss() }) {
@@ -223,11 +219,9 @@ extension VinylPlayerLayout {
 }
 
 // MARK: - 黑胶唱片
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     func vinylDisc(size: CGFloat) -> some View {
-        // 深色模式下唱片阴影更明显，浅色模式下柔和
-        let shadowOpacity = colorScheme == .dark ? 0.5 : 0.08
         let edgeHighlight = colorScheme == .dark ? 0.12 : 0.15
         let grooveHighlight = colorScheme == .dark ? 0.08 : 0.06
 
@@ -238,7 +232,7 @@ extension VinylPlayerLayout {
                     RadialGradient(
                         colors: [
                             Color(hex: "3A3A3A"),
-                            Color(hex: "1A1A1A")
+                            Color(hex: "1A1A1A"),
                         ],
                         center: .center,
                         startRadius: size * 0.45,
@@ -256,7 +250,7 @@ extension VinylPlayerLayout {
                             Color(hex: "1C1C1C"),
                             Color(hex: "252525"),
                             Color(hex: "1A1A1A"),
-                            Color(hex: "222222")
+                            Color(hex: "222222"),
                         ],
                         center: .center,
                         startRadius: size * 0.12,
@@ -278,7 +272,7 @@ extension VinylPlayerLayout {
                             .white.opacity(edgeHighlight * 0.8),
                             .clear,
                             .white.opacity(grooveHighlight * 1.2),
-                            .clear
+                            .clear,
                         ],
                         center: .center
                     ),
@@ -303,25 +297,25 @@ extension VinylPlayerLayout {
                 ZStack {
                     CachedAsyncImage(url: song.coverUrl?.sized(800)) { Color.gray.opacity(0.3) }
                         .aspectRatio(contentMode: .fill)
-                    
+
                     if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
                         DynamicCoverView(urlString: dynamicUrl, cornerRadius: 0)
                     }
                 }
                 .frame(width: size * 0.40, height: size * 0.40)
                 .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color(hex: "555555"), Color(hex: "333333")],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 3
-                            )
-                    )
-                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.3), radius: 4, x: 0, y: 2)
+                .overlay(
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color(hex: "555555"), Color(hex: "333333")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 3
+                        )
+                )
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.3), radius: 4, x: 0, y: 2)
             } else {
                 Circle()
                     .fill(
@@ -367,17 +361,19 @@ extension VinylPlayerLayout {
             }
         }
         .rotationEffect(.degrees(discRotation))
-        .animation(.linear(duration: 8), value: discRotation)
         .offset(x: discOffset)
         .opacity(discOpacity)
         .onAppear {
             if player.isPlaying { startSpinning() }
         }
+        .onDisappear {
+            stopSpinning()
+        }
         .onChange(of: player.isPlaying) { _, isPlaying in
             if isPlaying {
                 startSpinning()
             } else {
-                isSpinning = false
+                stopSpinning()
             }
         }
         .opacity(isAppeared ? 1 : 0)
@@ -388,7 +384,7 @@ extension VinylPlayerLayout {
     func vinylGrooves(size: CGFloat) -> some View {
         ZStack {
             // 主沟槽
-            ForEach(0..<18, id: \.self) { i in
+            ForEach(0 ..< 18, id: \.self) { i in
                 let ratio = 0.22 + CGFloat(i) * 0.038
                 Circle()
                     .stroke(
@@ -397,7 +393,7 @@ extension VinylPlayerLayout {
                     )
                     .frame(width: size * ratio, height: size * ratio)
             }
-            
+
             // 反光带（模拟光线照射）
             Circle()
                 .trim(from: 0.1, to: 0.3)
@@ -411,40 +407,40 @@ extension VinylPlayerLayout {
                 )
                 .frame(width: size * 0.7, height: size * 0.7)
                 .rotationEffect(.degrees(-30))
-            
+
             // 封面与纹路之间的暗环
             Circle()
                 .stroke(Color.black.opacity(0.5), lineWidth: 4)
                 .frame(width: size * 0.44, height: size * 0.44)
         }
     }
-    
+
     /// 切歌动画
     func triggerSongChangeAnimation() {
         isChangingSong = true
-        
+
         // 唱臂先抬起
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             tonearmAngle = -38
         }
-        
+
         // 唱片滑出
         withAnimation(.easeIn(duration: 0.25).delay(0.1)) {
             discOffset = -80
             discOpacity = 0
         }
-        
+
         // 新唱片滑入
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             // 先移到右侧（不带动画）
             discOffset = 80
-            
+
             // 滑入动画
             withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
                 discOffset = 0
                 discOpacity = 1
             }
-            
+
             // 唱臂落下
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 isChangingSong = false
@@ -459,8 +455,8 @@ extension VinylPlayerLayout {
 }
 
 // MARK: - 唱臂（白色/银色，底座在唱片右上方，唱头落在唱片上）
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     func tonearm(discSize: CGFloat) -> some View {
         let armLength = discSize * 0.5
         let pivotX = discSize * 0.35
@@ -538,8 +534,8 @@ extension VinylPlayerLayout {
 }
 
 // MARK: - 歌曲信息
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     var songInfoSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(player.currentSong?.name ?? "")
@@ -587,8 +583,8 @@ extension VinylPlayerLayout {
 }
 
 // MARK: - 进度条
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     var progressSection: some View {
         VStack(spacing: 5) {
             GeometryReader { geo in
@@ -637,57 +633,57 @@ extension VinylPlayerLayout {
 }
 
 // MARK: - 控制按钮（圆角矩形风格）
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     var controlsSection: some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
                 // PLAY 按钮 — 大圆角矩形
                 Button(action: { player.togglePlayPause() }) {
-                HStack(spacing: 8) {
-                    if player.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .monologueIconForeground))
-                            .scaleEffect(0.8)
-                    } else {
-                        MonologueIcon(
-                            icon: player.isPlaying ? .pause : .play,
-                            size: 18,
-                            color: .monologueTextPrimary
-                        )
+                    HStack(spacing: 8) {
+                        if player.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .monologueIconForeground))
+                                .scaleEffect(0.8)
+                        } else {
+                            MonologueIcon(
+                                icon: player.isPlaying ? .pause : .play,
+                                size: 18,
+                                color: .monologueTextPrimary
+                            )
+                        }
+                        Text(player.isPlaying ? "PAUSE" : "PLAY")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                            .tracking(1)
                     }
-                    Text(player.isPlaying ? "PAUSE" : "PLAY")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
-                        .tracking(1)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .monologueGlass(cornerRadius: 16)
+                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 8, y: 4)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .monologueGlass(cornerRadius: 16)
-                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 8, y: 4)
-            }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
 
-            // 上一首
-            Button(action: { player.previous() }) {
-                MonologueIcon(icon: .previous, size: 22, color: contentColor)
-                    .frame(width: 50, height: 50)
-                    .monologueGlass(cornerRadius: 16)
-            }
-            .buttonStyle(MonologueBouncingButtonStyle())
+                // 上一首
+                Button(action: { player.previous() }) {
+                    MonologueIcon(icon: .previous, size: 22, color: contentColor)
+                        .frame(width: 50, height: 50)
+                        .monologueGlass(cornerRadius: 16)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
 
-            // 下一首
-            Button(action: { player.next() }) {
-                MonologueIcon(icon: .next, size: 22, color: contentColor)
-                    .frame(width: 50, height: 50)
-                    .monologueGlass(cornerRadius: 16)
-            }
-            .buttonStyle(MonologueBouncingButtonStyle())
+                // 下一首
+                Button(action: { player.next() }) {
+                    MonologueIcon(icon: .next, size: 22, color: contentColor)
+                        .frame(width: 50, height: 50)
+                        .monologueGlass(cornerRadius: 16)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
             }
 
-            // 评论 + 下载
-            if let song = player.currentSong {
-                HStack(spacing: 0) {
+            // 评论 + 播放列表 + 下载
+            HStack(spacing: 0) {
+                if player.currentSong != nil {
                     Button { showComments = true } label: {
                         MonologueIcon(icon: .comment, size: 22, color: secondaryColor, lineWidth: 1.4)
                             .frame(width: 44, height: 44)
@@ -695,9 +691,24 @@ extension VinylPlayerLayout {
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                     .frame(width: 44)
+                } else {
+                    Color.clear
+                        .frame(width: 44, height: 44)
+                }
 
-                    Spacer()
+                Spacer()
 
+                Button { showPlaylist = true } label: {
+                    MonologueIcon(icon: .list, size: 23, color: secondaryColor, lineWidth: 1.45)
+                        .frame(width: 46, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
+                .frame(width: 46)
+
+                Spacer()
+
+                if let song = player.currentSong {
                     Button {
                         if !downloadManager.isDownloaded(songId: song.id) {
                             showDownloadSheet = true
@@ -715,6 +726,9 @@ extension VinylPlayerLayout {
                     .buttonStyle(MonologueBouncingButtonStyle())
                     .disabled(downloadManager.isDownloaded(songId: song.id))
                     .frame(width: 44)
+                } else {
+                    Color.clear
+                        .frame(width: 44, height: 44)
                 }
             }
         }
@@ -722,8 +736,8 @@ extension VinylPlayerLayout {
 }
 
 // MARK: - 辅助
-extension VinylPlayerLayout {
 
+extension VinylPlayerLayout {
     func formatTime(_ seconds: Double) -> String {
         guard !seconds.isNaN && !seconds.isInfinite else { return "0:00" }
         let total = Int(seconds)
@@ -734,16 +748,23 @@ extension VinylPlayerLayout {
     func startSpinning() {
         guard !isSpinning else { return }
         isSpinning = true
-        // 先设置目标角度（当前 + 360°），用线性动画
-        // 通过递归调用实现无限旋转
-        spinOnce()
+        spinGeneration += 1
+        spinOnce(generation: spinGeneration)
     }
 
-    private func spinOnce() {
-        guard isSpinning else { return }
-        discRotation += 360
+    func stopSpinning() {
+        isSpinning = false
+        spinGeneration += 1
+    }
+
+    private func spinOnce(generation: Int) {
+        guard isSpinning, generation == spinGeneration else { return }
+        withAnimation(.linear(duration: 8)) {
+            discRotation += 360
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
-            spinOnce()
+            guard generation == spinGeneration else { return }
+            spinOnce(generation: generation)
         }
     }
 

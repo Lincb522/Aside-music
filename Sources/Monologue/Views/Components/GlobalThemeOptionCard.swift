@@ -83,6 +83,8 @@ struct GlobalThemeOptionCard: View {
             mujiPreview
         case .manga:
             mangaPreview
+        case .neumorphic:
+            neumorphicPreview
         }
     }
 
@@ -91,6 +93,7 @@ struct GlobalThemeOptionCard: View {
         case .default:   return .monologueAccent
         case .muji:      return Color(hex: "C4775A")
         case .manga:     return Color(hex: "FF8FAB")
+        case .neumorphic: return Color(hex: "4F8E86")
         }
     }
 
@@ -287,5 +290,114 @@ struct GlobalThemeOptionCard: View {
             .frame(height: 18)
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1))
             .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 1, y: 1))
+    }
+
+    // MARK: - Neumorphic 预览
+
+    private var neumorphicPreview: some View {
+        ZStack {
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "202429"), Color(hex: "1B1F24"), Color(hex: "292722")]
+                    : [Color(hex: "F2EEE8"), Color(hex: "E9EDF0"), Color(hex: "EEF2F4")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            NeumorphicDiffuseGradient()
+                .opacity(0.58)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        previewNeumorphicLine(width: 46, opacity: 0.26)
+                        previewNeumorphicLine(width: 28, opacity: 0.14)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 5) {
+                        previewNeumorphicCircle(size: 18, tint: NeumorphicStyle.warm)
+                        previewNeumorphicCircle(size: 18, tint: NeumorphicStyle.accent)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    ZStack {
+                        previewNeumorphicTile(width: 50, height: 50, radius: 18, tint: NeumorphicStyle.surfaceRaised, elevated: true)
+
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [NeumorphicStyle.accent.opacity(0.74), NeumorphicStyle.sage.opacity(0.36)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                MonologueIcon(icon: .musicNote, size: 14, color: colorScheme == .dark ? .black.opacity(0.62) : .white.opacity(0.9), lineWidth: 1.5)
+                            )
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        previewNeumorphicLine(width: 62, opacity: 0.28)
+                        previewNeumorphicLine(width: 44, opacity: 0.16)
+                        previewNeumorphicProgress
+                    }
+                }
+
+                HStack(spacing: 9) {
+                    previewNeumorphicCircle(size: 20, tint: NeumorphicStyle.inkMuted.opacity(0.24))
+                    previewNeumorphicCircle(size: 28, tint: NeumorphicStyle.accent)
+                    previewNeumorphicCircle(size: 20, tint: NeumorphicStyle.inkMuted.opacity(0.24))
+
+                    Spacer(minLength: 0)
+
+                    previewNeumorphicTile(width: 42, height: 20, radius: 10, tint: NeumorphicStyle.surfacePressed, elevated: false)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true))
+            }
+            .padding(10)
+        }
+    }
+
+    private func previewNeumorphicTile(width: CGFloat, height: CGFloat, radius: CGFloat, tint: Color, elevated: Bool = false) -> some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(Color.clear)
+            .frame(width: width, height: height)
+            .background(NeumorphicSurfaceBackground(cornerRadius: radius, elevated: elevated, pressed: !elevated, tint: tint.opacity(colorScheme == .dark ? 0.5 : 0.42)))
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    private func previewNeumorphicLine(width: CGFloat, opacity: Double) -> some View {
+        Capsule()
+            .fill((colorScheme == .dark ? Color.white : Color.black).opacity(opacity))
+            .frame(width: width, height: 5)
+    }
+
+    private func previewNeumorphicCircle(size: CGFloat, tint: Color) -> some View {
+        Circle()
+            .fill(Color.clear)
+            .frame(width: size, height: size)
+            .background(NeumorphicSurfaceBackground(cornerRadius: size / 2, elevated: true, tint: tint.opacity(colorScheme == .dark ? 0.46 : 0.38)))
+            .clipShape(Circle())
+    }
+
+    private var previewNeumorphicProgress: some View {
+        ZStack(alignment: .leading) {
+            Capsule()
+                .fill(Color.clear)
+                .frame(width: 70, height: 8)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 4, elevated: false, pressed: true))
+                .clipShape(Capsule())
+
+            Capsule()
+                .fill(NeumorphicStyle.accent.opacity(0.7))
+                .frame(width: 42, height: 5)
+                .padding(.leading, 1.5)
+        }
     }
 }

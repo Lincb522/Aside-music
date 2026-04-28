@@ -14,7 +14,7 @@ struct PodcastEpisodeListSheet: View {
             headerSection
 
             Rectangle()
-                .fill(Color.monologueSeparator)
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.42) : Color.monologueSeparator)
                 .frame(height: 0.5)
 
             if viewModel.programs.isEmpty {
@@ -92,9 +92,13 @@ struct PodcastEpisodeListSheet: View {
             }
         }
         .background {
-            Rectangle()
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: 20)
+            if NeumorphicStyle.isActive {
+                Color.clear
+            } else {
+                Rectangle()
+                    .fill(Color.monologueGlassTint)
+                    .monologueGlass(cornerRadius: 20)
+            }
         }
         .ignoresSafeArea(edges: .bottom)
         .onChange(of: isSearchExpanded) { _, isExpanded in
@@ -129,8 +133,8 @@ struct PodcastEpisodeListSheet: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(viewModel.radioDetail?.name ?? String(localized: "radio_program_list"))
-                        .font(.rounded(size: 17, weight: .bold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(17, weight: .semibold) : .rounded(size: 17, weight: .bold))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     if let program = viewModel.currentProgram {
@@ -140,13 +144,13 @@ struct PodcastEpisodeListSheet: View {
                             }
                             Text(program.name ?? String(localized: "radio_unknown_program"))
                                 .font(.rounded(size: 13))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                                 .lineLimit(1)
                         }
                     } else if let count = viewModel.radioDetail?.programCount {
                         Text(String(format: String(localized: "radio_total_episodes"), count))
                             .font(.rounded(size: 13))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                 }
 
@@ -155,7 +159,7 @@ struct PodcastEpisodeListSheet: View {
                 HStack(spacing: 8) {
                     Button(action: { viewModel.toggleEpisodeOrder() }) {
                         HStack(spacing: 5) {
-                            MonologueIcon(icon: .filter, size: 11, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .filter, size: 11, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
 
                             Text(
                                 viewModel.isAscendingOrder
@@ -163,13 +167,15 @@ struct PodcastEpisodeListSheet: View {
                                     : String(localized: "podcast_sort_latest")
                             )
                             .font(.rounded(size: 11, weight: .medium))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                         }
                         .frame(height: 32)
                         .padding(.horizontal, 10)
-                        .background(Color.monologueSeparator.opacity(0.9))
+                        .background {
+                            podcastControlBackground(cornerRadius: 16)
+                        }
                         .clipShape(Capsule())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
@@ -178,10 +184,12 @@ struct PodcastEpisodeListSheet: View {
                         MonologueIcon(
                             icon: isSearchExpanded ? .close : .search,
                             size: 13,
-                            color: .monologueTextSecondary
+                            color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
                         )
                         .frame(width: 32, height: 32)
-                        .background(Color.monologueSeparator.opacity(0.9))
+                        .background {
+                            podcastControlBackground(cornerRadius: 16)
+                        }
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
@@ -195,19 +203,21 @@ struct PodcastEpisodeListSheet: View {
                         HStack(spacing: 2) {
                             Text("\(count)")
                                 .font(.rounded(size: 11, weight: .semibold))
-                                .foregroundColor(.monologueTextPrimary)
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                                 .monospacedDigit()
                                 .lineLimit(1)
 
                             Text("radio_episode_unit")
                                 .font(.rounded(size: 10, weight: .medium))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                                 .lineLimit(1)
                         }
                         .fixedSize(horizontal: true, vertical: false)
                         .frame(height: 32)
                         .padding(.horizontal, 9)
-                        .background(Color.monologueSeparator.opacity(0.9))
+                        .background {
+                            podcastControlBackground(cornerRadius: 16)
+                        }
                         .clipShape(Capsule())
                     }
                 }
@@ -225,20 +235,30 @@ struct PodcastEpisodeListSheet: View {
                     .monologueTextInputBehavior()
                     .focused($isSearchFieldFocused)
 
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
-                                .frame(width: 22, height: 22)
-                                .background(Color.monologueSeparator)
-                                .clipShape(Circle())
+                    Button {
+                        if searchText.isEmpty {
+                            toggleSearch()
+                        } else {
+                            searchText = ""
                         }
-                        .buttonStyle(.plain)
+                    } label: {
+                        MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
+                            .frame(width: 22, height: 22)
+                            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                            .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.monologueSeparator.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                    } else {
+                        Color.monologueSeparator.opacity(0.85)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 16 : 14, style: .continuous))
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.bottom, 14)
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -323,6 +343,15 @@ struct PodcastEpisodeListSheet: View {
         .padding(.vertical, 12)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func podcastControlBackground(cornerRadius: CGFloat) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true)
+        } else {
+            Color.monologueSeparator.opacity(0.9)
+        }
     }
 
     // MARK: - Helpers

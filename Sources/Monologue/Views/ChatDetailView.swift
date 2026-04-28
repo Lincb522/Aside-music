@@ -51,7 +51,7 @@ struct ChatDetailView: View {
                 // 输入栏
                 HStack(spacing: 12) {
                     TextField(String(localized: "message_input_placeholder"), text: $inputText)
-                        .font(.system(size: 15, design: .rounded))
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, design: .rounded))
                         .monologueTextInputBehavior()
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -61,9 +61,9 @@ struct ChatDetailView: View {
                         .focused($isInputFocused)
                     
                     Button(action: sendMessage) {
-                        MonologueIcon(icon: .send, size: 20, color: inputText.isEmpty ? .monologueTextSecondary.opacity(0.4) : .monologueTextPrimary)
+                        MonologueIcon(icon: .send, size: 20, color: inputText.isEmpty ? (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.4)) : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary))
                             .frame(width: 40, height: 40)
-                            .background(Color.monologueGlassTint)
+                            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                             .clipShape(Circle())
                     }
                     .disabled(inputText.isEmpty)
@@ -115,7 +115,7 @@ private struct ChatBubble: View {
             
             VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
                 Text(message.msg)
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .regular, design: .rounded)))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .medium) : .system(size: 14, weight: .regular, design: .rounded))))
                     .foregroundColor(bubbleTextColor)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -128,13 +128,16 @@ private struct ChatBubble: View {
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.35), lineWidth: 0.6)
+                        } else if NeumorphicStyle.isActive {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
                         }
                     }
                     .monologueGlass(cornerRadius: 16)
                 
                 Text(message.timeText)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .medium) : .system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
             }
             
             if !isMe { Spacer(minLength: 60) }
@@ -146,6 +149,8 @@ private struct ChatBubble: View {
             return isMe ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
         } else if MujiStyle.isActive {
             return isMe ? MujiStyle.clay : MujiStyle.surfaceRaised
+        } else if NeumorphicStyle.isActive {
+            return isMe ? NeumorphicStyle.accent.opacity(0.18) : NeumorphicStyle.surfacePressed.opacity(0.74)
         } else {
             return isMe ? Color.monologueAccent.opacity(0.15) : Color.monologueGlassTint
         }
@@ -156,6 +161,8 @@ private struct ChatBubble: View {
             return MangaStyle.ink
         } else if MujiStyle.isActive {
             return isMe ? MujiStyle.paper : .monologueTextPrimary
+        } else if NeumorphicStyle.isActive {
+            return isMe ? NeumorphicStyle.accent : NeumorphicStyle.ink
         } else {
             return isMe ? .white : .monologueTextPrimary
         }

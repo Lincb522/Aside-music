@@ -3,6 +3,7 @@ import SwiftUI
 struct MangaHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
@@ -23,8 +24,9 @@ struct MangaHomeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
-                if viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    viewModel.refreshHitokoto(ignoresSetting: true)
+                if hitokotoEnabled,
+                   viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    viewModel.refreshHitokoto()
                 }
                 if !appeared {
                     withAnimation(.spring(response: 0.52, dampingFraction: 0.76).delay(0.06)) {
@@ -94,7 +96,9 @@ struct MangaHomeView: View {
         .scrollIndicators(.hidden)
         .refreshable {
             viewModel.fetchData()
-            viewModel.refreshHitokoto(force: true, ignoresSetting: true)
+            if hitokotoEnabled {
+                viewModel.refreshHitokoto(force: true)
+            }
         }
     }
 
@@ -173,7 +177,7 @@ struct MangaHomeView: View {
     private var mangaHeroPanel: some View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 12) {
-                MangaLabel(text: String(localized: "settings_hitokoto"), tint: MangaStyle.accentPink, small: true)
+                MangaLabel(text: hitokotoLabel, tint: MangaStyle.accentPink, small: true)
 
                 Text(mangaHeaderLine)
                     .font(MangaStyle.titleFont(24, weight: .black))
@@ -421,7 +425,9 @@ struct MangaHomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(
                 title: String(localized: "qq_new_songs"),
-                mark: .star
+                actionTitle: String(localized: "view_all"),
+                mark: .star,
+                action: { navigationPath.append(HomeView.HomeDestination.qcmNewSongs) }
             )
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
@@ -644,12 +650,18 @@ struct MangaHomeView: View {
     }
 
     private var mangaHeaderLine: String {
+        guard hitokotoEnabled else { return "Monologue" }
+
         if let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
            !hitokoto.isEmpty {
             return hitokoto
         }
 
-        return ""
+        return "Monologue"
+    }
+
+    private var hitokotoLabel: String {
+        hitokotoEnabled ? String(localized: "settings_hitokoto") : "Monologue"
     }
 
     private var mangaGreetingText: String {
@@ -720,6 +732,8 @@ struct MangaHomeView: View {
             MVDiscoverView()
         case .newSongExpress:
             NewSongExpressView()
+        case .qcmNewSongs:
+            QCMNewSongsView()
         }
     }
 }

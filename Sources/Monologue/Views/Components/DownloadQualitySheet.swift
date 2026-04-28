@@ -5,6 +5,7 @@ struct DownloadQualitySheet: View {
     let onDownload: () -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var downloadManager = DownloadManager.shared
 
     private var isQQ: Bool { song.isQQMusic }
@@ -111,8 +112,8 @@ struct DownloadQualitySheet: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "download_quality_title"))
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
 
                 Text(song.name)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -128,9 +129,7 @@ struct DownloadQualitySheet: View {
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
                 MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
                     .padding(10)
-                    .background(Color.monologueSeparator)
-                    .clipShape(Circle())
-                    .monologueGlassCircle()
+                    .background { closeButtonBackground }
             }
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -162,12 +161,9 @@ struct DownloadQualitySheet: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: 20)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+            qualityPanelBackground
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
 
     // MARK: - qcm
@@ -210,12 +206,9 @@ struct DownloadQualitySheet: View {
             Color.clear.frame(height: 8)
         }
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: 20)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+            qualityPanelBackground
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
 
     // MARK: - QSM
@@ -243,12 +236,9 @@ struct DownloadQualitySheet: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: 20)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+            qualityPanelBackground
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
 
     // MARK: - Row
@@ -257,10 +247,13 @@ struct DownloadQualitySheet: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isLocked ? Color.monologueIconBackground.opacity(0.04) : Color.monologueIconBackground.opacity(0.08))
+                    .fill(Color.clear)
                     .frame(width: 32, height: 32)
+                    .background {
+                        qualityIconTileBackground(isLocked: isLocked)
+                    }
 
-                MonologueIcon(icon: isLocked ? .lock : .playerDownload, size: 16, color: isLocked ? .monologueTextSecondary.opacity(0.4) : .monologueTextPrimary)
+                MonologueIcon(icon: isLocked ? .lock : .playerDownload, size: 16, color: qualityIconColor(isLocked: isLocked))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -272,10 +265,10 @@ struct DownloadQualitySheet: View {
                     if let badge {
                         Text(badge)
                             .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(isLocked ? .monologueTextSecondary.opacity(0.4) : .monologueIconForeground)
+                            .foregroundColor(qualityBadgeForeground(isLocked: isLocked))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(isLocked ? Color.monologueIconBackground.opacity(0.3) : Color.monologueIconBackground)
+                            .background(qualityBadgeBackground(isLocked: isLocked))
                             .cornerRadius(4)
                     }
 
@@ -285,7 +278,7 @@ struct DownloadQualitySheet: View {
                             .foregroundColor(.monologueTextSecondary.opacity(0.5))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.monologueSeparator.opacity(0.5))
+                            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monologueSeparator.opacity(0.5))
                             .cornerRadius(4)
                     }
                 }
@@ -303,5 +296,64 @@ struct DownloadQualitySheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private var qualityPanelCornerRadius: CGFloat {
+        NeumorphicStyle.isActive ? 22 : 16
+    }
+
+    @ViewBuilder
+    private var qualityPanelBackground: some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false)
+        } else {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .monologueGlass(cornerRadius: 20)
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        }
+    }
+
+    @ViewBuilder
+    private var closeButtonBackground: some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true)
+                .clipShape(Circle())
+        } else {
+            Circle()
+                .fill(Color.monologueSeparator)
+                .monologueGlassCircle()
+        }
+    }
+
+    @ViewBuilder
+    private func qualityIconTileBackground(isLocked: Bool) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 10,
+                elevated: false,
+                pressed: false,
+                tint: NeumorphicStyle.surfacePressed.opacity(0.72)
+            )
+            .opacity(isLocked ? 0.5 : 1)
+        } else {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isLocked ? Color.monologueIconBackground.opacity(0.04) : Color.monologueIconBackground.opacity(0.08))
+        }
+    }
+
+    private func qualityIconColor(isLocked: Bool) -> Color {
+        if isLocked { return .monologueTextSecondary.opacity(0.4) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private func qualityBadgeForeground(isLocked: Bool) -> Color {
+        if isLocked { return .monologueTextSecondary.opacity(0.4) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
+    }
+
+    private func qualityBadgeBackground(isLocked: Bool) -> Color {
+        if isLocked { return Color.monologueIconBackground.opacity(0.3) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.18 : 0.13) : .monologueIconBackground
     }
 }

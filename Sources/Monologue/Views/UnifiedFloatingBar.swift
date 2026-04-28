@@ -1,6 +1,7 @@
 import SwiftUI
 
 // MARK: - Subviews for Performance
+
 struct MiniPlayerSection: View {
     let song: Song
     let isPlaying: Bool
@@ -17,24 +18,31 @@ struct MiniPlayerSection: View {
     }
 
     private var primaryTextColor: Color {
-        .monologueTextPrimary
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return Color.monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
-        .monologueTextSecondary
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return Color.monologueTextSecondary
     }
 
     private var controlFillColor: Color {
-        .monologueIconBackground
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        return Color.monologueIconBackground
     }
 
     private var controlForegroundColor: Color {
-        .monologueIconForeground
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return Color.monologueIconForeground
     }
 
     private var titleFont: Font {
         if MangaStyle.isActive {
             return MangaStyle.bodyFont(13, weight: .bold)
+        }
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(13, weight: .semibold)
         }
         return MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded)
     }
@@ -43,9 +51,12 @@ struct MiniPlayerSection: View {
         if MangaStyle.isActive {
             return MangaStyle.bodyFont(11, weight: .medium)
         }
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(11, weight: .regular)
+        }
         return MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .rounded(size: 11, weight: .medium)
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -69,7 +80,7 @@ struct MiniPlayerSection: View {
                         sourceIndicator(icon: .radio)
                     }
                 }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     MarqueeText(
                         text: song.name,
@@ -78,7 +89,7 @@ struct MiniPlayerSection: View {
                         speed: 25
                     )
                     .frame(height: 16)
-                    
+
                     Text(subtitleText)
                         .font(subtitleFont)
                         .foregroundColor(secondaryTextColor)
@@ -86,8 +97,7 @@ struct MiniPlayerSection: View {
                         .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                
-                
+
                 // 控制按钮
                 HStack(spacing: 10) {
                     Button(action: togglePlayPause) {
@@ -98,9 +108,11 @@ struct MiniPlayerSection: View {
                                 .overlay {
                                     if MujiStyle.isActive {
                                         Circle().stroke(MujiStyle.hairline.opacity(0.32), lineWidth: 0.6)
+                                    } else if NeumorphicStyle.isActive {
+                                        Circle().stroke(NeumorphicStyle.lightShadow(.light, intensity: 0.4), lineWidth: 0.7)
                                     }
                                 }
-                            
+
                             if player.isLoading {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: controlForegroundColor))
@@ -116,14 +128,14 @@ struct MiniPlayerSection: View {
                         .contentShape(Circle())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
-                    
+
                     Button(action: { showPlaylist.toggle() }) {
                         MonologueIcon(icon: .list, size: 16, color: primaryTextColor.opacity(0.7))
                             .frame(width: 32, height: 32)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
-                    
+
                     if !isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
@@ -153,7 +165,7 @@ struct MiniPlayerSection: View {
                             switch player.playSource {
                             case .fm:
                                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-                            case .podcast(let radioId):
+                            case let .podcast(radioId):
                                 NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
                             case .normal:
                                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
@@ -161,13 +173,13 @@ struct MiniPlayerSection: View {
                         }
                     }
             }
-            
+
             ProgressBarView()
                 .frame(height: 2.5)
                 .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
                 .padding(.bottom, 4)
         }
-        .monologueSheet(isPresented: $showPlaylist, preset: .standard){
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
             } else {
@@ -184,7 +196,7 @@ struct MiniPlayerSection: View {
 
 struct ProgressBarView: View {
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
@@ -192,7 +204,7 @@ struct ProgressBarView: View {
                 Capsule()
                     .fill(trackColor)
                     .frame(height: 2.5)
-                
+
                 // 进度
                 let progress = timePublisher.progress
                 Capsule()
@@ -208,6 +220,8 @@ struct ProgressBarView: View {
             return MangaStyle.separator.opacity(0.6)
         } else if MujiStyle.isActive {
             return MujiStyle.separator.opacity(0.55)
+        } else if NeumorphicStyle.isActive {
+            return NeumorphicStyle.surfacePressed.opacity(0.9)
         }
         return Color.monologueTextPrimary.opacity(0.06)
     }
@@ -217,6 +231,8 @@ struct ProgressBarView: View {
             return AnyShapeStyle(LinearGradient(colors: [MangaStyle.accentPink, MangaStyle.labelYellow], startPoint: .leading, endPoint: .trailing))
         } else if MujiStyle.isActive {
             return AnyShapeStyle(MujiStyle.accentGradient)
+        } else if NeumorphicStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [NeumorphicStyle.accent, NeumorphicStyle.sage], startPoint: .leading, endPoint: .trailing))
         }
         return AnyShapeStyle(LinearGradient(colors: [Color.monologueAccent.opacity(0.5), Color.monologueAccent.opacity(0.5)], startPoint: .leading, endPoint: .trailing))
     }
@@ -231,32 +247,35 @@ private struct TabIconAnimValues {
 }
 
 // MARK: - Monologue TabBar
+
 struct MonologueTabBar: View {
     @Binding var selectedIndex: Int
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Namespace private var tabNS
     @State private var animTrigger: Int = -1
-    
-    private let itemHeight: CGFloat = 42
-    private let padding: CGFloat = 4
+
+    private let itemHeight: CGFloat = 48
+    private let padding: CGFloat = 5
 
     private var selectedColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         return MujiStyle.isActive ? MujiStyle.clay : .monologueTextPrimary
     }
 
     private var idleColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         return MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextPrimary.opacity(0.35)
     }
-    
+
     private static let tabIcons: [(outline: MonologueIcon.IconType, filled: MonologueIcon.IconType)] = [
         (.home, .homeFilled),
         (.podcast, .podcastFilled),
         (.library, .libraryFilled),
         (.profile, .profileFilled),
     ]
-    
+
     var body: some View {
         HStack(spacing: 0) {
             tabButton(index: 0, label: NSLocalizedString(Tab.home.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
@@ -264,15 +283,16 @@ struct MonologueTabBar: View {
             tabButton(index: 2, label: NSLocalizedString(Tab.library.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
             tabButton(index: 3, label: NSLocalizedString(Tab.profile.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, padding)
         .padding(.horizontal, 8)
     }
-    
+
     @ViewBuilder
     private func tabButton(index: Int, label: String) -> some View {
         let isSelected = selectedIndex == index
         let icons = Self.tabIcons[index]
-        
+
         Button {
             HapticManager.shared.light()
             animTrigger = index
@@ -284,7 +304,7 @@ struct MonologueTabBar: View {
                 KeyframeAnimator(initialValue: TabIconAnimValues(), trigger: animTrigger == index ? animTrigger : -1) { values in
                     MonologueIcon(
                         icon: isSelected ? icons.filled : icons.outline,
-                        size: 18,
+                        size: 19,
                         color: isSelected ? selectedColor : idleColor
                     )
                     .contentTransition(.interpolate)
@@ -293,31 +313,33 @@ struct MonologueTabBar: View {
                     .offset(y: values.offsetY)
                 } keyframes: { _ in
                     KeyframeTrack(\.scale) {
-                        SpringKeyframe(1.3, duration: 0.15, spring: .bouncy)
-                        SpringKeyframe(0.88, duration: 0.1, spring: .bouncy)
-                        SpringKeyframe(1.0, duration: 0.18, spring: .smooth)
+                        SpringKeyframe(1.14, duration: 0.1, spring: .smooth)
+                        SpringKeyframe(0.97, duration: 0.08, spring: .smooth)
+                        SpringKeyframe(1.0, duration: 0.12, spring: .smooth)
                     }
                     KeyframeTrack(\.rotation) {
-                        SpringKeyframe(-10, duration: 0.1, spring: .snappy)
-                        SpringKeyframe(7, duration: 0.1, spring: .snappy)
-                        SpringKeyframe(-3, duration: 0.08, spring: .snappy)
-                        SpringKeyframe(0, duration: 0.12, spring: .smooth)
+                        SpringKeyframe(-4, duration: 0.08, spring: .smooth)
+                        SpringKeyframe(2, duration: 0.08, spring: .smooth)
+                        SpringKeyframe(0, duration: 0.1, spring: .smooth)
                     }
                     KeyframeTrack(\.offsetY) {
-                        SpringKeyframe(-4, duration: 0.12, spring: .bouncy)
-                        SpringKeyframe(1, duration: 0.08, spring: .bouncy)
+                        SpringKeyframe(-2, duration: 0.1, spring: .smooth)
                         SpringKeyframe(0, duration: 0.12, spring: .smooth)
                     }
                 }
-                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
-                
+                .animation(MonologueAnimation.tabSwitch, value: isSelected)
+
                 Text(label)
                     .font(mangaOrMujiTabFont(isSelected: isSelected))
                     .foregroundColor(isSelected ? selectedColor : idleColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
-            .frame(width: 64, height: itemHeight)
+            .frame(maxWidth: .infinity, minHeight: itemHeight, alignment: .center)
             .background {
                 if isSelected {
                     Capsule()
@@ -335,34 +357,42 @@ struct MonologueTabBar: View {
             return MangaStyle.labelFont(9, weight: isSelected ? .black : .bold)
         } else if MujiStyle.isActive {
             return MujiStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
+        } else if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
         }
-        return .system(size: 9, weight: isSelected ? .semibold : .medium)
+        return .system(size: 10, weight: isSelected ? .semibold : .medium)
     }
 
     private var mangaOrMujiHighlightColor: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink.opacity(0.15) }
         if MujiStyle.isActive { return MujiStyle.clay.opacity(0.1) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent.opacity(0.14) }
         return Color.monologueTextPrimary.opacity(0.1)
     }
 }
 
 // MARK: - Unified Floating Bar
+
 struct UnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var glassNS
 
     private var cornerRadius: CGFloat {
         MujiStyle.isActive ? 16 : 22
     }
-    
-    @ViewBuilder
+
     var body: some View {
-        if MangaStyle.isActive {
+        switch settings.globalThemeId {
+        case .manga:
             MangaUnifiedFloatingBar(currentTab: $currentTab)
-        } else if MujiStyle.isActive {
+        case .muji:
             MujiUnifiedFloatingBar(currentTab: $currentTab)
-        } else {
+        case .neumorphic:
+            NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
+        case .default:
             defaultFloatingBar
         }
     }
@@ -383,7 +413,7 @@ struct UnifiedFloatingBar: View {
                         removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
                     ))
                 }
-                
+
                 MonologueTabBar(selectedIndex: Binding(
                     get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
                     set: { currentTab = Tab.allCases[$0] }
@@ -392,6 +422,8 @@ struct UnifiedFloatingBar: View {
                 .simultaneousGesture(tabSwipeGesture)
                 .monologueGlassID("tabBar", in: glassNS)
             }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -400,10 +432,11 @@ struct UnifiedFloatingBar: View {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
-                        MujiStyle.isActive ? MujiStyle.hairline.opacity(0.72) : Color.clear,
-                        lineWidth: MujiStyle.isActive ? 0.65 : 0.9
+                        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.12),
+                        lineWidth: 0.75
                     )
             )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.16), radius: 18, x: 0, y: 8)
             .monologueGlass(cornerRadius: cornerRadius)
             .monologueGlassID("floatingBar", in: glassNS)
         }
@@ -423,14 +456,14 @@ struct UnifiedFloatingBar: View {
                 }
             }
     }
-    
+
     private func switchTab(direction: Int) {
         let allTabs = Tab.allCases
         guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
-        
+
         let nextIndex = currentIndex + direction
-        
-        if nextIndex >= 0 && nextIndex < allTabs.count {
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
             withAnimation(MonologueAnimation.tabSwitch) {
                 currentTab = allTabs[nextIndex]
             }
@@ -441,6 +474,7 @@ struct UnifiedFloatingBar: View {
 private struct MujiUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject private var player = PlayerManager.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -467,9 +501,10 @@ private struct MujiUnifiedFloatingBar: View {
         .background(MujiPaperCardBackground(cornerRadius: 18, elevated: true))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(MujiStyle.surface.opacity(0.72), lineWidth: 0.7)
+                .stroke(colorScheme == .dark ? MujiStyle.hairline.opacity(0.56) : Color.black.opacity(0.1), lineWidth: 0.75)
                 .padding(0.5)
         )
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.28 : 0.13), radius: 16, x: 0, y: 7)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
     }
@@ -493,10 +528,280 @@ private struct MujiUnifiedFloatingBar: View {
 
         let nextIndex = currentIndex + direction
 
-        if nextIndex >= 0 && nextIndex < allTabs.count {
+        if nextIndex >= 0, nextIndex < allTabs.count {
             withAnimation(MonologueAnimation.tabSwitch) {
                 currentTab = allTabs[nextIndex]
             }
+        }
+    }
+}
+
+private struct NeumorphicUnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = PlayerManager.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let song = player.currentSong {
+                NeumorphicMiniPlayerStrip(song: song)
+                    .swipeToSkip()
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .bottom)),
+                        removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
+                    ))
+
+                Capsule()
+                    .fill(NeumorphicStyle.separator.opacity(0.42))
+                    .frame(height: 1)
+                    .padding(.horizontal, 12)
+            }
+
+            NeumorphicDedicatedTabBar(currentTab: $currentTab)
+                .contentShape(Rectangle())
+                .simultaneousGesture(tabSwipeGesture)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(
+                    colorScheme == .dark
+                        ? NeumorphicStyle.lightShadow(colorScheme, intensity: 0.9)
+                        : NeumorphicStyle.darkShadow(colorScheme, intensity: 0.38),
+                    lineWidth: 0.8
+                )
+                .padding(0.5)
+        )
+        .shadow(color: NeumorphicStyle.darkShadow(colorScheme, intensity: colorScheme == .dark ? 0.64 : 0.48), radius: 18, x: 0, y: 8)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+
+                if value.translation.width < 0 {
+                    switchTab(direction: 1)
+                } else if value.translation.width > 0 {
+                    switchTab(direction: -1)
+                }
+            }
+    }
+
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+
+        let nextIndex = currentIndex + direction
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+private struct NeumorphicMiniPlayerStrip: View {
+    let song: Song
+    @State private var showPlaylist = false
+    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var lyricVM = LyricViewModel.shared
+
+    private var subtitleText: String {
+        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+            return text
+        }
+        return song.artistName
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                CachedAsyncImage(url: song.coverUrl) {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(NeumorphicStyle.surfacePressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 38, height: 38)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: true))
+                .overlay(alignment: .bottomTrailing) {
+                    if player.isPlaying {
+                        PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
+                            .frame(width: 14, height: 10)
+                            .padding(3)
+                            .background(NeumorphicStyle.surfaceRaised.opacity(0.9), in: Circle())
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    MarqueeText(
+                        text: song.name,
+                        font: NeumorphicStyle.labelFont(13, weight: .semibold),
+                        color: NeumorphicStyle.ink,
+                        speed: 25
+                    )
+                    .frame(height: 16)
+
+                    Text(subtitleText)
+                        .font(NeumorphicStyle.labelFont(11, weight: .regular))
+                        .foregroundStyle(NeumorphicStyle.inkSoft)
+                        .lineLimit(1)
+                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 7) {
+                    neumorphicControl(icon: player.isPlaying ? .pause : .play, tint: NeumorphicStyle.accent) {
+                        player.togglePlayPause()
+                    }
+
+                    neumorphicControl(icon: .list, tint: NeumorphicStyle.inkSoft) {
+                        showPlaylist.toggle()
+                    }
+
+                    if !player.isPlaying {
+                        neumorphicControl(icon: .close, tint: NeumorphicStyle.inkMuted, size: 9) {
+                            withAnimation(MonologueAnimation.floatingBar) {
+                                player.stopAndClear()
+                            }
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapWithHaptic { openPlayer() }
+            }
+
+            ProgressBarView()
+                .frame(height: 2)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 5)
+        }
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private func neumorphicControl(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        size: CGFloat = 14,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: size, color: tint, lineWidth: 1.7)
+                .frame(width: 31, height: 31)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: true))
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
+    private func openPlayer() {
+        withAnimation(MonologueAnimation.playerTransition) {
+            switch player.playSource {
+            case .fm:
+                NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+            case let .podcast(radioId):
+                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+            case .normal:
+                NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+            }
+        }
+    }
+}
+
+private struct NeumorphicDedicatedTabBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Namespace private var selectionNS
+
+    private static let tabs: [(tab: Tab, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType)] = [
+        (.home, .home, .homeFilled),
+        (.podcast, .podcast, .podcastFilled),
+        (.library, .library, .libraryFilled),
+        (.profile, .profile, .profileFilled),
+    ]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0 ..< Self.tabs.count, id: \.self) { index in
+                let item = Self.tabs[index]
+                tabButton(tab: item.tab, index: index, outline: item.outline, filled: item.filled)
+            }
+        }
+        .padding(.horizontal, 3)
+        .padding(.vertical, 4)
+        .frame(height: 50)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true))
+    }
+
+    private func tabButton(tab: Tab, index: Int, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType) -> some View {
+        let isSelected = currentTab == tab
+        let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+        let tint = tabTint(index)
+
+        return Button {
+            HapticManager.shared.light()
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = tab
+            }
+        } label: {
+            HStack(spacing: isSelected ? 6 : 0) {
+                MonologueIcon(
+                    icon: isSelected ? filled : outline,
+                    size: isSelected ? 17 : 16,
+                    color: isSelected ? tint : NeumorphicStyle.inkMuted,
+                    lineWidth: isSelected ? 1.8 : 1.5
+                )
+                .frame(width: 24, height: 22)
+
+                if isSelected {
+                    Text(label)
+                        .font(NeumorphicStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(tint.opacity(0.14))
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: true, tint: tint.opacity(0.08)))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .matchedGeometryEffect(id: "neumorphicTabSelection", in: selectionNS)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func tabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return NeumorphicStyle.accent
+        case 1: return NeumorphicStyle.sage
+        case 2: return NeumorphicStyle.warm
+        default: return NeumorphicStyle.red
         }
     }
 }
@@ -646,7 +951,7 @@ private struct MujiMiniPlayerStrip: View {
             switch player.playSource {
             case .fm:
                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-            case .podcast(let radioId):
+            case let .podcast(radioId):
                 NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
             case .normal:
                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
@@ -669,7 +974,7 @@ private struct MujiDedicatedTabBar: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(0..<Self.tabs.count, id: \.self) { index in
+            ForEach(0 ..< Self.tabs.count, id: \.self) { index in
                 let item = Self.tabs[index]
                 tabButton(tab: item.tab, index: index, outline: item.outline, filled: item.filled)
             }
@@ -685,7 +990,7 @@ private struct MujiDedicatedTabBar: View {
 
         return Button {
             HapticManager.shared.light()
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+            withAnimation(MonologueAnimation.tabSwitch) {
                 currentTab = tab
             }
         } label: {
@@ -757,6 +1062,7 @@ private struct MujiDedicatedTabBar: View {
 private struct MangaUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject private var player = PlayerManager.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -768,31 +1074,74 @@ private struct MangaUnifiedFloatingBar: View {
                         removal: .opacity.combined(with: .scale(scale: 0.95, anchor: .bottom))
                     ))
 
-                MangaListDivider()
-                    .padding(.horizontal, 10)
+                HStack(spacing: 8) {
+                    MangaListDivider()
+                    MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 16)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 2)
             }
 
             MangaDedicatedTabBar(currentTab: $currentTab)
                 .contentShape(Rectangle())
                 .simultaneousGesture(tabSwipeGesture)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 9)
+        .padding(.top, player.currentSong == nil ? 7 : 6)
+        .padding(.bottom, 7)
         .background(mangaFloatingShell)
+        .overlay(alignment: .topLeading) {
+            Text("COMIC DOCK")
+                .font(MangaStyle.labelFont(8, weight: .black))
+                .foregroundStyle(MangaStyle.strokeInk)
+                .tracking(0.8)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(MangaStyle.labelYellow, in: Capsule())
+                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
+                .rotationEffect(.degrees(-5))
+                .offset(x: 18, y: -10)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            MangaSectionMark(kind: .star, tint: MangaStyle.decoBlue, size: 18)
+                .offset(x: -16, y: 8)
+        }
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.36 : 0.16), radius: 14, x: 0, y: 7)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
     }
 
     private var mangaFloatingShell: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(MangaStyle.strokeInk)
-                .offset(x: 2.5, y: 2.5)
+                .offset(x: 4, y: 4)
 
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(MangaStyle.bubbleWhite)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            MangaStyle.bubbleWhite,
+                            MangaStyle.paperWarm.opacity(0.92),
+                            MangaStyle.paperCool.opacity(0.72),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
 
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            MangaDotsTexture(opacity: 0.026, gap: 11)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+            HStack(spacing: 0) {
+                MangaStyle.accentPink.frame(width: 8)
+                MangaStyle.labelYellow.frame(width: 8)
+                MangaStyle.decoBlue.frame(width: 8)
+                Spacer()
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(MangaStyle.strokeInk, lineWidth: 2)
         }
     }
@@ -816,7 +1165,7 @@ private struct MangaUnifiedFloatingBar: View {
 
         let nextIndex = currentIndex + direction
 
-        if nextIndex >= 0 && nextIndex < allTabs.count {
+        if nextIndex >= 0, nextIndex < allTabs.count {
             withAnimation(MonologueAnimation.tabSwitch) {
                 currentTab = allTabs[nextIndex]
             }
@@ -985,7 +1334,7 @@ private struct MangaMiniPlayerStrip: View {
             switch player.playSource {
             case .fm:
                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-            case .podcast(let radioId):
+            case let .podcast(radioId):
                 NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
             case .normal:
                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
@@ -1008,7 +1357,7 @@ private struct MangaDedicatedTabBar: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            ForEach(0..<Self.tabs.count, id: \.self) { index in
+            ForEach(0 ..< Self.tabs.count, id: \.self) { index in
                 let item = Self.tabs[index]
                 tabButton(tab: item.tab, index: index, outline: item.outline, filled: item.filled)
             }
@@ -1104,6 +1453,7 @@ private struct MangaDedicatedTabBar: View {
 }
 
 // MARK: - Tab Enum Extension for Monologue Icons
+
 extension Tab {
     var monologueIcon: MonologueIcon.IconType {
         switch self {

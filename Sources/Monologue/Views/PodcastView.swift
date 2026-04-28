@@ -55,6 +55,9 @@ struct PodcastView: View {
                             } else if MujiStyle.isActive {
                                 mujiPodcastHeader
                                 mujiPodcastSummary
+                            } else if NeumorphicStyle.isActive {
+                                neumorphicPodcastHeader
+                                neumorphicPodcastSummary
                             }
 
                             // 历史记录（如果存在）
@@ -120,11 +123,11 @@ struct PodcastView: View {
                     }
                 }
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "tabbar_podcast"))
+            .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "tabbar_podcast"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                if !MangaStyle.isActive && !MujiStyle.isActive {
+                if !ThemedPageStyle.isActive {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink(value: PodcastDestination.search) {
                             MonologueIcon(icon: .search, size: 16)
@@ -219,6 +222,31 @@ struct PodcastView: View {
         .padding(.horizontal, padH)
     }
 
+    private var neumorphicPodcastHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "RADIO",
+            title: String(localized: "tabbar_podcast"),
+            subtitle: ""
+        ) {
+            NavigationLink(value: PodcastDestination.search) {
+                NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.accent, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var neumorphicPodcastSummary: some View {
+        HStack(spacing: 10) {
+            NeumorphicPill(text: "\(viewModel.personalizedRadios.count)", tint: NeumorphicStyle.accent, icon: .podcast, selected: true)
+            NeumorphicPill(text: "\(viewModel.categories.count)", tint: NeumorphicStyle.sage, icon: .gridSquare, selected: true)
+            NeumorphicPill(text: "\(viewModel.broadcastChannels.count)", tint: NeumorphicStyle.warm, icon: .radio, selected: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true))
+        .padding(.horizontal, padH)
+    }
+
     @ViewBuilder
     private func podcastSectionHeader(
         title: String,
@@ -254,6 +282,35 @@ struct PodcastView: View {
                 if let destination {
                     NavigationLink(value: destination) {
                         MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        } else if NeumorphicStyle.isActive {
+            HStack(alignment: .center, spacing: 12) {
+                NeumorphicIconBadge(icon: .podcast, tint: NeumorphicStyle.warm, size: 34)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(NeumorphicStyle.titleFont(18, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -357,6 +414,13 @@ struct PodcastView: View {
                             selected: true,
                             tint: MujiStyle.clay
                         )
+                    } else if NeumorphicStyle.isActive {
+                        NeumorphicPill(
+                            text: String(localized: "podcast_all"),
+                            tint: NeumorphicStyle.accent,
+                            icon: .gridSquare,
+                            selected: true
+                        )
                     } else {
                     HStack(spacing: 6) {
                         MonologueIcon(icon: .gridSquare, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
@@ -389,6 +453,12 @@ struct PodcastView: View {
                                 title: cat.name,
                                 icon: cat.monologueIconType,
                                 tint: MujiStyle.tea
+                            )
+                        } else if NeumorphicStyle.isActive {
+                            NeumorphicPill(
+                                text: cat.name,
+                                tint: NeumorphicStyle.sage,
+                                icon: cat.monologueIconType
                             )
                         } else {
                         HStack(spacing: 6) {
@@ -489,11 +559,11 @@ struct PodcastView: View {
     private func todayPickCard(radio: RadioStation) -> some View {
         let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
         let cardHeight: CGFloat = DeviceLayout.isPad ? 110 : 96
-        let cr: CGFloat = MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 10 : (DeviceLayout.isPad ? 18 : 16))
+        let cr: CGFloat = MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : (DeviceLayout.isPad ? 18 : 16)))
         return HStack(spacing: 0) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 0)
-                    .fill(Color.monologueGlassTint)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: cardHeight, height: cardHeight)
@@ -518,13 +588,13 @@ struct PodcastView: View {
                 HStack(spacing: 6) {
                     if let count = radio.programCount, count > 0 {
                         Text(String(format: String(localized: "podcast_episode_count"), count))
-                            .font(.system(size: 11, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary)
                     }
                     Spacer()
-                    MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground, lineWidth: 2)
+                    MonologueIcon(icon: .play, size: 12, color: NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground, lineWidth: 2)
                         .frame(width: 28, height: 28)
-                        .background(Circle().fill(Color.monologueIconBackground))
+                        .background(Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
                 }
             }
             .padding(.horizontal, 14)
@@ -532,9 +602,9 @@ struct PodcastView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: cardWidth, height: cardHeight)
-        .background(Color.monologueGlassTint)
+        .background(NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
         .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
-        .monologueGlass(cornerRadius: cr)
+        .themedPageSurface(cornerRadius: cr, elevated: false)
     }
 
     // MARK: - 精选电台（列表）
@@ -637,7 +707,7 @@ struct PodcastView: View {
 
     private func creativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> some View {
         let s = compactCardSize
-        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
+        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : (DeviceLayout.isPad ? 18 : 16)))
 
         let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
         let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
@@ -654,7 +724,7 @@ struct PodcastView: View {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: coverUrl) {
                     RoundedRectangle(cornerRadius: cr)
-                        .fill(Color.monologueGlassTint)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: s, height: s)
@@ -666,7 +736,7 @@ struct PodcastView: View {
                         .foregroundColor(rank <= 3 ? .monologueIconForeground : .monologueTextPrimary)
                         .frame(width: 26, height: 26)
                         .background(
-                            Circle().fill(rank <= 3 ? Color.monologueIconBackground : Color.monologueGlassTint)
+                            Circle().fill(NeumorphicStyle.isActive ? (rank <= 3 ? NeumorphicStyle.accent : NeumorphicStyle.surfacePressed) : (rank <= 3 ? Color.monologueIconBackground : Color.monologueGlassTint))
                         )
                         .monologueGlassCircle()
                         .padding(8)
@@ -674,24 +744,26 @@ struct PodcastView: View {
             }
 
             Text(title)
-                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)))
-                .foregroundColor(.monologueTextPrimary)
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 .lineLimit(2)
                 .frame(width: s, height: 34, alignment: .topLeading)
 
             Text(subTitle)
-                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
-                .foregroundColor(.monologueTextSecondary)
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 .lineLimit(1)
                 .frame(width: s, alignment: .leading)
         }
         .frame(width: s)
-        .padding((MangaStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+        .padding(ThemedPageStyle.isActive ? 8 : 0)
         .background {
             if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: 12)
             } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             }
         }
     }
@@ -733,12 +805,12 @@ struct PodcastView: View {
 
     private func rankedCompactCard(radio: RadioStation, rank: Int) -> some View {
         let s = compactCardSize
-        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
+        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : (DeviceLayout.isPad ? 18 : 16)))
         return VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: radio.coverUrl) {
                     RoundedRectangle(cornerRadius: cr)
-                        .fill(Color.monologueGlassTint)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: s, height: s)
@@ -749,22 +821,22 @@ struct PodcastView: View {
                     .foregroundColor(rank <= 3 ? .monologueIconForeground : .monologueTextPrimary)
                     .frame(width: 26, height: 26)
                     .background(
-                        Circle().fill(rank <= 3 ? Color.monologueIconBackground : Color.monologueGlassTint)
+                        Circle().fill(NeumorphicStyle.isActive ? (rank <= 3 ? NeumorphicStyle.accent : NeumorphicStyle.surfacePressed) : (rank <= 3 ? Color.monologueIconBackground : Color.monologueGlassTint))
                     )
                     .monologueGlassCircle()
                     .padding(8)
             }
 
             Text(radio.name)
-                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)))
-                .foregroundColor(.monologueTextPrimary)
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 .lineLimit(2)
                 .frame(width: s, height: 34, alignment: .topLeading)
 
             if let dj = radio.dj?.nickname {
                 Text(dj)
                     .font(MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     .lineLimit(1)
                     .frame(width: s, alignment: .leading)
             } else {
@@ -774,12 +846,14 @@ struct PodcastView: View {
             }
         }
         .frame(width: s)
-        .padding((MangaStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+        .padding(ThemedPageStyle.isActive ? 8 : 0)
         .background {
             if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: 12)
             } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             }
         }
     }
@@ -819,12 +893,12 @@ struct PodcastView: View {
     // MARK: - 网格卡片
 
     private func radioGridCard(radio: RadioStation) -> some View {
-        let cr: CGFloat = MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16)
+        let cr: CGFloat = MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 18 : (DeviceLayout.isPad ? 18 : 16))
         return VStack(alignment: .leading, spacing: 0) {
             GeometryReader { _ in
                 CachedAsyncImage(url: radio.coverUrl) {
                     RoundedRectangle(cornerRadius: cr)
-                        .fill(Color.monologueGlassTint)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -849,14 +923,14 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .system(size: 14, weight: .semibold, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(2)
                     .frame(height: 36, alignment: .topLeading)
 
                 Text(radio.dj?.nickname ?? " ")
-                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     .lineLimit(1)
             }
             .padding(.top, 8)
@@ -866,6 +940,8 @@ struct PodcastView: View {
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 11)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
             }
         }
     }
@@ -874,52 +950,54 @@ struct PodcastView: View {
 
     private func radioListRow(radio: RadioStation) -> some View {
         let rowImg: CGFloat = DeviceLayout.isPad ? 72 : 60
-        let cr: CGFloat = MujiStyle.isActive ? 8 : 16
+        let cr: CGFloat = MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 16)
         return HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: cr)
-                    .fill(Color.monologueGlassTint)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
             }
             .frame(width: rowImg, height: rowImg)
             .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     if let dj = radio.dj?.nickname {
                         Text(dj)
                             .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                     if let count = radio.programCount, count > 0 {
                         Text("·")
                             .foregroundColor(.monologueTextSecondary)
                         Text(String(format: String(localized: "podcast_episode_count"), count))
                             .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                 }
             }
 
             Spacer()
 
-            MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground, lineWidth: 2)
+            MonologueIcon(icon: .play, size: 12, color: NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground, lineWidth: 2)
                 .frame(width: 30, height: 30)
-                .background(Circle().fill(Color.monologueIconBackground))
+                .background(Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
         }
-        .padding(.horizontal, MujiStyle.isActive ? 14 : padH)
-        .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+        .padding(.horizontal, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 14 : padH)
+        .padding(.vertical, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 12 : 10)
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
             }
         }
-        .padding(.horizontal, MujiStyle.isActive ? padH : 0)
-        .padding(.vertical, MujiStyle.isActive ? 5 : 0)
+        .padding(.horizontal, (MujiStyle.isActive || NeumorphicStyle.isActive) ? padH : 0)
+        .padding(.vertical, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 5 : 0)
         .contentShape(Rectangle())
     }
 
@@ -928,30 +1006,30 @@ struct PodcastView: View {
     private func programListRow(program: RadioProgram, rank: Int) -> some View {
         let isTop3 = rank <= 3
         let coverSize: CGFloat = DeviceLayout.isPad ? 60 : 50
-        let cr: CGFloat = MujiStyle.isActive ? 8 : 14
+        let cr: CGFloat = MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 15 : 14)
         return HStack(spacing: 14) {
             Text("\(rank)")
-                .font(.system(size: isTop3 ? 20 : 16, weight: .heavy, design: .rounded))
-                .foregroundColor(isTop3 ? .monologueIconBackground : .monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(isTop3 ? 20 : 16, weight: .semibold) : .system(size: isTop3 ? 20 : 16, weight: .heavy, design: .rounded))
+                .foregroundColor(isTop3 ? (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary))
                 .frame(width: 28)
 
             CachedAsyncImage(url: program.programCoverUrl) {
                 RoundedRectangle(cornerRadius: cr)
-                    .fill(Color.monologueGlassTint)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
             }
             .frame(width: coverSize, height: coverSize)
             .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(program.name ?? "")
-                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .medium : .regular) : .system(size: isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .medium : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium) : .system(size: isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
 
                 if let radioName = program.radio?.name {
                     Text(radioName)
                         .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .lineLimit(1)
                 }
             }
@@ -963,19 +1041,21 @@ struct PodcastView: View {
                     MonologueIcon(icon: .headphones, size: 11, color: .monologueTextSecondary, lineWidth: 1.2)
                     Text(formatCount(count))
                         .font(.system(size: 11, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 }
             }
         }
-        .padding(.horizontal, MujiStyle.isActive ? 14 : padH)
-        .padding(.vertical, MujiStyle.isActive ? 12 : (isTop3 ? 10 : 8))
+        .padding(.horizontal, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 14 : padH)
+        .padding(.vertical, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 12 : (isTop3 ? 10 : 8))
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isTop3)
             }
         }
-        .padding(.horizontal, MujiStyle.isActive ? padH : 0)
-        .padding(.vertical, MujiStyle.isActive ? 5 : 0)
+        .padding(.horizontal, (MujiStyle.isActive || NeumorphicStyle.isActive) ? padH : 0)
+        .padding(.vertical, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 5 : 0)
         .contentShape(Rectangle())
     }
 
@@ -1013,6 +1093,26 @@ struct PodcastView: View {
 
                     NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
                         MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, padH)
+            } else if NeumorphicStyle.isActive {
+                HStack(alignment: .center, spacing: 14) {
+                    NeumorphicSectionTitle(title: String(localized: "profile_recently_played"))
+
+                    Spacer(minLength: 0)
+
+                    Button(action: {
+                        HapticStyle.light.trigger()
+                        playerManager.clearPodcastHistory()
+                    }) {
+                        NeumorphicPill(text: String(localized: "storage_clear"), tint: NeumorphicStyle.red, icon: .trash, compact: true)
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
+                        NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1076,7 +1176,7 @@ struct PodcastView: View {
     private func podcastHistoryCard(song: Song) -> some View {
         let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
         let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
-        let cr: CGFloat = MujiStyle.isActive ? 8 : 12
+        let cr: CGFloat = MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)
         let isCurrent = playerManager.currentSong?.id == song.id
 
         return Button {
@@ -1094,7 +1194,7 @@ struct PodcastView: View {
                 ZStack(alignment: .bottomTrailing) {
                     CachedAsyncImage(url: song.coverUrl) {
                         RoundedRectangle(cornerRadius: cr)
-                            .fill(Color.monologueGlassTint)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: cardHeight, height: cardHeight)
@@ -1112,8 +1212,8 @@ struct PodcastView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
-                        .font(MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(isCurrent ? .monologueAccent : .monologueTextPrimary)
+                        .font(MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(13, weight: .semibold) : .system(size: 13, weight: .bold, design: .rounded)))
+                        .foregroundColor(isCurrent ? (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent) : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
@@ -1121,7 +1221,7 @@ struct PodcastView: View {
                     if !subtitle.isEmpty {
                         Text(subtitle)
                             .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
                             .multilineTextAlignment(.leading)
                     }
@@ -1130,9 +1230,9 @@ struct PodcastView: View {
             }
             .padding(.trailing, 12)
             .frame(width: cardWidth, height: cardHeight)
-            .background(Color.monologueGlassTint)
+            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
             .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
-            .monologueGlass(cornerRadius: cr)
+            .themedPageSurface(cornerRadius: cr, elevated: isCurrent)
         }
         .buttonStyle(MonologueBouncingButtonStyle())
     }
@@ -1172,23 +1272,23 @@ struct PodcastView: View {
 
     private func broadcastCard(channel: BroadcastChannel) -> some View {
         let bcSize = broadcastCardSize
-        let bcCR: CGFloat = MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16)
+        let bcCR: CGFloat = MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 18 : (DeviceLayout.isPad ? 18 : 16))
         return VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 if let url = channel.coverImageUrl {
                     CachedAsyncImage(url: url) {
                         RoundedRectangle(cornerRadius: bcCR)
-                            .fill(Color.monologueGlassTint)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: bcSize, height: bcSize)
                     .clipShape(RoundedRectangle(cornerRadius: bcCR, style: .continuous))
                 } else {
                     RoundedRectangle(cornerRadius: bcCR, style: .continuous)
-                        .fill(Color.monologueGlassTint)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                         .frame(width: bcSize, height: bcSize)
                         .overlay(
-                            MonologueIcon(icon: .radio, size: 30, color: .monologueTextSecondary, lineWidth: 1.4)
+                            MonologueIcon(icon: .radio, size: 30, color: NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary, lineWidth: 1.4)
                         )
                 }
 
@@ -1217,14 +1317,14 @@ struct PodcastView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(channel.displayName)
-                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(2)
                     .frame(height: DeviceLayout.isPad ? 36 : 34, alignment: .topLeading)
 
                 Text(channel.displayProgram ?? " ")
-                    .font(MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     .lineLimit(1)
             }
         }
@@ -1233,6 +1333,8 @@ struct PodcastView: View {
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             }
         }
     }

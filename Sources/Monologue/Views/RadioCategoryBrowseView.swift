@@ -81,10 +81,10 @@ struct RadioCategoryBrowseView: View {
                         viewModel.selectCategory(cat)
                     }) {
                         Text(cat.name)
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(categoryChipFont(isSelected: isSelected))
                             .foregroundColor(categoryTextColor(isSelected: isSelected))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, NeumorphicStyle.isActive ? 16 : 14)
+                            .padding(.vertical, NeumorphicStyle.isActive ? 9 : 8)
                             .background(categoryChipBackground(isSelected: isSelected))
                             .clipShape(Capsule())
                             .overlay {
@@ -106,23 +106,40 @@ struct RadioCategoryBrowseView: View {
         .scrollIndicators(.hidden)
     }
 
+    private func categoryChipFont(isSelected: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: isSelected ? .black : .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
+        return .system(size: 13, weight: .medium, design: .rounded)
+    }
+
     private func categoryTextColor(isSelected: Bool) -> Color {
         if MangaStyle.isActive {
             return isSelected ? MangaStyle.ink : .monologueTextPrimary
         } else if MujiStyle.isActive {
             return isSelected ? MujiStyle.paper : .monologueTextPrimary
+        } else if NeumorphicStyle.isActive {
+            return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft
         } else {
             return isSelected ? .monologueIconForeground : .monologueTextPrimary
         }
     }
 
-    private func categoryChipBackground(isSelected: Bool) -> Color {
+    @ViewBuilder
+    private func categoryChipBackground(isSelected: Bool) -> some View {
         if MangaStyle.isActive {
-            return isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+            Capsule().fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
         } else if MujiStyle.isActive {
-            return isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised
+            Capsule().fill(isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised)
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 16,
+                elevated: isSelected,
+                pressed: !isSelected,
+                tint: isSelected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+            )
         } else {
-            return isSelected ? Color.monologueIconBackground : Color.monologueGlassTint
+            Capsule().fill(isSelected ? Color.monologueIconBackground : Color.monologueGlassTint)
         }
     }
 
@@ -131,40 +148,53 @@ struct RadioCategoryBrowseView: View {
     private func radioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.monologueGlassTint)
+                RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
             }
             .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+            .overlay(coverStroke)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     if let dj = radio.dj?.nickname {
                         Text(dj)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
                     }
                     if let count = radio.programCount, count > 0 {
                         Text(String(format: String(localized: "podcast_episode_count"), count))
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary)
                     }
                 }
             }
 
             Spacer()
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.2)
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 12)
         .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 10
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        }
     }
 }

@@ -1,15 +1,22 @@
 import SwiftUI
 
 struct ThemedPageBackground: View {
+    @ObservedObject private var settings = SettingsManager.shared
+
     var body: some View {
-        if MangaStyle.isActive {
-            MangaRootBackdrop()
-        } else if MujiStyle.isActive {
-            MujiRootBackdrop()
-        } else {
-            MonologueBackground()
-                .ignoresSafeArea()
+        ZStack {
+            if MangaStyle.isActive {
+                MangaRootBackdrop()
+            } else if MujiStyle.isActive {
+                MujiRootBackdrop()
+            } else if NeumorphicStyle.isActive {
+                NeumorphicRootBackdrop()
+            } else {
+                MonologueBackground()
+                    .ignoresSafeArea()
+            }
         }
+        .id("theme-background-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.activeColorScheme == .dark ? "dark" : "light")")
     }
 }
 
@@ -57,6 +64,17 @@ struct ThemedPageHeader<Accessory: View>: View {
                     MujiIconBadge(icon: icon, tint: MujiStyle.clay, size: 44)
                 }
             }
+        } else if NeumorphicStyle.isActive {
+            NeumorphicPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 46)
+                }
+            }
         } else {
             EmptyView()
         }
@@ -76,6 +94,69 @@ extension ThemedPageHeader where Accessory == EmptyView {
     }
 }
 
+struct SettingsScrollablePageHeader: View {
+    let title: String
+    let eyebrow: String
+    let subtitle: String
+    let icon: MonologueIcon.IconType
+
+    init(
+        title: String,
+        eyebrow: String,
+        subtitle: String = "",
+        icon: MonologueIcon.IconType = .sparkle
+    ) {
+        self.title = title
+        self.eyebrow = eyebrow
+        self.subtitle = subtitle
+        self.icon = icon
+    }
+
+    var body: some View {
+        if ThemedPageStyle.isActive {
+            ThemedPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle,
+                icon: icon
+            )
+            .padding(.bottom, -2)
+        } else {
+            HStack(alignment: .center, spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.monologueIconBackground.opacity(0.14))
+                        .frame(width: 46, height: 46)
+                    MonologueIcon(icon: icon, size: 20, color: .monologueTextPrimary, lineWidth: 1.7)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(eyebrow)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(.monologueTextSecondary)
+                        .tracking(1.2)
+
+                    Text(title)
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
+
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.monologueTextSecondary)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+            .iPadContentWidth(700)
+        }
+    }
+}
+
 private struct ThemedNavigationChromeModifier: ViewModifier {
     let title: String
     let eyebrow: String
@@ -83,10 +164,9 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     let icon: MonologueIcon.IconType
 
     private var isThemed: Bool {
-        MangaStyle.isActive || MujiStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
     }
 
-    @ViewBuilder
     func body(content: Content) -> some View {
         content
             .navigationTitle(isThemed ? "" : title)
@@ -109,7 +189,6 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
     let elevated: Bool
     let mangaTint: Color
 
-    @ViewBuilder
     func body(content: Content) -> some View {
         if MangaStyle.isActive {
             content
@@ -117,6 +196,14 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
         } else if MujiStyle.isActive {
             content
                 .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: elevated))
+        } else if NeumorphicStyle.isActive {
+            content
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 18), 28),
+                        elevated: elevated
+                    )
+                )
         } else {
             content
                 .monologueGlass(cornerRadius: cornerRadius)
@@ -126,15 +213,15 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || MujiStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
     }
 
     static var listSpacing: CGFloat {
-        MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : 0)
+        MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 10 : 0))
     }
 
     static var looseListSpacing: CGFloat {
-        MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : 12)
+        MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 14 : 12))
     }
 
     static var horizontalInset: CGFloat {
@@ -146,11 +233,11 @@ enum ThemedPageStyle {
     }
 
     static var surfaceCornerRadius: CGFloat {
-        MangaStyle.isActive ? 18 : (MujiStyle.isActive ? 14 : 18)
+        MangaStyle.isActive ? 18 : (MujiStyle.isActive ? 14 : (NeumorphicStyle.isActive ? 22 : 18))
     }
 
     static var compactSurfaceCornerRadius: CGFloat {
-        MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : 14)
+        MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 18 : 14))
     }
 }
 

@@ -158,16 +158,17 @@ private struct MonologueSheetLiquidSurfaceModifier: ViewModifier {
 
 enum MonologueSheetThemeStyle {
     static var usesCustomThemeSurface: Bool {
-        MangaStyle.isActive || MujiStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MangaStyle.isActive || MujiStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
     }
 
     static var shadowColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.22) }
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
+        if NeumorphicStyle.isActive { return Color.black.opacity(0.16) }
         return Color.monologueSheetShadow
     }
 
@@ -175,6 +176,7 @@ enum MonologueSheetThemeStyle {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 8 : 10 }
         if MangaStyle.isActive { return 0 }
         if MujiStyle.isActive { return 18 }
+        if NeumorphicStyle.isActive { return colorScheme == .dark ? 24 : 22 }
         return colorScheme == .dark ? 30 : 24
     }
 
@@ -182,6 +184,7 @@ enum MonologueSheetThemeStyle {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 3 : 4 }
         if MangaStyle.isActive { return 5 }
         if MujiStyle.isActive { return 9 }
+        if NeumorphicStyle.isActive { return 10 }
         return 14
     }
 }
@@ -225,6 +228,8 @@ struct MonologueSheetSurfaceShape: InsettableShape {
 }
 
 struct MonologueSheetHandleView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         if MangaStyle.isActive {
             Capsule()
@@ -242,6 +247,18 @@ struct MonologueSheetHandleView: View {
                     Capsule()
                         .stroke(MujiStyle.surface.opacity(0.65), lineWidth: 0.5)
                 )
+        } else if NeumorphicStyle.isActive {
+            ZStack {
+                Capsule()
+                    .fill(Color.clear)
+                    .frame(width: 54, height: 12)
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true))
+
+                Capsule()
+                    .fill(NeumorphicStyle.inkMuted.opacity(0.36))
+                    .frame(width: 34, height: 4)
+                    .shadow(color: NeumorphicStyle.lightShadow(colorScheme, intensity: 0.32), radius: 1, x: 0, y: -0.5)
+            }
         } else {
             Capsule()
                 .fill(Color.monologueSheetHandle)
@@ -295,6 +312,45 @@ struct MonologueSheetSurfaceBackground: View {
                 .clipShape(shape)
 
                 MujiPaperTexture(opacity: colorScheme == .dark ? 0.12 : 0.16)
+                    .clipShape(shape)
+            } else if NeumorphicStyle.isActive {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                NeumorphicStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.86 : 0.98),
+                                NeumorphicStyle.surface.opacity(0.98),
+                                NeumorphicStyle.baseWarm.opacity(colorScheme == .dark ? 0.58 : 0.42),
+                                NeumorphicStyle.surfacePressed.opacity(colorScheme == .dark ? 0.74 : 0.48)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [
+                        NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.12 : 0.08),
+                        .clear,
+                        NeumorphicStyle.warm.opacity(colorScheme == .dark ? 0.09 : 0.06)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+
+                RadialGradient(
+                    colors: [
+                        NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.46 : 0.7),
+                        .clear
+                    ],
+                    center: .topLeading,
+                    startRadius: 0,
+                    endRadius: 260
+                )
+                .clipShape(shape)
+
+                NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.045 : 0.06)
                     .clipShape(shape)
             } else if #available(iOS 26, *) {
                 Color.clear
@@ -356,6 +412,43 @@ struct MonologueSheetSurfaceOverlay: View {
                         endPoint: .bottom
                     )
                     .frame(height: 96)
+                    .clipShape(shape)
+                }
+            } else if NeumorphicStyle.isActive {
+                shape
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                NeumorphicStyle.lightShadow(colorScheme, intensity: 0.92),
+                                NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.34 : 0.44),
+                                NeumorphicStyle.darkShadow(colorScheme, intensity: 0.3)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [
+                            NeumorphicStyle.lightShadow(colorScheme, intensity: 0.52),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 110)
+                    .clipShape(shape)
+
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            NeumorphicStyle.darkShadow(colorScheme, intensity: 0.14)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                     .clipShape(shape)
                 }
             } else {

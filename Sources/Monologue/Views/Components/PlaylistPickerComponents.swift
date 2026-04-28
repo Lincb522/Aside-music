@@ -11,11 +11,19 @@ struct PlaylistPickerContainerCard<Content: View>: View {
         content
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.monologueTextPrimary.opacity(0.04))
-            .clipShape(.rect(cornerRadius: 18, style: .continuous))
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                } else {
+                    Color.monologueTextPrimary.opacity(0.04)
+                }
+            }
+            .clipShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : 18, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                if !NeumorphicStyle.isActive {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                }
             }
     }
 }
@@ -40,13 +48,13 @@ struct PlaylistPickerSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.monologueTextSecondary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary)
 
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(Color.monologueTextSecondary.opacity(0.75))
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
+                        .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Color.monologueTextSecondary.opacity(0.75))
                 }
             }
             .padding(.horizontal, 4)
@@ -68,7 +76,13 @@ struct PlaylistPickerStatusBadge: View {
             .foregroundStyle(tint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(tint.opacity(0.12))
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15))
+                } else {
+                    tint.opacity(0.12)
+                }
+            }
             .clipShape(.capsule)
     }
 }
@@ -91,22 +105,30 @@ struct PlaylistPickerActionCard: View {
                 HStack(spacing: 14) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(tint.opacity(0.12))
+                            .fill(Color.clear)
                             .frame(width: 46, height: 46)
+                            .background {
+                                if NeumorphicStyle.isActive {
+                                    NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, tint: tint.opacity(0.16))
+                                } else {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(tint.opacity(0.12))
+                                }
+                            }
 
                         MonologueIcon(icon: icon, size: 18, color: tint)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color.monologueTextPrimary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary)
                             .lineLimit(1)
 
                         if let subtitle, !subtitle.isEmpty {
                             Text(subtitle)
                                 .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(Color.monologueTextSecondary)
+                                .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary)
                                 .lineLimit(2)
                         }
                     }
@@ -156,13 +178,13 @@ struct PlaylistPickerPlaylistRow: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.monologueTextPrimary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary)
                             .lineLimit(1)
 
                         Text(subtitle)
                             .font(.system(size: 12, design: .rounded))
-                            .foregroundStyle(Color.monologueTextSecondary)
+                            .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary)
                             .lineLimit(1)
                     }
 
@@ -230,9 +252,14 @@ private struct PlaylistPickerArtwork: View {
     private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.monologueGlassTint)
+                .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
+                .background {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true)
+                    }
+                }
 
-            MonologueIcon(icon: placeholderIcon, size: 18, color: .monologueTextSecondary.opacity(0.45))
+            MonologueIcon(icon: placeholderIcon, size: 18, color: (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary).opacity(0.45))
         }
     }
 }

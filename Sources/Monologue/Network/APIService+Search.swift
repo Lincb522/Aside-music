@@ -7,6 +7,12 @@ import NeteaseCloudMusicAPI
 
 extension APIService {
     func searchSongs(keyword: String, offset: Int = 0) -> AnyPublisher<[Song], Error> {
+        searchSongsWithTotal(keyword: keyword, offset: offset)
+            .map(\.songs)
+            .eraseToAnyPublisher()
+    }
+
+    func searchSongsWithTotal(keyword: String, offset: Int = 0) -> AnyPublisher<(songs: [Song], total: Int?), Error> {
         ncm.publisher { [ncm] in
             let response = try await ncm.cloudsearch(
                 keywords: keyword,
@@ -14,9 +20,13 @@ extension APIService {
                 limit: 30,
                 offset: offset
             )
-            guard let result = response.body["result"] as? [String: Any],
-                  let songsArray = result["songs"] as? [[String: Any]], !songsArray.isEmpty else {
-                return [Song]()
+            guard let result = response.body["result"] as? [String: Any] else {
+                return (songs: [], total: nil)
+            }
+
+            let total = result["songCount"] as? Int ?? result["total"] as? Int
+            guard let songsArray = result["songs"] as? [[String: Any]], !songsArray.isEmpty else {
+                return (songs: [], total: total)
             }
             
             // 直接从 cloudsearch 结果解析歌曲，不再额外调用 songDetail
@@ -36,7 +46,7 @@ extension APIService {
                     }
                 }
             }
-            return songs
+            return (songs: songs, total: total)
         }
     }
 

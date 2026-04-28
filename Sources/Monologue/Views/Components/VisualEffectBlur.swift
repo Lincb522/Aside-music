@@ -89,6 +89,8 @@ extension View {
             self.background(MangaCardBackground(cornerRadius: cornerRadius))
         } else if MujiStyle.isActive {
             self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16)))
+        } else if NeumorphicStyle.isActive {
+            self.background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true))
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -120,6 +122,14 @@ extension View {
                     .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
                     .shadow(color: Color.black.opacity(0.045), radius: 8, x: 0, y: 3)
             )
+        } else if NeumorphicStyle.isActive {
+            self.background(
+                Circle()
+                    .fill(NeumorphicStyle.surfaceRaised)
+                    .overlay(Circle().stroke(NeumorphicStyle.separator.opacity(0.58), lineWidth: 0.8))
+                    .shadow(color: Color.black.opacity(0.16), radius: 12, x: 7, y: 7)
+                    .shadow(color: Color.white.opacity(0.52), radius: 10, x: -6, y: -6)
+            )
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .circle)
@@ -147,6 +157,14 @@ extension View {
                     .fill(MujiStyle.surfaceRaised)
                     .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
                     .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+            )
+        } else if NeumorphicStyle.isActive {
+            self.background(
+                Capsule()
+                    .fill(NeumorphicStyle.surfaceRaised)
+                    .overlay(Capsule().stroke(NeumorphicStyle.separator.opacity(0.58), lineWidth: 0.8))
+                    .shadow(color: Color.black.opacity(0.16), radius: 12, x: 7, y: 7)
+                    .shadow(color: Color.white.opacity(0.52), radius: 10, x: -6, y: -6)
             )
         } else if #available(iOS 26, *) {
             self
@@ -225,8 +243,8 @@ extension View {
     /// 条件液态玻璃效果
     @ViewBuilder
     func monologueGlassConditional(isActive: Bool, cornerRadius: CGFloat) -> some View {
-        if (MangaStyle.isActive || MujiStyle.isActive) && isActive {
-            self.background(MangaStyle.isActive ? AnyView(MangaCardBackground(cornerRadius: cornerRadius)) : AnyView(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))))
+        if ThemedPageStyle.isActive && isActive {
+            self.background(themedGlassReplacement(cornerRadius: cornerRadius))
         } else if #available(iOS 26, *) {
             self.glassEffect(isActive ? .regular : .clear, in: .rect(cornerRadius: cornerRadius))
         } else if isActive {
@@ -243,8 +261,8 @@ extension View {
     /// 条件液态玻璃 (identity vs regular)
     @ViewBuilder
     func monologueGlassIdentityOrRegular(isIdentity: Bool, cornerRadius: CGFloat) -> some View {
-        if (MangaStyle.isActive || MujiStyle.isActive) && !isIdentity {
-            self.background(MangaStyle.isActive ? AnyView(MangaCardBackground(cornerRadius: cornerRadius)) : AnyView(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))))
+        if ThemedPageStyle.isActive && !isIdentity {
+            self.background(themedGlassReplacement(cornerRadius: cornerRadius))
         } else if #available(iOS 26, *) {
             self.glassEffect(isIdentity ? .identity : .regular, in: .rect(cornerRadius: cornerRadius))
         } else if !isIdentity {
@@ -255,6 +273,17 @@ extension View {
             )
         } else {
             self
+        }
+    }
+
+    @ViewBuilder
+    private func themedGlassReplacement(cornerRadius: CGFloat) -> some View {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: cornerRadius)
+        } else if MujiStyle.isActive {
+            MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true)
         }
     }
 

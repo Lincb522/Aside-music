@@ -18,11 +18,17 @@ struct QQLoginView: View {
     }
 
     private var themeAccent: Color {
-        MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueIconBackground)
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return Color.monologueIconBackground
     }
 
     private var themeAccentText: Color {
-        MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : Color.monologueIconForeground)
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.paper }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        return Color.monologueIconForeground
     }
     
     var body: some View {
@@ -125,7 +131,7 @@ struct QQLoginView: View {
             HStack(spacing: 8) {
                 MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? themeAccentText : .monologueTextSecondary)
                 Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.labelFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .medium) : .system(size: 14, weight: .semibold, design: .rounded)))
+                    .font(loginTabFont)
                     .foregroundColor(selectedTab == tab ? themeAccentText : .monologueTextSecondary)
             }
             .frame(maxWidth: .infinity)
@@ -254,7 +260,7 @@ struct QQLoginView: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(viewModel.qrLoginType == type ? Color.monologueGlassTint : Color.clear)
+                        .fill(viewModel.qrLoginType == type ? loginSelectedFill : Color.clear)
                         .shadow(color: viewModel.qrLoginType == type ? Color.black.opacity(0.05) : .clear, radius: 4, x: 0, y: 2)
                 )
         }
@@ -380,5 +386,16 @@ struct QQLoginView: View {
             .buttonStyle(MonologueBouncingButtonStyle())
             .padding(.top, 8)
         }
+    }
+
+    private var loginTabFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 14, weight: .semibold, design: .rounded)
+    }
+
+    private var loginSelectedFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint
     }
 }

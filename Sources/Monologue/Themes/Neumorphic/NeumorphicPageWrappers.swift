@@ -1,0 +1,80 @@
+import SwiftUI
+
+private struct NeumorphicThemeRoot<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .neumorphicSurfaceIfNeeded()
+            .tint(NeumorphicStyle.accent)
+            .toolbarBackground(.hidden, for: .navigationBar)
+    }
+}
+
+struct NeumorphicPodcastView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            PodcastView()
+        }
+    }
+}
+
+struct NeumorphicSearchView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            SearchView()
+        }
+    }
+}
+
+struct NeumorphicLibraryView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            LibraryView()
+        }
+    }
+}
+
+struct NeumorphicProfileView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            ProfileView()
+        }
+    }
+}
+
+struct NeumorphicLocalHomeView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            LocalModeHomeView()
+        }
+    }
+}
+
+struct NeumorphicLocalMusicView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            LocalMusicView()
+        }
+    }
+}
+
+struct NeumorphicLocalLibraryView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            LocalLibraryView()
+        }
+    }
+}
+
+struct NeumorphicLocalProfileView: View {
+    var body: some View {
+        NeumorphicThemeRoot {
+            LocalModeProfileView()
+        }
+    }
+}

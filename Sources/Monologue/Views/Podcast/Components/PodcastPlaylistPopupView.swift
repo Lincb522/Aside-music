@@ -127,15 +127,19 @@ struct PodcastPlaylistPopupView: View {
             .monologueTextInputBehavior()
             .focused($isSearchFieldFocused)
 
-            if !searchText.isEmpty {
-                Button(action: { searchText = "" }) {
-                    MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
-                        .frame(width: 22, height: 22)
-                        .background(Color.monologueSeparator)
-                        .clipShape(Circle())
+            Button {
+                if searchText.isEmpty {
+                    toggleSearch()
+                } else {
+                    searchText = ""
                 }
-                .buttonStyle(.plain)
+            } label: {
+                MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
+                    .frame(width: 22, height: 22)
+                    .background(Color.monologueSeparator)
+                    .clipShape(Circle())
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

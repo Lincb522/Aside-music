@@ -19,6 +19,9 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
     if MangaStyle.isActive {
         return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
     }
+    if NeumorphicStyle.isActive {
+        return NeumorphicStyle.labelFont(size, weight: weight)
+    }
     if MujiStyle.isActive {
         return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
     }
@@ -37,7 +40,7 @@ struct SettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var playlistCloudSync = LocalPlaylistCloudSyncManager.shared
-    @State private var cacheSize: String = String(localized: "settings_calculating")
+    @State private var cacheSize: String = .init(localized: "settings_calculating")
     @State private var viewRefreshID = UUID()
     @AppStorage("qqDevMode") private var qqDevMode = false
     @State private var apiTokenInput: String = SecureConfig.apiToken ?? ""
@@ -58,7 +61,7 @@ struct SettingsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "settings_title"))
+        .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "settings_title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -84,6 +87,7 @@ struct SettingsView: View {
 
     private var themedSettingsSpacing: CGFloat {
         if MangaStyle.isActive { return 16 }
+        if NeumorphicStyle.isActive { return 18 }
         if MujiStyle.isActive { return 18 }
         return 20
     }
@@ -92,6 +96,8 @@ struct SettingsView: View {
     private var settingsContent: some View {
         if MangaStyle.isActive {
             mangaSettingsContent
+        } else if NeumorphicStyle.isActive {
+            neumorphicSettingsContent
         } else if MujiStyle.isActive {
             mujiSettingsContent
         } else {
@@ -128,6 +134,29 @@ struct SettingsView: View {
 
         mangaSettingsModePanel
         mangaSettingsPortalGrid
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var neumorphicSettingsContent: some View {
+        NeumorphicPageHeader(
+            eyebrow: "control",
+            title: String(localized: "settings_title"),
+            subtitle: ""
+        ) {
+            NavigationLink(destination: AboutView()) {
+                NeumorphicIconBadge(icon: .infoCircle, tint: NeumorphicStyle.accent, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+
+        settingsHeaderCard
+        themeSection
+        navigationCardsSection
 
         if qqDevMode {
             otherSection
@@ -221,7 +250,7 @@ struct SettingsView: View {
             LazyVGrid(
                 columns: [
                     GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12)
+                    GridItem(.flexible(), spacing: 12),
                 ],
                 spacing: 12
             ) {
@@ -302,37 +331,33 @@ struct SettingsView: View {
                 MujiSettingsDivider()
 
                 MujiSettingsLedgerLink(
-                    number: "01",
                     icon: .sparkle,
                     title: settingsText("settings_navigation_appearance_title"),
-                    value: "style",
+                    value: "STYLE",
                     destination: AppearanceSettingsView()
                 )
 
                 MujiSettingsDivider()
 
                 MujiSettingsLedgerLink(
-                    number: "02",
                     icon: .soundQuality,
                     title: settingsText("settings_navigation_playback_title"),
-                    value: "play",
+                    value: "PLAY",
                     destination: PlaybackSettingsView()
                 )
 
                 MujiSettingsDivider()
 
                 MujiSettingsLedgerLink(
-                    number: "03",
                     icon: .cloud,
                     title: settingsText("settings_navigation_cloud_sync_title"),
-                    value: hasToken ? "sync" : "off",
+                    value: hasToken ? "SYNC" : "OFF",
                     destination: CloudSyncSettingsView()
                 )
 
                 MujiSettingsDivider()
 
                 MujiSettingsLedgerLink(
-                    number: "04",
                     icon: .storage,
                     title: String(localized: "settings_storage_manage"),
                     value: cacheSize,
@@ -342,17 +367,15 @@ struct SettingsView: View {
                 MujiSettingsDivider()
 
                 MujiSettingsLedgerLink(
-                    number: "05",
                     icon: .download,
                     title: String(localized: "settings_download_manage"),
-                    value: "download",
+                    value: "DOWNLOAD",
                     destination: DownloadManageView()
                 )
 
                 MujiSettingsDivider()
 
                 MujiSettingsLedgerLink(
-                    number: "06",
                     icon: .infoCircle,
                     title: String(localized: "settings_about"),
                     value: appVersion,
@@ -362,7 +385,6 @@ struct SettingsView: View {
             .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
         }
     }
-
 
     // MARK: - 存储管理
 
@@ -418,18 +440,98 @@ struct SettingsView: View {
     }
 
     private var headerFooterIconColor: Color {
-        hasToken ? .pink : .monologueAccent
+        if MangaStyle.isActive {
+            return hasToken ? MangaStyle.accentPink : MangaStyle.decoBlue
+        }
+        if NeumorphicStyle.isActive {
+            return hasToken ? NeumorphicStyle.sage : NeumorphicStyle.accent
+        }
+        if MujiStyle.isActive {
+            return hasToken ? MujiStyle.tea : MujiStyle.clay
+        }
+        return hasToken ? Color.pink : Color.monologueAccent
     }
 
     private var headerFooterTextColor: Color {
-        hasToken ? .monologueTextSecondary.opacity(0.72) : .monologueTextSecondary.opacity(0.56)
+        if MangaStyle.isActive {
+            return hasToken ? MangaStyle.inkSub : MangaStyle.inkMuted
+        }
+        if NeumorphicStyle.isActive {
+            return hasToken ? NeumorphicStyle.inkSoft : NeumorphicStyle.inkMuted
+        }
+        if MujiStyle.isActive {
+            return hasToken ? MujiStyle.inkSoft : MujiStyle.inkMuted
+        }
+        return hasToken ? Color.monologueTextSecondary.opacity(0.72) : Color.monologueTextSecondary.opacity(0.56)
     }
 
     private var headerStatusButtonBackground: Color {
+        if MangaStyle.isActive {
+            return tokenSaved || hasToken ? MangaStyle.bubbleBlue : MangaStyle.bubbleWhite
+        }
+        if NeumorphicStyle.isActive {
+            return tokenSaved || hasToken ? NeumorphicStyle.sage.opacity(0.16) : NeumorphicStyle.surfacePressed.opacity(0.76)
+        }
+        if MujiStyle.isActive {
+            return tokenSaved || hasToken ? MujiStyle.tea.opacity(0.18) : MujiStyle.surface.opacity(0.82)
+        }
         if tokenSaved || hasToken {
             return Color.green.opacity(0.12)
         }
         return Color.monologueSeparator.opacity(0.5)
+    }
+
+    private var headerPrimaryTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var headerSecondaryTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var headerDeveloperIconColor: Color {
+        if MangaStyle.isActive { return MangaStyle.accentPink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if MujiStyle.isActive { return MujiStyle.tea }
+        return .green
+    }
+
+    private var headerSoftFill: Color {
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.62) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
+        return Color.monologueSeparator.opacity(0.4)
+    }
+
+    private var headerSoftStroke: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.5) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.5) }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
+        return Color.clear
+    }
+
+    private var headerPrimaryActionFill: Color {
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return .monologueAccent
+    }
+
+    private var headerPrimaryActionForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        return Color(light: .white, dark: .black)
+    }
+
+    private var headerAvatarRadius: CGFloat {
+        MangaStyle.isActive ? 16 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 16 : 14))
     }
 
     private var playlistSyncStatusText: String {
@@ -449,21 +551,32 @@ struct SettingsView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .shadow(color: .black.opacity(0.08), radius: 3, y: 2)
+                    .clipShape(RoundedRectangle(cornerRadius: headerAvatarRadius, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: headerAvatarRadius, style: .continuous)
+                            .stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.6 : 0.7)
+                    }
+                    .background {
+                        if MangaStyle.isActive {
+                            RoundedRectangle(cornerRadius: headerAvatarRadius, style: .continuous)
+                                .fill(MangaStyle.strokeInk)
+                                .offset(x: 2, y: 2)
+                        }
+                    }
+                    .shadow(color: .black.opacity(MangaStyle.isActive ? 0.02 : 0.08), radius: 3, y: 2)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ZIJIU522")
                         .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : .system(size: 17, weight: .bold, design: .rounded)))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(headerPrimaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
 
                     HStack(spacing: 5) {
-                        MonologueIcon(icon: .comment, size: 12, color: .green)
+                        MonologueIcon(icon: .comment, size: 12, color: headerDeveloperIconColor)
                         Text(settingsText("settings_developer_status"))
                             .font(themedSettingsFont(11, weight: .medium))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(headerSecondaryTextColor)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
@@ -478,12 +591,16 @@ struct SettingsView: View {
                     ) {
                         Text(String(localized: "settings_about"))
                             .font(themedSettingsFont(11, weight: .semibold))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(headerSecondaryTextColor)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Capsule().fill(Color.monologueSeparator.opacity(0.5)))
+                            .background {
+                                Capsule()
+                                    .fill(headerSoftFill)
+                                    .overlay(Capsule().stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6))
+                            }
                     }
                     .frame(width: headerActionButtonWidth)
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
@@ -516,6 +633,7 @@ struct SettingsView: View {
                         .background(
                             Capsule()
                                 .fill(headerStatusButtonBackground)
+                                .overlay(Capsule().stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6))
                         )
                     }
                     .frame(width: headerActionButtonWidth)
@@ -524,7 +642,7 @@ struct SettingsView: View {
                 .layoutPriority(2)
             }
 
-            if isHeaderCardExpanded {
+            SettingsHeaderReveal(isExpanded: isHeaderCardExpanded) {
                 VStack(spacing: 16) {
                     HStack(spacing: 10) {
                         Button {
@@ -538,16 +656,20 @@ struct SettingsView: View {
                             }
                         } label: {
                             HStack(spacing: 6) {
-                                MonologueIcon(icon: wechatCopied ? .checkmark : .save, size: 13, color: wechatCopied ? .green : .monologueTextPrimary)
+                                MonologueIcon(icon: wechatCopied ? .checkmark : .save, size: 13, color: wechatCopied ? headerDeveloperIconColor : headerPrimaryTextColor)
                                 Text(wechatCopied ? settingsText("settings_contact_copied") : "Fallin-Out0122")
                                     .font(themedSettingsFont(13, weight: .semibold))
                             }
-                            .foregroundColor(wechatCopied ? .green : .monologueTextPrimary)
+                            .foregroundColor(wechatCopied ? headerDeveloperIconColor : headerPrimaryTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(wechatCopied ? Color.green.opacity(0.1) : Color.monologueSeparator.opacity(0.4))
+                                    .fill(wechatCopied ? headerDeveloperIconColor.opacity(0.13) : headerSoftFill)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6)
+                                    )
                             )
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
@@ -560,21 +682,19 @@ struct SettingsView: View {
                             }
                         } label: {
                             HStack(spacing: 6) {
-                                MonologueIcon(icon: .send, size: 13, color: .white)
+                                MonologueIcon(icon: .send, size: 13, color: headerPrimaryActionForeground)
                                 Text(settingsText("settings_open_wechat"))
                                     .font(themedSettingsFont(13, weight: .semibold))
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(headerPrimaryActionForeground)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color(red: 0.07, green: 0.73, blue: 0.37), Color(red: 0.05, green: 0.6, blue: 0.32)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
+                                    .fill(headerPrimaryActionFill)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(MangaStyle.isActive ? MangaStyle.strokeInk : Color.clear, lineWidth: 1.3)
                                     )
                             )
                         }
@@ -583,12 +703,12 @@ struct SettingsView: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 10) {
-                            MonologueIcon(icon: hasToken ? .lock : .unlock, size: 14, color: hasToken ? .green : .monologueAccent)
+                            MonologueIcon(icon: hasToken ? .lock : .unlock, size: 14, color: tokenStatusColor)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(settingsText("access_token_title"))
                                     .font(themedSettingsFont(12, weight: .semibold))
-                                    .foregroundColor(.monologueTextPrimary)
+                                    .foregroundColor(headerPrimaryTextColor)
 
                                 if hasToken {
                                     if OnlineAccessManager.shared.lastTokenStatus == .expired {
@@ -598,12 +718,12 @@ struct SettingsView: View {
                                     } else {
                                         Text(settingsFormat("settings_token_authorized_format", maskedToken))
                                             .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                            .foregroundColor(.monologueTextSecondary)
+                                            .foregroundColor(headerSecondaryTextColor)
                                     }
                                 } else {
                                     Text(settingsText("settings_token_hint"))
                                         .font(themedSettingsFont(13, weight: .medium))
-                                        .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                                        .foregroundColor(headerSecondaryTextColor.opacity(0.78))
                                 }
                             }
 
@@ -612,7 +732,7 @@ struct SettingsView: View {
 
                         HStack(spacing: 10) {
                             HStack(spacing: 8) {
-                                MonologueIcon(icon: .unlock, size: 14, color: .monologueAccent)
+                                MonologueIcon(icon: .unlock, size: 14, color: tokenStatusColor)
                                 TextField(settingsText("access_token_input_placeholder"), text: $apiTokenInput)
                                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                                     .monologueTextInputBehavior()
@@ -621,7 +741,11 @@ struct SettingsView: View {
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.monologueSeparator.opacity(0.22))
+                                    .fill(headerSoftFill.opacity(MangaStyle.isActive ? 0.74 : 1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6)
+                                    )
                             )
 
                             Button {
@@ -684,21 +808,22 @@ struct SettingsView: View {
                             } label: {
                                 Text(settingsText("common_save"))
                                     .font(themedSettingsFont(13, weight: .semibold))
-                                    .foregroundColor(Color(light: .white, dark: .black))
+                                    .foregroundColor(headerPrimaryActionForeground)
                                     .frame(width: 44, height: 36)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(Color.monologueAccent)
+                                            .fill(headerPrimaryActionFill)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                    .stroke(MangaStyle.isActive ? MangaStyle.strokeInk : Color.clear, lineWidth: 1.3)
+                                            )
                                     )
                             }
                             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
                         }
-
                     }
-
                 }
                 .padding(.top, 16)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
 
             HStack(spacing: 6) {
@@ -740,7 +865,7 @@ struct SettingsView: View {
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
     }
-    
+
     private var tokenStatusText: String {
         if tokenSaved {
             return settingsText("settings_token_saved")
@@ -753,14 +878,20 @@ struct SettingsView: View {
         }
         return settingsText("settings_token_unauthorized")
     }
-    
+
     private var tokenStatusColor: Color {
         if tokenSaved || hasToken {
             if OnlineAccessManager.shared.lastTokenStatus == .expired {
                 return .red
             }
+            if MangaStyle.isActive { return MangaStyle.decoBlue }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+            if MujiStyle.isActive { return MujiStyle.tea }
             return .green
         }
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
         return .monologueTextSecondary
     }
 
@@ -836,7 +967,6 @@ private struct MangaSettingsPortalCard: View {
 }
 
 private struct MujiSettingsLedgerLink<Destination: View>: View {
-    let number: String
     let icon: MonologueIcon.IconType
     let title: String
     let value: String
@@ -845,11 +975,6 @@ private struct MujiSettingsLedgerLink<Destination: View>: View {
     var body: some View {
         NavigationLink(destination: destination) {
             HStack(spacing: 12) {
-                Text(number)
-                    .font(MujiStyle.labelFont(11, weight: .semibold))
-                    .foregroundStyle(MujiStyle.inkMuted)
-                    .frame(width: 24, alignment: .leading)
-
                 MujiIconBadge(icon: icon, tint: ledgerTint, size: 34)
 
                 Text(title)
@@ -903,14 +1028,17 @@ private struct MujiSettingsDivider: View {
 
 struct SettingsIconBadge: View {
     let icon: MonologueIcon.IconType
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         if MangaStyle.isActive {
-            MonologueIcon(icon: icon, size: 15, color: MangaStyle.strokeInk, lineWidth: 1.8)
+            MonologueIcon(icon: icon, size: 15, color: MangaStyle.onStrokeInk, lineWidth: 1.8)
                 .frame(width: 32, height: 32)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(MangaStyle.labelYellow)
+                        .fill(MangaStyle.accentPink)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -921,6 +1049,8 @@ struct SettingsIconBadge: View {
                         .fill(MangaStyle.strokeInk)
                         .offset(x: 1.8, y: 1.8)
                 )
+        } else if NeumorphicStyle.isActive {
+            NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(MujiStyle.clay.opacity(0.11))
@@ -947,20 +1077,15 @@ struct SettingsIconBadge: View {
 
 struct SettingsSection<Content: View>: View {
     let title: String
-    let content: Content
-
-    init(title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
+    @ViewBuilder let content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded)))
-                .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.inkSoft : Color.secondary))
+                .font(sectionTitleFont)
+                .foregroundColor(sectionTitleColor)
                 .padding(.leading, 14)
-                .tracking(MujiStyle.isActive ? 1.0 : 0.4)
+                .tracking(MujiStyle.isActive || NeumorphicStyle.isActive ? 1.0 : 0.4)
 
             VStack(spacing: 0) {
                 content
@@ -970,22 +1095,37 @@ struct SettingsSection<Content: View>: View {
                     MangaCardBackground(cornerRadius: 20, elevated: true, tint: MangaStyle.bubbleWhite)
                 } else if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 14, elevated: false)
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
                 }
             }
             .monologueGlassConditionalForSettings(cornerRadius: 20)
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
+
+    private var sectionTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
+        return .system(size: 12, weight: .bold, design: .rounded)
+    }
+
+    private var sectionTitleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return Color.secondary
+    }
 }
 
 private extension View {
     @ViewBuilder
     func monologueGlassConditionalForSettings(cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive || MujiStyle.isActive {
+        if MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive {
             self
         } else {
-            self
-                .monologueGlass(cornerRadius: cornerRadius)
+            monologueGlass(cornerRadius: cornerRadius)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
@@ -993,14 +1133,13 @@ private extension View {
     @ViewBuilder
     func themedSettingsStandaloneCard(cornerRadius: CGFloat, tint: Color = MangaStyle.bubbleWhite) -> some View {
         if MangaStyle.isActive {
-            self
-                .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint))
+            background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint))
         } else if MujiStyle.isActive {
-            self
-                .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true))
+            background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true))
+        } else if NeumorphicStyle.isActive {
+            background(NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 26), elevated: true))
         } else {
-            self
-                .monologueGlass(cornerRadius: cornerRadius)
+            monologueGlass(cornerRadius: cornerRadius)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
         }
@@ -1013,14 +1152,19 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     @Environment(\.colorScheme) private var colorScheme
 
     private var offTrackColor: Color {
-        Color(light: Color.black.opacity(0.12), dark: Color.white.opacity(0.2))
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color(light: Color.black.opacity(0.12), dark: Color.white.opacity(0.2))
     }
 
     private var offStrokeColor: Color {
-        Color(light: Color.black.opacity(0.08), dark: Color.white.opacity(0.14))
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.45) }
+        return Color(light: Color.black.opacity(0.08), dark: Color.white.opacity(0.14))
     }
 
     private func knobColor(isOn: Bool) -> Color {
+        if NeumorphicStyle.isActive {
+            return isOn ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface
+        }
         if isOn {
             return colorScheme == .dark ? .black : .white
         }
@@ -1034,7 +1178,9 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
         return offStrokeColor
     }
 
-    var trackSize: CGSize { CGSize(width: 52, height: 32) }
+    var trackSize: CGSize {
+        CGSize(width: 52, height: 32)
+    }
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
@@ -1044,7 +1190,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
         } label: {
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                 Capsule()
-                    .fill(configuration.isOn ? Color.monologueToggleTint : offTrackColor)
+                    .fill(configuration.isOn ? activeTrackColor : offTrackColor)
                     .overlay {
                         Capsule()
                             .stroke(strokeColor(isOn: configuration.isOn), lineWidth: 1)
@@ -1059,6 +1205,10 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var activeTrackColor: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueToggleTint
     }
 }
 
@@ -1101,9 +1251,9 @@ struct SettingsToggleRow: View {
 struct SettingsNavigationRow: View {
     let icon: MonologueIcon.IconType
     let title: String
-    var subtitle: String? = nil
-    var subtitleColor: Color? = nil
-    var value: String? = nil
+    var subtitle: String?
+    var subtitleColor: Color?
+    var value: String?
     let action: () -> Void
 
     init(icon: MonologueIcon.IconType, title: String, value: String, action: @escaping () -> Void) {
@@ -1271,7 +1421,9 @@ struct SettingsThemeRow: View {
         }
     }
 
-    private var isAuto: Bool { selection == "system" }
+    private var isAuto: Bool {
+        selection == "system"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1329,7 +1481,37 @@ struct SettingsThemeRow: View {
             }
         }
     }
+}
 
+// MARK: - Header Reveal
+
+private struct SettingsHeaderReveal<Content: View>: View {
+    let isExpanded: Bool
+    let content: Content
+    @State private var measuredHeight: CGFloat = 0
+
+    init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
+        self.isExpanded = isExpanded
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { measuredHeight = proxy.size.height }
+                        .onChange(of: proxy.size.height) { _, newValue in
+                            measuredHeight = newValue
+                        }
+                }
+            }
+            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
+            .opacity(isExpanded ? 1 : 0.001)
+            .clipped()
+            .allowsHitTesting(isExpanded)
+            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
+    }
 }
 
 // MARK: - 悬浮栏样式选择行
@@ -1338,59 +1520,273 @@ struct SettingsFloatingBarRow: View {
     let icon: MonologueIcon.IconType
     let title: String
     @Binding var selection: FloatingBarStyle
+    @State private var isExpanded = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 14) {
-                SettingsIconBadge(icon: icon)
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 14) {
+                    SettingsIconBadge(icon: icon)
 
-                VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(themedSettingsFont(16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)))
 
-                    Text(selection.description)
-                        .font(themedSettingsFont(12, weight: .regular))
-                        .foregroundStyle(.tertiary)
+                    Spacer(minLength: 12)
+
+                    Text(selection.displayName)
+                        .font(themedSettingsFont(13, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(selectionPillBackground)
+                        .foregroundColor(selectionPillForeground)
+
+                    MonologueIcon(
+                        icon: .chevronRight,
+                        size: 11,
+                        color: MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary.opacity(0.8))),
+                        lineWidth: 1.7
+                    )
+                    .rotationEffect(.degrees(isExpanded ? -90 : 90))
                 }
-
-                Spacer()
             }
+            .buttonStyle(.plain)
 
-            HStack(spacing: 8) {
-                ForEach(FloatingBarStyle.allCases) { style in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selection = style
-                        }
-                    } label: {
-                        VStack(spacing: 5) {
-                            MonologueIcon(
-                                icon: style.iconType,
-                                size: 20,
-                                color: selection == style ? .monologueIconForeground : .monologueTextSecondary
+            if isExpanded {
+                LazyVGrid(columns: optionColumns, spacing: 8) {
+                    ForEach(FloatingBarStyle.allCases) { style in
+                        Button {
+                            withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
+                                selection = style
+                                isExpanded = false
+                            }
+                        } label: {
+                            SettingsFloatingBarOptionCard(
+                                style: style,
+                                isSelected: selection == style
                             )
-                            Text(style.displayName)
-                                .font(themedSettingsFont(11, weight: .medium))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(selection == style
-                                      ? Color.monologueIconBackground
-                                      : Color.monologueSeparator.opacity(0.6))
-                        )
-                        .foregroundColor(selection == style
-                                         ? Color.monologueIconForeground
-                                         : Color.monologueTextSecondary)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.top, 12)
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
+    }
+
+    private var optionColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 8),
+            GridItem(.flexible(), spacing: 8),
+        ]
+    }
+
+    @ViewBuilder
+    private var selectionPillBackground: some View {
+        if MangaStyle.isActive {
+            Capsule()
+                .fill(MangaStyle.labelYellow.opacity(0.96))
+                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.4))
+        } else if MujiStyle.isActive {
+            Capsule()
+                .fill(MujiStyle.clay.opacity(0.12))
+                .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.6))
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
+        } else {
+            Capsule()
+                .fill(Color.monologueIconBackground.opacity(0.16))
+        }
+    }
+
+    private var selectionPillForeground: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .monologueTextSecondary
+    }
+}
+
+private struct SettingsFloatingBarOptionCard: View {
+    let style: FloatingBarStyle
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top) {
+                iconBadge
+                Spacer()
+                selectedMark
+            }
+
+            Text(style.displayName)
+                .font(cardTitleFont)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .foregroundColor(titleColor)
+        }
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(cardBackground)
+        .contentShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
+    }
+
+    private var cardRadius: CGFloat {
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
+        if MujiStyle.isActive { return 11 }
+        if NeumorphicStyle.isActive { return 18 }
+        return 12
+    }
+
+    private var cardTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 13, weight: .semibold, design: .rounded)
+    }
+
+    private var titleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.ink }
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft }
+        return isSelected ? .monologueIconForeground : .monologueTextPrimary
+    }
+
+    private var iconColor: Color {
+        if MangaStyle.isActive { return isSelected ? MangaStyle.strokeInk : MangaStyle.inkSub }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.clay }
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        return isSelected ? .monologueIconForeground : .monologueTextSecondary
+    }
+
+    private var selectedMarkColor: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        return .monologueIconForeground
+    }
+
+    @ViewBuilder
+    private var iconBadge: some View {
+        if MangaStyle.isActive {
+            MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.8)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isSelected ? MangaStyle.bubbleWhite : MangaStyle.paperWarm)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
+                )
+        } else if MujiStyle.isActive {
+            MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.45)
+                .frame(width: 31, height: 31)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isSelected ? MujiStyle.onTint.opacity(0.16) : MujiStyle.paperWarm.opacity(0.78))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(isSelected ? MujiStyle.onTint.opacity(0.28) : MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
+                )
+        } else if NeumorphicStyle.isActive {
+            MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.55)
+                .frame(width: 32, height: 32)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: isSelected))
+        } else {
+            MonologueIcon(icon: style.iconType, size: 18, color: iconColor, lineWidth: 1.6)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isSelected ? Color.monologueIconBackground.opacity(0.22) : Color.monologueSeparator.opacity(0.38))
+                )
+        }
+    }
+
+    @ViewBuilder
+    private var selectedMark: some View {
+        if isSelected {
+            MonologueIcon(icon: .checkmark, size: 10, color: selectedMarkColor, lineWidth: 1.8)
+                .frame(width: MangaStyle.isActive ? 21 : 20, height: MangaStyle.isActive ? 21 : 20)
+                .background(selectedMarkBackground)
+        } else {
+            Circle()
+                .fill(markEmptyFill)
+                .frame(width: 8, height: 8)
+                .padding(.top, 6)
+        }
+    }
+
+    @ViewBuilder
+    private var selectedMarkBackground: some View {
+        if MangaStyle.isActive {
+            Circle()
+                .fill(MangaStyle.bubblePink)
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.3))
+        } else if MujiStyle.isActive {
+            Circle()
+                .fill(MujiStyle.tea)
+        } else if NeumorphicStyle.isActive {
+            Circle()
+                .fill(NeumorphicStyle.accent)
+        } else {
+            Circle()
+                .fill(Color.monologueIconBackground)
+        }
+    }
+
+    private var markEmptyFill: Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.45) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.65) }
+        return .monologueSeparator.opacity(0.8)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if MangaStyle.isActive {
+            MangaCardBackground(
+                cornerRadius: cardRadius,
+                elevated: isSelected,
+                tint: isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+            )
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                .fill(isSelected ? MujiStyle.clay : MujiStyle.surface)
+                .overlay(
+                    MujiPaperTexture(opacity: isSelected ? 0.05 : 0.1)
+                        .clipShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                        .stroke(isSelected ? MujiStyle.clay.opacity(0.28) : MujiStyle.hairline.opacity(0.5), lineWidth: 0.65)
+                )
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: cardRadius,
+                elevated: isSelected,
+                pressed: !isSelected,
+                tint: isSelected ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface
+            )
+        } else {
+            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                .fill(isSelected ? Color.monologueIconBackground : Color.monologueSeparator.opacity(0.48))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                        .stroke(Color.monologueIconBackground.opacity(isSelected ? 0.24 : 0), lineWidth: 1)
+                )
+        }
     }
 }
 
@@ -1433,7 +1829,7 @@ struct SettingsHitokotoTypeRow: View {
 
                     Text(Self.types.first { $0.key == selection }?.label ?? String(localized: "随机"))
                         .font(themedSettingsFont(14, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(activeSummaryColor)
 
                     MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         .rotationEffect(.degrees(isExpanded ? -90 : 90))
@@ -1450,19 +1846,7 @@ struct SettingsHitokotoTypeRow: View {
                                 isExpanded = false
                             }
                         } label: {
-                            Text(type.label)
-                                .font(themedSettingsFont(13, weight: .medium))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(
-                                    Capsule()
-                                        .fill(selection == type.key
-                                              ? Color.monologueIconBackground
-                                              : Color.monologueSeparator.opacity(0.6))
-                                )
-                                .foregroundColor(selection == type.key
-                                                 ? Color.monologueIconForeground
-                                                 : Color.monologueTextSecondary)
+                            hitokotoTypeChip(label: type.label, selected: selection == type.key)
                         }
                         .buttonStyle(.plain)
                     }
@@ -1474,12 +1858,74 @@ struct SettingsHitokotoTypeRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
     }
+
+    private var activeSummaryColor: Color {
+        if MangaStyle.isActive { return MangaStyle.accentPink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .secondary
+    }
+
+    private func hitokotoTypeChip(label: String, selected: Bool) -> some View {
+        Text(label)
+            .font(themedSettingsFont(13, weight: selected ? .semibold : .medium))
+            .lineLimit(1)
+            .padding(.horizontal, chipHorizontalPadding)
+            .padding(.vertical, chipVerticalPadding)
+            .foregroundColor(chipForeground(selected: selected))
+            .background(chipBackground(selected: selected))
+            .contentShape(Capsule())
+    }
+
+    private var chipHorizontalPadding: CGFloat {
+        MangaStyle.isActive ? 13 : 12
+    }
+
+    private var chipVerticalPadding: CGFloat {
+        NeumorphicStyle.isActive ? 7 : 6
+    }
+
+    @ViewBuilder
+    private func chipBackground(selected: Bool) -> some View {
+        if MangaStyle.isActive {
+            Capsule()
+                .fill(selected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: selected ? 1.7 : 1.2))
+                .background(
+                    Capsule()
+                        .fill(MangaStyle.strokeInk)
+                        .offset(x: selected ? 1.6 : 0, y: selected ? 1.6 : 0)
+                )
+        } else if MujiStyle.isActive {
+            Capsule()
+                .fill(selected ? MujiStyle.clay.opacity(0.15) : MujiStyle.surface.opacity(0.76))
+                .overlay(Capsule().stroke(selected ? MujiStyle.clay.opacity(0.42) : MujiStyle.hairline.opacity(0.44), lineWidth: 0.65))
+                .overlay(MujiPaperTexture(opacity: selected ? 0.04 : 0.08).clipShape(Capsule()))
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 15,
+                elevated: selected,
+                pressed: !selected,
+                tint: selected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+            )
+        } else {
+            Capsule()
+                .fill(selected ? Color.monologueIconBackground : Color.monologueSeparator.opacity(0.6))
+        }
+    }
+
+    private func chipForeground(selected: Bool) -> Color {
+        if MangaStyle.isActive { return selected ? MangaStyle.strokeInk : MangaStyle.inkSub }
+        if MujiStyle.isActive { return selected ? MujiStyle.clay : MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return selected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        return selected ? Color.monologueIconForeground : Color.monologueTextSecondary
+    }
 }
 
 private struct SettingsHitokotoFlowLayout: Layout {
     var spacing: CGFloat = 8
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? .infinity
         var x: CGFloat = 0
         var y: CGFloat = 0
@@ -1498,14 +1944,14 @@ private struct SettingsHitokotoFlowLayout: Layout {
         return CGSize(width: maxWidth, height: y + rowHeight)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
         var x: CGFloat = bounds.minX
         var y: CGFloat = bounds.minY
         var rowHeight: CGFloat = 0
 
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > bounds.maxX && x > bounds.minX {
+            if x + size.width > bounds.maxX, x > bounds.minX {
                 x = bounds.minX
                 y += rowHeight + spacing
                 rowHeight = 0

@@ -46,31 +46,31 @@ struct PodcastSearchView: View {
     private var searchBar: some View {
         HStack(spacing: 12) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: .magnifyingGlass, size: 15, color: .monologueTextSecondary, lineWidth: 1.4)
+                MonologueIcon(icon: .magnifyingGlass, size: 15, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.4)
 
                 TextField(String(localized: "podcast_search_placeholder"), text: $viewModel.searchText)
-                    .font(.system(size: 15, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .monologueTextInputBehavior()
                     .focused($isSearchFocused)
                     .submitLabel(.search)
 
                 if !viewModel.searchText.isEmpty {
                     Button(action: { viewModel.searchText = "" }) {
-                        MonologueIcon(icon: .xmarkCircle, size: 14, color: .monologueTextSecondary, lineWidth: 1.2)
+                        MonologueIcon(icon: .xmarkCircle, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary, lineWidth: 1.2)
                     }
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .themedPageSurface(cornerRadius: 12, elevated: false)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.vertical, NeumorphicStyle.isActive ? 11 : 10)
+            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 18 : 12, elevated: false)
+            .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 18 : 12, style: .continuous))
 
             Button(String(localized: "podcast_search_cancel")) {
                 dismiss()
             }
-            .font(.system(size: 15, weight: .medium, design: .rounded))
-            .foregroundColor(.monologueTextPrimary)
+            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.bottom, 12)
@@ -82,8 +82,8 @@ struct PodcastSearchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("podcast_hot_radios")
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .medium) : .system(size: 18, weight: .bold, design: .rounded)))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
                 if viewModel.isLoadingHot {
@@ -161,41 +161,54 @@ struct PodcastSearchView: View {
     private func radioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.monologueGlassTint)
-                    .monologueGlass(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                    .monologueGlass(cornerRadius: coverRadius)
             }
             .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+            .overlay(coverStroke)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     if let dj = radio.dj?.nickname {
                         Text(dj)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
                     }
                     if let count = radio.programCount, count > 0 {
                         Text(String(format: String(localized: "podcast_episode_count"), count))
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary)
                     }
                 }
             }
 
             Spacer()
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.2)
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.homeHorizontalPadding)
         .padding(.vertical, 12)
         .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 10
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        }
     }
 }

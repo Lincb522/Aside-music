@@ -1,22 +1,25 @@
-import SwiftUI
 import Combine
+import SwiftUI
 
 /// 全局设置管理器
 @MainActor
 final class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
-    
+
     // MARK: - 外观设置
-    
+
     /// 全局主题 ID
     @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.default.rawValue {
         didSet {
             if let id = GlobalThemeId(rawValue: globalThemeIdRaw) {
                 GlobalThemeManager.shared.switchTheme(to: id)
                 enforceCoverBackgroundPolicyForCurrentTheme()
+                globalThemeRevision &+= 1
             }
         }
     }
+
+    @Published private(set) var globalThemeRevision: Int = 0
 
     var globalThemeId: GlobalThemeId {
         get { GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default }
@@ -25,23 +28,23 @@ final class SettingsManager: ObservableObject {
 
     /// 悬浮栏样式
     @AppStorage("floatingBarStyle") var floatingBarStyleRaw: String = FloatingBarStyle.unified.rawValue
-    
+
     /// 悬浮栏样式（类型安全访问）
     var floatingBarStyle: FloatingBarStyle {
         get { FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .unified }
         set { floatingBarStyleRaw = newValue.rawValue }
     }
-    
+
     /// 主题模式: "system" 跟随系统, "light" 浅色, "dark" 深色
     @AppStorage("themeMode") var themeMode: String = "system" {
         didSet {
             applyTheme()
         }
     }
-    
+
     /// 实际生效的 ColorScheme，始终有明确值
     @Published var activeColorScheme: ColorScheme = .light
-    
+
     /// 根据设置返回对应的 ColorScheme（用于 .preferredColorScheme 修饰符）
     var preferredColorScheme: ColorScheme? {
         switch themeMode {
@@ -50,7 +53,7 @@ final class SettingsManager: ObservableObject {
         default: return nil // 跟随系统
         }
     }
-    
+
     /// 返回未被全局封面影响的“真实”系统/用户预设色彩模式
     var nativeColorScheme: ColorScheme {
         switch themeMode {
@@ -60,7 +63,7 @@ final class SettingsManager: ObservableObject {
             return UIScreen.main.traitCollection.userInterfaceStyle == .dark ? .dark : .light
         }
     }
-    
+
     /// 应用主题到所有窗口（确保 fullScreenCover 等独立层级也能实时生效）
     func applyTheme() {
         let style: UIUserInterfaceStyle
@@ -69,7 +72,7 @@ final class SettingsManager: ObservableObject {
         case "dark": style = .dark
         default: style = .unspecified // 跟随系统
         }
-        
+
         // 遍历所有窗口场景，强制刷新 overrideUserInterfaceStyle
         var resolvedStyle: UIUserInterfaceStyle = style
         for scene in UIApplication.shared.connectedScenes {
@@ -83,7 +86,7 @@ final class SettingsManager: ObservableObject {
                 }
             }
         }
-        
+
         // 更新 activeColorScheme
         if style == .dark {
             activeColorScheme = .dark
@@ -93,12 +96,12 @@ final class SettingsManager: ObservableObject {
             activeColorScheme = (resolvedStyle == .dark) ? .dark : .light
         }
     }
-    
+
     // MARK: - 播放设置
-    
+
     /// 音质设置（旧，保留兼容）
     @AppStorage("soundQuality") var soundQuality: String = "standard"
-    
+
     /// 是否优先请求歌曲支持的最高音质
     @AppStorage(AppConfig.StorageKeys.preferHighestPlaybackQuality)
     var preferHighestPlaybackQuality: Bool = true
@@ -181,9 +184,9 @@ final class SettingsManager: ObservableObject {
 
     var supportsAlternateAppIcons: Bool {
         #if os(iOS)
-        UIApplication.shared.supportsAlternateIcons
+            UIApplication.shared.supportsAlternateIcons
         #else
-        false
+            false
         #endif
     }
 
@@ -192,14 +195,14 @@ final class SettingsManager: ObservableObject {
 
     @AppStorage(AppConfig.StorageKeys.playlistSyncDeleteCloudSnapshot)
     var playlistSyncDeleteCloudSnapshot: Bool = false
-    
+
     /// 默认播放音质
     @AppStorage("defaultPlaybackQuality") var defaultPlaybackQuality: String = "standard"
-    
+
     /// qcm默认播放音质
     @AppStorage(AppConfig.StorageKeys.qqMusicQuality)
     var defaultQQPlaybackQuality: String = QQMusicQuality.mp3_320.rawValue
-    
+
     /// QSM 默认播放音质
     @AppStorage("monologue_qishui_quality")
     var defaultQishuiPlaybackQuality: String = "highest"
@@ -211,42 +214,42 @@ final class SettingsManager: ObservableObject {
     /// 播客默认播放顺序（false：最新一期优先；true：最早一期优先）
     @AppStorage(AppConfig.StorageKeys.podcastSortAscending)
     var podcastSortAscending: Bool = false
-    
+
     /// 默认下载音质
     @AppStorage("defaultDownloadQuality") var defaultDownloadQuality: String = "standard"
-    
+
     // MARK: - 缓存设置
-    
+
     /// 最大缓存大小 (MB)
     @AppStorage("maxCacheSize") var maxCacheSize: Int = 500
-    
+
     // MARK: - 每日一言
-    
+
     /// 每日一言开关
     @AppStorage("hitokotoEnabled") var hitokotoEnabled: Bool = true
-    
+
     /// 每日一言类型 (a=动画 b=漫画 c=游戏 d=文学 e=原创 f=来自网络 g=其他 h=影视 i=诗词 j=ncm k=哲学 l=抖机灵)
     @AppStorage("hitokotoType") var hitokotoType: String = ""
-    
+
     // MARK: - 其他设置
-    
+
     /// 触感反馈
     @AppStorage("hapticFeedback") var hapticFeedback: Bool = true
-    
+
     /// 喜欢同步到ncm（点喜欢时同时调用ncm API）
     @AppStorage("syncLikeToNetease") var syncLikeToNetease: Bool = true
-    
+
     /// 喜欢时选择歌单（点喜欢新歌时弹出歌单选择器，而非直接加入「我喜欢」）
     @AppStorage("likeToChoosePlaylist") var likeToChoosePlaylist: Bool = false
-    
+
     /// 边听边存（播放时自动下载保存）
     @AppStorage("listenAndSave") var listenAndSave: Bool = false
-    
+
     /// QMC 解密开关（qcm加密流解密，默认关闭）
     @AppStorage("qmcDecryptEnabled") var qmcDecryptEnabled: Bool = false
-    
+
     @AppStorage("useSystemTabBar") var useSystemTabBar: Bool = false
-    
+
     // MARK: - 封面背景设置
 
     /// 全局动态封面背景（首页/资料库/搜索等跟随当前播放歌曲封面）
@@ -266,19 +269,19 @@ final class SettingsManager: ObservableObject {
     }
 
     // MARK: - 歌词设置
-    
+
     /// 歌词颜色模式: "default" / "solid" / "gradient"
     @AppStorage("lyricColorMode") var lyricColorMode: String = "default"
-    
+
     /// 纯色 hex
     @AppStorage("lyricSolidColorHex") var lyricSolidColorHex: String = "007AFF"
-    
+
     /// 渐变起始色 hex
     @AppStorage("lyricGradientStartHex") var lyricGradientStartHex: String = "FF6B6B"
-    
+
     /// 渐变结束色 hex
     @AppStorage("lyricGradientEndHex") var lyricGradientEndHex: String = "4ECDC4"
-    
+
     private init() {
         enforceCoverBackgroundPolicyForCurrentTheme()
         // 启动时应用一次主题
@@ -291,6 +294,11 @@ final class SettingsManager: ObservableObject {
         coverBgPlaylist = false
         coverBgPlayer = false
         globalCoverIsDark = false
+    }
+
+    func notifyThemeCustomizationChanged() {
+        GlobalThemeManager.shared.refreshCurrentThemeTokens()
+        globalThemeRevision &+= 1
     }
 
     func selectAppBrandStyle(_ style: AppBrandStyle) async {
@@ -309,34 +317,34 @@ final class SettingsManager: ObservableObject {
 
     private func applySelectedAlternateIcon() async {
         #if os(iOS)
-        guard UIApplication.shared.supportsAlternateIcons else {
-            AppLogger.info("[AppBrand] 当前环境不支持桌面图标切换，仅更新应用内 Logo")
-            return
-        }
+            guard UIApplication.shared.supportsAlternateIcons else {
+                AppLogger.info("[AppBrand] 当前环境不支持桌面图标切换，仅更新应用内 Logo")
+                return
+            }
 
-        let iconName = appBrandStyle.alternateIconName(for: appBrandAppearance)
-        guard UIApplication.shared.alternateIconName != iconName else { return }
+            let iconName = appBrandStyle.alternateIconName(for: appBrandAppearance)
+            guard UIApplication.shared.alternateIconName != iconName else { return }
 
-        do {
-            try await setAlternateIconName(iconName)
-            AppLogger.info("[AppBrand] 已切换图标风格: \(appBrandStyle.rawValue)-\(appBrandAppearance.rawValue)")
-        } catch {
-            AppLogger.warning("[AppBrand] 图标切换失败: \(error.localizedDescription)")
-        }
+            do {
+                try await setAlternateIconName(iconName)
+                AppLogger.info("[AppBrand] 已切换图标风格: \(appBrandStyle.rawValue)-\(appBrandAppearance.rawValue)")
+            } catch {
+                AppLogger.warning("[AppBrand] 图标切换失败: \(error.localizedDescription)")
+            }
         #endif
     }
 
     #if os(iOS)
-    private func setAlternateIconName(_ iconName: String?) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            UIApplication.shared.setAlternateIconName(iconName) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
+        private func setAlternateIconName(_ iconName: String?) async throws {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                UIApplication.shared.setAlternateIconName(iconName) { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: ())
+                    }
                 }
             }
         }
-    }
     #endif
 }

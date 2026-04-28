@@ -5,7 +5,10 @@ enum MujiStyle {
         UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.muji.rawValue
     }
 
-    static let paper = Color(light: Color(hex: "F7F1E8"), dark: Color(hex: "29241E"))
+    static var paper: Color {
+        ThemeColorCustomization.backgroundBase(for: .muji, fallback: Color(light: Color(hex: "F7F1E8"), dark: Color(hex: "29241E")), fallbackHex: "F7F1E8")
+    }
+
     static let paperWarm = Color(light: Color(hex: "EFE5D6"), dark: Color(hex: "342D25"))
     static let surface = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "332C25"))
     static let surfaceRaised = Color(light: Color(hex: "FCF7EF"), dark: Color(hex: "40372E"))
@@ -14,7 +17,10 @@ enum MujiStyle {
     static let inkMuted = Color(light: Color(hex: "9A8F83"), dark: Color(hex: "B1A493"))
     static let onTint = Color(light: Color(hex: "FFF8EF"), dark: Color(hex: "211A15"))
     static let onImage = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "FFF7EA"))
-    static let clay = Color(light: Color(hex: "B56B4B"), dark: Color(hex: "C98261"))
+    static var clay: Color {
+        ThemeColorCustomization.accentColor(for: .muji, fallback: Color(light: Color(hex: "B56B4B"), dark: Color(hex: "C98261")), fallbackHex: "B56B4B")
+    }
+
     static let tea = Color(light: Color(hex: "78846B"), dark: Color(hex: "96A382"))
     static let indigo = Color(light: Color(hex: "56677A"), dark: Color(hex: "8191A1"))
     static let straw = Color(light: Color(hex: "D8B56D"), dark: Color(hex: "E0C37D"))
@@ -27,9 +33,13 @@ enum MujiStyle {
 
     static var accentGradient: LinearGradient {
         LinearGradient(
-            colors: [clay, straw.opacity(0.92), tea.opacity(0.82)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            colors: ThemeColorCustomization.accentGradientColors(
+                for: .muji,
+                fallback: [clay, straw.opacity(0.92), tea.opacity(0.82)],
+                fallbackHexes: ["B56B4B", "D8B56D"]
+            ),
+            startPoint: ThemeColorCustomization.gradientStyle(for: .muji, role: .accent).points.start,
+            endPoint: ThemeColorCustomization.gradientStyle(for: .muji, role: .accent).points.end
         )
     }
 
@@ -48,28 +58,12 @@ enum MujiStyle {
 
 struct MujiRootBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         ZStack {
             MujiStyle.paper
-
-            LinearGradient(
-                colors: colorScheme == .dark
-                    ? [
-                        MujiStyle.paperWarm.opacity(0.64),
-                        MujiStyle.surfaceRaised.opacity(0.2),
-                        MujiStyle.clay.opacity(0.08),
-                        MujiStyle.indigo.opacity(0.06)
-                    ]
-                    : [
-                        MujiStyle.paperWarm.opacity(0.62),
-                        MujiStyle.paper.opacity(0.2),
-                        MujiStyle.tea.opacity(0.08),
-                        MujiStyle.indigo.opacity(0.05)
-                    ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
 
             MujiPaperTexture(opacity: colorScheme == .dark ? 0.18 : 0.34)
         }
@@ -101,7 +95,7 @@ struct MujiPaperTexture: View {
                 context.stroke(path, with: .color(fiber.opacity(0.045)), lineWidth: 0.35)
             }
 
-            for index in 0..<18 {
+            for index in 0 ..< 18 {
                 let rect = CGRect(
                     x: size.width * CGFloat((index * 37) % 100) / 100,
                     y: size.height * CGFloat((index * 53) % 100) / 100,
@@ -185,19 +179,7 @@ struct MujiPageHeader<Accessory: View>: View {
     let eyebrow: String
     let title: String
     let subtitle: String
-    let accessory: Accessory
-
-    init(
-        eyebrow: String,
-        title: String,
-        subtitle: String,
-        @ViewBuilder accessory: () -> Accessory
-    ) {
-        self.eyebrow = eyebrow
-        self.title = title
-        self.subtitle = subtitle
-        self.accessory = accessory()
-    }
+    @ViewBuilder let accessory: Accessory
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
@@ -296,7 +278,7 @@ struct MujiNowPlayingIndicator: View {
     var body: some View {
         TimelineView(.animation) { timeline in
             HStack(alignment: .bottom, spacing: 3) {
-                ForEach(0..<3, id: \.self) { index in
+                ForEach(0 ..< 3, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 1.4, style: .continuous)
                         .fill(barColor(index).opacity(isAnimating ? 0.86 : 0.5))
                         .frame(width: 3, height: barHeight(index, at: timeline.date))
@@ -385,11 +367,7 @@ struct MujiPill: View {
 }
 
 struct MujiPageSurface<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
+    @ViewBuilder let content: Content
 
     var body: some View {
         ZStack {

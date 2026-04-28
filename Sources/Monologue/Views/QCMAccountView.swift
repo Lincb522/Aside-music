@@ -23,11 +23,17 @@ struct QQAccountView: View {
     private var qqClient: QQMusicClient { APIService.shared.qqClient }
 
     private var themeAccent: Color {
-        MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : MusicSource.qqmusic.themedBadgeColor)
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return MusicSource.qqmusic.themedBadgeColor
     }
 
     private var themeAccentText: Color {
-        MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : .white)
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.paper }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        return .white
     }
 
     var body: some View {
@@ -146,7 +152,7 @@ struct QQAccountView: View {
                 // 昵称
                 HStack(spacing: 8) {
                     Text(nickname ?? NSLocalizedString("qq_user_default", comment: ""))
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(23, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .medium) : .system(size: 22, weight: .bold, design: .rounded)))
+                        .font(accountTitleFont)
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
 
@@ -199,7 +205,7 @@ struct QQAccountView: View {
     private var avatarPlaceholder: some View {
         ZStack {
             Circle()
-                .fill(Color.monologueGlassTint)
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 .frame(width: 92, height: 92)
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
 
@@ -223,7 +229,7 @@ struct QQAccountView: View {
                 )
             )
         }
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private func detailRow(icon: MonologueIcon.IconType, title: String, trailing: AnyView) -> some View {
@@ -333,7 +339,7 @@ struct QQAccountView: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: MangaStyle.isActive ? 24 : 36, style: .continuous)
-                    .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
+                    .fill(accountHeroFill)
                     .frame(width: 120, height: 120)
                     .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
                     .overlay {
@@ -404,7 +410,21 @@ struct QQAccountView: View {
             Divider().padding(.leading, 56)
             featureRow(icon: .translate, title: NSLocalizedString("qq_feature_lyrics", comment: ""), subtitle: NSLocalizedString("qq_feature_lyrics_desc", comment: ""))
         }
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+    }
+
+    private var accountTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.titleFont(23, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(22, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(22, weight: .semibold) }
+        return .system(size: 22, weight: .bold, design: .rounded)
+    }
+
+    private var accountHeroFill: Color {
+        if MangaStyle.isActive { return MangaStyle.bubbleBlue }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        return Color.monologueGlassTint
     }
 
     private func featureRow(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {

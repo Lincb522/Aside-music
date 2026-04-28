@@ -28,6 +28,19 @@ enum PlatformBadgePalette {
             }
         }
 
+        if NeumorphicStyle.isActive {
+            switch source {
+            case .netease:
+                return Color(light: Color(hex: "C96E83"), dark: Color(hex: "EAA0B1"))
+            case .qqmusic:
+                return Color(light: Color(hex: "B08434"), dark: Color(hex: "D9B66A"))
+            case .qishui:
+                return Color(light: Color(hex: "527F61"), dark: Color(hex: "92C59D"))
+            case .local:
+                return NeumorphicStyle.accent
+            }
+        }
+
         switch source {
         case .netease:
             return Color(light: Color(hex: "E5537A"), dark: Color(hex: "F08AA8"))
@@ -61,12 +74,12 @@ struct PlatformBadgeLabel: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(tint.opacity(MangaStyle.isActive ? 0.16 : 0.12))
+                RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 6 : 4, style: .continuous)
+                    .fill(tint.opacity(MangaStyle.isActive ? 0.16 : (NeumorphicStyle.isActive ? 0.13 : 0.12)))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .stroke(tint.opacity(0.72), lineWidth: 0.6)
+                RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 6 : 4, style: .continuous)
+                    .stroke(tint.opacity(NeumorphicStyle.isActive ? 0.42 : 0.72), lineWidth: 0.6)
             )
     }
 }

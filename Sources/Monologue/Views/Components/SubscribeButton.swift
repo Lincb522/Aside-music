@@ -20,6 +20,16 @@ struct SubscribeButton: View {
                 )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+        } else if NeumorphicStyle.isActive {
+            Button(action: action) {
+                NeumorphicPill(
+                    text: isSubscribed ? label.subscribed : label.unsubscribed,
+                    tint: isSubscribed ? NeumorphicStyle.red : NeumorphicStyle.accent,
+                    icon: isSubscribed ? .liked : .like,
+                    selected: true
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
         } else {
             Button(action: action) {
                 HStack(spacing: 6) {

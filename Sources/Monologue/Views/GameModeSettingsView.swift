@@ -25,23 +25,31 @@ struct GameModeSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    mainSection
-                    scenariosSection
-                    optionsSection
-                    presetsSection
-                    infoSection
-                    FloatingBarBottomSpacer()
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "game_mode_settings_title"),
+                        eyebrow: "GAME",
+                        icon: .gridSquare
+                    )
+
+                    VStack(spacing: 20) {
+                        mainSection
+                        scenariosSection
+                        optionsSection
+                        presetsSection
+                        infoSection
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .iPadContentWidth(700)
                 }
-                .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
-                .iPadContentWidth(700)
-                .padding(.top, 16)
             }
+            .scrollIndicators(.hidden)
             .onChange(of: settings.gameModeAutoDucking) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeLowerQuality) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeSilentNowPlaying) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeAutoExit) { _, _ in refreshMatchedPreset() }
         }
-        .themedNavigationChrome(title: String(localized: "game_mode_settings_title"), eyebrow: "GAME", icon: .gridSquare)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
             String(localized: "game_mode_preferred_quality_title"),
@@ -89,13 +97,13 @@ struct GameModeSettingsView: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(gameMode.isActive
-                                  ? Color(hex: "FF8FA8")
-                                  : Color.monologueIconBackground)
+                                  ? gameModeAccent
+                                  : gameModeIconFill)
                             .frame(width: 44, height: 44)
                         MonologueIcon(
                             icon: .waveform,
                             size: 22,
-                            color: gameMode.isActive ? .white : .monologueIconForeground
+                            color: gameMode.isActive ? gameModeAccentText : .monologueIconForeground
                         )
                     }
 
@@ -116,7 +124,7 @@ struct GameModeSettingsView: View {
                     // 大开关视觉
                     ZStack {
                         Capsule()
-                            .fill(gameMode.isActive ? Color(hex: "FF8FA8") : Color.monologueIconBackground)
+                            .fill(gameMode.isActive ? gameModeAccent : gameModeIconFill)
                             .frame(width: 48, height: 28)
                         Circle()
                             .fill(Color.white)
@@ -132,10 +140,7 @@ struct GameModeSettingsView: View {
             }
             .buttonStyle(.plain)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.monologueCardBackground)
-        )
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     // MARK: - 场景预设（FPS / RPG / 音游）
@@ -184,14 +189,14 @@ struct GameModeSettingsView: View {
                 MonologueSymbolIcon(
                     name: preset.systemIconName,
                     size: 19,
-                    color: isSelected ? .white : .monologueTextPrimary
+                    color: isSelected ? gameModeAccentText : .monologueTextPrimary
                 )
                     .frame(width: 32, height: 32)
                     .background(
                         Circle().fill(
                             isSelected
-                            ? Color(hex: "FF8FA8")
-                            : Color.monologueIconBackground.opacity(0.6)
+                            ? gameModeAccent
+                            : gameModeIconFill.opacity(0.8)
                         )
                     )
                 Text(preset.localizedTitle)
@@ -206,14 +211,11 @@ struct GameModeSettingsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.monologueCardBackground)
-            )
+            .themedPageSurface(cornerRadius: 16, elevated: isSelected, mangaTint: MangaStyle.bubbleWhite)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color(hex: "FF8FA8") : Color.clear,
+                        isSelected ? gameModeAccent : Color.clear,
                         lineWidth: 1.5
                     )
             )
@@ -320,10 +322,7 @@ struct GameModeSettingsView: View {
             }
         }
         .animation(.easeInOut(duration: 0.22), value: settings.gameModeSilentNowPlaying)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.monologueCardBackground)
-        )
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     // MARK: - 指定歌单 / 指定音质
@@ -382,10 +381,7 @@ struct GameModeSettingsView: View {
             }
             .buttonStyle(.plain)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.monologueCardBackground)
-        )
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private var preferredQualitySubtitle: String {
@@ -420,9 +416,18 @@ struct GameModeSettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.monologueCardBackground.opacity(0.6))
-        )
+        .themedPageSurface(cornerRadius: 18, elevated: false, mangaTint: MangaStyle.bubbleWhite)
+    }
+
+    private var gameModeAccent: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color(hex: "FF8FA8")
+    }
+
+    private var gameModeAccentText: Color {
+        NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .white
+    }
+
+    private var gameModeIconFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueIconBackground
     }
 }

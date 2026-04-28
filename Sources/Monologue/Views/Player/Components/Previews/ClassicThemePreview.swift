@@ -11,6 +11,8 @@ struct ClassicThemePreview: View {
                 mangaPreview
             } else if MujiStyle.isActive {
                 mujiPreview
+            } else if NeumorphicStyle.isActive {
+                neumorphicPairedPreview
             } else {
                 defaultPreview
             }
@@ -187,6 +189,60 @@ struct ClassicThemePreview: View {
         }
     }
 
+    private var neumorphicPairedPreview: some View {
+        ZStack {
+            NeumorphicRootBackdrop()
+
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.clear)
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true, tint: NeumorphicStyle.surfaceRaised))
+                        .frame(width: 82, height: 68)
+
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [NeumorphicStyle.accent.opacity(0.58), NeumorphicStyle.sage.opacity(0.34), NeumorphicStyle.surfacePressed],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                        .overlay(MonologueIcon(icon: .musicNote, size: 16, color: Color(light: .white, dark: .black).opacity(0.82)))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .scaleEffect(isPlaying ? 1.035 : 1.0)
+                        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: isPlaying)
+                }
+
+                VStack(spacing: 6) {
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(NeumorphicStyle.inkSoft.opacity(0.42))
+                            .frame(width: 34, height: 4)
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(NeumorphicStyle.separator.opacity(0.6))
+                            .frame(width: 22, height: 4)
+                    }
+
+                    progressLine(width: 78, height: 4, fill: NeumorphicStyle.accent, track: NeumorphicStyle.surfacePressed)
+
+                    HStack(spacing: 9) {
+                        neumorphicMiniButton(width: 13, icon: .previous)
+                        neumorphicMiniButton(width: 21, icon: .play, tint: NeumorphicStyle.accent)
+                            .scaleEffect(isPlaying ? 1.08 : 1.0)
+                            .animation(.spring(response: 0.34, dampingFraction: 0.62).repeatForever(autoreverses: true), value: isPlaying)
+                        neumorphicMiniButton(width: 13, icon: .next)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, tint: NeumorphicStyle.surface))
+            }
+            .padding(10)
+        }
+    }
+
     private func progressLine(width: CGFloat, height: CGFloat, fill: Color, track: Color) -> some View {
         ZStack(alignment: .leading) {
             Capsule()
@@ -204,5 +260,13 @@ struct ClassicThemePreview: View {
             .fill(fill)
             .frame(width: size, height: size)
             .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
+    }
+
+    private func neumorphicMiniButton(width: CGFloat, icon: MonologueIcon.IconType, tint: Color = NeumorphicStyle.inkSoft) -> some View {
+        Circle()
+            .fill(Color.clear)
+            .frame(width: width, height: width)
+            .background(NeumorphicSurfaceBackground(cornerRadius: width / 2, elevated: true))
+            .overlay(MonologueIcon(icon: icon, size: width * 0.48, color: tint, lineWidth: 1.4))
     }
 }

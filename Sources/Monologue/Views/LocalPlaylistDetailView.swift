@@ -37,13 +37,15 @@ struct LocalPlaylistDetailView: View {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
+            } else if NeumorphicStyle.isActive {
+                NeumorphicRootBackdrop()
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist?.displayCoverUrl?.sized(200))
             } else {
                 ThemedPageBackground()
             }
 
-            if MangaStyle.isActive || MujiStyle.isActive {
+            if ThemedPageStyle.isActive {
                 ScrollView {
                     localPlaylistScrollableContent(includeHeader: true)
                 }
@@ -168,6 +170,8 @@ struct LocalPlaylistDetailView: View {
             mangaHeaderView
         } else if MujiStyle.isActive {
             mujiHeaderView
+        } else if NeumorphicStyle.isActive {
+            neumorphicHeaderView
         } else {
             VStack(alignment: .leading, spacing: 12) {
             if let p = playlist {
@@ -433,6 +437,137 @@ struct LocalPlaylistDetailView: View {
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
     }
 
+    private var neumorphicHeaderView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let p = playlist {
+                HStack(alignment: .top, spacing: 16) {
+                    Group {
+                        if let url = p.displayCoverUrl {
+                            CachedAsyncImage(url: url.sized(500)) {
+                                neumorphicCoverPlaceholder
+                            }
+                            .aspectRatio(contentMode: .fill)
+                        } else {
+                            neumorphicCoverPlaceholder
+                        }
+                    }
+                    .frame(width: DeviceLayout.isPad ? 172 : 128, height: DeviceLayout.isPad ? 172 : 128)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
+                    )
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 7) {
+                            NeumorphicPill(text: String(localized: "local_playlist_label"), tint: NeumorphicStyle.accent, selected: true, compact: true)
+                            NeumorphicPill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: NeumorphicStyle.sage, compact: true)
+                        }
+
+                        Text(p.name)
+                            .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if let desc = p.desc, !desc.isEmpty {
+                            Text(desc)
+                                .font(NeumorphicStyle.labelFont(12, weight: .medium))
+                                .foregroundStyle(NeumorphicStyle.inkSoft)
+                                .lineLimit(2)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(spacing: 10) {
+                    Button(action: {
+                        let songs = p.songs
+                        if let first = songs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: songs)
+                        }
+                    }) {
+                        NeumorphicPlayPill(title: String(localized: "play_now"), tint: NeumorphicStyle.accent)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    .opacity(p.songs.isEmpty ? 0.55 : 1)
+                    .disabled(p.songs.isEmpty)
+
+                    if !p.isSystem {
+                        Button(action: {
+                            AlertManager.shared.showInput(
+                                title: NSLocalizedString("local_playlist_rename", comment: ""),
+                                message: "",
+                                placeholder: NSLocalizedString("local_playlist_name", comment: ""),
+                                primaryButtonTitle: NSLocalizedString("confirm", comment: ""),
+                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                onConfirm: { name in
+                                    if !name.isEmpty {
+                                        manager.renamePlaylist(p, name: name)
+                                    }
+                                }
+                            )
+                            AlertManager.shared.inputText = p.name
+                        }) {
+                            neumorphicHeaderIconButton(icon: .settings, tint: NeumorphicStyle.sage)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+
+                    Button(action: { exportPlaylist(p) }) {
+                        neumorphicHeaderIconButton(icon: .download, tint: NeumorphicStyle.warm)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+
+                    if !p.isSystem {
+                        Button(action: {
+                            AlertManager.shared.show(
+                                title: NSLocalizedString("local_playlist_delete", comment: ""),
+                                message: String(format: NSLocalizedString("local_playlist_delete_confirm", comment: ""), p.name),
+                                primaryButtonTitle: NSLocalizedString("lib_delete", comment: ""),
+                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                primaryAction: {
+                                    manager.deletePlaylist(p)
+                                    dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
+                                }
+                            )
+                        }) {
+                            neumorphicHeaderIconButton(icon: .trash, tint: NeumorphicStyle.red)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+                }
+            }
+        }
+        .padding(17)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true))
+        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.bottom, 12)
+        .iPadContentWidth(900)
+    }
+
+    private var neumorphicCoverPlaceholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(NeumorphicStyle.surfacePressed)
+            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 52)
+        }
+    }
+
+    private func neumorphicHeaderIconButton(icon: MonologueIcon.IconType, tint: Color) -> some View {
+        MonologueIcon(icon: icon, size: 14, color: tint, lineWidth: 1.55)
+            .frame(width: 38, height: 38)
+            .background(
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 14,
+                    elevated: true,
+                    tint: tint.opacity(0.12)
+                )
+            )
+    }
+
     private var mujiHeaderView: some View {
         VStack(alignment: .leading, spacing: 18) {
             if let p = playlist {
@@ -580,6 +715,8 @@ struct LocalPlaylistDetailView: View {
                 MangaLabel(text: "\(count) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
             } else if MujiStyle.isActive {
                 MujiPill(text: "\(count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicPill(text: "\(count)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
             } else {
                 HStack(spacing: 4) {
                     MonologueIcon(icon: .musicNoteList, size: 10, color: .monologueTextSecondary.opacity(0.85))
@@ -612,11 +749,24 @@ struct LocalPlaylistDetailView: View {
                 let displaySongs = songs.filtered(by: searchText)
                 if songs.isEmpty {
                     VStack(spacing: 16) {
-                        MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                        if NeumorphicStyle.isActive {
+                            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
+                        } else {
+                            MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                        }
+
                         Text(LocalizedStringKey("local_playlist_no_songs"))
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                        }
+                    }
+                    .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
                     .padding(.top, 60)
                 } else {
                     ForEach(Array(displaySongs.enumerated()), id: \.element.id) { index, song in

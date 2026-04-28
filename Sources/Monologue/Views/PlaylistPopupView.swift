@@ -76,12 +76,6 @@ struct PlaylistPopupView: View {
                 .scrollIndicators(.hidden)
             }
         }
-        .background(sheetBackground.ignoresSafeArea(edges: .bottom))
-    }
-
-    @ViewBuilder
-    private var sheetBackground: some View {
-        Color.clear
     }
 
     private var headerView: some View {
@@ -104,7 +98,7 @@ struct PlaylistPopupView: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(Color.monologueSeparator)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                 )
             }
         }
@@ -386,7 +380,10 @@ private struct QueueShelfCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var cardBackground: Color {
-        colorScheme == .dark ? Color.white.opacity(0.05) : Color.monologueSeparator.opacity(0.24)
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.surfacePressed
+        }
+        return colorScheme == .dark ? Color.white.opacity(0.05) : Color.monologueSeparator.opacity(0.24)
     }
 
     var body: some View {
@@ -432,6 +429,11 @@ private struct QueueShelfCard: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(cardBackground)
             )
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -512,13 +514,22 @@ private struct QueueLinearRow: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
         .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    isCurrent
-                        ? (colorScheme == .dark ? Color.white.opacity(0.08) : Color.monologueSeparator.opacity(0.34))
-                        : Color.monologueSeparator.opacity(colorScheme == .dark ? 0.14 : 0.22)
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 14,
+                    elevated: isCurrent,
+                    pressed: !isCurrent,
+                    tint: isCurrent ? NeumorphicStyle.accent.opacity(0.18) : NeumorphicStyle.surface
                 )
-                .monologueGlassConditional(isActive: isCurrent, cornerRadius: 14)
+            } else {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        isCurrent
+                            ? (colorScheme == .dark ? Color.white.opacity(0.08) : Color.monologueSeparator.opacity(0.34))
+                            : Color.monologueSeparator.opacity(colorScheme == .dark ? 0.14 : 0.22)
+                    )
+                    .monologueGlassConditional(isActive: isCurrent, cornerRadius: 14)
+            }
         }
         .opacity(isPlayed ? 0.78 : 1)
     }

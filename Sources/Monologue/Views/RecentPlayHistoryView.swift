@@ -59,6 +59,14 @@ struct RecentPlayHistoryView: View {
                             ) {
                                 MujiIconBadge(icon: .history, tint: MujiStyle.tea, size: 48)
                             }
+                        } else if NeumorphicStyle.isActive {
+                            NeumorphicPageHeader(
+                                eyebrow: "HISTORY",
+                                title: String(localized: "profile_recently_played"),
+                                subtitle: ""
+                            ) {
+                                NeumorphicIconBadge(icon: .history, tint: NeumorphicStyle.warm, size: 48)
+                            }
                         }
 
                         PlaylistSearchBar(
@@ -114,7 +122,7 @@ struct RecentPlayHistoryView: View {
                 .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "profile_recently_played"))
+        .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "profile_recently_played"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -123,7 +131,11 @@ struct RecentPlayHistoryView: View {
                     Button {
                         showClearConfirm = true
                     } label: {
-                        MonologueIcon(icon: .trash, size: 16, color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : .monologueTextPrimary))
+                        MonologueIcon(
+                            icon: .trash,
+                            size: 16,
+                            color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextPrimary))
+                        )
                     }
                     .disabled(playerManager.history.isEmpty)
                 }
@@ -137,6 +149,8 @@ struct RecentPlayHistoryView: View {
                         MangaLabel(text: String(localized: "artist_play_all"), tint: MangaStyle.labelYellow, small: true)
                     } else if MujiStyle.isActive {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
+                    } else if NeumorphicStyle.isActive {
+                        NeumorphicPlayPill(title: String(localized: "artist_play_all"))
                     } else {
                         HStack(spacing: 6) {
                             MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)

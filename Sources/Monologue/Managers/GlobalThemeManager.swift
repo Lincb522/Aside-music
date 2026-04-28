@@ -26,15 +26,31 @@ final class GlobalThemeManager {
 
     // MARK: - Token 快捷访问
 
-    var colors: GlobalColorPalette { current.colorPalette }
-    var typography: GlobalTypography { current.typography }
-    var shapes: GlobalShapeLanguage { current.shapeLanguage }
-    var icons: GlobalIconStyle { current.iconStyle }
-    var animations: GlobalAnimationStyle { current.animationStyle }
+    var colors: GlobalColorPalette {
+        current.colorPalette
+    }
+
+    var typography: GlobalTypography {
+        current.typography
+    }
+
+    var shapes: GlobalShapeLanguage {
+        current.shapeLanguage
+    }
+
+    var icons: GlobalIconStyle {
+        current.iconStyle
+    }
+
+    var animations: GlobalAnimationStyle {
+        current.animationStyle
+    }
 
     // MARK: - 是否为默认主题
 
-    var isDefault: Bool { currentThemeId == .default }
+    var isDefault: Bool {
+        currentThemeId == .default
+    }
 
     // MARK: - 初始化
 
@@ -43,16 +59,17 @@ final class GlobalThemeManager {
 
     private init() {
         let raw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.default.rawValue
-        self.currentThemeId = GlobalThemeId(rawValue: raw) ?? .default
+        currentThemeId = GlobalThemeId(rawValue: raw) ?? .default
     }
 
     // MARK: - 主题工厂
 
     private static func makeProvider(for id: GlobalThemeId) -> GlobalThemeProvider {
         switch id {
-        case .default:   return DefaultThemeProvider()
-        case .muji:      return MujiThemeProvider()
-        case .manga:     return MangaThemeProvider()
+        case .default: return DefaultThemeProvider()
+        case .muji: return MujiThemeProvider()
+        case .manga: return MangaThemeProvider()
+        case .neumorphic: return NeumorphicThemeProvider()
         }
     }
 
@@ -61,5 +78,9 @@ final class GlobalThemeManager {
     func switchTheme(to id: GlobalThemeId) {
         guard id != currentThemeId else { return }
         currentThemeId = id
+    }
+
+    func refreshCurrentThemeTokens() {
+        _cachedProvider = nil
     }
 }

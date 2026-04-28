@@ -190,10 +190,12 @@ extension PlayerManager {
                     self.isUnderInterruption = true
                     self.routeChangeResumeWorkItem?.cancel()
                     self.routeChangeResumeWorkItem = nil
-                    if self.isPlaying {
+                    let wasActivePlayback = self.isPlaying || self.streamPlayer.state == .playing
+                    if wasActivePlayback, self.currentSong != nil {
                         self.wasPlayingBeforeInterruption = true
                         self.streamPlayer.pause()
                         self.isPlaying = false
+                        self.isLoading = false
                         self.refreshPlaybackSurfaceState()
                         self.saveStateImmediately()
                     }
@@ -210,11 +212,11 @@ extension PlayerManager {
                         shouldResume = true
                     }
                     guard shouldResume else {
-                        AppLogger.info("系统未建议恢复，等待用户手动操作")
+                        AppLogger.info("系统未建议立即恢复，延迟检查是否可恢复")
+                        self.scheduleResumeAfterRouteChangeIfNeeded()
                         break
                     }
-                    self.wasPlayingBeforeInterruption = false
-                    self.resumeAfterInterruption()
+                    self.resumeAfterInterruption(reason: "interruption ended")
                 @unknown default:
                     break
                 }
@@ -236,8 +238,7 @@ extension PlayerManager {
                 AppLogger.debug("didBecomeActive 延迟后: otherPlaying=\(otherPlaying)")
                 if !otherPlaying {
                     AppLogger.info("App 激活且无其他音频，恢复播放")
-                    self.wasPlayingBeforeInterruption = false
-                    self.resumeAfterInterruption()
+                    self.resumeAfterInterruption(reason: "didBecomeActive")
                 }
             }
         }
@@ -408,23 +409,41 @@ extension PlayerManager {
             guard self.wasPlayingBeforeInterruption, !self.isPlaying, self.currentSong != nil else { return }
             guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else { return }
             AppLogger.info("路由变化后检测到可恢复，继续播放")
-            self.wasPlayingBeforeInterruption = false
-            self.resumeAfterInterruption()
+            self.resumeAfterInterruption(reason: "route change")
         }
         routeChangeResumeWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
     
     /// 中断恢复：先尝试 resume，如果播放器状态异常则从当前位置重新加载
-    func resumeAfterInterruption() {
-        AppLogger.info("恢复播放 (state=\(streamPlayer.state))")
-        // 强制重写 options（绕过缓存），中断恢复时确保 session 处于 active
+    func resumeAfterInterruption(reason: String = "interruption resume") {
+        guard currentSong != nil else { return }
+        AppLogger.info("恢复播放 (state=\(streamPlayer.state), reason=\(reason))")
+
+        routeChangeResumeWorkItem?.cancel()
+        routeChangeResumeWorkItem = nil
+        isUnderInterruption = false
+        wasPlayingBeforeInterruption = false
+
+        // 强制重写 options（绕过缓存），中断恢复时确保 session 处于 active。
+        // 这里使用 activateAudioSessionForPlayback，而不是只依赖 reapply，
+        // 避免 options 未变化但 session 已被系统打断的场景。
         lastAppliedAudioSessionOptions = nil
-        reapplyAudioSessionOptions(reason: "interruption resume")
+        activateAudioSessionForPlayback(reason: reason)
 
         if streamPlayer.state == .paused {
             streamPlayer.resume()
             isPlaying = true
+            isLoading = false
+            refreshPlaybackSurfaceState()
+        } else if streamPlayer.state == .playing {
+            // 微信语音/电话等中断后，SDK 状态偶尔仍停在 `.playing`，
+            // 但底层 AudioEngine 已经不出声。强制走一次 pause→resume
+            // 让 AudioRenderer 在重新激活的 session 上启动。
+            streamPlayer.pause()
+            streamPlayer.resume()
+            isPlaying = true
+            isLoading = false
             refreshPlaybackSurfaceState()
         } else if let song = currentSong {
             let time = currentTime

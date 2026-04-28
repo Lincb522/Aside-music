@@ -85,7 +85,7 @@ struct SongDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    Color.gray.opacity(0.3)
+                    NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.3)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 100, height: 100)
@@ -140,7 +140,7 @@ struct SongDetailView: View {
                     .foregroundColor(.monologueIconForeground)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Theme.accent)
+                    .background(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Theme.accent)
                     .cornerRadius(20)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
@@ -151,7 +151,7 @@ struct SongDetailView: View {
                     MonologueIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(Color.monologueGlassTint).monologueGlassCircle()
+                            Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint).monologueGlassCircle()
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -164,7 +164,7 @@ struct SongDetailView: View {
                     MonologueIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(Color.monologueGlassTint).monologueGlassCircle()
+                            Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint).monologueGlassCircle()
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -174,7 +174,9 @@ struct SongDetailView: View {
         }
         .padding(24)
         .padding(.top, 16)
-        .background(.clear).monologueGlass(cornerRadius: 20)
+        .background(.clear)
+        .themedPageSurface(cornerRadius: 22, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .padding(.horizontal, ThemedPageStyle.isActive ? 24 : 0)
     }
 
     private var songsListView: some View {
@@ -234,11 +236,12 @@ struct SongDetailView: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
                     .monologueGlass(cornerRadius: 20)
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
+            .themedOnlyPageSurface(cornerRadius: 18, elevated: false, mangaTint: MangaStyle.bubbleWhite)
             .padding(.horizontal, 24)
         }
     }
@@ -262,7 +265,7 @@ struct SongDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.monologueGlassTint)
+                                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                                         .monologueGlass(cornerRadius: 12)
                                 }
                                 .frame(width: 120, height: 120)

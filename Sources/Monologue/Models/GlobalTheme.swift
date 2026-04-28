@@ -8,6 +8,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     case `default`     // 默认 — 当前 App 的原始样貌
     case muji          // 无印良品 — 极简暖色纸质感、大量留白
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
+    case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
 
     var id: String { rawValue }
 
@@ -16,6 +17,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .default:   return String(localized: "默认")
         case .muji:      return String(localized: "无印良品")
         case .manga:     return String(localized: "漫画风")
+        case .neumorphic: return String(localized: "新拟物")
         }
     }
 
@@ -24,6 +26,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .default:   return String(localized: "Monologue 原始设计风格")
         case .muji:      return String(localized: "极简纸质感，温暖呼吸感")
         case .manga:     return String(localized: "粗线描边，网点气泡，漫画世界")
+        case .neumorphic: return String(localized: "柔软凸起与凹陷控件，安静的实体触感")
         }
     }
 
@@ -32,6 +35,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .default:   return .playerTheme
         case .muji:      return .catLife
         case .manga:     return .catBook
+        case .neumorphic: return .layers
         }
     }
 }

@@ -5,6 +5,7 @@ struct QishuiQualityPickerSheet: View {
     let onSelect: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     private static let qualities: [(key: String, name: String, subtitle: String)] = [
         ("lossless", "无损", "FLAC · ~820kbps"),
@@ -23,8 +24,8 @@ struct QishuiQualityPickerSheet: View {
         VStack(spacing: 20) {
             HStack {
                 Text("QSM 音质")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
 
                 PlatformBadgeLabel(text: "QSM", source: .qishui)
 
@@ -33,9 +34,7 @@ struct QishuiQualityPickerSheet: View {
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
                     MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
                         .padding(10)
-                        .background(Color.monologueSeparator)
-                        .clipShape(Circle())
-                        .monologueGlassCircle()
+                        .background { closeButtonBackground }
                 }
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -48,10 +47,13 @@ struct QishuiQualityPickerSheet: View {
                             HStack(spacing: 14) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(currentQuality == item.key ? Color.monologueIconBackground : Color.monologueIconBackground.opacity(0.08))
+                                        .fill(Color.clear)
                                         .frame(width: 32, height: 32)
+                                        .background {
+                                            qualityIconTileBackground(isSelected: currentQuality == item.key)
+                                        }
 
-                                    MonologueIcon(icon: .soundQuality, size: 16, color: currentQuality == item.key ? .monologueIconForeground : .monologueTextPrimary)
+                                    MonologueIcon(icon: .soundQuality, size: 16, color: currentQuality == item.key ? selectedIconColor : defaultIconColor)
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -67,7 +69,7 @@ struct QishuiQualityPickerSheet: View {
                                 Spacer()
 
                                 if currentQuality == item.key {
-                                    MonologueIcon(icon: .checkmark, size: 14, color: .monologueTextPrimary)
+                                    MonologueIcon(icon: .checkmark, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -81,17 +83,65 @@ struct QishuiQualityPickerSheet: View {
                     }
                 }
                 .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.monologueGlassTint)
-                        .monologueGlass(cornerRadius: 20)
-                        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    qualityPanelBackground
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.bottom, 20)
                 .iPadContentWidth(500)
             }
             .scrollIndicators(.hidden)
+        }
+    }
+
+    private var qualityPanelCornerRadius: CGFloat {
+        NeumorphicStyle.isActive ? 22 : 16
+    }
+
+    private var selectedIconColor: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
+    }
+
+    private var defaultIconColor: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    @ViewBuilder
+    private var qualityPanelBackground: some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false)
+        } else {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .monologueGlass(cornerRadius: 20)
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        }
+    }
+
+    @ViewBuilder
+    private var closeButtonBackground: some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true)
+                .clipShape(Circle())
+        } else {
+            Circle()
+                .fill(Color.monologueSeparator)
+                .monologueGlassCircle()
+        }
+    }
+
+    @ViewBuilder
+    private func qualityIconTileBackground(isSelected: Bool) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 10,
+                elevated: false,
+                pressed: isSelected,
+                tint: isSelected ? NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.2 : 0.16) : NeumorphicStyle.surfacePressed.opacity(0.72)
+            )
+        } else {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? Color.monologueIconBackground : Color.monologueIconBackground.opacity(0.08))
         }
     }
 }

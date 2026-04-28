@@ -23,15 +23,23 @@ struct PlaybackSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    playbackSection
-                    FloatingBarBottomSpacer()
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "settings_navigation_playback_title"),
+                        eyebrow: "PLAY",
+                        icon: .soundQuality
+                    )
+
+                    VStack(spacing: 20) {
+                        playbackSection
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .iPadContentWidth(700)
                 }
-                .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
-                .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .themedNavigationChrome(title: String(localized: "settings_navigation_playback_title"), eyebrow: "PLAY", icon: .soundQuality)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onChange(of: settings.gaplessPlaybackEnabled) { _, enabled in

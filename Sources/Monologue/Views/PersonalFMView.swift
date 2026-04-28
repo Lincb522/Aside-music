@@ -12,11 +12,13 @@ struct PersonalFMView: View {
     @State private var trashTask: Task<Void, Never>?
 
     private struct Theme {
-        static let background = Color.clear
-        static let text = Color.monologueTextPrimary
-        static let secondaryText = Color.monologueTextSecondary
-        static let accent = Color.monologueTextPrimary
-        static let cardBackground = Color.monologueGlassTint.opacity(0.8)
+        static var background: Color { .clear }
+        static var text: Color { NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary }
+        static var secondaryText: Color { NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary }
+        static var accent: Color { NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary }
+        static var accentForeground: Color { NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : Color.monologueIconForeground }
+        static var cardBackground: Color { NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.8) }
+        static var pressedBackground: Color { NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint }
     }
 
     // MARK: - Waveform Component
@@ -148,7 +150,7 @@ struct PersonalFMView: View {
                             ZStack {
                                 CachedAsyncImage(url: song.coverUrl) {
                                     Color.gray.opacity(0.05).overlay(
-                                        MonologueIcon(icon: .fm, size: 80, color: .monologueTextPrimary.opacity(0.1))
+                                        MonologueIcon(icon: .fm, size: 80, color: Theme.accent.opacity(0.12))
                                     )
                                 }
                                 .aspectRatio(contentMode: .fill)
@@ -179,7 +181,7 @@ struct PersonalFMView: View {
                             currentTime: isDraggingSlider ? dragTimeValue : (isOwnFMContent ? timePub.currentTime : 0),
                             duration: isOwnFMContent ? timePub.duration : 0,
                             isPlaying: isFMPlaying,
-                            color: .monologueTextPrimary,
+                            color: Theme.accent,
                             onSeek: { time in
                                 isDraggingSlider = true
                                 dragTimeValue = time
@@ -304,15 +306,15 @@ struct PersonalFMView: View {
 
                 HStack(spacing: 40) {
                     if let song = currentFMSong {
-                        LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 24, activeColor: .red, inactiveColor: .monologueTextPrimary)
+                        LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 24, activeColor: .red, inactiveColor: Theme.accent)
                             .frame(width: 50, height: 50)
-                            .background(Circle().fill(Color.monologueGlassTint))
+                            .background(Circle().fill(Theme.pressedBackground))
                             .monologueGlassCircle()
                     } else {
                         Button(action: {}) {
-                            MonologueIcon(icon: .like, size: 24, color: .monologueTextPrimary)
+                            MonologueIcon(icon: .like, size: 24, color: Theme.accent)
                                 .frame(width: 50, height: 50)
-                                .background(Circle().fill(Color.monologueGlassTint))
+                                .background(Circle().fill(Theme.pressedBackground))
                                 .monologueGlassCircle()
                         }
                     }
@@ -328,12 +330,12 @@ struct PersonalFMView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(Color.monologueGlassTint)
+                                .fill(NeumorphicStyle.isActive ? Theme.accent : Color.monologueGlassTint)
                                 .frame(width: 72, height: 72)
                                 .monologueGlassCircle()
                                 .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
 
-                            MonologueIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: .monologueTextPrimary)
+                            MonologueIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: NeumorphicStyle.isActive ? Theme.accentForeground : Theme.accent)
                                 .offset(x: isFMPlaying ? 0 : 2)
                         }
                     }
@@ -344,9 +346,9 @@ struct PersonalFMView: View {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         nextSong()
                     }) {
-                        MonologueIcon(icon: .next, size: 24, color: .monologueTextPrimary)
+                        MonologueIcon(icon: .next, size: 24, color: Theme.accent)
                             .frame(width: 50, height: 50)
-                            .background(Circle().fill(Color.monologueGlassTint))
+                            .background(Circle().fill(Theme.pressedBackground))
                             .monologueGlassCircle()
                     }
                 }
@@ -364,7 +366,7 @@ struct PersonalFMView: View {
 
                     Text(LocalizedStringKey("player_private_fm"))
                         .font(.rounded(size: 16, weight: .black))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(Theme.text)
                         .tracking(1.5)
                         .textCase(.uppercase)
 
@@ -372,7 +374,7 @@ struct PersonalFMView: View {
 
                     // FM 模式切换按钮
                     Button(action: { showFMModePicker = true }) {
-                        MonologueIcon(icon: .fmMode, size: 20, color: .monologueTextPrimary)
+                        MonologueIcon(icon: .fmMode, size: 20, color: Theme.accent)
                             .frame(width: 44, height: 44)
                     }
                 }
@@ -409,7 +411,7 @@ struct PersonalFMView: View {
     private func fmLyricsBackView(song: Song) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color.monologueGlassTint)
+                .fill(Theme.cardBackground)
             
             // 只有当播放源是 FM 且歌词对应当前 FM 歌曲时才显示歌词
             if isOwnFMContent && lyricVM.currentSongId == song.id && lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
@@ -421,7 +423,7 @@ struct PersonalFMView: View {
                                 let isCurrent = index == lyricVM.currentLineIndex
                                 Text(line.text)
                                     .font(.system(size: isCurrent ? 18 : 15, weight: isCurrent ? .bold : .medium, design: .rounded))
-                                    .foregroundColor(isCurrent ? .monologueTextPrimary : .monologueTextSecondary.opacity(0.6))
+                                    .foregroundColor(isCurrent ? Theme.text : Theme.secondaryText.opacity(0.6))
                                     .multilineTextAlignment(.center)
                                     .frame(maxWidth: .infinity)
                                     .padding(.horizontal, 20)
@@ -568,12 +570,12 @@ struct PersonalFMView: View {
 
     private func emptyStateView() -> some View {
         VStack(spacing: 24) {
-            MonologueIcon(icon: .fm, size: 40, color: .monologueTextPrimary.opacity(0.15))
+            MonologueIcon(icon: .fm, size: 40, color: Theme.accent.opacity(0.18))
 
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("fm_offline"))
                     .font(.rounded(size: 20, weight: .bold))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(Theme.text)
 
                 Text(LocalizedStringKey("fm_offline_desc"))
                     .font(.rounded(size: 15))
@@ -587,7 +589,7 @@ struct PersonalFMView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.monologueIconBackground))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(NeumorphicStyle.isActive ? Theme.accent : Color.monologueIconBackground))
             }
         }
     }

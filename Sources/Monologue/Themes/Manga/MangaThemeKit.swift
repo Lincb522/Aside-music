@@ -8,20 +8,38 @@ enum MangaStyle {
     static let ink = Color(light: Color(hex: "17151F"), dark: Color(hex: "F5F0E8"))
     static let inkSub = Color(light: Color(hex: "595260"), dark: Color(hex: "B8B0BE"))
     static let inkMuted = Color(light: Color(hex: "8A8190"), dark: Color(hex: "756D7B"))
-    static let strokeInk = Color(light: Color(hex: "17151F"), dark: Color(hex: "0E0A13"))
+    static var strokeInk: Color {
+        ThemeColorCustomization.mangaExtraColor(suffix: "stroke", lightFallback: "17151F", darkFallback: "F5F0E8")
+    }
+
     static let strokeInkMuted = Color(light: Color(hex: "595260"), dark: Color(hex: "2E2434"))
     static let onStrokeInk = Color(light: Color(hex: "FFFDF5"), dark: Color(hex: "F5F0E8"))
-    static let paper = Color(light: Color(hex: "FFF3D7"), dark: Color(hex: "121018"))
+    static var paper: Color {
+        ThemeColorCustomization.backgroundBase(for: .manga, fallback: Color(light: Color(hex: "FFF3D7"), dark: Color(hex: "121018")), fallbackHex: "FFF3D7")
+    }
+
     static let paperWarm = Color(light: Color(hex: "FFE5B8"), dark: Color(hex: "1F1724"))
     static let paperCool = Color(light: Color(hex: "E8F1FF"), dark: Color(hex: "142033"))
     static let surface = Color(light: Color(hex: "FFF9E9"), dark: Color(hex: "1B1822"))
     static let bubbleWhite = Color(light: Color(hex: "FFFDF5"), dark: Color(hex: "231F2A"))
     static let bubblePink = Color(light: Color(hex: "FFD6E4"), dark: Color(hex: "3A1C2A"))
     static let bubbleBlue = Color(light: Color(hex: "D5EAFF"), dark: Color(hex: "192D42"))
-    static let labelYellow = Color(light: Color(hex: "FFE067"), dark: Color(hex: "C99D37"))
-    static let accentPink = Color(light: Color(hex: "FF4F84"), dark: Color(hex: "D65C84"))
-    static let decoBlue = Color(light: Color(hex: "58B9FF"), dark: Color(hex: "4E8FC8"))
-    static let mint = Color(light: Color(hex: "8DE4B8"), dark: Color(hex: "4BA979"))
+    static var labelYellow: Color {
+        ThemeColorCustomization.mangaExtraColor(suffix: "blockA", lightFallback: "FFE067", darkFallback: "D8B85A")
+    }
+
+    static var accentPink: Color {
+        ThemeColorCustomization.accentColor(for: .manga, fallback: Color(light: Color(hex: "FF4F84"), dark: Color(hex: "D65C84")), fallbackHex: "FF4F84")
+    }
+
+    static var decoBlue: Color {
+        ThemeColorCustomization.mangaExtraColor(suffix: "blockB", lightFallback: "58B9FF", darkFallback: "7AAFE8")
+    }
+
+    static var mint: Color {
+        ThemeColorCustomization.mangaExtraColor(suffix: "blockC", lightFallback: "8DE4B8", darkFallback: "7BC99D")
+    }
+
     static let red = Color(light: Color(hex: "F04452"), dark: Color(hex: "D64D58"))
     static let separator = Color(light: Color(hex: "241F2B").opacity(0.18), dark: Color(hex: "F7EFE5").opacity(0.18))
 
@@ -50,15 +68,16 @@ enum MangaStyle {
 
 struct MangaRootBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         ZStack {
-            LinearGradient(
-                colors: colorScheme == .dark
-                    ? [MangaStyle.paper, MangaStyle.paperWarm.opacity(0.78), MangaStyle.paperCool.opacity(0.72)]
-                    : [MangaStyle.paper, MangaStyle.surface, MangaStyle.paperWarm.opacity(0.78)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+            ThemeCustomDiffuseBackground(
+                theme: .manga,
+                fallbackHexes: colorScheme == .dark ? ["121018", "142033"] : ["FFF3D7", "E8F1FF"],
+                accentFallbackHexes: ["FF4F84", "FFE067"],
+                opacity: colorScheme == .dark ? 0.76 : 0.95
             )
 
             MangaPaperGrainTexture(opacity: colorScheme == .dark ? 0.05 : 0.07)
@@ -77,7 +96,7 @@ struct MangaPaperGrainTexture: View {
             let color = (colorScheme == .dark ? MangaStyle.ink : MangaStyle.strokeInk).opacity(opacity)
             let count = max(Int((size.width * size.height) / 520), 80)
 
-            for index in 0..<count {
+            for index in 0 ..< count {
                 let xSeed = CGFloat((index * 37) % 997) / 997
                 let ySeed = CGFloat((index * 53) % 991) / 991
                 let x = xSeed * size.width
@@ -132,7 +151,7 @@ struct MangaPageGridTexture: View {
             let color = (colorScheme == .dark ? MangaStyle.ink : MangaStyle.strokeInk).opacity(opacity)
             let widths: [CGFloat] = [0.7, 1.1, 0.7, 1.6]
 
-            for index in 0..<5 {
+            for index in 0 ..< 5 {
                 let x = size.width * CGFloat(index + 1) / 6
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: 0))
@@ -140,7 +159,7 @@ struct MangaPageGridTexture: View {
                 context.stroke(path, with: .color(color.opacity(index == 2 ? 0.45 : 0.28)), lineWidth: widths[index % widths.count])
             }
 
-            for index in 0..<6 {
+            for index in 0 ..< 6 {
                 let y = size.height * CGFloat(index + 1) / 7
                 var path = Path()
                 path.move(to: CGPoint(x: 0, y: y))
@@ -159,7 +178,7 @@ struct MangaSpeedLineTexture: View {
         Canvas { context, size in
             let origin = CGPoint(x: size.width * 0.86, y: -28)
             let lines = 16
-            for index in 0..<lines {
+            for index in 0 ..< lines {
                 let endX = size.width * CGFloat(index) / CGFloat(max(lines - 1, 1))
                 var path = Path()
                 path.move(to: origin)
@@ -322,7 +341,7 @@ struct MangaRoundedStarShape: Shape {
         let center = CGPoint(x: rect.midX, y: rect.midY)
         let outer = min(rect.width, rect.height) * 0.48
         let inner = outer * 0.56
-        let points = (0..<10).map { index -> CGPoint in
+        let points = (0 ..< 10).map { index -> CGPoint in
             let radius = index.isMultiple(of: 2) ? outer : inner
             let angle = CGFloat(index) * .pi / 5 - .pi / 2
             return CGPoint(
@@ -437,19 +456,7 @@ struct MangaPageHeader<Accessory: View>: View {
     let eyebrow: String
     let title: String
     let subtitle: String
-    let accessory: Accessory
-
-    init(
-        eyebrow: String,
-        title: String,
-        subtitle: String,
-        @ViewBuilder accessory: () -> Accessory
-    ) {
-        self.eyebrow = eyebrow
-        self.title = title
-        self.subtitle = subtitle
-        self.accessory = accessory()
-    }
+    @ViewBuilder let accessory: Accessory
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -494,7 +501,7 @@ struct MangaNowPlayingIndicator: View {
     var body: some View {
         TimelineView(.animation) { timeline in
             HStack(alignment: .bottom, spacing: 3) {
-                ForEach(0..<4, id: \.self) { index in
+                ForEach(0 ..< 4, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                         .fill(barColor(index))
                         .frame(width: 3.5, height: barHeight(index, at: timeline.date))
@@ -553,11 +560,7 @@ struct MangaListDivider: View {
 }
 
 struct MangaPageSurface<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
+    @ViewBuilder let content: Content
 
     var body: some View {
         ZStack {
@@ -583,8 +586,7 @@ extension View {
     }
 
     func mangaStagger(_ appeared: Bool, order: Int) -> some View {
-        self
-            .opacity(appeared ? 1 : 0)
+        opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 14)
             .scaleEffect(appeared ? 1 : 0.97)
             .animation(
@@ -646,7 +648,7 @@ struct MangaBurstShape: Shape {
         let inner = outer * innerRatio
         let count = max(points, 3) * 2
 
-        for index in 0..<count {
+        for index in 0 ..< count {
             let radius = index.isMultiple(of: 2) ? outer : inner
             let angle = -CGFloat.pi / 2 + CGFloat(index) * CGFloat.pi * 2 / CGFloat(count)
             let point = CGPoint(

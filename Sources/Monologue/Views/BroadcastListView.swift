@@ -85,32 +85,54 @@ struct BroadcastListView: View {
     private func filterCapsule(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded))
-                            .foregroundColor(isSelected ? (MangaStyle.isActive ? MangaStyle.ink : .white) : .monologueTextPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(chipBackground(isSelected: isSelected))
-                            .clipShape(Capsule())
-                            .overlay {
-                                if MangaStyle.isActive {
-                                    Capsule()
-                                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-                                } else if MujiStyle.isActive {
-                                    Capsule()
-                                        .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
-                                }
-                            }
+                .font(chipFont(isSelected: isSelected))
+                .foregroundColor(chipTextColor(isSelected: isSelected))
+                .padding(.horizontal, NeumorphicStyle.isActive ? 16 : 14)
+                .padding(.vertical, NeumorphicStyle.isActive ? 9 : 8)
+                .background(chipBackground(isSelected: isSelected))
+                .clipShape(Capsule())
+                .overlay {
+                    if MangaStyle.isActive {
+                        Capsule()
+                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                    } else if MujiStyle.isActive {
+                        Capsule()
+                            .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                    }
+                }
         }
         .buttonStyle(ScaleButtonStyle())
     }
 
-    private func chipBackground(isSelected: Bool) -> Color {
+    private func chipFont(isSelected: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: isSelected ? .black : .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
+        return .system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded)
+    }
+
+    private func chipTextColor(isSelected: Bool) -> Color {
+        if MangaStyle.isActive { return isSelected ? MangaStyle.ink : MangaStyle.inkSub }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.paper : MujiStyle.ink }
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        return isSelected ? .white : .monologueTextPrimary
+    }
+
+    @ViewBuilder
+    private func chipBackground(isSelected: Bool) -> some View {
         if MangaStyle.isActive {
-            return isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+            Capsule().fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
         } else if MujiStyle.isActive {
-            return isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised
+            Capsule().fill(isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised)
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 16,
+                elevated: isSelected,
+                pressed: !isSelected,
+                tint: isSelected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+            )
         } else {
-            return isSelected ? Color.monologueTextPrimary : Color.monologueGlassTint
+            Capsule().fill(isSelected ? Color.monologueTextPrimary : Color.monologueGlassTint)
         }
     }
 
@@ -121,31 +143,33 @@ struct BroadcastListView: View {
             // 封面
             if let url = channel.coverImageUrl {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: coverRadius)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                .overlay(coverStroke)
             } else {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.monologueGlassTint)
+                RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     .frame(width: 56, height: 56)
                     .overlay(
-                        MonologueIcon(icon: .radio, size: 22, color: .monologueTextSecondary, lineWidth: 1.4)
+                        MonologueIcon(icon: .radio, size: 22, color: NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary, lineWidth: 1.4)
                     )
+                    .overlay(coverStroke)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(channel.displayName)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
 
                 if let program = channel.displayProgram, !program.isEmpty {
                     Text(program)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .lineLimit(1)
                 }
             }
@@ -153,15 +177,31 @@ struct BroadcastListView: View {
             Spacer()
 
             // FM 标识
-            Text("FM")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+            if NeumorphicStyle.isActive {
+                NeumorphicPill(text: "FM", tint: NeumorphicStyle.sage, compact: true)
+            } else {
+                Text("FM")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextSecondary)
+            }
 
-            MonologueIcon(icon: .playCircle, size: 26, color: .monologueTextSecondary, lineWidth: 1.4)
+            MonologueIcon(icon: .playCircle, size: 26, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.4)
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 10)
         .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
         .contentShape(Rectangle())
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 12
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        }
     }
 }

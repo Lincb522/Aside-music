@@ -7,6 +7,11 @@ struct HomeBannerSection: View {
 
     @State private var bannerIndex: Int = 0
     private let timer = Timer.publish(every: 5.0, on: .main, in: .common).autoconnect()
+    private var bannerRadius: CGFloat {
+        if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 26 : 22 }
+        if MujiStyle.isActive { return DeviceLayout.isPad ? 22 : 16 }
+        return DeviceLayout.isPad ? 22 : 16
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -15,11 +20,27 @@ struct HomeBannerSection: View {
                     Button(action: { onTap(banner) }) {
                         CachedAsyncImage(url: banner.imageUrl) {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.monologueGlassTint)
+                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                         }
                         .aspectRatio(contentMode: .fill)
                         .frame(height: DeviceLayout.bannerHeight)
-                        .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.isPad ? 22 : 16, style: .continuous))
+                        .compositingGroup()
+                        .clipShape(RoundedRectangle(cornerRadius: bannerRadius, style: .continuous))
+                        .overlay {
+                            if NeumorphicStyle.isActive {
+                                RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                    .stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.66), lineWidth: 1)
+                            } else if MujiStyle.isActive {
+                                RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                    .stroke(MujiStyle.hairline.opacity(0.56), lineWidth: 0.7)
+                            }
+                        }
+                        .shadow(
+                            color: NeumorphicStyle.isActive ? NeumorphicStyle.darkShadow(colorScheme, intensity: 0.5) : .clear,
+                            radius: NeumorphicStyle.isActive ? 14 : 0,
+                            x: NeumorphicStyle.isActive ? 7 : 0,
+                            y: NeumorphicStyle.isActive ? 9 : 0
+                        )
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
@@ -40,7 +61,7 @@ struct HomeBannerSection: View {
                     ForEach(0..<banners.count, id: \.self) { index in
                         Capsule()
                             .fill(index == bannerIndex
-                                  ? Color.monologueTextPrimary.opacity(0.8)
+                                  ? activeDotColor
                                   : Color.monologueTextSecondary.opacity(0.25))
                             .frame(width: index == bannerIndex ? 16 : 6, height: 6)
                             .animation(.spring(duration: 0.3), value: bannerIndex)
@@ -48,5 +69,11 @@ struct HomeBannerSection: View {
                 }
             }
         }
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var activeDotColor: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary.opacity(0.8)
     }
 }

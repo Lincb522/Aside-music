@@ -76,39 +76,52 @@ struct CategoryRadioView: View {
     private func radioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.monologueGlassTint)
+                RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
             }
             .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+            .overlay(coverStroke)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     if let dj = radio.dj?.nickname {
                         Text(dj)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
                     }
                     if let count = radio.programCount {
                         Text(String(format: String(localized: "podcast_episode_count"), count))
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary)
                     }
                 }
             }
 
             Spacer()
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.2)
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 20)
         .padding(.vertical, 12)
         .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 10
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        }
     }
 }

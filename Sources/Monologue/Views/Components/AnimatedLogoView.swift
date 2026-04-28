@@ -37,6 +37,7 @@ struct AnimatedLogoView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
                     .shadow(color: .black.opacity(0.18), radius: size * 0.06, x: 0, y: size * 0.035)
                     .scaleEffect(x: 1 - (squash - 1) * 0.45, y: squash)
                     .offset(y: bobOffset)

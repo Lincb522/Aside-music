@@ -13,7 +13,11 @@ struct MujiThemeProvider: GlobalThemeProvider {
             primary: MujiStyle.ink,
             secondary: MujiStyle.inkSoft,
             accent: MujiStyle.clay,
-            accentGradient: [MujiStyle.clay, MujiStyle.straw, MujiStyle.tea],
+            accentGradient: ThemeColorCustomization.accentGradientColors(
+                for: .muji,
+                fallback: [MujiStyle.clay, MujiStyle.straw, MujiStyle.tea],
+                fallbackHexes: ["B56B4B", "D8B56D"]
+            ),
             separator: MujiStyle.separator,
             navBarTint: MujiStyle.ink,
             iconBackground: MujiStyle.ink,

@@ -43,9 +43,9 @@ struct HomeDailySection: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(LocalizedStringKey("made_for_you"))
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
-                    .tracking(-0.3)
+                    .tracking(NeumorphicStyle.isActive ? 0 : -0.3)
 
                 HStack(spacing: 0) {
                     Text("\(animatedCount)")
@@ -70,7 +70,13 @@ struct HomeDailySection: View {
                 .foregroundColor(.monologueTextSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Capsule().fill(Color.monologueTextSecondary.opacity(0.06)))
+                .background {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+                    } else {
+                        Capsule().fill(Color.monologueTextSecondary.opacity(0.06))
+                    }
+                }
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .padding(.bottom, 1)
@@ -108,10 +114,9 @@ struct HomeDailySection: View {
                 // 排名角标
                 Text("\(rank)")
                     .font(.system(size: 11, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .white)
                     .frame(width: 22, height: 22)
-                    .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color(light: .black.opacity(0.15), dark: .white.opacity(0.12))))
-                    .monologueGlass(cornerRadius: 7)
+                    .background(rankBackground)
                     .padding(6)
 
                 // 正在播放指示
@@ -138,10 +143,38 @@ struct HomeDailySection: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
             .frame(width: cardWidth, alignment: .leading)
-            .background(Color.monologueGlassTint)
-            .monologueGlass(cornerRadius: 0)
+            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised.opacity(0.72) : Color.monologueGlassTint)
+            .modifier(DailyInfoSurfaceModifier())
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true)
+            }
+        }
+    }
+
+    private var rankBackground: some View {
+        Group {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 7, elevated: false, pressed: true)
+            } else {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color(light: .black.opacity(0.15), dark: .white.opacity(0.12)))
+                    .monologueGlass(cornerRadius: 7)
+            }
+        }
+    }
+}
+
+private struct DailyInfoSurfaceModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if NeumorphicStyle.isActive {
+            content
+        } else {
+            content.monologueGlass(cornerRadius: 0)
+        }
     }
 }
 

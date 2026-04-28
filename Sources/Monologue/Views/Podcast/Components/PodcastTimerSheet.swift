@@ -172,10 +172,15 @@ struct PodcastTimerSheet: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(Color.monologueTextPrimary.opacity(0.08))
+                        .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueTextPrimary.opacity(0.08))
                         .frame(width: 34, height: 34)
+                        .background {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true)
+                            }
+                        }
 
-                    MonologueIcon(icon: .close, size: 14, color: .monologueTextPrimary)
+                    MonologueIcon(icon: .close, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextPrimary)
                 }
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
@@ -427,11 +432,24 @@ struct PodcastTimerSheet: View {
             }
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
             .padding(14)
-            .background(selected ? Color.monologueAccentBlue.opacity(0.12) : Color.monologueTextPrimary.opacity(0.04))
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 18,
+                        elevated: false,
+                        pressed: selected,
+                        tint: selected ? NeumorphicStyle.accent.opacity(0.16) : nil
+                    )
+                } else {
+                    selected ? Color.monologueAccentBlue.opacity(0.12) : Color.monologueTextPrimary.opacity(0.04)
+                }
+            }
             .clipShape(.rect(cornerRadius: 18, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(selected ? Color.monologueAccentBlue.opacity(0.22) : Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                if !NeumorphicStyle.isActive {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(selected ? Color.monologueAccentBlue.opacity(0.22) : Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                }
             }
         }
         .buttonStyle(.plain)
@@ -462,11 +480,19 @@ private struct TimerSheetCard<Content: View>: View {
         content
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.monologueTextPrimary.opacity(0.04))
-            .clipShape(.rect(cornerRadius: 20, style: .continuous))
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                } else {
+                    Color.monologueTextPrimary.opacity(0.04)
+                }
+            }
+            .clipShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : 20, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                if !NeumorphicStyle.isActive {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                }
             }
     }
 }
@@ -481,7 +507,13 @@ private struct TimerStatusBadge: View {
             .foregroundStyle(tint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(tint.opacity(0.12))
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15))
+                } else {
+                    tint.opacity(0.12)
+                }
+            }
             .clipShape(.capsule)
     }
 }

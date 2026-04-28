@@ -47,7 +47,7 @@ struct HomeNCMPlaylistSection: View {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
                     Rectangle()
-                        .fill(Color.monologueSeparator)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: cardSize, height: cardSize)
@@ -63,7 +63,7 @@ struct HomeNCMPlaylistSection: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(Color(light: .black.opacity(0.15), dark: .white.opacity(0.12))))
-                    .monologueGlassCapsule()
+                    .modifier(PlaylistCountSurfaceModifier())
                     .padding(10)
                 }
             }
@@ -84,11 +84,16 @@ struct HomeNCMPlaylistSection: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(width: cardSize, alignment: .leading)
-            .background(Color.monologueGlassTint)
-            .monologueGlass(cornerRadius: 0)
+            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised.opacity(0.74) : Color.monologueGlassTint)
+            .modifier(PlaylistCardInfoSurfaceModifier())
         }
         .frame(width: cardSize)
         .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.isPad ? 24 : 20, style: .continuous))
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: DeviceLayout.isPad ? 24 : 20, elevated: true)
+            }
+        }
     }
 
     private func formatCount(_ count: Int?) -> String {
@@ -106,5 +111,29 @@ struct HomeNCMPlaylistSection: View {
             else if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
         }
         return "\(count)"
+    }
+}
+
+private struct PlaylistCountSurfaceModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if NeumorphicStyle.isActive {
+            content
+                .foregroundStyle(NeumorphicStyle.ink)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+        } else {
+            content.monologueGlassCapsule()
+        }
+    }
+}
+
+private struct PlaylistCardInfoSurfaceModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if NeumorphicStyle.isActive {
+            content
+        } else {
+            content.monologueGlass(cornerRadius: 0)
+        }
     }
 }

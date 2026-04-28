@@ -1,5 +1,5 @@
-import SwiftUI
 import HiconIcons
+import SwiftUI
 
 public struct ContentView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
@@ -7,6 +7,7 @@ public struct ContentView: View {
     @State private var currentTab: Tab = .home
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @State private var themeManager = GlobalThemeManager.shared
     @Environment(\.colorScheme) private var systemColorScheme
 
     @State private var showPersonalFM = false
@@ -23,63 +24,65 @@ public struct ContentView: View {
 
             tabViewContent
                 .ignoresSafeArea(.keyboard)
-            .gesture(
-                (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
-                    ? swipeGesture : nil
-            )
-            .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
-                showPersonalFM = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
-                showNormalPlayer = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
-                currentTab = .library
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToHome"))) { _ in
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                    currentTab = .home
+                .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
+                .gesture(
+                    (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
+                        ? swipeGesture : nil
+                )
+                .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
+                    showPersonalFM = true
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToProfile"))) { _ in
-                currentTab = .profile
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
-                if let radioId = notification.object as? Int, radioId > 0 {
-                    radioPlayerRadioId = radioId
-                    showRadioPlayer = true
+                .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
+                    showNormalPlayer = true
                 }
-            }
-            .fullScreenCover(isPresented: $showPersonalFM) {
-                PersonalFMView()
-
-            }
-            .fullScreenCover(isPresented: $showNormalPlayer) {
-                FullScreenPlayerView()
-            }
-            .fullScreenCover(isPresented: $showRadioPlayer) {
-                if let radioId = radioPlayerRadioId {
-                    PodcastPlayerView(radioId: radioId)
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
+                    currentTab = .library
                 }
-            }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibraryArtists"))) { _ in
+                    currentTab = .library
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToHome"))) { _ in
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        currentTab = .home
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToProfile"))) { _ in
+                    currentTab = .profile
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
+                    if let radioId = notification.object as? Int, radioId > 0 {
+                        radioPlayerRadioId = radioId
+                        showRadioPlayer = true
+                    }
+                }
+                .fullScreenCover(isPresented: $showPersonalFM) {
+                    PersonalFMView()
+                }
+                .fullScreenCover(isPresented: $showNormalPlayer) {
+                    FullScreenPlayerView()
+                }
+                .fullScreenCover(isPresented: $showRadioPlayer) {
+                    if let radioId = radioPlayerRadioId {
+                        PodcastPlayerView(radioId: radioId)
+                    }
+                }
 
             // MARK: - 自定义悬浮栏（所有样式）
+
             ContentViewFloatingBarContainer(
                 currentTab: $currentTab,
                 settings: settings
             )
 
             // MARK: - 系统 TabBar 模式下的紧凑迷你播放器
-            ContentViewCompactPlayerContainer(settings: settings)
 
+            ContentViewCompactPlayerContainer(settings: settings)
 
             if showWelcome {
                 WelcomeView(isPresented: $showWelcome)
-                    .transition(.opacity.animation(.easeOut(duration: 0.24)))
+                    .transition(.identity)
                     .zIndex(100)
             }
-
-
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
         .onChange(of: showNormalPlayer) { _, show in
@@ -171,7 +174,7 @@ public struct ContentView: View {
 
     @ViewBuilder
     private func tabRootView(for tab: Tab) -> some View {
-        let theme = GlobalThemeManager.shared.current
+        let theme = themeManager.current
         switch tab {
         case .home:
             if onlineAccess.canUseOnlineFeatures {
@@ -259,7 +262,7 @@ public struct ContentView: View {
         switch PlayerManager.shared.playSource {
         case .fm:
             showPersonalFM = true
-        case .podcast(let radioID):
+        case let .podcast(radioID):
             radioPlayerRadioId = radioID
             showRadioPlayer = true
         case .normal:
@@ -321,6 +324,7 @@ public struct ContentView: View {
 }
 
 // MARK: - 悬浮栏容器（隔离 PlayerManager 订阅）
+
 private struct ContentViewFloatingBarContainer: View {
     @Binding var currentTab: Tab
     @ObservedObject var settings: SettingsManager
@@ -329,10 +333,12 @@ private struct ContentViewFloatingBarContainer: View {
     var body: some View {
         if !settings.useSystemTabBar && !player.isTabBarHidden {
             floatingBarView
+                .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                 .ignoresSafeArea(.keyboard)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(10)
                 .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
+                .animation(MonologueAnimation.floatingBar, value: settings.globalThemeRevision)
         }
     }
 
@@ -367,6 +373,7 @@ private struct ContentViewFloatingBarContainer: View {
 }
 
 // MARK: - 紧凑迷你播放器容器（隔离 PlayerManager + PlaybackTimePublisher 订阅）
+
 private struct ContentViewCompactPlayerContainer: View {
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = PlayerManager.shared
@@ -382,7 +389,8 @@ private struct ContentViewCompactPlayerContainer: View {
     var body: some View {
         if !shouldUseNativeBottomAccessory,
            settings.useSystemTabBar && !player.isTabBarHidden,
-           let song = player.currentSong {
+           let song = player.currentSong
+        {
             VStack {
                 Spacer()
                 CompactMiniPlayerView(song: song)
@@ -400,6 +408,7 @@ private struct ContentViewCompactPlayerContainer: View {
 }
 
 // MARK: - iOS 26 系统 TabBar + bottomAccessory 容器
+
 /// `tabViewBottomAccessory` 始终挂载，无歌时由 `TabViewBottomMiniPlayer`
 /// 显示占位内容（"未在播放"），保证胶囊在系统 TabBar 上始终有内容而不是"空玻璃"。
 ///
@@ -436,6 +445,7 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
 }
 
 // MARK: - iOS 26 的 TabView bottomAccessory 迷你播放器
+
 /// 原生嵌入在 TabBar 顶部的 Liquid Glass 胶囊迷你播放器。
 /// 文字使用 `.primary` / `.secondary` 语义色，系统会根据 Liquid Glass 背景
 /// 自动补偿对比度（浅色背景自动变深色字、反之亦然）。
@@ -486,20 +496,28 @@ private struct TabBottomAccessoryPlaceholder: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
-    private var primaryTextColor: Color { Color(uiColor: .label) }
-    private var secondaryTextColor: Color { Color(uiColor: .secondaryLabel) }
-    private var tertiaryTextColor: Color { Color(uiColor: .tertiaryLabel) }
+    private var primaryTextColor: Color {
+        Color(uiColor: .label)
+    }
+
+    private var secondaryTextColor: Color {
+        Color(uiColor: .secondaryLabel)
+    }
+
+    private var tertiaryTextColor: Color {
+        Color(uiColor: .tertiaryLabel)
+    }
 
     private var iconGradient: LinearGradient {
         LinearGradient(
             colors: colorScheme == .dark
                 ? [
                     Color.white.opacity(0.18),
-                    Color.white.opacity(0.06)
+                    Color.white.opacity(0.06),
                 ]
                 : [
                     Color.black.opacity(0.10),
-                    Color.black.opacity(0.04)
+                    Color.black.opacity(0.04),
                 ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -578,15 +596,23 @@ private struct TabBottomAccessoryContent: View {
         return song.artistName
     }
 
-    // iOS 的 bottomAccessory 会让系统 TabBar 根据窗口级 userInterfaceStyle
-    // 渲染背景；用 UIKit 动态色可保证文字和系统 TabBar 背景一致。
-    private var primaryTextColor: Color { Color(uiColor: .label) }
-    private var secondaryTextColor: Color { Color(uiColor: .secondaryLabel) }
+    /// iOS 的 bottomAccessory 会让系统 TabBar 根据窗口级 userInterfaceStyle
+    /// 渲染背景；用 UIKit 动态色可保证文字和系统 TabBar 背景一致。
+    private var primaryTextColor: Color {
+        Color(uiColor: .label)
+    }
+
+    private var secondaryTextColor: Color {
+        Color(uiColor: .secondaryLabel)
+    }
 
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
-    // 进度条颜色 — 跟随系统 Liquid Glass 背景自动适配亮/暗
-    private var progressTrackColor: Color { Color(uiColor: .quaternaryLabel) }
+    /// 进度条颜色 — 跟随系统 Liquid Glass 背景自动适配亮/暗
+    private var progressTrackColor: Color {
+        Color(uiColor: .quaternaryLabel)
+    }
+
     private var progressFillColors: [Color] {
         [Color(uiColor: .label).opacity(0.45),
          Color(uiColor: .label).opacity(0.75)]
@@ -676,7 +702,7 @@ private struct TabBottomAccessoryContent: View {
                 switch player.playSource {
                 case .fm:
                     NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-                case .podcast(let radioId):
+                case let .podcast(radioId):
                     NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
                 case .normal:
                     NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
@@ -714,6 +740,7 @@ private struct TabBottomAccessoryContent: View {
 }
 
 // MARK: - 紧凑迷你播放器（独立视图，隔离高频订阅）
+
 private struct CompactMiniPlayerView: View {
     let song: Song
     @ObservedObject private var player = PlayerManager.shared
@@ -823,14 +850,14 @@ private struct CompactMiniPlayerView: View {
                 switch player.playSource {
                 case .fm:
                     NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-                case .podcast(let radioId):
+                case let .podcast(radioId):
                     NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
                 case .normal:
                     NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
                 }
             }
         }
-        .monologueSheet(isPresented: $showCompactPlaylist, preset: .standard){
+        .monologueSheet(isPresented: $showCompactPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
             } else {
@@ -872,6 +899,7 @@ private struct CompactMiniPlayerView: View {
 }
 
 // MARK: - Tab Enum
+
 enum Tab: Int, CaseIterable, Hashable {
     case home = 0
     case podcast = 1

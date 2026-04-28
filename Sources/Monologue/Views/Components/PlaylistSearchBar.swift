@@ -28,57 +28,66 @@ struct PlaylistSearchBar: View {
             }
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, MangaStyle.isActive ? (selectMode || isSearching ? 8 : 6) : (selectMode || isSearching ? 6 : 2))
+        .padding(.vertical, MangaStyle.isActive ? (selectMode || isSearching ? 8 : 6) : (NeumorphicStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (selectMode || isSearching ? 6 : 2)))
     }
     
     private var searchBar: some View {
         Group {
             HStack(spacing: 8) {
-                MonologueIcon(icon: .search, size: 14, color: MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
+                MonologueIcon(icon: .search, size: 14, color: MangaStyle.isActive ? MangaStyle.inkSub : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
                 
                 TextField(String(localized: "搜索歌曲"), text: $searchText)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .bold) : .system(size: 14, design: .rounded))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, design: .rounded)))
                     .monologueTextInputBehavior()
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : .monologueTextPrimary)
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
                     .focused($isFocused)
                     .submitLabel(.search)
                 
-                if !searchText.isEmpty {
-                    Button {
+                Button {
+                    if searchText.isEmpty {
+                        closeSearch()
+                    } else {
                         searchText = ""
-                    } label: {
-                        MonologueIcon(icon: .xmarkCircle, size: 14, color: MangaStyle.isActive ? MangaStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
                     }
+                } label: {
+                    MonologueIcon(icon: searchText.isEmpty ? .close : .xmarkCircle, size: 14, color: MangaStyle.isActive ? MangaStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6)))
                 }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, MangaStyle.isActive ? 10 : 8)
+            .padding(.vertical, MangaStyle.isActive || NeumorphicStyle.isActive ? 10 : 8)
             .background {
                 if MangaStyle.isActive {
                     MangaCardBackground(cornerRadius: 12, elevated: false, tint: MangaStyle.bubbleWhite)
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
                 } else {
                     Capsule()
                         .fill(Color.monologueTextPrimary.opacity(0.06))
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 16 : 20), style: .continuous))
             .transition(.asymmetric(
                 insertion: .move(edge: .trailing).combined(with: .opacity),
                 removal: .move(edge: .trailing).combined(with: .opacity)
             ))
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    searchText = ""
-                    isSearching = false
-                    isFocused = false
-                }
+                closeSearch()
             } label: {
                 Text("取消")
-                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : .system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
             }
             .transition(.opacity)
+        }
+    }
+
+    private func closeSearch() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            searchText = ""
+            isSearching = false
+            isFocused = false
         }
     }
     
@@ -95,11 +104,13 @@ struct PlaylistSearchBar: View {
                     isFocused = true
                 }
             } label: {
-                MonologueIcon(icon: .search, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextSecondary)
-                    .frame(width: MangaStyle.isActive ? 34 : 28, height: MangaStyle.isActive ? 34 : 28)
+                MonologueIcon(icon: .search, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary))
+                    .frame(width: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28, height: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28)
                     .background {
                         if MangaStyle.isActive {
                             MangaCardBackground(cornerRadius: 10, tint: MangaStyle.paperCool)
+                        } else if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true)
                         }
                     }
             }
@@ -112,11 +123,13 @@ struct PlaylistSearchBar: View {
                         selectedIds?.wrappedValue.removeAll()
                     }
                 } label: {
-                    MonologueIcon(icon: .checkmark, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextSecondary)
-                        .frame(width: MangaStyle.isActive ? 34 : 28, height: MangaStyle.isActive ? 34 : 28)
+                    MonologueIcon(icon: .checkmark, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary))
+                        .frame(width: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28, height: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28)
                         .background {
                             if MangaStyle.isActive {
                                 MangaCardBackground(cornerRadius: 10, tint: MangaStyle.labelYellow)
+                            } else if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true)
                             }
                         }
                 }
@@ -136,41 +149,41 @@ struct PlaylistSearchBar: View {
                 }
             } label: {
                 Text(selectedIds?.wrappedValue.count == songs?.count ? String(localized: "取消全选") : String(localized: "全选"))
-                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : .system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : .monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded)))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
             }
             .buttonStyle(.plain)
             
             Text("已选 \(selectedIds?.wrappedValue.count ?? 0) 首")
-                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : .system(size: 12, design: .rounded))
-                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded)))
+                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
             
             Spacer()
             
             if let ids = selectedIds, !ids.wrappedValue.isEmpty {
                 if onBatchQueue != nil {
                     Button { onBatchQueue?() } label: {
-                        MonologueIcon(icon: .add, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextPrimary)
+                        MonologueIcon(icon: .add, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary))
                             .frame(width: 32, height: 32)
-                            .background(MangaStyle.isActive ? MangaStyle.bubbleBlue : Color.monologueTextPrimary.opacity(0.06))
-                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
+                            .background(MangaStyle.isActive ? MangaStyle.bubbleBlue : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.06)))
+                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : 16), style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
 
                 Button { onBatchCollect?() } label: {
-                    MonologueIcon(icon: .like, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextPrimary)
+                    MonologueIcon(icon: .like, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextPrimary))
                         .frame(width: 32, height: 32)
-                        .background(MangaStyle.isActive ? MangaStyle.bubblePink : Color.monologueTextPrimary.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
+                        .background(MangaStyle.isActive ? MangaStyle.bubblePink : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.06)))
+                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : 16), style: .continuous))
                 }
                 .buttonStyle(.plain)
                 
                 Button { onBatchDownload?() } label: {
-                    MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : .monologueTextPrimary)
+                    MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.warm : .monologueTextPrimary))
                         .frame(width: 32, height: 32)
-                        .background(MangaStyle.isActive ? MangaStyle.labelYellow : Color.monologueTextPrimary.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : 16, style: .continuous))
+                        .background(MangaStyle.isActive ? MangaStyle.labelYellow : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.06)))
+                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : 16), style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -182,16 +195,18 @@ struct PlaylistSearchBar: View {
                 }
             } label: {
                 Text("取消")
-                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : .system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : .monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, MangaStyle.isActive ? 12 : 0)
-        .padding(.vertical, MangaStyle.isActive ? 9 : 0)
+        .padding(.horizontal, MangaStyle.isActive || NeumorphicStyle.isActive ? 12 : 0)
+        .padding(.vertical, MangaStyle.isActive || NeumorphicStyle.isActive ? 9 : 0)
         .background {
             if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: 14, elevated: false, tint: MangaStyle.bubbleWhite)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
             }
         }
         .transition(.asymmetric(

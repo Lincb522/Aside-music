@@ -153,18 +153,20 @@ private struct EventCard: View {
                             .clipShape(Circle())
                     }
                     .padding(10)
-                    .background(Color.monologueSeparator.opacity(0.5))
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false)
+                        } else {
+                            Color.monologueSeparator.opacity(0.5)
+                        }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: 20)
-        )
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

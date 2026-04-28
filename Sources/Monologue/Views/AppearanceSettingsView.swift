@@ -11,6 +11,9 @@ private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medi
     if MangaStyle.isActive {
         return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
     }
+    if NeumorphicStyle.isActive {
+        return NeumorphicStyle.labelFont(size, weight: weight)
+    }
     if MujiStyle.isActive {
         return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
     }
@@ -21,6 +24,7 @@ struct AppearanceSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var isGlobalThemeExpanded = false
     @State private var isAppBrandStyleExpanded = false
+    @State private var isThemeColorExpanded = true
 
     var body: some View {
         ZStack {
@@ -28,17 +32,28 @@ struct AppearanceSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    globalThemeSection
-                    appearanceSection
-                    lyricSection
-                    FloatingBarBottomSpacer()
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "settings_navigation_appearance_title"),
+                        eyebrow: "STYLE",
+                        icon: .sparkle
+                    )
+
+                    VStack(spacing: 20) {
+                        globalThemeSection
+                        if ThemeColorCustomization.supports(settings.globalThemeId) {
+                            themeColorCustomizationSection
+                        }
+                        appearanceSection
+                        lyricSection
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .iPadContentWidth(700)
                 }
-                .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
-                .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .themedNavigationChrome(title: String(localized: "settings_navigation_appearance_title"), eyebrow: "STYLE", icon: .sparkle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -48,15 +63,20 @@ struct AppearanceSettingsView: View {
 
     // MARK: - 外观
 
+    private var themeColorCustomizationSection: some View {
+        ThemeColorCustomizationSection(
+            theme: settings.globalThemeId,
+            isExpanded: $isThemeColorExpanded
+        )
+    }
+
     private var appearanceSection: some View {
         SettingsSection(title: String(localized: "settings_appearance")) {
             VStack(spacing: 0) {
                 SettingsAppBrandRow(
                     title: String(localized: "settings_app_brand_title"),
-                    subtitle: String(localized: "settings_app_brand_desc"),
                     selection: settings.appBrandStyle,
                     appearance: settings.appBrandAppearance,
-                    supportsAlternateIcons: settings.supportsAlternateAppIcons,
                     isExpanded: $isAppBrandStyleExpanded,
                     onSelect: { style in
                         Task {
@@ -207,7 +227,7 @@ struct AppearanceSettingsView: View {
                             ForEach(GlobalThemeId.allCases) { themeId in
                                 Button {
                                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        settings.globalThemeId = themeId
+                                        applyGlobalTheme(themeId)
                                     }
                                 } label: {
                                     GlobalThemeOptionCard(
@@ -223,6 +243,23 @@ struct AppearanceSettingsView: View {
                     .padding(.bottom, 12)
                 }
             }
+        }
+    }
+
+    private func applyGlobalTheme(_ themeId: GlobalThemeId) {
+        settings.globalThemeId = themeId
+
+        if let suggestedPlayerTheme = suggestedPlayerTheme(for: themeId) {
+            PlayerThemeManager.shared.setTheme(suggestedPlayerTheme)
+        }
+    }
+
+    private func suggestedPlayerTheme(for themeId: GlobalThemeId) -> PlayerTheme? {
+        switch themeId {
+        case .neumorphic:
+            return .classic
+        case .default, .muji, .manga:
+            return nil
         }
     }
 
@@ -319,7 +356,7 @@ struct AppearanceSettingsView: View {
                 get: { Color(hex: hex.wrappedValue) },
                 set: { hex.wrappedValue = $0.toHex() }
             ), supportsOpacity: false)
-            .labelsHidden()
+                .labelsHidden()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -334,7 +371,7 @@ struct AppearanceSettingsView: View {
                         LinearGradient(
                             colors: [
                                 Color(hex: settings.lyricGradientStartHex),
-                                Color(hex: settings.lyricGradientEndHex)
+                                Color(hex: settings.lyricGradientEndHex),
                             ],
                             startPoint: .leading,
                             endPoint: .trailing
@@ -351,12 +388,744 @@ struct AppearanceSettingsView: View {
     }
 }
 
+private struct ThemeColorCustomizationSection: View {
+    let theme: GlobalThemeId
+    @Binding var isExpanded: Bool
+    @ObservedObject private var settings = SettingsManager.shared
+    @State private var activeColorPicker: ThemeColorPickerTarget?
+
+    var body: some View {
+        SettingsSection(title: String(localized: "主题颜色")) {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        SettingsIconBadge(icon: .sparkle)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(localized: "自定义配色"))
+                                .font(appearanceSettingsFont(15, weight: .medium))
+                                .foregroundStyle(Color.monologueTextPrimary)
+
+                            Text(theme.displayName)
+                                .font(appearanceSettingsFont(11, weight: .regular))
+                                .foregroundStyle(Color.monologueTextSecondary)
+                        }
+
+                        Spacer()
+
+                        MonologueIcon(icon: .chevronRight, size: 11, color: Color.monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                            .rotationEffect(.degrees(isExpanded ? -90 : 90))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+
+                SettingsDisclosureReveal(isExpanded: isExpanded) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        presetRail
+
+                        Divider().opacity(0.35)
+
+                        colorRoleEditor(role: .accent)
+
+                        Divider().opacity(0.35)
+
+                        colorRoleEditor(role: .background)
+
+                        if theme == .manga {
+                            Divider().opacity(0.35)
+                            mangaExtraEditor
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
+                }
+            }
+        }
+        .id("\(theme.rawValue)-\(settings.globalThemeRevision)")
+        .sheet(item: $activeColorPicker) { target in
+            ThemeColorPickerSheet(
+                theme: theme,
+                target: target,
+                color: binding(for: target)
+            )
+        }
+    }
+
+    private var presetRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(ThemeColorCustomization.presets(for: theme)) { preset in
+                    let isSelected = ThemeColorCustomization.isPresetSelected(preset, for: theme)
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                            ThemeColorCustomization.applyPreset(preset, to: theme)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            ThemeColorPreviewSwatch(
+                                colors: [Color(hex: preset.accentStartHex), Color(hex: preset.accentEndHex)],
+                                cornerRadius: theme == .manga ? 8 : 10
+                            )
+                            .frame(width: isSelected ? 31 : 28, height: isSelected ? 31 : 28)
+
+                            Text(preset.name)
+                                .font(appearanceSettingsFont(12, weight: isSelected ? .bold : .semibold))
+                                .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+
+                            selectedPresetMark(isSelected: isSelected)
+                        }
+                        .padding(.horizontal, isSelected ? 11 : 10)
+                        .padding(.vertical, 8)
+                        .background(presetBackground(isSelected: isSelected))
+                        .scaleEffect(isSelected ? 1.015 : 1)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func colorRoleEditor(role: ThemeCustomColorRole) -> some View {
+        let usesSingleColor = role == .accent || (theme == .muji && role == .background)
+
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(roleTitle(role))
+                    .font(appearanceSettingsFont(13, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer()
+
+                if !usesSingleColor {
+                    Picker("", selection: modeBinding(role)) {
+                        ForEach(ThemeCustomColorMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 132)
+                } else {
+                    Text(String(localized: "单色"))
+                        .font(appearanceSettingsFont(11, weight: .semibold))
+                        .foregroundStyle(themeSubtextColor)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(themeStrokeColor.opacity(theme == .manga ? 0.12 : 0.16)))
+                }
+            }
+
+            if !usesSingleColor && ThemeColorCustomization.mode(for: theme, role: role) == .gradient {
+                HStack(spacing: 10) {
+                    colorPickerPill(
+                        title: String(localized: "起始"),
+                        target: .role(role, suffix: "start", title: String(localized: "起始"), fallback: fallbackHex(role: role, suffix: "start")),
+                        binding: colorBinding(role: role, suffix: "start", fallback: fallbackHex(role: role, suffix: "start"))
+                    )
+                    colorPickerPill(
+                        title: String(localized: "结束"),
+                        target: .role(role, suffix: "end", title: String(localized: "结束"), fallback: fallbackHex(role: role, suffix: "end")),
+                        binding: colorBinding(role: role, suffix: "end", fallback: fallbackHex(role: role, suffix: "end"))
+                    )
+                }
+
+                Picker(String(localized: "渐变方式"), selection: gradientStyleBinding(role)) {
+                    ForEach(ThemeCustomGradientStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+            } else {
+                colorPickerPill(
+                    title: String(localized: "颜色"),
+                    target: .role(role, suffix: "solid", title: String(localized: "颜色"), fallback: fallbackHex(role: role, suffix: "solid")),
+                    binding: colorBinding(role: role, suffix: "solid", fallback: fallbackHex(role: role, suffix: "solid"))
+                )
+            }
+        }
+    }
+
+    private var mangaExtraEditor: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(String(localized: "漫画色块"))
+                .font(appearanceSettingsFont(13, weight: .semibold))
+                .foregroundStyle(themeTextColor)
+
+            HStack(spacing: 10) {
+                colorPickerPill(
+                    title: String(localized: "A 标签/星星"),
+                    target: .manga(suffix: "blockA", title: String(localized: "色块 A · 标签/星星"), fallback: "FFE067"),
+                    binding: mangaColorBinding(suffix: "blockA", fallback: "FFE067")
+                )
+                colorPickerPill(
+                    title: String(localized: "B 气泡/信息"),
+                    target: .manga(suffix: "blockB", title: String(localized: "色块 B · 气泡/信息"), fallback: "58B9FF"),
+                    binding: mangaColorBinding(suffix: "blockB", fallback: "58B9FF")
+                )
+            }
+
+            HStack(spacing: 10) {
+                colorPickerPill(
+                    title: String(localized: "C 辅助/状态"),
+                    target: .manga(suffix: "blockC", title: String(localized: "色块 C · 辅助/状态"), fallback: "8DE4B8"),
+                    binding: mangaColorBinding(suffix: "blockC", fallback: "8DE4B8")
+                )
+                colorPickerPill(
+                    title: String(localized: "描边/墨线"),
+                    target: .manga(suffix: "stroke", title: String(localized: "描边 · 墨线"), fallback: "17151F"),
+                    binding: mangaColorBinding(suffix: "stroke", fallback: "17151F")
+                )
+            }
+        }
+    }
+
+    private func colorPickerPill(title: String, target: ThemeColorPickerTarget, binding: Binding<Color>) -> some View {
+        Button {
+            activeColorPicker = target
+        } label: {
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(binding.wrappedValue)
+                    .frame(width: 24, height: 24)
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(themeStrokeColor, lineWidth: theme == .manga ? 1.2 : 0.7))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(appearanceSettingsFont(12, weight: .medium))
+                        .foregroundStyle(themeSubtextColor)
+                        .lineLimit(1)
+
+                    Text("#\(binding.wrappedValue.toHex())")
+                        .font(appearanceSettingsFont(9, weight: .regular))
+                        .foregroundStyle(themeSubtextColor.opacity(0.68))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                MonologueIcon(icon: .chevronRight, size: 9, color: themeSubtextColor.opacity(0.72), lineWidth: 1.5)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(fieldBackground)
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+    }
+
+    private func modeBinding(_ role: ThemeCustomColorRole) -> Binding<ThemeCustomColorMode> {
+        Binding(
+            get: { ThemeColorCustomization.mode(for: theme, role: role) },
+            set: { mode in
+                UserDefaults.standard.set(mode.rawValue, forKey: ThemeColorCustomization.key(theme, role, "mode"))
+                settings.notifyThemeCustomizationChanged()
+            }
+        )
+    }
+
+    private func gradientStyleBinding(_ role: ThemeCustomColorRole) -> Binding<ThemeCustomGradientStyle> {
+        Binding(
+            get: { ThemeColorCustomization.gradientStyle(for: theme, role: role) },
+            set: { style in
+                UserDefaults.standard.set(style.rawValue, forKey: ThemeColorCustomization.key(theme, role, "gradientStyle"))
+                settings.notifyThemeCustomizationChanged()
+            }
+        )
+    }
+
+    private func colorBinding(role: ThemeCustomColorRole, suffix: String, fallback: String) -> Binding<Color> {
+        Binding(
+            get: {
+                Color(hex: ThemeColorCustomization.hex(theme, role, suffix, fallback: fallback))
+            },
+            set: { color in
+                UserDefaults.standard.set(color.toHex(), forKey: ThemeColorCustomization.key(theme, role, suffix))
+                settings.notifyThemeCustomizationChanged()
+            }
+        )
+    }
+
+    private func mangaColorBinding(suffix: String, fallback: String) -> Binding<Color> {
+        Binding(
+            get: { Color(hex: ThemeColorCustomization.mangaHex(suffix, fallback: fallback)) },
+            set: { color in
+                UserDefaults.standard.set(color.toHex(), forKey: ThemeColorCustomization.mangaKey(suffix))
+                settings.notifyThemeCustomizationChanged()
+            }
+        )
+    }
+
+    private func binding(for target: ThemeColorPickerTarget) -> Binding<Color> {
+        if target.isMangaExtra {
+            return mangaColorBinding(suffix: target.suffix, fallback: target.fallback)
+        }
+
+        return colorBinding(
+            role: target.role ?? .accent,
+            suffix: target.suffix,
+            fallback: target.fallback
+        )
+    }
+
+    private func fallbackHex(role: ThemeCustomColorRole, suffix: String) -> String {
+        switch (theme, role, suffix) {
+        case (.muji, .accent, "end"): return "B56B4B"
+        case (.muji, .accent, _): return "B56B4B"
+        case (.muji, .background, "end"): return "F7F1E8"
+        case (.muji, .background, _): return "F7F1E8"
+        case (.neumorphic, .accent, "end"): return "4F8E86"
+        case (.neumorphic, .accent, _): return "4F8E86"
+        case (.neumorphic, .background, "end"): return "F2EEE8"
+        case (.neumorphic, .background, _): return "E9EDF0"
+        case (.manga, .accent, "end"): return "FF4F84"
+        case (.manga, .accent, _): return "FF4F84"
+        case (.manga, .background, "end"): return "E8F1FF"
+        case (.manga, .background, _): return "FFF3D7"
+        default: return "FFFFFF"
+        }
+    }
+
+    private func roleTitle(_ role: ThemeCustomColorRole) -> String {
+        if theme == .manga && role == .accent {
+            return String(localized: "强调色（按钮/选中）")
+        }
+        return role.displayName
+    }
+
+    @ViewBuilder
+    private func selectedPresetMark(isSelected: Bool) -> some View {
+        if isSelected {
+            MonologueIcon(icon: .checkmark, size: 8.5, color: selectedPresetMarkColor, lineWidth: 1.8)
+                .frame(width: 17, height: 17)
+                .background(selectedPresetMarkBackground)
+        }
+    }
+
+    @ViewBuilder
+    private func presetBackground(isSelected: Bool) -> some View {
+        if theme == .manga {
+            Capsule()
+                .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: isSelected ? 1.9 : 1.3))
+                .shadow(color: isSelected ? MangaStyle.strokeInk.opacity(0.22) : .clear, radius: 0, x: 2, y: 2)
+        } else if theme == .muji {
+            Capsule()
+                .fill(isSelected ? MujiStyle.clay.opacity(0.14) : MujiStyle.surface.opacity(0.78))
+                .overlay(Capsule().stroke(isSelected ? MujiStyle.clay.opacity(0.42) : MujiStyle.hairline.opacity(0.48), lineWidth: isSelected ? 0.9 : 0.65))
+                .overlay(MujiPaperTexture(opacity: isSelected ? 0.04 : 0.08).clipShape(Capsule()))
+        } else {
+            NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, tint: isSelected ? NeumorphicStyle.accent.opacity(0.14) : nil)
+        }
+    }
+
+    @ViewBuilder
+    private var fieldBackground: some View {
+        if theme == .manga {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
+        } else if theme == .muji {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.72))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
+        } else {
+            NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
+        }
+    }
+
+    private var themeTextColor: Color {
+        if theme == .manga { return MangaStyle.ink }
+        if theme == .muji { return MujiStyle.ink }
+        return NeumorphicStyle.ink
+    }
+
+    private var themeSubtextColor: Color {
+        if theme == .manga { return MangaStyle.inkSub }
+        if theme == .muji { return MujiStyle.inkSoft }
+        return NeumorphicStyle.inkSoft
+    }
+
+    private var themeStrokeColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
+        return NeumorphicStyle.separator.opacity(0.62)
+    }
+
+    private var selectedPresetTextColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.clay }
+        return NeumorphicStyle.accent
+    }
+
+    private var selectedPresetMarkColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.onTint }
+        return Color(light: .white, dark: .black)
+    }
+
+    @ViewBuilder
+    private var selectedPresetMarkBackground: some View {
+        if theme == .manga {
+            Circle()
+                .fill(MangaStyle.bubblePink)
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
+        } else if theme == .muji {
+            Circle()
+                .fill(MujiStyle.tea)
+        } else {
+            Circle()
+                .fill(NeumorphicStyle.accent)
+        }
+    }
+}
+
+private struct ThemeColorPreviewSwatch: View {
+    let colors: [Color]
+    var cornerRadius: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: colors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.12), lineWidth: 0.7)
+            )
+    }
+}
+
+private struct ThemeColorPickerTarget: Identifiable {
+    let id: String
+    let title: String
+    let role: ThemeCustomColorRole?
+    let suffix: String
+    let fallback: String
+    let isMangaExtra: Bool
+
+    static func role(_ role: ThemeCustomColorRole, suffix: String, title: String, fallback: String) -> ThemeColorPickerTarget {
+        ThemeColorPickerTarget(
+            id: "\(role.rawValue)-\(suffix)",
+            title: "\(role.displayName) · \(title)",
+            role: role,
+            suffix: suffix,
+            fallback: fallback,
+            isMangaExtra: false
+        )
+    }
+
+    static func manga(suffix: String, title: String, fallback: String) -> ThemeColorPickerTarget {
+        ThemeColorPickerTarget(
+            id: "manga-\(suffix)",
+            title: title,
+            role: nil,
+            suffix: suffix,
+            fallback: fallback,
+            isMangaExtra: true
+        )
+    }
+}
+
+private struct ThemeColorPickerSheet: View {
+    let theme: GlobalThemeId
+    let target: ThemeColorPickerTarget
+    @Binding var color: Color
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var hexInput = ""
+
+    var body: some View {
+        ZStack {
+            sheetBackground
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                previewCard
+                pickerRow
+                hexRow
+                quickPalette
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 20)
+            .padding(.bottom, 18)
+        }
+        .presentationDetents([.height(438), .medium])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.clear)
+        .onAppear {
+            hexInput = color.toHex()
+        }
+        .onChange(of: color.toHex()) { _, newValue in
+            if sanitizedHex(hexInput) != newValue {
+                hexInput = newValue
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Text(target.title)
+                .font(titleFont)
+                .foregroundStyle(titleColor)
+
+            Spacer()
+
+            Button {
+                dismiss()
+            } label: {
+                MonologueIcon(icon: .close, size: 13, color: closeIconColor, lineWidth: 1.8)
+                    .frame(width: 34, height: 34)
+                    .background(closeButtonBackground)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        }
+    }
+
+    private var previewCard: some View {
+        RoundedRectangle(cornerRadius: theme == .manga ? 18 : 20, style: .continuous)
+            .fill(color)
+            .frame(height: 96)
+            .overlay(previewDecor)
+            .overlay(
+                RoundedRectangle(cornerRadius: theme == .manga ? 18 : 20, style: .continuous)
+                    .stroke(previewStrokeColor, lineWidth: theme == .manga ? 2 : 0.9)
+            )
+            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : 8, x: 0, y: theme == .manga ? 3 : 8)
+    }
+
+    private var pickerRow: some View {
+        ColorPicker(selection: $color, supportsOpacity: false) {
+            Text(String(localized: "颜色"))
+                .font(labelFont)
+                .foregroundStyle(subtitleColor)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(rowBackground)
+    }
+
+    private var hexRow: some View {
+        HStack(spacing: 10) {
+            Text("#")
+                .font(labelFont)
+                .foregroundStyle(subtitleColor.opacity(0.78))
+
+            TextField("HEX", text: $hexInput)
+                .font(appearanceSettingsFont(14, weight: .semibold))
+                .foregroundStyle(titleColor)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .keyboardType(.asciiCapable)
+                .onChange(of: hexInput) { _, newValue in
+                    let value = sanitizedHex(newValue)
+                    if value.count == 6, value != color.toHex() {
+                        color = Color(hex: value)
+                    }
+                }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(rowBackground)
+    }
+
+    private var quickPalette: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 10) {
+            ForEach(quickHexes, id: \.self) { hex in
+                let selected = ThemeColorCustomization.normalizedHex(hex) == ThemeColorCustomization.normalizedHex(color.toHex())
+                Button {
+                    withAnimation(.spring(response: 0.24, dampingFraction: 0.82)) {
+                        color = Color(hex: hex)
+                        hexInput = ThemeColorCustomization.normalizedHex(hex)
+                    }
+                } label: {
+                    RoundedRectangle(cornerRadius: theme == .manga ? 9 : 11, style: .continuous)
+                        .fill(Color(hex: hex))
+                        .frame(height: 38)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: theme == .manga ? 9 : 11, style: .continuous)
+                                .stroke(selected ? selectedStrokeColor : previewStrokeColor.opacity(0.46), lineWidth: selected ? (theme == .manga ? 2.2 : 1.8) : 0.8)
+                        )
+                        .overlay(alignment: .center) {
+                            if selected {
+                                MonologueIcon(icon: .checkmark, size: 10, color: selectedCheckColor, lineWidth: 1.9)
+                                    .frame(width: 20, height: 20)
+                                    .background(Circle().fill(selectedCheckBackground))
+                            }
+                        }
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+            }
+        }
+    }
+
+    private func sanitizedHex(_ value: String) -> String {
+        String(value.trimmingCharacters(in: CharacterSet.alphanumerics.inverted).prefix(6)).uppercased()
+    }
+
+    private var quickHexes: [String] {
+        if theme == .manga {
+            if target.suffix == "stroke" {
+                return ["3B3145", "4B3A55", "344B5E", "6E5475", "5F5650", "48645C", "83576A", "526483", "6D6A45", "7C5A49", "5F6F7C", "735E87"]
+            }
+            return ["FF4F84", "FFE067", "58B9FF", "8DE4B8", "FF8CB4", "F8D957", "B7D8FF", "BDE9B8", "FFF3D7", "E8F1FF", "FFEAF0", "EEF7FF"]
+        }
+
+        if theme == .muji {
+            return ["B56B4B", "D8B56D", "78846B", "56677A", "B96D55", "CFA66F", "F7F1E8", "EFE5D6", "F3EEE3", "E4E8D9", "F4E8DC", "EAD9C8"]
+        }
+
+        return ["4F8E86", "7D9475", "C59A66", "C65A58", "5E7FA4", "7AB9B0", "E9EDF0", "F2EEE8", "EEE8E1", "E7EDF0", "E8EDF4", "F0F2F4"]
+    }
+
+    @ViewBuilder
+    private var sheetBackground: some View {
+        if theme == .manga {
+            ZStack {
+                MangaStyle.paper
+                MangaDotsTexture(opacity: 0.035, gap: 18)
+            }
+        } else if theme == .muji {
+            ZStack {
+                MujiStyle.paper
+                MujiPaperTexture(opacity: 0.09)
+            }
+        } else {
+            NeumorphicStyle.base
+        }
+    }
+
+    @ViewBuilder
+    private var rowBackground: some View {
+        if theme == .manga {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.7))
+                .shadow(color: MangaStyle.strokeInk.opacity(0.16), radius: 0, x: 2, y: 2)
+        } else if theme == .muji {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.82))
+                .overlay(MujiPaperTexture(opacity: 0.07).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.65))
+        } else {
+            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+        }
+    }
+
+    @ViewBuilder
+    private var closeButtonBackground: some View {
+        if theme == .manga {
+            Circle()
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.4))
+        } else if theme == .muji {
+            Circle()
+                .fill(MujiStyle.surface.opacity(0.86))
+                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+        } else {
+            NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true)
+        }
+    }
+
+    @ViewBuilder
+    private var previewDecor: some View {
+        if theme == .manga {
+            HStack {
+                Circle().fill(MangaStyle.bubbleWhite.opacity(0.45)).frame(width: 52, height: 52)
+                Spacer()
+                MangaDotsTexture(opacity: 0.06, gap: 12).frame(width: 90)
+            }
+            .padding(12)
+            .blendMode(.softLight)
+        } else if theme == .muji {
+            MujiPaperTexture(opacity: 0.1)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else {
+            LinearGradient(
+                colors: [.white.opacity(0.32), .clear, .black.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+
+    private var titleFont: Font {
+        if theme == .manga { return MangaStyle.titleFont(19, weight: .black) }
+        if theme == .muji { return MujiStyle.labelFont(18, weight: .semibold) }
+        return NeumorphicStyle.labelFont(18, weight: .semibold)
+    }
+
+    private var labelFont: Font {
+        if theme == .manga { return MangaStyle.labelFont(13, weight: .black) }
+        if theme == .muji { return MujiStyle.labelFont(13, weight: .semibold) }
+        return NeumorphicStyle.labelFont(13, weight: .semibold)
+    }
+
+    private var titleColor: Color {
+        if theme == .manga { return MangaStyle.ink }
+        if theme == .muji { return MujiStyle.ink }
+        return NeumorphicStyle.ink
+    }
+
+    private var subtitleColor: Color {
+        if theme == .manga { return MangaStyle.inkSub }
+        if theme == .muji { return MujiStyle.inkSoft }
+        return NeumorphicStyle.inkSoft
+    }
+
+    private var closeIconColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.inkSoft }
+        return NeumorphicStyle.inkSoft
+    }
+
+    private var previewStrokeColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.hairline.opacity(0.55) }
+        return NeumorphicStyle.separator.opacity(0.58)
+    }
+
+    private var selectedStrokeColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.clay }
+        return NeumorphicStyle.accent
+    }
+
+    private var selectedCheckColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.onTint }
+        return Color(light: .white, dark: .black)
+    }
+
+    private var selectedCheckBackground: Color {
+        if theme == .manga { return MangaStyle.labelYellow }
+        if theme == .muji { return MujiStyle.tea }
+        return NeumorphicStyle.accent
+    }
+
+    private var previewShadowColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk.opacity(0.12) }
+        if theme == .muji { return MujiStyle.ink.opacity(0.08) }
+        return NeumorphicStyle.darkShadow(.light, intensity: 0.42)
+    }
+}
+
 private struct SettingsAppBrandRow: View {
     let title: String
-    let subtitle: String
     let selection: AppBrandStyle
     let appearance: AppBrandAppearance
-    let supportsAlternateIcons: Bool
     @Binding var isExpanded: Bool
     let onSelect: (AppBrandStyle) -> Void
     let onSelectAppearance: (AppBrandAppearance) -> Void
@@ -426,13 +1195,6 @@ private struct SettingsAppBrandRow: View {
                             }
                             .buttonStyle(.plain)
                         }
-                    }
-
-                    if !supportsAlternateIcons {
-                        Text(String(localized: "settings_app_brand_device_hint"))
-                            .font(appearanceSettingsFont(11, weight: .regular))
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -532,7 +1294,7 @@ private struct AppBrandOptionCard: View {
         LinearGradient(
             colors: [
                 Color(hex: style.previewBackgroundColor(for: appearance)),
-                Color(hex: style.previewBackgroundColor(for: appearance)).opacity(0.92)
+                Color(hex: style.previewBackgroundColor(for: appearance)).opacity(0.92),
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

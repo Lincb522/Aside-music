@@ -1181,28 +1181,41 @@ struct QQAlbumDescSheet: View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: coverUrl) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 14 : 10)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)
-                .cornerRadius(10)
+                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 14 : 10, style: .continuous))
+                .overlay {
+                    if NeumorphicStyle.isActive {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                    }
+                }
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(name)
-                        .font(.rounded(size: 20, weight: .bold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
                     if let artist = artistName {
                         Text(artist)
-                            .font(.rounded(size: 12))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                 }
                 Spacer()
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 20, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .close, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .frame(width: 32, height: 32)
-                        .background(Color.monologueSeparator)
+                        .background {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                            } else {
+                                Circle().fill(Color.monologueSeparator)
+                            }
+                        }
                         .clipShape(Circle())
                 }
             }
@@ -1210,19 +1223,28 @@ struct QQAlbumDescSheet: View {
             .padding(.top, 16)
             .padding(.bottom, 16)
             
-            Rectangle().fill(Color.monologueSeparator).frame(height: 0.5)
+            Rectangle()
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator)
+                .frame(height: 0.5)
             
             ScrollView {
                 Text(desc)
                     .font(.rounded(size: 15, weight: .regular))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
                     .background(
-                        Color.clear // glassEffect applied via modifier
-                            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                        Group {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                            } else {
+                                Color.clear
+                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                            }
+                        }
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 22 : 16, style: .continuous))
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 20)
                     .padding(.bottom, 40)
@@ -1246,16 +1268,22 @@ struct QQArtistBioSheet: View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: coverUrl) {
-                    Circle().fill(Color.monologueGlassTint)
+                    Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)
                 .clipShape(Circle())
+                .overlay {
+                    if NeumorphicStyle.isActive {
+                        Circle()
+                            .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(name)
-                        .font(.rounded(size: 20, weight: .bold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
                     PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
                 }
@@ -1263,9 +1291,15 @@ struct QQArtistBioSheet: View {
                 Spacer()
 
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 20, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .close, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .frame(width: 32, height: 32)
-                        .background(Color.monologueSeparator)
+                        .background {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                            } else {
+                                Circle().fill(Color.monologueSeparator)
+                            }
+                        }
                         .clipShape(Circle())
                 }
             }
@@ -1273,12 +1307,14 @@ struct QQArtistBioSheet: View {
             .padding(.top, 16)
             .padding(.bottom, 16)
 
-            Rectangle().fill(Color.monologueSeparator).frame(height: 0.5)
+            Rectangle()
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator)
+                .frame(height: 0.5)
 
             ScrollView {
                 Text(desc)
-                    .font(.rounded(size: 15, weight: .regular))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)

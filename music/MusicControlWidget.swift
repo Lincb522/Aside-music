@@ -50,6 +50,19 @@ enum WidgetTheme: String, CaseIterable, AppEnum {
     case soundwave
     case typewriter
 
+    static let allCases: [WidgetTheme] = [
+        .polaroid,
+        .poster,
+        .manga,
+        .magazine,
+        .pager,
+        .pagerLight,
+        .radio,
+        .dashboard,
+        .soundwave,
+        .typewriter,
+    ]
+
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "主题")
     static let caseDisplayRepresentations: [WidgetTheme: DisplayRepresentation] = [
         .polaroid:    "拍立得",
@@ -268,19 +281,6 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
     func timeline(for configuration: ThemeConfigIntent, in context: Context) async -> Timeline<NowPlayingEntry> {
         let base = currentEntry(theme: configuration.theme)
 
-        if base.isPlaying, configuration.theme == .vinyl {
-            let interval: TimeInterval = 0.5
-            let totalDuration: TimeInterval = 600
-            let count = Int(totalDuration / interval)
-            var entries: [NowPlayingEntry] = []
-            for i in 0..<count {
-                var e = base
-                e.date = Date.now.addingTimeInterval(Double(i) * interval)
-                entries.append(e)
-            }
-            return Timeline(entries: entries, policy: .after(Date.now.addingTimeInterval(totalDuration)))
-        }
-
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: base.date) ?? base.date.addingTimeInterval(300)
         return Timeline(entries: [base], policy: .after(nextUpdate))
     }
@@ -311,7 +311,12 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
 
         var coverData: Data?
         if let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
-            coverData = try? Data(contentsOf: url.appendingPathComponent("widget_cover.jpg"))
+            let coverURL = url.appendingPathComponent("widget_cover.jpg")
+            let attributes = try? FileManager.default.attributesOfItem(atPath: coverURL.path)
+            if let fileSize = attributes?[.size] as? NSNumber,
+               fileSize.intValue <= 500_000 {
+                coverData = try? Data(contentsOf: coverURL, options: [.mappedIfSafe])
+            }
         }
 
         if songName.isEmpty {
@@ -857,6 +862,33 @@ private struct PolaroidTheme: View {
 
 // MARK: - 2. Vinyl Theme (黑胶)
 
+private struct VinylWidgetAnimationFrame {
+    let date: Date
+    let isActive: Bool
+
+    var time: TimeInterval {
+        date.timeIntervalSinceReferenceDate
+    }
+
+    func recordRotationDegrees(base: Double) -> Double {
+        guard isActive else { return base }
+        return time * 42.0 + base
+    }
+}
+
+private struct VinylWidgetAnimationTimeline<Content: View>: View {
+    let isActive: Bool
+    let fallbackDate: Date
+    @ViewBuilder var content: (VinylWidgetAnimationFrame) -> Content
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { context in
+            let date = isActive ? context.date : fallbackDate
+            content(VinylWidgetAnimationFrame(date: date, isActive: isActive))
+        }
+    }
+}
+
 private struct VinylTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
@@ -1107,17 +1139,19 @@ private struct VinylTheme: View {
     }
 
     var body: some View {
-        switch family {
-        case .systemMedium:
-            mediumLayout(animationDate: entry.date)
-        case .systemLarge:
-            largeLayout(animationDate: entry.date)
-        default:
-            smallLayout(animationDate: entry.date)
+        VinylWidgetAnimationTimeline(isActive: entry.isPlaying, fallbackDate: entry.date) { animationFrame in
+            switch family {
+            case .systemMedium:
+                mediumLayout(animationFrame: animationFrame)
+            case .systemLarge:
+                largeLayout(animationFrame: animationFrame)
+            default:
+                smallLayout(animationFrame: animationFrame)
+            }
         }
     }
 
-    private func smallLayout(animationDate: Date) -> some View {
+    private func smallLayout(animationFrame: VinylWidgetAnimationFrame) -> some View {
         GeometryReader { geo in
             let contentWidth = geo.size.width - contentInsets.leading - contentInsets.trailing
             let contentHeight = geo.size.height - contentInsets.top - contentInsets.bottom
@@ -1135,7 +1169,7 @@ private struct VinylTheme: View {
                             accentColor: accentColor,
                             accentSecondaryColor: accentSecondaryColor,
                             glossAngle: glossAngle,
-                            animationDate: animationDate
+                            animationFrame: animationFrame
                         )
 
                         VinylTonearmView(
@@ -1168,7 +1202,7 @@ private struct VinylTheme: View {
                             .contentTransition(.interpolate)
 
                         HStack(spacing: 4) {
-                            playbackIndicator(height: 10, compact: true, animationDate: animationDate)
+                            playbackIndicator(height: 10, compact: true, animationFrame: animationFrame)
                             Text(displayArtistName)
                                 .font(.system(size: 10, weight: .medium, design: .rounded))
                                 .foregroundStyle(dimTextColor)
@@ -1202,7 +1236,7 @@ private struct VinylTheme: View {
         .widgetURL(URL(string: "monologue://player"))
     }
 
-    private func mediumLayout(animationDate: Date) -> some View {
+    private func mediumLayout(animationFrame: VinylWidgetAnimationFrame) -> some View {
         GeometryReader { geo in
             let contentWidth = geo.size.width - contentInsets.leading - contentInsets.trailing
             let contentHeight = geo.size.height - contentInsets.top - contentInsets.bottom
@@ -1219,7 +1253,7 @@ private struct VinylTheme: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(alignment: .center, spacing: 12) {
-                        mediumRecordStage(recordSize: recordSize, animationDate: animationDate)
+                        mediumRecordStage(recordSize: recordSize, animationFrame: animationFrame)
                             .frame(width: recordStageWidth, height: recordSize + 18, alignment: .leading)
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -1250,7 +1284,7 @@ private struct VinylTheme: View {
                             }
 
                             HStack(spacing: 8) {
-                                playbackIndicator(height: 12, compact: false, animationDate: animationDate)
+                                playbackIndicator(height: 12, compact: false, animationFrame: animationFrame)
 
                                 Text(statusTitle)
                                     .font(.system(size: 10, weight: .semibold, design: .rounded))
@@ -1298,7 +1332,7 @@ private struct VinylTheme: View {
         .widgetURL(URL(string: "monologue://player"))
     }
 
-    private func mediumRecordStage(recordSize: CGFloat, animationDate: Date) -> some View {
+    private func mediumRecordStage(recordSize: CGFloat, animationFrame: VinylWidgetAnimationFrame) -> some View {
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
@@ -1350,7 +1384,7 @@ private struct VinylTheme: View {
                 accentColor: accentColor,
                 accentSecondaryColor: accentSecondaryColor,
                 glossAngle: glossAngle,
-                animationDate: animationDate
+                animationFrame: animationFrame
             )
             .offset(x: 6, y: 8)
 
@@ -1365,7 +1399,7 @@ private struct VinylTheme: View {
         }
     }
 
-    private func largeLayout(animationDate: Date) -> some View {
+    private func largeLayout(animationFrame: VinylWidgetAnimationFrame) -> some View {
         GeometryReader { geo in
             let pad = contentInsets
             let w = geo.size.width - pad.leading - pad.trailing
@@ -1398,7 +1432,7 @@ private struct VinylTheme: View {
                                 accentColor: accentColor,
                                 accentSecondaryColor: accentSecondaryColor,
                                 glossAngle: glossAngle,
-                                animationDate: animationDate
+                                animationFrame: animationFrame
                             )
 
                             VinylTonearmView(
@@ -1481,7 +1515,7 @@ private struct VinylTheme: View {
                         .padding(.bottom, 8)
 
                         HStack {
-                            playbackIndicator(height: 12, compact: false, animationDate: animationDate)
+                            playbackIndicator(height: 12, compact: false, animationFrame: animationFrame)
                             Text(statusTitle)
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.86))
@@ -1554,7 +1588,7 @@ private struct VinylTheme: View {
         .buttonStyle(.plain)
     }
 
-    private func playbackIndicator(height: CGFloat, compact: Bool, animationDate: Date) -> some View {
+    private func playbackIndicator(height: CGFloat, compact: Bool, animationFrame: VinylWidgetAnimationFrame) -> some View {
         Group {
             if entry.isPlaying {
                 PlaybackWave(
@@ -1562,7 +1596,7 @@ private struct VinylTheme: View {
                     barCount: compact ? 3 : 4,
                     color: accentColor.opacity(0.95),
                     height: height,
-                    externalDate: entry.date
+                    externalTime: animationFrame.time
                 )
                     .frame(width: compact ? 12 : 18)
             } else {
@@ -1867,10 +1901,10 @@ private struct VinylRecordView: View {
     let accentColor: Color
     let accentSecondaryColor: Color
     let glossAngle: Double
-    let animationDate: Date
+    let animationFrame: VinylWidgetAnimationFrame
 
     private var rotationDegrees: Double {
-        entry.date.timeIntervalSinceReferenceDate * 36.0 + glossAngle
+        animationFrame.recordRotationDegrees(base: glossAngle)
     }
 
     private var discPlate: some View {
@@ -1975,7 +2009,6 @@ private struct VinylRecordView: View {
                 glossRing(angle: .degrees(rotationDegrees))
             }
             .rotationEffect(.degrees(rotationDegrees))
-            .animation(entry.isPlaying ? .linear(duration: 0.5) : .none, value: rotationDegrees)
         }
         .frame(width: size, height: size)
     }
@@ -2249,7 +2282,7 @@ private struct VinylTonearmView: View {
 }
 
 
-// MARK: - Playback Wave (Lock Screen only)
+// MARK: - Playback Wave
 
 private struct PlaybackWave: View {
     let isActive: Bool
@@ -2257,9 +2290,12 @@ private struct PlaybackWave: View {
     let color: Color
     let height: CGFloat
     var externalDate: Date?
+    var externalTime: TimeInterval?
 
     var body: some View {
-        if let date = externalDate {
+        if let time = externalTime {
+            waveBody(time: time)
+        } else if let date = externalDate {
             waveBody(time: date.timeIntervalSinceReferenceDate)
                 .animation(.linear(duration: 0.5), value: date)
         } else {
@@ -2742,32 +2778,46 @@ private struct MangaMicroAnimator: ViewModifier {
         case float
     }
     
-    func body(content: Content) -> some View {
-        content.phaseAnimator([false, true]) { view, phase in
-            switch type {
-            case .pulse:
-                view.scaleEffect(phase ? 1.15 : 1.0)
-            case .twinkle:
-                view
-                    .scaleEffect(phase ? 1.1 : 0.85)
-                    .opacity(phase ? 1.0 : 0.6)
-            case .wobble:
-                view.rotationEffect(.degrees(phase ? 6 : -6))
-            case .float:
-                view.offset(y: phase ? -3 : 3)
-            }
-        } animation: { phase in
-            switch type {
-            case .pulse:
-                .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
-            case .twinkle:
-                .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
-            case .wobble:
-                .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
-            case .float:
-                .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
-            }
+    private var period: TimeInterval {
+        switch type {
+        case .pulse:
+            return 1.6
+        case .twinkle:
+            return 2.4
+        case .wobble:
+            return 4.0
+        case .float:
+            return 3.0
         }
+    }
+
+    func body(content: Content) -> some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            let phase = phaseValue(for: timeline.date)
+            animated(content: content, phase: phase)
+        }
+    }
+
+    @ViewBuilder
+    private func animated(content: Content, phase: CGFloat) -> some View {
+        switch type {
+        case .pulse:
+            content.scaleEffect(1.0 + 0.15 * phase)
+        case .twinkle:
+            content
+                .scaleEffect(0.85 + 0.25 * phase)
+                .opacity(0.6 + 0.4 * phase)
+        case .wobble:
+            content.rotationEffect(.degrees(-6 + 12 * Double(phase)))
+        case .float:
+            content.offset(y: 3 - 6 * phase)
+        }
+    }
+
+    private func phaseValue(for date: Date) -> CGFloat {
+        let raw = date.timeIntervalSinceReferenceDate / period
+        let wave = (sin(raw * .pi * 2.0) + 1.0) * 0.5
+        return CGFloat(wave)
     }
 }
 
@@ -4791,12 +4841,7 @@ struct DashboardTheme: View {
 
                         Spacer()
 
-                        // 指示灯
-                        Circle()
-                            .fill(indicatorDot)
-                            .frame(width: 6, height: 6)
-                            .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
-                            .shadow(color: indicatorDot.opacity(0.3), radius: 2, x: 0, y: 0)
+                        DashboardActivityDot(isActive: entry.isPlaying, color: indicatorDot, size: 6)
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 12)
@@ -4849,11 +4894,7 @@ struct DashboardTheme: View {
                         dashboardPill(icon: "music.note", text: entry.qualityText.isEmpty ? "Standard" : entry.qualityText)
                         dashboardPill(icon: "play.fill", text: entry.playModeText.isEmpty ? "顺序" : entry.playModeText)
                         Spacer()
-                        Circle()
-                            .fill(indicatorDot)
-                            .frame(width: 6, height: 6)
-                            .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
-                            .shadow(color: indicatorDot.opacity(0.3), radius: 2)
+                        DashboardActivityDot(isActive: entry.isPlaying, color: indicatorDot, size: 6)
                     }
                     .padding(.top, 10)
 
@@ -4962,11 +5003,7 @@ struct DashboardTheme: View {
                             dashboardPill(icon: "music.note", text: entry.qualityText.isEmpty ? "Standard" : entry.qualityText)
                             dashboardPill(icon: "play.fill", text: entry.playModeText.isEmpty ? "顺序" : entry.playModeText)
                             Spacer(minLength: 0)
-                            Circle()
-                                .fill(indicatorDot)
-                                .frame(width: 8, height: 8)
-                                .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
-                                .shadow(color: indicatorDot.opacity(0.3), radius: 2)
+                            DashboardActivityDot(isActive: entry.isPlaying, color: indicatorDot, size: 8)
                         }
                         
                         Spacer(minLength: 10)
@@ -5097,6 +5134,27 @@ struct DashboardTheme: View {
                 .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct DashboardActivityDot: View {
+    let isActive: Bool
+    let color: Color
+    let size: CGFloat
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { timeline in
+            let pulse = isActive
+                ? (sin(timeline.date.timeIntervalSinceReferenceDate * 3.4) + 1.0) * 0.5
+                : 0.0
+
+            Circle()
+                .fill(color.opacity(0.72 + 0.28 * pulse))
+                .frame(width: size, height: size)
+                .scaleEffect(CGFloat(1.0 + 0.14 * pulse))
+                .shadow(color: Color.black.opacity(0.8), radius: 1, x: 0, y: 1)
+                .shadow(color: color.opacity(0.22 + 0.36 * pulse), radius: CGFloat(2 + 3 * pulse))
+        }
     }
 }
 
@@ -5510,14 +5568,7 @@ struct SoundwaveTheme: View {
                     
                     // Row 2: Equalizer / Control Deck Strip
                     HStack {
-                        // Equalizer fake bars
-                        HStack(spacing: 4) {
-                            ForEach(0..<6) { i in
-                                Capsule()
-                                    .fill(playOrange.opacity(0.6))
-                                    .frame(width: 4, height: CGFloat([12, 24, 18, 28, 16, 20][i]))
-                            }
-                        }
+                        SoundwaveEqualizerBars(isActive: entry.isPlaying, color: playOrange)
                         .padding(.leading, 12)
                         
                         Spacer()
@@ -5617,6 +5668,38 @@ struct SoundwaveTheme: View {
             .overlay(
                 Circle().stroke(Color.black.opacity(0.5), lineWidth: 0.5)
             )
+    }
+}
+
+private struct SoundwaveEqualizerBars: View {
+    let isActive: Bool
+    let color: Color
+
+    private let baseHeights: [CGFloat] = [12, 24, 18, 28, 16, 20]
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { timeline in
+            HStack(spacing: 4) {
+                ForEach(baseHeights.indices, id: \.self) { index in
+                    let pulse = phase(index: index, date: timeline.date)
+                    Capsule()
+                        .fill(color.opacity(0.5 + 0.28 * Double(pulse)))
+                        .frame(width: 4, height: height(index: index, date: timeline.date))
+                }
+            }
+        }
+    }
+
+    private func height(index: Int, date: Date) -> CGFloat {
+        guard isActive else { return baseHeights[index] }
+        let pulse = phase(index: index, date: date)
+        return baseHeights[index] * (0.72 + 0.56 * pulse)
+    }
+
+    private func phase(index: Int, date: Date) -> CGFloat {
+        let time = date.timeIntervalSinceReferenceDate * 4.8
+        let wave = sin(time + Double(index) * 0.78) * 0.5 + 0.5
+        return CGFloat(wave)
     }
 }
 

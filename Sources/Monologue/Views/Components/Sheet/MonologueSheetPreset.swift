@@ -92,6 +92,9 @@ enum MonologueSheetPreset: Equatable {
         if MujiStyle.isActive {
             return min(cornerRadius, 20)
         }
+        if NeumorphicStyle.isActive {
+            return min(cornerRadius, 28)
+        }
         return cornerRadius
     }
 

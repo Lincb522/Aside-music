@@ -14,6 +14,7 @@ enum SearchTab: String, CaseIterable {
 @MainActor
 class SearchViewModel: ObservableObject {
     @Published var query: String = ""
+    @Published private(set) var activeSearchKeyword: String = ""
     
     // MARK: - ncm搜索结果
     @Published var neteaseResults: [Song] = []
@@ -21,6 +22,7 @@ class SearchViewModel: ObservableObject {
     @Published var neteasePlaylistResults: [Playlist] = []
     @Published var neteaseAlbumResults: [SearchAlbum] = []
     @Published var neteaseMVResults: [MV] = []
+    @Published var neteaseSongTotal: Int?
     @Published var isNeteaseLoading = false
     
     // MARK: - qcm搜索结果
@@ -29,10 +31,12 @@ class SearchViewModel: ObservableObject {
     @Published var qqPlaylistResults: [Playlist] = []
     @Published var qqAlbumResults: [SearchAlbum] = []
     @Published var qqMVResults: [QQMV] = []
+    @Published var qqSongTotal: Int?
     @Published var isQQLoading = false
     
     // MARK: - 汽水音乐搜索结果
     @Published var qishuiResults: [Song] = []
+    @Published var qishuiSongTotal: Int?
     @Published var isQishuiLoading = false
     
     // MARK: - 通用状态
@@ -118,14 +122,18 @@ class SearchViewModel: ObservableObject {
         neteasePlaylistResults = []
         neteaseAlbumResults = []
         neteaseMVResults = []
+        neteaseSongTotal = nil
         qqResults = []
         qqArtistResults = []
         qqPlaylistResults = []
         qqAlbumResults = []
         qqMVResults = []
+        qqSongTotal = nil
         qishuiResults = []
+        qishuiSongTotal = nil
         suggestions = []
         hasSearched = false
+        activeSearchKeyword = ""
         showSuggestions = false
         expandedSource = nil
         multimatchResult = nil
@@ -171,6 +179,8 @@ class SearchViewModel: ObservableObject {
     }
     
     func performSearch(keyword: String) {
+        let keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return }
         lastSearchedKeyword = keyword
         showSuggestions = false
         suggestions = []
@@ -181,10 +191,14 @@ class SearchViewModel: ObservableObject {
         qqCanLoadMore = true
         qishuiCanLoadMore = true
         expandedSource = nil
+        neteaseSongTotal = nil
+        qqSongTotal = nil
+        qishuiSongTotal = nil
         
         if query != keyword {
             query = keyword
         }
+        activeSearchKeyword = keyword
         hasSearched = true
         
         cacheManager.addSearchHistory(keyword: keyword)
@@ -220,7 +234,8 @@ class SearchViewModel: ObservableObject {
             selectedPlatform = .netease
         }
         
-        guard hasSearched, !query.isEmpty else { return }
+        let keyword = requestKeyword
+        guard hasSearched, !keyword.isEmpty else { return }
         
         // 检查两个平台是否都已有该类型的结果
         let neteaseHasResults = hasNeteaseResults(for: tab)
@@ -229,35 +244,36 @@ class SearchViewModel: ObservableObject {
         if !neteaseHasResults {
             neteaseCurrentPage = 0
             neteaseCanLoadMore = true
-            executeNeteaseSearch(keyword: query, offset: 0, isLoadMore: false)
+            executeNeteaseSearch(keyword: keyword, offset: 0, isLoadMore: false)
         }
         if !qqHasResults {
             qqCurrentPage = 0
             qqCanLoadMore = true
-            executeQQSearch(keyword: query, page: 1, isLoadMore: false)
+            executeQQSearch(keyword: keyword, page: 1, isLoadMore: false)
         }
     }
     
     /// 加载更多（指定平台）
     func loadMore(source: MusicSource) {
-        guard !query.isEmpty else { return }
+        let keyword = requestKeyword
+        guard !keyword.isEmpty else { return }
         
         switch source {
         case .netease:
             guard !isFetchingMoreNetease && neteaseCanLoadMore else { return }
             isFetchingMoreNetease = true
             let offset = (neteaseCurrentPage + 1) * 30
-            executeNeteaseSearch(keyword: query, offset: offset, isLoadMore: true)
+            executeNeteaseSearch(keyword: keyword, offset: offset, isLoadMore: true)
         case .qqmusic:
             guard !isFetchingMoreQQ && qqCanLoadMore else { return }
             isFetchingMoreQQ = true
             let page = qqCurrentPage + 2 // page 从 1 开始
-            executeQQSearch(keyword: query, page: page, isLoadMore: true)
+            executeQQSearch(keyword: keyword, page: page, isLoadMore: true)
         case .qishui:
             guard !isFetchingMoreQishui && qishuiCanLoadMore else { return }
             isFetchingMoreQishui = true
             let page = qishuiCurrentPage + 1 // qishui page 从 0 开始
-            executeQishuiSearch(keyword: query, page: page, isLoadMore: true)
+            executeQishuiSearch(keyword: keyword, page: page, isLoadMore: true)
         case .local:
             return
         }
@@ -277,14 +293,17 @@ class SearchViewModel: ObservableObject {
         
         switch currentTab {
         case .songs:
-            apiService.searchSongs(keyword: keyword, offset: offset)
+            apiService.searchSongsWithTotal(keyword: keyword, offset: offset)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
                     self?.isNeteaseLoading = false
                     if isLoadMore { self?.isFetchingMoreNetease = false }
-                }, receiveValue: { [weak self] songs in
+                }, receiveValue: { [weak self] result in
                     guard let self = self else { return }
-                    self.handleNeteasePagination(newItems: songs, existing: &self.neteaseResults, isLoadMore: isLoadMore)
+                    if let total = result.total {
+                        self.neteaseSongTotal = total
+                    }
+                    self.handleNeteasePagination(newItems: result.songs, existing: &self.neteaseResults, isLoadMore: isLoadMore)
                 })
                 .store(in: &cancellables)
             
@@ -345,14 +364,17 @@ class SearchViewModel: ObservableObject {
         
         switch currentTab {
         case .songs:
-            apiService.searchQQSongs(keyword: keyword, page: page, num: 30)
+            apiService.searchQQSongsWithTotal(keyword: keyword, page: page, num: 30)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
                     self?.isQQLoading = false
                     if isLoadMore { self?.isFetchingMoreQQ = false }
-                }, receiveValue: { [weak self] songs in
+                }, receiveValue: { [weak self] result in
                     guard let self = self else { return }
-                    self.handleQQPagination(newItems: songs, existing: &self.qqResults, isLoadMore: isLoadMore)
+                    if let total = result.total {
+                        self.qqSongTotal = total
+                    }
+                    self.handleQQPagination(newItems: result.songs, existing: &self.qqResults, isLoadMore: isLoadMore)
                 })
                 .store(in: &cancellables)
             
@@ -419,6 +441,7 @@ class SearchViewModel: ObservableObject {
             }, receiveValue: { [weak self] songs in
                 guard let self = self else { return }
                 self.handleQishuiPagination(newItems: songs, existing: &self.qishuiResults, isLoadMore: isLoadMore)
+                self.qishuiSongTotal = max(self.qishuiSongTotal ?? 0, self.qishuiResults.count)
             })
             .store(in: &cancellables)
     }
@@ -434,13 +457,13 @@ class SearchViewModel: ObservableObject {
                     existing.append(contentsOf: filtered)
                 }
                 neteaseCurrentPage += 1
-                neteaseCanLoadMore = newItems.count >= 30
+                neteaseCanLoadMore = shouldKeepLoading(currentCount: existing.count, pageCount: newItems.count, total: currentTab == .songs ? neteaseSongTotal : nil, pageSize: 30)
             } else {
                 neteaseCanLoadMore = false
             }
         } else {
             existing = newItems
-            neteaseCanLoadMore = !newItems.isEmpty
+            neteaseCanLoadMore = shouldKeepLoading(currentCount: existing.count, pageCount: newItems.count, total: currentTab == .songs ? neteaseSongTotal : nil, pageSize: 30)
         }
     }
     
@@ -453,13 +476,13 @@ class SearchViewModel: ObservableObject {
                     existing.append(contentsOf: filtered)
                 }
                 qqCurrentPage += 1
-                qqCanLoadMore = newItems.count >= 30
+                qqCanLoadMore = shouldKeepLoading(currentCount: existing.count, pageCount: newItems.count, total: currentTab == .songs ? qqSongTotal : nil, pageSize: 20)
             } else {
                 qqCanLoadMore = false
             }
         } else {
             existing = newItems
-            qqCanLoadMore = !newItems.isEmpty
+            qqCanLoadMore = shouldKeepLoading(currentCount: existing.count, pageCount: newItems.count, total: currentTab == .songs ? qqSongTotal : nil, pageSize: 20)
         }
     }
     
@@ -472,13 +495,13 @@ class SearchViewModel: ObservableObject {
                     existing.append(contentsOf: filtered)
                 }
                 qishuiCurrentPage += 1
-                qishuiCanLoadMore = newItems.count >= 20
+                qishuiCanLoadMore = shouldKeepLoading(currentCount: existing.count, pageCount: newItems.count, total: qishuiSongTotal, pageSize: 20)
             } else {
                 qishuiCanLoadMore = false
             }
         } else {
             existing = newItems
-            qishuiCanLoadMore = newItems.count >= 20
+            qishuiCanLoadMore = shouldKeepLoading(currentCount: existing.count, pageCount: newItems.count, total: qishuiSongTotal, pageSize: 20)
         }
     }
     
@@ -512,6 +535,56 @@ class SearchViewModel: ObservableObject {
         case .albums: return neteaseAlbumResults.isEmpty && qqAlbumResults.isEmpty
         case .mvs: return neteaseMVResults.isEmpty && qqMVResults.isEmpty
         }
+    }
+
+    func displayedSongCount(for source: MusicSource) -> Int {
+        switch source {
+        case .netease:
+            return neteaseSongTotal ?? neteaseResults.count
+        case .qqmusic:
+            return qqSongTotal ?? qqResults.count
+        case .qishui:
+            return qishuiSongTotal ?? qishuiResults.count
+        case .local:
+            return 0
+        }
+    }
+
+    func canLoadMore(source: MusicSource) -> Bool {
+        switch source {
+        case .netease: return neteaseCanLoadMore
+        case .qqmusic: return qqCanLoadMore
+        case .qishui: return qishuiCanLoadMore
+        case .local: return false
+        }
+    }
+
+    func isLoadingMore(source: MusicSource) -> Bool {
+        switch source {
+        case .netease: return isFetchingMoreNetease
+        case .qqmusic: return isFetchingMoreQQ
+        case .qishui: return isFetchingMoreQishui
+        case .local: return false
+        }
+    }
+
+    var displayKeyword: String {
+        activeSearchKeyword.isEmpty ? query : activeSearchKeyword
+    }
+
+    private var requestKeyword: String {
+        let typedKeyword = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hasSearched, !activeSearchKeyword.isEmpty {
+            return activeSearchKeyword
+        }
+        return typedKeyword
+    }
+
+    private func shouldKeepLoading(currentCount: Int, pageCount: Int, total: Int?, pageSize: Int) -> Bool {
+        if let total, total > 0 {
+            return currentCount < total
+        }
+        return pageCount >= pageSize
     }
     
     func clearSearch() {

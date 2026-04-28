@@ -11,12 +11,12 @@ struct SectionHeader: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .regular) : .system(size: 22, weight: .heavy, design: .rounded))
+                    .font(sectionTitleFont)
                     .foregroundColor(.monologueTextPrimary)
-                    .tracking(MujiStyle.isActive ? 0.5 : -0.3)
+                    .tracking(MujiStyle.isActive ? 0.5 : (NeumorphicStyle.isActive ? 0 : -0.3))
                 if let subtitle {
                     Text(subtitle)
-                        .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .semibold, design: .rounded))
+                        .font(sectionSubtitleFont)
                         .foregroundColor(.monologueTextSecondary)
                 }
             }
@@ -25,13 +25,13 @@ struct SectionHeader: View {
                 Button(action: action) {
                     HStack(spacing: 4) {
                         Text(LocalizedStringKey("view_all"))
-                            .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .semibold) : .system(size: 11, weight: .bold, design: .rounded))
+                            .font(sectionActionFont)
                         MonologueIcon(icon: .chevronRight, size: 8, color: .monologueTextSecondary)
                     }
                     .foregroundColor(.monologueTextSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueTextSecondary.opacity(0.06)))
+                    .background(actionBackground)
                     .overlay(Capsule().stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -39,6 +39,34 @@ struct SectionHeader: View {
             }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var sectionTitleFont: Font {
+        if MujiStyle.isActive { return MujiStyle.titleFont(20, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(20, weight: .semibold) }
+        return .system(size: 22, weight: .heavy, design: .rounded)
+    }
+
+    private var sectionSubtitleFont: Font {
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        return .system(size: 12, weight: .semibold, design: .rounded)
+    }
+
+    private var sectionActionFont: Font {
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
+        return .system(size: 11, weight: .bold, design: .rounded)
+    }
+
+    private var actionBackground: some View {
+        Group {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+            } else {
+                Capsule().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueTextSecondary.opacity(0.06))
+            }
+        }
     }
 }
 

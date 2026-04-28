@@ -46,10 +46,34 @@ extension APIService {
         return extractJSONArray(from: result)
     }
 
+    private static func extractSearchTotal(from result: JSON, itemKey: String) -> Int? {
+        let candidates: [JSON?] = [
+            result["body"]?["total"],
+            result["body"]?["sum"],
+            result["body"]?["count"],
+            result["body"]?[itemKey]?["total"],
+            result["body"]?[itemKey]?["sum"],
+            result["total"],
+            result["sum"],
+            result["count"]
+        ]
+
+        return candidates
+            .compactMap { $0?.intValue }
+            .first { $0 > 0 }
+    }
+
     /// 搜索 qcm歌曲
     func searchQQSongs(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[Song], Error> {
+        searchQQSongsWithTotal(keyword: keyword, page: page, num: num)
+            .map(\.songs)
+            .eraseToAnyPublisher()
+    }
+
+    /// 搜索 qcm歌曲（包含后端返回的真实总数）
+    func searchQQSongsWithTotal(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<(songs: [Song], total: Int?), Error> {
         asyncToPublisher { [weak self] in
-            guard let self = self else { return [] }
+            guard let self = self else { return (songs: [], total: nil) }
             let result = try await self.qqClient.search(
                 keyword: keyword,
                 type: .song,
@@ -58,7 +82,8 @@ extension APIService {
                 highlight: false
             )
             let items = Self.extractSearchItems(from: result, itemKey: "item_song")
-            return items.compactMap { Self.convertQQSongToSong($0) }
+            let total = Self.extractSearchTotal(from: result, itemKey: "item_song")
+            return (songs: items.compactMap { Self.convertQQSongToSong($0) }, total: total)
         }
     }
     
@@ -1181,4 +1206,3 @@ extension APIService {
         }
     }
 }
-

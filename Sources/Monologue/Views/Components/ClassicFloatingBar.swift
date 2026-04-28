@@ -4,25 +4,28 @@ import SwiftUI
 struct ClassicFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     private var dividerColor: Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.82) }
-        if MujiStyle.isActive { return MujiStyle.separator.opacity(0.82) }
+        if settings.globalThemeId == .manga { return MangaStyle.strokeInk.opacity(0.82) }
+        if settings.globalThemeId == .muji { return MujiStyle.separator.opacity(0.82) }
+        if settings.globalThemeId == .neumorphic { return NeumorphicStyle.separator.opacity(0.68) }
         return Color.monologueSeparator.opacity(0.3)
     }
 
     private var dividerHeight: CGFloat {
-        MangaStyle.isActive ? 1.4 : 0.5
+        settings.globalThemeId == .manga ? 1.4 : (settings.globalThemeId == .neumorphic ? 0.8 : 0.5)
     }
 
     private var bottomSink: CGFloat {
-        DeviceLayout.isPad ? 6 : 8
+        DeviceLayout.isPad ? 3 : 4
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            
+
             VStack(spacing: 0) {
                 // MiniPlayer 部分
                 if let song = player.currentSong {
@@ -36,17 +39,18 @@ struct ClassicFloatingBar: View {
                         insertion: .opacity.combined(with: .move(edge: .top)),
                         removal: .opacity.combined(with: .move(edge: .top))
                     ))
-                    
+
                     // 分隔线 - 更柔和
                     Rectangle()
                         .fill(dividerColor)
                         .frame(height: dividerHeight)
                         .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
                 }
-                
+
                 // TabBar 部分
                 ClassicTabBarSection(currentTab: $currentTab)
             }
+            .id(settings.globalThemeId)
             .background {
                 barBackground
                     .ignoresSafeArea(.container, edges: .bottom)
@@ -66,23 +70,67 @@ struct ClassicFloatingBar: View {
 
     @ViewBuilder
     private var barBackground: some View {
-        if MangaStyle.isActive {
-            Rectangle()
-                .fill(MangaStyle.bubbleWhite)
-                .overlay(MangaDotsTexture(opacity: 0.02, gap: 14))
-        } else if MujiStyle.isActive {
+        if settings.globalThemeId == .manga {
+            ZStack(alignment: .top) {
+                Rectangle()
+                    .fill(MangaStyle.strokeInk)
+                    .offset(y: -4)
+
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [MangaStyle.bubbleWhite, MangaStyle.paperWarm.opacity(0.94)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .overlay(MangaDotsTexture(opacity: 0.028, gap: 12))
+
+                HStack(spacing: 0) {
+                    MangaStyle.labelYellow.frame(width: 90)
+                    MangaStyle.accentPink.frame(width: 48)
+                    MangaStyle.decoBlue.frame(width: 58)
+                    Spacer()
+                    MangaStyle.mint.frame(width: 70)
+                }
+                .frame(height: 7)
+
+                Rectangle()
+                    .fill(MangaStyle.strokeInk)
+                    .frame(height: 2.4)
+                    .offset(y: 7)
+
+                HStack {
+                    MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 17)
+                    Spacer()
+                    MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 17)
+                }
+                .padding(.horizontal, 24)
+                .offset(y: -8)
+            }
+            .shadow(color: MangaStyle.strokeInk.opacity(0.16), radius: 0, x: 0, y: -4)
+        } else if settings.globalThemeId == .muji {
             Rectangle()
                 .fill(MujiStyle.surfaceRaised)
                 .overlay(MujiPaperTexture(opacity: 0.08))
-        } else {
+        } else if settings.globalThemeId == .neumorphic {
             Rectangle()
-                .fill(Color.monologueFloatingBarFill)
-                .monologueGlassPlainRect()
+                .fill(NeumorphicStyle.surface)
+                .overlay(NeumorphicReliefTexture(opacity: 0.045))
+        } else {
+            ZStack {
+                Rectangle()
+                    .fill(Color.white.opacity(colorScheme == .dark ? 0.12 : 0.74))
+
+                Rectangle()
+                    .fill(Color.monologueFloatingBarFill.opacity(colorScheme == .dark ? 0.78 : 0.48))
+            }
         }
     }
 }
 
 // MARK: - 经典 MiniPlayer 部分
+
 private struct ClassicMiniPlayerSection: View {
     let song: Song
     let isPlaying: Bool
@@ -99,9 +147,9 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var coverCornerRadius: CGFloat {
-        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 6 : 8)
+        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 9 : 8))
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -120,7 +168,7 @@ private struct ClassicMiniPlayerSection: View {
                         sourceIndicator(icon: .radio)
                     }
                 }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     MarqueeText(
                         text: song.name,
@@ -130,17 +178,16 @@ private struct ClassicMiniPlayerSection: View {
                         alignment: .leading
                     )
                     .frame(height: 16)
-                    
+
                     Text(subtitleText)
                         .font(subtitleFont)
                         .foregroundColor(subtitleColor)
                         .lineLimit(1)
                         .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
                 }
-                
+
                 Spacer(minLength: 4)
-                
-                
+
                 // 控制按钮
                 HStack(spacing: 12) {
                     Button(action: togglePlayPause) {
@@ -149,7 +196,7 @@ private struct ClassicMiniPlayerSection: View {
                                 .fill(controlFill)
                                 .frame(width: 34, height: 34)
                                 .overlay(controlStroke)
-                            
+
                             if player.isLoading {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: controlForeground))
@@ -164,13 +211,13 @@ private struct ClassicMiniPlayerSection: View {
                         }
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
-                    
+
                     Button(action: { showPlaylist.toggle() }) {
                         MonologueIcon(icon: .list, size: 16, color: titleColor.opacity(0.72))
                             .frame(width: 34, height: 34)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
-                    
+
                     if !isPlaying {
                         Button(action: {
                             withAnimation(MonologueAnimation.floatingBar) {
@@ -190,8 +237,8 @@ private struct ClassicMiniPlayerSection: View {
                 .zIndex(1)
             }
             .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
-            .padding(.top, 8)
-            .padding(.bottom, 5)
+            .padding(.top, 10)
+            .padding(.bottom, 7)
             .background {
                 Color.clear
                     .contentShape(Rectangle())
@@ -200,7 +247,7 @@ private struct ClassicMiniPlayerSection: View {
                             switch player.playSource {
                             case .fm:
                                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-                            case .podcast(let radioId):
+                            case let .podcast(radioId):
                                 NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
                             case .normal:
                                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
@@ -208,14 +255,14 @@ private struct ClassicMiniPlayerSection: View {
                         }
                     }
             }
-            
+
             ProgressBarView()
                 .frame(height: 2.5)
                 .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
-                .padding(.bottom, 3)
+                .padding(.bottom, 5)
                 .opacity(0.6)
         }
-        .monologueSheet(isPresented: $showPlaylist, preset: .standard){
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
             } else {
@@ -230,30 +277,35 @@ private struct ClassicMiniPlayerSection: View {
 
     private var titleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
 
     private var subtitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         return .rounded(size: 11, weight: .medium)
     }
 
     private var titleColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueTextPrimary
     }
 
     private var subtitleColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var coverPlaceholderFill: Color {
         if MangaStyle.isActive { return MangaStyle.paperCool }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.74) }
         return Color.gray.opacity(0.15)
     }
@@ -266,17 +318,22 @@ private struct ClassicMiniPlayerSection: View {
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                 .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.55), lineWidth: 0.7)
         }
     }
 
     private var controlFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
         return .monologueIconBackground
     }
 
     private var controlForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueIconForeground
     }
@@ -287,11 +344,14 @@ private struct ClassicMiniPlayerSection: View {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.5)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            Circle().stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         }
     }
 
     private var closeFill: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.12) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.06) }
         return Color.monologueTextPrimary.opacity(0.08)
     }
@@ -302,11 +362,14 @@ private struct ClassicMiniPlayerSection: View {
             Circle().stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.3), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            Circle().stroke(NeumorphicStyle.separator.opacity(0.45), lineWidth: 0.7)
         }
     }
 
     private var sourceIndicatorForeground: Color {
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if MujiStyle.isActive { return MujiStyle.onTint }
         return .white
     }
@@ -321,6 +384,7 @@ private struct ClassicTabAnimValues {
 }
 
 // MARK: - 经典 TabBar 部分（带 outline/filled 切换 + 微动画）
+
 private struct ClassicTabBarSection: View {
     @Binding var currentTab: Tab
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
@@ -332,15 +396,15 @@ private struct ClassicTabBarSection: View {
         (.library, .libraryFilled),
         (.profile, .profileFilled),
     ]
-    
+
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(0..<Self.tabIcons.count, id: \.self) { index in
+            ForEach(0 ..< Self.tabIcons.count, id: \.self) { index in
                 let tab = Tab.allCases[index]
                 let isSelected = currentTab == tab
                 let icons = Self.tabIcons[index]
                 let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
-                
+
                 Button {
                     HapticManager.shared.light()
                     animTrigger = index
@@ -376,13 +440,17 @@ private struct ClassicTabBarSection: View {
                             }
                         }
                         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
-                        
+
                         Text(label)
                             .font(tabFont(isSelected: isSelected))
                             .foregroundColor(tabForeground(index, isSelected: isSelected))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .center)
+                    .padding(.vertical, 6)
                     .background {
                         if ThemedPageStyle.isActive && isSelected {
                             tabSelectionBackground(index)
@@ -393,12 +461,16 @@ private struct ClassicTabBarSection: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.bottom, 0)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
     }
 
     private func tabFont(isSelected: Bool) -> Font {
         if MangaStyle.isActive {
             return MangaStyle.labelFont(10, weight: isSelected ? .black : .bold)
+        }
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(10, weight: isSelected ? .semibold : .medium)
         }
         if MujiStyle.isActive {
             return MujiStyle.labelFont(10, weight: isSelected ? .semibold : .medium)
@@ -409,11 +481,13 @@ private struct ClassicTabBarSection: View {
     private func tabForeground(_ index: Int, isSelected: Bool) -> Color {
         guard isSelected else {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             return .monologueTextPrimary.opacity(0.35)
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return neumorphicTabTint(index) }
         if MujiStyle.isActive { return mujiTabTint(index) }
         return .monologueTextPrimary
     }
@@ -429,6 +503,11 @@ private struct ClassicTabBarSection: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MujiStyle.surface.opacity(0.72))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.32), lineWidth: 0.6))
+                .padding(.horizontal, 5)
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(NeumorphicStyle.accent.opacity(0.12))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true).padding(.horizontal, 4))
                 .padding(.horizontal, 5)
         }
     }
@@ -448,6 +527,15 @@ private struct ClassicTabBarSection: View {
         case 1: return MujiStyle.tea
         case 2: return MujiStyle.indigo
         default: return MujiStyle.straw
+        }
+    }
+
+    private func neumorphicTabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return NeumorphicStyle.accent
+        case 1: return NeumorphicStyle.warm
+        case 2: return NeumorphicStyle.sage
+        default: return NeumorphicStyle.red
         }
     }
 }

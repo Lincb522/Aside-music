@@ -48,6 +48,8 @@ struct PlaylistDetailView: View {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
+            } else if NeumorphicStyle.isActive {
+                NeumorphicRootBackdrop()
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist.coverUrl?.sized(200))
             } else {
@@ -152,6 +154,8 @@ struct PlaylistDetailView: View {
     private var playlistHeaderContent: some View {
         if MangaStyle.isActive {
             mangaPlaylistHeaderContent
+        } else if NeumorphicStyle.isActive {
+            neumorphicPlaylistHeaderContent
         } else if MujiStyle.isActive {
             mujiPlaylistHeaderContent
         } else {
@@ -254,6 +258,119 @@ struct PlaylistDetailView: View {
         .padding(.top, DeviceLayout.isPad ? 24 : 16)
         .padding(.bottom, DeviceLayout.isPad ? 32 : 24)
         .iPadContentWidth(900)
+        }
+    }
+
+    private var neumorphicPlaylistHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
+                    NeumorphicStyle.surfacePressed
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 172 : 128, height: DeviceLayout.isPad ? 172 : 128)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 7) {
+                        NeumorphicPill(text: "PLAYLIST", tint: NeumorphicStyle.accent, selected: true, compact: true)
+                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                            NeumorphicPill(text: "\(count) \(String(localized: "songs_unit"))", tint: NeumorphicStyle.sage, compact: true)
+                        }
+                    }
+
+                    Text(viewModel.playlistDetail?.name ?? playlist.name)
+                        .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .foregroundColor(NeumorphicStyle.ink)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
+                            .font(NeumorphicStyle.labelFont(12, weight: .medium))
+                            .foregroundColor(NeumorphicStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 7) {
+                        if let playCount = playlist.playCount, playCount > 0 {
+                            NeumorphicPill(text: formatCount(playCount), tint: NeumorphicStyle.warm, compact: true)
+                        }
+                        if playlist.isQQMusic {
+                            NeumorphicPill(text: "QCM", tint: MusicSource.qqmusic.themedBadgeColor, compact: true)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllRemainingToQueue()
+                    }
+                }) {
+                    NeumorphicPlayPill(title: String(localized: "play_now"), tint: NeumorphicStyle.accent)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: {
+                            if playlist.isQQMusic {
+                                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                                let name = viewModel.playlistDetail?.name ?? playlist.name
+                                Task {
+                                    let allSongs = await viewModel.loadAllRemainingAsync()
+                                    LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isCollectedLocally = true
+                                    }
+                                }
+                            } else {
+                                showCollectOptions = true
+                            }
+                        }
+                    )
+                    .disabled((playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty)))
+                }
+            }
+        }
+        .padding(17)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true))
+        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.bottom, 12)
+        .iPadContentWidth(900)
+        .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+            Button(String(localized: "收藏到本地")) {
+                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                let name = viewModel.playlistDetail?.name ?? playlist.name
+                Task {
+                    let allSongs = await viewModel.loadAllRemainingAsync()
+                    LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isCollectedLocally = true
+                    }
+                }
+            }
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+            Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                subManager.togglePlaylistSubscription(id: playlist.id)
+            }
+
+            Button(String(localized: "取消"), role: .cancel) {}
         }
     }
 
@@ -500,6 +617,8 @@ struct PlaylistDetailView: View {
         Group {
             if MujiStyle.isActive {
                 MujiPill(text: "\(count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicPill(text: "\(count)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
             } else {
                 HStack(spacing: 4) {
                     MonologueIcon(icon: .musicNoteList, size: 10, color: .monologueTextSecondary.opacity(0.85))
@@ -542,36 +661,59 @@ struct PlaylistDetailView: View {
             if viewModel.isLoading {
                 MonologueLoadingView(text: "LOADING TRACKS")
             } else {
-                ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
-                    SongListRow(
-                        song: song,
-                        index: index,
-                        isSelecting: isSelectMode,
-                        isSelected: selectedSongIds.contains(song.id),
-                        onArtistTap: { artistId in
-                            selectedArtistId = artistId
-                            showArtistDetail = true
-                        },
-                        onDetailTap: { detailSong in
-                            selectedSongForDetail = detailSong
-                            showSongDetail = true
-                        },
-                        onAlbumTap: { albumId in
-                            selectedAlbumId = albumId
-                            showAlbumDetail = true
-                        },
-                        onTap: {
-                            if isSelectMode {
-                                if selectedSongIds.contains(song.id) {
-                                    selectedSongIds.remove(song.id)
-                                } else {
-                                    selectedSongIds.insert(song.id)
-                                }
-                            } else {
-                                PlayerManager.shared.play(song: song, in: filteredSongs)
-                            }
+                if filteredSongs.isEmpty {
+                    VStack(spacing: 14) {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
+                        } else {
+                            MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
                         }
-                    )
+
+                        Text(LocalizedStringKey("album_no_songs"))
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                        }
+                    }
+                    .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+                    .padding(.top, 40)
+                } else {
+                    ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
+                        SongListRow(
+                            song: song,
+                            index: index,
+                            isSelecting: isSelectMode,
+                            isSelected: selectedSongIds.contains(song.id),
+                            onArtistTap: { artistId in
+                                selectedArtistId = artistId
+                                showArtistDetail = true
+                            },
+                            onDetailTap: { detailSong in
+                                selectedSongForDetail = detailSong
+                                showSongDetail = true
+                            },
+                            onAlbumTap: { albumId in
+                                selectedAlbumId = albumId
+                                showAlbumDetail = true
+                            },
+                            onTap: {
+                                if isSelectMode {
+                                    if selectedSongIds.contains(song.id) {
+                                        selectedSongIds.remove(song.id)
+                                    } else {
+                                        selectedSongIds.insert(song.id)
+                                    }
+                                } else {
+                                    PlayerManager.shared.play(song: song, in: filteredSongs)
+                                }
+                            }
+                        )
+                    }
                 }
 
                 if !isSearching {
@@ -602,6 +744,10 @@ struct PlaylistDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             if MangaStyle.isActive {
                 MangaSectionTitle(title: String(localized: "related_playlists"), mark: .star)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 20)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSectionTitle(title: String(localized: "related_playlists"))
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 20)
             } else if MujiStyle.isActive {
@@ -639,12 +785,12 @@ struct PlaylistDetailView: View {
                         }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: rp.coverUrl?.sized(300)) {
-                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : 12))
-                                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
-                                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : 12))
+                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)))
+                                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)))
+                                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)))
                                 }
                                 .frame(width: 130, height: 130)
-                                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : 12), style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)), style: .continuous))
                                 .overlay {
                                     if MangaStyle.isActive {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -652,27 +798,32 @@ struct PlaylistDetailView: View {
                                     } else if MujiStyle.isActive {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                                             .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
+                                    } else if NeumorphicStyle.isActive {
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
                                     }
                                 }
 
                                 Text(rp.name)
-                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .rounded(size: 13, weight: .medium)))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
+                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .rounded(size: 13, weight: .medium))))
+                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)))
                                     .lineLimit(2)
                                     .frame(width: 130, height: 34, alignment: .topLeading)
 
                                 Text(rp.creatorName.isEmpty ? " " : rp.creatorName)
-                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .rounded(size: 11)))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
+                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))))
+                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
                                     .lineLimit(1)
                                     .frame(width: 130, alignment: .leading)
                             }
-                            .padding((MangaStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+                            .padding(ThemedPageStyle.isActive ? 8 : 0)
                             .background {
                                 if MangaStyle.isActive {
                                     MangaCardBackground(cornerRadius: 14, elevated: true, tint: MangaStyle.bubbleWhite)
                                 } else if MujiStyle.isActive {
                                     MujiPaperCardBackground(cornerRadius: 10)
+                                } else if NeumorphicStyle.isActive {
+                                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false)
                                 }
                             }
                         }

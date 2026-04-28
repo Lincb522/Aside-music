@@ -45,6 +45,8 @@ struct AlbumDetailView: View {
                     MangaRootBackdrop()
                 } else if MujiStyle.isActive {
                     MujiRootBackdrop()
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicRootBackdrop()
                 } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: effectiveCoverUrl)
                 } else {
@@ -66,9 +68,13 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if let size = viewModel.albumInfo?.size, size > 0 {
-                    Text(String(format: NSLocalizedString("songs_count_format", comment: ""), size))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                    if NeumorphicStyle.isActive {
+                        NeumorphicPill(text: "\(size)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
+                    } else {
+                        Text(String(format: NSLocalizedString("songs_count_format", comment: ""), size))
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.monologueTextSecondary)
+                    }
                 }
             }
         }
@@ -106,6 +112,8 @@ struct AlbumDetailView: View {
     private var albumHeaderContent: some View {
         if MangaStyle.isActive {
             mangaAlbumHeaderContent
+        } else if NeumorphicStyle.isActive {
+            neumorphicAlbumHeaderContent
         } else if MujiStyle.isActive {
             mujiAlbumHeaderContent
         } else {
@@ -282,6 +290,88 @@ struct AlbumDetailView: View {
         .padding(.bottom, 12)
     }
 
+    private var neumorphicAlbumHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                CachedAsyncImage(url: viewModel.albumInfo?.coverUrl?.sized(500) ?? albumCoverUrl?.sized(500)) {
+                    NeumorphicStyle.surfacePressed
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 172 : 128, height: DeviceLayout.isPad ? 172 : 128)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 7) {
+                        NeumorphicPill(text: "ALBUM", tint: NeumorphicStyle.warm, selected: true, compact: true)
+                        if let size = viewModel.albumInfo?.size, size > 0 {
+                            NeumorphicPill(text: "\(size) \(String(localized: "songs_unit"))", tint: NeumorphicStyle.sage, compact: true)
+                        }
+                    }
+
+                    Text(viewModel.albumInfo?.name ?? albumName ?? "")
+                        .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
+                        Button(action: {
+                            if let artistId = viewModel.albumInfo?.artist?.id {
+                                selectedArtistId = artistId
+                                showArtistDetail = true
+                            }
+                        }) {
+                            Text(artistName)
+                                .font(NeumorphicStyle.labelFont(12, weight: .medium))
+                                .foregroundStyle(NeumorphicStyle.inkSoft)
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    HStack(spacing: 7) {
+                        if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
+                            NeumorphicPill(text: date, tint: NeumorphicStyle.accent, compact: true)
+                        }
+                        if let company = viewModel.albumInfo?.company, !company.isEmpty {
+                            NeumorphicPill(text: company, tint: NeumorphicStyle.sage, compact: true)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                }) {
+                    NeumorphicPlayPill(title: String(localized: "play_now"), tint: NeumorphicStyle.accent)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                SubscribeButton(
+                    isSubscribed: viewModel.isSubscribed,
+                    action: { viewModel.toggleSubscription(id: albumId) }
+                )
+                .disabled(viewModel.isTogglingSubscription)
+            }
+        }
+        .padding(17)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
+    }
+
     private var mujiAlbumHeaderContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 10) {
@@ -374,11 +464,23 @@ struct AlbumDetailView: View {
                 MonologueLoadingView(text: "LOADING TRACKS")
             } else if viewModel.songs.isEmpty {
                 VStack(spacing: 14) {
-                    MonologueIcon(icon: .musicNoteList, size: 40, color: Theme.secondaryText.opacity(0.3))
+                    if NeumorphicStyle.isActive {
+                        NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.warm, size: 54)
+                    } else {
+                        MonologueIcon(icon: .musicNoteList, size: 40, color: Theme.secondaryText.opacity(0.3))
+                    }
                     Text(LocalizedStringKey("album_no_songs"))
-                        .font(.rounded(size: 15))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
+                .background {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true)
+                    }
+                }
+                .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
                 .padding(.top, 40)
             } else {
                 // 专辑简介（如果有）
@@ -387,15 +489,15 @@ struct AlbumDetailView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Text(LocalizedStringKey("album_desc"))
-                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .regular) : .rounded(size: 15, weight: .semibold)))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : Theme.text))
+                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold))))
+                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
                                 Spacer()
-                                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : Theme.secondaryText))
+                                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)))
                             }
 
                             Text(desc)
-                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .rounded(size: 13, weight: .regular)))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : Theme.secondaryText))
+                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13, weight: .regular))))
+                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)))
                                 .lineLimit(3)
                                 .lineSpacing(4)
                                 .multilineTextAlignment(.leading)
@@ -407,6 +509,8 @@ struct AlbumDetailView: View {
                                 MangaCardBackground(cornerRadius: 18, elevated: true, tint: MangaStyle.bubbleWhite)
                             } else if MujiStyle.isActive {
                                 MujiPaperCardBackground(cornerRadius: 12)
+                            } else if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
                             } else {
                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                                     .fill(Color.monologueGlassTint)
@@ -506,29 +610,36 @@ struct AlbumDescSheet: View {
             // 头部：专辑封面 + 名字
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 14 : 10)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)
-                .cornerRadius(10)
+                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 14 : 10, style: .continuous))
+                .overlay {
+                    if NeumorphicStyle.isActive {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(album.name)
-                        .font(.rounded(size: 20, weight: .bold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 6) {
                         Text(album.artistName)
-                            .font(.rounded(size: 12))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
 
                         if !album.publishDateText.isEmpty {
                             Text("·")
-                                .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted.opacity(0.6) : .monologueTextSecondary.opacity(0.5))
                             Text(album.publishDateText)
-                                .font(.rounded(size: 12))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                     }
                 }
@@ -536,9 +647,15 @@ struct AlbumDescSheet: View {
                 Spacer()
 
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 20, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .close, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .frame(width: 32, height: 32)
-                        .background(Color.monologueSeparator)
+                        .background {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                            } else {
+                                Circle().fill(Color.monologueSeparator)
+                            }
+                        }
                         .clipShape(Circle())
                 }
             }
@@ -547,7 +664,7 @@ struct AlbumDescSheet: View {
             .padding(.bottom, 16)
 
             Rectangle()
-                .fill(Color.monologueSeparator)
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator)
                 .frame(height: 0.5)
 
             // 内容
@@ -555,18 +672,30 @@ struct AlbumDescSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     if let desc = album.description, !desc.isEmpty {
                         Text(desc)
-                            .font(.rounded(size: 15, weight: .regular))
-                            .foregroundColor(.monologueTextPrimary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                             .lineSpacing(6)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(16)
-                            .monologueGlass(cornerRadius: 20)
+                            .background {
+                                if NeumorphicStyle.isActive {
+                                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .fill(Color.monologueGlassTint)
+                                        .monologueGlass(cornerRadius: 20)
+                                }
+                            }
                     } else {
                         VStack(spacing: 14) {
-                            MonologueIcon(icon: .info, size: 36, color: .monologueTextSecondary.opacity(0.3))
+                            if NeumorphicStyle.isActive {
+                                NeumorphicIconBadge(icon: .info, tint: NeumorphicStyle.sage, size: 52)
+                            } else {
+                                MonologueIcon(icon: .info, size: 36, color: .monologueTextSecondary.opacity(0.3))
+                            }
                             Text(LocalizedStringKey("album_no_desc"))
-                                .font(.rounded(size: 15))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 40)
@@ -580,7 +709,11 @@ struct AlbumDescSheet: View {
         }
         .background {
             MonologueSheetAwareBackground {
-                ThemedPageBackground()
+                if NeumorphicStyle.isActive {
+                    NeumorphicRootBackdrop()
+                } else {
+                    ThemedPageBackground()
+                }
             }
         }
     }

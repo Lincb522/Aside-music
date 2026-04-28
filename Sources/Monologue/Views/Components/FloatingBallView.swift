@@ -5,18 +5,18 @@ struct FloatingBallView: View {
     @Binding var currentTab: Tab
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    
-    // 控制面板状态
+
+    /// 控制面板状态
     @State private var isPanelOpen = false
-    
+
     // 唱片旋转角度
     @State private var rotationAngle: Double = 0
     @State private var lastTickDate: Date? = nil
-    
+
     private let ballSize: CGFloat = 56
-    
+
     var body: some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             ZStack {
                 // 遮罩
                 if isPanelOpen {
@@ -29,13 +29,13 @@ struct FloatingBallView: View {
                         }
                         .transition(.opacity)
                 }
-                
+
                 // 悬浮球固定在右下角
                 VStack {
                     Spacer()
                     HStack {
                         Spacer()
-                        
+
                         HStack(spacing: 0) {
                             // 弹出的控制面板（从悬浮球左边展开）
                             if isPanelOpen {
@@ -45,7 +45,7 @@ struct FloatingBallView: View {
                                         removal: .scale(scale: 0.8, anchor: .trailing).combined(with: .opacity)
                                     ))
                             }
-                            
+
                             // 悬浮球
                             floatingBall
                         }
@@ -61,16 +61,16 @@ struct FloatingBallView: View {
             }
         }
     }
-    
+
     // MARK: - 悬浮球
-    
+
     private var floatingBall: some View {
         ZStack {
             // 进度环 - 轨道更柔和
             Circle()
                 .stroke(progressTrackColor, lineWidth: progressLineWidth)
                 .frame(width: ballSize, height: ballSize)
-            
+
             let progress = timePublisher.duration > 0 ? min(max(timePublisher.currentTime / timePublisher.duration, 0), 1) : 0
             Circle()
                 .trim(from: 0, to: CGFloat(progress))
@@ -78,13 +78,13 @@ struct FloatingBallView: View {
                 .frame(width: ballSize, height: ballSize)
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.1), value: progress)
-            
+
             // 黑胶唱片
             TimelineView(.animation(minimumInterval: 0.033, paused: !player.isPlaying)) { timeline in
                 vinylDisc
                     .frame(width: ballSize - 8, height: ballSize - 8)
                     .rotationEffect(.degrees(rotationAngle))
-                    .onChange(of: timeline.date) { oldDate, newDate in
+                    .onChange(of: timeline.date) { _, newDate in
                         guard player.isPlaying else {
                             lastTickDate = nil
                             return
@@ -103,6 +103,18 @@ struct FloatingBallView: View {
                 .frame(width: ballSize + 4, height: ballSize + 4)
         )
         .monologueGlassCircle()
+        .overlay {
+            if MangaStyle.isActive {
+                Circle()
+                    .stroke(MangaStyle.strokeInk, lineWidth: 2.2)
+                    .frame(width: ballSize + 4, height: ballSize + 4)
+                    .overlay(alignment: .topTrailing) {
+                        MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 15)
+                            .offset(x: 1, y: -3)
+                    }
+                    .shadow(color: MangaStyle.strokeInk.opacity(0.4), radius: 0, x: 3, y: 3)
+            }
+        }
         .contentShape(Circle())
         .monologueMultiGesture(
             onTap: {
@@ -121,15 +133,15 @@ struct FloatingBallView: View {
             }
         )
     }
-    
+
     // MARK: - 黑胶唱片
-    
+
     private var vinylDisc: some View {
         ZStack {
             // 唱片底色
             Circle()
                 .fill(vinylBaseFill)
-            
+
             // 沟槽
             Circle()
                 .stroke(vinylGrooveColor.opacity(0.7), lineWidth: 0.5)
@@ -137,7 +149,7 @@ struct FloatingBallView: View {
             Circle()
                 .stroke(vinylGrooveColor.opacity(0.45), lineWidth: 0.5)
                 .padding(9)
-            
+
             // 封面
             if let song = player.currentSong {
                 CachedAsyncImage(url: song.coverUrl) {
@@ -154,27 +166,27 @@ struct FloatingBallView: View {
                         MonologueIcon(icon: .musicNote, size: 10, color: emptyCoverIconColor)
                     )
             }
-            
+
             // 中心孔
             Circle()
                 .fill(vinylBaseFill)
                 .frame(width: 5, height: 5)
         }
     }
-    
+
     // MARK: - 控制面板
-    
+
     private var controlPanel: some View {
         HStack(spacing: 0) {
             // Tab 切换
             tabSection
-            
+
             // 分隔线 - 更柔和
             Rectangle()
                 .fill(panelDividerColor)
                 .frame(width: 0.5, height: 36)
                 .padding(.horizontal, 8)
-            
+
             // 播放控制
             playbackSection
         }
@@ -186,19 +198,31 @@ struct FloatingBallView: View {
                 .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill.opacity(0.06))
         )
         .monologueGlass(cornerRadius: panelCornerRadius)
+        .overlay {
+            if MangaStyle.isActive {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(MangaStyle.strokeInk, lineWidth: 2)
+                    .overlay(alignment: .topLeading) {
+                        Capsule()
+                            .fill(MangaStyle.accentPink)
+                            .frame(width: 46, height: 5)
+                            .offset(x: 16, y: 7)
+                    }
+            }
+        }
         .padding(.trailing, 8)
     }
-    
+
     // MARK: - Tab 切换区域
-    
+
     private var tabSection: some View {
         let items: [(tab: Tab, icon: MonologueIcon.IconType)] = [
             (.home, .home),
             (.podcast, .podcast),
             (.library, .library),
-            (.profile, .profile)
+            (.profile, .profile),
         ]
-        
+
         return HStack(spacing: 6) {
             ForEach(items, id: \.tab) { item in
                 Button {
@@ -228,9 +252,9 @@ struct FloatingBallView: View {
             }
         }
     }
-    
+
     // MARK: - 播放控制区域
-    
+
     private var playbackSection: some View {
         // 播放/暂停
         Button {
@@ -241,7 +265,7 @@ struct FloatingBallView: View {
                     .fill(playControlFill)
                     .frame(width: 40, height: 40)
                     .overlay(playControlStroke)
-                
+
                 if player.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: playControlForeground))
@@ -257,14 +281,14 @@ struct FloatingBallView: View {
         }
         .buttonStyle(MonologueBouncingButtonStyle())
     }
-    
+
     // MARK: - 打开播放器
-    
+
     private func openPlayer() {
         switch player.playSource {
         case .fm:
             NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-        case .podcast(let radioId):
+        case let .podcast(radioId):
             NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
         case .normal:
             NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
@@ -272,21 +296,23 @@ struct FloatingBallView: View {
     }
 
     private var panelCornerRadius: CGFloat {
-        MangaStyle.isActive ? 18 : 20
+        MangaStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 24 : 20)
     }
 
     private var panelScrimColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink.opacity(0.18) }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.16) }
         return Color.black.opacity(0.3)
     }
 
     private var progressLineWidth: CGFloat {
-        MangaStyle.isActive ? 3 : 2.5
+        MangaStyle.isActive ? 3 : (NeumorphicStyle.isActive ? 3 : 2.5)
     }
 
     private var progressTrackColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.62) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
         return Color.monologueTextPrimary.opacity(0.08)
     }
@@ -298,47 +324,57 @@ struct FloatingBallView: View {
         if MujiStyle.isActive {
             return AnyShapeStyle(MujiStyle.accentGradient)
         }
+        if NeumorphicStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [NeumorphicStyle.accent, NeumorphicStyle.sage], startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
         return AnyShapeStyle(Color.monologueAccent.opacity(0.6))
     }
 
     private var vinylBaseFill: Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.82) }
         return Color(hex: "1A1A1A")
     }
 
     private var vinylGrooveColor: Color {
-        if MangaStyle.isActive { return MangaStyle.onStrokeInk.opacity(0.12) }
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.42) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent.opacity(0.18) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.2) }
         return Color.white.opacity(0.06)
     }
 
     private var emptyCoverFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.paperWarm }
         return Color.gray.opacity(0.3)
     }
 
     private var emptyCoverIconColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return Color.white.opacity(0.5)
     }
 
     private var panelDividerColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.28) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.58) }
         if MujiStyle.isActive { return MujiStyle.separator.opacity(0.72) }
         return Color.monologueSeparator.opacity(0.3)
     }
 
     private var playControlFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
         return .monologueIconBackground
     }
 
     private var playControlForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueIconForeground
     }
@@ -349,17 +385,21 @@ struct FloatingBallView: View {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.6)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            Circle().stroke(NeumorphicStyle.separator.opacity(0.52), lineWidth: 0.8)
         }
     }
 
     private func tabForeground(_ tab: Tab, isSelected: Bool) -> Color {
         guard isSelected else {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             return .monologueTextSecondary
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if MujiStyle.isActive { return mujiTabTint(tab) }
         return .monologueAccent
     }
@@ -374,6 +414,10 @@ struct FloatingBallView: View {
             Circle()
                 .fill(MujiStyle.surface.opacity(0.78))
                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6))
+        } else if NeumorphicStyle.isActive {
+            Circle()
+                .fill(neumorphicTabTint(tab).opacity(0.16))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true))
         } else {
             Circle()
                 .fill(Color.monologueFloatingBarFill)
@@ -396,6 +440,15 @@ struct FloatingBallView: View {
         case .podcast: return MujiStyle.tea
         case .library: return MujiStyle.indigo
         case .profile: return MujiStyle.straw
+        }
+    }
+
+    private func neumorphicTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return NeumorphicStyle.accent
+        case .podcast: return NeumorphicStyle.warm
+        case .library: return NeumorphicStyle.sage
+        case .profile: return NeumorphicStyle.red
         }
     }
 }

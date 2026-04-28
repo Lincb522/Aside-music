@@ -32,39 +32,47 @@ struct AboutView: View {
 
             ScrollView {
                 VStack(spacing: 32) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "关于"),
+                        eyebrow: "ABOUT",
+                        icon: .infoCircle
+                    )
+
                     // App Icon + 名称 + 版本
-                    appIdentity
-                        .opacity(logoVisible ? 1 : 0)
-                        .scaleEffect(logoVisible ? 1 : 0.85)
+                    VStack(spacing: 32) {
+                        appIdentity
+                            .opacity(logoVisible ? 1 : 0)
+                            .scaleEffect(logoVisible ? 1 : 0.85)
 
-                    // 一句话介绍
-                    Text("你的私人音乐宇宙")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
-                        .opacity(logoVisible ? 1 : 0)
+                        // 一句话介绍
+                        Text("你的私人音乐宇宙")
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .opacity(logoVisible ? 1 : 0)
 
-                    // 功能特性
-                    featuresSection
-                        .opacity(cardsVisible ? 1 : 0)
-                        .offset(y: cardsVisible ? 0 : 16)
+                        // 功能特性
+                        featuresSection
+                            .opacity(cardsVisible ? 1 : 0)
+                            .offset(y: cardsVisible ? 0 : 16)
 
-                    // 开发信息
-                    developerSection
-                        .opacity(cardsVisible ? 1 : 0)
-                        .offset(y: cardsVisible ? 0 : 16)
+                        // 开发信息
+                        developerSection
+                            .opacity(cardsVisible ? 1 : 0)
+                            .offset(y: cardsVisible ? 0 : 16)
 
-                    // 底部
-                    footerSection
-                        .opacity(cardsVisible ? 1 : 0)
+                        // 底部
+                        footerSection
+                            .opacity(cardsVisible ? 1 : 0)
 
-                    FloatingBarBottomSpacer()
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 20)
+                    .iPadContentWidth(700)
                 }
-                .padding(.horizontal, DeviceLayout.isPad ? 32 : 20)
-                .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .themedNavigationChrome(title: String(localized: "关于"), eyebrow: "ABOUT", icon: .infoCircle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -135,7 +143,7 @@ struct AboutView: View {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: logoPlateColors,
+                            colors: NeumorphicStyle.isActive ? [NeumorphicStyle.surfaceRaised, NeumorphicStyle.surface] : logoPlateColors,
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -155,8 +163,15 @@ struct AboutView: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 92, height: 92)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
-                    .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
+                    .shadow(color: .black.opacity(NeumorphicStyle.isActive ? 0.08 : 0.15), radius: 20, x: 0, y: 10)
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true)
+                                .frame(width: 112, height: 112)
+                        }
+                    }
             }
             .onTapGesture {
                 tapCount += 1
@@ -168,7 +183,7 @@ struct AboutView: View {
                 .font(.system(size: 30, weight: .black, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)],
+                        colors: NeumorphicStyle.isActive ? [NeumorphicStyle.ink, NeumorphicStyle.accent] : [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -176,11 +191,11 @@ struct AboutView: View {
 
             // 版本号（彩蛋入口）
             Text("Version \(appVersion)")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? .system(size: 13, weight: .semibold, design: .monospaced) : .system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color.monologueTextSecondary.opacity(0.08)))
+                .background(Capsule().fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.12) : Color.monologueTextSecondary.opacity(0.08)))
                 .onTapGesture {
                     tapCount += 1
                     if tapCount >= 5 {
@@ -211,17 +226,17 @@ struct AboutView: View {
 
     private func featureCard(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
         VStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 26, color: .monologueAccent)
+            MonologueIcon(icon: icon, size: 26, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
             Text(title)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
             Text(subtitle)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, weight: .medium, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .monologueGlass(cornerRadius: 20)
+        .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 20 : 20, elevated: false)
     }
 
     // MARK: - Developer
@@ -243,9 +258,9 @@ struct AboutView: View {
 
                 Divider().padding(.leading, 56)
 
-                infoRow(icon: .audioWave, label: "Engine", value: "FFmpeg · SwiftUI")
+            infoRow(icon: .audioWave, label: "Engine", value: "FFmpeg · SwiftUI")
             }
-            .monologueGlass(cornerRadius: 20)
+            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 20 : 20, elevated: false)
         }
     }
 
@@ -253,20 +268,20 @@ struct AboutView: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.monologueIconBackground)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.16) : Color.monologueIconBackground)
                     .frame(width: 32, height: 32)
-                MonologueIcon(icon: icon, size: 16, color: .monologueIconForeground)
+                MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground)
             }
 
             Text(label)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 14, weight: .regular, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .regular, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -282,20 +297,20 @@ struct AboutView: View {
                 Text("in SwiftUI")
             }
             .font(.system(size: 13, weight: .medium, design: .rounded))
-            .foregroundColor(.monologueTextSecondary)
+            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
 
             Text("仅供学习交流 · 请支持正版音乐")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
 
             Text("© 2024-2026 Monologue. All Rights Reserved.")
                 .font(.system(size: 11, weight: .regular, design: .rounded))
-                .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
 
             if tapCount >= 7 {
                 Text("你发现了彩蛋！你是一个有好奇心的人。")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueAccent)
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
                     .transition(.scale.combined(with: .opacity))
             }
         }
@@ -307,10 +322,10 @@ struct AboutView: View {
 
     private func sectionTitle(_ text: String, icon: MonologueIcon.IconType) -> some View {
         HStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 16, color: .monologueAccent)
+            MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
             Text(text)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
         }
         .padding(.leading, 4)
     }

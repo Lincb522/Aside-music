@@ -8,7 +8,7 @@ struct HomeView: View {
     @State private var appeared = false
 
     enum HomeDestination: Hashable {
-        case search, dailyRecommend, playlist(Playlist), artist(Int), album(Int), mvDiscover, newSongExpress
+        case search, dailyRecommend, playlist(Playlist), artist(Int), album(Int), mvDiscover, newSongExpress, qcmNewSongs
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -19,13 +19,15 @@ struct HomeView: View {
             case .album(let id):    hasher.combine("al_\(id)")
             case .mvDiscover:       hasher.combine("mv")
             case .newSongExpress:   hasher.combine("newSong")
+            case .qcmNewSongs:      hasher.combine("qcmNewSongs")
             }
         }
 
         static func == (lhs: Self, rhs: Self) -> Bool {
             switch (lhs, rhs) {
             case (.search, .search), (.dailyRecommend, .dailyRecommend),
-                 (.mvDiscover, .mvDiscover), (.newSongExpress, .newSongExpress): return true
+                 (.mvDiscover, .mvDiscover), (.newSongExpress, .newSongExpress),
+                 (.qcmNewSongs, .qcmNewSongs): return true
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
             case (.artist(let l), .artist(let r)): return l == r
             case (.album(let l), .album(let r)): return l == r
@@ -259,9 +261,13 @@ struct HomeView: View {
                 }
 
                 if !viewModel.qqNewSongs.isEmpty {
-                    HomeNewSongsSection(songs: viewModel.qqNewSongs) { song in
-                        PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
-                    }
+                    HomeNewSongsSection(
+                        songs: viewModel.qqNewSongs,
+                        onViewAll: { navigationPath.append(HomeDestination.qcmNewSongs) },
+                        onPlay: { song in
+                            PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
+                        }
+                    )
                     .stagger(appeared, order: 4)
                     .padding(.bottom, 36)
                 }
@@ -323,6 +329,7 @@ struct HomeView: View {
         case .album(let id):    AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
         case .mvDiscover:       MVDiscoverView()
         case .newSongExpress:   NewSongExpressView()
+        case .qcmNewSongs:      QCMNewSongsView()
         }
     }
 }

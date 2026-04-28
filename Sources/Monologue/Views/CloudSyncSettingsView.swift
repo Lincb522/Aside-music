@@ -13,16 +13,24 @@ struct CloudSyncSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    syncSection
-                    actionSection
-                    FloatingBarBottomSpacer()
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "settings_navigation_cloud_sync_title"),
+                        eyebrow: "SYNC",
+                        icon: .cloud
+                    )
+
+                    VStack(spacing: 20) {
+                        syncSection
+                        actionSection
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
+                    .iPadContentWidth(700)
                 }
-                .padding(.horizontal, DeviceLayout.isPad ? 32 : 24)
-                .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
         }
-        .themedNavigationChrome(title: String(localized: "settings_navigation_cloud_sync_title"), eyebrow: "SYNC", icon: .cloud)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onChange(of: settings.playlistSyncAutoEnabled) { _, enabled in

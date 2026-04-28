@@ -32,8 +32,20 @@ extension PlayerManager {
             return true
         }
 
+        if currentSong != nil, wasPlayingBeforeInterruption || isUnderInterruption {
+            AppLogger.info("用户/外部控制触发中断后恢复播放")
+            resumeAfterInterruption(reason: "manual playback command")
+            return true
+        }
+
         switch streamPlayer.state {
         case .playing:
+            // 某些 VoIP/电话中断后底层状态仍可能停在 `.playing`，
+            // 但 AudioEngine 已被系统暂停。这里不要只把 UI 标成播放，
+            // 而是重新激活 session 并强制走一次 pause→resume。
+            activateAudioSessionForPlayback(reason: "playPlayback recover active stream")
+            streamPlayer.pause()
+            streamPlayer.resume()
             isPlaying = true
             isLoading = false
             refreshPlaybackSurfaceState()
@@ -69,6 +81,11 @@ extension PlayerManager {
 
     @discardableResult
     func pausePlayback() -> Bool {
+        wasPlayingBeforeInterruption = false
+        isUnderInterruption = false
+        routeChangeResumeWorkItem?.cancel()
+        routeChangeResumeWorkItem = nil
+
         guard isPlaying else { return currentSong != nil }
         guard case .playing = streamPlayer.state else { return false }
 

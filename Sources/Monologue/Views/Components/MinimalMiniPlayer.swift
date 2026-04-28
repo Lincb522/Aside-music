@@ -7,11 +7,11 @@ struct MinimalMiniPlayer: View {
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var lyricVM = LyricViewModel.shared
     @State private var showPlaylist = false
-    
+
     @State private var showingTabs = false
 
     private var shellCornerRadius: CGFloat {
-        MangaStyle.isActive ? 20 : (MujiStyle.isActive ? 16 : 18)
+        MangaStyle.isActive ? 23 : (NeumorphicStyle.isActive ? 22 : (MujiStyle.isActive ? 16 : 18))
     }
 
     private var subtitleText: String {
@@ -20,7 +20,7 @@ struct MinimalMiniPlayer: View {
         }
         return player.currentSong?.artistName ?? NSLocalizedString("select_song_to_play", comment: String(localized: "选择歌曲开始播放"))
     }
-    
+
     var body: some View {
         ZStack {
             if player.currentSong != nil {
@@ -28,7 +28,7 @@ struct MinimalMiniPlayer: View {
                 miniPlayerContent
                     .opacity(showingTabs ? 0 : 1)
                     .offset(x: showingTabs ? -50 : 0)
-                
+
                 tabSelectorContent
                     .opacity(showingTabs ? 1 : 0)
                     .offset(x: showingTabs ? 0 : 50)
@@ -44,6 +44,25 @@ struct MinimalMiniPlayer: View {
                 .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
         )
         .monologueGlass(cornerRadius: shellCornerRadius)
+        .overlay {
+            if MangaStyle.isActive {
+                RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                    .stroke(MangaStyle.strokeInk, lineWidth: 2)
+                    .overlay(alignment: .topLeading) {
+                        HStack(spacing: 0) {
+                            MangaStyle.labelYellow.frame(width: 36, height: 5)
+                            MangaStyle.accentPink.frame(width: 26, height: 5)
+                            MangaStyle.decoBlue.frame(width: 30, height: 5)
+                        }
+                        .clipShape(Capsule())
+                        .offset(x: 18, y: 8)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        MangaSectionMark(kind: showingTabs ? .star : .heart, tint: showingTabs ? MangaStyle.decoBlue : MangaStyle.bubblePink, size: 15)
+                            .offset(x: -16, y: -5)
+                    }
+            }
+        }
         .contentShape(Rectangle())
         .simultaneousGesture(panelSwitchGesture)
         .animation(MonologueAnimation.panelToggle, value: showingTabs)
@@ -73,9 +92,9 @@ struct MinimalMiniPlayer: View {
                 }
             }
     }
-    
+
     // MARK: - 迷你播放器内容
-    
+
     private var miniPlayerContent: some View {
         HStack(spacing: 10) {
             // 封面
@@ -98,25 +117,25 @@ struct MinimalMiniPlayer: View {
                     sourceIndicator(icon: .radio)
                 }
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
-                    MarqueeText(
-                        text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: String(localized: "未在播放")),
-                        font: titleFont,
-                        color: titleColor,
-                        speed: 25
-                    )
-                    .frame(height: 16)
-                
+                MarqueeText(
+                    text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: String(localized: "未在播放")),
+                    font: titleFont,
+                    color: titleColor,
+                    speed: 25
+                )
+                .frame(height: 16)
+
                 Text(subtitleText)
                     .font(subtitleFont)
                     .foregroundColor(subtitleColor)
                     .lineLimit(1)
                     .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
             }
-            
+
             Spacer(minLength: 4)
-            
+
             // 控制按钮
             HStack(spacing: 6) {
                 transportButton(icon: .previous, accessibilityLabel: String(localized: "上一首")) {
@@ -129,7 +148,7 @@ struct MinimalMiniPlayer: View {
                             .fill(controlFill)
                             .frame(width: 34, height: 34)
                             .overlay(controlStroke)
-                        
+
                         if player.isLoading {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: controlForeground))
@@ -148,7 +167,7 @@ struct MinimalMiniPlayer: View {
                 transportButton(icon: .next, accessibilityLabel: NSLocalizedString("playback_next_track", comment: "")) {
                     player.next()
                 }
-                
+
                 Button(action: { showPlaylist.toggle() }) {
                     MonologueIcon(icon: .list, size: 15, color: transportControlColor, lineWidth: 1.7)
                         .frame(width: 30, height: 34)
@@ -175,9 +194,9 @@ struct MinimalMiniPlayer: View {
             }
         }
     }
-    
+
     // MARK: - 默认黑胶封面
-    
+
     private var defaultVinylCover: some View {
         ZStack {
             if MangaStyle.isActive {
@@ -193,17 +212,27 @@ struct MinimalMiniPlayer: View {
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
 
                 MonologueIcon(icon: .musicNote, size: 13, color: MujiStyle.inkSoft, lineWidth: 1.5)
+            } else if NeumorphicStyle.isActive {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(NeumorphicStyle.surfacePressed)
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true))
+
+                Circle()
+                    .stroke(NeumorphicStyle.accent.opacity(0.32), lineWidth: 1)
+                    .padding(8)
+
+                MonologueIcon(icon: .musicNote, size: 13, color: NeumorphicStyle.accent, lineWidth: 1.6)
             } else {
                 Circle()
                     .fill(Color(hex: "1A1A1A"))
-            
+
                 Circle()
                     .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
                     .padding(4)
                 Circle()
                     .stroke(Color.white.opacity(0.05), lineWidth: 0.5)
                     .padding(8)
-                
+
                 Circle()
                     .fill(Color.gray.opacity(0.3))
                     .frame(width: 14, height: 14)
@@ -213,9 +242,9 @@ struct MinimalMiniPlayer: View {
             }
         }
     }
-    
+
     // MARK: - Tab 选择器内容
-    
+
     private var tabSelectorContent: some View {
         HStack(spacing: 0) {
             ForEach(Tab.allCases, id: \.self) { tab in
@@ -248,9 +277,9 @@ struct MinimalMiniPlayer: View {
             }
         }
     }
-    
+
     // MARK: - 辅助方法
-    
+
     private func sourceIndicator(icon: MonologueIcon.IconType) -> some View {
         MonologueIcon(icon: icon, size: 12, color: sourceIndicatorForeground, lineWidth: 1.6)
     }
@@ -275,42 +304,49 @@ struct MinimalMiniPlayer: View {
 
     private var titleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
 
     private var subtitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         return .rounded(size: 11, weight: .medium)
     }
 
     private var titleColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueTextPrimary
     }
 
     private var subtitleColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var controlFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.78) }
         return .monologueIconBackground
     }
 
     private var controlForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueIconForeground
     }
 
     private var transportControlColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return titleColor.opacity(0.72)
     }
@@ -331,6 +367,13 @@ struct MinimalMiniPlayer: View {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(MujiStyle.hairline.opacity(0.28), lineWidth: 0.6)
                 )
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(NeumorphicStyle.surfaceRaised)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                )
         } else {
             Color.clear
         }
@@ -342,17 +385,21 @@ struct MinimalMiniPlayer: View {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.6)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            Circle().stroke(NeumorphicStyle.separator.opacity(0.52), lineWidth: 0.7)
         }
     }
 
     private var sourceIndicatorForeground: Color {
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if MujiStyle.isActive { return MujiStyle.onTint }
         return .white
     }
 
     private func tabFont(selected: Bool) -> Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(9, weight: selected ? .black : .bold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         return .system(size: 9, weight: selected ? .semibold : .medium)
     }
@@ -360,11 +407,13 @@ struct MinimalMiniPlayer: View {
     private func tabForeground(_ tab: Tab, selected: Bool) -> Color {
         guard selected else {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             return .monologueTextSecondary.opacity(0.4)
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if MujiStyle.isActive { return mujiTabTint(tab) }
         return .monologueAccent
     }
@@ -379,6 +428,10 @@ struct MinimalMiniPlayer: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MujiStyle.surface.opacity(0.74))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.34), lineWidth: 0.6))
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(neumorphicTabTint(tab).opacity(0.16))
+                .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true))
         }
     }
 
@@ -399,13 +452,22 @@ struct MinimalMiniPlayer: View {
         case .profile: return MujiStyle.straw
         }
     }
-    
+
+    private func neumorphicTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return NeumorphicStyle.accent
+        case .podcast: return NeumorphicStyle.warm
+        case .library: return NeumorphicStyle.sage
+        case .profile: return NeumorphicStyle.red
+        }
+    }
+
     private func openPlayer() {
         withAnimation(MonologueAnimation.playerTransition) {
             switch player.playSource {
             case .fm:
                 NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
-            case .podcast(let radioId):
+            case let .podcast(radioId):
                 NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
             case .normal:
                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)

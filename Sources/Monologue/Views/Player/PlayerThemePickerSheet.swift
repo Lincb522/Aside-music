@@ -19,8 +19,8 @@ struct PlayerThemePickerSheet: View {
 
             // 标题
             Text("theme_title")
-                .font(.rounded(size: 20, weight: .bold))
-                .foregroundColor(.monologueTextPrimary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 .padding(.bottom, 4)
 
             // 主题卡片网格 - 使用 ScrollView 确保内容可滚动
@@ -60,37 +60,86 @@ struct PlayerThemePickerSheet: View {
                 // 预览区域
                 themePreview(theme)
                     .frame(height: 130)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous)
                             .stroke(
-                                isSelected
-                                    ? Color.monologueAccent
-                                    : (colorScheme == .dark ? Color.white.opacity(0.1) : Color.monologueSeparator),
-                                lineWidth: isSelected ? 2.5 : 1
+                                previewStrokeColor(isSelected: isSelected),
+                                lineWidth: isSelected ? (NeumorphicStyle.isActive ? 1.4 : 2.5) : 1
                             )
                     )
                     .shadow(
-                        color: isSelected
-                            ? Color.monologueAccent.opacity(colorScheme == .dark ? 0.3 : 0.15)
-                            : Color.clear,
-                        radius: 8, x: 0, y: 4
+                        color: previewShadowColor(isSelected: isSelected),
+                        radius: NeumorphicStyle.isActive ? 10 : 8,
+                        x: 0,
+                        y: NeumorphicStyle.isActive ? 6 : 4
                     )
 
                 // 标签
                 HStack(spacing: 6) {
                     if isSelected {
-                        MonologueSymbolIcon(name: "checkmark.circle.fill", size: 14, color: .monologueAccent)
+                        MonologueIcon(icon: .checkmark, size: 13, color: selectedTint)
                     }
 
                     Text(theme.displayName)
-                        .font(.rounded(size: 14, weight: isSelected ? .bold : .medium))
-                        .foregroundColor(isSelected ? .monologueTextPrimary : .monologueTextSecondary)
+                        .font(themeLabelFont(isSelected: isSelected))
+                        .foregroundColor(isSelected ? selectedLabelColor : secondaryLabelColor)
+                }
+            }
+            .padding(NeumorphicStyle.isActive ? 10 : 0)
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 24,
+                        elevated: !isSelected,
+                        pressed: isSelected,
+                        tint: isSelected ? selectedTint.opacity(0.18) : nil
+                    )
                 }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var previewCornerRadius: CGFloat {
+        NeumorphicStyle.isActive ? 18 : 16
+    }
+
+    private var selectedTint: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
+    }
+
+    private var selectedLabelColor: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var secondaryLabelColor: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    private func themeLabelFont(isSelected: Bool) -> Font {
+        NeumorphicStyle.isActive
+            ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium)
+            : .rounded(size: 14, weight: isSelected ? .bold : .medium)
+    }
+
+    private func previewStrokeColor(isSelected: Bool) -> Color {
+        if NeumorphicStyle.isActive {
+            return isSelected ? NeumorphicStyle.accent.opacity(0.52) : NeumorphicStyle.separator.opacity(0.38)
+        }
+        return isSelected
+            ? Color.monologueAccent
+            : (colorScheme == .dark ? Color.white.opacity(0.1) : Color.monologueSeparator)
+    }
+
+    private func previewShadowColor(isSelected: Bool) -> Color {
+        if NeumorphicStyle.isActive {
+            return isSelected ? NeumorphicStyle.darkShadow(colorScheme, intensity: 0.22) : .clear
+        }
+        return isSelected
+            ? Color.monologueAccent.opacity(colorScheme == .dark ? 0.3 : 0.15)
+            : Color.clear
     }
 
     /// 每种主题的缩略预览

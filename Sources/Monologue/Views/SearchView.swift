@@ -33,13 +33,17 @@ struct SearchView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                if MangaStyle.isActive && !viewModel.hasSearched {
-                    mangaSearchHeader
-                } else if MujiStyle.isActive && !viewModel.hasSearched {
-                    mujiSearchHeader
-                }
+                if !viewModel.hasSearched {
+                    if MangaStyle.isActive {
+                        mangaSearchHeader
+                    } else if NeumorphicStyle.isActive {
+                        neumorphicSearchHeader
+                    } else if MujiStyle.isActive {
+                        mujiSearchHeader
+                    }
 
-                searchBarSection
+                    searchBarSection
+                }
 
                 ZStack {
                     searchContentView
@@ -137,23 +141,26 @@ struct SearchView: View {
         .padding(.bottom, 8)
     }
 
+    private var neumorphicSearchHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "SEARCH",
+            title: String(localized: "搜索"),
+            subtitle: ""
+        ) {
+            NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.accent, size: 46)
+        }
+        .padding(.bottom, 2)
+    }
+
     private var searchBarSection: some View {
-        let showFullSearch = !viewModel.hasSearched || isSearchBarExpanded
-        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (showFullSearch ? 16 : 21))
+        let showFullSearch = isSearchBarExpanded
+        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? (showFullSearch ? 18 : 20) : (showFullSearch ? 16 : 21)))
 
         return HStack(spacing: 12) {
             Button {
                 dismiss()
             } label: {
-                MonologueIcon(icon: .chevronLeft, size: 18, color: .monologueTextPrimary, lineWidth: 1.8)
-                    .frame(width: 42, height: 42)
-                    .background(MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : Color.monologueTextPrimary.opacity(0.04)))
-                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : 21, style: .continuous))
-                    .liquidGlassStyle(cornerRadius: 21)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : 21, style: .continuous)
-                            .stroke(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : Color.monologueTextPrimary.opacity(0.05)), lineWidth: MangaStyle.isActive ? MangaStyle.strokeWidth : 0.5)
-                    )
+                searchBackButtonLabel
             }
             .buttonStyle(PlainButtonStyle())
 
@@ -162,14 +169,19 @@ struct SearchView: View {
             }
 
             HStack(spacing: showFullSearch ? 8 : 0) {
-                MonologueIcon(icon: .magnifyingGlass, size: 18, color: MangaStyle.isActive ? MangaStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkMuted : .gray))
+                MonologueIcon(icon: .magnifyingGlass, size: 18, color: MangaStyle.isActive ? MangaStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .gray)))
 
                 HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
-                        if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
+                        if viewModel.query.isEmpty, viewModel.hasSearched, !viewModel.displayKeyword.isEmpty {
+                            Text(viewModel.displayKeyword)
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                                .lineLimit(1)
+                        } else if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
                             Text(defaultKw.showKeyword)
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : .rounded(size: 16, weight: .medium)))
-                                .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
                                 .lineLimit(1)
                                 .onTapWithHaptic {
                                     viewModel.performSearch(keyword: defaultKw.realkeyword)
@@ -181,14 +193,19 @@ struct SearchView: View {
                         }
 
                         TextField("", text: $viewModel.query)
-                            .foregroundColor(.monologueTextPrimary)
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : .rounded(size: 16, weight: .medium)))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))))
                             .monologueTextInputBehavior()
                             .focused($isFocused)
                             .submitLabel(.search)
                             .onSubmit {
                                 if !viewModel.query.isEmpty {
                                     viewModel.performSearch(keyword: viewModel.query)
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isSearchBarExpanded = false
+                                    }
+                                } else if viewModel.hasSearched {
+                                    isFocused = false
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isSearchBarExpanded = false
                                     }
@@ -201,15 +218,18 @@ struct SearchView: View {
                             }
                     }
 
-                    if !viewModel.query.isEmpty {
+                    if showFullSearch {
                         Button(action: {
-                            viewModel.query = ""
-                            isFocused = false
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                isSearchBarExpanded = false
+                            if viewModel.query.isEmpty {
+                                isFocused = false
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    isSearchBarExpanded = false
+                                }
+                            } else {
+                                viewModel.query = ""
                             }
                         }) {
-                            MonologueIcon(icon: .xmark, size: 18, color: .gray)
+                            MonologueIcon(icon: .xmark, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .gray)
                         }
                         .padding(.leading, 8)
                     }
@@ -219,13 +239,15 @@ struct SearchView: View {
                 .clipped()
             }
             .padding(.horizontal, showFullSearch ? 16 : 12)
-            .padding(.vertical, showFullSearch ? 10 : 12)
+            .padding(.vertical, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 7 : 8) : (showFullSearch ? 10 : 12))
             .background(
                 Group {
                     if MangaStyle.isActive {
                         MangaCardBackground(cornerRadius: searchRadius, elevated: true)
                     } else if MujiStyle.isActive {
                         MujiPaperCardBackground(cornerRadius: searchRadius, elevated: true)
+                    } else if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: searchRadius, elevated: true)
                     }
                 }
             )
@@ -243,8 +265,8 @@ struct SearchView: View {
         }
         .frame(maxWidth: 720)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : 4)
-        .padding(.bottom, (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 6)
+        .padding(.top, viewModel.hasSearched ? 0 : (ThemedPageStyle.isActive ? 0 : 4))
+        .padding(.bottom, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 3 : 6) : (ThemedPageStyle.isActive ? 12 : 6))
         .onChange(of: viewModel.hasSearched) { searched in
             if !searched {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -254,54 +276,84 @@ struct SearchView: View {
         }
     }
 
+    private var searchBackButtonLabel: some View {
+        let radius: CGFloat = MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 16 : 21)
+        let fill = MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : (NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : Color.monologueTextPrimary.opacity(0.04)))
+        let stroke = MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.4) : Color.monologueTextPrimary.opacity(0.05)))
+
+        return MonologueIcon(icon: .back, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary, lineWidth: 1.8)
+            .frame(width: 42, height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(fill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(stroke, lineWidth: MangaStyle.isActive ? MangaStyle.strokeWidth : 0.5)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
     // MARK: - 搜索类型 Tab 栏
 
     @ViewBuilder
     private var searchTabBar: some View {
         if MangaStyle.isActive {
             mangaSearchTabBar
+        } else if NeumorphicStyle.isActive {
+            neumorphicSearchTabBar
         } else if MujiStyle.isActive {
             mujiSearchTabBar
         } else {
-        HStack(spacing: 0) {
-            ForEach(SearchTab.allCases, id: \.self) { tab in
-                Button(action: {
-                    viewModel.switchTab(tab)
-                }) {
-                    VStack(spacing: 6) {
-                        Text(tab.rawValue)
-                            .font(.rounded(size: 14, weight: viewModel.currentTab == tab ? .bold : .medium))
-                            .foregroundColor(viewModel.currentTab == tab ? .monologueTextPrimary : .monologueTextSecondary)
-                            .animation(.none, value: viewModel.currentTab)
+            GeometryReader { proxy in
+                let spacing: CGFloat = 8
+                let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
 
-                        Capsule()
-                            .fill(Color.monologueTextPrimary)
-                            .frame(width: 24, height: 3)
-                            .opacity(viewModel.currentTab == tab ? 1 : 0)
+                HStack(spacing: spacing) {
+                    ForEach(SearchTab.allCases, id: \.self) { tab in
+                        Button(action: {
+                            viewModel.switchTab(tab)
+                        }) {
+                            VStack(spacing: 6) {
+                                Text(tab.rawValue)
+                                    .font(.rounded(size: 15, weight: viewModel.currentTab == tab ? .bold : .medium))
+                                    .foregroundColor(viewModel.currentTab == tab ? .monologueTextPrimary : .monologueTextSecondary)
+                                    .animation(.none, value: viewModel.currentTab)
+
+                                Capsule()
+                                    .fill(Color.monologueTextPrimary)
+                                    .frame(width: 24, height: 3)
+                                    .opacity(viewModel.currentTab == tab ? 1 : 0)
+                            }
+                            .frame(width: itemWidth, minHeight: 36)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 8)
             }
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, 8)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.currentTab)
+            .frame(height: 52)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.currentTab)
         }
     }
 
     private var mujiSearchTabBar: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
+        GeometryReader { proxy in
+            let spacing: CGFloat = 8
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
                 ForEach(SearchTab.allCases, id: \.self) { tab in
                     Button {
                         viewModel.switchTab(tab)
                     } label: {
                         Text(tab.rawValue)
-                            .font(MujiStyle.labelFont(12, weight: viewModel.currentTab == tab ? .semibold : .regular))
+                            .font(MujiStyle.labelFont(13, weight: viewModel.currentTab == tab ? .semibold : .regular))
                             .foregroundStyle(viewModel.currentTab == tab ? MujiStyle.onTint : MujiStyle.inkSoft)
-                            .padding(.horizontal, 13)
+                            .frame(width: itemWidth)
                             .padding(.vertical, 9)
                             .background(
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -316,22 +368,72 @@ struct SearchView: View {
                 }
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, 8)
+            .padding(.vertical, viewModel.hasSearched ? 4 : 8)
         }
-        .scrollIndicators(.hidden)
+        .frame(height: viewModel.hasSearched ? 44 : 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var neumorphicSearchTabBar: some View {
+        GeometryReader { proxy in
+            let spacing: CGFloat = viewModel.hasSearched ? 7 : 8
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        let selected = viewModel.currentTab == tab
+                        HStack(spacing: viewModel.hasSearched ? 0 : 6) {
+                            if !viewModel.hasSearched {
+                                MonologueIcon(
+                                    icon: searchTabIcon(tab),
+                                    size: 12,
+                                    color: selected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft,
+                                    lineWidth: 1.55
+                                )
+                            }
+
+                            Text(tab.rawValue)
+                                .font(NeumorphicStyle.labelFont(viewModel.hasSearched ? 11.5 : 12.5, weight: selected ? .semibold : .medium))
+                                .foregroundStyle(selected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft)
+                        }
+                        .frame(width: itemWidth)
+                        .padding(.vertical, viewModel.hasSearched ? 6 : 9)
+                        .background(
+                            NeumorphicSurfaceBackground(
+                                cornerRadius: viewModel.hasSearched ? 12 : 15,
+                                elevated: selected,
+                                pressed: !selected,
+                                tint: selected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+                            )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, viewModel.hasSearched ? 2 : 8)
+        }
+        .frame(height: viewModel.hasSearched ? 40 : 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var mangaSearchTabBar: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
+        GeometryReader { proxy in
+            let spacing: CGFloat = 8
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
                 ForEach(SearchTab.allCases, id: \.self) { tab in
                     Button {
                         viewModel.switchTab(tab)
                     } label: {
                         Text(tab.rawValue)
-                            .font(MangaStyle.labelFont(12, weight: viewModel.currentTab == tab ? .black : .bold))
+                            .font(MangaStyle.labelFont(13, weight: viewModel.currentTab == tab ? .black : .bold))
                             .foregroundStyle(MangaStyle.ink)
-                            .padding(.horizontal, 13)
+                            .frame(width: itemWidth)
                             .padding(.vertical, 9)
                             .background(
                                 RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -353,7 +455,16 @@ struct SearchView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.vertical, 8)
         }
-        .scrollIndicators(.hidden)
+        .frame(height: 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func searchTabItemWidth(totalWidth: CGFloat, spacing: CGFloat) -> CGFloat {
+        let count = CGFloat(SearchTab.allCases.count)
+        let horizontalPadding = DeviceLayout.viewHorizontalPadding * 2
+        let totalSpacing = spacing * max(count - 1, 0)
+        let available = max(totalWidth - horizontalPadding - totalSpacing, 0)
+        return max(floor(available / count), 44)
     }
 
     // MARK: - 搜索内容区域
@@ -361,7 +472,21 @@ struct SearchView: View {
     @ViewBuilder
     private var searchContentView: some View {
         if viewModel.hasSearched {
-            VStack(spacing: 0) {
+            searchedResultsScrollView
+        } else if viewModel.query.isEmpty {
+            emptySearchView
+        }
+    }
+
+    private var searchedResultsScrollView: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                searchBarSection
+
+                if NeumorphicStyle.isActive {
+                    neumorphicResultConsole
+                }
+
                 searchTabBar
                 platformTabBar
 
@@ -369,32 +494,181 @@ struct SearchView: View {
                 let platformEmpty = isPlatformEmpty
 
                 if platformLoading && platformEmpty {
-                    Spacer()
-                    MonologueLoadingView(text: "SEARCHING")
-                    Spacer()
+                    searchLoadingState
                 } else if platformEmpty {
-                    Spacer()
-                    emptyResultsView
-                    Spacer()
+                    searchEmptyState
                 } else {
                     if viewModel.currentTab == .songs {
                         searchSongsToolbarView
                     }
-                    platformResultsView
+
+                    platformResultsRows
+                }
+
+                FloatingBarBottomSpacer()
+            }
+            .padding(.bottom, 8)
+        }
+        .scrollIndicators(.hidden)
+        .simultaneousGesture(DragGesture().onChanged { _ in
+            isFocused = false
+        })
+    }
+
+    private var neumorphicResultConsole: some View {
+        HStack(spacing: 12) {
+            NeumorphicIconBadge(icon: searchTabIcon(viewModel.currentTab), tint: NeumorphicStyle.accent, size: 38)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 7) {
+                    Text("SEARCH")
+                        .font(NeumorphicStyle.labelFont(9, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.accent)
+                        .tracking(1.1)
+
+                    Capsule()
+                        .fill(NeumorphicStyle.separator.opacity(0.76))
+                        .frame(width: 18, height: 1)
+                }
+
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(NeumorphicStyle.titleFont(19, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                HStack(spacing: 6) {
+                    neumorphicResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                    neumorphicResultChip(text: viewModel.currentTab.rawValue, tint: NeumorphicStyle.sage)
                 }
             }
-        } else if viewModel.query.isEmpty {
-            emptySearchView
+
+            Spacer(minLength: 8)
+
+            Group {
+                if isPlatformLoading {
+                    ProgressView()
+                        .tint(NeumorphicStyle.accent)
+                        .scaleEffect(0.78)
+                } else {
+                    Text("\(selectedPlatformResultCount)")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(NeumorphicStyle.accent)
+                        .monospacedDigit()
+                }
+            }
+            .frame(minWidth: 42, minHeight: 38)
+            .padding(.horizontal, 6)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private func neumorphicResultChip(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(NeumorphicStyle.labelFont(10, weight: .semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(tint.opacity(0.13))
+            )
+    }
+
+    @ViewBuilder
+    private var searchLoadingState: some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicLoadingPanel(title: "SEARCHING")
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 36)
+                .frame(minHeight: 320, alignment: .top)
+        } else {
+            MonologueLoadingView(text: "SEARCHING")
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 320)
         }
     }
 
-    // MARK: - 歌曲列表工具栏
+    private var searchEmptyState: some View {
+        emptyResultsView
+            .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 320)
+    }
 
-    @ViewBuilder
-    private var searchSongsToolbarView: some View {
-        let currentSource = viewModel.selectedPlatform
-        let currentSongs = expandedFilteredSongs(source: currentSource)
+    private var neumorphicResultMetaText: String {
+        "\(platformTabName(viewModel.selectedPlatform)) · \(viewModel.currentTab.rawValue)"
+    }
 
+    private var selectedPlatformResultCount: Int {
+        resultCount(for: viewModel.selectedPlatform, tab: viewModel.currentTab)
+    }
+
+    private var suggestionsTopPadding: CGFloat {
+        viewModel.hasSearched ? (NeumorphicStyle.isActive ? 54 : 58) : 4
+    }
+
+    private func resultCount(for source: MusicSource, tab: SearchTab) -> Int {
+        switch source {
+        case .netease:
+            switch tab {
+            case .songs: return viewModel.displayedSongCount(for: .netease)
+            case .artists: return viewModel.neteaseArtistResults.count
+            case .playlists: return viewModel.neteasePlaylistResults.count
+            case .albums: return viewModel.neteaseAlbumResults.count
+            case .mvs: return viewModel.neteaseMVResults.count
+            }
+        case .qqmusic:
+            switch tab {
+            case .songs: return viewModel.displayedSongCount(for: .qqmusic)
+            case .artists: return viewModel.qqArtistResults.count
+            case .playlists: return viewModel.qqPlaylistResults.count
+            case .albums: return viewModel.qqAlbumResults.count
+            case .mvs: return viewModel.qqMVResults.count
+            }
+        case .qishui:
+            return tab == .songs ? viewModel.displayedSongCount(for: .qishui) : 0
+        case .local:
+            return 0
+        }
+    }
+
+    private func searchTabIcon(_ tab: SearchTab) -> MonologueIcon.IconType {
+        switch tab {
+        case .songs: return .musicNote
+        case .artists: return .profile
+        case .playlists: return .musicNoteList
+        case .albums: return .album
+        case .mvs: return .mv
+        }
+    }
+
+    private struct NeumorphicLoadingPanel: View {
+        let title: String
+
+        var body: some View {
+            VStack(spacing: 14) {
+                ProgressView()
+                    .tint(NeumorphicStyle.accent)
+
+                Text(title)
+                    .font(NeumorphicStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.inkMuted)
+                    .tracking(1.2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 38)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+        }
+    }
+
+    private func neumorphicSearchSongsToolbar(currentSource: MusicSource, currentSongs: [Song]) -> some View {
         VStack(spacing: 0) {
             if isSearchSelectMode {
                 PlaylistSearchBar(
@@ -414,65 +688,157 @@ struct SearchView: View {
                     onBatchCollect: { showSearchBatchPlaylist = true }
                 )
             } else if isSearchFiltering {
-                HStack(spacing: 8) {
-                    PlaylistSearchBar(
-                        searchText: $searchFilterText,
-                        isSearching: $isSearchFiltering
-                    )
-                }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                .padding(.vertical, 8)
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering
+                )
             } else {
-                HStack(spacing: 12) {
-                    Button(action: {
+                HStack(spacing: 9) {
+                    Button {
                         if !currentSongs.isEmpty {
                             viewModel.playAllSongs(source: currentSource, currentSongs: currentSongs)
                         }
-                    }) {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: .play, size: 14, color: Color(UIColor.systemBackground))
+                    } label: {
+                        HStack(spacing: 7) {
+                            MonologueIcon(icon: .play, size: 12, color: Color(light: .white, dark: .black), lineWidth: 1.7)
                                 .frame(width: 24, height: 24)
-                                .background(Color.monologueTextPrimary)
-                                .clipShape(Circle())
+                                .background(NeumorphicStyle.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                             Text(String(localized: "artist_play_all"))
-                                .font(.rounded(size: 14, weight: .semibold))
-                                .foregroundColor(.monologueTextPrimary)
+                                .font(NeumorphicStyle.labelFont(12, weight: .semibold))
+                                .foregroundStyle(NeumorphicStyle.ink)
                         }
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Color.monologueTextPrimary.opacity(0.04))
-                        .clipShape(Capsule())
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true))
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    .disabled(currentSongs.isEmpty)
+                    .opacity(currentSongs.isEmpty ? 0.55 : 1)
 
-                    Spacer()
+                    Spacer(minLength: 8)
 
-                    Button {
+                    neumorphicToolbarButton(icon: .search, tint: NeumorphicStyle.accent) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchFiltering = true
                         }
-                    } label: {
-                        MonologueIcon(icon: .search, size: 15, color: .monologueTextSecondary)
-                            .frame(width: 30, height: 30)
-                            .background(Color.monologueTextPrimary.opacity(0.06))
-                            .clipShape(Circle())
                     }
 
-                    Button {
+                    neumorphicToolbarButton(icon: .checkmark, tint: NeumorphicStyle.sage) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchSelectMode = true
                             searchSelectedIds.removeAll()
                         }
-                    } label: {
-                        MonologueIcon(icon: .checkmark, size: 15, color: .monologueTextSecondary)
-                            .frame(width: 30, height: 30)
-                            .background(Color.monologueTextPrimary.opacity(0.06))
-                            .clipShape(Circle())
                     }
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private func neumorphicToolbarButton(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.6)
+                .frame(width: 32, height: 32)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: true))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
+    // MARK: - 歌曲列表工具栏
+
+    @ViewBuilder
+    private var searchSongsToolbarView: some View {
+        let currentSource = viewModel.selectedPlatform
+        let currentSongs = expandedFilteredSongs(source: currentSource)
+
+        if NeumorphicStyle.isActive {
+            neumorphicSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
+        } else {
+            VStack(spacing: 0) {
+                if isSearchSelectMode {
+                    PlaylistSearchBar(
+                        searchText: $searchFilterText,
+                        isSearching: $isSearchFiltering,
+                        isSelectMode: $isSearchSelectMode,
+                        selectedIds: $searchSelectedIds,
+                        songs: currentSongs,
+                        onBatchQueue: {
+                            let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                            SongBatchActionHelper.addToQueue(selected) {
+                                isSearchSelectMode = false
+                                searchSelectedIds.removeAll()
+                            }
+                        },
+                        onBatchDownload: { searchBatchDownload(source: currentSource) },
+                        onBatchCollect: { showSearchBatchPlaylist = true }
+                    )
+                } else if isSearchFiltering {
+                    HStack(spacing: 8) {
+                        PlaylistSearchBar(
+                            searchText: $searchFilterText,
+                            isSearching: $isSearchFiltering
+                        )
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.vertical, 8)
+                } else {
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            if !currentSongs.isEmpty {
+                                viewModel.playAllSongs(source: currentSource, currentSongs: currentSongs)
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                MonologueIcon(icon: .play, size: 14, color: Color(UIColor.systemBackground))
+                                    .frame(width: 24, height: 24)
+                                    .background(Color.monologueTextPrimary)
+                                    .clipShape(Circle())
+
+                                Text(String(localized: "artist_play_all"))
+                                    .font(.rounded(size: 14, weight: .semibold))
+                                    .foregroundColor(.monologueTextPrimary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.monologueTextPrimary.opacity(0.04))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Spacer()
+
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isSearchFiltering = true
+                            }
+                        } label: {
+                            MonologueIcon(icon: .search, size: 15, color: .monologueTextSecondary)
+                                .frame(width: 30, height: 30)
+                                .background(Color.monologueTextPrimary.opacity(0.06))
+                                .clipShape(Circle())
+                        }
+
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isSearchSelectMode = true
+                                searchSelectedIds.removeAll()
+                            }
+                        } label: {
+                            MonologueIcon(icon: .checkmark, size: 15, color: .monologueTextSecondary)
+                                .frame(width: 30, height: 30)
+                                .background(Color.monologueTextPrimary.opacity(0.06))
+                                .clipShape(Circle())
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.vertical, 8)
+                }
             }
         }
     }
@@ -483,36 +849,38 @@ struct SearchView: View {
     private var platformTabBar: some View {
         if MangaStyle.isActive {
             mangaPlatformTabBar
+        } else if NeumorphicStyle.isActive {
+            neumorphicPlatformTabBar
         } else if MujiStyle.isActive {
             mujiPlatformTabBar
         } else {
-        let platforms: [MusicSource] = viewModel.currentTab == .songs
-            ? [.netease, .qqmusic, .qishui]
-            : [.netease, .qqmusic]
-        HStack(spacing: 0) {
-            ForEach(platforms, id: \.self) { platform in
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        viewModel.selectedPlatform = platform
+            let platforms: [MusicSource] = viewModel.currentTab == .songs
+                ? [.netease, .qqmusic, .qishui]
+                : [.netease, .qqmusic]
+            HStack(spacing: 0) {
+                ForEach(platforms, id: \.self) { platform in
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            viewModel.selectedPlatform = platform
+                        }
+                    }) {
+                        let tint = platform.themedBadgeColor
+                        Text(platformTabName(platform))
+                            .font(.rounded(size: 13, weight: viewModel.selectedPlatform == platform ? .bold : .medium))
+                            .foregroundColor(viewModel.selectedPlatform == platform ? tint : tint.opacity(0.72))
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                viewModel.selectedPlatform == platform
+                                    ? Capsule().fill(tint.opacity(0.12))
+                                    : nil
+                            )
                     }
-                }) {
-                    let tint = platform.themedBadgeColor
-                    Text(platformTabName(platform))
-                        .font(.rounded(size: 13, weight: viewModel.selectedPlatform == platform ? .bold : .medium))
-                        .foregroundColor(viewModel.selectedPlatform == platform ? tint : tint.opacity(0.72))
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            viewModel.selectedPlatform == platform
-                                ? Capsule().fill(tint.opacity(0.12))
-                                : nil
-                        )
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.bottom, 4)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.bottom, 4)
         }
     }
 
@@ -549,7 +917,40 @@ struct SearchView: View {
                 .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
         )
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.bottom, 8)
+        .padding(.bottom, viewModel.hasSearched ? 4 : 8)
+    }
+
+    private var neumorphicPlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    let tint = platform.themedBadgeColor
+                    let selected = viewModel.selectedPlatform == platform
+                    Text(platformTabName(platform))
+                        .font(NeumorphicStyle.labelFont(viewModel.hasSearched ? 10.5 : 11, weight: .semibold))
+                        .foregroundStyle(selected ? tint : tint.opacity(0.68))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, viewModel.hasSearched ? 6 : 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: viewModel.hasSearched ? 8 : 10, style: .continuous)
+                                .fill(selected ? tint.opacity(0.13) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(viewModel.hasSearched ? 4 : 5)
+        .background(NeumorphicSurfaceBackground(cornerRadius: viewModel.hasSearched ? 13 : 15, elevated: false, pressed: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, viewModel.hasSearched ? 2 : 8)
     }
 
     private var mangaPlatformTabBar: some View {
@@ -633,24 +1034,29 @@ struct SearchView: View {
 
     private var platformResultsView: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
-                switch viewModel.selectedPlatform {
-                case .netease:
-                    neteaseResultsContent
-                case .qqmusic:
-                    qqResultsContent
-                case .qishui:
-                    qishuiResultsContent
-                case .local:
-                    EmptyView()
-                }
-            }
-            .padding(.bottom, 120)
+            platformResultsRows
+                .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
         .simultaneousGesture(DragGesture().onChanged { _ in
             isFocused = false
         })
+    }
+
+    private var platformResultsRows: some View {
+        LazyVStack(spacing: NeumorphicStyle.isActive ? 2 : 0) {
+            switch viewModel.selectedPlatform {
+            case .netease:
+                neteaseResultsContent
+            case .qqmusic:
+                qqResultsContent
+            case .qishui:
+                qishuiResultsContent
+            case .local:
+                EmptyView()
+            }
+        }
+        .padding(.top, NeumorphicStyle.isActive ? 2 : 0)
     }
 
     @ViewBuilder
@@ -928,15 +1334,55 @@ struct SearchView: View {
                     }
                 })
                 .onAppear {
-                    if index == allSongs.count - 3 {
+                    if index >= max(allSongs.count - 3, 0) {
                         viewModel.loadMore(source: source)
                     }
                 }
             }
+
+            if viewModel.canLoadMore(source: source) {
+                searchLoadMoreFooter(source: source)
+                    .onAppear {
+                        viewModel.loadMore(source: source)
+                    }
+            }
         }
-        .monologueSheet(isPresented: $showSearchBatchPlaylist, preset: .standard){
+        .monologueSheet(isPresented: $showSearchBatchPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: songs.filter { searchSelectedIds.contains($0.id) })
         }
+    }
+
+    private func searchLoadMoreFooter(source: MusicSource) -> some View {
+        Button {
+            viewModel.loadMore(source: source)
+        } label: {
+            HStack(spacing: 8) {
+                if viewModel.isLoadingMore(source: source) {
+                    ProgressView()
+                        .scaleEffect(0.72)
+                        .tint(source.themedBadgeColor)
+                } else {
+                    MonologueIcon(icon: .chevronRight, size: 12, color: source.themedBadgeColor, lineWidth: 1.7)
+                }
+
+                Text(String(localized: "加载更多"))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .rounded(size: 12, weight: .semibold))
+                    .foregroundStyle(source.themedBadgeColor)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, tint: source.themedBadgeColor.opacity(0.1))
+                } else {
+                    Capsule().fill(source.themedBadgeColor.opacity(0.1))
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 8)
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isLoadingMore(source: source))
     }
 
     private func searchBatchDownload(source: MusicSource) {
@@ -1000,7 +1446,7 @@ struct SearchView: View {
     private var expandedMVsList: some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14)
+            GridItem(.flexible(), spacing: 14),
         ]
         return LazyVGrid(columns: columns, spacing: 16) {
             ForEach(Array(viewModel.neteaseMVResults.enumerated()), id: \.element.id) { index, mv in
@@ -1034,44 +1480,52 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                    Circle().fill(Color.monologueSeparator)
+                    Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                 }
                 .frame(width: 52, height: 52)
                 .clipShape(Circle())
+                .overlay {
+                    if NeumorphicStyle.isActive {
+                        Circle()
+                            .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(artist.name)
-                        .font(.rounded(size: 16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .medium))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if let albumSize = artist.albumSize, albumSize > 0 {
                             Text(String(format: String(localized: "search_album_count"), albumSize))
-                                .font(.rounded(size: 12, weight: .regular))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                         if let musicSize = artist.musicSize, musicSize > 0 {
                             Text(String(format: String(localized: "search_song_count"), musicSize))
-                                .font(.rounded(size: 12, weight: .regular))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                     }
                 }
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
             }
-            .padding(.horizontal, MujiStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive ? 12 : 10)
             .background {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
                 }
             }
-            .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : 0)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : (NeumorphicStyle.isActive ? 6 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1089,27 +1543,34 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.monologueSeparator)
+                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                 }
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12, style: .continuous))
+                .overlay {
+                    if NeumorphicStyle.isActive {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
-                        .font(.rounded(size: 16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .medium))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if let trackCount = playlist.trackCount, trackCount > 0 {
                             Text(String(format: String(localized: "search_track_count"), trackCount))
-                                .font(.rounded(size: 12, weight: .regular))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                         if let creator = playlist.creator?.nickname {
                             Text("by \(creator)")
-                                .font(.rounded(size: 12, weight: .regular))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                                 .lineLimit(1)
                         }
                     }
@@ -1117,17 +1578,19 @@ struct SearchView: View {
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
             }
-            .padding(.horizontal, MujiStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive ? 12 : 10)
             .background {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
                 }
             }
-            .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : 0)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : (NeumorphicStyle.isActive ? 6 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1146,44 +1609,53 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.monologueSeparator)
+                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                 }
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12, style: .continuous))
+                .overlay {
+                    if NeumorphicStyle.isActive {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.name)
-                        .font(.rounded(size: 16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .medium))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         Text(album.artistName)
-                            .font(.rounded(size: 12, weight: .regular))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
 
                         if let size = album.size, size > 0 {
                             Text(String(format: String(localized: "search_track_count"), size))
-                                .font(.rounded(size: 12, weight: .regular))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                     }
                 }
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
             }
-            .padding(.horizontal, MujiStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive ? 12 : 10)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive ? 12 : 10)
             .background {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true)
                 }
             }
-            .padding(.horizontal, MujiStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : 0)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : (NeumorphicStyle.isActive ? 6 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1192,7 +1664,7 @@ struct SearchView: View {
     private func mvsResultList(mvs: [MV]) -> some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14)
+            GridItem(.flexible(), spacing: 14),
         ]
         return LazyVGrid(columns: columns, spacing: 16) {
             ForEach(mvs.prefix(4)) { mv in
@@ -1211,7 +1683,7 @@ struct SearchView: View {
     private func qqMVsResultList(mvs: [QQMV]) -> some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14)
+            GridItem(.flexible(), spacing: 14),
         ]
         return LazyVGrid(columns: columns, spacing: 16) {
             ForEach(mvs.prefix(4)) { mv in
@@ -1236,14 +1708,14 @@ struct SearchView: View {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(Color.monologueTextSecondary.opacity(0.06))
                         }
-                        .aspectRatio(16/9, contentMode: .fill)
+                        .aspectRatio(16 / 9, contentMode: .fill)
                         .frame(height: 100)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     } else {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(Color.monologueTextSecondary.opacity(0.06))
                             .frame(height: 100)
-                            .aspectRatio(16/9, contentMode: .fit)
+                            .aspectRatio(16 / 9, contentMode: .fit)
                     }
 
                     if !mv.durationText.isEmpty {
@@ -1252,7 +1724,7 @@ struct SearchView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(.clear).monologueGlass(cornerRadius: 16)
+                            .background(.clear).monologueGlass(cornerRadius: NeumorphicStyle.isActive ? 12 : 16)
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .padding(8)
                     }
@@ -1260,27 +1732,33 @@ struct SearchView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mv.name)
-                        .font(.rounded(size: 14, weight: .semibold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .rounded(size: 14, weight: .semibold))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
                         Text(mv.singerName ?? String(localized: "search_unknown_artist"))
-                            .font(.rounded(size: 12))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .lineLimit(1)
 
                         if !mv.playCountText.isEmpty {
                             Circle()
-                                .fill(Color.monologueTextSecondary.opacity(0.3))
+                                .fill((NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Color.monologueTextSecondary).opacity(0.3))
                                 .frame(width: 3, height: 3)
                             Text(mv.playCountText + String(localized: "search_play_count_suffix"))
-                                .font(.rounded(size: 11))
-                                .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
                         }
                     }
                 }
                 .padding(.horizontal, 2)
+            }
+            .padding(NeumorphicStyle.isActive ? 10 : 0)
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true)
+                }
             }
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -1291,7 +1769,7 @@ struct SearchView: View {
     private var expandedQQMVsList: some View {
         let columns = [
             GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14)
+            GridItem(.flexible(), spacing: 14),
         ]
         return LazyVGrid(columns: columns, spacing: 16) {
             ForEach(Array(viewModel.qqMVResults.enumerated()), id: \.element.id) { index, mv in
@@ -1397,9 +1875,15 @@ struct SearchView: View {
             .padding(12)
             .frame(width: 220)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.monologueGlassTint)
-                    .monologueGlass(cornerRadius: 20)
+                Group {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.monologueGlassTint)
+                            .monologueGlass(cornerRadius: 20)
+                    }
+                }
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -1408,101 +1892,273 @@ struct SearchView: View {
 
     // MARK: - 空结果提示
 
+    @ViewBuilder
     private var emptyResultsView: some View {
-        ContentUnavailableView.search(text: viewModel.query)
+        if NeumorphicStyle.isActive {
+            VStack(spacing: 14) {
+                NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.inkMuted, size: 52)
+
+                Text(viewModel.displayKeyword)
+                    .font(NeumorphicStyle.titleFont(18, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(1)
+
+                Text(String(localized: "search_no_results"))
+                    .font(NeumorphicStyle.labelFont(12, weight: .medium))
+                    .foregroundStyle(NeumorphicStyle.inkMuted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 38)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+        } else {
+            ContentUnavailableView.search(text: viewModel.displayKeyword)
+        }
     }
 
     // MARK: - 搜索历史 & 热搜
 
     @ViewBuilder
     private var emptySearchView: some View {
-        if MujiStyle.isActive {
+        if NeumorphicStyle.isActive {
+            neumorphicEmptySearchView
+        } else if MujiStyle.isActive {
             mujiEmptySearchView
         } else {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // 搜索历史
-                if !viewModel.searchHistory.isEmpty {
-                    HStack {
-                        Text(LocalizedStringKey("search_history"))
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // 搜索历史
+                    if !viewModel.searchHistory.isEmpty {
+                        HStack {
+                            Text(LocalizedStringKey("search_history"))
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(.monologueTextSecondary)
 
-                        Spacer()
+                            Spacer()
 
-                        Button(action: {
-                            viewModel.clearAllHistory()
-                        }) {
-                            MonologueIcon(icon: .trash, size: 16, color: .monologueTextSecondary)
-                        }
-                    }
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-
-                    ForEach(viewModel.searchHistory, id: \.id) { item in
-                        Button(action: {
-                            viewModel.performSearch(keyword: item.keyword)
-                            isFocused = false
-                        }) {
-                            HStack(spacing: 14) {
-                                MonologueIcon(icon: .clock, size: 16, color: .monologueTextSecondary)
-
-                                Text(item.keyword)
-                                    .font(.rounded(size: 16, weight: .regular))
-                                    .foregroundColor(.monologueTextPrimary)
-                                    .lineLimit(1)
-
-                                Spacer()
-
-                                Button(action: {
-                                    viewModel.deleteHistoryItem(keyword: item.keyword)
-                                }) {
-                                    MonologueIcon(icon: .xmark, size: 12, color: .monologueTextSecondary.opacity(0.5))
-                                }
+                            Button(action: {
+                                viewModel.clearAllHistory()
+                            }) {
+                                MonologueIcon(icon: .trash, size: 16, color: .monologueTextSecondary)
                             }
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                            .padding(.vertical, 12)
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-
-                // 热门搜索
-                if !viewModel.hotSearchItems.isEmpty {
-                    Text(LocalizedStringKey("search_hot"))
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                        .padding(.top, 20)
+                        .padding(.top, 16)
                         .padding(.bottom, 12)
 
-                    FlowLayout(spacing: 10) {
-                        ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
+                        ForEach(viewModel.searchHistory, id: \.id) { item in
                             Button(action: {
-                                viewModel.performSearch(keyword: item.searchWord)
+                                viewModel.performSearch(keyword: item.keyword)
                                 isFocused = false
                             }) {
-                                Text(item.searchWord)
-                                    .font(.rounded(size: 14, weight: .regular))
-                                    .foregroundColor(.monologueTextPrimary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .monologueGlass(cornerRadius: 16)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                                    .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+                                HStack(spacing: 14) {
+                                    MonologueIcon(icon: .clock, size: 16, color: .monologueTextSecondary)
+
+                                    Text(item.keyword)
+                                        .font(.rounded(size: 16, weight: .regular))
+                                        .foregroundColor(.monologueTextPrimary)
+                                        .lineLimit(1)
+
+                                    Spacer()
+
+                                    Button(action: {
+                                        viewModel.deleteHistoryItem(keyword: item.keyword)
+                                    }) {
+                                        MonologueIcon(icon: .xmark, size: 12, color: .monologueTextSecondary.opacity(0.5))
+                                    }
+                                }
+                                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
                     }
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                    // 热门搜索
+                    if !viewModel.hotSearchItems.isEmpty {
+                        Text(LocalizedStringKey("search_hot"))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(.monologueTextSecondary)
+                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                            .padding(.top, 20)
+                            .padding(.bottom, 12)
+
+                        FlowLayout(spacing: 10) {
+                            ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
+                                Button(action: {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                }) {
+                                    Text(item.searchWord)
+                                        .font(.rounded(size: 14, weight: .regular))
+                                        .foregroundColor(.monologueTextPrimary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .monologueGlass(cornerRadius: 16)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    }
+                }
+                .padding(.bottom, 120)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var neumorphicEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let defaultKeyword = viewModel.defaultKeyword {
+                    Button {
+                        viewModel.performSearch(keyword: defaultKeyword.realkeyword)
+                        isFocused = false
+                    } label: {
+                        HStack(spacing: 14) {
+                            NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.accent, size: 46)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("DEFAULT")
+                                    .font(NeumorphicStyle.labelFont(10, weight: .semibold))
+                                    .foregroundStyle(NeumorphicStyle.inkMuted)
+                                    .tracking(1.0)
+
+                                Text(defaultKeyword.showKeyword)
+                                    .font(NeumorphicStyle.titleFont(20, weight: .semibold))
+                                    .foregroundStyle(NeumorphicStyle.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.78)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            MonologueIcon(icon: .chevronRight, size: 13, color: NeumorphicStyle.accent, lineWidth: 1.6)
+                                .frame(width: 34, height: 34)
+                                .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+                        }
+                        .padding(15)
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                }
+
+                if !viewModel.searchHistory.isEmpty {
+                    neumorphicSearchShelf(
+                        title: String(localized: "search_history"),
+                        icon: .clock,
+                        tint: NeumorphicStyle.sage,
+                        actionIcon: .trash,
+                        action: { viewModel.clearAllHistory() }
+                    ) {
+                        VStack(spacing: 8) {
+                            ForEach(viewModel.searchHistory.prefix(6), id: \.id) { item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.keyword)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        MonologueIcon(icon: .clock, size: 13, color: NeumorphicStyle.sage, lineWidth: 1.5)
+
+                                        Text(item.keyword)
+                                            .font(NeumorphicStyle.bodyFont(14, weight: .medium))
+                                            .foregroundStyle(NeumorphicStyle.ink)
+                                            .lineLimit(1)
+
+                                        Spacer(minLength: 8)
+
+                                        Button {
+                                            viewModel.deleteHistoryItem(keyword: item.keyword)
+                                        } label: {
+                                            MonologueIcon(icon: .xmark, size: 10, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
+                                                .frame(width: 28, height: 28)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    neumorphicSearchShelf(
+                        title: String(localized: "search_hot"),
+                        icon: .chart,
+                        tint: NeumorphicStyle.warm
+                    ) {
+                        FlowLayout(spacing: 10) {
+                            ForEach(Array(viewModel.hotSearchItems.prefix(20).enumerated()), id: \.element.searchWord) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 7) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                            .foregroundStyle(index < 3 ? NeumorphicStyle.warm : NeumorphicStyle.inkMuted)
+
+                                        Text(item.searchWord)
+                                            .font(NeumorphicStyle.labelFont(13, weight: .medium))
+                                            .foregroundStyle(NeumorphicStyle.ink)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 9)
+                                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+                                }
+                                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                            }
+                        }
+                    }
                 }
             }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 4)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func neumorphicSearchShelf<Content: View>(
+        title: String,
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        actionIcon: MonologueIcon.IconType? = nil,
+        action: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(spacing: 10) {
+                NeumorphicIconBadge(icon: icon, tint: tint, size: 34)
+
+                Text(title)
+                    .font(NeumorphicStyle.titleFont(17, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+
+                Spacer(minLength: 8)
+
+                if let actionIcon, let action {
+                    Button(action: action) {
+                        MonologueIcon(icon: actionIcon, size: 14, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
+                            .frame(width: 34, height: 34)
+                            .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            content()
         }
+        .padding(14)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
     }
 
     private var mujiEmptySearchView: some View {
@@ -1613,48 +2269,94 @@ struct SearchView: View {
     @ViewBuilder
     private var suggestionsOverlay: some View {
         if viewModel.showSuggestions && !viewModel.suggestions.isEmpty {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(viewModel.suggestions, id: \.self) { suggestion in
-                            HStack(spacing: 12) {
-                                MonologueIcon(icon: .magnifyingGlass, size: 14, color: .monologueTextSecondary)
+            if NeumorphicStyle.isActive {
+                neumorphicSuggestionsOverlay
+            } else {
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(viewModel.suggestions, id: \.self) { suggestion in
+                                HStack(spacing: 12) {
+                                    MonologueIcon(icon: .magnifyingGlass, size: 14, color: .monologueTextSecondary)
 
-                                Text(suggestion)
-                                    .font(.rounded(size: 15, weight: .regular))
-                                    .foregroundColor(.monologueTextPrimary)
-                                    .lineLimit(1)
+                                    Text(suggestion)
+                                        .font(.rounded(size: 15, weight: .regular))
+                                        .foregroundColor(.monologueTextPrimary)
+                                        .lineLimit(1)
 
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                isFocused = false
-                                viewModel.performSearch(keyword: suggestion)
-                            }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    isFocused = false
+                                    viewModel.performSearch(keyword: suggestion)
+                                }
 
-                            if suggestion != viewModel.suggestions.last {
-                                Divider()
-                                    .opacity(0.4)
-                                    .padding(.horizontal, 16)
+                                if suggestion != viewModel.suggestions.last {
+                                    Divider()
+                                        .opacity(0.4)
+                                        .padding(.horizontal, 16)
+                                }
                             }
                         }
+                        .padding(.vertical, 6)
                     }
-                    .padding(.vertical, 6)
+                    .scrollDismissesKeyboard(.never)
+                    .scrollIndicators(.hidden)
+                    .frame(maxHeight: 320)
                 }
-                .scrollDismissesKeyboard(.never)
-                .scrollIndicators(.hidden)
-                .frame(maxHeight: 320)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .monologueGlass(cornerRadius: 16)
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, suggestionsTopPadding)
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .monologueGlass(cornerRadius: 16)
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 4)
-            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
         }
+    }
+
+    private var neumorphicSuggestionsOverlay: some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                ForEach(viewModel.suggestions, id: \.self) { suggestion in
+                    Button {
+                        isFocused = false
+                        viewModel.performSearch(keyword: suggestion)
+                    } label: {
+                        HStack(spacing: 11) {
+                            MonologueIcon(icon: .magnifyingGlass, size: 13, color: NeumorphicStyle.accent, lineWidth: 1.55)
+                                .frame(width: 30, height: 30)
+                                .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true))
+
+                            Text(suggestion)
+                                .font(NeumorphicStyle.bodyFont(15, weight: .medium))
+                                .foregroundStyle(NeumorphicStyle.ink)
+                                .lineLimit(1)
+
+                            Spacer(minLength: 8)
+
+                            MonologueIcon(icon: .chevronRight, size: 10, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(10)
+        }
+        .scrollDismissesKeyboard(.never)
+        .scrollIndicators(.hidden)
+        .frame(maxHeight: 328)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, suggestionsTopPadding)
+        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
     }
 }

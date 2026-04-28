@@ -66,9 +66,15 @@ struct QQPlaylistImportView: View {
                 Spacer().frame(height: 40)
                 
                 ZStack {
-                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 18 : 24, style: .continuous)
-                        .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint))
+                    RoundedRectangle(cornerRadius: importIconRadius, style: .continuous)
+                        .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)))
                         .frame(width: 80, height: 80)
+                        .background {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: importIconRadius, elevated: true)
+                                    .frame(width: 80, height: 80)
+                            }
+                        }
                         .overlay {
                             if MangaStyle.isActive {
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -78,24 +84,24 @@ struct QQPlaylistImportView: View {
                                     .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
                             }
                         }
-                    MonologueIcon(icon: .musicNoteList, size: 32, color: .monologueTextSecondary.opacity(0.5))
+                    MonologueIcon(icon: .musicNoteList, size: 32, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.5))
                 }
                 
                 VStack(spacing: 8) {
                     Text("导入 QCM歌单")
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(21, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .medium) : .system(size: 20, weight: .bold, design: .rounded)))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(21, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     Text("输入 QCM 号或用户名可添加用户歌单")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .multilineTextAlignment(.center)
                 }
                 
                 HStack(spacing: 12) {
                     HStack {
-                        MonologueIcon(icon: .search, size: 16, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .search, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
                         TextField(String(localized: "QCM 号 / 用户名"), text: $uin)
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded))
                             .monologueTextInputBehavior()
                             .submitLabel(.search)
                             .onSubmit {
@@ -109,9 +115,9 @@ struct QQPlaylistImportView: View {
                     Button {
                         Task { await smartSearch() }
                     } label: {
-                        MonologueIcon(icon: .search, size: 18, color: .monologueTextPrimary)
+                        MonologueIcon(icon: .search, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
                             .frame(width: 48, height: 48)
-                            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : 14, elevated: true, mangaTint: MangaStyle.labelYellow)
+                            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 18 : 14), elevated: true, mangaTint: MangaStyle.labelYellow)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                     .disabled(uin.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -157,8 +163,8 @@ struct QQPlaylistImportView: View {
     private var userSearchResultsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("选择用户")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 .padding(.horizontal, 28)
             
             ForEach(Array(searchedUsers), id: \.musicid) { user in
@@ -205,22 +211,22 @@ struct QQPlaylistImportView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
                     if songs > 0 {
                         Text("\(songs) 首歌曲")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                 }
                 
                 Spacer()
                 
-                MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.5))
             }
             .padding(12)
-            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : 14, elevated: false)
+            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 18 : 14), elevated: false)
         }
         .buttonStyle(MonologueBouncingButtonStyle())
         .padding(.horizontal, 24)
@@ -240,9 +246,9 @@ struct QQPlaylistImportView: View {
                 } label: {
                     HStack(spacing: 4) {
                         MonologueIcon(icon: .back, size: 12, color: .monologueTextSecondary)
-                        Text("重新输入")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                    Text("重新输入")
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                 }
                 
@@ -256,8 +262,8 @@ struct QQPlaylistImportView: View {
                     }
                 } label: {
                     Text(selectedIds.count == playlists.count ? String(localized: "取消全选") : String(localized: "全选"))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
                 }
             }
             .padding(.horizontal, 20)
@@ -290,30 +296,32 @@ struct QQPlaylistImportView: View {
             ZStack {
                 if let url = playlist.coverURL {
                     CachedAsyncImage(url: url) {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.monologueGlassTint)
+                        RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                    .overlay(coverStroke)
                 } else {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                         .frame(width: 52, height: 52)
                         .overlay {
-                            MonologueIcon(icon: .musicNote, size: 20, color: .monologueTextSecondary.opacity(0.4))
+                            MonologueIcon(icon: .musicNote, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.4))
                         }
+                        .overlay(coverStroke)
                 }
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(playlist.name)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
                 Text("\(playlist.songCount) 首")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
             }
             
             Spacer()
@@ -326,16 +334,32 @@ struct QQPlaylistImportView: View {
                     Circle()
                         .fill(MusicSource.qqmusic.themedBadgeColor)
                         .frame(width: 24, height: 24)
-                    MonologueIcon(icon: .checkmark, size: 12, color: MangaStyle.isActive ? MangaStyle.ink : .white)
+                    MonologueIcon(icon: .checkmark, size: 12, color: MangaStyle.isActive ? MangaStyle.ink : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .white))
                 }
             }
         }
         .padding(12)
         .themedPageSurface(
-            cornerRadius: MangaStyle.isActive ? 16 : 14,
+            cornerRadius: MangaStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 18 : 14),
             elevated: isSelected,
             mangaTint: isSelected ? MangaStyle.labelYellow.opacity(0.92) : MangaStyle.bubbleWhite
         )
+    }
+
+    private var importIconRadius: CGFloat {
+        NeumorphicStyle.isActive ? 26 : (MangaStyle.isActive ? 18 : 24)
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 10
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        }
     }
     
     private var importProgressBar: some View {

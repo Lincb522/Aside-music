@@ -27,10 +27,10 @@ struct MonologueBackButton: View {
                 color: iconColor
             )
             .rotationEffect(style == .dismiss ? .degrees(90) : .zero)
-            .padding(3)
+            .frame(width: 40, height: 40)
+            .contentShape(Circle())
         }
-        .monologueGlassButtonStyle()
-        .buttonBorderShape(.circle)
+        .buttonStyle(.plain)
     }
 }
 
@@ -39,6 +39,7 @@ struct MonologueBackground: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @State private var themeManager = GlobalThemeManager.shared
 
     private var useCoverBg: Bool {
         settings.coverBgGlobal && player.currentSong != nil
@@ -46,7 +47,7 @@ struct MonologueBackground: View {
 
     /// 当前全局主题 ID
     private var themeId: GlobalThemeId {
-        GlobalThemeManager.shared.currentThemeId
+        themeManager.currentThemeId
     }
 
     var body: some View {
@@ -87,6 +88,8 @@ struct MonologueBackground: View {
             mujiBackground
         case .manga:
             mangaBackground
+        case .neumorphic:
+            neumorphicBackground
         case .default:
             defaultBackground
         }
@@ -126,6 +129,12 @@ struct MonologueBackground: View {
 
     private var mangaBackground: some View {
         MangaRootBackdrop()
+    }
+
+    // MARK: - 新拟物背景
+
+    private var neumorphicBackground: some View {
+        NeumorphicRootBackdrop()
     }
 
     // MARK: - 默认背景
@@ -230,6 +239,9 @@ struct MonologueLiquidGlassCard<Content: View>: View {
         } else if MujiStyle.isActive {
             content
                 .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
+        } else if NeumorphicStyle.isActive {
+            content
+                .background(NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true))
         } else {
             content
                 .background(

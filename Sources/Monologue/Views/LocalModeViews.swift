@@ -136,6 +136,8 @@ struct LocalModeHomeView: View {
                             mangaLocalHomeHeader
                         } else if MujiStyle.isActive {
                             mujiLocalHomeHeader
+                        } else if NeumorphicStyle.isActive {
+                            neumorphicLocalHomeHeader
                         }
 
                         homeHeroCard
@@ -173,13 +175,13 @@ struct LocalModeHomeView: View {
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 12)
+                    .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 12)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("tabbar_home"))
+            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_home"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -242,15 +244,26 @@ struct LocalModeHomeView: View {
         .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
 
+    private var neumorphicLocalHomeHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "LOCAL",
+            title: localModeText("tabbar_home"),
+            subtitle: ""
+        ) {
+            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.sage, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
     private var homeHeroCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 28) {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(localModeText("local_home_hero_title"))
-                            .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : .system(size: 28, weight: .heavy, design: .rounded)))
-                            .foregroundColor(.monologueTextPrimary)
-                            .tracking((MangaStyle.isActive || MujiStyle.isActive) ? 0 : -0.5)
+                            .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                            .tracking(ThemedPageStyle.isActive ? 0 : -0.5)
                     }
 
                     Spacer(minLength: 16)
@@ -259,8 +272,8 @@ struct LocalModeHomeView: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.monologueAccent.opacity(0.85),
-                                    Color.monologueAccent.opacity(0.35)
+                                    (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccent).opacity(0.85),
+                                    (NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.monologueAccent).opacity(0.35)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -294,13 +307,13 @@ struct LocalModeHomeView: View {
                         HStack(spacing: 8) {
                             MonologueIcon(icon: .play, size: 13, color: .monologueIconForeground)
                             Text(localModeText("local_home_play_all"))
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded))
                         }
-                        .foregroundColor(.monologueIconForeground)
+                        .foregroundColor(NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.monologueIconBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 18 : 16, style: .continuous))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     .disabled(localLibrary.songs.isEmpty)
@@ -309,15 +322,15 @@ struct LocalModeHomeView: View {
                         destination: LocalLibraryView()
                     ) {
                         HStack(spacing: 8) {
-                            MonologueIcon(icon: .library, size: 14, color: .monologueTextPrimary)
+                            MonologueIcon(icon: .library, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
                             Text(localModeText("local_home_open_library"))
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.monologueGlassTint.opacity(0.65))
-                        .monologueGlass(cornerRadius: 16)
+                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.72) : Color.monologueGlassTint.opacity(0.65))
+                        .monologueGlass(cornerRadius: NeumorphicStyle.isActive ? 18 : 16)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 }
@@ -330,7 +343,7 @@ struct LocalModeHomeView: View {
         HStack(spacing: 14) {
             LocalPrimaryActionCard(
                 title: localModeText("local_action_scan_title"),
-                systemImage: "arrow.trianglehead.2.clockwise",
+                icon: .refresh,
                 isLoading: localLibrary.isProcessing
             ) {
                 Task {
@@ -342,7 +355,7 @@ struct LocalModeHomeView: View {
 
             LocalPrimaryActionCard(
                 title: localModeText("local_action_import_title"),
-                systemImage: "square.and.arrow.down",
+                icon: .download,
                 isLoading: false
             ) {
                 showImporter = true
@@ -608,11 +621,13 @@ struct LocalMusicView: View {
                         mangaLocalMusicHeader
                     } else if MujiStyle.isActive {
                         mujiLocalMusicHeader
+                    } else if NeumorphicStyle.isActive {
+                        neumorphicLocalMusicHeader
                     }
 
                     overviewCard
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 10)
+                        .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
 
                     filterBar
 
@@ -660,7 +675,7 @@ struct LocalMusicView: View {
                     }
                 }
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("tabbar_local_music"))
+            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_local_music"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .searchable(text: $searchText, prompt: localModeText("local_music_search_prompt"))
@@ -750,19 +765,29 @@ struct LocalMusicView: View {
         }
     }
 
+    private var neumorphicLocalMusicHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "TRACKS",
+            title: localModeText("tabbar_local_music"),
+            subtitle: ""
+        ) {
+            NeumorphicIconBadge(icon: .waveform, tint: NeumorphicStyle.accent, size: 48)
+        }
+    }
+
     private var overviewCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 24) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 12) {
-            Text(localModeText(selectedFilter.titleKey))
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : .system(size: 24, weight: .heavy, design: .rounded)))
-                        .foregroundColor(.monologueTextPrimary)
+                    Text(localModeText(selectedFilter.titleKey))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
 
                     Spacer(minLength: 16)
 
                     Text("\(filteredSongs.count)")
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .medium) : .system(size: 24, weight: .heavy, design: .rounded)))
-                        .foregroundColor(.monologueAccent)
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
                 }
 
                 HStack(spacing: 12) {
@@ -802,23 +827,23 @@ struct LocalMusicView: View {
                             MonologueIcon(
                                 icon: filter.icon,
                                 size: 13,
-                                color: selectedFilter == filter ? .monologueIconForeground : .monologueTextPrimary
+                                color: localFilterIconColor(isSelected: selectedFilter == filter)
                             )
                             Text(localModeText(filter.titleKey))
-                                .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : .system(size: 13, weight: .bold, design: .rounded)))
-                                .foregroundColor(selectedFilter == filter ? .monologueIconForeground : .monologueTextPrimary)
+                                .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: selectedFilter == filter ? .semibold : .medium) : .system(size: 13, weight: .bold, design: .rounded))))
+                                .foregroundColor(localFilterTextColor(isSelected: selectedFilter == filter))
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(
                             Group {
                                 if selectedFilter == filter {
-                                    RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16, style: .continuous)
-                                        .fill(Color.monologueIconBackground)
+                                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 16 : (ThemedPageStyle.isActive ? 8 : 16), style: .continuous)
+                                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.16) : Color.monologueIconBackground)
                                 } else {
-                                    RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16, style: .continuous)
-                                        .fill(Color.monologueGlassTint.opacity(0.65))
-                                        .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16)
+                                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 16 : (ThemedPageStyle.isActive ? 8 : 16), style: .continuous)
+                                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.68) : Color.monologueGlassTint.opacity(0.65))
+                                        .monologueGlass(cornerRadius: NeumorphicStyle.isActive ? 16 : (ThemedPageStyle.isActive ? 8 : 16))
                                 }
                             }
                         )
@@ -829,6 +854,16 @@ struct LocalMusicView: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func localFilterIconColor(isSelected: Bool) -> Color {
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        return isSelected ? .monologueIconForeground : .monologueTextPrimary
+    }
+
+    private func localFilterTextColor(isSelected: Bool) -> Color {
+        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        return isSelected ? .monologueIconForeground : .monologueTextPrimary
     }
 
     private var emptyTitle: String {
@@ -897,6 +932,8 @@ struct LocalLibraryView: View {
                             mangaLocalLibraryHeader
                         } else if MujiStyle.isActive {
                             mujiLocalLibraryHeader
+                        } else if NeumorphicStyle.isActive {
+                            neumorphicLocalLibraryHeader
                         }
 
                         libraryOverviewCard
@@ -909,7 +946,7 @@ struct LocalLibraryView: View {
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 12)
+                    .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 12)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
@@ -919,7 +956,7 @@ struct LocalLibraryView: View {
                     _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
                 }
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("local_library_navigation_title"))
+            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("local_library_navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
@@ -975,12 +1012,23 @@ struct LocalLibraryView: View {
         .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
 
+    private var neumorphicLocalLibraryHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "SHELF",
+            title: localModeText("local_library_navigation_title"),
+            subtitle: ""
+        ) {
+            NeumorphicIconBadge(icon: .library, tint: NeumorphicStyle.sage, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
     private var libraryOverviewCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 24) {
             VStack(alignment: .leading, spacing: 16) {
                 Text(localModeText("local_library_overview_title"))
-                    .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : .system(size: 24, weight: .heavy, design: .rounded)))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded))))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
 
                 HStack(spacing: 0) {
                     StatCell(value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music"))
@@ -1272,10 +1320,12 @@ struct LocalModeProfileView: View {
                             mangaLocalProfileHeader
                         } else if MujiStyle.isActive {
                             mujiLocalProfileHeader
+                        } else if NeumorphicStyle.isActive {
+                            neumorphicLocalProfileHeader
                         }
 
                         profileHeroCard
-                            .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : DeviceLayout.headerTopPadding + 10)
+                            .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
 
                         statsBar
 
@@ -1296,7 +1346,7 @@ struct LocalModeProfileView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : localModeText("tabbar_profile"))
+            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_profile"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
@@ -1331,6 +1381,17 @@ struct LocalModeProfileView: View {
         .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
 
+    private var neumorphicLocalProfileHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "PROFILE",
+            title: localModeText("tabbar_profile"),
+            subtitle: ""
+        ) {
+            NeumorphicIconBadge(icon: .profileFilled, tint: NeumorphicStyle.accent, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
     private var profileHeroCard: some View {
         MonologueLiquidGlassCard(cornerRadius: 24) {
             HStack(spacing: 16) {
@@ -1338,8 +1399,8 @@ struct LocalModeProfileView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.monologueAccent.opacity(0.9),
-                                Color.monologueAccent.opacity(0.3)
+                                (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccent).opacity(0.9),
+                                (NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.monologueAccent).opacity(0.3)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -1352,8 +1413,8 @@ struct LocalModeProfileView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(localModeText("local_profile_hero_title"))
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : .system(size: 22, weight: .heavy, design: .rounded)))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 }
 
                 Spacer(minLength: 0)
@@ -1375,7 +1436,15 @@ struct LocalModeProfileView: View {
             StatCell(value: "\(downloadManager.downloadedSongIds.count)", label: localModeText("local_downloads_title"))
         }
         .padding(.vertical, 14)
-        .monologueGlass(cornerRadius: 18)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
+            } else {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.clear)
+                    .monologueGlass(cornerRadius: 18)
+            }
+        }
     }
 
     private var shortcutsSection: some View {
@@ -1628,24 +1697,29 @@ struct LocalModeProfileView: View {
 private struct LocalPrimaryActionCard: View {
     let title: String
     var subtitle: String? = nil
-    let systemImage: String
+    let icon: MonologueIcon.IconType
     let isLoading: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            MonologueLiquidGlassCard(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 24) {
+            MonologueLiquidGlassCard(cornerRadius: ThemedPageStyle.isActive ? 12 : 24) {
                 VStack(alignment: .leading, spacing: 16) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.monologueIconBackground)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.16) : Color.monologueIconBackground)
                             .frame(width: 54, height: 54)
 
                         if isLoading {
                             ProgressView()
                                 .tint(.monologueIconForeground)
                         } else {
-                            MonologueSymbolIcon(name: systemImage, size: 23, color: .monologueIconForeground)
+                            MonologueIcon(
+                                icon: icon,
+                                size: 23,
+                                color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground,
+                                lineWidth: 1.6
+                            )
                         }
                     }
 
@@ -1653,14 +1727,14 @@ private struct LocalPrimaryActionCard: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(title)
-                            .font(MangaStyle.isActive ? MangaStyle.titleFont(19, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : .system(size: 19, weight: .bold, design: .rounded)))
-                            .foregroundColor(.monologueTextPrimary)
+                            .font(MangaStyle.isActive ? MangaStyle.titleFont(19, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 19, weight: .bold, design: .rounded))))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                             .multilineTextAlignment(.leading)
 
                     if let subtitle {
                         Text(subtitle)
                             .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded)))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
                     }
@@ -1681,7 +1755,7 @@ private struct LocalShortcutCard: View {
     let accent: Color
 
     var body: some View {
-        MonologueLiquidGlassCard(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 22) {
+        MonologueLiquidGlassCard(cornerRadius: ThemedPageStyle.isActive ? 12 : 22) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Circle()
@@ -1694,14 +1768,14 @@ private struct LocalShortcutCard: View {
                     Spacer(minLength: 12)
 
                     Text(value)
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .medium) : .system(size: 22, weight: .heavy, design: .rounded)))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .bold, design: .rounded)))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .bold, design: .rounded))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
@@ -1717,20 +1791,20 @@ private struct LocalMetricBadge: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : .system(size: 18, weight: .heavy, design: .rounded)))
-                .foregroundColor(.monologueTextPrimary)
+                .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .heavy, design: .rounded))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
 
             Text(title)
                 .font(MangaStyle.isActive ? MangaStyle.labelFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .medium) : .system(size: 10, weight: .bold, design: .rounded)))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16, style: .continuous)
-                .fill(Color.monologueGlassTint.opacity(0.55))
-                .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 8 : 16)
+            RoundedRectangle(cornerRadius: ThemedPageStyle.isActive ? 8 : 16, style: .continuous)
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.66) : Color.monologueGlassTint.opacity(0.55))
+                .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 8 : 16)
         )
     }
 }
@@ -1745,24 +1819,24 @@ private struct LocalInlineActionCard: View {
                 .fill(Color.monologueAccent.opacity(0.15))
                 .frame(width: 40, height: 40)
                 .overlay(
-                    MonologueIcon(icon: icon, size: 16, color: .monologueAccent)
+                    MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
                 )
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .bold, design: .rounded)))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
             }
 
             Spacer(minLength: 0)
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.7))
+            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.7))
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 10 : 18, style: .continuous)
-                .fill(Color.monologueGlassTint.opacity(0.7))
-                .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 10 : 18)
+            RoundedRectangle(cornerRadius: ThemedPageStyle.isActive ? 10 : 18, style: .continuous)
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.68) : Color.monologueGlassTint.opacity(0.7))
+                .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 10 : 18)
         )
     }
 }
@@ -1774,18 +1848,18 @@ private struct LocalManagementButton: View {
 
     var body: some View {
         Button(action: action) {
-            MonologueLiquidGlassCard(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 22) {
+            MonologueLiquidGlassCard(cornerRadius: ThemedPageStyle.isActive ? 12 : 22) {
                 VStack(alignment: .leading, spacing: 12) {
                     Circle()
-                        .fill(Color.monologueAccent.opacity(0.14))
+                        .fill((NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccent).opacity(0.14))
                         .frame(width: 40, height: 40)
                         .overlay(
-                            MonologueIcon(icon: icon, size: 16, color: .monologueAccent)
+                            MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
                         )
 
                 Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .bold, design: .rounded)))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .bold, design: .rounded))))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
             }
             .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
                 .padding(16)
@@ -1803,16 +1877,16 @@ private struct LocalInlinePill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 12, color: .monologueTextPrimary)
+                MonologueIcon(icon: icon, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
                 Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded)))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded))))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .background(
                 Capsule()
-                    .fill(Color.monologueGlassTint.opacity(0.65))
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.72) : Color.monologueGlassTint.opacity(0.65))
                     .monologueGlassCapsule()
             )
         }
@@ -1829,21 +1903,21 @@ private struct LocalEmptyStateView: View {
     var body: some View {
         VStack(spacing: 14) {
             Circle()
-                .fill(Color.monologueGlassTint.opacity(0.85))
+                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monologueGlassTint.opacity(0.85))
                 .frame(width: 62, height: 62)
                 .overlay(
-                    MonologueIcon(icon: .musicNoteList, size: 24, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .musicNoteList, size: 24, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
                 )
 
             VStack(spacing: 6) {
                 Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.titleFont(20, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .regular) : .system(size: 20, weight: .bold, design: .rounded)))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(20, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
                     .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     .multilineTextAlignment(.center)
             }
 
@@ -1851,10 +1925,10 @@ private struct LocalEmptyStateView: View {
                 Button(action: buttonAction) {
                     Text(buttonTitle)
                         .font(MangaStyle.isActive ? MangaStyle.labelFont(14, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded)))
-                        .foregroundColor(.monologueIconForeground)
+                        .foregroundColor(NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
-                        .background(Color.monologueIconBackground)
+                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -1863,7 +1937,7 @@ private struct LocalEmptyStateView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.vertical, 28)
-        .monologueGlass(cornerRadius: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 20)
+        .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 12 : 20)
     }
 }
 

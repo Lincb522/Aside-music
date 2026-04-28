@@ -25,32 +25,49 @@ struct StorageManageView: View {
             
             VStack(spacing: 0) {
                 if isLoading {
-                    Spacer()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .monologueTextSecondary))
-                    Spacer()
+                    ScrollView {
+                        VStack(spacing: 28) {
+                            SettingsScrollablePageHeader(
+                                title: String(localized: "storage_title"),
+                                eyebrow: "STORAGE",
+                                icon: .storage
+                            )
+
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .monologueTextSecondary))
+                                .padding(.top, 80)
+                        }
+                    }
+                    .scrollIndicators(.hidden)
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
-                            // 总览卡片
-                            overviewCard
-                                .padding(.top, 16)
-                            
-                            // 存储分类
-                            storageCategoriesCard
-                            
-                            // 快速清理
-                            quickCleanCard
-                            
-                            FloatingBarBottomSpacer()
+                            SettingsScrollablePageHeader(
+                                title: String(localized: "storage_title"),
+                                eyebrow: "STORAGE",
+                                icon: .storage
+                            )
+
+                            VStack(spacing: 20) {
+                                // 总览卡片
+                                overviewCard
+
+                                // 存储分类
+                                storageCategoriesCard
+
+                                // 快速清理
+                                quickCleanCard
+
+                                FloatingBarBottomSpacer()
+                            }
+                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                         }
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     }
                     .scrollIndicators(.hidden)
                 }
             }
         }
-        .themedNavigationChrome(title: String(localized: "storage_title"), eyebrow: "STORAGE", icon: .storage)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
@@ -74,14 +91,14 @@ struct StorageManageView: View {
             
             VStack(spacing: 4) {
                 Text(String(localized: "storage_available"))
-                    .font(.rounded(size: 13))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 Text(formatBytes(availableSpace))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                 Text(String(format: String(localized: "storage_total_format"), formatBytes(totalDiskSpace)))
-                    .font(.rounded(size: 13))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
             }
         }
         .padding(.vertical, 28)
@@ -114,7 +131,7 @@ struct StorageManageView: View {
         
         return ZStack {
             Circle()
-                .stroke(Color.monologueSeparator.opacity(0.3), lineWidth: 22)
+                .stroke(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator.opacity(0.3), lineWidth: 22)
             
             ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                 let startAngle = segments.prefix(index).reduce(0.0) { $0 + $1.0 + gap }
@@ -178,18 +195,18 @@ struct StorageManageView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(title)
-                            .font(.rounded(size: 15, weight: .medium))
-                            .foregroundColor(.monologueTextPrimary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .rounded(size: 15, weight: .medium))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         Spacer()
                         Text(formatBytes(size))
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                     
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule()
-                                .fill(Color.monologueSeparator.opacity(0.3))
+                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator.opacity(0.3))
                                 .frame(height: 4)
                             Capsule()
                                 .fill(color)
@@ -220,16 +237,16 @@ struct StorageManageView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "storage_clear_all_title"))
-                        .font(.rounded(size: 16, weight: .semibold))
-                        .foregroundColor(.red)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .semibold))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.red : .red)
                     Text(String(localized: "storage_clear_all_subtitle"))
-                        .font(.rounded(size: 12))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                 }
                 
                 Spacer()
                 
-                MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.red.opacity(0.8) : .monologueTextSecondary.opacity(0.5))
             }
             .padding(16)
             .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 16, elevated: true, mangaTint: MangaStyle.bubblePink.opacity(0.92))

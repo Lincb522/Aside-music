@@ -13,7 +13,11 @@ struct MangaThemeProvider: GlobalThemeProvider {
             primary: MangaStyle.ink,
             secondary: MangaStyle.inkSub,
             accent: MangaStyle.accentPink,
-            accentGradient: [MangaStyle.accentPink, MangaStyle.labelYellow, MangaStyle.decoBlue, MangaStyle.mint],
+            accentGradient: ThemeColorCustomization.accentGradientColors(
+                for: .manga,
+                fallback: [MangaStyle.accentPink, MangaStyle.labelYellow, MangaStyle.decoBlue, MangaStyle.mint],
+                fallbackHexes: ["FF4F84", "FFE067"]
+            ),
             separator: MangaStyle.separator,
             navBarTint: MangaStyle.ink,
             iconBackground: MangaStyle.strokeInk,

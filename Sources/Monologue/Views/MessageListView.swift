@@ -22,8 +22,8 @@ struct MessageListView: View {
                     VStack(spacing: 12) {
                         MonologueIcon(icon: .send, size: 40, color: .monologueTextSecondary.opacity(0.3))
                         Text(LocalizedStringKey("message_empty"))
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     }
                     Spacer()
                 } else {
@@ -63,16 +63,16 @@ private struct MessageRow: View {
             ZStack(alignment: .topTrailing) {
                 if let url = message.avatarURL {
                     CachedAsyncImage(url: url) {
-                        Circle().fill(Color.monologueSeparator)
+                        Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 50, height: 50)
                     .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color.monologueSeparator)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                         .frame(width: 50, height: 50)
-                        .overlay(MonologueIcon(icon: .profile, size: 22, color: .monologueTextSecondary.opacity(0.5)))
+                        .overlay(MonologueIcon(icon: .profile, size: 22, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.5)))
                 }
                 
                 // 未读标记
@@ -91,18 +91,18 @@ private struct MessageRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(message.nickname)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
                     Spacer()
                     Text(message.timeText)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
                 }
                 
                 Text(message.lastMsg)
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .regular, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                     .lineLimit(1)
             }
         }

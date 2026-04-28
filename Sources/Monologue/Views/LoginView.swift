@@ -86,8 +86,7 @@ struct LoginView: View {
             tabButton(title: String(localized: "phone_login"), icon: .phone, tab: .phone)
         }
         .padding(4)
-        .background(Color.monologueGlassTint)
-        .cornerRadius(16)
+        .themedPageSurface(cornerRadius: 16, elevated: false)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
     
@@ -101,14 +100,14 @@ struct LoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? .monologueIconForeground : .monologueTextSecondary)
+                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? loginAccentText : .monologueTextSecondary)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? .monologueIconForeground : .monologueTextSecondary)
+                    .foregroundColor(selectedTab == tab ? loginAccentText : .monologueTextSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(selectedTab == tab ? Color.monologueIconBackground : Color.clear)
+            .background(selectedTab == tab ? loginAccent : Color.clear)
             .cornerRadius(12)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
@@ -120,7 +119,7 @@ struct LoginView: View {
         VStack(spacing: 24) {
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.monologueGlassTint)
+                    .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
                     .monologueGlass(cornerRadius: 24)
                     .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
                 
@@ -167,6 +166,7 @@ struct LoginView: View {
                 }
             }
             .frame(width: 240, height: 240)
+            .themedOnlyPageSurface(cornerRadius: 24, elevated: true, mangaTint: MangaStyle.bubbleWhite)
             
             Text(viewModel.qrStatusMessage)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
@@ -227,8 +227,7 @@ struct LoginView: View {
                         .padding(.leading, 8)
                 }
                 .padding(16)
-                .background(Color.monologueGlassTint)
-                .cornerRadius(16)
+                .themedPageSurface(cornerRadius: 16, elevated: false)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
             
@@ -257,8 +256,7 @@ struct LoginView: View {
                     .disabled(viewModel.phoneNumber.count != 11 || viewModel.captchaCooldown > 0)
                 }
                 .padding(16)
-                .background(Color.monologueGlassTint)
-                .cornerRadius(16)
+                .themedPageSurface(cornerRadius: 16, elevated: false)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             }
             
@@ -283,7 +281,7 @@ struct LoginView: View {
                 .padding(.vertical, 16)
                 .background(
                     (viewModel.phoneNumber.count == 11 && viewModel.captchaCode.count >= 4)
-                    ? Color.black
+                    ? loginAccent
                     : Color.gray.opacity(0.3)
                 )
                 .cornerRadius(16)
@@ -327,6 +325,14 @@ struct LoginView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.dismiss()
         }
+    }
+
+    private var loginAccent: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+    }
+
+    private var loginAccentText: Color {
+        NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : Color.monologueIconForeground
     }
 }
 

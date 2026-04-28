@@ -334,7 +334,7 @@ extension MonologueIcon.IconType {
         case .download:         return Hicon.download
         case .cloud:            return Hicon.upload
         case .chevronRight:     return Hicon.right2
-        case .chevronLeft:      return Hicon.left1
+        case .chevronLeft:      return Hicon.left2
         case .magnifyingGlass:  return Hicon.search1
         case .xmark:            return Hicon.close
         case .fullscreen:       return Hicon.zoomIn

@@ -45,6 +45,14 @@ struct NewSongExpressView: View {
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
                     }
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicPageHeader(
+                        eyebrow: "NEW SONGS",
+                        title: String(localized: "new_song_express"),
+                        subtitle: ""
+                    ) {
+                        NeumorphicIconBadge(icon: .musicNote, tint: NeumorphicStyle.warm, size: 48)
+                    }
                 } else if MujiStyle.isActive {
                     MujiPageHeader(
                         eyebrow: String(localized: "new_song_express"),
@@ -56,7 +64,7 @@ struct NewSongExpressView: View {
                 }
 
                 typeSelector
-                    .padding(.top, (MangaStyle.isActive || MujiStyle.isActive) ? 0 : 8)
+                    .padding(.top, ThemedPageStyle.isActive ? 0 : 8)
 
                 if viewModel.isLoading {
                     Spacer()
@@ -79,7 +87,7 @@ struct NewSongExpressView: View {
                 }
             }
         }
-        .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "new_song_express"))
+        .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "new_song_express"))
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -135,17 +143,11 @@ struct NewSongExpressView: View {
                         let isSelected = viewModel.selectedType == type.id
                         let mangaForeground = isSelected ? MangaStyle.strokeInk : MangaStyle.ink
                         Text(LocalizedStringKey(type.nameKey))
-                            .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)))
-                            .foregroundColor(MangaStyle.isActive ? mangaForeground : (MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextSecondary)))
-                            .padding(.horizontal, MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 13 : 16))
-                            .padding(.vertical, (MangaStyle.isActive || MujiStyle.isActive) ? 9 : 8)
-                            .background(
-                                Capsule().fill(MangaStyle.isActive ? (isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.72)) : (MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78)) : (isSelected ? Color.monologueAccent : Color.clear)))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear), lineWidth: MangaStyle.isActive ? MangaStyle.fineStrokeWidth : 0.6)
-                            )
+                            .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))))
+                            .foregroundColor(MangaStyle.isActive ? mangaForeground : (MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.inkSoft) : (NeumorphicStyle.isActive ? (isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextSecondary))))
+                            .padding(.horizontal, MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 13 : (NeumorphicStyle.isActive ? 14 : 16)))
+                            .padding(.vertical, ThemedPageStyle.isActive ? 9 : 8)
+                            .background(typeChipBackground(isSelected: isSelected))
                             .clipShape(Capsule())
                             .contentShape(Capsule())
                     }
@@ -156,6 +158,25 @@ struct NewSongExpressView: View {
             .padding(.vertical, 12)
         }
         .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private func typeChipBackground(isSelected: Bool) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 16,
+                elevated: isSelected,
+                pressed: !isSelected,
+                tint: isSelected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+            )
+        } else {
+            Capsule()
+                .fill(MangaStyle.isActive ? (isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.72)) : (MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78)) : (isSelected ? Color.monologueAccent : Color.clear)))
+                .overlay(
+                    Capsule()
+                        .stroke(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear), lineWidth: MangaStyle.isActive ? MangaStyle.fineStrokeWidth : 0.6)
+                )
+        }
     }
 
     // MARK: - 空状态
@@ -194,6 +215,8 @@ struct NewSongExpressView: View {
                         .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                     } else if MujiStyle.isActive {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
+                    } else if NeumorphicStyle.isActive {
+                        NeumorphicPlayPill(title: String(localized: "artist_play_all"), tint: NeumorphicStyle.accent)
                     } else {
                         HStack(spacing: 6) {
                             MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
@@ -212,8 +235,8 @@ struct NewSongExpressView: View {
                 Spacer()
 
                 Text(String(format: NSLocalizedString("songs_count_format", comment: ""), viewModel.songs.count))
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
+                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 

@@ -13,13 +13,13 @@ struct HomeQQPlaylistSection: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .center, spacing: 7) {
                         Circle()
-                            .fill(Color.green)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.green)
                             .frame(width: 7, height: 7)
 
                         Text(LocalizedStringKey("qq_recommend_playlists"))
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))
                             .foregroundColor(.monologueTextPrimary)
-                            .tracking(-0.3)
+                            .tracking(NeumorphicStyle.isActive ? 0 : -0.3)
                     }
 
                     Text(NSLocalizedString("qq_recommend_playlists_desc", comment: ""))
@@ -38,7 +38,13 @@ struct HomeQQPlaylistSection: View {
                         .foregroundColor(.monologueTextSecondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Capsule().fill(Color.monologueGlassTint))
+                        .background {
+                            if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true)
+                            } else {
+                                Capsule().fill(Color.monologueGlassTint)
+                            }
+                        }
                     }
                 }
             }
@@ -75,7 +81,7 @@ struct HomeQQPlaylistSection: View {
         ZStack(alignment: .bottomLeading) {
             CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.monologueSeparator)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: qqW, height: qqH)
@@ -100,10 +106,20 @@ struct HomeQQPlaylistSection: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .monologueGlass(cornerRadius: 16)
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+                }
+            }
+            .modifier(QQPlaylistInfoSurfaceModifier())
             .padding(8) // 让胶囊层内敛并悬浮
         }
         .frame(width: qqW, height: qqH)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true)
+            }
+        }
     }
 
     private func formatCount(_ count: Int?) -> String {
@@ -121,5 +137,16 @@ struct HomeQQPlaylistSection: View {
             else if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
         }
         return "\(count)"
+    }
+}
+
+private struct QQPlaylistInfoSurfaceModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if NeumorphicStyle.isActive {
+            content
+        } else {
+            content.monologueGlass(cornerRadius: 16)
+        }
     }
 }

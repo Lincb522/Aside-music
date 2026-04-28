@@ -45,40 +45,47 @@ struct EQSettingsView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 28) {
-                        toggleCard
-                            .padding(.top, 8)
+                        SettingsScrollablePageHeader(
+                            title: String(localized: "eq_title"),
+                            eyebrow: "EQ",
+                            icon: .equalizer
+                        )
 
-                        if eqManager.isEnabled {
-                            // [DEPRECATED] 智能分析按钮已废弃
-                            // if labManager.isSmartEffectsEnabled {
-                            //     smartAnalyzeButton
-                            // }
-                            
-                            // 音效旋钮区
-                            knobSection
+                        VStack(spacing: 28) {
+                            toggleCard
 
-                            // 变调控制
-                            pitchSection
+                            if eqManager.isEnabled {
+                                // [DEPRECATED] 智能分析按钮已废弃
+                                // if labManager.isSmartEffectsEnabled {
+                                //     smartAnalyzeButton
+                                // }
 
-                            // 均衡器（曲线 + 滑块合一）
-                            equalizerSection
+                                // 音效旋钮区
+                                knobSection
 
-                            // 预设选择
-                            presetScrollSection
+                                // 变调控制
+                                pitchSection
 
-                            // 自定义预设
-                            if !eqManager.customPresets.isEmpty {
-                                customPresetsSection
+                                // 均衡器（曲线 + 滑块合一）
+                                equalizerSection
+
+                                // 预设选择
+                                presetScrollSection
+
+                                // 自定义预设
+                                if !eqManager.customPresets.isEmpty {
+                                    customPresetsSection
+                                }
+
+                                // 保存按钮
+                                saveButton
                             }
 
-                            // 保存按钮
-                            saveButton
+                            FloatingBarBottomSpacer()
                         }
-
-                        FloatingBarBottomSpacer()
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        .iPadContentWidth()
                     }
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .iPadContentWidth()
                 }
                 .scrollIndicators(.hidden)
             }
@@ -115,7 +122,7 @@ struct EQSettingsView: View {
             }
             */
         }
-        .themedNavigationChrome(title: String(localized: "eq_title"), eyebrow: "EQ", icon: .equalizer)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -175,7 +182,7 @@ struct EQSettingsView: View {
                 .tint(Color(light: .black, dark: Color(white: 0.55)))
         }
         .padding(16)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
     
     // [DEPRECATED] 智能分析按钮已废弃
@@ -265,7 +272,7 @@ struct EQSettingsView: View {
             }
         }
         .padding(20)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private func knobItem(label: String, value: Binding<CGFloat>, onChange: @escaping (CGFloat) -> Void) -> some View {
@@ -383,7 +390,7 @@ struct EQSettingsView: View {
             }
         }
         .padding(20)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private var pitchDisplayText: String {
@@ -428,7 +435,7 @@ struct EQSettingsView: View {
             frequencyLabels
         }
         .padding(20)
-        .monologueGlass(cornerRadius: 18)
+        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     // 频谱曲线填充（渐变）
@@ -617,10 +624,19 @@ struct EQSettingsView: View {
             .foregroundColor(isSelected ? .monologueIconForeground : .monologueTextSecondary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? Color.monologueAccent : Color.monologueTextPrimary.opacity(0.06))
-            )
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 16,
+                        elevated: isSelected,
+                        pressed: !isSelected,
+                        tint: isSelected ? NeumorphicStyle.accent.opacity(0.2) : NeumorphicStyle.surface
+                    )
+                } else {
+                    Capsule()
+                        .fill(isSelected ? Color.monologueAccent : Color.monologueTextPrimary.opacity(0.06))
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -645,10 +661,19 @@ struct EQSettingsView: View {
                     .lineLimit(1)
             }
             .frame(width: 72, height: 72)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.monologueTextPrimary.opacity(isSelected ? 0.08 : 0.04))
-            )
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 16,
+                        elevated: isSelected,
+                        pressed: !isSelected,
+                        tint: isSelected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
+                    )
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.monologueTextPrimary.opacity(isSelected ? 0.08 : 0.04))
+                }
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(isSelected ? Color.monologueAccent : Color.monologueSeparator.opacity(0.3), lineWidth: isSelected ? 1.5 : 0.5)
@@ -707,6 +732,11 @@ struct EQSettingsView: View {
                 .fill(isSelected ? Color.monologueAccent.opacity(0.08) : .clear)
                 .monologueGlassIdentityOrRegular(isIdentity: isSelected, cornerRadius: 14)
         )
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 14, elevated: isSelected, pressed: !isSelected)
+            }
+        }
     }
 
     // MARK: - 保存按钮
@@ -752,7 +782,7 @@ struct EQSettingsView: View {
                         .font(.rounded(size: 16))
                         .monologueTextInputBehavior()
                         .padding(14)
-                        .monologueGlass(cornerRadius: 12)
+                        .themedPageSurface(cornerRadius: 12, elevated: false)
 
                     Button(action: {
                         guard !customPresetName.isEmpty else { return }

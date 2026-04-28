@@ -294,6 +294,10 @@ struct StyleSelectionMorphView: View {
                     MujiPaperTexture(opacity: colorScheme == .dark ? 0.07 : 0.12)
                         .clipShape(panelShape)
                 )
+        } else if NeumorphicStyle.isActive {
+            panelShape
+                .fill(NeumorphicStyle.surface)
+                .overlay(NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.035 : 0.055).clipShape(panelShape))
         } else {
             panelShape
                 .fill(Color(light: .white.opacity(0.92), dark: Color(hex: "1E2028").opacity(0.92)))
@@ -337,6 +341,13 @@ struct StyleSelectionMorphView: View {
             } else {
                 panelShape.stroke(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.48 : 0.64), lineWidth: 0.7)
             }
+        } else if NeumorphicStyle.isActive {
+            if isAttachedToHeader {
+                MangaConnectedPanelOutline(radius: panelRadius)
+                    .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.8)
+            } else {
+                panelShape.stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.64), lineWidth: 0.8)
+            }
         } else {
             if isAttachedToHeader {
                 MangaConnectedPanelOutline(radius: panelRadius)
@@ -348,7 +359,7 @@ struct StyleSelectionMorphView: View {
     }
 
     private var currentPillShape: some Shape {
-        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : 15), style: .continuous)
+        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 14 : 15)), style: .continuous)
     }
 
     @ViewBuilder
@@ -357,12 +368,25 @@ struct StyleSelectionMorphView: View {
             currentPillShape.stroke(MangaStyle.strokeInk, lineWidth: 1.1)
         } else if MujiStyle.isActive {
             currentPillShape.stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
+        } else if NeumorphicStyle.isActive {
+            currentPillShape.stroke(NeumorphicStyle.separator.opacity(0.38), lineWidth: 0.7)
         }
     }
 
     private func tagBackground(isSelected: Bool, tint: Color) -> some View {
-        RoundedRectangle(cornerRadius: tagRadius, style: .continuous)
-            .fill(isSelected ? tint : tagFill)
+        Group {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(
+                    cornerRadius: tagRadius,
+                    elevated: isSelected,
+                    pressed: !isSelected,
+                    tint: isSelected ? tint.opacity(0.2) : NeumorphicStyle.surface
+                )
+            } else {
+                RoundedRectangle(cornerRadius: tagRadius, style: .continuous)
+                    .fill(isSelected ? tint : tagFill)
+            }
+        }
     }
 
     private func tagStroke(isSelected: Bool, tint: Color) -> some View {
@@ -392,143 +416,170 @@ struct StyleSelectionMorphView: View {
             return [MujiStyle.clay, MujiStyle.tea, MujiStyle.indigo, MujiStyle.straw][index % 4]
         }
 
+        if NeumorphicStyle.isActive {
+            return [NeumorphicStyle.accent, NeumorphicStyle.sage, NeumorphicStyle.warm, NeumorphicStyle.red][index % 4]
+        }
+
         return [Color(hex: "D7264D"), Color(hex: "E85C72"), Color(hex: "C6315B"), Color(hex: "EC7890")][index % 4]
     }
 
     private func selectedTagStroke(_ tint: Color) -> Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return tint.opacity(0.18) }
+        if NeumorphicStyle.isActive { return tint.opacity(0.28) }
         return tint.opacity(0.18)
     }
 
     private func tagStrokeWidth(isSelected: Bool) -> CGFloat {
         if MangaStyle.isActive { return isSelected ? 1.35 : 1.0 }
+        if NeumorphicStyle.isActive { return isSelected ? 0.55 : 0.4 }
         return isSelected ? 0.4 : 0.65
     }
 
     private func tagFont(isSelected: Bool) -> Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: isSelected ? .semibold : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: isSelected ? .semibold : .medium) }
         return .system(size: 12, weight: isSelected ? .semibold : .medium, design: .rounded)
     }
 
     private func tabFont(isSelected: Bool) -> Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
         return .system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded)
     }
 
     private func actionFont(isPrimary: Bool) -> Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(14, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(14, weight: isPrimary ? .semibold : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(14, weight: isPrimary ? .semibold : .medium) }
         return .system(size: 14, weight: isPrimary ? .bold : .medium, design: .rounded)
     }
 
     private var headerFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(15, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .semibold) }
         return .system(size: 15, weight: .semibold, design: .rounded)
     }
 
     private var currentFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(11, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .medium) }
         return .system(size: 11, weight: .medium, design: .rounded)
     }
 
     private var emptyFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
 
     private var primaryTextColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var tabSelectedColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         return .monologueTextPrimary
     }
 
     private var tabNormalColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var tabIndicatorColor: Color {
         if MangaStyle.isActive { return MangaStyle.bubblePink }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return Color(hex: "D7264D")
     }
 
     private var selectionTint: Color {
         if MangaStyle.isActive { return MangaStyle.bubblePink }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return Color(hex: "D7264D")
     }
 
     private var selectedTagForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.onTint }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return .white
     }
 
     private var tagFill: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
         return Color.monologueGlassTint.opacity(0.64)
     }
 
     private var tagBorder: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.68) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.42) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.4) }
         return Color.monologueSeparator.opacity(0.42)
     }
 
     private var currentPillFill: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleBlue.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.76) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.8) }
         return Color.monologueSeparator.opacity(0.42)
     }
 
     private var confirmFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return Color(hex: "D7264D")
     }
 
     private var confirmForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.onTint }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
         return .white
     }
 
     private var panelRadius: CGFloat {
         if MangaStyle.isActive { return 22 }
         if MujiStyle.isActive { return 14 }
+        if NeumorphicStyle.isActive { return 22 }
         return 20
     }
 
     private var tagRadius: CGFloat {
         if MangaStyle.isActive { return 12 }
         if MujiStyle.isActive { return 8 }
+        if NeumorphicStyle.isActive { return 14 }
         return 12
     }
 
     private var confirmRadius: CGFloat {
         if MangaStyle.isActive { return 15 }
         if MujiStyle.isActive { return 20 }
+        if NeumorphicStyle.isActive { return 18 }
         return 20
     }
 
@@ -575,11 +626,13 @@ struct StyleSelectionMorphView: View {
     }
 
     private var panelShadowRadius: CGFloat {
+        if NeumorphicStyle.isActive { return isAttachedToHeader ? 0 : 18 }
         if isAttachedToHeader { return MujiStyle.isActive ? 10 : 0 }
         return MangaStyle.isActive ? 0 : 14
     }
 
     private var panelShadowY: CGFloat {
+        if NeumorphicStyle.isActive { return isAttachedToHeader ? 0 : 10 }
         if isAttachedToHeader { return MujiStyle.isActive ? 5 : 0 }
         return MangaStyle.isActive ? 0 : 8
     }
@@ -589,6 +642,7 @@ struct StyleSelectionMorphView: View {
         if isAttachedToHeader { return MujiStyle.isActive ? Color.black.opacity(colorScheme == .dark ? 0.025 : 0.045) : .clear }
         if MangaStyle.isActive { return .clear }
         if MujiStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.05 : 0.08) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.darkShadow(colorScheme, intensity: 0.5) }
         return Color.black.opacity(0.12)
     }
 
@@ -597,7 +651,7 @@ struct StyleSelectionMorphView: View {
     }
 
     private var drawsOwnChrome: Bool {
-        !isAttachedToHeader || (!MangaStyle.isActive && !MujiStyle.isActive)
+        !isAttachedToHeader || MangaStyle.isActive
     }
 
     private var panelTopPadding: CGFloat {

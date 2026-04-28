@@ -1,6 +1,6 @@
-import SwiftUI
 import Combine
 import QQMusicKit
+import SwiftUI
 
 private struct ThemedProfileBackground: View {
     var body: some View {
@@ -9,7 +9,10 @@ private struct ThemedProfileBackground: View {
 }
 
 struct ProfileView: View {
-    private var viewModel: HomeViewModel { HomeViewModel.shared }
+    private var viewModel: HomeViewModel {
+        HomeViewModel.shared
+    }
+
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
 
     @State private var showLoginView = false
@@ -19,7 +22,6 @@ struct ProfileView: View {
 
     @State private var userLevel: Int?
     @State private var listenSongs: Int?
-
 
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
@@ -70,7 +72,6 @@ struct ProfileView: View {
         }
         .fullScreenCover(isPresented: $showLoginView) {
             LoginView()
-
         }
         .onReceive(playerManager.$currentSong.dropFirst()) { newSong in
             guard newSong != nil, isAppLoggedIn else { return }
@@ -96,18 +97,18 @@ struct ProfileView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "我的"))
+            .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "我的"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                if !MangaStyle.isActive && !MujiStyle.isActive {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(
-                        destination: SettingsView()
-                    ) {
-                        MonologueIcon(icon: .settings, size: 16)
+                if !ThemedPageStyle.isActive {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink(
+                            destination: SettingsView()
+                        ) {
+                            MonologueIcon(icon: .settings, size: 16)
+                        }
                     }
-                }
                 }
             }
         }
@@ -115,6 +116,7 @@ struct ProfileView: View {
 
     private var themedProfileSpacing: CGFloat {
         if MangaStyle.isActive { return 14 }
+        if NeumorphicStyle.isActive { return 18 }
         if MujiStyle.isActive { return 18 }
         return 16
     }
@@ -123,6 +125,8 @@ struct ProfileView: View {
     private var loggedInDashboardContent: some View {
         if MangaStyle.isActive {
             mangaProfileDashboard
+        } else if NeumorphicStyle.isActive {
+            neumorphicProfileDashboard
         } else if MujiStyle.isActive {
             mujiProfileDashboard
         } else {
@@ -171,6 +175,19 @@ struct ProfileView: View {
         }
     }
 
+    private var neumorphicProfileHeader: some View {
+        NeumorphicPageHeader(
+            eyebrow: "profile",
+            title: String(localized: "我的"),
+            subtitle: ""
+        ) {
+            NavigationLink(destination: SettingsView()) {
+                NeumorphicIconBadge(icon: .settings, tint: NeumorphicStyle.accent, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     @ViewBuilder
     private var mangaProfileDashboard: some View {
         mangaProfileHeroPanel
@@ -188,6 +205,728 @@ struct ProfileView: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
         logoutButton
+    }
+
+    @ViewBuilder
+    private var neumorphicProfileDashboard: some View {
+        neumorphicProfileHeaderBar
+
+        neumorphicProfileHeroPanel
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        neumorphicProfileMetricDeck
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        if !playerManager.history.isEmpty {
+            neumorphicRecentPlaysPanel
+        }
+
+        neumorphicProfileShortcutGrid
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        neumorphicLogoutButton
+    }
+
+    private var neumorphicProfileHeaderBar: some View {
+        HStack(spacing: 14) {
+            NeumorphicIconBadge(icon: .profileFilled, tint: NeumorphicStyle.accent, size: 50)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("PROFILE")
+                    .font(NeumorphicStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.inkMuted)
+
+                Text(String(localized: "我的"))
+                    .font(NeumorphicStyle.titleFont(25, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+            }
+
+            Spacer(minLength: 8)
+
+            NavigationLink(destination: SettingsView()) {
+                MonologueIcon(icon: .settings, size: 17, color: NeumorphicStyle.accent, lineWidth: 1.55)
+                    .frame(width: 44, height: 44)
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true))
+                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .padding(.top, 8)
+    }
+
+    private var neumorphicProfileHeroPanel: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 16) {
+                neumorphicAvatar(profile: profile, size: 82)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                        .font(NeumorphicStyle.titleFont(24, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+
+                    if let signature = profile?.signature, !signature.isEmpty {
+                        Text(signature)
+                            .font(NeumorphicStyle.labelFont(12, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.inkSoft)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(String(localized: "profile_login_hint"))
+                            .font(NeumorphicStyle.labelFont(12, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 8) {
+                        if let level = userLevel {
+                            NeumorphicPill(text: "Lv.\(level)", tint: NeumorphicStyle.accent, compact: true)
+                        }
+                        NeumorphicPill(
+                            text: formatNumber(listenSongs ?? 0),
+                            tint: NeumorphicStyle.warm,
+                            icon: .headphones,
+                            compact: true
+                        )
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 10) {
+                neumorphicProfileSignalBar(tint: NeumorphicStyle.accent, width: 56)
+                neumorphicProfileSignalBar(tint: NeumorphicStyle.sage, width: 38)
+                neumorphicProfileSignalBar(tint: NeumorphicStyle.warm, width: 48)
+                Spacer(minLength: 0)
+                Text(String(localized: "profile_total_songs"))
+                    .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(NeumorphicStyle.inkMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+        }
+        .padding(18)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 30,
+                elevated: true,
+                tint: NeumorphicStyle.surface.opacity(0.95)
+            )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.7)
+        }
+    }
+
+    @ViewBuilder
+    private func neumorphicAvatar(profile: UserProfile?, size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
+                .fill(Color.clear)
+                .frame(width: size, height: size)
+                .background(NeumorphicSurfaceBackground(cornerRadius: size * 0.32, elevated: true))
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.32, style: .continuous))
+
+            if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
+                CachedAsyncImage(url: url) {
+                    RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                        .fill(NeumorphicStyle.surfacePressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size - 14, height: size - 14)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                    .fill(NeumorphicStyle.surfacePressed)
+                    .frame(width: size - 14, height: size - 14)
+                    .overlay(MonologueIcon(icon: .profileFilled, size: size * 0.36, color: NeumorphicStyle.inkMuted))
+            }
+        }
+    }
+
+    private var neumorphicProfileMetricDeck: some View {
+        HStack(spacing: 12) {
+            NeumorphicProfileMetricTile(
+                value: formatNumber(listenSongs ?? 0),
+                label: String(localized: "profile_total_songs"),
+                tint: NeumorphicStyle.accent,
+                icon: .headphones
+            )
+            NeumorphicProfileMetricTile(
+                value: "\(localPlaylistManager.playlists.count)",
+                label: String(localized: "profile_local_playlists"),
+                tint: NeumorphicStyle.sage,
+                icon: .musicNoteList
+            )
+            NeumorphicProfileMetricTile(
+                value: "\(downloadManager.downloadedSongIds.count)",
+                label: String(localized: "profile_downloads"),
+                tint: NeumorphicStyle.warm,
+                icon: .download
+            )
+        }
+    }
+
+    private var neumorphicRecentPlaysPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                NeumorphicIconBadge(icon: .history, tint: NeumorphicStyle.sage, size: 36)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "profile_recently_played"))
+                        .font(NeumorphicStyle.titleFont(18, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+
+                    Text(String(format: String(localized: "profile_recent_count"), playerManager.history.count))
+                        .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(NeumorphicStyle.inkMuted)
+                }
+
+                Spacer()
+
+                NavigationLink(destination: RecentPlayHistoryView()) {
+                    NeumorphicPill(
+                        text: String(localized: "查看更多"),
+                        tint: NeumorphicStyle.accent,
+                        icon: .chevronRight,
+                        compact: true
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 12) {
+                    ForEach(playerManager.history.prefix(12)) { song in
+                        Button {
+                            playerManager.play(song: song, in: playerManager.history)
+                        } label: {
+                            NeumorphicProfileRecentCard(song: song, isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.vertical, 4)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var neumorphicProfileShortcutGrid: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            NeumorphicSectionTitle(title: String(localized: "profile_settings"), detail: nil)
+
+            LazyVGrid(columns: neumorphicShortcutColumns, spacing: 12) {
+                Button(action: { showQQAccount = true }) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .musicNote,
+                        title: String(localized: "settings_qq_account"),
+                        value: QQUserSession.shared.isLoggedIn
+                            ? String(localized: "settings_qq_logged_in")
+                            : String(localized: "settings_qq_not_logged_in"),
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+                NavigationLink(destination: DownloadManageView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count),
+                        tint: NeumorphicStyle.warm
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+                NavigationLink(destination: StorageManageView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .storage,
+                        title: String(localized: "profile_cache_manage"),
+                        value: "CACHE",
+                        tint: NeumorphicStyle.sage
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+                NavigationLink(destination: CloudDiskView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .cloud,
+                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                        value: "CLOUD",
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+            }
+        }
+        .sheet(isPresented: $showQQAccount) {
+            NavigationStack {
+                QQAccountView()
+            }
+        }
+    }
+
+    private var neumorphicShortcutColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12)
+        ]
+    }
+
+    private var neumorphicLogoutButton: some View {
+        logoutButton
+            .padding(.bottom, 6)
+    }
+
+    private func neumorphicProfileSignalBar(tint: Color, width: CGFloat) -> some View {
+        Capsule()
+            .fill(tint.opacity(0.48))
+            .frame(width: width, height: 6)
+    }
+
+    private var mangaGuestProfilePanel: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 14) {
+                mangaAvatar(profile: nil, size: 78)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(LocalizedStringKey("profile_not_logged_in"))
+                            .font(MangaStyle.comicFont(24, weight: .black))
+                            .foregroundStyle(MangaStyle.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+
+                        MangaProfileInfoPill(text: "GUEST", tint: MangaStyle.labelYellow)
+                    }
+
+                    Text(LocalizedStringKey("profile_login_hint"))
+                        .font(MangaStyle.comicFont(12, weight: .bold))
+                        .foregroundStyle(MangaStyle.inkSub)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Button(action: { showLoginView = true }) {
+                HStack(spacing: 10) {
+                    MonologueIcon(icon: .profileFilled, size: 16, color: MangaStyle.strokeInk, lineWidth: 1.85)
+
+                    Text(LocalizedStringKey("profile_login_button"))
+                        .font(MangaStyle.comicFont(15, weight: .black))
+                        .foregroundStyle(MangaStyle.strokeInk)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(MangaStyle.labelYellow)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(MangaStyle.strokeInk)
+                        .offset(x: 2.6, y: 2.6)
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+            HStack(spacing: 8) {
+                MangaLabel(text: "NCM", tint: MangaStyle.bubblePink, small: true)
+                MangaLabel(text: "QCM", tint: MangaStyle.decoBlue, small: true)
+                MangaLabel(text: "LOCAL", tint: MangaStyle.mint, small: true)
+                Spacer(minLength: 0)
+                MangaSectionMark(kind: .heart, tint: MangaStyle.bubblePink, size: 24)
+            }
+        }
+        .padding(16)
+        .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.paperWarm))
+    }
+
+    private var mangaGuestActionList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MangaSectionTitle(title: String(localized: "profile_settings"), mark: .heart)
+
+            VStack(spacing: 0) {
+                Button {
+                    showQQAccount = true
+                } label: {
+                    MangaProfileActionRow(
+                        icon: .musicNote,
+                        title: String(localized: "settings_qq_account"),
+                        value: QQUserSession.shared.isLoggedIn
+                            ? String(localized: "settings_qq_logged_in")
+                            : String(localized: "settings_qq_not_logged_in"),
+                        tint: MangaStyle.labelYellow
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MangaProfileActionDivider()
+
+                NavigationLink(destination: DownloadManageView()) {
+                    MangaProfileActionRow(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: "\(downloadManager.downloadedSongIds.count)",
+                        tint: MangaStyle.decoBlue
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MangaProfileActionDivider()
+
+                NavigationLink(destination: StorageManageView()) {
+                    MangaProfileActionRow(
+                        icon: .storage,
+                        title: String(localized: "profile_cache_manage"),
+                        value: "CACHE",
+                        tint: MangaStyle.mint
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MangaProfileActionDivider()
+
+                NavigationLink(destination: SettingsView()) {
+                    MangaProfileActionRow(
+                        icon: .settings,
+                        title: NSLocalizedString("profile_settings", comment: ""),
+                        value: "SYSTEM",
+                        tint: MangaStyle.bubblePink
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 4)
+            .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite))
+        }
+        .sheet(isPresented: $showQQAccount) {
+            NavigationStack {
+                QQAccountView()
+            }
+        }
+    }
+
+    private var mangaNotLoggedInContent: some View {
+        NavigationStack {
+            ZStack {
+                ThemedProfileBackground()
+
+                ScrollView {
+                    VStack(spacing: 14) {
+                        mangaProfileHeader
+
+                        mangaGuestProfilePanel
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+                        mangaGuestActionList
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    }
+                    .padding(.bottom, 140)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var mujiGuestJournalPanel: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 16) {
+                mujiAvatar(profile: nil, size: 76)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(LocalizedStringKey("profile_not_logged_in"))
+                        .font(MujiStyle.titleFont(24, weight: .regular))
+                        .foregroundStyle(MujiStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    Text(LocalizedStringKey("profile_login_hint"))
+                        .font(MujiStyle.labelFont(12, weight: .regular))
+                        .foregroundStyle(MujiStyle.inkSoft)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    MujiPill(text: "GUEST", tint: MujiStyle.tea)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Button(action: { showLoginView = true }) {
+                HStack(spacing: 9) {
+                    MonologueIcon(icon: .profileFilled, size: 15, color: MujiStyle.onTint, lineWidth: 1.45)
+
+                    Text(LocalizedStringKey("profile_login_button"))
+                        .font(MujiStyle.labelFont(15, weight: .medium))
+                        .foregroundStyle(MujiStyle.onTint)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(MujiStyle.clay, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(MujiStyle.hairline.opacity(0.22), lineWidth: 0.6)
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+        }
+        .padding(16)
+        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+    }
+
+    private var mujiGuestLedger: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MujiSectionTitle(title: String(localized: "profile_settings"))
+
+            VStack(spacing: 0) {
+                Button(action: { showQQAccount = true }) {
+                    MujiProfileLedgerRow(
+                        icon: .musicNote,
+                        title: String(localized: "settings_qq_account"),
+                        value: QQUserSession.shared.isLoggedIn
+                            ? String(localized: "settings_qq_logged_in")
+                            : String(localized: "settings_qq_not_logged_in")
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MujiProfileDivider()
+
+                NavigationLink(destination: DownloadManageView()) {
+                    MujiProfileLedgerRow(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: "\(downloadManager.downloadedSongIds.count)"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MujiProfileDivider()
+
+                NavigationLink(destination: StorageManageView()) {
+                    MujiProfileLedgerRow(
+                        icon: .storage,
+                        title: String(localized: "profile_cache_manage"),
+                        value: "CACHE"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MujiProfileDivider()
+
+                NavigationLink(destination: SettingsView()) {
+                    MujiProfileLedgerRow(
+                        icon: .settings,
+                        title: NSLocalizedString("profile_settings", comment: ""),
+                        value: "SYSTEM"
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: false))
+        }
+        .sheet(isPresented: $showQQAccount) {
+            NavigationStack {
+                QQAccountView()
+            }
+        }
+    }
+
+    private var mujiNotLoggedInContent: some View {
+        NavigationStack {
+            ZStack {
+                ThemedProfileBackground()
+
+                ScrollView {
+                    VStack(spacing: 18) {
+                        mujiProfileHeader
+
+                        mujiGuestJournalPanel
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+                        mujiGuestLedger
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    }
+                    .padding(.bottom, 140)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var neumorphicLoginPromptPanel: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .fill(Color.clear)
+                        .frame(width: 86, height: 86)
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 30, elevated: true))
+                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+
+                    MonologueIcon(icon: .profileFilled, size: 34, color: NeumorphicStyle.inkMuted, lineWidth: 1.45)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(LocalizedStringKey("profile_not_logged_in"))
+                        .font(NeumorphicStyle.titleFont(24, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+
+                    Text(LocalizedStringKey("profile_login_hint"))
+                        .font(NeumorphicStyle.labelFont(13, weight: .regular))
+                        .foregroundStyle(NeumorphicStyle.inkSoft)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Button(action: { showLoginView = true }) {
+                HStack(spacing: 10) {
+                    MonologueIcon(icon: .profile, size: 16, color: Color(light: .white, dark: .black), lineWidth: 1.55)
+                    Text(LocalizedStringKey("profile_login_button"))
+                        .font(NeumorphicStyle.labelFont(15, weight: .semibold))
+                }
+                .foregroundStyle(Color(light: .white, dark: .black))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 18,
+                        elevated: true,
+                        tint: NeumorphicStyle.accent
+                    )
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+            HStack(spacing: 10) {
+                neumorphicProfileSignalBar(tint: NeumorphicStyle.accent, width: 62)
+                neumorphicProfileSignalBar(tint: NeumorphicStyle.warm, width: 34)
+                neumorphicProfileSignalBar(tint: NeumorphicStyle.sage, width: 48)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true))
+        }
+        .padding(18)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 30,
+                elevated: true,
+                tint: NeumorphicStyle.surface.opacity(0.95)
+            )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.7)
+        }
+    }
+
+    private var neumorphicGuestShortcutGrid: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            NeumorphicSectionTitle(title: String(localized: "profile_settings"), detail: nil)
+
+            LazyVGrid(columns: neumorphicShortcutColumns, spacing: 12) {
+                Button(action: { showQQAccount = true }) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .musicNote,
+                        title: String(localized: "settings_qq_account"),
+                        value: QQUserSession.shared.isLoggedIn
+                            ? String(localized: "settings_qq_logged_in")
+                            : String(localized: "settings_qq_not_logged_in"),
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+                NavigationLink(destination: DownloadManageView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count),
+                        tint: NeumorphicStyle.warm
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+                NavigationLink(destination: StorageManageView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .storage,
+                        title: String(localized: "profile_cache_manage"),
+                        value: "CACHE",
+                        tint: NeumorphicStyle.sage
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+                NavigationLink(destination: SettingsView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .settings,
+                        title: NSLocalizedString("profile_settings", comment: ""),
+                        value: "SYSTEM",
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+            }
+        }
+        .sheet(isPresented: $showQQAccount) {
+            NavigationStack {
+                QQAccountView()
+            }
+        }
+    }
+
+    private var neumorphicNotLoggedInContent: some View {
+        NavigationStack {
+            ZStack {
+                ThemedProfileBackground()
+
+                ScrollView {
+                    VStack(spacing: 18) {
+                        neumorphicProfileHeaderBar
+
+                        neumorphicLoginPromptPanel
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+                        neumorphicGuestShortcutGrid
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 140)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+        }
     }
 
     @ViewBuilder
@@ -411,7 +1150,6 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 Button(action: { showQQAccount = true }) {
                     MujiProfileLedgerRow(
-                        number: "01",
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
                         value: QQUserSession.shared.isLoggedIn
@@ -425,7 +1163,6 @@ struct ProfileView: View {
 
                 NavigationLink(destination: DownloadManageView()) {
                     MujiProfileLedgerRow(
-                        number: "02",
                         icon: .download,
                         title: NSLocalizedString("profile_downloads", comment: ""),
                         value: "\(downloadManager.downloadedSongIds.count)"
@@ -437,10 +1174,9 @@ struct ProfileView: View {
 
                 NavigationLink(destination: StorageManageView()) {
                     MujiProfileLedgerRow(
-                        number: "03",
                         icon: .storage,
                         title: String(localized: "profile_cache_manage"),
-                        value: "cache"
+                        value: "CACHE"
                     )
                 }
                 .buttonStyle(.plain)
@@ -449,10 +1185,9 @@ struct ProfileView: View {
 
                 NavigationLink(destination: CloudDiskView()) {
                     MujiProfileLedgerRow(
-                        number: "04",
                         icon: .cloud,
                         title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                        value: "cloud"
+                        value: "CLOUD"
                     )
                 }
                 .buttonStyle(.plain)
@@ -531,13 +1266,13 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(MangaStyle.isActive ? MangaStyle.comicFont(22, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : .system(size: 20, weight: .bold, design: .rounded)))
+                        .font(MangaStyle.isActive ? MangaStyle.comicFont(22, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(1)
 
                     if let level = userLevel {
                         Text("Lv.\(level)")
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded)))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded))))
                             .foregroundColor(.monologueIconForeground)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
@@ -548,7 +1283,7 @@ struct ProfileView: View {
 
                 if let signature = profile?.signature, !signature.isEmpty {
                     Text(signature)
-                        .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded)))
+                        .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                 }
@@ -556,8 +1291,8 @@ struct ProfileView: View {
 
             Spacer(minLength: 0)
         }
-        .padding((MangaStyle.isActive || MujiStyle.isActive) ? 16 : 18)
-        .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : 22), mangaTint: MangaStyle.paperWarm)
+        .padding(ThemedPageStyle.isActive ? 16 : 18)
+        .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 24 : 22)), mangaTint: MangaStyle.paperWarm)
     }
 
     // MARK: - Stats Bar
@@ -604,31 +1339,50 @@ struct ProfileView: View {
             }
             .padding(14)
             .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+        } else if NeumorphicStyle.isActive {
+            HStack(spacing: 10) {
+                StatCell(
+                    value: formatNumber(listenSongs ?? 0),
+                    label: String(localized: "profile_total_songs")
+                )
+                statDivider
+                StatCell(
+                    value: "\(localPlaylistManager.playlists.count)",
+                    label: String(localized: "profile_local_playlists")
+                )
+                statDivider
+                StatCell(
+                    value: "\(downloadManager.downloadedSongIds.count)",
+                    label: String(localized: "profile_downloads")
+                )
+            }
+            .padding(.vertical, 14)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true))
         } else {
-        HStack(spacing: 0) {
-            StatCell(
-                value: formatNumber(listenSongs ?? 0),
-                label: String(localized: "profile_total_songs")
-            )
-            statDivider
-            StatCell(
-                value: "\(localPlaylistManager.playlists.count)",
-                label: String(localized: "profile_local_playlists")
-            )
-            statDivider
-            StatCell(
-                value: "\(downloadManager.downloadedSongIds.count)",
-                label: String(localized: "profile_downloads")
-            )
-        }
-        .padding(.vertical, 14)
-        .monologueGlass(cornerRadius: 18)
+            HStack(spacing: 0) {
+                StatCell(
+                    value: formatNumber(listenSongs ?? 0),
+                    label: String(localized: "profile_total_songs")
+                )
+                statDivider
+                StatCell(
+                    value: "\(localPlaylistManager.playlists.count)",
+                    label: String(localized: "profile_local_playlists")
+                )
+                statDivider
+                StatCell(
+                    value: "\(downloadManager.downloadedSongIds.count)",
+                    label: String(localized: "profile_downloads")
+                )
+            }
+            .padding(.vertical, 14)
+            .monologueGlass(cornerRadius: 18)
         }
     }
 
     private var statDivider: some View {
         Rectangle()
-            .fill(Color.monologueSeparator)
+            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.68) : Color.monologueSeparator)
             .frame(width: 0.5, height: 28)
     }
 
@@ -638,7 +1392,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : .system(size: 18, weight: .bold, design: .rounded)))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
                     .foregroundColor(.monologueTextPrimary)
 
                 Spacer()
@@ -648,7 +1402,7 @@ struct ProfileView: View {
                 ) {
                     HStack(spacing: 4) {
                         Text(String(format: String(localized: "profile_recent_count"), playerManager.history.count))
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
                             .foregroundColor(.monologueTextSecondary)
                         MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
                     }
@@ -674,12 +1428,12 @@ struct ProfileView: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(song.name)
-                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .semibold, design: .rounded)))
+                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))))
                                         .foregroundColor(.monologueTextPrimary)
                                         .lineLimit(1)
 
                                     Text(song.artistName)
-                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(11, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded)))
+                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(11, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded))))
                                         .foregroundColor(.monologueTextSecondary)
                                         .lineLimit(1)
                                 }
@@ -698,11 +1452,13 @@ struct ProfileView: View {
     // MARK: - Menu List
 
     private var menuList: some View {
-        VStack(alignment: .leading, spacing: (MangaStyle.isActive || MujiStyle.isActive) ? 12 : 0) {
+        VStack(alignment: .leading, spacing: ThemedPageStyle.isActive ? 12 : 0) {
             if MangaStyle.isActive {
                 MangaSectionTitle(title: String(localized: "profile_settings"))
             } else if MujiStyle.isActive {
                 MujiSectionTitle(title: String(localized: "profile_settings"))
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSectionTitle(title: String(localized: "profile_settings"), detail: nil)
             }
 
             VStack(spacing: 0) {
@@ -759,7 +1515,7 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
-            .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : 20), mangaTint: MangaStyle.bubbleWhite)
+            .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 20 : 20)), mangaTint: MangaStyle.bubbleWhite)
         }
     }
 
@@ -791,7 +1547,7 @@ struct ProfileView: View {
             }
         }) {
             Text(LocalizedStringKey("action_logout"))
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
                 .foregroundColor(.monologueTextSecondary.opacity(0.6))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -803,142 +1559,157 @@ struct ProfileView: View {
 
     // MARK: - Not Logged In
 
+    @ViewBuilder
     private var notLoggedInContent: some View {
-        NavigationStack {
-            ZStack {
-                ThemedProfileBackground()
-
-                VStack(spacing: 0) {
-                    if MangaStyle.isActive {
-                        mangaProfileHeader
-                    } else if MujiStyle.isActive {
-                        mujiProfileHeader
-                    }
-
-                    Spacer()
-
-                    VStack(spacing: 28) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.monologueGlassTint)
-                                .monologueGlassCircle()
-                                .frame(width: 100, height: 100)
-
-                            MonologueIcon(icon: .profile, size: 40, color: .monologueTextSecondary.opacity(0.3))
-                        }
-
-                        VStack(spacing: 10) {
-                            Text(LocalizedStringKey("profile_not_logged_in"))
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(26, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : .system(size: 26, weight: .bold, design: .rounded)))
-                                .foregroundColor(.monologueTextPrimary)
-
-                            Text(LocalizedStringKey("profile_login_hint"))
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : .system(size: 14, weight: .medium, design: .rounded)))
-                                .foregroundColor(.monologueTextSecondary)
-                        }
-
-                        Button(action: { showLoginView = true }) {
-                            Text(LocalizedStringKey("profile_login_button"))
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : .monologueIconForeground))
-                                .frame(width: 200)
-                                .padding(.vertical, 15)
-                                .background {
-                                    if MangaStyle.isActive {
-                                        Capsule()
-                                            .fill(MangaStyle.labelYellow)
-                                    } else if MujiStyle.isActive {
-                                        Capsule()
-                                            .fill(MujiStyle.clay)
-                                    } else {
-                                        Capsule()
-                                            .fill(Color.monologueIconBackground)
-                                    }
-                                }
-                                .overlay {
-                                    if MangaStyle.isActive {
-                                        Capsule()
-                                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-                                    }
-                                }
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle())
-                    }
-                    .padding((MangaStyle.isActive || MujiStyle.isActive) ? 24 : 0)
-                    .background {
-                        if MangaStyle.isActive {
-                            MangaCardBackground(cornerRadius: 12, elevated: true)
-                        } else if MujiStyle.isActive {
-                            MujiPaperCardBackground(cornerRadius: 12, elevated: true)
-                        }
-                    }
-                    .padding(.horizontal, (MangaStyle.isActive || MujiStyle.isActive) ? DeviceLayout.homeHorizontalPadding : 0)
-
-                    Spacer()
+        if MangaStyle.isActive {
+            mangaNotLoggedInContent
+        } else if MujiStyle.isActive {
+            mujiNotLoggedInContent
+        } else if NeumorphicStyle.isActive {
+            neumorphicNotLoggedInContent
+        } else {
+            NavigationStack {
+                ZStack {
+                    ThemedProfileBackground()
 
                     VStack(spacing: 0) {
-                        Button(action: { showQQAccount = true }) {
-                            ProfileMenuRow(
-                                icon: .musicNote,
-                                title: String(localized: "settings_qq_account"),
-                                trailingText: QQUserSession.shared.isLoggedIn
-                                    ? String(localized: "settings_qq_logged_in")
-                                    : String(localized: "settings_qq_not_logged_in")
-                            )
+                        if MangaStyle.isActive {
+                            mangaProfileHeader
+                        } else if NeumorphicStyle.isActive {
+                            neumorphicProfileHeader
+                        } else if MujiStyle.isActive {
+                            mujiProfileHeader
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-                        .sheet(isPresented: $showQQAccount) {
-                            NavigationStack {
-                                QQAccountView()
 
+                        Spacer()
+
+                        VStack(spacing: 28) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.monologueGlassTint)
+                                    .monologueGlassCircle()
+                                    .frame(width: 100, height: 100)
+
+                                MonologueIcon(icon: .profile, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                            }
+
+                            VStack(spacing: 10) {
+                                Text(LocalizedStringKey("profile_not_logged_in"))
+                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(26, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : .system(size: 26, weight: .bold, design: .rounded))))
+                                    .foregroundColor(.monologueTextPrimary)
+
+                                Text(LocalizedStringKey("profile_login_hint"))
+                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .regular) : .system(size: 14, weight: .medium, design: .rounded))))
+                                    .foregroundColor(.monologueTextSecondary)
+                            }
+
+                            Button(action: { showLoginView = true }) {
+                                Text(LocalizedStringKey("profile_login_button"))
+                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))
+                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)))
+                                    .frame(width: 200)
+                                    .padding(.vertical, 15)
+                                    .background {
+                                        if MangaStyle.isActive {
+                                            Capsule()
+                                                .fill(MangaStyle.labelYellow)
+                                        } else if NeumorphicStyle.isActive {
+                                            Capsule()
+                                                .fill(NeumorphicStyle.accent)
+                                        } else if MujiStyle.isActive {
+                                            Capsule()
+                                                .fill(MujiStyle.clay)
+                                        } else {
+                                            Capsule()
+                                                .fill(Color.monologueIconBackground)
+                                        }
+                                    }
+                                    .overlay {
+                                        if MangaStyle.isActive {
+                                            Capsule()
+                                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle())
+                        }
+                        .padding(ThemedPageStyle.isActive ? 24 : 0)
+                        .background {
+                            if MangaStyle.isActive {
+                                MangaCardBackground(cornerRadius: 12, elevated: true)
+                            } else if NeumorphicStyle.isActive {
+                                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true)
+                            } else if MujiStyle.isActive {
+                                MujiPaperCardBackground(cornerRadius: 12, elevated: true)
                             }
                         }
+                        .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.homeHorizontalPadding : 0)
 
-                        Divider().padding(.leading, 56)
+                        Spacer()
 
-                        NavigationLink(
-                            destination: DownloadManageView()
-                        ) {
-                            ProfileMenuRow(
-                                icon: .download,
-                                title: NSLocalizedString("profile_downloads", comment: ""),
-                                trailingText: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count)
-                            )
+                        VStack(spacing: 0) {
+                            Button(action: { showQQAccount = true }) {
+                                ProfileMenuRow(
+                                    icon: .musicNote,
+                                    title: String(localized: "settings_qq_account"),
+                                    trailingText: QQUserSession.shared.isLoggedIn
+                                        ? String(localized: "settings_qq_logged_in")
+                                        : String(localized: "settings_qq_not_logged_in")
+                                )
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                            .sheet(isPresented: $showQQAccount) {
+                                NavigationStack {
+                                    QQAccountView()
+                                }
+                            }
+
+                            Divider().padding(.leading, 56)
+
+                            NavigationLink(
+                                destination: DownloadManageView()
+                            ) {
+                                ProfileMenuRow(
+                                    icon: .download,
+                                    title: NSLocalizedString("profile_downloads", comment: ""),
+                                    trailingText: String(format: String(localized: "profile_recent_count"), downloadManager.downloadedSongIds.count)
+                                )
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+                            Divider().padding(.leading, 56)
+
+                            NavigationLink(
+                                destination: StorageManageView()
+                            ) {
+                                ProfileMenuRow(
+                                    icon: .storage,
+                                    title: String(localized: "profile_cache_manage")
+                                )
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+                            Divider().padding(.leading, 56)
+
+                            NavigationLink(
+                                destination: SettingsView()
+                            ) {
+                                ProfileMenuRow(
+                                    icon: .settings,
+                                    title: NSLocalizedString("profile_settings", comment: "")
+                                )
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                        Divider().padding(.leading, 56)
-
-                        NavigationLink(
-                            destination: StorageManageView()
-                        ) {
-                            ProfileMenuRow(
-                                icon: .storage,
-                                title: String(localized: "profile_cache_manage")
-                            )
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                        Divider().padding(.leading, 56)
-
-                        NavigationLink(
-                            destination: SettingsView()
-                        ) {
-                            ProfileMenuRow(
-                                icon: .settings,
-                                title: NSLocalizedString("profile_settings", comment: "")
-                            )
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                        .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 20 : 20)), mangaTint: MangaStyle.bubbleWhite)
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                        .padding(.bottom, 140)
                     }
-                    .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : 20), mangaTint: MangaStyle.bubbleWhite)
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                    .padding(.bottom, 140)
                 }
+                .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "我的"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
             }
-            .navigationTitle((MangaStyle.isActive || MujiStyle.isActive) ? "" : String(localized: "我的"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 
@@ -950,9 +1721,9 @@ struct ProfileView: View {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { [self] response in
-                userLevel = response.level
-                listenSongs = response.listenSongs
-            })
+                      userLevel = response.level
+                      listenSongs = response.listenSongs
+                  })
             .store(in: &ProfileCancellableStore.shared.cancellables)
     }
 
@@ -980,15 +1751,169 @@ struct StatCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : .system(size: 18, weight: .bold, design: .rounded)))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
                 .foregroundColor(.monologueTextPrimary)
 
             Text(label)
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .regular) : .system(size: 10, weight: .medium, design: .rounded)))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .regular) : .system(size: 10, weight: .medium, design: .rounded))))
                 .foregroundColor(.monologueTextSecondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct NeumorphicProfileMetricTile: View {
+    let value: String
+    let label: String
+    let tint: Color
+    let icon: MonologueIcon.IconType
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                MonologueIcon(icon: icon, size: 15, color: tint, lineWidth: 1.55)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        NeumorphicSurfaceBackground(
+                            cornerRadius: 12,
+                            elevated: false,
+                            pressed: true,
+                            tint: tint.opacity(0.15)
+                        )
+                    )
+
+                Spacer(minLength: 0)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(value)
+                    .font(NeumorphicStyle.titleFont(20, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Text(label)
+                    .font(NeumorphicStyle.labelFont(10, weight: .medium))
+                    .foregroundStyle(NeumorphicStyle.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+        .padding(14)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.28), lineWidth: 0.7)
+        }
+    }
+}
+
+private struct NeumorphicProfileRecentCard: View {
+    let song: Song
+    let isPlaying: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: song.coverUrl) {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(NeumorphicStyle.surfacePressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 118, height: 94)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                }
+
+                ZStack {
+                    Circle()
+                        .fill(NeumorphicStyle.surfaceRaised)
+                        .frame(width: 32, height: 32)
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true))
+                        .clipShape(Circle())
+
+                    if isPlaying {
+                        PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
+                            .frame(width: 16, height: 13)
+                    } else {
+                        MonologueIcon(icon: .play, size: 11, color: NeumorphicStyle.accent, lineWidth: 1.7)
+                    }
+                }
+                .padding(7)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(song.name)
+                    .font(NeumorphicStyle.labelFont(13, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(1)
+
+                Text(song.artistName)
+                    .font(NeumorphicStyle.labelFont(11, weight: .regular))
+                    .foregroundStyle(NeumorphicStyle.inkSoft)
+                    .lineLimit(1)
+            }
+            .frame(width: 118, alignment: .leading)
+        }
+        .padding(10)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+private struct NeumorphicProfileShortcutTile: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                MonologueIcon(icon: icon, size: 17, color: tint, lineWidth: 1.55)
+                    .frame(width: 38, height: 38)
+                    .background(
+                        NeumorphicSurfaceBackground(
+                            cornerRadius: 14,
+                            elevated: false,
+                            pressed: true,
+                            tint: tint.opacity(0.15)
+                        )
+                    )
+
+                Spacer(minLength: 8)
+
+                MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.inkMuted, lineWidth: 1.6)
+                    .frame(width: 28, height: 28)
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true))
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(NeumorphicStyle.labelFont(14, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.76)
+
+                Text(value)
+                    .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(NeumorphicStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
+        .padding(14)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.28), lineWidth: 0.7)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -1004,14 +1929,14 @@ struct ProfileMenuRow: View {
             profileMenuIcon
 
             Text(title)
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : .system(size: 15, weight: .medium, design: .rounded)))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))))
                 .foregroundColor(.monologueTextPrimary)
 
             Spacer()
 
             if let text = trailingText {
                 Text(text)
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .regular, design: .rounded)))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .regular, design: .rounded))))
                     .foregroundColor(.monologueTextSecondary)
             }
             MonologueIcon(icon: .chevronRight, size: 13, color: .monologueTextSecondary.opacity(0.4))
@@ -1035,6 +1960,8 @@ struct ProfileMenuRow: View {
                 .frame(width: 31, height: 31)
                 .overlay(MonologueIcon(icon: icon, size: 14, color: MujiStyle.clay, lineWidth: 1.4))
                 .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+        } else if NeumorphicStyle.isActive {
+            NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else {
             MonologueIcon(icon: icon, size: 18, color: .monologueTextPrimary)
                 .frame(width: 28, height: 28)
@@ -1182,18 +2109,12 @@ private struct MangaProfileRecentCard: View {
 }
 
 private struct MujiProfileLedgerRow: View {
-    let number: String
     let icon: MonologueIcon.IconType
     let title: String
     let value: String
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(number)
-                .font(MujiStyle.labelFont(11, weight: .semibold))
-                .foregroundStyle(MujiStyle.inkMuted)
-                .frame(width: 24, alignment: .leading)
-
             MujiIconBadge(icon: icon, tint: tint, size: 34)
 
             Text(title)
@@ -1245,11 +2166,13 @@ private extension View {
     @ViewBuilder
     func themedProfileSurface(cornerRadius: CGFloat, mangaTint: Color = MangaStyle.bubbleWhite) -> some View {
         if MangaStyle.isActive {
-            self.background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: mangaTint))
+            background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: mangaTint))
         } else if MujiStyle.isActive {
-            self.background(MujiPaperCardBackground(cornerRadius: cornerRadius, elevated: true))
+            background(MujiPaperCardBackground(cornerRadius: cornerRadius, elevated: true))
+        } else if NeumorphicStyle.isActive {
+            background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true))
         } else {
-            self.monologueGlass(cornerRadius: cornerRadius)
+            monologueGlass(cornerRadius: cornerRadius)
         }
     }
 }
@@ -1316,7 +2239,7 @@ struct ProfileMenuItem: View {
                 switch trailing {
                 case .chevron:
                     MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary.opacity(0.5))
-                case .text(let value):
+                case let .text(value):
                     Text(value)
                         .font(.system(size: 13, weight: .regular, design: .rounded))
                         .foregroundColor(.monologueTextSecondary)

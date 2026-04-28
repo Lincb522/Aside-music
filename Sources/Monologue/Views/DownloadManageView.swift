@@ -20,18 +20,28 @@ struct DownloadManageView: View {
         ZStack {
             ThemedSettingsBackground()
             
-            VStack(spacing: 0) {
-                tabBar
-                    .padding(.top, 16)
-                
-                if selectedTab == 0 {
-                    downloadedList
-                } else {
-                    downloadingList
+            ScrollView {
+                VStack(spacing: 20) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "下载管理"),
+                        eyebrow: "DOWNLOAD",
+                        icon: .download
+                    )
+
+                    tabBar
+
+                    if selectedTab == 0 {
+                        downloadedList
+                    } else {
+                        downloadingList
+                    }
+
+                    FloatingBarBottomSpacer()
                 }
             }
+            .scrollIndicators(.hidden)
         }
-        .themedNavigationChrome(title: String(localized: "下载管理"), eyebrow: "DOWNLOAD", icon: .download)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -107,7 +117,7 @@ struct DownloadManageView: View {
             tabButton(title: String(localized: "下载中"), index: 1)
         }
         .padding(ThemedPageStyle.isActive ? 4 : 0)
-        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 14, elevated: false)
+        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 20 : 14), elevated: false)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
     
@@ -117,7 +127,7 @@ struct DownloadManageView: View {
         } label: {
             VStack(spacing: ThemedPageStyle.isActive ? 0 : 8) {
                 Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: selectedTab == index ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: selectedTab == index ? .medium : .regular) : .system(size: 15, weight: selectedTab == index ? .bold : .medium, design: .rounded)))
+                    .font(tabFont(isSelected: selectedTab == index))
                     .foregroundColor(tabTextColor(isSelected: selectedTab == index))
                 
                 if !ThemedPageStyle.isActive {
@@ -147,9 +157,18 @@ struct DownloadManageView: View {
             return isSelected ? MangaStyle.ink : .monologueTextSecondary
         } else if MujiStyle.isActive {
             return isSelected ? MujiStyle.paper : .monologueTextSecondary
+        } else if NeumorphicStyle.isActive {
+            return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft
         } else {
             return isSelected ? .monologueTextPrimary : .monologueTextSecondary
         }
+    }
+
+    private func tabFont(isSelected: Bool) -> Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(14, weight: isSelected ? .bold : .medium) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(14, weight: isSelected ? .medium : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) }
+        return .system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded)
     }
 
     private func tabBackground(isSelected: Bool) -> Color {
@@ -158,6 +177,8 @@ struct DownloadManageView: View {
             return MangaStyle.labelYellow
         } else if MujiStyle.isActive {
             return MujiStyle.clay
+        } else if NeumorphicStyle.isActive {
+            return NeumorphicStyle.accent.opacity(0.14)
         } else {
             return .clear
         }
@@ -189,16 +210,16 @@ struct DownloadManageView: View {
                                 }
                             } label: {
                                 Text(selectedKeys.count == songs.count ? String(localized: "取消全选") : String(localized: "全选"))
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundColor(.monologueAccentBlue)
+                                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccentBlue)
                             }
                             .buttonStyle(.plain)
                             
                             Spacer()
                             
                             Text("已选 \(selectedKeys.count) 首")
-                                .font(.system(size: 13, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             
                             Spacer()
                             
@@ -206,18 +227,18 @@ struct DownloadManageView: View {
                                 withAnimation(.easeInOut(duration: 0.2)) { exitBatchMode() }
                             } label: {
                                 Text("取消")
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundColor(.monologueTextSecondary)
+                                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             }
                             .buttonStyle(.plain)
                         } else {
                             Text("\(songs.count) 首歌曲")
-                                .font(.system(size: 13, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                             Spacer()
                             Text(totalSize)
-                                .font(.system(size: 13, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         }
                     }
                     .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
@@ -225,17 +246,13 @@ struct DownloadManageView: View {
                     .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
                     .padding(.horizontal, ThemedPageStyle.horizontalInset)
                     
-                    ScrollView {
-                        LazyVStack(spacing: ThemedPageStyle.listSpacing) {
-                            ForEach(songs, id: \.id) { song in
-                                downloadedRow(song: song)
-                            }
+                    LazyVStack(spacing: ThemedPageStyle.listSpacing) {
+                        ForEach(songs, id: \.id) { song in
+                            downloadedRow(song: song)
                         }
-                        .padding(.horizontal, ThemedPageStyle.horizontalInset)
-                        .padding(.top, ThemedPageStyle.isActive ? 4 : 0)
-                        .padding(.bottom, 120)
                     }
-                    .scrollIndicators(.hidden)
+                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                    .padding(.top, ThemedPageStyle.isActive ? 4 : 0)
                 }
             }
         }
@@ -257,39 +274,47 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint).monologueGlass(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                        .monologueGlass(cornerRadius: coverRadius)
                 }
                 .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                .overlay(coverStroke)
             } else {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.monologueGlassTint)
+                RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     .frame(width: 48, height: 48)
-                    .monologueGlass(cornerRadius: 10)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 20, color: .monologueTextSecondary, lineWidth: 1.4))
+                    .monologueGlass(cornerRadius: coverRadius)
+                    .overlay(MonologueIcon(icon: .musicNote, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.4))
+                    .overlay(coverStroke)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(song.name)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
                 
                 HStack(spacing: 6) {
                     if let badge = song.quality.badgeText {
-                        Text(badge)
-                            .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(MangaStyle.isActive ? MusicSource.netease.themedBadgeColor : .monologueTextPrimary)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
-                                    .stroke(MangaStyle.isActive ? MusicSource.netease.themedBadgeColor : Color.monologueTextPrimary, lineWidth: 0.5)
-                            )
+                        if NeumorphicStyle.isActive {
+                            NeumorphicPill(text: badge, tint: MusicSource.netease.themedBadgeColor, compact: true)
+                        } else {
+                            Text(badge)
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(MangaStyle.isActive ? MusicSource.netease.themedBadgeColor : .monologueTextPrimary)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
+                                        .stroke(MangaStyle.isActive ? MusicSource.netease.themedBadgeColor : Color.monologueTextPrimary, lineWidth: 0.5)
+                                )
+                        }
                     }
                     Text("\(song.artistName) · \(song.fileSizeText)")
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
                         .lineLimit(1)
                 }
             }
@@ -345,17 +370,13 @@ struct DownloadManageView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: ThemedPageStyle.listSpacing) {
-                        ForEach(tasks, id: \.id) { song in
-                            downloadingRow(song: song)
-                        }
+                LazyVStack(spacing: ThemedPageStyle.listSpacing) {
+                    ForEach(tasks, id: \.id) { song in
+                        downloadingRow(song: song)
                     }
-                    .padding(.horizontal, ThemedPageStyle.horizontalInset)
-                    .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
-                    .padding(.bottom, 120)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, ThemedPageStyle.horizontalInset)
+                .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
             }
         }
     }
@@ -367,38 +388,42 @@ struct DownloadManageView: View {
             // 封面
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint).monologueGlass(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                        .monologueGlass(cornerRadius: coverRadius)
                 }
                 .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                .overlay(coverStroke)
             } else {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.monologueGlassTint)
+                RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
                     .frame(width: 48, height: 48)
-                    .monologueGlass(cornerRadius: 10)
+                    .monologueGlass(cornerRadius: coverRadius)
+                    .overlay(coverStroke)
             }
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(song.name)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .lineLimit(1)
                 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.monologueSeparator.opacity(0.3))
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator.opacity(0.3))
                             .frame(height: 3)
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.monologueAccentBlue)
+                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccentBlue)
                             .frame(width: geo.size.width * progress, height: 3)
                     }
                 }
                 .frame(height: 3)
                 
                 Text(song.status == .failed ? String(localized: "下载失败") : "\(Int(progress * 100))%")
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundColor(song.status == .failed ? .monologueAccentRed : .monologueTextSecondary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded))
+                    .foregroundColor(song.status == .failed ? (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueAccentRed) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
             }
             
             Spacer()
@@ -408,7 +433,7 @@ struct DownloadManageView: View {
             } label: {
                 MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary, lineWidth: 1.4)
                     .frame(width: 32, height: 32)
-                    .background(Color.monologueGlassTint)
+                    .background(NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
@@ -416,6 +441,18 @@ struct DownloadManageView: View {
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 8)
         .themedOnlyPageSurface(cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius, elevated: false)
+    }
+
+    private var coverRadius: CGFloat {
+        NeumorphicStyle.isActive ? 14 : 10
+    }
+
+    @ViewBuilder
+    private var coverStroke: some View {
+        if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        }
     }
     
     // MARK: - Actions

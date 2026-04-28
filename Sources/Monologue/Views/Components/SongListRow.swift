@@ -44,7 +44,7 @@ struct SongListRow: View {
         static let text = Color.monologueTextPrimary
         static let secondaryText = Color.monologueTextSecondary
         static var accent: Color {
-            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueTextPrimary)
+            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary))
         }
     }
 
@@ -103,6 +103,48 @@ struct SongListRow: View {
     private var localBrandColor: Color {
         MusicSource.local.themedBadgeColor
     }
+
+    private var quickActionButtonSize: CGFloat {
+        if MangaStyle.isActive { return 32 }
+        if MujiStyle.isActive { return 31 }
+        if NeumorphicStyle.isActive { return 32 }
+        return 30
+    }
+
+    private var quickActionButtonCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 11 }
+        if MujiStyle.isActive { return 10 }
+        if NeumorphicStyle.isActive { return 13 }
+        return quickActionButtonSize / 2
+    }
+
+    private func quickActionTint(for kind: QuickAction) -> Color {
+        switch kind {
+        case .addToQueue:
+            if MangaStyle.isActive { return MangaStyle.labelYellow }
+            if MujiStyle.isActive { return MujiStyle.clay }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            return Color.monologueTextPrimary
+        case .download:
+            if MangaStyle.isActive { return MangaStyle.decoBlue }
+            if MujiStyle.isActive { return MujiStyle.indigo }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+            return Color.monologueTextPrimary
+        }
+    }
+
+    private func quickActionIconColor(kind: QuickAction, isDisabled: Bool) -> Color {
+        if MangaStyle.isActive {
+            return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 1)
+        }
+        if MujiStyle.isActive {
+            return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 0.95)
+        }
+        if NeumorphicStyle.isActive {
+            return quickActionTint(for: kind).opacity(isDisabled ? 0.36 : 1)
+        }
+        return isDisabled ? .monologueTextSecondary.opacity(0.45) : .monologueTextPrimary
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -119,7 +161,7 @@ struct SongListRow: View {
                             )
                         } else {
                             Text(String(format: "%02d", index + 1))
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))
+                                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
                                 .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
@@ -132,7 +174,7 @@ struct SongListRow: View {
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 6 : 12), style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 14 : 12)), style: .continuous))
                     .overlay {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -140,6 +182,9 @@ struct SongListRow: View {
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                        } else if NeumorphicStyle.isActive {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(NeumorphicStyle.separator.opacity(0.38), lineWidth: 0.6)
                         }
                     }
                     .overlay {
@@ -155,8 +200,8 @@ struct SongListRow: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) : .system(size: 16, weight: isCurrent ? .bold : .medium)))
-                            .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.4) : (isCurrent ? Theme.accent : Theme.text))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) : .system(size: 16, weight: isCurrent ? .bold : .medium))))
+                            .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.4) : (isCurrent ? Theme.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
                             .lineLimit(1)
 
                         HStack(spacing: 6) {
@@ -193,8 +238,8 @@ struct SongListRow: View {
                                 }
 
                                 Text("\(song.artistName)\(song.al?.name.isEmpty == false ? " - " + (song.al?.name ?? "") : "")")
-                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 13)))
-                                    .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.3) : Theme.secondaryText)
+                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13))))
+                                    .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.3) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText))
                                     .lineLimit(1)
                             }
                         }
@@ -233,7 +278,7 @@ struct SongListRow: View {
             if isCurrent {
                 ZStack(alignment: .leading) {
                     // 主体渐变玻璃态
-                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : 12), style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : 12)), style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
@@ -244,10 +289,10 @@ struct SongListRow: View {
                                 endPoint: .trailing
                             )
                         )
-                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : 12))
+                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : 12)))
                     
                     // 左侧微光描边
-                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : 12), style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : 12)), style: .continuous)
                         .stroke(
                             LinearGradient(
                                 colors: [
@@ -448,12 +493,85 @@ struct SongListRow: View {
             animateQuickAction(kind)
             action()
         } label: {
+            quickActionButtonChrome(
+                icon: icon,
+                kind: kind,
+                isDisabled: isDisabled,
+                isActive: isActive
+            )
+        }
+        .buttonStyle(QuickActionButtonStyle())
+        .disabled(isDisabled)
+        .animation(.spring(response: 0.22, dampingFraction: 0.62), value: isActive)
+    }
+
+    @ViewBuilder
+    private func quickActionButtonChrome(
+        icon: MonologueIcon.IconType,
+        kind: QuickAction,
+        isDisabled: Bool,
+        isActive: Bool
+    ) -> some View {
+        let tint = quickActionTint(for: kind)
+        let size = quickActionButtonSize
+        let radius = quickActionButtonCornerRadius
+        let iconColor = quickActionIconColor(kind: kind, isDisabled: isDisabled)
+
+        if MangaStyle.isActive {
+            ZStack {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(MangaStyle.strokeInk.opacity(isDisabled ? 0.15 : 0.84))
+                    .offset(x: 2.2, y: 2.2)
+
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(isDisabled ? MangaStyle.bubbleWhite.opacity(0.54) : tint.opacity(isActive ? 0.95 : 0.78))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .stroke(MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 0.72), lineWidth: MangaStyle.fineStrokeWidth)
+                    )
+
+                MonologueIcon(icon: icon, size: 14, color: iconColor, lineWidth: 1.9)
+            }
+            .frame(width: size, height: size)
+            .scaleEffect(isActive ? 1.08 : 1)
+        } else if MujiStyle.isActive {
+            ZStack {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(isActive ? tint.opacity(0.16) : MujiStyle.surfaceRaised.opacity(isDisabled ? 0.54 : 0.96))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .stroke(tint.opacity(isActive ? 0.42 : (isDisabled ? 0.14 : 0.22)), lineWidth: 0.7)
+                    )
+
+                MonologueIcon(icon: icon, size: 13, color: iconColor, lineWidth: 1.5)
+            }
+            .frame(width: size, height: size)
+            .scaleEffect(isActive ? 1.06 : 1)
+        } else if NeumorphicStyle.isActive {
+            ZStack {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.clear)
+                    .background(
+                        NeumorphicSurfaceBackground(
+                            cornerRadius: radius,
+                            elevated: isActive && !isDisabled,
+                            pressed: !isActive,
+                            tint: tint.opacity(isDisabled ? 0.08 : (isActive ? 0.22 : 0.12))
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+
+                MonologueIcon(icon: icon, size: 13, color: iconColor, lineWidth: 1.55)
+            }
+            .frame(width: size, height: size)
+            .scaleEffect(isActive ? 1.06 : 1)
+        } else {
             MonologueIcon(
                 icon: icon,
                 size: 13,
-                color: isDisabled ? .monologueTextSecondary.opacity(0.45) : .monologueTextPrimary
+                color: iconColor
             )
-            .frame(width: 30, height: 30)
+            .frame(width: size, height: size)
             .scaleEffect(isActive ? 1.08 : 1)
             .background(Color.monologueTextPrimary.opacity(isDisabled ? 0.04 : (isActive ? 0.12 : 0.07)))
             .overlay(
@@ -463,9 +581,6 @@ struct SongListRow: View {
             )
             .clipShape(Circle())
         }
-        .buttonStyle(QuickActionButtonStyle())
-        .disabled(isDisabled)
-        .animation(.spring(response: 0.22, dampingFraction: 0.62), value: isActive)
     }
 
     private func downloadSong() {
@@ -484,25 +599,18 @@ struct SongListRow: View {
         let isExiting = feedbackPhase == 2
 
         return HStack(spacing: 5) {
-            MonologueIcon(icon: action.badgeIcon, size: 10, color: .monologueTextPrimary)
+            MonologueIcon(icon: action.badgeIcon, size: 10, color: quickActionFeedbackForeground(for: action))
 
             Text(action.badgeTitle)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .font(quickActionFeedbackFont)
+                .foregroundColor(quickActionFeedbackForeground(for: action))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }
         .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.monologueTextPrimary.opacity(0.08))
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(Color.monologueTextPrimary.opacity(0.10), lineWidth: 1)
-                )
-        )
+        .background { quickActionFeedbackBackground(for: action) }
         .scaleEffect(isVisible ? 1 : 0.88)
         .opacity(isVisible ? 1 : 0)
         .offset(
@@ -510,6 +618,65 @@ struct SongListRow: View {
             y: isVisible ? -18 : (isExiting ? -30 : -6)
         )
         .animation(.spring(response: 0.26, dampingFraction: 0.82), value: feedbackPhase)
+    }
+
+    private var quickActionFeedbackFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(10, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .semibold) }
+        return .system(size: 10, weight: .semibold, design: .rounded)
+    }
+
+    private func quickActionFeedbackForeground(for _: QuickAction) -> Color {
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    @ViewBuilder
+    private func quickActionFeedbackBackground(for action: QuickAction) -> some View {
+        let tint = quickActionTint(for: action)
+
+        if MangaStyle.isActive {
+            ZStack {
+                Capsule(style: .continuous)
+                    .fill(MangaStyle.strokeInk.opacity(0.78))
+                    .offset(x: 1.4, y: 1.4)
+
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(0.82))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(MangaStyle.strokeInk.opacity(0.68), lineWidth: MangaStyle.fineStrokeWidth)
+                    )
+            }
+        } else if MujiStyle.isActive {
+            Capsule(style: .continuous)
+                .fill(MujiStyle.surfaceRaised.opacity(0.96))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(tint.opacity(0.26), lineWidth: 0.7)
+                )
+        } else if NeumorphicStyle.isActive {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color.clear)
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 13,
+                        elevated: true,
+                        tint: tint.opacity(0.14)
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        } else {
+            Capsule(style: .continuous)
+                .fill(Color.monologueTextPrimary.opacity(0.08))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.monologueTextPrimary.opacity(0.10), lineWidth: 1)
+                )
+        }
     }
 
     private func animateQuickAction(_ kind: QuickAction) {

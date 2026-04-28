@@ -25,6 +25,9 @@ struct CommentView: View {
     
     var body: some View {
         ZStack {
+            ThemedPageBackground()
+                .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 // 顶部导航栏
                 commentHeader
@@ -129,7 +132,7 @@ struct CommentView: View {
             
             // 分隔线
             Rectangle()
-                .fill(Color.monologueSeparator)
+                .fill(commentSeparator)
                 .frame(height: 0.5)
         }
     }
@@ -235,13 +238,10 @@ struct CommentView: View {
                 } label: {
                     Text(type.title)
                         .font(.rounded(size: 13, weight: vm.sortType == type ? .semibold : .medium))
-                        .foregroundColor(vm.sortType == type ? .monologueIconForeground : .monologueTextSecondary)
+                        .foregroundColor(sortForeground(isSelected: vm.sortType == type))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(
-                            Capsule()
-                                .fill(vm.sortType == type ? Color.monologueIconBackground : Color.monologueTextPrimary.opacity(0.05))
-                        )
+                        .background { sortPillBackground(isSelected: vm.sortType == type) }
                 }
                 .buttonStyle(.plain)
             }
@@ -306,11 +306,7 @@ struct CommentView: View {
             }
         }
         .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.monologueGlassTint)
-                .monologueGlass(cornerRadius: 16)
-        )
+        .themedPageSurface(cornerRadius: 16, elevated: false, mangaTint: MangaStyle.bubbleWhite)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shimmer()
     }
@@ -346,7 +342,7 @@ struct CommentView: View {
     private var inputBar: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.monologueSeparator)
+                .fill(commentSeparator)
                 .frame(height: 0.5)
             
             // 回复提示
@@ -364,7 +360,7 @@ struct CommentView: View {
                     } label: {
                         MonologueIcon(icon: .xmark, size: 10, color: .monologueTextSecondary)
                             .padding(6)
-                            .background(Circle().fill(Color.monologueTextPrimary.opacity(0.06)))
+                            .background(Circle().fill(commentControlFill))
                     }
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -380,7 +376,7 @@ struct CommentView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(showEmojiPicker ? Color.monologueIconBackground : Color.monologueTextPrimary.opacity(0.06))
+                            .fill(showEmojiPicker ? commentAccentFill : commentControlFill)
                             .frame(width: 36, height: 36)
                         MonologueIcon(
                             icon: .emoji,
@@ -412,7 +408,7 @@ struct CommentView: View {
                         } label: {
                             MonologueIcon(icon: .xmark, size: 10, color: .monologueTextSecondary)
                                 .padding(4)
-                                .background(Circle().fill(Color.monologueTextPrimary.opacity(0.08)))
+                                .background(Circle().fill(commentControlFill))
                         }
                     }
                 }
@@ -420,7 +416,7 @@ struct CommentView: View {
                 .padding(.vertical, 10)
                 .background(
                     Capsule()
-                        .fill(Color.monologueTextPrimary.opacity(0.05))
+                        .fill(commentInputFill)
                 )
                 
                 // 发送按钮
@@ -433,7 +429,7 @@ struct CommentView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(canSend ? Color.monologueIconBackground : Color.monologueTextPrimary.opacity(0.06))
+                            .fill(canSend ? commentAccentFill : commentControlFill)
                             .frame(width: 36, height: 36)
                         
                         if vm.isSending {
@@ -457,9 +453,51 @@ struct CommentView: View {
             .padding(.bottom, 4)
         }
         .background(
-            Color(UIColor.systemBackground)
+            commentBarBackground
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+
+    private var commentSeparator: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.5) : Color.monologueSeparator
+    }
+
+    private var commentControlFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.06)
+    }
+
+    private var commentInputFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.05)
+    }
+
+    private var commentAccentFill: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+    }
+
+    private var commentBarBackground: Color {
+        NeumorphicStyle.isActive ? NeumorphicStyle.surface.opacity(0.96) : Color(UIColor.systemBackground)
+    }
+
+    private func sortForeground(isSelected: Bool) -> Color {
+        if NeumorphicStyle.isActive {
+            return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft
+        }
+        return isSelected ? .monologueIconForeground : .monologueTextSecondary
+    }
+
+    @ViewBuilder
+    private func sortPillBackground(isSelected: Bool) -> some View {
+        if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(
+                cornerRadius: 15,
+                elevated: isSelected,
+                pressed: !isSelected,
+                tint: isSelected ? NeumorphicStyle.accent.opacity(0.22) : NeumorphicStyle.surface
+            )
+        } else {
+            Capsule()
+                .fill(isSelected ? Color.monologueIconBackground : Color.monologueTextPrimary.opacity(0.05))
+        }
     }
 }
 
@@ -555,6 +593,11 @@ struct CommentRow: View {
         }
         .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
         .padding(.vertical, 12)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
+            }
+        }
     }
     
     private func formatCount(_ count: Int) -> String {
