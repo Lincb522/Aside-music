@@ -178,6 +178,13 @@
 /* Settings */
 "settings_title" = "设置";
 "settings_appearance" = "外观与交互";
+"settings_appearance_global_theme_section" = "全局主题";
+"settings_appearance_theme_style" = "主题风格";
+"settings_appearance_app_icon_section" = "应用图标";
+"settings_appearance_layout_section" = "界面布局";
+"settings_appearance_content_feedback_section" = "内容与反馈";
+"settings_appearance_dynamic_background_section" = "动态背景";
+"settings_theme_mode_section_title" = "深浅色模式";
 "settings_theme_mode" = "主题模式";
 "settings_liquid_glass" = "液态玻璃效果";
 "settings_liquid_glass_desc" = "iOS 26 风格的高级视觉效果";

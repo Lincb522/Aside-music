@@ -72,7 +72,12 @@ struct NeumorphicRootBackdrop: View {
 
             NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.08 : 0.13)
         }
-        .drawingGroup(opaque: false, colorMode: .linear)
+        .compositingGroup()
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
+        .accessibilityHidden(true)
         .ignoresSafeArea()
     }
 }
@@ -115,6 +120,10 @@ struct NeumorphicDiffuseGradient: View {
         .blendMode(colorScheme == .dark ? .screen : .softLight)
         .saturation(colorScheme == .dark ? 0.92 : 0.86)
         .drawingGroup(opaque: false, colorMode: .linear)
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
         .allowsHitTesting(false)
     }
 }
@@ -143,6 +152,10 @@ struct NeumorphicReliefTexture: View {
             }
         }
         .drawingGroup(opaque: false, colorMode: .linear)
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
         .allowsHitTesting(false)
     }
 }
@@ -216,12 +229,8 @@ struct NeumorphicIconBadge: View {
     var size: CGFloat = 46
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-            .fill(Color.clear)
+        NeumorphicSurfaceBackground(cornerRadius: size * 0.32, elevated: true, tint: NeumorphicStyle.surfaceRaised)
             .frame(width: size, height: size)
-            .background(
-                NeumorphicSurfaceBackground(cornerRadius: size * 0.32, elevated: true, tint: NeumorphicStyle.surfaceRaised)
-            )
             .overlay(
                 MonologueIcon(icon: icon, size: size * 0.42, color: tint, lineWidth: 1.55)
             )

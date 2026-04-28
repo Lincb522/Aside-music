@@ -32,8 +32,14 @@ extension APIService {
 extension APIService {
 
     func searchQishuiSongs(keyword: String, page: Int = 0) -> AnyPublisher<[Song], Error> {
+        searchQishuiSongsWithTotal(keyword: keyword, page: page)
+            .map(\.songs)
+            .eraseToAnyPublisher()
+    }
+
+    func searchQishuiSongsWithTotal(keyword: String, page: Int = 0) -> AnyPublisher<(songs: [Song], total: Int?, hasMore: Bool), Error> {
         asyncToPublisher { [weak self] in
-            guard let self else { return [] }
+            guard let self else { return (songs: [], total: nil, hasMore: false) }
             var components = URLComponents(url: self.qishuiURL("/search"), resolvingAgainstBaseURL: false)!
             components.queryItems = [
                 URLQueryItem(name: "q", value: keyword),
@@ -42,10 +48,73 @@ extension APIService {
             let (data, _) = try await URLSession.shared.data(from: components.url!)
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
             guard let groups = json["result_groups"] as? [[String: Any]],
-                  let firstGroup = groups.first,
-                  let items = firstGroup["data"] as? [[String: Any]] else { return [] }
+                  let trackGroup = groups.first(where: { ($0["id"] as? String) == "tracks" }) ?? groups.first else {
+                return (songs: [], total: Self.extractQishuiSearchTotal(from: json, itemCount: 0), hasMore: false)
+            }
 
-            return items.compactMap { Self.convertQishuiTrackToSong($0) }
+            let items = trackGroup["data"] as? [[String: Any]] ?? []
+            let songs = items.compactMap { Self.convertQishuiTrackToSong($0) }
+            let total = Self.extractQishuiSearchTotal(from: trackGroup, itemCount: songs.count)
+                ?? Self.extractQishuiSearchTotal(from: json, itemCount: songs.count)
+            let nextCursorHasMore = (trackGroup["next_cursor"] as? String)?.isEmpty == false && !songs.isEmpty
+            let hasMore = Self.qishuiBoolValue(trackGroup["has_more"])
+                ?? Self.qishuiBoolValue(trackGroup["hasMore"])
+                ?? Self.qishuiBoolValue(json["has_more"])
+                ?? Self.qishuiBoolValue(json["hasMore"])
+                ?? (nextCursorHasMore || songs.count >= 20)
+
+            return (songs: songs, total: total, hasMore: hasMore)
+        }
+    }
+
+    private static func extractQishuiSearchTotal(from json: [String: Any], itemCount: Int) -> Int? {
+        let keys = [
+            "total", "total_count", "totalCount", "song_count",
+            "songCount", "track_count", "trackCount", "result_count", "resultCount"
+        ]
+        for key in keys {
+            if let value = qishuiIntValue(json[key]), value > 0 {
+                return value
+            }
+        }
+        if let count = qishuiIntValue(json["count"]), count > itemCount {
+            return count
+        }
+        return nil
+    }
+
+    private static func qishuiIntValue(_ value: Any?) -> Int? {
+        switch value {
+        case let value as Int:
+            return value
+        case let value as Double:
+            return Int(value)
+        case let value as NSNumber:
+            return value.intValue
+        case let value as String:
+            return Int(value)
+        default:
+            return nil
+        }
+    }
+
+    private static func qishuiBoolValue(_ value: Any?) -> Bool? {
+        switch value {
+        case let value as Bool:
+            return value
+        case let value as NSNumber:
+            return value.boolValue
+        case let value as String:
+            switch value.lowercased() {
+            case "true", "1", "yes":
+                return true
+            case "false", "0", "no":
+                return false
+            default:
+                return nil
+            }
+        default:
+            return nil
         }
     }
 }

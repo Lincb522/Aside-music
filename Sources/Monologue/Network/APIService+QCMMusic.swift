@@ -46,21 +46,100 @@ extension APIService {
         return extractJSONArray(from: result)
     }
 
-    private static func extractSearchTotal(from result: JSON, itemKey: String) -> Int? {
-        let candidates: [JSON?] = [
-            result["body"]?["total"],
-            result["body"]?["sum"],
-            result["body"]?["count"],
-            result["body"]?[itemKey]?["total"],
-            result["body"]?[itemKey]?["sum"],
-            result["total"],
-            result["sum"],
-            result["count"]
+    private static func extractSearchTotal(from result: JSON, itemKey: String, itemCount: Int, pageSize: Int) -> Int? {
+        let body = result["body"]
+        let itemKeys = searchItemContainerKeys(for: itemKey)
+        let totalKeys = [
+            "total", "sum", "totalnum", "totalNum", "total_num",
+            "totalNumber", "total_number", "total_count", "totalCount",
+            "songCount", "song_count", "songnum", "songNum"
         ]
+        let countKeys = ["count"]
+        var containers: [JSON] = []
 
-        return candidates
-            .compactMap { $0?.intValue }
-            .first { $0 > 0 }
+        for key in itemKeys {
+            appendSearchContainer(body?[key], to: &containers)
+            appendSearchContainer(result[key], to: &containers)
+        }
+        appendSearchContainer(body, to: &containers)
+        appendSearchContainer(result, to: &containers)
+
+        for container in containers {
+            if let total = firstSearchTotalValue(in: container, keys: totalKeys, itemCount: itemCount, pageSize: pageSize, allowPageCount: true) {
+                return total
+            }
+        }
+
+        for container in containers {
+            if let total = firstSearchTotalValue(in: container, keys: countKeys, itemCount: itemCount, pageSize: pageSize, allowPageCount: false) {
+                return total
+            }
+        }
+
+        for container in containers {
+            if let total = recursiveSearchTotalValue(in: container, keys: totalKeys, itemCount: itemCount, pageSize: pageSize) {
+                return total
+            }
+        }
+
+        return nil
+    }
+
+    private static func searchItemContainerKeys(for itemKey: String) -> [String] {
+        var keys = [itemKey]
+        switch itemKey {
+        case "item_song":
+            keys += ["song", "songs", "songlist", "item_song"]
+        case "item_songlist":
+            keys += ["songlist", "playlist", "playlists", "item_songlist"]
+        case "item_album":
+            keys += ["album", "albums", "item_album"]
+        case "singer":
+            keys += ["singer", "singers", "artist", "artists"]
+        default:
+            break
+        }
+        keys += ["data", "list"]
+        return keys.reduce(into: []) { result, key in
+            if !result.contains(key) {
+                result.append(key)
+            }
+        }
+    }
+
+    private static func appendSearchContainer(_ json: JSON?, to containers: inout [JSON]) {
+        guard let json, json.objectValue != nil else { return }
+        containers.append(json)
+    }
+
+    private static func firstSearchTotalValue(in container: JSON, keys: [String], itemCount: Int, pageSize: Int, allowPageCount: Bool) -> Int? {
+        for key in keys {
+            if let value = container[key]?.intValue,
+               isPlausibleSearchTotal(value, itemCount: itemCount, pageSize: pageSize, allowPageCount: allowPageCount) {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private static func recursiveSearchTotalValue(in container: JSON, keys: [String], itemCount: Int, pageSize: Int) -> Int? {
+        if let total = firstSearchTotalValue(in: container, keys: keys, itemCount: itemCount, pageSize: pageSize, allowPageCount: true) {
+            return total
+        }
+        guard let object = container.objectValue else { return nil }
+        for value in object.values {
+            if let total = recursiveSearchTotalValue(in: value, keys: keys, itemCount: itemCount, pageSize: pageSize) {
+                return total
+            }
+        }
+        return nil
+    }
+
+    private static func isPlausibleSearchTotal(_ value: Int, itemCount: Int, pageSize: Int, allowPageCount: Bool) -> Bool {
+        guard value > 0 else { return false }
+        if allowPageCount { return true }
+        if value > itemCount { return true }
+        return itemCount < pageSize && value == itemCount
     }
 
     /// 搜索 qcm歌曲
@@ -82,8 +161,9 @@ extension APIService {
                 highlight: false
             )
             let items = Self.extractSearchItems(from: result, itemKey: "item_song")
-            let total = Self.extractSearchTotal(from: result, itemKey: "item_song")
-            return (songs: items.compactMap { Self.convertQQSongToSong($0) }, total: total)
+            let songs = items.compactMap { Self.convertQQSongToSong($0) }
+            let total = Self.extractSearchTotal(from: result, itemKey: "item_song", itemCount: songs.count, pageSize: num)
+            return (songs: songs, total: total)
         }
     }
     

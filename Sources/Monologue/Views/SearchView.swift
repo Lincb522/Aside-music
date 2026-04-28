@@ -325,7 +325,7 @@ struct SearchView: View {
                                     .frame(width: 24, height: 3)
                                     .opacity(viewModel.currentTab == tab ? 1 : 0)
                             }
-                            .frame(width: itemWidth, minHeight: 36)
+                            .frame(width: itemWidth, height: 36)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(PlainButtonStyle())

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 private struct ThemeCustomizationRevisionKey: EnvironmentKey {
@@ -27,7 +28,7 @@ enum ThemeCustomColorRole: String, CaseIterable, Identifiable {
     }
 }
 
-enum ThemeCustomColorMode: String, CaseIterable, Identifiable {
+enum ThemeCustomColorMode: String, CaseIterable, Identifiable, Codable {
     case solid
     case gradient
 
@@ -43,7 +44,7 @@ enum ThemeCustomColorMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum ThemeCustomGradientStyle: String, CaseIterable, Identifiable {
+enum ThemeCustomGradientStyle: String, CaseIterable, Identifiable, Codable {
     case diffuse
     case diagonal
     case vertical
@@ -71,11 +72,12 @@ enum ThemeCustomGradientStyle: String, CaseIterable, Identifiable {
     }
 }
 
-struct ThemeColorPreset: Identifiable {
+struct ThemeColorPreset: Identifiable, Codable {
     let id: String
     let name: String
     let accentStartHex: String
     let accentEndHex: String
+    let backgroundMode: ThemeCustomColorMode?
     let backgroundStartHex: String
     let backgroundEndHex: String
     let gradientStyle: ThemeCustomGradientStyle
@@ -83,24 +85,30 @@ struct ThemeColorPreset: Identifiable {
     let mangaBlockBHex: String?
     let mangaBlockCHex: String?
     let mangaStrokeHex: String?
+    let mangaSettingsIconHex: String?
+    let isCustom: Bool
 
     init(
         id: String,
         name: String,
         accentStartHex: String,
         accentEndHex: String,
+        backgroundMode: ThemeCustomColorMode? = nil,
         backgroundStartHex: String,
         backgroundEndHex: String,
         gradientStyle: ThemeCustomGradientStyle = .diffuse,
         mangaBlockAHex: String? = nil,
         mangaBlockBHex: String? = nil,
         mangaBlockCHex: String? = nil,
-        mangaStrokeHex: String? = nil
+        mangaStrokeHex: String? = nil,
+        mangaSettingsIconHex: String? = nil,
+        isCustom: Bool = false
     ) {
         self.id = id
         self.name = name
         self.accentStartHex = accentStartHex
         self.accentEndHex = accentEndHex
+        self.backgroundMode = backgroundMode
         self.backgroundStartHex = backgroundStartHex
         self.backgroundEndHex = backgroundEndHex
         self.gradientStyle = gradientStyle
@@ -108,6 +116,8 @@ struct ThemeColorPreset: Identifiable {
         self.mangaBlockBHex = mangaBlockBHex
         self.mangaBlockCHex = mangaBlockCHex
         self.mangaStrokeHex = mangaStrokeHex
+        self.mangaSettingsIconHex = mangaSettingsIconHex
+        self.isCustom = isCustom
     }
 }
 
@@ -139,6 +149,10 @@ enum ThemeColorCustomization {
         "themeColor.manga.extra.\(suffix)"
     }
 
+    static func savedPresetsKey(_ theme: GlobalThemeId) -> String {
+        "themeColor.\(theme.rawValue).savedPresets"
+    }
+
     static func mode(for theme: GlobalThemeId, role: ThemeCustomColorRole) -> ThemeCustomColorMode {
         if role == .accent || (theme == .muji && role == .background) {
             return .solid
@@ -166,6 +180,43 @@ enum ThemeColorCustomization {
     static func mangaHex(_ suffix: String, fallback: String) -> String {
         let stored = UserDefaults.standard.string(forKey: mangaKey(suffix))?.trimmingCharacters(in: .whitespacesAndNewlines)
         return stored?.isEmpty == false ? stored! : fallback
+    }
+
+    static func defaultAccentHex(for theme: GlobalThemeId) -> String {
+        switch theme {
+        case .muji: return "B56B4B"
+        case .neumorphic: return "4F8E86"
+        case .manga: return "FF4F84"
+        case .default: return "000000"
+        }
+    }
+
+    static func defaultBackgroundStartHex(for theme: GlobalThemeId) -> String {
+        switch theme {
+        case .muji: return "F7F1E8"
+        case .neumorphic: return "E9EDF0"
+        case .manga: return "FFF3D7"
+        case .default: return "FFFFFF"
+        }
+    }
+
+    static func defaultBackgroundEndHex(for theme: GlobalThemeId) -> String {
+        switch theme {
+        case .muji: return "F7F1E8"
+        case .neumorphic: return "F2EEE8"
+        case .manga: return "E8F1FF"
+        case .default: return "FFFFFF"
+        }
+    }
+
+    static func defaultMangaExtraHex(_ suffix: String) -> String {
+        switch suffix {
+        case "blockA": return "FFE067"
+        case "blockB": return "58B9FF"
+        case "blockC": return "8DE4B8"
+        case "stroke", "settingsIcon": return "17151F"
+        default: return "17151F"
+        }
     }
 
     static func accentColor(for theme: GlobalThemeId, fallback: Color, fallbackHex _: String) -> Color {
@@ -216,6 +267,20 @@ enum ThemeColorCustomization {
     }
 
     static func presets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
+        builtInPresets(for: theme) + savedPresets(for: theme)
+    }
+
+    static func savedPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
+        guard supports(theme),
+              let data = UserDefaults.standard.data(forKey: savedPresetsKey(theme)),
+              let presets = try? JSONDecoder().decode([ThemeColorPreset].self, from: data)
+        else {
+            return []
+        }
+        return presets
+    }
+
+    private static func builtInPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
         switch theme {
         case .muji:
             return [
@@ -237,12 +302,12 @@ enum ThemeColorCustomization {
             ]
         case .manga:
             return [
-                ThemeColorPreset(id: "manga-pop", name: "Pop", accentStartHex: "FF4F84", accentEndHex: "FF4F84", backgroundStartHex: "FFF3D7", backgroundEndHex: "E8F1FF", mangaBlockAHex: "FFE067", mangaBlockBHex: "58B9FF", mangaBlockCHex: "8DE4B8", mangaStrokeHex: "3B3145"),
-                ThemeColorPreset(id: "manga-berry", name: "Berry", accentStartHex: "E65E8E", accentEndHex: "E65E8E", backgroundStartHex: "FFEAF0", backgroundEndHex: "F6F0FF", gradientStyle: .radial, mangaBlockAHex: "F8D957", mangaBlockBHex: "B7D8FF", mangaBlockCHex: "BDE9B8", mangaStrokeHex: "4B3A55"),
-                ThemeColorPreset(id: "manga-soda", name: "Soda", accentStartHex: "4FA9FF", accentEndHex: "4FA9FF", backgroundStartHex: "EEF7FF", backgroundEndHex: "FFF1D8", gradientStyle: .diffuse, mangaBlockAHex: "FFE06A", mangaBlockBHex: "79C8FF", mangaBlockCHex: "94E2BC", mangaStrokeHex: "344B5E"),
-                ThemeColorPreset(id: "manga-peach", name: "Peach", accentStartHex: "FF7A6E", accentEndHex: "FF7A6E", backgroundStartHex: "FFF0DF", backgroundEndHex: "FFE9F1", gradientStyle: .vertical, mangaBlockAHex: "FFD86B", mangaBlockBHex: "9AD7FF", mangaBlockCHex: "A8E7C0", mangaStrokeHex: "5C4052"),
-                ThemeColorPreset(id: "manga-lime", name: "Lime", accentStartHex: "7FBF5B", accentEndHex: "7FBF5B", backgroundStartHex: "F7F6D9", backgroundEndHex: "EAF7EC", gradientStyle: .diagonal, mangaBlockAHex: "F6E56F", mangaBlockBHex: "8BCBFF", mangaBlockCHex: "92E3A7", mangaStrokeHex: "465F4D"),
-                ThemeColorPreset(id: "manga-candy", name: "Candy", accentStartHex: "F06DA6", accentEndHex: "F06DA6", backgroundStartHex: "FFF0FA", backgroundEndHex: "EAF6FF", gradientStyle: .radial, mangaBlockAHex: "FFE47A", mangaBlockBHex: "98D9FF", mangaBlockCHex: "B2E9CF", mangaStrokeHex: "694E67"),
+                ThemeColorPreset(id: "manga-pop", name: "Pop", accentStartHex: "FF4F84", accentEndHex: "FF4F84", backgroundStartHex: "FFF3D7", backgroundEndHex: "E8F1FF", mangaBlockAHex: "FFE067", mangaBlockBHex: "58B9FF", mangaBlockCHex: "8DE4B8", mangaStrokeHex: "3B3145", mangaSettingsIconHex: "17151F"),
+                ThemeColorPreset(id: "manga-berry", name: "Berry", accentStartHex: "E65E8E", accentEndHex: "E65E8E", backgroundStartHex: "FFEAF0", backgroundEndHex: "F6F0FF", gradientStyle: .radial, mangaBlockAHex: "FFB4D2", mangaBlockBHex: "B391FF", mangaBlockCHex: "FFE7A3", mangaStrokeHex: "4B3A55", mangaSettingsIconHex: "2B2030"),
+                ThemeColorPreset(id: "manga-soda", name: "Soda", accentStartHex: "4FA9FF", accentEndHex: "4FA9FF", backgroundStartHex: "EEF7FF", backgroundEndHex: "FFF1D8", gradientStyle: .diffuse, mangaBlockAHex: "70D7FF", mangaBlockBHex: "FFE36D", mangaBlockCHex: "FF9C7E", mangaStrokeHex: "344B5E", mangaSettingsIconHex: "172C3A"),
+                ThemeColorPreset(id: "manga-peach", name: "Peach", accentStartHex: "FF7A6E", accentEndHex: "FF7A6E", backgroundStartHex: "FFF0DF", backgroundEndHex: "FFE9F1", gradientStyle: .vertical, mangaBlockAHex: "FFBC8D", mangaBlockBHex: "C7A7FF", mangaBlockCHex: "93D9B4", mangaStrokeHex: "5C4052", mangaSettingsIconHex: "2F222A"),
+                ThemeColorPreset(id: "manga-lime", name: "Lime", accentStartHex: "7FBF5B", accentEndHex: "7FBF5B", backgroundStartHex: "F7F6D9", backgroundEndHex: "EAF7EC", gradientStyle: .diagonal, mangaBlockAHex: "B8E76F", mangaBlockBHex: "FFE890", mangaBlockCHex: "5ECFA6", mangaStrokeHex: "465F4D", mangaSettingsIconHex: "203428"),
+                ThemeColorPreset(id: "manga-candy", name: "Candy", accentStartHex: "F06DA6", accentEndHex: "F06DA6", backgroundStartHex: "FFF0FA", backgroundEndHex: "EAF6FF", gradientStyle: .radial, mangaBlockAHex: "FFA6D9", mangaBlockBHex: "8FE7E1", mangaBlockCHex: "C9A8FF", mangaStrokeHex: "694E67", mangaSettingsIconHex: "302039"),
             ]
         case .default:
             return []
@@ -253,10 +318,10 @@ enum ThemeColorCustomization {
         guard supports(theme) else { return false }
         guard mode(for: theme, role: .accent) == .solid else { return false }
 
-        if theme == .muji {
-            guard mode(for: theme, role: .background) == .solid else { return false }
-        } else {
-            guard mode(for: theme, role: .background) == .gradient else { return false }
+        let presetBackgroundMode = preset.backgroundMode ?? (theme == .muji ? .solid : .gradient)
+        guard mode(for: theme, role: .background) == presetBackgroundMode else { return false }
+
+        if presetBackgroundMode == .gradient {
             guard gradientStyle(for: theme, role: .background) == preset.gradientStyle else { return false }
         }
 
@@ -270,7 +335,7 @@ enum ThemeColorCustomization {
             return false
         }
 
-        if theme == .muji {
+        if presetBackgroundMode == .solid {
             guard normalizedHex(backgroundSolid) == normalizedHex(preset.backgroundStartHex) else { return false }
         } else {
             guard normalizedHex(backgroundStart) == normalizedHex(preset.backgroundStartHex),
@@ -286,6 +351,7 @@ enum ThemeColorCustomization {
         if let value = preset.mangaBlockBHex, normalizedHex(mangaHex("blockB", fallback: value)) != normalizedHex(value) { return false }
         if let value = preset.mangaBlockCHex, normalizedHex(mangaHex("blockC", fallback: value)) != normalizedHex(value) { return false }
         if let value = preset.mangaStrokeHex, normalizedHex(mangaHex("stroke", fallback: value)) != normalizedHex(value) { return false }
+        if let value = preset.mangaSettingsIconHex, normalizedHex(mangaHex("settingsIcon", fallback: value)) != normalizedHex(value) { return false }
 
         return true
     }
@@ -305,7 +371,7 @@ enum ThemeColorCustomization {
         defaults.set(preset.accentStartHex, forKey: key(theme, .accent, "solid"))
         defaults.set(ThemeCustomGradientStyle.diffuse.rawValue, forKey: key(theme, .accent, "gradientStyle"))
 
-        let backgroundMode: ThemeCustomColorMode = theme == .muji ? .solid : .gradient
+        let backgroundMode: ThemeCustomColorMode = preset.backgroundMode ?? (theme == .muji ? .solid : .gradient)
         defaults.set(backgroundMode.rawValue, forKey: key(theme, .background, "mode"))
         defaults.set(preset.backgroundStartHex, forKey: key(theme, .background, "start"))
         defaults.set(preset.backgroundEndHex, forKey: key(theme, .background, "end"))
@@ -317,9 +383,58 @@ enum ThemeColorCustomization {
             if let value = preset.mangaBlockBHex { defaults.set(value, forKey: mangaKey("blockB")) }
             if let value = preset.mangaBlockCHex { defaults.set(value, forKey: mangaKey("blockC")) }
             if let value = preset.mangaStrokeHex { defaults.set(value, forKey: mangaKey("stroke")) }
+            if let value = preset.mangaSettingsIconHex { defaults.set(value, forKey: mangaKey("settingsIcon")) }
         }
 
         SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    static func saveCurrentPreset(for theme: GlobalThemeId) {
+        guard supports(theme) else { return }
+
+        var presets = savedPresets(for: theme)
+        let nextIndex = presets.count + 1
+        presets.append(currentPresetSnapshot(for: theme, name: String(localized: "方案 \(nextIndex)")))
+
+        if let data = try? JSONEncoder().encode(presets) {
+            UserDefaults.standard.set(data, forKey: savedPresetsKey(theme))
+        }
+
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    static func currentPresetSnapshot(for theme: GlobalThemeId, name: String) -> ThemeColorPreset {
+        let backgroundMode = mode(for: theme, role: .background)
+        let accentHex = hex(theme, .accent, "solid", fallback: defaultAccentHex(for: theme))
+        let backgroundStart: String
+        let backgroundEnd: String
+
+        if backgroundMode == .solid {
+            let solid = hex(theme, .background, "solid", fallback: defaultBackgroundStartHex(for: theme))
+            backgroundStart = solid
+            backgroundEnd = solid
+        } else {
+            backgroundStart = hex(theme, .background, "start", fallback: defaultBackgroundStartHex(for: theme))
+            backgroundEnd = hex(theme, .background, "end", fallback: defaultBackgroundEndHex(for: theme))
+        }
+
+        return ThemeColorPreset(
+            id: "custom-\(theme.rawValue)-\(UUID().uuidString)",
+            name: name,
+            accentStartHex: accentHex,
+            accentEndHex: accentHex,
+            backgroundMode: backgroundMode,
+            backgroundStartHex: backgroundStart,
+            backgroundEndHex: backgroundEnd,
+            gradientStyle: gradientStyle(for: theme, role: .background),
+            mangaBlockAHex: theme == .manga ? mangaHex("blockA", fallback: defaultMangaExtraHex("blockA")) : nil,
+            mangaBlockBHex: theme == .manga ? mangaHex("blockB", fallback: defaultMangaExtraHex("blockB")) : nil,
+            mangaBlockCHex: theme == .manga ? mangaHex("blockC", fallback: defaultMangaExtraHex("blockC")) : nil,
+            mangaStrokeHex: theme == .manga ? mangaHex("stroke", fallback: defaultMangaExtraHex("stroke")) : nil,
+            mangaSettingsIconHex: theme == .manga ? mangaHex("settingsIcon", fallback: defaultMangaExtraHex("settingsIcon")) : nil,
+            isCustom: true
+        )
     }
 }
 
@@ -377,25 +492,31 @@ struct ThemeCustomDiffuseBackground: View {
         let width = max(size.width, 1)
         let height = max(size.height, 1)
 
-        if style == .diffuse {
-            Canvas { context, _ in
-                drawGlow(context, center: CGPoint(x: width * 0.16, y: height * 0.12), radius: width * 0.58, color: firstAccent, opacity: 0.18 * opacity)
-                drawGlow(context, center: CGPoint(x: width * 0.88, y: height * 0.36), radius: width * 0.52, color: secondAccent, opacity: 0.14 * opacity)
-                drawGlow(context, center: CGPoint(x: width * 0.42, y: height * 0.86), radius: width * 0.62, color: colors.last ?? secondAccent, opacity: 0.12 * opacity)
+        Group {
+            if style == .diffuse {
+                Canvas(rendersAsynchronously: true) { context, _ in
+                    drawGlow(context, center: CGPoint(x: width * 0.16, y: height * 0.12), radius: width * 0.58, color: firstAccent, opacity: 0.18 * opacity)
+                    drawGlow(context, center: CGPoint(x: width * 0.88, y: height * 0.36), radius: width * 0.52, color: secondAccent, opacity: 0.14 * opacity)
+                    drawGlow(context, center: CGPoint(x: width * 0.42, y: height * 0.86), radius: width * 0.62, color: colors.last ?? secondAccent, opacity: 0.12 * opacity)
+                }
+                .blur(radius: 44)
+                .blendMode(.softLight)
+            } else {
+                LinearGradient(
+                    colors: [
+                        firstAccent.opacity(0.15 * opacity),
+                        .clear,
+                        secondAccent.opacity((style == .radial ? 0.2 : 0.12) * opacity),
+                    ],
+                    startPoint: style == .vertical ? .top : .topLeading,
+                    endPoint: style == .vertical ? .bottom : .bottomTrailing
+                )
+                .blendMode(.softLight)
             }
-            .blur(radius: 44)
-            .blendMode(.softLight)
-        } else {
-            LinearGradient(
-                colors: [
-                    firstAccent.opacity(0.15 * opacity),
-                    .clear,
-                    secondAccent.opacity((style == .radial ? 0.2 : 0.12) * opacity),
-                ],
-                startPoint: style == .vertical ? .top : .topLeading,
-                endPoint: style == .vertical ? .bottom : .bottomTrailing
-            )
-            .blendMode(.softLight)
+        }
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
         }
     }
 

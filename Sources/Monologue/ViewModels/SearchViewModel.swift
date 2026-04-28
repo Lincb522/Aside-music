@@ -69,6 +69,7 @@ class SearchViewModel: ObservableObject {
     private var isFetchingMoreNetease = false
     private var isFetchingMoreQQ = false
     private var isFetchingMoreQishui = false
+    private var qishuiTotalCountingTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
     private let cacheManager = OptimizedCacheManager.shared
@@ -117,6 +118,8 @@ class SearchViewModel: ObservableObject {
     }
     
     private func resetState() {
+        qishuiTotalCountingTask?.cancel()
+        qishuiTotalCountingTask = nil
         neteaseResults = []
         neteaseArtistResults = []
         neteasePlaylistResults = []
@@ -181,6 +184,8 @@ class SearchViewModel: ObservableObject {
     func performSearch(keyword: String) {
         let keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !keyword.isEmpty else { return }
+        qishuiTotalCountingTask?.cancel()
+        qishuiTotalCountingTask = nil
         lastSearchedKeyword = keyword
         showSuggestions = false
         suggestions = []
@@ -433,15 +438,28 @@ class SearchViewModel: ObservableObject {
     private func executeQishuiSearch(keyword: String, page: Int, isLoadMore: Bool) {
         guard currentTab == .songs else { return }
         isQishuiLoading = !isLoadMore
-        apiService.searchQishuiSongs(keyword: keyword, page: page)
+        apiService.searchQishuiSongsWithTotal(keyword: keyword, page: page)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
                 self?.isQishuiLoading = false
                 if isLoadMore { self?.isFetchingMoreQishui = false }
-            }, receiveValue: { [weak self] songs in
+            }, receiveValue: { [weak self] result in
                 guard let self = self else { return }
-                self.handleQishuiPagination(newItems: songs, existing: &self.qishuiResults, isLoadMore: isLoadMore)
-                self.qishuiSongTotal = max(self.qishuiSongTotal ?? 0, self.qishuiResults.count)
+                if let total = result.total {
+                    self.qishuiSongTotal = total
+                }
+                self.handleQishuiPagination(newItems: result.songs, existing: &self.qishuiResults, isLoadMore: isLoadMore)
+
+                if let total = result.total {
+                    self.qishuiCanLoadMore = self.qishuiResults.count < total
+                } else {
+                    self.qishuiCanLoadMore = result.hasMore && !result.songs.isEmpty
+                    if !result.hasMore {
+                        self.qishuiSongTotal = max(self.qishuiSongTotal ?? 0, self.qishuiResults.count)
+                    } else if !isLoadMore {
+                        self.startQishuiTotalCounting(keyword: keyword, startPage: page + 1)
+                    }
+                }
             })
             .store(in: &cancellables)
     }
@@ -585,6 +603,46 @@ class SearchViewModel: ObservableObject {
             return currentCount < total
         }
         return pageCount >= pageSize
+    }
+
+    private func startQishuiTotalCounting(keyword: String, startPage: Int) {
+        qishuiTotalCountingTask?.cancel()
+        qishuiTotalCountingTask = Task { @MainActor [weak self] in
+            await self?.countAllQishuiSongs(keyword: keyword, startPage: startPage)
+        }
+    }
+
+    private func countAllQishuiSongs(keyword: String, startPage: Int) async {
+        var page = startPage
+        var countedTotal = qishuiResults.count
+        var keepLoading = true
+
+        while keepLoading, !Task.isCancelled, requestKeyword == keyword {
+            do {
+                let result = try await apiService.searchQishuiSongsWithTotal(keyword: keyword, page: page).async()
+                if let total = result.total {
+                    qishuiSongTotal = total
+                    qishuiCanLoadMore = qishuiResults.count < total
+                    return
+                }
+
+                if qishuiCurrentPage < page {
+                    countedTotal += result.songs.count
+                }
+                countedTotal = max(countedTotal, qishuiResults.count)
+                qishuiSongTotal = max(qishuiSongTotal ?? 0, countedTotal)
+
+                keepLoading = result.hasMore && !result.songs.isEmpty
+                page += 1
+            } catch {
+                keepLoading = false
+            }
+        }
+
+        if requestKeyword == keyword, !Task.isCancelled {
+            qishuiSongTotal = max(qishuiSongTotal ?? 0, countedTotal, qishuiResults.count)
+            qishuiCanLoadMore = qishuiResults.count < (qishuiSongTotal ?? qishuiResults.count)
+        }
     }
     
     func clearSearch() {

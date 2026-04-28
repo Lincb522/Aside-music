@@ -1,9 +1,10 @@
-import SwiftUI
 import Combine
-import UniformTypeIdentifiers
 import QQMusicKit
+import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Main View
+
 struct LibraryView: View {
     @StateObject private var viewModel = LibraryViewModel()
 
@@ -75,13 +76,13 @@ struct LibraryView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: LibraryViewModel.NavigationDestination.self) { destination in
                 switch destination {
-                case .playlist(let playlist):
+                case let .playlist(playlist):
                     PlaylistDetailView(playlist: playlist)
 
-                case .artist(let id):
+                case let .artist(id):
                     ArtistDetailView(artistId: id)
 
-                case .artistInfo(let artist):
+                case let .artistInfo(artist):
                     if artist.source == .qqmusic, let mid = artist.qqMid {
                         QQMusicDetailView(detailType: .artist(
                             mid: mid,
@@ -91,17 +92,16 @@ struct LibraryView: View {
 
                     } else {
                         ArtistDetailView(artistId: artist.id)
-
                     }
-                case .qqArtist(let mid, let name, let coverUrl):
+
+                case let .qqArtist(mid, name, coverUrl):
                     QQMusicDetailView(detailType: .artist(mid: mid, name: name, coverUrl: coverUrl))
 
-                case .radioDetail(let id):
+                case let .radioDetail(id):
                     RadioDetailView(radioId: id)
 
-                case .localPlaylist(let id):
+                case let .localPlaylist(id):
                     LocalPlaylistDetailView(playlistId: id)
-
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
@@ -128,19 +128,19 @@ struct LibraryView: View {
                     if viewModel.squareSource == .qq {
                         viewModel.fetchQQSquareData()
                     } else {
-                    viewModel.fetchSquareData()
+                        viewModel.fetchSquareData()
                     }
                 } else if newTab == .artists {
                     if viewModel.artistSource == .qq {
                         viewModel.fetchQQArtistData()
                     } else {
-                    viewModel.fetchArtistData()
+                        viewModel.fetchArtistData()
                     }
                 } else if newTab == .charts {
                     if viewModel.chartsSource == .qq {
                         viewModel.fetchQQTopLists()
                     } else {
-                    viewModel.fetchTopLists()
+                        viewModel.fetchTopLists()
                     }
                 }
             }
@@ -211,16 +211,16 @@ struct LibraryView: View {
             .padding(.bottom, 10)
         } else {
             VStack(spacing: 14) {
-            Text(LocalizedStringKey("tabbar_library"))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .tracking(0)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                Text(LocalizedStringKey("tabbar_library"))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .tracking(0)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
 
-            libraryTabPicker
-        }
-        .padding(.top, DeviceLayout.headerTopPadding)
-        .padding(.bottom, 8)
+                libraryTabPicker
+            }
+            .padding(.top, DeviceLayout.headerTopPadding)
+            .padding(.bottom, 8)
         }
     }
 
@@ -333,7 +333,7 @@ private struct NeumorphicLibraryExperience: View {
                 GeometryReader { geo in
                     let width = geo.size.width
 
-                    HStack(spacing: 0) {
+                    LazyHStack(spacing: 0) {
                         MyPlaylistsContainerView(viewModel: viewModel)
                             .frame(width: width)
                         PlaylistSquareView(viewModel: viewModel)
@@ -535,25 +535,45 @@ struct MyPlaylistsContainerView: View {
                 .padding(.bottom, 14)
             }
 
-            ZStack {
-                LocalPlaylistsView(viewModel: viewModel)
-                    .opacity(selectedSubTab == 0 ? 1 : 0)
-                    .allowsHitTesting(selectedSubTab == 0)
+            if NeumorphicStyle.isActive {
+                activeSubTabContent
+                    .id(selectedSubTab)
+                    .transition(.opacity)
+            } else {
+                ZStack {
+                    LocalPlaylistsView(viewModel: viewModel)
+                        .opacity(selectedSubTab == 0 ? 1 : 0)
+                        .allowsHitTesting(selectedSubTab == 0)
 
-                NetEasePlaylistsView(viewModel: viewModel)
-                    .opacity(selectedSubTab == 1 ? 1 : 0)
-                    .allowsHitTesting(selectedSubTab == 1)
+                    NetEasePlaylistsView(viewModel: viewModel)
+                        .opacity(selectedSubTab == 1 ? 1 : 0)
+                        .allowsHitTesting(selectedSubTab == 1)
 
-                QQPlaylistsView(viewModel: viewModel)
-                    .opacity(selectedSubTab == 2 ? 1 : 0)
-                    .allowsHitTesting(selectedSubTab == 2)
+                    QQPlaylistsView(viewModel: viewModel)
+                        .opacity(selectedSubTab == 2 ? 1 : 0)
+                        .allowsHitTesting(selectedSubTab == 2)
 
-                MyPodcastsView()
-                    .opacity(selectedSubTab == 3 ? 1 : 0)
-                    .allowsHitTesting(selectedSubTab == 3)
+                    MyPodcastsView()
+                        .opacity(selectedSubTab == 3 ? 1 : 0)
+                        .allowsHitTesting(selectedSubTab == 3)
+                }
             }
         }
         .background(Color.clear)
+    }
+
+    @ViewBuilder
+    private var activeSubTabContent: some View {
+        switch selectedSubTab {
+        case 0:
+            LocalPlaylistsView(viewModel: viewModel)
+        case 1:
+            NetEasePlaylistsView(viewModel: viewModel)
+        case 2:
+            QQPlaylistsView(viewModel: viewModel)
+        default:
+            MyPodcastsView()
+        }
     }
 
     private func subTabButton(title: String, index: Int) -> some View {
@@ -807,10 +827,10 @@ struct LocalPlaylistsView: View {
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
             switch result {
-            case .success(let urls):
+            case let .success(urls):
                 guard let url = urls.first else { return }
                 importPlaylistFromFile(url: url)
-            case .failure(let error):
+            case let .failure(error):
                 AlertManager.shared.show(
                     title: String(localized: "lib_import_failed"),
                     message: error.localizedDescription,
@@ -1008,13 +1028,13 @@ struct LocalPlaylistsView: View {
                 var allSongs: [Song] = []
                 let batchSize = 50
                 for i in stride(from: 0, to: ids.count, by: batchSize) {
-                    let batch = Array(ids[i..<min(i + batchSize, ids.count)])
+                    let batch = Array(ids[i ..< min(i + batchSize, ids.count)])
                     do {
                         let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
                             var cancellable: AnyCancellable?
                             cancellable = APIService.shared.fetchSongDetails(ids: batch)
                                 .sink(receiveCompletion: { completion in
-                                    if case .failure(let error) = completion {
+                                    if case let .failure(error) = completion {
                                         continuation.resume(throwing: error)
                                     }
                                     cancellable?.cancel()
@@ -1167,7 +1187,7 @@ struct LocalPlaylistsView: View {
 
                 for (index, kg) in kugouSongs.enumerated() {
                     let keyword = "\(kg.artist) \(kg.title)"
-                    AppLogger.info("[KugouImport] [\(index+1)/\(total)] 搜索: \(keyword)")
+                    AppLogger.info("[KugouImport] [\(index + 1)/\(total)] 搜索: \(keyword)")
 
                     if let song = await searchSongOnPlatforms(title: kg.title, artist: kg.artist) {
                         matchedSongs.append(song)
@@ -1242,7 +1262,7 @@ struct LocalPlaylistsView: View {
         for i in html[startIndex...].indices {
             let ch = html[i]
             if escape { escape = false; continue }
-            if ch == "\\" && inString { escape = true; continue }
+            if ch == "\\", inString { escape = true; continue }
             if ch == "\"" { inString.toggle(); continue }
             if inString { continue }
             if ch == "{" { depth += 1 }
@@ -1255,10 +1275,11 @@ struct LocalPlaylistsView: View {
             }
         }
 
-        let jsonString = String(html[startIndex..<endIndex])
+        let jsonString = String(html[startIndex ..< endIndex])
 
         guard let jsonData = jsonString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        else {
             AppLogger.error("[KugouImport] JSON 解析失败")
             return ("", [])
         }
@@ -1268,7 +1289,8 @@ struct LocalPlaylistsView: View {
         // 实际结构：info.listinfo.name
         if playlistName.isEmpty, let info = json["info"] as? [String: Any],
            let listinfo = info["listinfo"] as? [String: Any],
-           let name = listinfo["name"] as? String {
+           let name = listinfo["name"] as? String
+        {
             playlistName = name
         }
 
@@ -1276,7 +1298,8 @@ struct LocalPlaylistsView: View {
 
         // 实际结构：info.songs[]
         if let info = json["info"] as? [String: Any],
-           let songList = info["songs"] as? [[String: Any]] {
+           let songList = info["songs"] as? [[String: Any]]
+        {
             for item in songList {
                 if let parsed = parseKugouSongItem(item) {
                     songs.append(parsed)
@@ -1286,7 +1309,8 @@ struct LocalPlaylistsView: View {
 
         // 备用：顶层 songs 对象
         if songs.isEmpty, let songObj = json["songs"] as? [String: Any],
-           let list = songObj["list"] as? [[String: Any]] {
+           let list = songObj["list"] as? [[String: Any]]
+        {
             for item in list {
                 if let parsed = parseKugouSongItem(item) {
                     songs.append(parsed)
@@ -1313,7 +1337,7 @@ struct LocalPlaylistsView: View {
             if parts.count >= 2 {
                 let artist = parts[0].trimmingCharacters(in: .whitespaces)
                 let title = parts.dropFirst().joined(separator: " - ").trimmingCharacters(in: .whitespaces)
-                if !artist.isEmpty && !title.isEmpty {
+                if !artist.isEmpty, !title.isEmpty {
                     return KugouSongInfo(title: title, artist: artist)
                 }
             }
@@ -1321,7 +1345,8 @@ struct LocalPlaylistsView: View {
         // 格式 2: singerinfo + remark/songname 分开字段
         if let singerInfo = item["singerinfo"] as? [[String: Any]],
            let firstSinger = singerInfo.first,
-           let singerName = firstSinger["name"] as? String {
+           let singerName = firstSinger["name"] as? String
+        {
             let songName = item["remark"] as? String ?? item["songname"] as? String ?? item["song_name"] as? String ?? ""
             if !songName.isEmpty {
                 return KugouSongInfo(title: songName, artist: singerName)
@@ -1329,7 +1354,8 @@ struct LocalPlaylistsView: View {
         }
         // 格式 3: singername + songname 直接字段
         if let songname = item["songname"] as? String ?? item["song_name"] as? String,
-           let singername = item["singername"] as? String ?? item["author_name"] as? String {
+           let singername = item["singername"] as? String ?? item["author_name"] as? String
+        {
             if !songname.isEmpty {
                 return KugouSongInfo(title: songname, artist: singername)
             }
@@ -1362,7 +1388,7 @@ struct LocalPlaylistsView: View {
                 var cancellable: AnyCancellable?
                 cancellable = APIService.shared.searchSongs(keyword: keyword, offset: 0)
                     .sink(receiveCompletion: { completion in
-                        if case .failure(let error) = completion, !resumed {
+                        if case let .failure(error) = completion, !resumed {
                             resumed = true
                             continuation.resume(throwing: error)
                         }
@@ -1387,7 +1413,7 @@ struct LocalPlaylistsView: View {
                 var cancellable: AnyCancellable?
                 cancellable = APIService.shared.searchQQSongs(keyword: keyword, page: 1, num: 10)
                     .sink(receiveCompletion: { completion in
-                        if case .failure(let error) = completion, !resumed {
+                        if case let .failure(error) = completion, !resumed {
                             resumed = true
                             continuation.resume(throwing: error)
                         }
@@ -1453,7 +1479,7 @@ struct LocalPlaylistsView: View {
                         var cancellable: AnyCancellable?
                         cancellable = APIService.shared.fetchQQPlaylistSongs(playlistId: id, page: page, num: 50)
                             .sink(receiveCompletion: { completion in
-                                if case .failure(let error) = completion, !resumed {
+                                if case let .failure(error) = completion, !resumed {
                                     resumed = true
                                     continuation.resume(throwing: error)
                                 }
@@ -1512,7 +1538,7 @@ struct LocalPlaylistsView: View {
                     var cancellable: AnyCancellable?
                     cancellable = APIService.shared.fetchPlaylistTracks(id: id, limit: 1, offset: 0)
                         .sink(receiveCompletion: { completion in
-                            if case .failure(let error) = completion, !resumed {
+                            if case let .failure(error) = completion, !resumed {
                                 resumed = true
                                 continuation.resume(throwing: error)
                             }
@@ -1536,7 +1562,7 @@ struct LocalPlaylistsView: View {
                         var cancellable: AnyCancellable?
                         cancellable = APIService.shared.fetchPlaylistTracks(id: id, limit: limit, offset: offset)
                             .sink(receiveCompletion: { completion in
-                                if case .failure(let error) = completion, !resumed {
+                                if case let .failure(error) = completion, !resumed {
                                     resumed = true
                                     continuation.resume(throwing: error)
                                 }
@@ -1654,17 +1680,17 @@ struct LocalPlaylistRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(
                     playlist.isFavorite
-                    ? LinearGradient(colors: [.pink.opacity(0.6), .red.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : playlist.isDownload
-                    ? LinearGradient(colors: [.blue.opacity(0.5), .cyan.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : LinearGradient(
-                        colors: [
-                            NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint,
-                            NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                        ? LinearGradient(colors: [.pink.opacity(0.6), .red.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : playlist.isDownload
+                        ? LinearGradient(colors: [.blue.opacity(0.5), .cyan.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : LinearGradient(
+                            colors: [
+                                NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint,
+                                NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                 )
             MonologueIcon(
                 icon: playlist.isFavorite ? .liked : playlist.isDownload ? .download : .musicNoteList,
@@ -2071,7 +2097,8 @@ struct NetEasePlaylistsView: View {
     /// 判断歌单是否为用户自己创建的
     private func isUserCreated(_ playlist: Playlist) -> Bool {
         guard let uid = APIService.shared.currentUserId,
-              let creatorId = playlist.creator?.userId else {
+              let creatorId = playlist.creator?.userId
+        else {
             return false
         }
         return creatorId == uid
@@ -2161,7 +2188,7 @@ struct QQPlaylistsView: View {
         }
     }
 
-    private func loadPlaylists(force: Bool = false) async {
+    private func loadPlaylists(force _: Bool = false) async {
         guard QQUserSession.shared.isLoggedIn else { return }
         guard let mid = QQUserSession.shared.musicId else { return }
         isLoading = true
@@ -2297,7 +2324,7 @@ struct PlaylistSquareView: View {
                     LazyVStack(spacing: 14) {
                         ForEach(buildRows(from: viewModel.squarePlaylists)) { row in
                             if row.isWide, let playlist = row.playlists.first {
-                            NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                                     CinematicCard(playlist: playlist, height: 220)
                                 }
                                 .buttonStyle(CinematicPressStyle())
@@ -2317,12 +2344,12 @@ struct PlaylistSquareView: View {
                             }
                         }
 
-                    if viewModel.isLoadingMoreSquare && viewModel.hasMoreSquarePlaylists {
+                        if viewModel.isLoadingMoreSquare && viewModel.hasMoreSquarePlaylists {
                             MonologueLoadingView(centered: false).padding()
-                    }
-                    if !viewModel.hasMoreSquarePlaylists && !viewModel.squarePlaylists.isEmpty {
-                        NoMoreDataView()
-                    }
+                        }
+                        if !viewModel.hasMoreSquarePlaylists && !viewModel.squarePlaylists.isEmpty {
+                            NoMoreDataView()
+                        }
                     }
                     .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
                     .padding(.top, 8)
@@ -2428,8 +2455,8 @@ struct PlaylistSquareView: View {
                         }
                     } label: {
                         Text(cat.name)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) : .system(size: 13, weight: selected ? .semibold : .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? (selected ? MusicSource.qqmusic.themedBadgeColor : NeumorphicStyle.inkSoft) : (selected ? .monologueIconForeground : .monologueTextPrimary))
+                            .font(categoryFont(selected: selected))
+                            .foregroundColor(categoryForeground(selected: selected, neumorphicTint: MusicSource.qqmusic.themedBadgeColor))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background {
@@ -2444,11 +2471,24 @@ struct PlaylistSquareView: View {
                                     Capsule()
                                         .fill(Color.monologueIconBackground)
                                         .matchedGeometryEffect(id: "qqCatPill", in: categoryNS)
+                                } else if MujiStyle.isActive, selected {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(MujiStyle.clay)
+                                        .matchedGeometryEffect(id: "qqCatPill", in: categoryNS)
                                 }
                             }
                             .background {
-                                if !NeumorphicStyle.isActive {
+                                if MujiStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(selected ? Color.clear : MujiStyle.surface.opacity(0.78))
+                                } else if !NeumorphicStyle.isActive {
                                     Capsule().fill(selected ? Color.clear : Color.monologueGlassTint)
+                                }
+                            }
+                            .overlay {
+                                if MujiStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
                                 }
                             }
                     }
@@ -2475,8 +2515,8 @@ struct PlaylistSquareView: View {
                         }
                     } label: {
                         Text(cat.name)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) : .system(size: 13, weight: selected ? .semibold : .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? (selected ? MusicSource.netease.themedBadgeColor : NeumorphicStyle.inkSoft) : (selected ? .monologueIconForeground : .monologueTextPrimary))
+                            .font(categoryFont(selected: selected))
+                            .foregroundColor(categoryForeground(selected: selected, neumorphicTint: MusicSource.netease.themedBadgeColor))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background {
@@ -2491,11 +2531,24 @@ struct PlaylistSquareView: View {
                                     Capsule()
                                         .fill(Color.monologueIconBackground)
                                         .matchedGeometryEffect(id: "squareCatPill", in: categoryNS)
+                                } else if MujiStyle.isActive, selected {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(MujiStyle.clay)
+                                        .matchedGeometryEffect(id: "squareCatPill", in: categoryNS)
                                 }
                             }
                             .background {
-                                if !NeumorphicStyle.isActive {
+                                if MujiStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(selected ? Color.clear : MujiStyle.surface.opacity(0.78))
+                                } else if !NeumorphicStyle.isActive {
                                     Capsule().fill(selected ? Color.clear : Color.monologueGlassTint)
+                                }
+                            }
+                            .overlay {
+                                if MujiStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
                                 }
                             }
                     }
@@ -2505,6 +2558,26 @@ struct PlaylistSquareView: View {
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
             .padding(.vertical, 14)
         }
+    }
+
+    private func categoryFont(selected: Bool) -> Font {
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium)
+        }
+        if MujiStyle.isActive {
+            return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular)
+        }
+        return .system(size: 13, weight: selected ? .semibold : .medium, design: .rounded)
+    }
+
+    private func categoryForeground(selected: Bool, neumorphicTint: Color) -> Color {
+        if NeumorphicStyle.isActive {
+            return selected ? neumorphicTint : NeumorphicStyle.inkSoft
+        }
+        if MujiStyle.isActive {
+            return selected ? MujiStyle.onTint : MujiStyle.inkSoft
+        }
+        return selected ? .monologueIconForeground : .monologueTextPrimary
     }
 
     // MARK: - Mosaic Layout (Hero → Duo → Duo → repeat)
@@ -2573,7 +2646,7 @@ private struct CinematicCard: View {
                 stops: [
                     .init(color: .clear, location: 0.3),
                     .init(color: .black.opacity(0.25), location: 0.55),
-                    .init(color: .black.opacity(0.82), location: 1.0)
+                    .init(color: .black.opacity(0.82), location: 1.0),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -2617,11 +2690,11 @@ private func cinematicFormatCount(_ count: Int) -> String {
     let lang = Locale.current.language.languageCode?.identifier
     if lang == "zh" {
         if count >= 100_000_000 { return String(format: NSLocalizedString("count_hundred_million", comment: ""), Double(count) / 100_000_000) }
-        if count >= 10_000 { return String(format: NSLocalizedString("count_ten_thousand", comment: ""), Double(count) / 10_000) }
+        if count >= 10000 { return String(format: NSLocalizedString("count_ten_thousand", comment: ""), Double(count) / 10000) }
     } else {
         if count >= 1_000_000_000 { return String(format: "%.1fB", Double(count) / 1_000_000_000) }
         if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
-        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
+        if count >= 1000 { return String(format: "%.1fK", Double(count) / 1000) }
     }
     return "\(count)"
 }
@@ -2790,21 +2863,21 @@ struct ArtistLibraryView: View {
                         filterRow(options: viewModel.artistAreas.map { ($0.name, $0.value) }, selected: $viewModel.artistArea) {
                             viewModel.fetchArtistData(reset: true)
                         }
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     }
                     .scrollIndicators(.hidden)
                     ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistTypes.map { ($0.name, $0.value) }, selected: $viewModel.artistType) {
                             viewModel.fetchArtistData(reset: true)
                         }
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     }
                     .scrollIndicators(.hidden)
                     ScrollView(.horizontal) {
                         filterRow(options: viewModel.artistInitials.map { ($0 == "-1" ? "search_hot" : $0, $0) }, selected: $viewModel.artistInitial) {
                             viewModel.fetchArtistData(reset: true)
                         }
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     }
                     .scrollIndicators(.hidden)
                 }
@@ -3048,6 +3121,8 @@ struct ArtistLibraryView: View {
                             tint: NeumorphicStyle.sage,
                             selected: isSelected
                         )
+                    } else if MujiStyle.isActive {
+                        mujiFilterPill(title: NSLocalizedString(option.0, comment: ""), selected: isSelected)
                     } else {
                         Text(LocalizedStringKey(option.0))
                             .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded))
@@ -3079,6 +3154,8 @@ struct ArtistLibraryView: View {
                             tint: MusicSource.qqmusic.themedBadgeColor,
                             selected: isSelected
                         )
+                    } else if MujiStyle.isActive {
+                        mujiFilterPill(title: NSLocalizedString(option.name, comment: ""), selected: isSelected)
                     } else {
                         Text(LocalizedStringKey(option.name))
                             .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded))
@@ -3091,6 +3168,22 @@ struct ArtistLibraryView: View {
                 .buttonStyle(MonologueBouncingButtonStyle())
             }
         }
+    }
+
+    private func mujiFilterPill(title: String, selected: Bool) -> some View {
+        Text(title)
+            .font(MujiStyle.labelFont(12, weight: selected ? .semibold : .regular))
+            .foregroundStyle(selected ? MujiStyle.onTint : MujiStyle.inkSoft)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(selected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+            )
     }
 
     private func dismissArtistSearchKeyboard() {
@@ -3145,7 +3238,7 @@ struct ChartsLibraryView: View {
     @ObservedObject var viewModel: LibraryViewModel
     typealias Theme = PlaylistDetailView.Theme
 
-    private let officialIds: Set<Int> = [19723756, 3779629, 2884035, 3778678]
+    private let officialIds: Set<Int> = [19_723_756, 3_779_629, 2_884_035, 3_778_678]
 
     private var officialCharts: [TopList] {
         viewModel.topLists.filter { officialIds.contains($0.id) }
@@ -3650,16 +3743,16 @@ private struct MangaLibraryExperience: View {
     private let tabs = LibraryViewModel.LibraryTab.allCases
     private let twoColumns = [
         GridItem(.flexible(), spacing: 13),
-        GridItem(.flexible(), spacing: 13)
+        GridItem(.flexible(), spacing: 13),
     ]
     private let controlColumns = [
         GridItem(.flexible(), spacing: 9),
-        GridItem(.flexible(), spacing: 9)
+        GridItem(.flexible(), spacing: 9),
     ]
     private let threeColumns = [
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.flexible(), spacing: 12),
     ]
 
     var body: some View {
@@ -3703,10 +3796,10 @@ private struct MangaLibraryExperience: View {
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
             switch result {
-            case .success(let urls):
+            case let .success(urls):
                 guard let url = urls.first else { return }
                 importPlaylistFromFile(url: url)
-            case .failure(let error):
+            case let .failure(error):
                 AlertManager.shared.show(
                     title: String(localized: "lib_import_failed"),
                     message: error.localizedDescription,
@@ -4596,13 +4689,13 @@ private struct MangaLibraryExperience: View {
                 let batchSize = 50
 
                 for i in stride(from: 0, to: ids.count, by: batchSize) {
-                    let batch = Array(ids[i..<min(i + batchSize, ids.count)])
+                    let batch = Array(ids[i ..< min(i + batchSize, ids.count)])
                     do {
                         let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
                             var cancellable: AnyCancellable?
                             cancellable = APIService.shared.fetchSongDetails(ids: batch)
                                 .sink(receiveCompletion: { completion in
-                                    if case .failure(let error) = completion {
+                                    if case let .failure(error) = completion {
                                         continuation.resume(throwing: error)
                                     }
                                     cancellable?.cancel()
@@ -4707,7 +4800,7 @@ private struct MangaLibraryExperience: View {
                         var cancellable: AnyCancellable?
                         cancellable = APIService.shared.fetchQQPlaylistSongs(playlistId: id, page: page, num: 50)
                             .sink(receiveCompletion: { completion in
-                                if case .failure(let error) = completion, !resumed {
+                                if case let .failure(error) = completion, !resumed {
                                     resumed = true
                                     continuation.resume(throwing: error)
                                 }
@@ -4765,7 +4858,7 @@ private struct MangaLibraryExperience: View {
                         var cancellable: AnyCancellable?
                         cancellable = APIService.shared.fetchPlaylistTracks(id: id, limit: limit, offset: offset)
                             .sink(receiveCompletion: { completion in
-                                if case .failure(let error) = completion, !resumed {
+                                if case let .failure(error) = completion, !resumed {
                                     resumed = true
                                     continuation.resume(throwing: error)
                                 }
@@ -5228,8 +5321,8 @@ private func mangaFormatCount(_ count: Int) -> String {
     if count >= 100_000_000 {
         return String(format: "%.1f亿", Double(count) / 100_000_000)
     }
-    if count >= 10_000 {
-        return String(format: "%.1f万", Double(count) / 10_000)
+    if count >= 10000 {
+        return String(format: "%.1f万", Double(count) / 10000)
     }
     return "\(count)"
 }

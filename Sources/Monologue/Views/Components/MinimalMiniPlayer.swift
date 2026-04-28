@@ -11,7 +11,44 @@ struct MinimalMiniPlayer: View {
     @State private var showingTabs = false
 
     private var shellCornerRadius: CGFloat {
-        MangaStyle.isActive ? 23 : (NeumorphicStyle.isActive ? 22 : (MujiStyle.isActive ? 16 : 18))
+        MangaStyle.isActive ? 20 : (NeumorphicStyle.isActive ? 22 : (MujiStyle.isActive ? 16 : 18))
+    }
+
+    private var shellHorizontalPadding: CGFloat {
+        if MangaStyle.isActive { return DeviceLayout.isPad ? 16 : 10 }
+        return DeviceLayout.isPad ? 20 : 14
+    }
+
+    private var shellVerticalPadding: CGFloat {
+        MangaStyle.isActive ? 7 : 10
+    }
+
+    private var miniContentSpacing: CGFloat {
+        MangaStyle.isActive ? 8 : 10
+    }
+
+    private var artworkSize: CGFloat {
+        MangaStyle.isActive ? 34 : 40
+    }
+
+    private var artworkCornerRadius: CGFloat {
+        MangaStyle.isActive ? 8 : 10
+    }
+
+    private var transportSpacing: CGFloat {
+        MangaStyle.isActive ? 5 : 6
+    }
+
+    private var compactControlWidth: CGFloat {
+        MangaStyle.isActive ? 27 : 30
+    }
+
+    private var compactControlHeight: CGFloat {
+        MangaStyle.isActive ? 30 : 34
+    }
+
+    private var playButtonSize: CGFloat {
+        MangaStyle.isActive ? 30 : 34
     }
 
     private var subtitleText: String {
@@ -37,8 +74,8 @@ struct MinimalMiniPlayer: View {
                 tabSelectorContent
             }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, shellHorizontalPadding)
+        .padding(.vertical, shellVerticalPadding)
         .background(
             RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
                 .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
@@ -47,19 +84,19 @@ struct MinimalMiniPlayer: View {
         .overlay {
             if MangaStyle.isActive {
                 RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: 2)
+                    .stroke(MangaStyle.strokeInk, lineWidth: 1.6)
                     .overlay(alignment: .topLeading) {
                         HStack(spacing: 0) {
-                            MangaStyle.labelYellow.frame(width: 36, height: 5)
-                            MangaStyle.accentPink.frame(width: 26, height: 5)
-                            MangaStyle.decoBlue.frame(width: 30, height: 5)
+                            MangaStyle.labelYellow.frame(width: 28, height: 4)
+                            MangaStyle.accentPink.frame(width: 20, height: 4)
+                            MangaStyle.decoBlue.frame(width: 24, height: 4)
                         }
                         .clipShape(Capsule())
-                        .offset(x: 18, y: 8)
+                        .offset(x: 15, y: 6)
                     }
                     .overlay(alignment: .bottomTrailing) {
-                        MangaSectionMark(kind: showingTabs ? .star : .heart, tint: showingTabs ? MangaStyle.decoBlue : MangaStyle.bubblePink, size: 15)
-                            .offset(x: -16, y: -5)
+                        MangaSectionMark(kind: showingTabs ? .star : .heart, tint: showingTabs ? MangaStyle.decoBlue : MangaStyle.bubblePink, size: 12)
+                            .offset(x: -14, y: -4)
                     }
             }
         }
@@ -74,12 +111,10 @@ struct MinimalMiniPlayer: View {
                 guard player.currentSong != nil else { return }
                 guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
 
-                let shortSwitchLimit: CGFloat = 44
                 let threshold: CGFloat = 15
 
                 if !showingTabs {
-                    guard value.translation.width < -threshold,
-                          abs(value.translation.width) <= shortSwitchLimit else { return }
+                    guard value.translation.width < -threshold else { return }
                     withAnimation(MonologueAnimation.panelToggle) {
                         showingTabs = true
                     }
@@ -96,7 +131,7 @@ struct MinimalMiniPlayer: View {
     // MARK: - 迷你播放器内容
 
     private var miniPlayerContent: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: miniContentSpacing) {
             // 封面
             Group {
                 if let song = player.currentSong {
@@ -108,8 +143,8 @@ struct MinimalMiniPlayer: View {
                     defaultVinylCover
                 }
             }
-            .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(width: artworkSize, height: artworkSize)
+            .clipShape(RoundedRectangle(cornerRadius: artworkCornerRadius, style: .continuous))
             .overlay {
                 if player.playSource == .fm {
                     sourceIndicator(icon: .fm)
@@ -137,7 +172,7 @@ struct MinimalMiniPlayer: View {
             Spacer(minLength: 4)
 
             // 控制按钮
-            HStack(spacing: 6) {
+            HStack(spacing: transportSpacing) {
                 transportButton(icon: .previous, accessibilityLabel: String(localized: "上一首")) {
                     player.previous()
                 }
@@ -146,7 +181,7 @@ struct MinimalMiniPlayer: View {
                     ZStack {
                         Circle()
                             .fill(controlFill)
-                            .frame(width: 34, height: 34)
+                            .frame(width: playButtonSize, height: playButtonSize)
                             .overlay(controlStroke)
 
                         if player.isLoading {
@@ -156,7 +191,7 @@ struct MinimalMiniPlayer: View {
                         } else {
                             MonologueIcon(
                                 icon: player.isPlaying ? .pause : .play,
-                                size: 14,
+                                size: MangaStyle.isActive ? 13 : 14,
                                 color: controlForeground
                             )
                         }
@@ -169,8 +204,8 @@ struct MinimalMiniPlayer: View {
                 }
 
                 Button(action: { showPlaylist.toggle() }) {
-                    MonologueIcon(icon: .list, size: 15, color: transportControlColor, lineWidth: 1.7)
-                        .frame(width: 30, height: 34)
+                    MonologueIcon(icon: .list, size: MangaStyle.isActive ? 14 : 15, color: transportControlColor, lineWidth: 1.7)
+                        .frame(width: compactControlWidth, height: compactControlHeight)
                         .background(compactControlBackground)
                         .contentShape(Rectangle())
                 }
@@ -200,11 +235,11 @@ struct MinimalMiniPlayer: View {
     private var defaultVinylCover: some View {
         ZStack {
             if MangaStyle.isActive {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(MangaStyle.paperCool)
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.35))
 
-                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 18, foreground: MangaStyle.strokeInk)
+                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 15, foreground: MangaStyle.strokeInk)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(MujiStyle.paperWarm)
@@ -257,7 +292,7 @@ struct MinimalMiniPlayer: View {
                     VStack(spacing: 3) {
                         MonologueIcon(
                             icon: tab.monologueIcon,
-                            size: 18,
+                            size: MangaStyle.isActive ? 16 : 18,
                             color: tabForeground(tab, selected: currentTab == tab)
                         )
                         Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
@@ -265,7 +300,7 @@ struct MinimalMiniPlayer: View {
                             .foregroundColor(tabForeground(tab, selected: currentTab == tab))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, MangaStyle.isActive ? 3 : 5)
                     .background {
                         if ThemedPageStyle.isActive && currentTab == tab {
                             tabSelectionBackground(tab)
@@ -293,8 +328,8 @@ struct MinimalMiniPlayer: View {
             HapticManager.shared.light()
             action()
         } label: {
-            MonologueIcon(icon: icon, size: 14, color: transportControlColor, lineWidth: 1.7)
-                .frame(width: 30, height: 34)
+            MonologueIcon(icon: icon, size: MangaStyle.isActive ? 13 : 14, color: transportControlColor, lineWidth: 1.7)
+                .frame(width: compactControlWidth, height: compactControlHeight)
                 .background(compactControlBackground)
                 .contentShape(Rectangle())
         }
@@ -303,14 +338,14 @@ struct MinimalMiniPlayer: View {
     }
 
     private var titleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if MangaStyle.isActive { return MangaStyle.bodyFont(12, weight: .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
 
     private var subtitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
+        if MangaStyle.isActive { return MangaStyle.bodyFont(10, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         return .rounded(size: 11, weight: .medium)
@@ -421,9 +456,9 @@ struct MinimalMiniPlayer: View {
     @ViewBuilder
     private func tabSelectionBackground(_ tab: Tab) -> some View {
         if MangaStyle.isActive {
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(mangaTabTint(tab).opacity(0.86))
-                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MujiStyle.surface.opacity(0.74))

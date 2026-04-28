@@ -24,7 +24,7 @@ struct AppearanceSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var isGlobalThemeExpanded = false
     @State private var isAppBrandStyleExpanded = false
-    @State private var isThemeColorExpanded = true
+    @State private var isThemeColorExpanded = false
 
     var body: some View {
         ZStack {
@@ -43,7 +43,10 @@ struct AppearanceSettingsView: View {
                         if ThemeColorCustomization.supports(settings.globalThemeId) {
                             themeColorCustomizationSection
                         }
-                        appearanceSection
+                        appIconSection
+                        layoutSection
+                        contentExperienceSection
+                        dynamicBackgroundSection
                         lyricSection
                         FloatingBarBottomSpacer()
                     }
@@ -70,8 +73,8 @@ struct AppearanceSettingsView: View {
         )
     }
 
-    private var appearanceSection: some View {
-        SettingsSection(title: String(localized: "settings_appearance")) {
+    private var appIconSection: some View {
+        SettingsSection(title: String(localized: "settings_appearance_app_icon_section")) {
             VStack(spacing: 0) {
                 SettingsAppBrandRow(
                     title: String(localized: "settings_app_brand_title"),
@@ -89,11 +92,13 @@ struct AppearanceSettingsView: View {
                         }
                     }
                 )
+            }
+        }
+    }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
+    private var layoutSection: some View {
+        SettingsSection(title: String(localized: "settings_appearance_layout_section")) {
+            VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .tabBar,
                     title: String(localized: "settings_system_tab_bar"),
@@ -114,11 +119,13 @@ struct AppearanceSettingsView: View {
                         )
                     )
                 }
+            }
+        }
+    }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
+    private var contentExperienceSection: some View {
+        SettingsSection(title: String(localized: "settings_appearance_content_feedback_section")) {
+            VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .hitokoto,
                     title: String(localized: "settings_hitokoto"),
@@ -147,11 +154,13 @@ struct AppearanceSettingsView: View {
                     subtitle: String(localized: "settings_haptic_desc"),
                     isOn: $settings.hapticFeedback
                 )
+            }
+        }
+    }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
+    private var dynamicBackgroundSection: some View {
+        SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
+            VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .layers,
                     title: String(localized: "settings_cover_bg_global"),
@@ -190,7 +199,7 @@ struct AppearanceSettingsView: View {
     // MARK: - 全局主题
 
     private var globalThemeSection: some View {
-        SettingsSection(title: String(localized: "全局主题")) {
+        SettingsSection(title: String(localized: "settings_appearance_global_theme_section")) {
             VStack(spacing: 0) {
                 Button {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
@@ -201,7 +210,7 @@ struct AppearanceSettingsView: View {
                         SettingsIconBadge(icon: .playerTheme)
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(String(localized: "主题风格"))
+                            Text(String(localized: "settings_appearance_theme_style"))
                                 .font(appearanceSettingsFont(15, weight: .medium))
                                 .foregroundColor(.monologueTextPrimary)
 
@@ -429,6 +438,7 @@ private struct ThemeColorCustomizationSection: View {
                 SettingsDisclosureReveal(isExpanded: isExpanded) {
                     VStack(alignment: .leading, spacing: 14) {
                         presetRail
+                        saveCurrentPresetButton
 
                         Divider().opacity(0.35)
 
@@ -469,15 +479,25 @@ private struct ThemeColorCustomizationSection: View {
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            ThemeColorPreviewSwatch(
-                                colors: [Color(hex: preset.accentStartHex), Color(hex: preset.accentEndHex)],
+                            ThemeColorPresetPreviewSwatch(
+                                theme: theme,
+                                preset: preset,
                                 cornerRadius: theme == .manga ? 8 : 10
                             )
                             .frame(width: isSelected ? 31 : 28, height: isSelected ? 31 : 28)
 
-                            Text(preset.name)
-                                .font(appearanceSettingsFont(12, weight: isSelected ? .bold : .semibold))
-                                .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(preset.name)
+                                    .font(appearanceSettingsFont(12, weight: isSelected ? .bold : .semibold))
+                                    .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+
+                                if preset.isCustom {
+                                    Text(String(localized: "已存"))
+                                        .font(appearanceSettingsFont(8.5, weight: .semibold))
+                                        .foregroundStyle(themeSubtextColor.opacity(0.72))
+                                        .textCase(.uppercase)
+                                }
+                            }
 
                             selectedPresetMark(isSelected: isSelected)
                         }
@@ -493,10 +513,41 @@ private struct ThemeColorCustomizationSection: View {
         }
     }
 
+    private var saveCurrentPresetButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                ThemeColorCustomization.saveCurrentPreset(for: theme)
+            }
+        } label: {
+            HStack(spacing: 9) {
+                MonologueIcon(icon: .add, size: 10, color: savePresetIconColor, lineWidth: 1.8)
+                    .frame(width: 23, height: 23)
+                    .background(savePresetIconBackground)
+
+                Text(String(localized: "保存当前方案"))
+                    .font(appearanceSettingsFont(12, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer(minLength: 6)
+
+                let count = ThemeColorCustomization.savedPresets(for: theme).count
+                if count > 0 {
+                    Text(String(localized: "已保存 \(count)"))
+                        .font(appearanceSettingsFont(10, weight: .medium))
+                        .foregroundStyle(themeSubtextColor.opacity(0.78))
+                }
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 9)
+            .background(savePresetButtonBackground)
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+    }
+
     private func colorRoleEditor(role: ThemeCustomColorRole) -> some View {
         let usesSingleColor = role == .accent || (theme == .muji && role == .background)
 
-        VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(roleTitle(role))
                     .font(appearanceSettingsFont(13, weight: .semibold))
@@ -583,6 +634,12 @@ private struct ThemeColorCustomizationSection: View {
                     binding: mangaColorBinding(suffix: "stroke", fallback: "17151F")
                 )
             }
+
+            colorPickerPill(
+                title: String(localized: "设置小图标"),
+                target: .manga(suffix: "settingsIcon", title: String(localized: "设置项小图标"), fallback: "17151F"),
+                binding: mangaColorBinding(suffix: "settingsIcon", fallback: "17151F")
+            )
         }
     }
 
@@ -782,6 +839,112 @@ private struct ThemeColorCustomizationSection: View {
         } else {
             Circle()
                 .fill(NeumorphicStyle.accent)
+        }
+    }
+
+    private var savePresetIconColor: Color {
+        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .muji { return MujiStyle.onTint }
+        return Color(light: .white, dark: .black)
+    }
+
+    @ViewBuilder
+    private var savePresetIconBackground: some View {
+        if theme == .manga {
+            Circle()
+                .fill(MangaStyle.labelYellow)
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.1))
+        } else if theme == .muji {
+            Circle()
+                .fill(MujiStyle.clay.opacity(0.82))
+        } else {
+            Circle()
+                .fill(NeumorphicStyle.accent)
+                .shadow(color: NeumorphicStyle.accent.opacity(0.18), radius: 5, x: 0, y: 3)
+        }
+    }
+
+    @ViewBuilder
+    private var savePresetButtonBackground: some View {
+        if theme == .manga {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.25))
+                .shadow(color: MangaStyle.strokeInk.opacity(0.12), radius: 0, x: 2, y: 2)
+        } else if theme == .muji {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.74))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
+                .overlay(MujiPaperTexture(opacity: 0.065).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous)))
+        } else {
+            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08))
+        }
+    }
+}
+
+private struct ThemeColorPresetPreviewSwatch: View {
+    let theme: GlobalThemeId
+    let preset: ThemeColorPreset
+    var cornerRadius: CGFloat
+
+    var body: some View {
+        if theme == .manga {
+            mangaSwatch
+        } else {
+            ThemeColorPreviewSwatch(
+                colors: [Color(hex: preset.accentStartHex), Color(hex: preset.accentEndHex)],
+                cornerRadius: cornerRadius
+            )
+        }
+    }
+
+    private var mangaSwatch: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            let stroke = Color(hex: preset.mangaStrokeHex ?? "17151F")
+            let accent = Color(hex: preset.accentStartHex)
+            let blockA = Color(hex: preset.mangaBlockAHex ?? "FFE067")
+            let blockB = Color(hex: preset.mangaBlockBHex ?? "58B9FF")
+            let blockC = Color(hex: preset.mangaBlockCHex ?? "8DE4B8")
+
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: preset.backgroundStartHex), Color(hex: preset.backgroundEndHex)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Circle()
+                    .fill(blockA)
+                    .frame(width: size.width * 0.32, height: size.width * 0.32)
+                    .overlay(Circle().stroke(stroke, lineWidth: 1.1))
+                    .position(x: size.width * 0.32, y: size.height * 0.34)
+
+                RoundedRectangle(cornerRadius: size.width * 0.1, style: .continuous)
+                    .fill(blockB)
+                    .frame(width: size.width * 0.38, height: size.height * 0.21)
+                    .overlay(RoundedRectangle(cornerRadius: size.width * 0.1, style: .continuous).stroke(stroke, lineWidth: 1))
+                    .position(x: size.width * 0.67, y: size.height * 0.38)
+
+                RoundedRectangle(cornerRadius: size.width * 0.08, style: .continuous)
+                    .fill(blockC)
+                    .frame(width: size.width * 0.42, height: size.height * 0.18)
+                    .overlay(RoundedRectangle(cornerRadius: size.width * 0.08, style: .continuous).stroke(stroke, lineWidth: 1))
+                    .position(x: size.width * 0.4, y: size.height * 0.72)
+
+                Circle()
+                    .fill(accent)
+                    .frame(width: size.width * 0.18, height: size.width * 0.18)
+                    .overlay(Circle().stroke(stroke, lineWidth: 0.9))
+                    .position(x: size.width * 0.76, y: size.height * 0.72)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(stroke, lineWidth: 1.35)
+            )
         }
     }
 }

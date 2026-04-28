@@ -18,10 +18,10 @@ struct PodcastView: View {
 
         static func == (lhs: PodcastDestination, rhs: PodcastDestination) -> Bool {
             switch (lhs, rhs) {
-            case (.category(let a), .category(let b)): return a == b
-            case (.radioDetail(let a), .radioDetail(let b)): return a == b
+            case let (.category(a), .category(b)): return a == b
+            case let (.radioDetail(a), .radioDetail(b)): return a == b
             case (.search, .search): return true
-            case (.topList(let a, _), .topList(let b, _)): return a == b
+            case let (.topList(a, _), .topList(b, _)): return a == b
             case (.categoryBrowse, .categoryBrowse): return true
             case (.broadcastList, .broadcastList): return true
             default: return false
@@ -30,10 +30,10 @@ struct PodcastView: View {
 
         func hash(into hasher: inout Hasher) {
             switch self {
-            case .category(let cat): hasher.combine("category"); hasher.combine(cat)
-            case .radioDetail(let id): hasher.combine("radio"); hasher.combine(id)
+            case let .category(cat): hasher.combine("category"); hasher.combine(cat)
+            case let .radioDetail(id): hasher.combine("radio"); hasher.combine(id)
             case .search: hasher.combine("search")
-            case .topList(let title, _): hasher.combine("topList"); hasher.combine(title)
+            case let .topList(title, _): hasher.combine("topList"); hasher.combine(title)
             case .categoryBrowse: hasher.combine("categoryBrowse")
             case .broadcastList: hasher.combine("broadcastList")
             }
@@ -49,7 +49,7 @@ struct PodcastView: View {
                     MonologueLoadingView(text: "LOADING")
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 28) {
+                        LazyVStack(alignment: .leading, spacing: 28) {
                             if MangaStyle.isActive {
                                 mangaPodcastHeader
                             } else if MujiStyle.isActive {
@@ -138,16 +138,16 @@ struct PodcastView: View {
             }
             .navigationDestination(for: PodcastDestination.self) { destination in
                 switch destination {
-                case .category(let cat):
+                case let .category(cat):
                     CategoryRadioView(category: cat)
 
-                case .radioDetail(let radioId):
+                case let .radioDetail(radioId):
                     RadioDetailView(radioId: radioId)
 
                 case .search:
                     PodcastSearchView()
 
-                case .topList(let title, let listType):
+                case let .topList(title, listType):
                     TopRadioListView(title: title, listType: listType)
 
                 case .categoryBrowse:
@@ -155,7 +155,6 @@ struct PodcastView: View {
 
                 case .broadcastList:
                     BroadcastListView()
-
                 }
             }
         }
@@ -174,7 +173,6 @@ struct PodcastView: View {
         }
         .fullScreenCover(item: $bannerWebURL) { url in
             MonologueWebView(url: url, title: nil)
-
         }
         .onChange(of: radioIdToOpen) { _, newId in
             if newId > 0 {
@@ -371,7 +369,8 @@ struct PodcastView: View {
                     let response = try await APIService.shared.ncm.djProgramDetail(id: banner.targetId)
                     if let program = response.body["program"] as? [String: Any],
                        let radio = program["radio"] as? [String: Any],
-                       let rid = radio["id"] as? Int {
+                       let rid = radio["id"] as? Int
+                    {
                         await MainActor.run {
                             radioIdToOpen = rid
                         }
@@ -422,15 +421,15 @@ struct PodcastView: View {
                             selected: true
                         )
                     } else {
-                    HStack(spacing: 6) {
-                        MonologueIcon(icon: .gridSquare, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
-                        Text("podcast_all")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(.monologueIconForeground)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(Color.monologueIconBackground))
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: .gridSquare, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
+                            Text("podcast_all")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(.monologueIconForeground)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.monologueIconBackground))
                     }
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -461,15 +460,15 @@ struct PodcastView: View {
                                 icon: cat.monologueIconType
                             )
                         } else {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: cat.monologueIconType, size: 18, color: .monologueTextPrimary, lineWidth: 1.4)
-                            Text(cat.name)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Capsule().fill(Color.monologueGlassTint))
+                            HStack(spacing: 6) {
+                                MonologueIcon(icon: cat.monologueIconType, size: 18, color: .monologueTextPrimary, lineWidth: 1.4)
+                                Text(cat.name)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(.monologueTextPrimary)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Capsule().fill(Color.monologueGlassTint))
                         }
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
@@ -489,9 +488,17 @@ struct PodcastView: View {
 
     // MARK: - 布局常量
 
-    private var padH: CGFloat { DeviceLayout.viewHorizontalPadding }
-    private var compactCardSize: CGFloat { DeviceLayout.isPad ? 170 : 130 }
-    private var broadcastCardSize: CGFloat { DeviceLayout.isPad ? 160 : 120 }
+    private var padH: CGFloat {
+        DeviceLayout.viewHorizontalPadding
+    }
+
+    private var compactCardSize: CGFloat {
+        DeviceLayout.isPad ? 170 : 130
+    }
+
+    private var broadcastCardSize: CGFloat {
+        DeviceLayout.isPad ? 160 : 120
+    }
 
     // MARK: - 为你推荐（自适应网格）
 
@@ -577,7 +584,7 @@ struct PodcastView: View {
                     .multilineTextAlignment(.leading)
 
                 if let dj = radio.dj?.nickname {
-                        Text(dj)
+                    Text(dj)
                         .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded)))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
@@ -645,7 +652,7 @@ struct PodcastView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(Array(viewModel.newestPrograms.enumerated()), id: \.offset) { index, program in
+                    ForEach(Array(viewModel.newestPrograms.enumerated()), id: \.offset) { _, program in
                         Button {
                             HapticStyle.light.trigger()
                             if let radioId = program.creativeExtInfoVO?.djProgram?.radio?.id {
@@ -1119,50 +1126,50 @@ struct PodcastView: View {
                 .padding(.horizontal, padH)
             } else {
                 HStack {
-                Text(LocalizedStringKey("profile_recently_played"))
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    Text(LocalizedStringKey("profile_recently_played"))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
 
-                Spacer()
+                    Spacer()
 
-                HStack(spacing: 12) {
-                    Button(action: {
-                        HapticStyle.light.trigger()
-                        playerManager.clearPodcastHistory()
-                    }) {
-                        HStack(spacing: 4) {
-                            MonologueIcon(icon: .trash, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                            Text(LocalizedStringKey("storage_clear"))
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            HapticStyle.light.trigger()
+                            playerManager.clearPodcastHistory()
+                        }) {
+                            HStack(spacing: 4) {
+                                MonologueIcon(icon: .trash, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                                Text(LocalizedStringKey("storage_clear"))
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                            }
+                            .foregroundColor(.monologueTextSecondary)
                         }
-                        .foregroundColor(.monologueTextSecondary)
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
 
-                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
-                        HStack(spacing: 4) {
-                            Text(LocalizedStringKey("view_all"))
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                        NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
+                            HStack(spacing: 4) {
+                                Text(LocalizedStringKey("view_all"))
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                            }
+                            .foregroundColor(.monologueTextSecondary)
                         }
-                        .foregroundColor(.monologueTextSecondary)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, padH)
+                .padding(.horizontal, padH)
             }
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
                     ForEach(uniquePodcastHistory.prefix(10)) { song in
                         podcastHistoryCard(song: song)
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
-                            content
-                                .scaleEffect(phase.isIdentity ? 1 : 0.93)
-                                .opacity(phase.isIdentity ? 1 : 0.5)
-                                .offset(y: phase.isIdentity ? 0 : phase.value * 8)
-                        }
+                            .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                                content
+                                    .scaleEffect(phase.isIdentity ? 1 : 0.93)
+                                    .opacity(phase.isIdentity ? 1 : 0.5)
+                                    .offset(y: phase.isIdentity ? 0 : phase.value * 8)
+                            }
                     }
                 }
                 .scrollTargetLayout()
@@ -1344,8 +1351,8 @@ struct PodcastView: View {
     private func formatCount(_ count: Int) -> String {
         if count >= 100_000_000 {
             return String(format: String(localized: "%.1f亿"), Double(count) / 100_000_000)
-        } else if count >= 10_000 {
-            return String(format: String(localized: "%.1f万"), Double(count) / 10_000)
+        } else if count >= 10000 {
+            return String(format: String(localized: "%.1f万"), Double(count) / 10000)
         }
         return "\(count)"
     }

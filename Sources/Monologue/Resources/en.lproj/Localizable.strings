@@ -178,6 +178,13 @@
 /* Settings */
 "settings_title" = "Settings";
 "settings_appearance" = "Appearance & Interaction";
+"settings_appearance_global_theme_section" = "Global Theme";
+"settings_appearance_theme_style" = "Theme Style";
+"settings_appearance_app_icon_section" = "App Icon";
+"settings_appearance_layout_section" = "Interface Layout";
+"settings_appearance_content_feedback_section" = "Content & Feedback";
+"settings_appearance_dynamic_background_section" = "Dynamic Background";
+"settings_theme_mode_section_title" = "Light & Dark Mode";
 "settings_theme_mode" = "Theme Mode";
 "settings_liquid_glass" = "Liquid Glass Effect";
 "settings_liquid_glass_desc" = "iOS 26 style advanced visual effects";

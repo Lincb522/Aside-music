@@ -352,7 +352,7 @@ struct ProfileView: View {
     }
 
     private var neumorphicProfileMetricDeck: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             NeumorphicProfileMetricTile(
                 value: formatNumber(listenSongs ?? 0),
                 label: String(localized: "profile_total_songs"),
@@ -1770,41 +1770,39 @@ private struct NeumorphicProfileMetricTile: View {
     let icon: MonologueIcon.IconType
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                MonologueIcon(icon: icon, size: 15, color: tint, lineWidth: 1.55)
-                    .frame(width: 34, height: 34)
-                    .background(
-                        NeumorphicSurfaceBackground(
-                            cornerRadius: 12,
-                            elevated: false,
-                            pressed: true,
-                            tint: tint.opacity(0.15)
-                        )
+        HStack(spacing: 8) {
+            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.55)
+                .frame(width: 28, height: 28)
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 10,
+                        elevated: false,
+                        pressed: true,
+                        tint: tint.opacity(0.16)
                     )
-
-                Spacer(minLength: 0)
-            }
+                )
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(value)
-                    .font(NeumorphicStyle.titleFont(20, weight: .semibold))
+                    .font(NeumorphicStyle.titleFont(15, weight: .semibold))
                     .foregroundStyle(NeumorphicStyle.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
 
                 Text(label)
-                    .font(NeumorphicStyle.labelFont(10, weight: .medium))
+                    .font(NeumorphicStyle.labelFont(8.5, weight: .medium))
                     .foregroundStyle(NeumorphicStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.68)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-        .padding(14)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
+        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.28), lineWidth: 0.7)
         }
     }

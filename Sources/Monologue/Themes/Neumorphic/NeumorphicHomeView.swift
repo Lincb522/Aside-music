@@ -40,7 +40,7 @@ struct NeumorphicHomeView: View {
     @State private var bannerWebURL: URL?
     @State private var appeared = false
     @State private var hitokotoRefreshing = false
-    @State private var selectedModule: NeumorphicHomeModule = .newSongs
+    @State private var selectedModule: NeumorphicHomeModule = .playlists
     @State private var deckExpanded = false
     @State private var bannerIndex = 0
     @Namespace private var moduleNamespace
@@ -86,7 +86,7 @@ struct NeumorphicHomeView: View {
 
     private var scrollBody: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            LazyVStack(spacing: 24) {
                 topConsole
                     .neumorphicStagger(appeared, order: 0)
 
@@ -323,7 +323,7 @@ struct NeumorphicHomeView: View {
     private var signalBannerRail: some View {
         let banners = Array(viewModel.banners.prefix(8))
 
-        VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 12) {
             sectionHeader(
                 title: String(localized: "精选推荐"),
                 subtitle: nil,
@@ -419,7 +419,7 @@ struct NeumorphicHomeView: View {
 
                 Spacer()
 
-                if selectedModule != .newSongs {
+                if selectedModule == .playlists {
                     Button {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
                             deckExpanded.toggle()
@@ -527,6 +527,9 @@ struct NeumorphicHomeView: View {
                 Button {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         selectedModule = module
+                        if module != .playlists {
+                            deckExpanded = false
+                        }
                     }
                 } label: {
                     HStack(spacing: 6) {
@@ -610,7 +613,7 @@ struct NeumorphicHomeView: View {
     private var playlistsDrawer: some View {
         VStack(spacing: 12) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(Array(mergedPlaylists.prefix(deckExpanded ? 8 : 4))) { playlist in
+                ForEach(visibleMergedPlaylists, id: \.neumorphicHomePlaylistKey) { playlist in
                     Button {
                         navigationPath.append(HomeView.HomeDestination.playlist(playlist))
                     } label: {
@@ -717,12 +720,17 @@ struct NeumorphicHomeView: View {
     }
 
     private var mergedPlaylists: [Playlist] {
-        var seen = Set<Int>()
+        var seen = Set<String>()
         return (viewModel.recommendPlaylists + viewModel.qqRecommendPlaylists).filter { playlist in
-            if seen.contains(playlist.id) { return false }
-            seen.insert(playlist.id)
+            let key = playlist.neumorphicHomePlaylistKey
+            if seen.contains(key) { return false }
+            seen.insert(key)
             return true
         }
+    }
+
+    private var visibleMergedPlaylists: [Playlist] {
+        deckExpanded ? mergedPlaylists : Array(mergedPlaylists.prefix(4))
     }
 
     private var visibleQQNewSongs: [Song] {
@@ -1044,5 +1052,11 @@ private struct NeumorphicHomeDiscoveryTile: View {
             .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, tint: tint.opacity(0.1)))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+    }
+}
+
+private extension Playlist {
+    var neumorphicHomePlaylistKey: String {
+        "\(source?.rawValue ?? "netease")-\(id)"
     }
 }

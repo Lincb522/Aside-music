@@ -188,7 +188,7 @@ struct SettingsView: View {
     // MARK: - 日夜模式
 
     private var themeSection: some View {
-        SettingsSection(title: String(localized: "settings_appearance")) {
+        SettingsSection(title: String(localized: "settings_theme_mode_section_title")) {
             SettingsThemeRow(
                 icon: .sparkle,
                 title: String(localized: "settings_theme_mode"),
@@ -232,7 +232,7 @@ struct SettingsView: View {
 
     private var mangaSettingsModePanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            MangaSectionTitle(title: String(localized: "settings_appearance"), mark: .star)
+            MangaSectionTitle(title: String(localized: "settings_theme_mode_section_title"), mark: .star)
 
             SettingsThemeRow(
                 icon: .sparkle,
@@ -1034,21 +1034,26 @@ struct SettingsIconBadge: View {
         let _ = settings.globalThemeRevision
 
         if MangaStyle.isActive {
-            MonologueIcon(icon: icon, size: 15, color: MangaStyle.onStrokeInk, lineWidth: 1.8)
-                .frame(width: 32, height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(MangaStyle.accentPink)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MangaStyle.strokeInk, lineWidth: 1.7)
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(MangaStyle.strokeInk)
-                        .offset(x: 1.8, y: 1.8)
-                )
+            MonologueIcon(
+                icon: icon,
+                size: 15,
+                color: ThemeColorCustomization.mangaExtraColor(suffix: "settingsIcon", lightFallback: "17151F", darkFallback: "17151F"),
+                lineWidth: 1.8
+            )
+            .frame(width: 32, height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(MangaStyle.accentPink)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(MangaStyle.strokeInk, lineWidth: 1.7)
+            )
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(MangaStyle.strokeInk)
+                    .offset(x: 1.8, y: 1.8)
+            )
         } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else if MujiStyle.isActive {
