@@ -177,61 +177,73 @@ struct NeumorphicSurfaceBackground: View {
         let lightOffset: CGFloat = lightweight ? (elevated ? -3 : -2) : (elevated ? -5 : -2.5)
         let darkIntensity: Double = lightweight ? (elevated ? 0.52 : 0.24) : (elevated ? 0.68 : 0.34)
         let lightIntensity: Double = lightweight ? (elevated ? 0.7 : 0.34) : (elevated ? 0.86 : 0.48)
+        let fillGradient = LinearGradient(
+            colors: [
+                (tint ?? (pressed ? NeumorphicStyle.surfacePressed : NeumorphicStyle.surfaceRaised)).opacity(pressed ? 0.96 : 1),
+                (tint ?? NeumorphicStyle.surface).opacity(0.96),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        let strokeGradient = LinearGradient(
+            colors: [
+                NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.7 : 0.82),
+                NeumorphicStyle.darkShadow(colorScheme, intensity: 0.22),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        let strokeWidth: CGFloat = lightweight ? (pressed ? 0.85 : 0.65) : (pressed ? 1.2 : 0.8)
 
-        shape
-            .fill(
-                LinearGradient(
-                    colors: [
-                        (tint ?? (pressed ? NeumorphicStyle.surfacePressed : NeumorphicStyle.surfaceRaised)).opacity(pressed ? 0.96 : 1),
-                        (tint ?? NeumorphicStyle.surface).opacity(0.96),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+        if lightweight && pressed {
+            shape
+                .fill(fillGradient)
+                .overlay(
+                    shape.stroke(strokeGradient, lineWidth: strokeWidth)
                 )
-            )
-            .overlay(
-                shape.stroke(
-                    LinearGradient(
-                        colors: [
-                            NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.7 : 0.82),
-                            NeumorphicStyle.darkShadow(colorScheme, intensity: 0.22),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: lightweight ? (pressed ? 0.85 : 0.65) : (pressed ? 1.2 : 0.8)
-                )
-            )
-            .shadow(
-                color: pressed ? .clear : NeumorphicStyle.darkShadow(colorScheme, intensity: darkIntensity),
-                radius: darkShadowRadius,
-                x: darkOffset,
-                y: darkOffset
-            )
-            .shadow(
-                color: pressed ? .clear : NeumorphicStyle.lightShadow(colorScheme, intensity: lightIntensity),
-                radius: lightShadowRadius,
-                x: lightOffset,
-                y: lightOffset
-            )
-            .overlay {
-                if pressed && !lightweight {
-                    shape
-                        .stroke(NeumorphicStyle.darkShadow(colorScheme, intensity: 0.52), lineWidth: 1)
-                        .blur(radius: 0.8)
-                        .offset(x: 1.3, y: 1.3)
-                        .clipShape(shape)
-                    shape
-                        .stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.78), lineWidth: 1)
-                        .blur(radius: 0.8)
-                        .offset(x: -1.3, y: -1.3)
-                        .clipShape(shape)
+                .transaction { transaction in
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
                 }
-            }
-            .transaction { transaction in
-                transaction.animation = nil
-                transaction.disablesAnimations = true
-            }
+                .themeRenderRowLayer()
+        } else {
+            shape
+                .fill(fillGradient)
+                .overlay(
+                    shape.stroke(strokeGradient, lineWidth: strokeWidth)
+                )
+                .shadow(
+                    color: pressed ? .clear : NeumorphicStyle.darkShadow(colorScheme, intensity: darkIntensity),
+                    radius: darkShadowRadius,
+                    x: darkOffset,
+                    y: darkOffset
+                )
+                .shadow(
+                    color: pressed ? .clear : NeumorphicStyle.lightShadow(colorScheme, intensity: lightIntensity),
+                    radius: lightShadowRadius,
+                    x: lightOffset,
+                    y: lightOffset
+                )
+                .overlay {
+                    if pressed && !lightweight {
+                        shape
+                            .stroke(NeumorphicStyle.darkShadow(colorScheme, intensity: 0.52), lineWidth: 1)
+                            .blur(radius: 0.8)
+                            .offset(x: 1.3, y: 1.3)
+                            .clipShape(shape)
+                        shape
+                            .stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.78), lineWidth: 1)
+                            .blur(radius: 0.8)
+                            .offset(x: -1.3, y: -1.3)
+                            .clipShape(shape)
+                    }
+                }
+                .transaction { transaction in
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
+                }
+                .themeRenderLayer(lightweight ? .row : .surface)
+        }
     }
 }
 
@@ -246,6 +258,7 @@ struct NeumorphicIconBadge: View {
             .overlay(
                 MonologueIcon(icon: icon, size: size * 0.42, color: tint, lineWidth: 1.55)
             )
+            .themeRenderInteractiveLayer()
     }
 }
 
@@ -279,6 +292,7 @@ struct NeumorphicPill: View {
                 lightweight: true
             )
         )
+        .themeRenderInteractiveLayer()
     }
 
     private var foreground: Color {
@@ -306,6 +320,7 @@ struct NeumorphicPlayPill: View {
                 .fill(tint)
         )
         .shadow(color: tint.opacity(0.24), radius: 10, x: 0, y: 5)
+        .themeRenderInteractiveLayer()
     }
 }
 
@@ -328,6 +343,7 @@ struct NeumorphicActionButton<Content: View>: View {
                 .contentShape(RoundedRectangle(cornerRadius: size * 0.36, style: .continuous))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        .themeRenderInteractiveLayer()
     }
 }
 
@@ -368,8 +384,10 @@ struct NeumorphicSectionTitle: View {
                         .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, lightweight: true))
                 }
                 .buttonStyle(.plain)
+                .themeRenderInteractiveLayer()
             }
         }
+        .themeRenderSurfaceLayer()
     }
 }
 
@@ -408,6 +426,7 @@ struct NeumorphicPageHeader<Accessory: View>: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
+        .themeRenderSurfaceLayer()
     }
 }
 
@@ -423,7 +442,7 @@ extension View {
     @ViewBuilder
     func neumorphicSurfaceIfNeeded() -> some View {
         if NeumorphicStyle.isActive {
-            background(NeumorphicRootBackdrop())
+            background(ThemeRenderBackdrop(theme: .neumorphic))
         } else {
             self
         }

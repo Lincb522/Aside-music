@@ -215,6 +215,7 @@ struct MangaCardBackground: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
         }
+        .themeRenderSurfaceLayer()
     }
 }
 

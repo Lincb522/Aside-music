@@ -232,6 +232,7 @@ struct MVDiscoverView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .themedNavigationChrome(title: "MV", eyebrow: "VIDEO", icon: .mv)
@@ -429,6 +430,7 @@ struct MVDiscoverView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -549,6 +551,7 @@ struct MVDiscoverView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -653,6 +656,7 @@ struct MVFullListView: View {
                     FloatingBarBottomSpacer()
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .themedNavigationChrome(title: title, eyebrow: "MV", icon: .mv)
@@ -749,6 +753,7 @@ struct MVSublistSheet: View {
                     .padding(.bottom, 30)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .background {

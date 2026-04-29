@@ -55,6 +55,7 @@ struct AppearanceSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -257,6 +258,7 @@ struct AppearanceSettingsView: View {
                             }
                         }
                     }
+                    .themeRenderScrollLayer()
                     .padding(.horizontal, 14)
                     .padding(.bottom, 12)
                 }
@@ -547,6 +549,7 @@ private struct ThemeColorCustomizationSection: View {
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 }
             }
+            .themeRenderScrollLayer()
             .padding(.vertical, 2)
         }
     }
@@ -1440,6 +1443,7 @@ private struct SettingsAppBrandRow: View {
                         }
                         .padding(.vertical, 1)
                     }
+                    .themeRenderScrollLayer()
 
                     HStack(spacing: 8) {
                         ForEach(AppBrandAppearance.allCases) { item in

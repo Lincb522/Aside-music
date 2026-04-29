@@ -41,26 +41,25 @@ struct MonologueLoadingView: View {
 // 独立的动画条组件，每个条有自己的动画状态
 private struct LoadingBar: View {
     let delay: Double
-    @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
-        Capsule()
-            .fill(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueTextPrimary))
-            .frame(width: 5, height: 32)
-            .scaleEffect(y: isAnimating ? 1.0 : 0.4)
-            .opacity(isAnimating ? 1.0 : 0.6)
-            .onAppear {
-                // 延迟一帧让布局稳定后再启动动画，避免初始跳动
-                DispatchQueue.main.async {
-                    withAnimation(
-                        .easeInOut(duration: 0.45)
-                        .repeatForever(autoreverses: true)
-                        .delay(delay)
-                    ) {
-                        isAnimating = true
-                    }
-                }
-            }
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+            let phase = reduceMotion ? 0.62 : wavePhase(at: context.date)
+
+            Capsule()
+                .fill(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueTextPrimary))
+                .frame(width: 5, height: 32)
+                .scaleEffect(y: 0.4 + phase * 0.6)
+                .opacity(0.6 + phase * 0.4)
+        }
+    }
+
+    private func wavePhase(at date: Date) -> Double {
+        let cycle = 0.9
+        let time = date.timeIntervalSinceReferenceDate - delay
+        let angle = (time / cycle) * .pi * 2 - .pi / 2
+        return (sin(angle) + 1) / 2
     }
 }
 

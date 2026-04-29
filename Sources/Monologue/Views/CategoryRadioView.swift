@@ -59,6 +59,7 @@ struct CategoryRadioView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .themedNavigationChrome(title: category.name, eyebrow: "RADIO", icon: .radio)

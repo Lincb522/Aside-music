@@ -91,6 +91,7 @@ struct QishuiQualityPickerSheet: View {
                 .iPadContentWidth(500)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 

@@ -84,6 +84,7 @@ struct NewSongExpressView: View {
                         .padding(.bottom, 120)
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 }
             }
         }
@@ -158,6 +159,7 @@ struct NewSongExpressView: View {
             .padding(.vertical, 12)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     @ViewBuilder

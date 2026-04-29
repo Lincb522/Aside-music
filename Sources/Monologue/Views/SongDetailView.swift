@@ -46,6 +46,7 @@ struct SongDetailView: View {
                 .padding(.bottom, 100)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -290,6 +291,7 @@ struct SongDetailView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 }

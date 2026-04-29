@@ -189,6 +189,7 @@ struct QQMVPlayerView: View {
                     .padding(.bottom, 80)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             
             // 加载覆盖
@@ -376,6 +377,7 @@ struct QQMVPlayerView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 

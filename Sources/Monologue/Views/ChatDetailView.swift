@@ -40,6 +40,7 @@ struct ChatDetailView: View {
                             .padding(.vertical, 12)
                         }
                         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                         .onChange(of: viewModel.messages.count) {
                             if let last = viewModel.messages.last {
                                 withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }

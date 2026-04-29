@@ -29,14 +29,16 @@ struct SearchView: View {
 
     var body: some View {
         ZStack {
-            ThemedPageBackground()
+            ThemedPageBackground(useRenderLayer: true)
                 .ignoresSafeArea()
 
             searchRootContent
                 .iPadContentWidth()
         }
-        .navigationBarHidden(true)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artistId = selectedArtistId {
                 ArtistDetailView(artistId: artistId)
@@ -521,6 +523,7 @@ struct SearchView: View {
             .padding(.bottom, 8)
         }
         .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
         .simultaneousGesture(DragGesture().onChanged { _ in
             isFocused = false
         })
@@ -1049,6 +1052,7 @@ struct SearchView: View {
                 .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .simultaneousGesture(DragGesture().onChanged { _ in
             isFocused = false
         })
@@ -1283,6 +1287,7 @@ struct SearchView: View {
                 .padding(.bottom, 120)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             .simultaneousGesture(DragGesture().onChanged { _ in
                 isFocused = false
             })
@@ -1847,6 +1852,7 @@ struct SearchView: View {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .padding(.top, 4)
     }
@@ -2018,6 +2024,7 @@ struct SearchView: View {
                 .padding(.bottom, 120)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -2136,6 +2143,7 @@ struct SearchView: View {
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     private func neumorphicSearchShelf<Content: View>(
@@ -2273,6 +2281,7 @@ struct SearchView: View {
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     // MARK: - 搜索建议浮层
@@ -2316,6 +2325,7 @@ struct SearchView: View {
                     }
                     .scrollDismissesKeyboard(.never)
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                     .frame(maxHeight: 320)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -2362,6 +2372,7 @@ struct SearchView: View {
         }
         .scrollDismissesKeyboard(.never)
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .frame(maxHeight: 328)
         .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)

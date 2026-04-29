@@ -140,6 +140,7 @@ struct QQPlaylistImportView: View {
             }
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .onAppear {
             if !savedUin.isEmpty { uin = savedUin }
         }
@@ -285,6 +286,7 @@ struct QQPlaylistImportView: View {
                 .padding(.bottom, 120)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .disabled(isImporting)
         .opacity(isImporting ? 0.6 : 1)

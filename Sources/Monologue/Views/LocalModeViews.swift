@@ -127,7 +127,7 @@ struct LocalModeHomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ThemedPageBackground()
+                ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -180,6 +180,7 @@ struct LocalModeHomeView: View {
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_home"))
             .navigationBarTitleDisplayMode(.inline)
@@ -455,6 +456,7 @@ struct LocalModeHomeView: View {
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -613,7 +615,7 @@ struct LocalMusicView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ThemedPageBackground()
+                ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
 
                 VStack(spacing: 16) {
@@ -854,6 +856,7 @@ struct LocalMusicView: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     private func localFilterIconColor(isSelected: Bool) -> Color {
@@ -923,7 +926,7 @@ struct LocalLibraryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ThemedPageBackground()
+                ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -951,6 +954,7 @@ struct LocalLibraryView: View {
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 .refreshable {
                     refreshRecentSongs()
                     _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
@@ -1311,7 +1315,7 @@ struct LocalModeProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ThemedPageBackground()
+                ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -1345,6 +1349,7 @@ struct LocalModeProfileView: View {
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_profile"))
             .navigationBarTitleDisplayMode(.inline)
@@ -1520,6 +1525,7 @@ struct LocalModeProfileView: View {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 

@@ -43,7 +43,7 @@ struct PodcastView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ThemedPageBackground()
+                ThemedPageBackground(useRenderLayer: true)
 
                 if viewModel.isLoading && viewModel.personalizedRadios.isEmpty {
                     MonologueLoadingView(text: "LOADING")
@@ -118,6 +118,7 @@ struct PodcastView: View {
                         .padding(.bottom, 120)
                     }
                     .scrollIndicators(.hidden)
+                    .themeRenderScrollLayer()
                     .refreshable {
                         viewModel.refreshData()
                     }
@@ -484,6 +485,7 @@ struct PodcastView: View {
         }
         .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     // MARK: - 布局常量
@@ -560,6 +562,7 @@ struct PodcastView: View {
             }
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -673,6 +676,7 @@ struct PodcastView: View {
                 }
                 .padding(.horizontal, padH)
             }
+            .themeRenderScrollLayer()
             .scrollTargetBehavior(.viewAligned)
             .scrollClipDisabled()
         }
@@ -707,6 +711,7 @@ struct PodcastView: View {
                 }
                 .padding(.horizontal, padH)
             }
+            .themeRenderScrollLayer()
             .scrollTargetBehavior(.viewAligned)
             .scrollClipDisabled()
         }
@@ -807,6 +812,7 @@ struct PodcastView: View {
             }
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -1177,6 +1183,7 @@ struct PodcastView: View {
             }
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -1274,6 +1281,7 @@ struct PodcastView: View {
             }
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 

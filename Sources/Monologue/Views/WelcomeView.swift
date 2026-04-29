@@ -768,7 +768,7 @@ private struct NeumorphicWelcomeBackdrop: View {
 
     var body: some View {
         ZStack {
-            NeumorphicRootBackdrop()
+            ThemeRenderBackdrop(theme: .neumorphic)
 
             VStack(spacing: 0) {
                 LinearGradient(

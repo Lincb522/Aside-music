@@ -51,6 +51,7 @@ struct FloatingBallView: View {
                         }
                         .padding(.trailing, 16)
                         .padding(.bottom, 24)
+                        .themeRenderInteractiveLayer()
                     }
                 }
             }

@@ -70,6 +70,7 @@ struct HomeQQPlaylistSection: View {
                 .scrollTargetLayout()
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
         }
     }

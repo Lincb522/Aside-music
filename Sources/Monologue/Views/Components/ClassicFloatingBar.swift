@@ -62,6 +62,7 @@ struct ClassicFloatingBar: View {
             }
             .offset(y: bottomSink)
             .padding(.bottom, -bottomSink)
+            .themeRenderInteractiveLayer()
         }
         .padding(.bottom, 0)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
@@ -153,7 +154,7 @@ private struct ClassicMiniPlayerSection: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                CachedAsyncImage(url: song.coverUrl) {
+                CachedAsyncImage(url: song.coverUrl, width: 38, height: 38) {
                     RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                         .fill(coverPlaceholderFill)
                 }

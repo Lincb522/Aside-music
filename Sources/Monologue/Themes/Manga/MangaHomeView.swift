@@ -12,7 +12,7 @@ struct MangaHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                MangaRootBackdrop()
+                ThemedPageBackground(useRenderLayer: true)
 
                 if viewModel.isLoading {
                     mangaLoadingView
@@ -20,8 +20,9 @@ struct MangaHomeView: View {
                     scrollBody
                 }
             }
-            .navigationBarHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
                 if hitokotoEnabled,
@@ -94,6 +95,7 @@ struct MangaHomeView: View {
             .padding(.top, DeviceLayout.headerTopPadding + 6)
         }
         .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
         .refreshable {
             viewModel.fetchData()
             if hitokotoEnabled {
@@ -343,6 +345,7 @@ struct MangaHomeView: View {
                 .padding(.bottom, 4)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -446,6 +449,7 @@ struct MangaHomeView: View {
                 .padding(.bottom, 4)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -705,7 +709,7 @@ struct MangaHomeView: View {
                 description: nil,
                 tags: nil
             )
-            navigationPath.append(HomeView.HomeDestination.playlist(playlist))
+            navigationPath.append(HomeView.HomeDestination.bannerPlaylist(playlist, banner.pic))
         case 1004:
             navigationPath.append(HomeView.HomeDestination.mvDiscover)
         default:
@@ -724,6 +728,8 @@ struct MangaHomeView: View {
             DailyRecommendView()
         case .playlist(let playlist):
             PlaylistDetailView(playlist: playlist)
+        case let .bannerPlaylist(playlist, bannerImage):
+            PlaylistDetailView(playlist: playlist, bannerCoverURLString: bannerImage)
         case .artist(let id):
             ArtistDetailView(artistId: id)
         case .album(let id):

@@ -221,6 +221,7 @@ struct CommentView: View {
             .padding(.bottom, 20)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .refreshable {
             vm.loadComments()
         }

@@ -44,6 +44,7 @@ struct GameModeSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             .onChange(of: settings.gameModeAutoDucking) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeLowerQuality) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeSilentNowPlaying) { _, _ in refreshMatchedPreset() }

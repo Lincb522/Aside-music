@@ -99,6 +99,7 @@ struct MonologueSheetContainer<Content: View>: View {
                     x: 0,
                     y: MonologueSheetThemeStyle.shadowYOffset(isInteractiveMotionActive: isInteractiveMotionActive)
                 )
+                .themeRenderSheetLayer(isEnabled: !isInteractiveMotionActive)
                 .padding(.horizontal, preset.horizontalPadding)
                 .padding(.bottom, outsideBottomPadding)
             }

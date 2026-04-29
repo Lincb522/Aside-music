@@ -30,18 +30,16 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
 
 struct ThemedSettingsBackground: View {
     var body: some View {
-        ThemedPageBackground()
+        ThemedPageBackground(useRenderLayer: true)
     }
 }
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var systemColorScheme
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var playlistCloudSync = LocalPlaylistCloudSyncManager.shared
     @State private var cacheSize: String = .init(localized: "settings_calculating")
-    @State private var viewRefreshID = UUID()
     @AppStorage("qqDevMode") private var qqDevMode = false
     @State private var apiTokenInput: String = SecureConfig.apiToken ?? ""
     @State private var tokenSaved = false
@@ -60,6 +58,7 @@ struct SettingsView: View {
                 .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -70,19 +69,6 @@ struct SettingsView: View {
             isHeaderCardExpanded = false
         }
         .preferredColorScheme(settings.preferredColorScheme)
-        .onChange(of: settings.themeMode) { _, _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                viewRefreshID = UUID()
-            }
-        }
-        .onChange(of: systemColorScheme) { _, _ in
-            if settings.themeMode == "system" {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    viewRefreshID = UUID()
-                }
-            }
-        }
-        .id(viewRefreshID)
     }
 
     private var themedSettingsSpacing: CGFloat {
@@ -879,29 +865,38 @@ struct SettingsView: View {
     // MARK: - Actions
 
     private func updateCacheSize() {
-        Task { @MainActor in
-            let fm = FileManager.default
-            var total: Int64 = 0
+        Task {
+            let cacheTotal = await Task.detached(priority: .utility) {
+                let fm = FileManager.default
+                var total: Int64 = 0
 
-            guard let cacheBase = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }
-            let cacheDir = cacheBase.appendingPathComponent("MonologueCache")
-            if let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) {
-                for f in files {
-                    total += Int64((try? f.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
+                if let cacheBase = fm.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                    let cacheDir = cacheBase.appendingPathComponent("MonologueCache")
+                    if let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) {
+                        for file in files {
+                            total += Int64((try? file.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
+                        }
+                    }
                 }
-            }
 
-            if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                let dbPath = appSupport.appendingPathComponent("default.store").path
-                for ext in ["", ".wal", ".shm"] {
-                    let p = ext.isEmpty ? dbPath : dbPath + ext
-                    if let attrs = try? fm.attributesOfItem(atPath: p), let s = attrs[.size] as? Int64 { total += s }
+                if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                    let dbPath = appSupport.appendingPathComponent("default.store").path
+                    for ext in ["", ".wal", ".shm"] {
+                        let path = ext.isEmpty ? dbPath : dbPath + ext
+                        if let attrs = try? fm.attributesOfItem(atPath: path), let size = attrs[.size] as? Int64 {
+                            total += size
+                        }
+                    }
                 }
-            }
 
-            total += DownloadManager.shared.totalDownloadSize()
+                return total
+            }.value
 
-            cacheSize = ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
+            let total = cacheTotal + DownloadManager.shared.totalDownloadSize()
+
+            let formattedSize = ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
+
+            cacheSize = formattedSize
         }
     }
 

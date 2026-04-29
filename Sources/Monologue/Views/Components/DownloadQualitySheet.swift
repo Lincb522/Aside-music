@@ -69,6 +69,7 @@ struct DownloadQualitySheet: View {
                 .iPadContentWidth(500)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .alert(String(localized: "需要开启QMC解密", defaultValue: "此音质为加密格式，请在播放设置中开启「QMC本地解密播放」后方可下载"), isPresented: $showDecryptAlert) {
             Button("好的", role: .cancel) { }

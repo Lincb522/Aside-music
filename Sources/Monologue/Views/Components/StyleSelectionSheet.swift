@@ -129,6 +129,7 @@ struct StyleSelectionMorphView: View {
             .padding(.horizontal, innerHorizontalPadding)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .padding(.top, isAttachedToHeader ? 12 : 0)
         .padding(.bottom, 12)
     }
@@ -177,6 +178,7 @@ struct StyleSelectionMorphView: View {
             .animation(.spring(response: 0.28, dampingFraction: 0.9), value: selectedCategory)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .frame(height: gridHeight)
         .transition(.opacity.combined(with: .move(edge: .trailing)))
     }

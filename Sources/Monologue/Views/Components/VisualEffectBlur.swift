@@ -27,22 +27,25 @@ struct LiquidGlassBlur: View {
     var useFloatingBarFill: Bool = false
     
     var body: some View {
-        if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
-        } else if MujiStyle.isActive {
-            MujiPaperCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
-        } else if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(useFloatingBarFill ? Color.monologueFloatingBarFill : Color.monologueGlassTint)
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
-        } else {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(useFloatingBarFill ? Color.monologueFloatingBarFill : Color.monologueMilk)
-                )
+        Group {
+            if MangaStyle.isActive {
+                MangaCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
+            } else if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
+            } else if #available(iOS 26, *) {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(useFloatingBarFill ? Color.monologueFloatingBarFill : Color.monologueGlassTint)
+                    .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(useFloatingBarFill ? Color.monologueFloatingBarFill : Color.monologueMilk)
+                    )
+            }
         }
+        .themeRenderSurfaceLayer()
     }
 }
 
@@ -57,26 +60,29 @@ struct MonologueLiquidCard<Content: View>: View {
     }
     
     var body: some View {
-        if MangaStyle.isActive {
-            content
-                .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true))
-        } else if MujiStyle.isActive {
-            content
-                .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
-        } else if #available(iOS 26, *) {
-            content
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
-        } else {
-            content
-                .background(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                .fill(Color.monologueMilk)
-                        )
-                )
+        Group {
+            if MangaStyle.isActive {
+                content
+                    .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true))
+            } else if MujiStyle.isActive {
+                content
+                    .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
+            } else if #available(iOS 26, *) {
+                content
+                    .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+            } else {
+                content
+                    .background(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                    .fill(Color.monologueMilk)
+                            )
+                    )
+            }
         }
+        .themeRenderSurfaceLayer()
     }
 }
 
@@ -87,13 +93,17 @@ extension View {
     func monologueGlass(cornerRadius: CGFloat = 16) -> some View {
         if MangaStyle.isActive {
             self.background(MangaCardBackground(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16)))
+                .themeRenderSurfaceLayer()
         } else if NeumorphicStyle.isActive {
             self.background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true))
+                .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -103,6 +113,7 @@ extension View {
                             .fill(Color.monologueMilk)
                     )
             )
+            .themeRenderSurfaceLayer()
         }
     }
     
@@ -115,6 +126,7 @@ extension View {
                     .fill(MangaStyle.bubbleWhite)
                     .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
             )
+            .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(
                 Circle()
@@ -122,6 +134,7 @@ extension View {
                     .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
                     .shadow(color: Color.black.opacity(0.045), radius: 8, x: 0, y: 3)
             )
+            .themeRenderSurfaceLayer()
         } else if NeumorphicStyle.isActive {
             self.background(
                 Circle()
@@ -130,15 +143,18 @@ extension View {
                     .shadow(color: Color.black.opacity(0.16), radius: 12, x: 7, y: 7)
                     .shadow(color: Color.white.opacity(0.52), radius: 10, x: -6, y: -6)
             )
+            .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .circle)
+                .themeRenderSurfaceLayer()
         } else {
             self.background(
                 Circle()
                     .fill(.ultraThinMaterial)
                     .overlay(Circle().fill(Color.monologueMilk))
             )
+            .themeRenderSurfaceLayer()
         }
     }
     
@@ -151,6 +167,7 @@ extension View {
                     .fill(MangaStyle.bubbleWhite)
                     .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
             )
+            .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(
                 Capsule()
@@ -158,6 +175,7 @@ extension View {
                     .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.65))
                     .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
             )
+            .themeRenderSurfaceLayer()
         } else if NeumorphicStyle.isActive {
             self.background(
                 Capsule()
@@ -166,15 +184,18 @@ extension View {
                     .shadow(color: Color.black.opacity(0.16), radius: 12, x: 7, y: 7)
                     .shadow(color: Color.white.opacity(0.52), radius: 10, x: -6, y: -6)
             )
+            .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .capsule)
+                .themeRenderSurfaceLayer()
         } else {
             self.background(
                 Capsule()
                     .fill(.ultraThinMaterial)
                     .overlay(Capsule().fill(Color.monologueMilk))
             )
+            .themeRenderSurfaceLayer()
         }
     }
     
@@ -183,10 +204,13 @@ extension View {
     func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
         if MangaStyle.isActive {
             self.background(MangaCardBackground(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16)))
+                .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -196,6 +220,7 @@ extension View {
                             .fill(Color.monologueMilk)
                     )
             )
+            .themeRenderSurfaceLayer()
         }
     }
     
@@ -204,10 +229,13 @@ extension View {
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = false) -> some View {
         if MangaStyle.isActive {
             self.background(MangaCardBackground(cornerRadius: cornerRadius, elevated: useMetal))
+                .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: useMetal))
+                .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -217,6 +245,7 @@ extension View {
                             .fill(Color.monologueMilk)
                     )
             )
+            .themeRenderSurfaceLayer()
         }
     }
 
@@ -225,8 +254,10 @@ extension View {
     func monologueGlassPlainRect() -> some View {
         if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect)
+                .themeRenderSurfaceLayer()
         } else {
             self.background(Rectangle().fill(.ultraThinMaterial))
+                .themeRenderSurfaceLayer()
         }
     }
 
@@ -235,8 +266,10 @@ extension View {
     func monologueGlassTinted(_ tint: Color) -> some View {
         if #available(iOS 26, *) {
             self.glassEffect(Glass.regular.tint(tint), in: .circle)
+                .themeRenderSurfaceLayer()
         } else {
             self.background(Circle().fill(.ultraThinMaterial).overlay(Circle().fill(tint.opacity(0.3))))
+                .themeRenderSurfaceLayer()
         }
     }
 
@@ -245,14 +278,17 @@ extension View {
     func monologueGlassConditional(isActive: Bool, cornerRadius: CGFloat) -> some View {
         if ThemedPageStyle.isActive && isActive {
             self.background(themedGlassReplacement(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(isActive ? .regular : .clear, in: .rect(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer(isEnabled: isActive)
         } else if isActive {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(Color.monologueMilk))
             )
+            .themeRenderSurfaceLayer()
         } else {
             self
         }
@@ -263,14 +299,17 @@ extension View {
     func monologueGlassIdentityOrRegular(isIdentity: Bool, cornerRadius: CGFloat) -> some View {
         if ThemedPageStyle.isActive && !isIdentity {
             self.background(themedGlassReplacement(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(isIdentity ? .identity : .regular, in: .rect(cornerRadius: cornerRadius))
+                .themeRenderSurfaceLayer(isEnabled: !isIdentity)
         } else if !isIdentity {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(Color.monologueMilk))
             )
+            .themeRenderSurfaceLayer()
         } else {
             self
         }

@@ -230,6 +230,7 @@ struct AudioMatchView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .themedNavigationChrome(title: String(localized: "audio_match_title"), eyebrow: "MATCH", icon: .audioWave)

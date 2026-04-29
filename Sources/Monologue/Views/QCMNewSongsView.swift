@@ -49,6 +49,7 @@ struct QCMNewSongsView: View {
                 .padding(.bottom, 8)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationTitle(ThemedPageStyle.isActive ? "" : "QCM 新歌")
         .navigationBarTitleDisplayMode(.inline)

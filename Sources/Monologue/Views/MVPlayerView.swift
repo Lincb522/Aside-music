@@ -243,6 +243,7 @@ struct MVPlayerView: View {
                     .padding(.bottom, 80)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
 
                 // 底部评论输入栏
                 MVCommentInputBar(
@@ -444,6 +445,7 @@ struct MVPlayerView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -604,6 +606,7 @@ struct MVPlayerView: View {
                 .padding(.bottom, 30)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .background {
             Rectangle()

@@ -56,6 +56,7 @@ struct PodcastPlaylistPopupView: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                     .onAppear { scrollToCurrent(proxy: proxy, animated: false) }
                     .onChange(of: player.currentSong?.id) { _, _ in
                         scrollToCurrent(proxy: proxy)

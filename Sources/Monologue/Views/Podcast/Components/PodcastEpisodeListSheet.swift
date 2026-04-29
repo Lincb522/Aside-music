@@ -80,6 +80,7 @@ struct PodcastEpisodeListSheet: View {
                         .padding(.bottom, 30)
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                     .onChange(of: isSearchExpanded) { _, isExpanded in
                         guard isExpanded else { return }
                         scrollToTop(with: proxy)

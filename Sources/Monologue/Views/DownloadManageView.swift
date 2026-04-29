@@ -40,6 +40,7 @@ struct DownloadManageView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

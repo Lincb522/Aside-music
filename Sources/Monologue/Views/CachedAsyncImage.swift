@@ -7,6 +7,23 @@ private struct ImageCacheConfig {
     static let maxCount = 150                      // 最多缓存 150 张图片
     static let maxConcurrentLoads = 6              // 最大并发加载数
     static let screenScale: CGFloat = 3.0          // 现代 iPhone 均为 3x Retina
+    static let defaultMaxPointSize: CGFloat = 400
+
+    static func normalizedMaxPointSize(width: CGFloat?, height: CGFloat?) -> CGFloat {
+        guard let requested = [width, height].compactMap({ $0 }).filter({ $0 > 0 }).max() else {
+            return defaultMaxPointSize
+        }
+        return normalizedMaxPointSize(requested + 8)
+    }
+
+    static func normalizedMaxPointSize(_ requested: CGFloat) -> CGFloat {
+        let bucket = ceil(max(requested, 1) / 16) * 16
+        return min(max(bucket, 48), defaultMaxPointSize)
+    }
+
+    static func cacheKey(for url: URL, maxSize: CGFloat) -> String {
+        "\(url.absoluteString)#decode:\(Int(normalizedMaxPointSize(maxSize)))"
+    }
 }
 
 // MARK: - 图片内存缓存
@@ -36,8 +53,9 @@ actor ImageLoadCoordinator {
     
     private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
     
-    func loadImage(url: URL) async -> UIImage? {
-        let key = url.absoluteString
+    func loadImage(url: URL, maxSize: CGFloat = ImageCacheConfig.defaultMaxPointSize) async -> UIImage? {
+        let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
+        let key = ImageCacheConfig.cacheKey(for: url, maxSize: normalizedMaxSize)
         
         // 如果已有相同 URL 的加载任务，直接复用
         if let existingTask = inFlightTasks[key] {
@@ -52,7 +70,7 @@ actor ImageLoadCoordinator {
                 if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                     return nil
                 }
-                return downsampleImage(data: data, maxSize: 400)
+                return downsampleImage(data: data, maxSize: normalizedMaxSize)
             } catch {
                 return nil
             }
@@ -94,38 +112,47 @@ class ImageLoader: ObservableObject {
     
     private var loadTask: Task<Void, Never>?
     private var currentUrl: URL?
+    private var currentRequestKey: String?
     
     deinit {
         loadTask?.cancel()
     }
     
-    func load(url: URL) {
-        let cacheKeyStr = url.absoluteString
+    func load(url: URL, maxSize: CGFloat = ImageCacheConfig.defaultMaxPointSize) {
+        let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
+        let cacheKeyStr = ImageCacheConfig.cacheKey(for: url, maxSize: normalizedMaxSize)
         let cacheKey = cacheKeyStr as NSString
+        let legacyCacheKey = url.absoluteString as NSString
         
         // 1. 内存缓存命中 → 立即返回
-        if let cachedImage = imageCache.object(forKey: cacheKey) {
+        if let cachedImage = imageCache.object(forKey: cacheKey)
+            ?? (normalizedMaxSize >= ImageCacheConfig.defaultMaxPointSize ? imageCache.object(forKey: legacyCacheKey) : nil) {
             self.image = cachedImage
             self.isLoading = false
+            self.currentUrl = url
+            self.currentRequestKey = cacheKeyStr
             return
         }
         
         // 避免重复加载同一 URL
-        if url == currentUrl && (image != nil || isLoading) { return }
+        if cacheKeyStr == currentRequestKey && (image != nil || isLoading) { return }
         
         cancel()
         currentUrl = url
+        currentRequestKey = cacheKeyStr
         isLoading = true
         
         loadTask = Task { [weak self] in
             guard let self = self else { return }
             
             let key = cacheKeyStr
+            let legacyKey = url.absoluteString
             
             // 2. 磁盘缓存命中（在后台线程读取和降采样）
             let diskImage: UIImage? = await Task.detached(priority: .userInitiated) {
-                guard let data = CacheManager.shared.getImageData(forKey: key) else { return nil }
-                return Self.downsampleImageStatic(data: data, maxSize: 400)
+                guard let data = CacheManager.shared.getImageData(forKey: key)
+                    ?? CacheManager.shared.getImageData(forKey: legacyKey) else { return nil }
+                return Self.downsampleImageStatic(data: data, maxSize: normalizedMaxSize)
             }.value
             
             if Task.isCancelled { return }
@@ -134,7 +161,7 @@ class ImageLoader: ObservableObject {
                 let cost = diskImage.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
                 imageCache.setObject(diskImage, forKey: key as NSString, cost: cost)
                 
-                guard self.currentUrl == url else { return }
+                guard self.currentRequestKey == key else { return }
                 self.image = diskImage
                 self.isLoading = false
                 return
@@ -143,11 +170,11 @@ class ImageLoader: ObservableObject {
             if Task.isCancelled { return }
             
             // 3. 网络加载（通过 coordinator 去重）
-            let downloadedImage = await ImageLoadCoordinator.shared.loadImage(url: url)
+            let downloadedImage = await ImageLoadCoordinator.shared.loadImage(url: url, maxSize: normalizedMaxSize)
             
             if Task.isCancelled { return }
             
-            guard self.currentUrl == url else { return }
+            guard self.currentRequestKey == key else { return }
             self.isLoading = false
             
             if let image = downloadedImage {
@@ -208,6 +235,7 @@ struct CachedAsyncImage<Placeholder: View>: View {
     private let placeholder: Placeholder
     private let transition: AnyTransition
     private let contentMode: SwiftUI.ContentMode
+    private let maxDecodeSize: CGFloat
     
     init(
         url: URL?,
@@ -227,6 +255,25 @@ struct CachedAsyncImage<Placeholder: View>: View {
         self.placeholder = placeholder()
         self.transition = transition
         self.contentMode = contentMode
+        self.maxDecodeSize = ImageCacheConfig.normalizedMaxPointSize(width: width, height: height)
+    }
+
+    init(
+        url: URL?,
+        width: CGFloat?,
+        height: CGFloat?,
+        @ViewBuilder placeholder: () -> Placeholder,
+        transition: AnyTransition = .opacity.animation(.easeIn(duration: 0.2)),
+        contentMode: SwiftUI.ContentMode = .fill
+    ) {
+        self.init(
+            url: url,
+            placeholder: placeholder,
+            transition: transition,
+            contentMode: contentMode,
+            width: width,
+            height: height
+        )
     }
     
     var body: some View {
@@ -234,12 +281,12 @@ struct CachedAsyncImage<Placeholder: View>: View {
             .onAppear {
                 ImageMemoryWarningObserver.shared.registerIfNeeded()
                 if let url = url {
-                    loader.load(url: url)
+                    loader.load(url: url, maxSize: maxDecodeSize)
                 }
             }
             .onChange(of: url) { _, newUrl in
                 if let newUrl = newUrl {
-                    loader.load(url: newUrl)
+                    loader.load(url: newUrl, maxSize: maxDecodeSize)
                 }
             }
             .onDisappear {
@@ -254,7 +301,8 @@ struct CachedAsyncImage<Placeholder: View>: View {
         // 则直接内联查询内存缓存，避免首帧显示 placeholder 导致封面"闪白"。
         // 两个来源合并到同一个 if 分支，防止 loader 加载后分支切换触发 transition 动画。
         let resolvedImage: UIImage? = loader.image
-            ?? (url.flatMap { imageCache.object(forKey: $0.absoluteString as NSString) })
+            ?? (url.flatMap { imageCache.object(forKey: ImageCacheConfig.cacheKey(for: $0, maxSize: maxDecodeSize) as NSString) })
+            ?? (maxDecodeSize >= ImageCacheConfig.defaultMaxPointSize ? url.flatMap { imageCache.object(forKey: $0.absoluteString as NSString) } : nil)
 
         if let resolvedImage {
             Image(uiImage: resolvedImage)

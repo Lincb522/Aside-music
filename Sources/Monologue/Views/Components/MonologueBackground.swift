@@ -134,7 +134,7 @@ struct MonologueBackground: View {
     // MARK: - 新拟物背景
 
     private var neumorphicBackground: some View {
-        NeumorphicRootBackdrop()
+        ThemeRenderBackdrop(theme: .neumorphic)
     }
 
     // MARK: - 默认背景

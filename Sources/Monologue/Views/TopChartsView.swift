@@ -82,6 +82,7 @@ struct TopChartsView: View {
                         .padding(.bottom, 120)
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 }
             }
         }

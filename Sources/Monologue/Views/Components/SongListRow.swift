@@ -169,7 +169,7 @@ struct SongListRow: View {
                     }
                     .frame(width: 16)
 
-                    CachedAsyncImage(url: song.coverUrl) {
+                    CachedAsyncImage(url: song.coverUrl, width: 48, height: 48) {
                         Color.gray.opacity(0.1)
                     }
                     .aspectRatio(contentMode: .fill)
@@ -406,6 +406,7 @@ struct SongListRow: View {
                 }
             }
         }
+        .themeRenderRowLayer()
         .monologueSheet(isPresented: $showAddToPlaylist, preset: .standard){
             AddToPlaylistSheet(song: song)
         }

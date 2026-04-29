@@ -1,22 +1,50 @@
 import SwiftUI
 
 struct ThemedPageBackground: View {
+    var useRenderLayer = true
+
     @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.themeRenderContext) private var renderContext
 
     var body: some View {
-        ZStack {
-            if MangaStyle.isActive {
-                MangaRootBackdrop()
-            } else if MujiStyle.isActive {
-                MujiRootBackdrop()
-            } else if NeumorphicStyle.isActive {
-                NeumorphicRootBackdrop()
-            } else {
-                MonologueBackground()
-                    .ignoresSafeArea()
+        if useRenderLayer && renderContext.providesGlobalBackdrop {
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        } else {
+            ZStack {
+                if useRenderLayer {
+                    ThemeRenderBackdrop(theme: renderTheme)
+                } else {
+                    if MangaStyle.isActive {
+                        MangaRootBackdrop()
+                    } else if MujiStyle.isActive {
+                        MujiRootBackdrop()
+                    } else if NeumorphicStyle.isActive {
+                        NeumorphicRenderBackdrop()
+                    } else {
+                        MonologueBackground()
+                            .ignoresSafeArea()
+                    }
+                }
+            }
+            .id(backgroundIdentity)
+            .transaction { transaction in
+                transaction.animation = nil
+                transaction.disablesAnimations = true
             }
         }
-        .id("theme-background-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.activeColorScheme == .dark ? "dark" : "light")")
+    }
+
+    private var renderTheme: GlobalThemeId {
+        useRenderLayer && renderContext.isHosted ? renderContext.theme : settings.globalThemeId
+    }
+
+    private var backgroundIdentity: String {
+        if useRenderLayer, renderContext.isHosted {
+            return "theme-background-\(renderContext.backdropIdentity)"
+        }
+        return "theme-background-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.activeColorScheme == .dark ? "dark" : "light")"
     }
 }
 
@@ -198,9 +226,11 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
         if MangaStyle.isActive {
             content
                 .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: elevated, tint: mangaTint))
+                .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             content
                 .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: elevated))
+                .themeRenderSurfaceLayer()
         } else if NeumorphicStyle.isActive {
             content
                 .background(
@@ -210,6 +240,7 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                         lightweight: !elevated
                     )
                 )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
         } else {
             content
                 .monologueGlass(cornerRadius: cornerRadius)

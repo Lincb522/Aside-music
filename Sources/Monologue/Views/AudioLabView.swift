@@ -42,6 +42,7 @@ struct AudioLabView: View {
                     .padding(.horizontal, 20)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             
             // 应用成功提示

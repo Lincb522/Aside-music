@@ -103,6 +103,7 @@ struct MinimalMiniPlayer: View {
         .contentShape(Rectangle())
         .simultaneousGesture(panelSwitchGesture)
         .animation(MonologueAnimation.panelToggle, value: showingTabs)
+        .themeRenderInteractiveLayer()
     }
 
     private var panelSwitchGesture: some Gesture {
@@ -135,7 +136,7 @@ struct MinimalMiniPlayer: View {
             // 封面
             Group {
                 if let song = player.currentSong {
-                    CachedAsyncImage(url: song.coverUrl) {
+                    CachedAsyncImage(url: song.coverUrl, width: artworkSize, height: artworkSize) {
                         defaultVinylCover
                     }
                     .aspectRatio(contentMode: .fill)

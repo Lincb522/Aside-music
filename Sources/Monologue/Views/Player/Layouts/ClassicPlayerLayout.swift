@@ -624,7 +624,7 @@ struct ClassicPlayerLayout: View {
             MujiRootBackdrop()
                 .ignoresSafeArea()
         } else if NeumorphicStyle.isActive {
-            NeumorphicRootBackdrop()
+            ThemeRenderBackdrop(theme: .neumorphic)
                 .ignoresSafeArea()
         }
     }

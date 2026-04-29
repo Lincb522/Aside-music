@@ -36,7 +36,7 @@ struct ArtistDetailView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
-                NeumorphicRootBackdrop()
+                ThemeRenderBackdrop(theme: .neumorphic)
             } else {
                 (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
                     .ignoresSafeArea()
@@ -64,6 +64,7 @@ struct ArtistDetailView: View {
                 .iPadContentWidth(900)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             .monologueScrollOffset($scrollOffset)
             .ignoresSafeArea(edges: .top)
         }
@@ -1084,6 +1085,7 @@ struct ArtistBioSheet: View {
                     .padding(.bottom, 40)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 20) {
@@ -1103,6 +1105,7 @@ struct ArtistBioSheet: View {
                     .padding(.bottom, 40)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .onAppear {
@@ -1111,7 +1114,7 @@ struct ArtistBioSheet: View {
         .background {
             MonologueSheetAwareBackground {
                 if NeumorphicStyle.isActive {
-                    NeumorphicRootBackdrop()
+                    ThemeRenderBackdrop(theme: .neumorphic)
                 } else {
                     ThemedPageBackground()
                 }

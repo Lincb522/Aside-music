@@ -71,6 +71,7 @@ struct AboutView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

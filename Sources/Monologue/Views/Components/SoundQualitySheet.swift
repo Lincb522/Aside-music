@@ -115,6 +115,7 @@ struct SoundQualitySheet: View {
                     .iPadContentWidth(500)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .alert(String(localized: "risk_control_blocked", defaultValue: "当前环境由于风控限制，高保真音源暂不能使用"), isPresented: $showRiskAlert) {

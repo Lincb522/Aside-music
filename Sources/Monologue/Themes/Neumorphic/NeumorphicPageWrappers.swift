@@ -10,7 +10,7 @@ private struct NeumorphicThemeRoot<Content: View>: View {
     var body: some View {
         content
             .tint(NeumorphicStyle.accent)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .themeRenderSceneLayer()
     }
 }
 

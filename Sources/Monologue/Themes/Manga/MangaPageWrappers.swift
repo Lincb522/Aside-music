@@ -15,7 +15,6 @@ private struct MangaThemeRoot<Content: View>: View {
         content
             .mangaSurfaceIfNeeded()
             .tint(MangaStyle.accentPink)
-            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 

@@ -4,13 +4,17 @@ import SwiftUI
 
 private struct ThemedProfileBackground: View {
     var body: some View {
-        ThemedPageBackground()
+        ThemedPageBackground(useRenderLayer: true)
     }
 }
 
 struct ProfileView: View {
     private var viewModel: HomeViewModel {
         HomeViewModel.shared
+    }
+
+    private var playerManager: PlayerManager {
+        PlayerManager.shared
     }
 
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
@@ -23,7 +27,6 @@ struct ProfileView: View {
     @State private var userLevel: Int?
     @State private var listenSongs: Int?
 
-    @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var localPlaylistManager = LocalPlaylistManager.shared
 
@@ -73,12 +76,6 @@ struct ProfileView: View {
         .fullScreenCover(isPresented: $showLoginView) {
             LoginView()
         }
-        .onReceive(playerManager.$currentSong.dropFirst()) { newSong in
-            guard newSong != nil, isAppLoggedIn else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                // 移除本地独立历史刷新，统一由 playerManager 数据驱动
-            }
-        }
     }
 
     // MARK: - Logged In
@@ -96,6 +93,7 @@ struct ProfileView: View {
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
             }
             .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "我的"))
             .navigationBarTitleDisplayMode(.inline)
@@ -136,9 +134,7 @@ struct ProfileView: View {
             statsBar
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-            if !playerManager.history.isEmpty {
-                recentlyPlayedSection
-            }
+            ProfileRecentPlaysHost(variant: .standard)
 
             menuList
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -197,9 +193,7 @@ struct ProfileView: View {
         statsBar
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-        if !playerManager.history.isEmpty {
-            mangaRecentPlaysPanel
-        }
+        ProfileRecentPlaysHost(variant: .manga)
 
         mangaProfileActionGrid
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -217,9 +211,7 @@ struct ProfileView: View {
         neumorphicProfileMetricDeck
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-        if !playerManager.history.isEmpty {
-            neumorphicRecentPlaysPanel
-        }
+        ProfileRecentPlaysHost(variant: .neumorphic)
 
         neumorphicProfileShortcutGrid
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -335,7 +327,7 @@ struct ProfileView: View {
                 .clipShape(RoundedRectangle(cornerRadius: size * 0.32, style: .continuous))
 
             if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
-                CachedAsyncImage(url: url) {
+                CachedAsyncImage(url: url, width: size - 14, height: size - 14) {
                     RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
                         .fill(NeumorphicStyle.surfacePressed)
                 }
@@ -418,6 +410,7 @@ struct ProfileView: View {
                 .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -641,6 +634,7 @@ struct ProfileView: View {
                     .padding(.bottom, 140)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -770,6 +764,7 @@ struct ProfileView: View {
                     .padding(.bottom, 140)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -922,6 +917,7 @@ struct ProfileView: View {
                     .padding(.bottom, 140)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -939,9 +935,7 @@ struct ProfileView: View {
         statsBar
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-        if !playerManager.history.isEmpty {
-            recentlyPlayedSection
-        }
+        ProfileRecentPlaysHost(variant: .standard)
 
         mujiProfileLedger
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -1103,6 +1097,7 @@ struct ProfileView: View {
                 .padding(.bottom, 4)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -1204,7 +1199,7 @@ struct ProfileView: View {
     @ViewBuilder
     private func mangaAvatar(profile: UserProfile?, size: CGFloat) -> some View {
         if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
-            CachedAsyncImage(url: url) {
+            CachedAsyncImage(url: url, width: size, height: size) {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(MangaStyle.bubbleWhite)
             }
@@ -1226,7 +1221,7 @@ struct ProfileView: View {
     @ViewBuilder
     private func mujiAvatar(profile: UserProfile?, size: CGFloat) -> some View {
         if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
-            CachedAsyncImage(url: url) {
+            CachedAsyncImage(url: url, width: size, height: size) {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(MujiStyle.surfaceRaised)
             }
@@ -1248,7 +1243,7 @@ struct ProfileView: View {
 
         return HStack(spacing: 16) {
             if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
-                CachedAsyncImage(url: url) {
+                CachedAsyncImage(url: url, width: DeviceLayout.profileAvatarSize, height: DeviceLayout.profileAvatarSize) {
                     Circle().fill(Color.monologueSeparator)
                 }
                 .aspectRatio(contentMode: .fill)
@@ -1418,7 +1413,7 @@ struct ProfileView: View {
                             playerManager.play(song: song, in: playerManager.history)
                         }) {
                             VStack(alignment: .leading, spacing: 8) {
-                                CachedAsyncImage(url: song.coverUrl) {
+                                CachedAsyncImage(url: song.coverUrl, width: 110, height: 110) {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                                         .fill(Color.monologueSeparator)
                                 }
@@ -1446,6 +1441,7 @@ struct ProfileView: View {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -1763,6 +1759,189 @@ struct StatCell: View {
     }
 }
 
+private enum ProfileRecentPlaysVariant {
+    case standard
+    case manga
+    case neumorphic
+}
+
+private struct ProfileRecentPlaysHost: View {
+    let variant: ProfileRecentPlaysVariant
+
+    @ObservedObject private var playerManager = PlayerManager.shared
+
+    var body: some View {
+        let history = playerManager.history
+
+        if !history.isEmpty {
+            switch variant {
+            case .standard:
+                standardRecentPlays(history: history)
+            case .manga:
+                mangaRecentPlays(history: history)
+            case .neumorphic:
+                neumorphicRecentPlays(history: history)
+            }
+        }
+    }
+
+    private func standardRecentPlays(history: [Song]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(LocalizedStringKey("profile_recently_played"))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer()
+
+                NavigationLink(destination: RecentPlayHistoryView()) {
+                    HStack(spacing: 4) {
+                        Text(String(format: String(localized: "profile_recent_count"), history.count))
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
+                            .foregroundColor(.monologueTextSecondary)
+                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 14) {
+                    ForEach(Array(history.prefix(15))) { song in
+                        Button {
+                            playerManager.play(song: song, in: history)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedAsyncImage(url: song.coverUrl, width: 110, height: 110) {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(Color.monologueSeparator)
+                                }
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 110, height: 110)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(song.name)
+                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))))
+                                        .foregroundColor(.monologueTextPrimary)
+                                        .lineLimit(1)
+
+                                    Text(song.artistName)
+                                        .font(MangaStyle.isActive ? MangaStyle.comicFont(11, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded))))
+                                        .foregroundColor(.monologueTextSecondary)
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 110, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+        }
+    }
+
+    private func mangaRecentPlays(history: [Song]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                MangaSectionMark(kind: .star)
+
+                Text(String(localized: "profile_recently_played"))
+                    .font(MangaStyle.titleFont(18, weight: .black))
+                    .foregroundStyle(MangaStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                Rectangle()
+                    .fill(MangaStyle.ink.opacity(0.22))
+                    .frame(height: 1.4)
+
+                NavigationLink(destination: RecentPlayHistoryView()) {
+                    MangaLabel(
+                        text: String(format: String(localized: "profile_recent_count"), history.count),
+                        tint: MangaStyle.decoBlue,
+                        small: true
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 12) {
+                    ForEach(Array(history.prefix(12))) { song in
+                        Button {
+                            playerManager.play(song: song, in: history)
+                        } label: {
+                            MangaProfileRecentCard(song: song)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.bottom, 4)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+        }
+    }
+
+    private func neumorphicRecentPlays(history: [Song]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                NeumorphicIconBadge(icon: .history, tint: NeumorphicStyle.sage, size: 36)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "profile_recently_played"))
+                        .font(NeumorphicStyle.titleFont(18, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+
+                    Text(String(format: String(localized: "profile_recent_count"), history.count))
+                        .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(NeumorphicStyle.inkMuted)
+                }
+
+                Spacer()
+
+                NavigationLink(destination: RecentPlayHistoryView()) {
+                    NeumorphicPill(
+                        text: String(localized: "查看更多"),
+                        tint: NeumorphicStyle.accent,
+                        icon: .chevronRight,
+                        compact: true
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 12) {
+                    ForEach(Array(history.prefix(12))) { song in
+                        Button {
+                            playerManager.play(song: song, in: history)
+                        } label: {
+                            NeumorphicProfileRecentCard(
+                                song: song,
+                                isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying
+                            )
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.vertical, 4)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+        }
+    }
+}
+
 private struct NeumorphicProfileMetricTile: View {
     let value: String
     let label: String
@@ -1815,7 +1994,7 @@ private struct NeumorphicProfileRecentCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             ZStack(alignment: .bottomTrailing) {
-                CachedAsyncImage(url: song.coverUrl) {
+                CachedAsyncImage(url: song.coverUrl, width: 118, height: 94) {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(NeumorphicStyle.surfacePressed)
                 }
@@ -2078,7 +2257,7 @@ private struct MangaProfileRecentCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CachedAsyncImage(url: song.coverUrl) {
+            CachedAsyncImage(url: song.coverUrl, width: 112, height: 112) {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(MangaStyle.bubbleWhite)
             }

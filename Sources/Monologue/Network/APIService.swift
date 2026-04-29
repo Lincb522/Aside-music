@@ -452,9 +452,85 @@ class APIService: @unchecked Sendable {
     // MARK: - 首页数据接口
 
     func fetchDailySongs(cachePolicy: CachePolicy = .networkOnly, ttl: TimeInterval? = nil) -> AnyPublisher<[Song], Error> {
-        ncm.fetch([Song].self, keyPath: "data.dailySongs") { [ncm] in
-            try await ncm.recommendSongs()
+        ncm.publisher { [ncm] in
+            let response = try await ncm.recommendSongs()
+            if let code = response.body["code"] as? Int, code != 200 {
+                let msg = response.body["msg"] as? String
+                    ?? response.body["message"] as? String
+                    ?? String(localized: "未知错误")
+                throw NCMBridgeError.apiError(code, msg)
+            }
+            return try Self.decodeDailySongs(from: response.body)
         }
+    }
+
+    private static func decodeDailySongs(from body: [String: Any]) throws -> [Song] {
+        let candidateKeyPaths = [
+            ["data", "dailySongs"],
+            ["data", "songs"],
+            ["dailySongs"],
+            ["recommend"],
+            ["data", "recommend"],
+            ["songs"]
+        ]
+
+        for keyPath in candidateKeyPaths {
+            guard let rawValue = value(in: body, at: keyPath) else { continue }
+            if let songs = decodeSongList(from: rawValue) {
+                AppLogger.debug("每日推荐解析字段: \(keyPath.joined(separator: ".")), count=\(songs.count)")
+                return songs
+            }
+        }
+
+        let dataKeys = (body["data"] as? [String: Any])?.keys.sorted().joined(separator: ", ") ?? "nil"
+        AppLogger.warning("每日推荐响应缺少歌曲列表字段，bodyKeys=\(body.keys.sorted().joined(separator: ", ")), dataKeys=\(dataKeys)")
+        throw NCMBridgeError.missingKey("dailySongs")
+    }
+
+    private static func value(in body: [String: Any], at keyPath: [String]) -> Any? {
+        var current: Any = body
+        for key in keyPath {
+            guard let dict = current as? [String: Any],
+                  let next = dict[key],
+                  !(next is NSNull) else {
+                return nil
+            }
+            current = next
+        }
+        return current
+    }
+
+    private static func decodeSongList(from rawValue: Any) -> [Song]? {
+        guard let array = rawValue as? [Any] else { return nil }
+        guard !array.isEmpty else { return [] }
+
+        let decoder = JSONDecoder()
+        let songs = array.compactMap { item -> Song? in
+            let rawSong = nestedSongObject(from: item)
+            guard JSONSerialization.isValidJSONObject(rawSong),
+                  let data = try? JSONSerialization.data(withJSONObject: rawSong) else {
+                return nil
+            }
+            if let song = try? decoder.decode(Song.self, from: data) {
+                return song
+            }
+            if let detail = try? decoder.decode(SongDetail.self, from: data) {
+                return detail.toSong()
+            }
+            return nil
+        }
+
+        return songs.isEmpty ? nil : songs
+    }
+
+    private static func nestedSongObject(from item: Any) -> Any {
+        guard let dict = item as? [String: Any] else { return item }
+        for key in ["song", "songInfo", "data"] {
+            if let nested = dict[key] as? [String: Any] {
+                return nested
+            }
+        }
+        return dict
     }
 
     func fetchRecommendPlaylists() -> AnyPublisher<[Playlist], Error> {

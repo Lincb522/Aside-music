@@ -34,6 +34,7 @@ struct MacHomeView: View {
                 case .search:           SearchView()
                 case .dailyRecommend:   DailyRecommendView()
                 case .playlist(let p):  PlaylistDetailView(playlist: p)
+                case let .bannerPlaylist(p, bannerImage): PlaylistDetailView(playlist: p, bannerCoverURLString: bannerImage)
                 case .artist(let id):   ArtistDetailView(artistId: id)
                 case .album(let id):    AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
                 case .mvDiscover:       MVDiscoverView()
@@ -281,7 +282,7 @@ struct MacHomeView: View {
                 shareCount: nil, commentCount: nil, creator: nil,
                 description: nil, tags: nil
             )
-            navigationPath.append(HomeView.HomeDestination.playlist(pl))
+            navigationPath.append(HomeView.HomeDestination.bannerPlaylist(pl, banner.pic))
         default:
             if let urlStr = banner.url, let url = URL(string: urlStr) { bannerWebURL = url }
         }

@@ -74,6 +74,7 @@ struct PlaylistPopupView: View {
                     .padding(.bottom, 30)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
     }
@@ -188,6 +189,7 @@ struct PlaylistPopupView: View {
                         .environment(\.editMode, .constant(.active))
                         .scrollContentBackground(.hidden)
                         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -368,6 +370,7 @@ private struct QueueShelf: View {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 }

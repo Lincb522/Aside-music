@@ -8,13 +8,16 @@ struct HomeView: View {
     @State private var appeared = false
 
     enum HomeDestination: Hashable {
-        case search, dailyRecommend, playlist(Playlist), artist(Int), album(Int), mvDiscover, newSongExpress, qcmNewSongs
+        case search, dailyRecommend, playlist(Playlist), bannerPlaylist(Playlist, String?), artist(Int), album(Int), mvDiscover, newSongExpress, qcmNewSongs
 
         func hash(into hasher: inout Hasher) {
             switch self {
             case .search:           hasher.combine("search")
             case .dailyRecommend:   hasher.combine("daily")
             case .playlist(let p):  hasher.combine("p_\(p.id)")
+            case let .bannerPlaylist(p, bannerImage):
+                hasher.combine("bp_\(p.id)")
+                hasher.combine(bannerImage)
             case .artist(let id):   hasher.combine("a_\(id)")
             case .album(let id):    hasher.combine("al_\(id)")
             case .mvDiscover:       hasher.combine("mv")
@@ -29,6 +32,8 @@ struct HomeView: View {
                  (.mvDiscover, .mvDiscover), (.newSongExpress, .newSongExpress),
                  (.qcmNewSongs, .qcmNewSongs): return true
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
+            case let (.bannerPlaylist(l, lImage), .bannerPlaylist(r, rImage)):
+                return l.id == r.id && lImage == rImage
             case (.artist(let l), .artist(let r)): return l == r
             case (.album(let l), .album(let r)): return l == r
             default: return false
@@ -39,7 +44,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                ThemedPageBackground().ignoresSafeArea()
+                ThemedPageBackground(useRenderLayer: true).ignoresSafeArea()
 
                 if viewModel.isLoading {
                     MonologueLoadingView(text: "LOADING HOME")
@@ -55,6 +60,7 @@ struct HomeView: View {
                     }
                 }
             }
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -282,6 +288,7 @@ struct HomeView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
         .refreshable { viewModel.fetchData() }
     }
 
@@ -309,7 +316,7 @@ struct HomeView: View {
                 shareCount: nil, commentCount: nil, creator: nil,
                 description: nil, tags: nil
             )
-            navigationPath.append(HomeDestination.playlist(pl))
+            navigationPath.append(HomeDestination.bannerPlaylist(pl, banner.pic))
         case 1004:
             navigationPath.append(HomeDestination.mvDiscover)
         default:
@@ -325,6 +332,7 @@ struct HomeView: View {
         case .search:           SearchView()
         case .dailyRecommend:   DailyRecommendView()
         case .playlist(let p):  PlaylistDetailView(playlist: p)
+        case let .bannerPlaylist(p, bannerImage): PlaylistDetailView(playlist: p, bannerCoverURLString: bannerImage)
         case .artist(let id):   ArtistDetailView(artistId: id)
         case .album(let id):    AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
         case .mvDiscover:       MVDiscoverView()

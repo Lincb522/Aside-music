@@ -577,6 +577,7 @@ private struct NeumorphicUnifiedFloatingBar: View {
         .shadow(color: NeumorphicStyle.darkShadow(colorScheme, intensity: colorScheme == .dark ? 0.64 : 0.48), radius: 18, x: 0, y: 8)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
+        .themeRenderInteractiveLayer()
     }
 
     private var tabSwipeGesture: some Gesture {

@@ -58,6 +58,7 @@ struct QQAccountView: View {
                     .iPadContentWidth(600)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .themedNavigationChrome(title: String(localized: "qq_account_title"), eyebrow: "QCM", icon: .personCircle)

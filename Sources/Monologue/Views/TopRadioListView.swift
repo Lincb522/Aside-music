@@ -62,6 +62,7 @@ struct TopRadioListView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .themedNavigationChrome(title: title, eyebrow: "RANK", icon: .chart)

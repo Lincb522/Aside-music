@@ -41,6 +41,7 @@ struct HomeBannerSection: View {
                             x: NeumorphicStyle.isActive ? 7 : 0,
                             y: NeumorphicStyle.isActive ? 9 : 0
                         )
+                        .themeRenderSurfaceLayer(isEnabled: NeumorphicStyle.isActive)
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))

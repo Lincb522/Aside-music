@@ -39,6 +39,7 @@ struct StorageManageView: View {
                         }
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
@@ -64,6 +65,7 @@ struct StorageManageView: View {
                         }
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 }
             }
         }

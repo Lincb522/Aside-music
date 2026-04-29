@@ -42,6 +42,7 @@ struct MessageListView: View {
                         FloatingBarBottomSpacer()
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 }
             }
         }

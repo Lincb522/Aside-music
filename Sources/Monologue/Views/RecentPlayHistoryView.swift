@@ -120,6 +120,7 @@ struct RecentPlayHistoryView: View {
                     FloatingBarBottomSpacer()
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "profile_recently_played"))

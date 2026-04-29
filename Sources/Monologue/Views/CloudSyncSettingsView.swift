@@ -29,6 +29,7 @@ struct CloudSyncSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

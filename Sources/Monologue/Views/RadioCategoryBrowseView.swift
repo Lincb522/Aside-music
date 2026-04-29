@@ -59,6 +59,7 @@ struct RadioCategoryBrowseView: View {
                         .padding(.bottom, 120)
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 }
             }
         }
@@ -104,6 +105,7 @@ struct RadioCategoryBrowseView: View {
             .padding(.vertical, 12)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     private func categoryChipFont(isSelected: Bool) -> Font {

@@ -18,70 +18,70 @@ public struct ContentView: View {
     public init() {}
 
     public var body: some View {
-        ZStack {
-            ThemedPageBackground()
-                .ignoresSafeArea()
+        ThemeRenderHost {
+            ZStack {
+                tabViewContent
+                    .themeRenderSceneLayer()
+                    .ignoresSafeArea(.keyboard)
+                    .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
+                    .gesture(
+                        (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
+                            ? swipeGesture : nil
+                    )
+                    .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
+                        showPersonalFM = true
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
+                        showNormalPlayer = true
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
+                        currentTab = .library
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibraryArtists"))) { _ in
+                        currentTab = .library
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToHome"))) { _ in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            currentTab = .home
+                        }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToProfile"))) { _ in
+                        currentTab = .profile
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
+                        if let radioId = notification.object as? Int, radioId > 0 {
+                            radioPlayerRadioId = radioId
+                            showRadioPlayer = true
+                        }
+                    }
+                    .fullScreenCover(isPresented: $showPersonalFM) {
+                        PersonalFMView()
+                    }
+                    .fullScreenCover(isPresented: $showNormalPlayer) {
+                        FullScreenPlayerView()
+                    }
+                    .fullScreenCover(isPresented: $showRadioPlayer) {
+                        if let radioId = radioPlayerRadioId {
+                            PodcastPlayerView(radioId: radioId)
+                        }
+                    }
 
-            tabViewContent
-                .ignoresSafeArea(.keyboard)
-                .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
-                .gesture(
-                    (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
-                        ? swipeGesture : nil
+                // MARK: - 自定义悬浮栏（所有样式）
+
+                ContentViewFloatingBarContainer(
+                    currentTab: $currentTab,
+                    settings: settings
                 )
-                .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
-                    showPersonalFM = true
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
-                    showNormalPlayer = true
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
-                    currentTab = .library
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibraryArtists"))) { _ in
-                    currentTab = .library
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToHome"))) { _ in
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                        currentTab = .home
-                    }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToProfile"))) { _ in
-                    currentTab = .profile
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
-                    if let radioId = notification.object as? Int, radioId > 0 {
-                        radioPlayerRadioId = radioId
-                        showRadioPlayer = true
-                    }
-                }
-                .fullScreenCover(isPresented: $showPersonalFM) {
-                    PersonalFMView()
-                }
-                .fullScreenCover(isPresented: $showNormalPlayer) {
-                    FullScreenPlayerView()
-                }
-                .fullScreenCover(isPresented: $showRadioPlayer) {
-                    if let radioId = radioPlayerRadioId {
-                        PodcastPlayerView(radioId: radioId)
-                    }
-                }
 
-            // MARK: - 自定义悬浮栏（所有样式）
+                // MARK: - 系统 TabBar 模式下的紧凑迷你播放器
 
-            ContentViewFloatingBarContainer(
-                currentTab: $currentTab,
-                settings: settings
-            )
+                ContentViewCompactPlayerContainer(settings: settings)
 
-            // MARK: - 系统 TabBar 模式下的紧凑迷你播放器
-
-            ContentViewCompactPlayerContainer(settings: settings)
-
-            if showWelcome {
-                WelcomeView(isPresented: $showWelcome)
-                    .transition(.identity)
-                    .zIndex(100)
+                if showWelcome {
+                    WelcomeView(isPresented: $showWelcome)
+                        .transition(.identity)
+                        .zIndex(100)
+                }
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
@@ -334,6 +334,7 @@ private struct ContentViewFloatingBarContainer: View {
         if !settings.useSystemTabBar && !player.isTabBarHidden {
             floatingBarView
                 .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
+                .themeRenderInteractiveLayer()
                 .ignoresSafeArea(.keyboard)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(10)
@@ -395,6 +396,7 @@ private struct ContentViewCompactPlayerContainer: View {
                 Spacer()
                 CompactMiniPlayerView(song: song)
                     .monologueGlassCapsule()
+                    .themeRenderInteractiveLayer()
                     .iPadContentWidth(600)
                     .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
                     .padding(.bottom, DeviceLayout.isPad ? 72 : 62)
@@ -419,7 +421,6 @@ private struct ContentViewCompactPlayerContainer: View {
 @available(iOS 26.0, *)
 private struct SystemTabBarWithAccessory<Content: View>: View {
     let content: () -> Content
-    @ObservedObject private var player = PlayerManager.shared
     @State private var playlistPresented = false
 
     var body: some View {
@@ -431,7 +432,7 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
             // sheet 挂在 TabView 层而不是 accessory 内部，避免按钮一点就被关
             .sheet(isPresented: $playlistPresented) {
                 Group {
-                    if player.isPlayingPodcast {
+                    if PlayerManager.shared.isPlayingPodcast {
                         PodcastPlaylistPopupView()
                     } else {
                         PlaylistPopupView()

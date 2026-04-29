@@ -46,7 +46,7 @@ struct AlbumDetailView: View {
                 } else if MujiStyle.isActive {
                     MujiRootBackdrop()
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicRootBackdrop()
+                    ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: effectiveCoverUrl)
                 } else {
@@ -62,6 +62,7 @@ struct AlbumDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -706,11 +707,12 @@ struct AlbumDescSheet: View {
                 .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .background {
             MonologueSheetAwareBackground {
                 if NeumorphicStyle.isActive {
-                    NeumorphicRootBackdrop()
+                    ThemeRenderBackdrop(theme: .neumorphic)
                 } else {
                     ThemedPageBackground()
                 }

@@ -33,7 +33,6 @@ private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
 
 struct NeumorphicHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
-    @ObservedObject private var playerManager = PlayerManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
@@ -49,7 +48,7 @@ struct NeumorphicHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                NeumorphicRootBackdrop()
+                ThemedPageBackground(useRenderLayer: true)
 
                 if viewModel.isLoading {
                     loadingView
@@ -57,8 +56,9 @@ struct NeumorphicHomeView: View {
                     scrollBody
                 }
             }
-            .navigationBarHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
                 if hitokotoEnabled,
@@ -116,6 +116,7 @@ struct NeumorphicHomeView: View {
             .padding(.top, DeviceLayout.headerTopPadding + 8)
         }
         .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
         .refreshable {
             viewModel.fetchData()
             if hitokotoEnabled {
@@ -174,7 +175,7 @@ struct NeumorphicHomeView: View {
     private var avatarView: some View {
         let size: CGFloat = 46
         if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
-            CachedAsyncImage(url: url) {
+            CachedAsyncImage(url: url, width: size, height: size) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(NeumorphicStyle.surface)
             }
@@ -239,85 +240,14 @@ struct NeumorphicHomeView: View {
                     }
                 }
 
-                featuredDial
+                NeumorphicFeaturedDial(dailySongs: viewModel.dailySongs)
                     .frame(width: DeviceLayout.isPad ? 168 : 132)
             }
 
-            if let song = featuredSong {
-                Button {
-                    playFeatured(song)
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(currentSongCaption)
-                                .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                                .foregroundStyle(NeumorphicStyle.inkMuted)
-                                .tracking(1.0)
-
-                            Text(song.name)
-                                .font(NeumorphicStyle.labelFont(16, weight: .semibold))
-                                .foregroundStyle(NeumorphicStyle.ink)
-                                .lineLimit(1)
-
-                            Text(song.artistName)
-                                .font(NeumorphicStyle.labelFont(12, weight: .regular))
-                                .foregroundStyle(NeumorphicStyle.inkSoft)
-                                .lineLimit(1)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        ZStack {
-                            Circle()
-                                .fill(NeumorphicStyle.accent.opacity(0.18))
-                                .frame(width: 42, height: 42)
-
-                            if playerManager.currentSong?.id == song.id && playerManager.isPlaying {
-                                PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
-                                    .frame(width: 20, height: 16)
-                            } else {
-                                MonologueIcon(icon: .play, size: 14, color: NeumorphicStyle.accent, lineWidth: 1.8)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 13)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true))
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
-            }
+            NeumorphicFeaturedSongButton(dailySongs: viewModel.dailySongs)
         }
         .padding(18)
         .background(NeumorphicSurfaceBackground(cornerRadius: 30, elevated: true))
-    }
-
-    private var featuredDial: some View {
-        ZStack {
-            Circle()
-                .fill(NeumorphicStyle.surfacePressed)
-                .frame(width: 124, height: 124)
-                .shadow(color: Color.black.opacity(0.16), radius: 16, x: 7, y: 8)
-                .shadow(color: Color.white.opacity(0.34), radius: 14, x: -7, y: -7)
-
-            Circle()
-                .stroke(NeumorphicStyle.separator.opacity(0.55), lineWidth: 1)
-                .frame(width: 104, height: 104)
-
-            if let song = featuredSong {
-                NeumorphicHomeSpinningCover(
-                    coverUrl: song.coverUrl,
-                    isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying
-                )
-            } else {
-                MonologueIcon(icon: .musicNote, size: 30, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
-            }
-
-            Circle()
-                .fill(NeumorphicStyle.surfaceRaised)
-                .frame(width: 20, height: 20)
-                .overlay(Circle().fill(NeumorphicStyle.inkMuted.opacity(0.18)).frame(width: 7, height: 7))
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private var signalBannerRail: some View {
@@ -339,7 +269,7 @@ struct NeumorphicHomeView: View {
                         } label: {
                             NeumorphicSignalBannerCard(
                                 banner: banner,
-                                width: max(proxy.size.width - DeviceLayout.homeHorizontalPadding * 2, 260)
+                                width: max(proxy.size.width, 260)
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
@@ -475,8 +405,7 @@ struct NeumorphicHomeView: View {
                     NeumorphicHomeSongRow(
                         song: song,
                         index: index + 1,
-                        isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying,
-                        action: { playerManager.play(song: song, in: viewModel.dailySongs) }
+                        action: { PlayerManager.shared.play(song: song, in: viewModel.dailySongs) }
                     )
                 }
 
@@ -570,8 +499,7 @@ struct NeumorphicHomeView: View {
                 NeumorphicHomeSongRow(
                     song: song,
                     index: index + 1,
-                    isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying,
-                    action: { playerManager.play(song: song, in: viewModel.dailySongs) }
+                    action: { PlayerManager.shared.play(song: song, in: viewModel.dailySongs) }
                 )
             }
 
@@ -590,7 +518,7 @@ struct NeumorphicHomeView: View {
                 HStack(spacing: 12) {
                     ForEach(visibleQQNewSongs) { song in
                         Button {
-                            playerManager.play(song: song, in: viewModel.qqNewSongs)
+                            PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
                         } label: {
                             NeumorphicNewSongCard(song: song)
                         }
@@ -600,6 +528,7 @@ struct NeumorphicHomeView: View {
                 .padding(.vertical, 6)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
 
             Button {
                 navigationPath.append(HomeView.HomeDestination.qcmNewSongs)
@@ -699,26 +628,6 @@ struct NeumorphicHomeView: View {
         hitokotoEnabled ? String(localized: "每日一言") : "Monologue"
     }
 
-    private var featuredSong: Song? {
-        if let song = playerManager.currentSong {
-            return song
-        }
-        if let song = playerManager.history.first {
-            return song
-        }
-        return viewModel.dailySongs.first
-    }
-
-    private var currentSongCaption: String {
-        if let song = featuredSong, playerManager.currentSong?.id == song.id {
-            return String(localized: "正在播放")
-        }
-        if let song = featuredSong, playerManager.currentSong == nil, playerManager.history.first?.id == song.id {
-            return String(localized: "上次播放")
-        }
-        return String(localized: "今日首选")
-    }
-
     private var mergedPlaylists: [Playlist] {
         var seen = Set<String>()
         return (viewModel.recommendPlaylists + viewModel.qqRecommendPlaylists).filter { playlist in
@@ -735,16 +644,6 @@ struct NeumorphicHomeView: View {
 
     private var visibleQQNewSongs: [Song] {
         Array(viewModel.qqNewSongs.prefix(8))
-    }
-
-    private func playFeatured(_ song: Song) {
-        if playerManager.currentSong?.id == song.id {
-            playerManager.togglePlayPause()
-        } else if viewModel.dailySongs.contains(where: { $0.id == song.id }) {
-            playerManager.play(song: song, in: viewModel.dailySongs)
-        } else {
-            playerManager.play(song: song, in: [song])
-        }
     }
 
     private func openLibrarySquare() {
@@ -764,7 +663,7 @@ struct NeumorphicHomeView: View {
                 do {
                     let songs = try await APIService.shared.fetchSongDetails(ids: [banner.targetId]).async()
                     if let song = songs.first {
-                        await MainActor.run { playerManager.play(song: song, in: [song]) }
+                        await MainActor.run { PlayerManager.shared.play(song: song, in: [song]) }
                     }
                 } catch {
                     AppLogger.error("Banner 歌曲加载失败: \(error)")
@@ -787,7 +686,7 @@ struct NeumorphicHomeView: View {
                 description: nil,
                 tags: nil
             )
-            navigationPath.append(HomeView.HomeDestination.playlist(playlist))
+            navigationPath.append(HomeView.HomeDestination.bannerPlaylist(playlist, banner.pic))
         case 1004:
             navigationPath.append(HomeView.HomeDestination.mvDiscover)
         default:
@@ -806,6 +705,8 @@ struct NeumorphicHomeView: View {
             DailyRecommendView()
         case let .playlist(playlist):
             PlaylistDetailView(playlist: playlist)
+        case let .bannerPlaylist(playlist, bannerImage):
+            PlaylistDetailView(playlist: playlist, bannerCoverURLString: bannerImage)
         case let .artist(id):
             ArtistDetailView(artistId: id)
         case let .album(id):
@@ -816,6 +717,121 @@ struct NeumorphicHomeView: View {
             NewSongExpressView()
         case .qcmNewSongs:
             QCMNewSongsView()
+        }
+    }
+}
+
+private struct NeumorphicFeaturedDial: View {
+    let dailySongs: [Song]
+
+    @ObservedObject private var playerManager = PlayerManager.shared
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(NeumorphicStyle.surfacePressed)
+                .frame(width: 124, height: 124)
+                .shadow(color: Color.black.opacity(0.16), radius: 16, x: 7, y: 8)
+                .shadow(color: Color.white.opacity(0.34), radius: 14, x: -7, y: -7)
+
+            Circle()
+                .stroke(NeumorphicStyle.separator.opacity(0.55), lineWidth: 1)
+                .frame(width: 104, height: 104)
+
+            if let song = featuredSong {
+                NeumorphicHomeSpinningCover(
+                    coverUrl: song.coverUrl,
+                    isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying
+                )
+            } else {
+                MonologueIcon(icon: .musicNote, size: 30, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
+            }
+
+            Circle()
+                .fill(NeumorphicStyle.surfaceRaised)
+                .frame(width: 20, height: 20)
+                .overlay(Circle().fill(NeumorphicStyle.inkMuted.opacity(0.18)).frame(width: 7, height: 7))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var featuredSong: Song? {
+        playerManager.currentSong ?? playerManager.history.first ?? dailySongs.first
+    }
+}
+
+private struct NeumorphicFeaturedSongButton: View {
+    let dailySongs: [Song]
+
+    @ObservedObject private var playerManager = PlayerManager.shared
+
+    var body: some View {
+        if let song = featuredSong {
+            Button {
+                playFeatured(song)
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(currentSongCaption(for: song))
+                            .font(NeumorphicStyle.labelFont(10, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.inkMuted)
+                            .tracking(1.0)
+
+                        Text(song.name)
+                            .font(NeumorphicStyle.labelFont(16, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineLimit(1)
+
+                        Text(song.artistName)
+                            .font(NeumorphicStyle.labelFont(12, weight: .regular))
+                            .foregroundStyle(NeumorphicStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    ZStack {
+                        Circle()
+                            .fill(NeumorphicStyle.accent.opacity(0.18))
+                            .frame(width: 42, height: 42)
+
+                        if playerManager.currentSong?.id == song.id && playerManager.isPlaying {
+                            PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
+                                .frame(width: 20, height: 16)
+                        } else {
+                            MonologueIcon(icon: .play, size: 14, color: NeumorphicStyle.accent, lineWidth: 1.8)
+                        }
+                    }
+                }
+                .padding(.horizontal, 15)
+                .padding(.vertical, 13)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+        }
+    }
+
+    private var featuredSong: Song? {
+        playerManager.currentSong ?? playerManager.history.first ?? dailySongs.first
+    }
+
+    private func currentSongCaption(for song: Song) -> String {
+        if playerManager.currentSong?.id == song.id {
+            return String(localized: "正在播放")
+        }
+        if playerManager.currentSong == nil, playerManager.history.first?.id == song.id {
+            return String(localized: "上次播放")
+        }
+        return String(localized: "今日首选")
+    }
+
+    private func playFeatured(_ song: Song) {
+        if playerManager.currentSong?.id == song.id {
+            playerManager.togglePlayPause()
+        } else if dailySongs.contains(where: { $0.id == song.id }) {
+            playerManager.play(song: song, in: dailySongs)
+        } else {
+            playerManager.play(song: song, in: [song])
         }
     }
 }
@@ -833,7 +849,7 @@ private struct NeumorphicHomeSpinningCover: View {
         TimelineView(.animation(minimumInterval: 1 / 24, paused: !isPlaying)) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
-            CachedAsyncImage(url: coverUrl) {
+            CachedAsyncImage(url: coverUrl, width: 86, height: 86) {
                 Circle().fill(NeumorphicStyle.surface)
             }
             .aspectRatio(contentMode: .fill)
@@ -875,7 +891,7 @@ private struct NeumorphicSignalBannerCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: banner.imageUrl) {
+            CachedAsyncImage(url: banner.imageUrl, width: width, height: 142) {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(NeumorphicStyle.surfacePressed)
                     .overlay(MonologueIcon(icon: .radio, size: 28, color: NeumorphicStyle.inkMuted.opacity(0.45)))
@@ -912,8 +928,9 @@ private struct NeumorphicSignalBannerCard: View {
 private struct NeumorphicHomeSongRow: View {
     let song: Song
     let index: Int
-    let isPlaying: Bool
     let action: () -> Void
+
+    @ObservedObject private var playerManager = PlayerManager.shared
 
     var body: some View {
         Button(action: action) {
@@ -923,7 +940,7 @@ private struct NeumorphicHomeSongRow: View {
                     .foregroundStyle(NeumorphicStyle.inkMuted)
                     .frame(width: 25)
 
-                CachedAsyncImage(url: song.coverUrl) {
+                CachedAsyncImage(url: song.coverUrl, width: 48, height: 48) {
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(NeumorphicStyle.surfacePressed)
                 }
@@ -959,6 +976,10 @@ private struct NeumorphicHomeSongRow: View {
         }
         .buttonStyle(.plain)
     }
+
+    private var isPlaying: Bool {
+        playerManager.currentSong?.id == song.id && playerManager.isPlaying
+    }
 }
 
 private struct NeumorphicNewSongCard: View {
@@ -966,7 +987,7 @@ private struct NeumorphicNewSongCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            CachedAsyncImage(url: song.coverUrl) {
+            CachedAsyncImage(url: song.coverUrl, width: 98, height: 98) {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(NeumorphicStyle.surfacePressed)
             }
@@ -995,7 +1016,7 @@ private struct NeumorphicMiniPlaylistCard: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            CachedAsyncImage(url: playlist.coverUrl) {
+            CachedAsyncImage(url: playlist.coverUrl, width: 48, height: 48) {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(NeumorphicStyle.surfacePressed)
             }

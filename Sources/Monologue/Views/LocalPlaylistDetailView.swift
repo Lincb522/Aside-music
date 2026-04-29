@@ -38,7 +38,7 @@ struct LocalPlaylistDetailView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
-                NeumorphicRootBackdrop()
+                ThemeRenderBackdrop(theme: .neumorphic)
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist?.displayCoverUrl?.sized(200))
             } else {
@@ -50,6 +50,7 @@ struct LocalPlaylistDetailView: View {
                     localPlaylistScrollableContent(includeHeader: true)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 .refreshable {
                     _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
                 }
@@ -61,6 +62,7 @@ struct LocalPlaylistDetailView: View {
                         localPlaylistScrollableContent(includeHeader: false)
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                     .refreshable {
                         _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
                     }

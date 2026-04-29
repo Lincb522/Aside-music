@@ -88,6 +88,7 @@ struct EQSettingsView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
             
             // [DEPRECATED] 智能分析 Toast 提示已废弃
@@ -593,6 +594,7 @@ struct EQSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
 
             // 预设卡片横向滚动
             ScrollView(.horizontal) {
@@ -603,6 +605,7 @@ struct EQSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -769,7 +772,7 @@ struct EQSettingsView: View {
         NavigationStack {
             ZStack {
                 MonologueSheetAwareBackground {
-                    ThemedPageBackground()
+                    ThemedPageBackground(useRenderLayer: true)
                         .ignoresSafeArea()
                 }
 

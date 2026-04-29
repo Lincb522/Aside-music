@@ -26,7 +26,7 @@ struct DailyRecommendView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
-                NeumorphicRootBackdrop()
+                ThemeRenderBackdrop(theme: .neumorphic)
             } else {
                 ThemedPageBackground()
             }
@@ -97,6 +97,7 @@ struct DailyRecommendView: View {
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     // MARK: - Subviews
@@ -567,6 +568,7 @@ struct DailyRecommendView: View {
             .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
             BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.id) })
         }
@@ -703,7 +705,7 @@ struct DailyHistoryView: View {
         ZStack {
             MonologueSheetAwareBackground {
                 if NeumorphicStyle.isActive {
-                    NeumorphicRootBackdrop()
+                    ThemeRenderBackdrop(theme: .neumorphic)
                 } else {
                     ThemedPageBackground()
                 }
@@ -812,6 +814,7 @@ struct DailyHistoryView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     private func dateButton(for date: String) -> some View {
@@ -906,6 +909,7 @@ struct DailyHistoryView: View {
             .padding(.bottom, 100)
         }
         .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
     }
 
     // MARK: - Helpers

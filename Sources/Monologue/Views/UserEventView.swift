@@ -56,6 +56,7 @@ struct UserEventView: View {
                         FloatingBarBottomSpacer()
                     }
                     .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
                 }
             }
         }

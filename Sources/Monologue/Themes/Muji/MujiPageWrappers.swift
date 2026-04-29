@@ -13,7 +13,6 @@ private struct MujiThemeRoot<Content: View>: View {
         content
             .mujiSurfaceIfNeeded()
             .tint(MujiStyle.clay)
-            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 

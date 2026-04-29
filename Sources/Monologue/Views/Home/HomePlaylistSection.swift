@@ -34,6 +34,7 @@ struct HomeNCMPlaylistSection: View {
                 .scrollTargetLayout()
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
         }
     }

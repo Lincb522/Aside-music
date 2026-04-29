@@ -129,6 +129,7 @@ struct MujiPaperCardBackground: View {
                 x: 0,
                 y: elevated ? 7 : 3
             )
+            .themeRenderSurfaceLayer(isEnabled: elevated)
     }
 }
 

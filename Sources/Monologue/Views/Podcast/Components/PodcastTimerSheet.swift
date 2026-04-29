@@ -145,6 +145,7 @@ struct PodcastTimerSheet: View {
                 .iPadContentWidth(520)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .background {
             MonologueSheetAwareBackground {

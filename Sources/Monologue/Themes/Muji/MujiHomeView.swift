@@ -30,7 +30,7 @@ struct MujiHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                MujiRootBackdrop()
+                ThemedPageBackground(useRenderLayer: true)
 
                 if viewModel.isLoading {
                     mujiLoadingView
@@ -48,6 +48,7 @@ struct MujiHomeView: View {
                     withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
                 }
             }
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -180,6 +181,7 @@ struct MujiHomeView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
         .refreshable {
             viewModel.fetchData()
             if hitokotoEnabled {
@@ -315,6 +317,7 @@ struct MujiHomeView: View {
                 .padding(.horizontal, 28)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -393,6 +396,7 @@ struct MujiHomeView: View {
                 .padding(.bottom, 4)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -558,7 +562,7 @@ struct MujiHomeView: View {
                 description: nil,
                 tags: nil
             )
-            navigationPath.append(HomeView.HomeDestination.playlist(playlist))
+            navigationPath.append(HomeView.HomeDestination.bannerPlaylist(playlist, banner.pic))
         case 1004:
             navigationPath.append(HomeView.HomeDestination.mvDiscover)
         default:
@@ -576,6 +580,7 @@ struct MujiHomeView: View {
         case .search: SearchView()
         case .dailyRecommend: DailyRecommendView()
         case let .playlist(p): PlaylistDetailView(playlist: p)
+        case let .bannerPlaylist(p, bannerImage): PlaylistDetailView(playlist: p, bannerCoverURLString: bannerImage)
         case let .artist(id): ArtistDetailView(artistId: id)
         case let .album(id): AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil)
         case .mvDiscover: MVDiscoverView()

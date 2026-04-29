@@ -318,6 +318,7 @@ struct QQArtistDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             .monologueScrollOffset($scrollOffset)
             .ignoresSafeArea(edges: .top)
         }
@@ -992,6 +993,7 @@ struct QQAlbumDetailView: View {
                     .padding(.bottom, 100)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -1250,6 +1252,7 @@ struct QQAlbumDescSheet: View {
                     .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 }
@@ -1323,6 +1326,7 @@ struct QQArtistBioSheet: View {
                     .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 }
@@ -1503,6 +1507,7 @@ struct QQPlaylistDetailView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
             }
         }
         .navigationBarTitleDisplayMode(.inline)
