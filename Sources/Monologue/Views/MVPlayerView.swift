@@ -128,6 +128,7 @@ struct MVPlayerView: View {
     @State private var viewModel: MVPlayerViewModel
     @StateObject private var commentVM: CommentViewModel
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
 
@@ -151,6 +152,8 @@ struct MVPlayerView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if isFullscreen {
                 // 全屏横屏模式

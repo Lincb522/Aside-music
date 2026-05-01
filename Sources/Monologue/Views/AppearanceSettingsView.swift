@@ -14,6 +14,9 @@ private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medi
     if NeumorphicStyle.isActive {
         return NeumorphicStyle.labelFont(size, weight: weight)
     }
+    if SignalStyle.isActive {
+        return SignalStyle.labelFont(size, weight: weight)
+    }
     if MujiStyle.isActive {
         return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
     }
@@ -31,14 +34,14 @@ struct AppearanceSettingsView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 20) {
+                LazyVStack(spacing: 20) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_appearance_title"),
                         eyebrow: "STYLE",
                         icon: .sparkle
                     )
 
-                    VStack(spacing: 20) {
+                    LazyVStack(spacing: 20) {
                         globalThemeSection
                         if ThemeColorCustomization.supports(settings.globalThemeId) {
                             themeColorCustomizationSection
@@ -234,7 +237,7 @@ struct AppearanceSettingsView: View {
 
                         MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                             .rotationEffect(.degrees(isGlobalThemeExpanded ? -90 : 90))
-                            .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isGlobalThemeExpanded)
+                            .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isGlobalThemeExpanded)
                     }
                     .contentShape(Rectangle())
                 }
@@ -244,7 +247,7 @@ struct AppearanceSettingsView: View {
 
                 SettingsDisclosureReveal(isExpanded: isGlobalThemeExpanded) {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
+                        LazyHStack(spacing: 10) {
                             ForEach(GlobalThemeId.allCases) { themeId in
                                 Button {
                                     applyGlobalTheme(themeId)
@@ -276,9 +279,9 @@ struct AppearanceSettingsView: View {
 
     private func suggestedPlayerTheme(for themeId: GlobalThemeId) -> PlayerTheme? {
         switch themeId {
-        case .neumorphic:
+        case .neumorphic, .sequoia:
             return .classic
-        case .default, .muji, .manga:
+        case .default, .muji, .manga, .material, .clay, .signal:
             return nil
         }
     }
@@ -415,6 +418,7 @@ private struct ThemeColorCustomizationSection: View {
     @State private var activeColorPicker: ThemeColorPickerTarget?
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         SettingsSection(title: String(localized: "主题颜色")) {
             VStack(alignment: .leading, spacing: 0) {
                 Button {
@@ -428,7 +432,7 @@ private struct ThemeColorCustomizationSection: View {
                                 .font(appearanceSettingsFont(15, weight: .medium))
                                 .foregroundStyle(Color.monologueTextPrimary)
 
-                            Text(theme.displayName)
+                            Text(currentPresetSummary)
                                 .font(appearanceSettingsFont(11, weight: .regular))
                                 .foregroundStyle(Color.monologueTextSecondary)
                         }
@@ -437,7 +441,7 @@ private struct ThemeColorCustomizationSection: View {
 
                         MonologueIcon(icon: .chevronRight, size: 11, color: Color.monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                             .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                            .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
+                            .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
                     }
                     .contentShape(Rectangle())
                 }
@@ -449,6 +453,7 @@ private struct ThemeColorCustomizationSection: View {
                     VStack(alignment: .leading, spacing: 14) {
                         presetRail
                         saveCurrentPresetButton
+                        restoreDefaultColorsButton
 
                         Divider().opacity(0.35)
 
@@ -457,10 +462,6 @@ private struct ThemeColorCustomizationSection: View {
                         Divider().opacity(0.35)
 
                         colorRoleEditor(role: .background)
-
-                        if theme == .default {
-                            restoreDefaultBackgroundButton
-                        }
 
                         if theme == .manga {
                             Divider().opacity(0.35)
@@ -472,8 +473,15 @@ private struct ThemeColorCustomizationSection: View {
                 }
             }
         }
-        .id("\(theme.rawValue)-\(settings.globalThemeRevision)")
-        .sheet(item: $activeColorPicker) { target in
+        .id(theme.rawValue)
+        .monologueSheet(
+            item: $activeColorPicker,
+            preset: .custom(
+                height: .fixed(438),
+                maxContentWidth: 620,
+                cornerRadius: theme == .manga ? 22 : (theme == .muji ? 20 : 30)
+            )
+        ) { target in
             ThemeColorPickerSheet(
                 theme: theme,
                 target: target,
@@ -482,75 +490,175 @@ private struct ThemeColorCustomizationSection: View {
         }
     }
 
-    private var restoreDefaultBackgroundButton: some View {
-        Button {
+    private var currentPresetSummary: String {
+        ThemeColorCustomization.selectedPresetDisplayName(for: theme)
+    }
+
+    private var restoreDefaultColorsButton: some View {
+        let canRestore = ThemeColorCustomization.hasStoredCustomization(for: theme)
+
+        return Button {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
-                ThemeColorCustomization.resetBackground(for: .default)
+                ThemeColorCustomization.resetThemeColors(for: theme)
             }
         } label: {
             HStack(spacing: 9) {
-                MonologueIcon(icon: .refresh, size: 11, color: themeSubtextColor, lineWidth: 1.7)
+                MonologueIcon(icon: .refresh, size: 11, color: canRestore ? themeSubtextColor : themeSubtextColor.opacity(0.54), lineWidth: 1.7)
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(themeStrokeColor.opacity(0.12)))
+                    .background(Circle().fill(themeStrokeColor.opacity(canRestore ? 0.12 : 0.07)))
 
-                Text(String(localized: "恢复默认背景"))
+                Text(String(localized: "恢复默认配色"))
                     .font(appearanceSettingsFont(12, weight: .semibold))
-                    .foregroundStyle(themeTextColor)
+                    .foregroundStyle(canRestore ? themeTextColor : themeSubtextColor.opacity(0.7))
 
                 Spacer()
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 9)
             .background(fieldBackground)
-            .opacity(ThemeColorCustomization.hasStoredBackground(for: .default) ? 1 : 0.58)
+            .opacity(canRestore ? 1 : 0.58)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
-        .disabled(!ThemeColorCustomization.hasStoredBackground(for: .default))
+        .disabled(!canRestore)
     }
 
     private var presetRail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            presetGroup(
+                title: String(localized: "预设"),
+                presets: ThemeColorCustomization.builtInColorPresets(for: theme),
+                allowsDelete: false
+            )
+
+            let customPresets = ThemeColorCustomization.customPresets(for: theme)
+            if !customPresets.isEmpty {
+                presetGroup(
+                    title: String(localized: "自定义方案"),
+                    presets: customPresets,
+                    allowsDelete: true
+                )
+            }
+        }
+    }
+
+    private func presetGroup(title: String, presets: [ThemeColorPreset], allowsDelete: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .font(appearanceSettingsFont(10.5, weight: .semibold))
+                .foregroundStyle(themeSubtextColor.opacity(0.78))
+                .textCase(.uppercase)
+                .lineLimit(1)
+
+            presetScrollRow(presets: presets, allowsDelete: allowsDelete)
+        }
+    }
+
+    private func presetScrollRow(presets: [ThemeColorPreset], allowsDelete: Bool) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                ForEach(ThemeColorCustomization.presets(for: theme)) { preset in
+                ForEach(presets) { preset in
                     let isSelected = ThemeColorCustomization.isPresetSelected(preset, for: theme)
-                    Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                            ThemeColorCustomization.applyPreset(preset, to: theme)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            ThemeColorPresetPreviewSwatch(
-                                theme: theme,
-                                preset: preset,
-                                cornerRadius: theme == .manga ? 8 : 10
-                            )
-                            .frame(width: isSelected ? 31 : 28, height: isSelected ? 31 : 28)
-
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(preset.name)
-                                    .font(appearanceSettingsFont(12, weight: isSelected ? .bold : .semibold))
-                                    .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
-
-                                if preset.isCustom {
-                                    Text(String(localized: "已存"))
-                                        .font(appearanceSettingsFont(8.5, weight: .semibold))
-                                        .foregroundStyle(themeSubtextColor.opacity(0.72))
-                                        .textCase(.uppercase)
+                    if allowsDelete {
+                        HStack(spacing: 4) {
+                            Button {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                    ThemeColorCustomization.applyPreset(preset, to: theme)
                                 }
+                            } label: {
+                                presetChipLabel(preset: preset, isSelected: isSelected)
                             }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
-                            selectedPresetMark(isSelected: isSelected)
+                            Button {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                    ThemeColorCustomization.deleteSavedPreset(preset, for: theme)
+                                }
+                            } label: {
+                                MonologueIcon(icon: .trash, size: 10.5, color: themeSubtextColor.opacity(0.82), lineWidth: 1.55)
+                                    .frame(width: 30, height: 30)
+                                    .background(deletePresetButtonBackground)
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+                            .accessibilityLabel(String(localized: "删除方案"))
                         }
-                        .padding(.horizontal, isSelected ? 11 : 10)
-                        .padding(.vertical, 8)
-                        .background(presetBackground(isSelected: isSelected))
-                        .scaleEffect(isSelected ? 1.015 : 1)
+                    } else {
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                ThemeColorCustomization.applyPreset(preset, to: theme)
+                            }
+                        } label: {
+                            presetChipLabel(preset: preset, isSelected: isSelected)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 }
             }
             .themeRenderScrollLayer()
             .padding(.vertical, 2)
+        }
+    }
+
+    private func presetChipLabel(preset: ThemeColorPreset, isSelected: Bool) -> some View {
+        HStack(spacing: 8) {
+            ThemeColorPresetPreviewSwatch(
+                theme: theme,
+                preset: preset,
+                cornerRadius: theme == .manga ? 8 : 10
+            )
+            .frame(width: isSelected ? 31 : 28, height: isSelected ? 31 : 28)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(preset.name)
+                    .font(appearanceSettingsFont(12, weight: isSelected ? .bold : .semibold))
+                    .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(0.88)
+                    .allowsTightening(true)
+
+                if preset.isCustom {
+                    Text(String(localized: "已存"))
+                        .font(appearanceSettingsFont(8.5, weight: .semibold))
+                        .foregroundStyle(themeSubtextColor.opacity(0.72))
+                        .textCase(.uppercase)
+                        .lineLimit(1)
+                }
+            }
+            .frame(minWidth: 44, maxWidth: 104, alignment: .leading)
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(2)
+
+            selectedPresetMark(isSelected: isSelected)
+        }
+        .padding(.horizontal, isSelected ? 11 : 10)
+        .padding(.vertical, 8)
+        .background(presetBackground(isSelected: isSelected))
+        .scaleEffect(isSelected ? 1.015 : 1)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @ViewBuilder
+    private var deletePresetButtonBackground: some View {
+        if theme == .manga {
+            Circle()
+                .fill(MangaStyle.bubbleWhite)
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.1))
+        } else if theme == .muji {
+            Circle()
+                .fill(MujiStyle.surface.opacity(0.78))
+                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
+        } else if theme == .neumorphic {
+            NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, lightweight: true)
+        } else if theme == .sequoia {
+            SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list)
+        } else if theme == .clay {
+            ClaySurfaceBackground(cornerRadius: 15, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
+        } else if theme == .signal {
+            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
+        } else {
+            Circle()
+                .fill(Color.monologueGlassTint)
+                .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.68), lineWidth: 0.65))
         }
     }
 
@@ -615,31 +723,69 @@ private struct ThemeColorCustomizationSection: View {
             }
 
             if !usesSingleColor && ThemeColorCustomization.mode(for: theme, role: role) == .gradient {
-                HStack(spacing: 10) {
-                    colorPickerPill(
-                        title: String(localized: "起始"),
-                        target: .role(role, suffix: "start", title: String(localized: "起始"), fallback: fallbackHex(role: role, suffix: "start")),
-                        binding: colorBinding(role: role, suffix: "start", fallback: fallbackHex(role: role, suffix: "start"))
-                    )
-                    colorPickerPill(
-                        title: String(localized: "结束"),
-                        target: .role(role, suffix: "end", title: String(localized: "结束"), fallback: fallbackHex(role: role, suffix: "end")),
-                        binding: colorBinding(role: role, suffix: "end", fallback: fallbackHex(role: role, suffix: "end"))
-                    )
-                }
-
-                Picker(String(localized: "渐变方式"), selection: gradientStyleBinding(role)) {
-                    ForEach(ThemeCustomGradientStyle.allCases) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-                .pickerStyle(.segmented)
+                backgroundGradientColorGrid(role: role)
+                gradientStyleSelector(role: role)
             } else {
                 colorPickerPill(
                     title: String(localized: "颜色"),
                     target: .role(role, suffix: "solid", title: String(localized: "颜色"), fallback: fallbackHex(role: role, suffix: "solid")),
                     binding: colorBinding(role: role, suffix: "solid", fallback: fallbackHex(role: role, suffix: "solid"))
                 )
+            }
+        }
+    }
+
+    private func backgroundGradientColorGrid(role: ThemeCustomColorRole) -> some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                gradientColorPill(role: role, suffix: "start", title: String(localized: "颜色 1"))
+                gradientColorPill(role: role, suffix: "end", title: String(localized: "颜色 2"))
+            }
+
+            HStack(spacing: 10) {
+                gradientColorPill(role: role, suffix: "stop3", title: String(localized: "颜色 3"))
+                gradientColorPill(role: role, suffix: "stop4", title: String(localized: "颜色 4"))
+            }
+        }
+    }
+
+    private func gradientColorPill(role: ThemeCustomColorRole, suffix: String, title: String) -> some View {
+        colorPickerPill(
+            title: title,
+            target: .role(role, suffix: suffix, title: title, fallback: fallbackHex(role: role, suffix: suffix)),
+            binding: colorBinding(role: role, suffix: suffix, fallback: fallbackHex(role: role, suffix: suffix))
+        )
+    }
+
+    private func gradientStyleSelector(role: ThemeCustomColorRole) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "渐变方式"))
+                .font(appearanceSettingsFont(11, weight: .semibold))
+                .foregroundStyle(themeSubtextColor.opacity(0.82))
+                .lineLimit(1)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ThemeCustomGradientStyle.allCases) { style in
+                        let isSelected = ThemeColorCustomization.gradientStyle(for: theme, role: role) == style
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                ThemeColorCustomization.setGradientStyle(style, for: theme, role: role)
+                            }
+                        } label: {
+                            Text(style.displayName)
+                                .font(appearanceSettingsFont(11.5, weight: isSelected ? .bold : .semibold))
+                                .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 7)
+                                .background(gradientStyleChipBackground(isSelected: isSelected))
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                    }
+                }
+                .padding(.vertical, 1)
             }
         }
     }
@@ -722,8 +868,7 @@ private struct ThemeColorCustomizationSection: View {
         Binding(
             get: { ThemeColorCustomization.mode(for: theme, role: role) },
             set: { mode in
-                UserDefaults.standard.set(mode.rawValue, forKey: ThemeColorCustomization.key(theme, role, "mode"))
-                settings.notifyThemeCustomizationChanged()
+                ThemeColorCustomization.setMode(mode, for: theme, role: role)
             }
         )
     }
@@ -732,8 +877,7 @@ private struct ThemeColorCustomizationSection: View {
         Binding(
             get: { ThemeColorCustomization.gradientStyle(for: theme, role: role) },
             set: { style in
-                UserDefaults.standard.set(style.rawValue, forKey: ThemeColorCustomization.key(theme, role, "gradientStyle"))
-                settings.notifyThemeCustomizationChanged()
+                ThemeColorCustomization.setGradientStyle(style, for: theme, role: role)
             }
         )
     }
@@ -744,8 +888,7 @@ private struct ThemeColorCustomizationSection: View {
                 Color(hex: ThemeColorCustomization.hex(theme, role, suffix, fallback: fallback))
             },
             set: { color in
-                UserDefaults.standard.set(color.toHex(), forKey: ThemeColorCustomization.key(theme, role, suffix))
-                settings.notifyThemeCustomizationChanged()
+                ThemeColorCustomization.setHex(color.toHex(), for: theme, role: role, suffix: suffix)
             }
         )
     }
@@ -754,8 +897,7 @@ private struct ThemeColorCustomizationSection: View {
         Binding(
             get: { Color(hex: ThemeColorCustomization.mangaHex(suffix, fallback: fallback)) },
             set: { color in
-                UserDefaults.standard.set(color.toHex(), forKey: ThemeColorCustomization.mangaKey(suffix))
-                settings.notifyThemeCustomizationChanged()
+                ThemeColorCustomization.setMangaHex(color.toHex(), suffix: suffix)
             }
         )
     }
@@ -773,6 +915,10 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private func fallbackHex(role: ThemeCustomColorRole, suffix: String) -> String {
+        if role == .background {
+            return ThemeColorCustomization.defaultBackgroundStopHex(for: theme, suffix: suffix)
+        }
+
         switch (theme, role, suffix) {
         case (.muji, .accent, "end"): return "B56B4B"
         case (.muji, .accent, _): return "B56B4B"
@@ -782,6 +928,22 @@ private struct ThemeColorCustomizationSection: View {
         case (.neumorphic, .accent, _): return "4F8E86"
         case (.neumorphic, .background, "end"): return "F2EEE8"
         case (.neumorphic, .background, _): return "E9EDF0"
+        case (.material, .accent, "end"): return "6750A4"
+        case (.material, .accent, _): return "6750A4"
+        case (.material, .background, "end"): return "F7F2FA"
+        case (.material, .background, _): return "FFFBFE"
+        case (.sequoia, .accent, "end"): return "26AFCF"
+        case (.sequoia, .accent, _): return "0A84FF"
+        case (.sequoia, .background, "end"): return "E3EBF2"
+        case (.sequoia, .background, _): return "F4F7FB"
+        case (.clay, .accent, "end"): return "35BFE6"
+        case (.clay, .accent, _): return "35BFE6"
+        case (.clay, .background, "end"): return "DDF3FA"
+        case (.clay, .background, _): return "F7EAD8"
+        case (.signal, .accent, "end"): return "2F80ED"
+        case (.signal, .accent, _): return "2F80ED"
+        case (.signal, .background, "end"): return "F7F2EA"
+        case (.signal, .background, _): return "EEF5F8"
         case (.manga, .accent, "end"): return "FF4F84"
         case (.manga, .accent, _): return "FF4F84"
         case (.manga, .background, "end"): return "E8F1FF"
@@ -790,7 +952,6 @@ private struct ThemeColorCustomizationSection: View {
         case (.default, .accent, _): return "4D6F95"
         case (.default, .background, "end"): return "E6EDF6"
         case (.default, .background, _): return "F8FAFC"
-        default: return "FFFFFF"
         }
     }
 
@@ -801,13 +962,20 @@ private struct ThemeColorCustomizationSection: View {
         return role.displayName
     }
 
-    @ViewBuilder
     private func selectedPresetMark(isSelected: Bool) -> some View {
-        if isSelected {
-            MonologueIcon(icon: .checkmark, size: 8.5, color: selectedPresetMarkColor, lineWidth: 1.8)
-                .frame(width: 17, height: 17)
-                .background(selectedPresetMarkBackground)
+        ZStack {
+            if isSelected {
+                MonologueIcon(icon: .checkmark, size: 8.5, color: selectedPresetMarkColor, lineWidth: 1.8)
+                    .frame(width: 17, height: 17)
+                    .background(selectedPresetMarkBackground)
+            }
         }
+        .frame(width: 17, height: 17)
+    }
+
+    @ViewBuilder
+    private func gradientStyleChipBackground(isSelected: Bool) -> some View {
+        presetBackground(isSelected: isSelected)
     }
 
     @ViewBuilder
@@ -824,6 +992,12 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(MujiPaperTexture(opacity: isSelected ? 0.04 : 0.08).clipShape(Capsule()))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, tint: isSelected ? NeumorphicStyle.accent.opacity(0.14) : nil, lightweight: true)
+        } else if theme == .sequoia {
+            SequoiaSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SequoiaStyle.accent.opacity(0.14) : SequoiaStyle.glass)
+        } else if theme == .clay {
+            ClaySurfaceBackground(cornerRadius: 18, tint: isSelected ? ClayStyle.accent.opacity(0.16) : ClayStyle.cream, elevated: isSelected, pressed: !isSelected, compact: true)
+        } else if theme == .signal {
+            SignalSurfaceBackground(cornerRadius: 10, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SignalStyle.accent.opacity(0.16) : SignalStyle.control)
         } else {
             Capsule()
                 .fill(isSelected ? Color.monologueAccent.opacity(0.12) : Color.monologueGlassTint)
@@ -843,6 +1017,12 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true)
+        } else if theme == .sequoia {
+            SequoiaSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
+        } else if theme == .clay {
+            ClaySurfaceBackground(cornerRadius: 14, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
+        } else if theme == .signal {
+            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
         } else {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -853,35 +1033,50 @@ private struct ThemeColorCustomizationSection: View {
     private var themeTextColor: Color {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
+        if theme == .sequoia { return SequoiaStyle.ink }
+        if theme == .clay { return ClayStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
+        if theme == .signal { return SignalStyle.ink }
         return NeumorphicStyle.ink
     }
 
     private var themeSubtextColor: Color {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
+        if theme == .sequoia { return SequoiaStyle.inkSoft }
+        if theme == .clay { return ClayStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
+        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
     private var themeStrokeColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
+        if theme == .sequoia { return SequoiaStyle.separator.opacity(0.74) }
+        if theme == .clay { return ClayStyle.separator.opacity(0.62) }
         if theme == .default { return Color.monologueSeparator }
+        if theme == .signal { return SignalStyle.separator.opacity(0.72) }
         return NeumorphicStyle.separator.opacity(0.62)
     }
 
     private var selectedPresetTextColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
+        if theme == .sequoia { return SequoiaStyle.accent }
+        if theme == .clay { return ClayStyle.accent }
         if theme == .default { return Color.monologueAccent }
+        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
     private var selectedPresetMarkColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.onTint }
+        if theme == .sequoia { return Color.white }
+        if theme == .clay { return ClayStyle.accent }
         if theme == .default { return Color.monologueIconForeground }
+        if theme == .signal { return SignalStyle.onAccent }
         return Color(light: .white, dark: .black)
     }
 
@@ -897,6 +1092,15 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .default {
             Circle()
                 .fill(Color.monologueIconBackground)
+        } else if theme == .sequoia {
+            Circle()
+                .fill(SequoiaStyle.accent)
+        } else if theme == .clay {
+            Circle()
+                .fill(ClayStyle.butter.opacity(0.82))
+        } else if theme == .signal {
+            Circle()
+                .fill(SignalStyle.accent)
         } else {
             Circle()
                 .fill(NeumorphicStyle.accent)
@@ -906,7 +1110,10 @@ private struct ThemeColorCustomizationSection: View {
     private var savePresetIconColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.onTint }
+        if theme == .sequoia { return Color.white }
+        if theme == .clay { return ClayStyle.accent }
         if theme == .default { return Color.monologueIconForeground }
+        if theme == .signal { return SignalStyle.onAccent }
         return Color(light: .white, dark: .black)
     }
 
@@ -923,6 +1130,18 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(NeumorphicStyle.accent)
                 .shadow(color: NeumorphicStyle.accent.opacity(0.18), radius: 5, x: 0, y: 3)
+        } else if theme == .sequoia {
+            Circle()
+                .fill(SequoiaStyle.accent)
+                .shadow(color: SequoiaStyle.accent.opacity(0.18), radius: 6, x: 0, y: 3)
+        } else if theme == .clay {
+            Circle()
+                .fill(ClayStyle.butter.opacity(0.86))
+                .shadow(color: ClayStyle.accent.opacity(0.12), radius: 6, x: 0, y: 3)
+        } else if theme == .signal {
+            Circle()
+                .fill(SignalStyle.accent)
+                .shadow(color: Color.black.opacity(0.18), radius: 0, x: 2, y: 2)
         } else {
             Circle()
                 .fill(Color.monologueIconBackground)
@@ -943,6 +1162,12 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(MujiPaperTexture(opacity: 0.065).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous)))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08), lightweight: true)
+        } else if theme == .sequoia {
+            SequoiaSurfaceBackground(cornerRadius: 16, elevated: true, fill: SequoiaStyle.accent.opacity(0.08))
+        } else if theme == .clay {
+            ClaySurfaceBackground(cornerRadius: 16, tint: ClayStyle.accent.opacity(0.1), elevated: true, compact: true)
+        } else if theme == .signal {
+            SignalSurfaceBackground(cornerRadius: 13, elevated: true, fill: SignalStyle.device)
         } else {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -961,7 +1186,7 @@ private struct ThemeColorPresetPreviewSwatch: View {
             mangaSwatch
         } else {
             ThemeColorPreviewSwatch(
-                colors: [Color(hex: preset.accentStartHex), Color(hex: preset.accentEndHex)],
+                colors: preset.backgroundPaletteHexes.map { Color(hex: $0) },
                 cornerRadius: cornerRadius
             )
         }
@@ -980,7 +1205,7 @@ private struct ThemeColorPresetPreviewSwatch: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: preset.backgroundStartHex), Color(hex: preset.backgroundEndHex)],
+                            colors: preset.backgroundPaletteHexes.map { Color(hex: $0) },
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -1093,9 +1318,6 @@ private struct ThemeColorPickerSheet: View {
             .padding(.top, 20)
             .padding(.bottom, 18)
         }
-        .presentationDetents([.height(438), .medium])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(.clear)
         .onAppear {
             hexInput = color.toHex()
         }
@@ -1134,7 +1356,7 @@ private struct ThemeColorPickerSheet: View {
                 RoundedRectangle(cornerRadius: theme == .manga ? 18 : 20, style: .continuous)
                     .stroke(previewStrokeColor, lineWidth: theme == .manga ? 2 : 0.9)
             )
-            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : 8, x: 0, y: theme == .manga ? 3 : 8)
+            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : (theme == .signal ? 16 : 8), x: 0, y: theme == .manga ? 3 : (theme == .signal ? 10 : 8))
     }
 
     private var pickerRow: some View {
@@ -1218,8 +1440,20 @@ private struct ThemeColorPickerSheet: View {
             return ["B56B4B", "D8B56D", "78846B", "56677A", "B96D55", "CFA66F", "F7F1E8", "EFE5D6", "F3EEE3", "E4E8D9", "F4E8DC", "EAD9C8"]
         }
 
+        if theme == .sequoia {
+            return ["0A84FF", "26AFCF", "6E68E8", "2E9F73", "B9793B", "5D6B7B", "F4F7FB", "E3EBF2", "F7F9FB", "E5EBF1", "F7F6FD", "E3ECF5"]
+        }
+
+        if theme == .clay {
+            return ["E97871", "F5A5C5", "A7DEC6", "A8C9F5", "FFE39B", "CDB4F6", "F6E8DD", "F1F5E9", "F3ECE5", "E8F0FA", "F8E8EA", "EFEAF7"]
+        }
+
         if theme == .default {
             return ["4D6F95", "B66E57", "4D8196", "6A8368", "6E72A7", "9F7559", "F8FAFC", "E6EDF6", "FFF6EB", "EAF0FA", "EEF6FA", "E9F2EC"]
+        }
+
+        if theme == .signal {
+            return ["2F80ED", "00A98F", "22C7E8", "E19A5E", "7F7BE8", "C8962C", "EEF5F8", "F7F2EA", "EDF8F5", "F8F2EA", "F1F2FC", "EDF3F7"]
         }
 
         return ["4F8E86", "7D9475", "C59A66", "C65A58", "5E7FA4", "7AB9B0", "E9EDF0", "F2EEE8", "EEE8E1", "E7EDF0", "E8EDF4", "F0F2F4"]
@@ -1239,6 +1473,12 @@ private struct ThemeColorPickerSheet: View {
             }
         } else if theme == .default {
             Color.monologueSheetSurfaceBottom
+        } else if theme == .sequoia {
+            SequoiaRootBackdrop()
+        } else if theme == .clay {
+            ClayStyle.base
+        } else if theme == .signal {
+            SignalStyle.base
         } else {
             NeumorphicStyle.base
         }
@@ -1260,6 +1500,12 @@ private struct ThemeColorPickerSheet: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.monologueGlassTint)
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
+        } else if theme == .sequoia {
+            SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
+        } else if theme == .clay {
+            ClaySurfaceBackground(cornerRadius: 16, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
+        } else if theme == .signal {
+            SignalSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, fill: SignalStyle.control)
         } else {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
         }
@@ -1279,6 +1525,12 @@ private struct ThemeColorPickerSheet: View {
             Circle()
                 .fill(Color.monologueGlassTint)
                 .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
+        } else if theme == .sequoia {
+            SequoiaSurfaceBackground(cornerRadius: 17, elevated: true)
+        } else if theme == .clay {
+            ClaySurfaceBackground(cornerRadius: 17, tint: ClayStyle.cream, elevated: true, compact: true)
+        } else if theme == .signal {
+            SignalSurfaceBackground(cornerRadius: 17, elevated: true, fill: SignalStyle.control)
         } else {
             NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true, lightweight: true)
         }
@@ -1304,6 +1556,40 @@ private struct ThemeColorPickerSheet: View {
                 endPoint: .bottomTrailing
             )
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else if theme == .sequoia {
+            ZStack(alignment: .topLeading) {
+                LinearGradient(
+                    colors: [Color.white.opacity(0.34), .clear, SequoiaStyle.accent.opacity(0.16)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                HStack(spacing: 5) {
+                    Capsule().fill(SequoiaStyle.accent.opacity(0.52)).frame(width: 24, height: 5)
+                    Capsule().fill(SequoiaStyle.aqua.opacity(0.34)).frame(width: 14, height: 5)
+                    Capsule().fill(SequoiaStyle.separator).frame(width: 5, height: 5)
+                }
+                    .padding(12)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else if theme == .clay {
+            ZStack(alignment: .topTrailing) {
+                LinearGradient(
+                    colors: [Color(hex: "F7EAD8"), Color(hex: "DDF3FA")],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                HStack(spacing: 7) {
+                    Circle().fill(ClayStyle.berry).frame(width: 18, height: 18)
+                    Circle().fill(ClayStyle.grape).frame(width: 18, height: 18)
+                    Circle().fill(ClayStyle.butter).frame(width: 18, height: 18)
+                }
+                .padding(11)
+                .shadow(color: Color(hex: "B88F68").opacity(0.24), radius: 6, x: 2, y: 4)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else if theme == .signal {
+            SignalGridTexture(opacity: 0.22, gap: 12)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         } else {
             LinearGradient(
                 colors: [.white.opacity(0.32), .clear, .black.opacity(0.08)],
@@ -1318,6 +1604,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.titleFont(19, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(18, weight: .semibold) }
         if theme == .default { return .system(size: 18, weight: .semibold, design: .rounded) }
+        if theme == .sequoia { return SequoiaStyle.titleFont(18, weight: .semibold) }
+        if theme == .clay { return ClayStyle.labelFont(18, weight: .bold) }
+        if theme == .signal { return SignalStyle.labelFont(18, weight: .bold) }
         return NeumorphicStyle.labelFont(18, weight: .semibold)
     }
 
@@ -1325,6 +1614,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.labelFont(13, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(13, weight: .semibold) }
         if theme == .default { return .system(size: 13, weight: .semibold, design: .rounded) }
+        if theme == .sequoia { return SequoiaStyle.labelFont(13, weight: .semibold) }
+        if theme == .clay { return ClayStyle.labelFont(13, weight: .bold) }
+        if theme == .signal { return SignalStyle.labelFont(13, weight: .semibold) }
         return NeumorphicStyle.labelFont(13, weight: .semibold)
     }
 
@@ -1332,6 +1624,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
+        if theme == .sequoia { return SequoiaStyle.ink }
+        if theme == .clay { return ClayStyle.ink }
+        if theme == .signal { return SignalStyle.ink }
         return NeumorphicStyle.ink
     }
 
@@ -1339,6 +1634,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
+        if theme == .sequoia { return SequoiaStyle.inkSoft }
+        if theme == .clay { return ClayStyle.inkSoft }
+        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
@@ -1346,6 +1644,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
+        if theme == .sequoia { return SequoiaStyle.inkSoft }
+        if theme == .clay { return ClayStyle.inkSoft }
+        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
@@ -1353,6 +1654,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.55) }
         if theme == .default { return Color.monologueSeparator.opacity(0.72) }
+        if theme == .sequoia { return SequoiaStyle.separator.opacity(0.78) }
+        if theme == .clay { return ClayStyle.separator.opacity(0.58) }
+        if theme == .signal { return SignalStyle.separator.opacity(0.72) }
         return NeumorphicStyle.separator.opacity(0.58)
     }
 
@@ -1360,6 +1664,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
         if theme == .default { return Color.monologueAccent }
+        if theme == .sequoia { return SequoiaStyle.accent }
+        if theme == .clay { return ClayStyle.accent }
+        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
@@ -1367,6 +1674,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.onTint }
         if theme == .default { return Color.monologueIconForeground }
+        if theme == .sequoia { return Color.white }
+        if theme == .clay { return ClayStyle.accent }
+        if theme == .signal { return SignalStyle.onAccent }
         return Color(light: .white, dark: .black)
     }
 
@@ -1374,6 +1684,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.labelYellow }
         if theme == .muji { return MujiStyle.tea }
         if theme == .default { return Color.monologueIconBackground }
+        if theme == .sequoia { return SequoiaStyle.accent }
+        if theme == .clay { return ClayStyle.butter }
+        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
@@ -1381,6 +1694,9 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk.opacity(0.12) }
         if theme == .muji { return MujiStyle.ink.opacity(0.08) }
         if theme == .default { return Color.black.opacity(0.1) }
+        if theme == .sequoia { return Color.black.opacity(0.14) }
+        if theme == .clay { return Color.black.opacity(0.12) }
+        if theme == .signal { return Color.black.opacity(0.18) }
         return NeumorphicStyle.darkShadow(.light, intensity: 0.42)
     }
 }
@@ -1415,7 +1731,7 @@ private struct SettingsAppBrandRow: View {
 
                     MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                        .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
+                        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -1503,7 +1819,7 @@ private struct SettingsInterfaceIconSetRow: View {
 
                     MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                        .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
+                        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -1640,6 +1956,7 @@ private struct InterfaceIconSetOptionCard: View {
 private struct SettingsDisclosureReveal<Content: View>: View {
     let isExpanded: Bool
     let content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var measuredHeight: CGFloat = 0
 
     private var targetHeight: CGFloat {
@@ -1647,11 +1964,14 @@ private struct SettingsDisclosureReveal<Content: View>: View {
     }
 
     private var revealAnimation: Animation {
-        .timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.24)
+        if reduceMotion {
+            return .easeOut(duration: 0.12)
+        }
+        return .interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04)
     }
 
-    private var contentAnimation: Animation {
-        .timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.16).delay(0.03)
+    private var revealOffset: CGFloat {
+        isExpanded || reduceMotion ? 0 : -10
     }
 
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
@@ -1660,35 +1980,29 @@ private struct SettingsDisclosureReveal<Content: View>: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            content
-                .fixedSize(horizontal: false, vertical: true)
-                .opacity(isExpanded ? 1 : 0)
-                .offset(y: isExpanded ? 0 : -6)
-                .animation(isExpanded ? contentAnimation : nil, value: isExpanded)
-                .transaction { transaction in
-                    if !isExpanded {
-                        transaction.disablesAnimations = true
-                    }
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .opacity(isExpanded ? 1 : 0)
+            .offset(y: revealOffset)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: SettingsDisclosureHeightPreferenceKey.self,
+                        value: proxy.size.height
+                    )
                 }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: SettingsDisclosureHeightPreferenceKey.self,
-                            value: proxy.size.height
-                        )
-                    }
-                )
-        }
-        .frame(height: targetHeight, alignment: .top)
-        .clipShape(Rectangle())
-        .clipped()
-        .onPreferenceChange(SettingsDisclosureHeightPreferenceKey.self) { height in
-            updateMeasuredHeight(height)
-        }
-        .contentShape(Rectangle())
-        .allowsHitTesting(isExpanded)
-        .animation(revealAnimation, value: isExpanded)
+            }
+            .frame(height: targetHeight, alignment: .top)
+            .clipShape(Rectangle())
+            .clipped()
+            .onPreferenceChange(SettingsDisclosureHeightPreferenceKey.self) { height in
+                updateMeasuredHeight(height)
+            }
+            .contentShape(Rectangle())
+            .allowsHitTesting(isExpanded)
+            .accessibilityHidden(!isExpanded)
+            .animation(revealAnimation, value: isExpanded)
     }
 
     private func updateMeasuredHeight(_ height: CGFloat) {

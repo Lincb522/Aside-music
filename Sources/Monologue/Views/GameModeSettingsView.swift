@@ -20,6 +20,8 @@ struct GameModeSettingsView: View {
     ]
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedSettingsBackground()
 
@@ -104,19 +106,19 @@ struct GameModeSettingsView: View {
                         MonologueIcon(
                             icon: .waveform,
                             size: 22,
-                            color: gameMode.isActive ? gameModeAccentText : .monologueIconForeground
+                            color: gameMode.isActive ? gameModeAccentText : gameModeInactiveIconText
                         )
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(String(localized: "game_mode_main_title"))
                             .font(.rounded(size: 16, weight: .semibold))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(gameModePrimaryText)
                         Text(gameMode.isActive
                              ? String(localized: "game_mode_main_subtitle_on")
                              : String(localized: "game_mode_main_subtitle_off"))
                             .font(.rounded(size: 12, weight: .medium))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(gameModeSecondaryText)
                             .lineLimit(2)
                     }
 
@@ -162,10 +164,10 @@ struct GameModeSettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "game_mode_preset_section_title"))
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(gameModePrimaryText)
                 Text(String(localized: "game_mode_preset_section_subtitle"))
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(gameModeSecondaryText)
             }
             .padding(.horizontal, 4)
 
@@ -190,7 +192,7 @@ struct GameModeSettingsView: View {
                 MonologueSymbolIcon(
                     name: preset.systemIconName,
                     size: 19,
-                    color: isSelected ? gameModeAccentText : .monologueTextPrimary
+                    color: isSelected ? gameModeAccentText : gameModePrimaryText
                 )
                     .frame(width: 32, height: 32)
                     .background(
@@ -202,11 +204,11 @@ struct GameModeSettingsView: View {
                     )
                 Text(preset.localizedTitle)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(gameModePrimaryText)
                     .lineLimit(1)
                 Text(preset.localizedSubtitle)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(gameModeSecondaryText)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -246,7 +248,8 @@ struct GameModeSettingsView: View {
             )
 
             Divider()
-                .opacity(0.4)
+                .overlay(gameModeDivider)
+                .opacity(0.65)
                 .padding(.leading, 62)
 
             SettingsToggleRow(
@@ -263,7 +266,8 @@ struct GameModeSettingsView: View {
             )
 
             Divider()
-                .opacity(0.4)
+                .overlay(gameModeDivider)
+                .opacity(0.65)
                 .padding(.leading, 62)
 
             SettingsToggleRow(
@@ -282,7 +286,8 @@ struct GameModeSettingsView: View {
             )
 
             Divider()
-                .opacity(0.4)
+                .overlay(gameModeDivider)
+                .opacity(0.65)
                 .padding(.leading, 62)
 
             SettingsToggleRow(
@@ -302,7 +307,8 @@ struct GameModeSettingsView: View {
 
             if settings.gameModeSilentNowPlaying {
                 Divider()
-                    .opacity(0.4)
+                    .overlay(gameModeDivider)
+                    .opacity(0.65)
                     .padding(.leading, 62)
 
                 SettingsToggleRow(
@@ -339,14 +345,14 @@ struct GameModeSettingsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "game_mode_preferred_quality_entry_title"))
                             .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(gameModePrimaryText)
                         Text(preferredQualitySubtitle)
                             .font(.system(size: 11, weight: .regular, design: .rounded))
-                            .foregroundStyle(.tertiary)
+                            .foregroundColor(gameModeMutedText)
                             .lineLimit(1)
                     }
                     Spacer()
-                    MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.6)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: gameModeMutedText.opacity(0.55), lineWidth: 1.6)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -355,7 +361,8 @@ struct GameModeSettingsView: View {
             .buttonStyle(.plain)
 
             Divider()
-                .opacity(0.4)
+                .overlay(gameModeDivider)
+                .opacity(0.65)
                 .padding(.leading, 62)
 
             // 指定歌单
@@ -367,14 +374,14 @@ struct GameModeSettingsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "game_mode_preset_playlist_entry_title"))
                             .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(gameModePrimaryText)
                         Text(presetPlaylistSubtitle)
                             .font(.system(size: 11, weight: .regular, design: .rounded))
-                            .foregroundStyle(.tertiary)
+                            .foregroundColor(gameModeMutedText)
                             .lineLimit(1)
                     }
                     Spacer()
-                    MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.6)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: gameModeMutedText.opacity(0.55), lineWidth: 1.6)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -409,10 +416,10 @@ struct GameModeSettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "game_mode_info_title"))
                 .font(.rounded(size: 13, weight: .semibold))
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(gameModePrimaryText)
             Text(String(localized: "game_mode_info_body"))
                 .font(.rounded(size: 12, weight: .medium))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(gameModeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -421,14 +428,41 @@ struct GameModeSettingsView: View {
     }
 
     private var gameModeAccent: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color(hex: "FF8FA8")
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color(hex: "FF8FA8")
     }
 
     private var gameModeAccentText: Color {
-        NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .white
+        if NeumorphicStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: NeumorphicStyle.accent,
+                light: Color(hex: "172026"),
+                dark: .white
+            )
+        }
+        return .white
     }
 
     private var gameModeIconFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueIconBackground
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueIconBackground
+    }
+
+    private var gameModeInactiveIconText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueIconForeground
+    }
+
+    private var gameModePrimaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var gameModeSecondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    private var gameModeMutedText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
+    private var gameModeDivider: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.65) : .monologueSeparator
     }
 }

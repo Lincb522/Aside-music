@@ -5,6 +5,7 @@ struct RecentPlayHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     
     let explicitSongs: [Song]?
     
@@ -23,11 +24,15 @@ struct RecentPlayHistoryView: View {
     private var recentFiltered: [Song] { displaySongs.filtered(by: recentSearch) }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
+            } else if SequoiaStyle.isActive {
+                SequoiaRootBackdrop()
             } else {
                 ThemedPageBackground()
                     .ignoresSafeArea()
@@ -66,6 +71,14 @@ struct RecentPlayHistoryView: View {
                                 subtitle: ""
                             ) {
                                 NeumorphicIconBadge(icon: .history, tint: NeumorphicStyle.warm, size: 48)
+                            }
+                        } else if SequoiaStyle.isActive {
+                            SequoiaPageHeader(
+                                eyebrow: "HISTORY",
+                                title: String(localized: "profile_recently_played"),
+                                subtitle: ""
+                            ) {
+                                SequoiaIconBadge(icon: .history, tint: SequoiaStyle.accent, size: 48)
                             }
                         }
 
@@ -135,7 +148,7 @@ struct RecentPlayHistoryView: View {
                         MonologueIcon(
                             icon: .trash,
                             size: 16,
-                            color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextPrimary))
+                            color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : (SequoiaStyle.isActive ? SequoiaStyle.red : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextPrimary)))
                         )
                     }
                     .disabled(playerManager.history.isEmpty)
@@ -152,6 +165,8 @@ struct RecentPlayHistoryView: View {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
                     } else if NeumorphicStyle.isActive {
                         NeumorphicPlayPill(title: String(localized: "artist_play_all"))
+                    } else if SequoiaStyle.isActive {
+                        SequoiaPill(text: String(localized: "artist_play_all"), icon: .play, tint: SequoiaStyle.accent, selected: true)
                     } else {
                         HStack(spacing: 6) {
                             MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)

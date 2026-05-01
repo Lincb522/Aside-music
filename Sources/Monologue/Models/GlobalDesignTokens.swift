@@ -31,21 +31,23 @@ struct GlobalColorPalette {
     let destructive: Color
 
     /// Monologue 默认配色（当前 App 行为不变）
-    static let `default` = GlobalColorPalette(
-        background: .monologueBackground,
-        surface: Color(light: .white, dark: Color(hex: "1C1C1E")),
-        primary: .monologueTextPrimary,
-        secondary: .monologueTextSecondary,
-        accent: .monologueAccent,
-        accentGradient: [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)],
-        separator: .monologueSeparator,
-        navBarTint: .monologueAccent,
-        iconBackground: .monologueIconBackground,
-        iconForeground: .monologueIconForeground,
-        cardBackground: Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5)),
-        floatingBarFill: .monologueFloatingBarFill,
-        destructive: .monologueAccentRed
-    )
+    static var `default`: GlobalColorPalette {
+        GlobalColorPalette(
+            background: .monologueBackground,
+            surface: Color(light: .white, dark: Color(hex: "1C1C1E")),
+            primary: .monologueTextPrimary,
+            secondary: .monologueTextSecondary,
+            accent: .monologueAccent,
+            accentGradient: [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)],
+            separator: .monologueSeparator,
+            navBarTint: .monologueAccent,
+            iconBackground: .monologueIconBackground,
+            iconForeground: .monologueIconForeground,
+            cardBackground: Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5)),
+            floatingBarFill: .monologueFloatingBarFill,
+            destructive: .monologueAccentRed
+        )
+    }
 }
 
 // MARK: - 全局排版 Token

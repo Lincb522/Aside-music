@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PodcastTimerSheet: View {
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
 
@@ -63,7 +64,7 @@ struct PodcastTimerSheet: View {
     }
 
     private var statusTint: Color {
-        hasActivePlan ? .monologueAccentBlue : .monologueTextSecondary
+        hasActivePlan ? activeTint : secondaryTextColor
     }
 
     private var customMinutesText: String? {
@@ -126,6 +127,8 @@ struct PodcastTimerSheet: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 0) {
             header
 
@@ -158,12 +161,12 @@ struct PodcastTimerSheet: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(LocalizedStringKey("podcast_timer_title"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundStyle(Color.monologueTextPrimary)
+                    .font(titleFont)
+                    .foregroundStyle(primaryTextColor)
 
                 Text(LocalizedStringKey("podcast_timer_strategy_subtitle"))
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Color.monologueTextSecondary)
+                    .font(captionFont)
+                    .foregroundStyle(secondaryTextColor)
             }
 
             Spacer()
@@ -173,15 +176,17 @@ struct PodcastTimerSheet: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueTextPrimary.opacity(0.08))
+                        .fill((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Color.clear : Color.monologueTextPrimary.opacity(0.08))
                         .frame(width: 34, height: 34)
                         .background {
                             if NeumorphicStyle.isActive {
                                 NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
+                            } else if SequoiaStyle.isActive {
+                                SequoiaSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, role: .list)
                             }
                         }
 
-                    MonologueIcon(icon: .close, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextPrimary)
+                    MonologueIcon(icon: .close, size: 14, color: secondaryTextColor)
                 }
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
@@ -210,7 +215,7 @@ struct PodcastTimerSheet: View {
                     if hasActivePlan {
                         TimerStatusBadge(
                             text: String(localized: "podcast_timer_active"),
-                            tint: Color.monologueAccentBlue
+                            tint: activeTint
                         )
                     }
                 }
@@ -219,13 +224,13 @@ struct PodcastTimerSheet: View {
                     Text(currentStatusTitle)
                         .font(player.sleepTimerRemaining != nil
                               ? .system(size: 22, weight: .bold, design: .monospaced)
-                              : .rounded(size: 18, weight: .bold))
-                        .foregroundStyle(hasActivePlan ? Color.monologueTextPrimary : Color.monologueTextSecondary)
+                              : titleFont)
+                        .foregroundStyle(hasActivePlan ? primaryTextColor : secondaryTextColor)
                         .monospacedDigit()
 
                     Text(currentStatusSubtitle)
-                        .font(.system(size: 13, design: .rounded))
-                        .foregroundStyle(Color.monologueTextSecondary)
+                        .font(bodyCaptionFont)
+                        .foregroundStyle(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -236,7 +241,7 @@ struct PodcastTimerSheet: View {
                                 format: String(localized: "podcast_timer_custom_value"),
                                 configuredMinutes
                             ),
-                            tint: Color.monologueAccentBlue
+                            tint: activeTint
                         )
                     }
 
@@ -244,7 +249,7 @@ struct PodcastTimerSheet: View {
                         (player.sleepTimerRemaining != nil && player.sleepTimerStopAfterCurrentTrack) {
                         TimerStatusBadge(
                             text: String(localized: "podcast_timer_stop_after_track"),
-                            tint: Color.monologueTextSecondary
+                            tint: secondaryTextColor
                         )
                     }
                 }
@@ -272,28 +277,28 @@ struct PodcastTimerSheet: View {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.monologueAccentBlue.opacity(isCustomSelected ? 0.18 : 0.10))
+                                .fill(activeTint.opacity(isCustomSelected ? 0.18 : 0.10))
                                 .frame(width: 44, height: 44)
 
-                            MonologueIcon(icon: .add, size: 16, color: .monologueAccentBlue)
+                            MonologueIcon(icon: .add, size: 16, color: activeTint)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(LocalizedStringKey("podcast_timer_custom"))
-                                .font(.rounded(size: 16, weight: isCustomSelected ? .bold : .semibold))
-                                .foregroundStyle(isCustomSelected ? Color.monologueAccentBlue : Color.monologueTextPrimary)
+                                .font(rowTitleFont(isSelected: isCustomSelected))
+                                .foregroundStyle(isCustomSelected ? activeTint : primaryTextColor)
 
                             Text(customMinutesText ?? String(localized: "podcast_timer_custom_subtitle"))
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(isCustomSelected ? Color.monologueAccentBlue.opacity(0.85) : Color.monologueTextSecondary)
+                                .font(captionFont)
+                                .foregroundStyle(isCustomSelected ? activeTint.opacity(0.85) : secondaryTextColor)
                         }
 
                         Spacer(minLength: 12)
 
                         if isCustomSelected {
-                            MonologueIcon(icon: .checkmark, size: 16, color: .monologueAccentBlue)
+                            MonologueIcon(icon: .checkmark, size: 16, color: activeTint)
                         } else {
-                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45))
+                            MonologueIcon(icon: .chevronRight, size: 12, color: secondaryTextColor.opacity(0.45))
                         }
                     }
                 }
@@ -314,12 +319,12 @@ struct PodcastTimerSheet: View {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(LocalizedStringKey("podcast_timer_stop_after_track"))
-                                .font(.rounded(size: 16, weight: .semibold))
-                                .foregroundStyle(Color.monologueTextPrimary)
+                                .font(rowTitleFont(isSelected: false))
+                                .foregroundStyle(primaryTextColor)
 
                             Text(stopAfterTrackDescription)
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(Color.monologueTextSecondary)
+                                .font(captionFont)
+                                .foregroundStyle(secondaryTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
@@ -327,7 +332,7 @@ struct PodcastTimerSheet: View {
 
                         Toggle("", isOn: $player.sleepTimerStopAfterCurrentTrack)
                             .labelsHidden()
-                            .tint(Color.monologueAccentBlue)
+                            .tint(activeTint)
                     }
                 }
             }
@@ -339,20 +344,20 @@ struct PodcastTimerSheet: View {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.monologueAccentBlue.opacity(player.pendingSleepStopAfterCurrentTrack ? 0.18 : 0.10))
+                                .fill(activeTint.opacity(player.pendingSleepStopAfterCurrentTrack ? 0.18 : 0.10))
                                 .frame(width: 44, height: 44)
 
-                            MonologueIcon(icon: .stop, size: 16, color: .monologueAccentBlue)
+                            MonologueIcon(icon: .stop, size: 16, color: activeTint)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(LocalizedStringKey("podcast_timer_stop_current_track_now"))
-                                .font(.rounded(size: 16, weight: player.pendingSleepStopAfterCurrentTrack ? .bold : .semibold))
-                                .foregroundStyle(player.pendingSleepStopAfterCurrentTrack ? Color.monologueAccentBlue : Color.monologueTextPrimary)
+                                .font(rowTitleFont(isSelected: player.pendingSleepStopAfterCurrentTrack))
+                                .foregroundStyle(player.pendingSleepStopAfterCurrentTrack ? activeTint : primaryTextColor)
 
                             Text(LocalizedStringKey("podcast_timer_stop_current_track_now_subtitle"))
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(Color.monologueTextSecondary)
+                                .font(captionFont)
+                                .foregroundStyle(secondaryTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
@@ -361,10 +366,10 @@ struct PodcastTimerSheet: View {
                         if player.pendingSleepStopAfterCurrentTrack {
                             TimerStatusBadge(
                                 text: String(localized: "podcast_timer_active"),
-                                tint: Color.monologueAccentBlue
+                                tint: activeTint
                             )
                         } else {
-                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45))
+                            MonologueIcon(icon: .chevronRight, size: 12, color: secondaryTextColor.opacity(0.45))
                         }
                     }
                 }
@@ -382,20 +387,20 @@ struct PodcastTimerSheet: View {
                 HStack(spacing: 14) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.red.opacity(0.10))
+                            .fill(destructiveTint.opacity(0.10))
                             .frame(width: 44, height: 44)
 
-                        MonologueIcon(icon: .close, size: 16, color: .red)
+                        MonologueIcon(icon: .close, size: 16, color: destructiveTint)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(LocalizedStringKey("podcast_timer_cancel_action"))
-                            .font(.rounded(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.monologueTextPrimary)
+                            .font(rowTitleFont(isSelected: false))
+                            .foregroundStyle(primaryTextColor)
 
                         Text(LocalizedStringKey("podcast_timer_cancel_subtitle"))
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundStyle(Color.monologueTextSecondary)
+                            .font(captionFont)
+                            .foregroundStyle(secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -415,19 +420,19 @@ struct PodcastTimerSheet: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(LocalizedStringKey(option.titleKey))
-                        .font(.rounded(size: 16, weight: selected ? .bold : .semibold))
-                        .foregroundStyle(selected ? Color.monologueAccentBlue : Color.monologueTextPrimary)
+                        .font(rowTitleFont(isSelected: selected))
+                        .foregroundStyle(selected ? activeTint : primaryTextColor)
 
                     Spacer(minLength: 8)
 
                     if selected {
-                        MonologueIcon(icon: .checkmark, size: 15, color: .monologueAccentBlue)
+                        MonologueIcon(icon: .checkmark, size: 15, color: activeTint)
                     }
                 }
 
                 Text(LocalizedStringKey("podcast_timer_presets_subtitle"))
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundStyle(Color.monologueTextSecondary.opacity(0.78))
+                    .font(smallCaptionFont)
+                    .foregroundStyle(secondaryTextColor.opacity(0.78))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
@@ -441,13 +446,21 @@ struct PodcastTimerSheet: View {
                         pressed: selected,
                         tint: selected ? NeumorphicStyle.accent.opacity(0.16) : nil
                     )
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(
+                        cornerRadius: 18,
+                        elevated: selected,
+                        pressed: !selected,
+                        fill: selected ? activeTint.opacity(0.12) : SequoiaStyle.materialList,
+                        role: selected ? .selected : .list
+                    )
                 } else {
                     selected ? Color.monologueAccentBlue.opacity(0.12) : Color.monologueTextPrimary.opacity(0.04)
                 }
             }
             .clipShape(.rect(cornerRadius: 18, style: .continuous))
             .overlay {
-                if !NeumorphicStyle.isActive {
+                if !NeumorphicStyle.isActive && !SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(selected ? Color.monologueAccentBlue.opacity(0.22) : Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
                 }
@@ -459,14 +472,68 @@ struct PodcastTimerSheet: View {
     private func sectionHeader(title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.monologueTextSecondary)
+                .font(sectionHeaderFont)
+                .foregroundStyle(secondaryTextColor)
 
             Text(subtitle)
-                .font(.system(size: 12, design: .rounded))
-                .foregroundStyle(Color.monologueTextSecondary.opacity(0.78))
+                .font(captionFont)
+                .foregroundStyle(secondaryTextColor.opacity(0.78))
         }
         .padding(.horizontal, 4)
+    }
+
+    private var activeTint: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return .monologueAccentBlue
+    }
+
+    private var destructiveTint: Color {
+        SequoiaStyle.isActive ? SequoiaStyle.red : .red
+    }
+
+    private var primaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var titleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(20, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(20, weight: .semibold) }
+        return .rounded(size: 20, weight: .bold)
+    }
+
+    private var sectionHeaderFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 13, weight: .semibold, design: .rounded)
+    }
+
+    private var captionFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, design: .rounded)
+    }
+
+    private var bodyCaptionFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        return .system(size: 13, design: .rounded)
+    }
+
+    private var smallCaptionFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .regular) }
+        return .system(size: 11, design: .rounded)
+    }
+
+    private func rowTitleFont(isSelected: Bool) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(16, weight: isSelected ? .semibold : .medium) }
+        return .rounded(size: 16, weight: isSelected ? .bold : .semibold)
     }
 }
 
@@ -484,13 +551,15 @@ private struct TimerSheetCard<Content: View>: View {
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 22, elevated: false, role: .list)
                 } else {
                     Color.monologueTextPrimary.opacity(0.04)
                 }
             }
-            .clipShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : 20, style: .continuous))
+            .clipShape(.rect(cornerRadius: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 22 : 20, style: .continuous))
             .overlay {
-                if !NeumorphicStyle.isActive {
+                if !NeumorphicStyle.isActive && !SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
                 }
@@ -504,13 +573,17 @@ private struct TimerStatusBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .system(size: 11, weight: .semibold, design: .rounded))
             .foregroundStyle(tint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15), lightweight: true)
+                } else if SequoiaStyle.isActive {
+                    Capsule()
+                        .fill(SequoiaStyle.materialList.opacity(0.78))
+                        .overlay(Capsule().stroke(tint.opacity(0.18), lineWidth: 0.55))
                 } else {
                     tint.opacity(0.12)
                 }

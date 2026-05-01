@@ -270,9 +270,11 @@ struct MangaSectionMark: View {
     var kind: MangaSectionMarkKind = .star
     var tint: Color = MangaStyle.labelYellow
     var size: CGFloat = 24
-    var foreground: Color = MangaStyle.strokeInk
+    var foreground: Color?
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
                 .fill(tint)
@@ -280,11 +282,11 @@ struct MangaSectionMark: View {
 
             if kind == .heart {
                 MangaRoundedHeartShape()
-                    .fill(foreground)
+                    .fill(resolvedForeground)
                     .frame(width: size * 0.52, height: size * 0.52)
             } else {
                 MangaRoundedStarShape()
-                    .fill(foreground)
+                    .fill(resolvedForeground)
                     .frame(width: size * 0.52, height: size * 0.52)
             }
         }
@@ -299,6 +301,14 @@ struct MangaSectionMark: View {
                 .fill(MangaStyle.strokeInk)
                 .rotationEffect(.degrees(-8))
                 .offset(x: 1.8, y: 1.8)
+        )
+    }
+
+    private var resolvedForeground: Color {
+        foreground ?? ThemeColorCustomization.readableForegroundColor(
+            on: tint,
+            light: MangaStyle.strokeInk,
+            dark: MangaStyle.onStrokeInk
         )
     }
 }
@@ -382,12 +392,14 @@ struct MangaLabel: View {
     let text: String
     var tint: Color = MangaStyle.labelYellow
     var small: Bool = false
-    var foreground: Color = MangaStyle.strokeInk
+    var foreground: Color?
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         Text(text)
             .font(MangaStyle.labelFont(small ? 10 : 11))
-            .foregroundStyle(foreground)
+            .foregroundStyle(resolvedForeground)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
             .padding(.horizontal, small ? 9 : 11)
@@ -398,16 +410,26 @@ struct MangaLabel: View {
             .clipShape(Capsule())
             .compositingGroup()
     }
+
+    private var resolvedForeground: Color {
+        foreground ?? ThemeColorCustomization.readableForegroundColor(
+            on: tint,
+            light: MangaStyle.strokeInk,
+            dark: MangaStyle.onStrokeInk
+        )
+    }
 }
 
 struct MangaIconBadge: View {
     let icon: MonologueIcon.IconType
     var size: CGFloat = 44
     var tint: Color = MangaStyle.decoBlue
-    var foreground: Color = MangaStyle.strokeInk
+    var foreground: Color?
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
-        MonologueIcon(icon: icon, size: size * 0.42, color: foreground, lineWidth: 1.8)
+        let _ = settings.globalThemeRevision
+        MonologueIcon(icon: icon, size: size * 0.42, color: resolvedForeground, lineWidth: 1.8)
             .frame(width: size, height: size)
             .background(
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
@@ -422,6 +444,14 @@ struct MangaIconBadge: View {
                     .fill(MangaStyle.strokeInk)
                     .offset(x: 2.5, y: 2.5)
             )
+    }
+
+    private var resolvedForeground: Color {
+        foreground ?? ThemeColorCustomization.readableForegroundColor(
+            on: tint,
+            light: MangaStyle.strokeInk,
+            dark: MangaStyle.onStrokeInk
+        )
     }
 }
 
@@ -587,9 +617,9 @@ extension View {
     }
 
     func mangaStagger(_ appeared: Bool, order: Int) -> some View {
-        opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 14)
-            .scaleEffect(appeared ? 1 : 0.97)
+        opacity(1)
+            .offset(y: appeared ? 0 : 8)
+            .scaleEffect(appeared ? 1 : 0.985)
             .animation(
                 .spring(response: 0.48, dampingFraction: 0.76).delay(Double(order) * 0.045),
                 value: appeared

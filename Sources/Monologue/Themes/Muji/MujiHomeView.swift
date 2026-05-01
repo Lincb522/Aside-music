@@ -4,6 +4,7 @@ import SwiftUI
 struct MujiHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
@@ -28,6 +29,8 @@ struct MujiHomeView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
@@ -83,6 +86,7 @@ struct MujiHomeView: View {
             .fullScreenCover(isPresented: $showPersonalFM) { PersonalFMView() }
             .fullScreenCover(item: $bannerWebURL) { url in MonologueWebView(url: url, title: nil) }
         }
+        .themeRenderSceneLayer()
     }
 
     // MARK: - 加载中

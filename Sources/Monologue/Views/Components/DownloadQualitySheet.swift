@@ -7,6 +7,7 @@ struct DownloadQualitySheet: View {
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     private var isQQ: Bool { song.isQQMusic }
     private var isQishui: Bool { song.isQishui }
@@ -43,6 +44,8 @@ struct DownloadQualitySheet: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 20) {
             header
             ScrollView {
@@ -113,12 +116,12 @@ struct DownloadQualitySheet: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "download_quality_title"))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(headerTitleFont)
+                    .foregroundColor(headerTitleColor)
 
                 Text(song.name)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(headerSubtitleFont)
+                    .foregroundColor(headerSubtitleColor)
                     .lineLimit(1)
             }
 
@@ -128,13 +131,48 @@ struct DownloadQualitySheet: View {
             PlatformBadgeLabel(text: source.displayName, source: source)
 
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
+                MonologueIcon(icon: .close, size: 14, color: headerSubtitleColor)
                     .padding(10)
                     .background { closeButtonBackground }
             }
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 8)
+    }
+
+    private var headerTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(20, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(20, weight: .semibold) }
+        return .system(size: 20, weight: .bold, design: .rounded)
+    }
+
+    private var headerSubtitleFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        return .system(size: 13, weight: .medium, design: .rounded)
+    }
+
+    private var headerTitleColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var headerSubtitleColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var groupTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 13, weight: .semibold, design: .rounded)
+    }
+
+    private var groupTitleColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
     }
 
     // MARK: - ncm
@@ -173,8 +211,8 @@ struct DownloadQualitySheet: View {
     private func qqGroup(title: String, qualities: [QQMusicQuality]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(groupTitleFont)
+                .foregroundColor(groupTitleColor)
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -260,8 +298,8 @@ struct DownloadQualitySheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(name)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(isLocked ? .monologueTextSecondary.opacity(0.5) : .monologueTextPrimary)
+                        .font(qualityNameFont)
+                        .foregroundColor(qualityNameColor(isLocked: isLocked))
 
                     if let badge {
                         Text(badge)
@@ -280,38 +318,74 @@ struct DownloadQualitySheet: View {
 
                     if isLocked {
                         Text("需要开启解密")
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                            .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(9, weight: .medium) : .system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundColor(lockedTextColor)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monologueSeparator.opacity(0.5))
+                            .background(lockBadgeBackground)
                             .cornerRadius(4)
                     }
                 }
 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(isLocked ? .monologueTextSecondary.opacity(0.4) : .monologueTextSecondary)
+                    .font(qualitySubtitleFont)
+                    .foregroundColor(isLocked ? lockedTextColor.opacity(0.8) : qualitySubtitleColor)
             }
 
             Spacer()
 
             if !isLocked {
-                MonologueIcon(icon: .playerDownload, size: 14, color: .monologueTextSecondary)
+                MonologueIcon(icon: .playerDownload, size: 14, color: qualitySubtitleColor)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
 
+    private var qualityNameFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(16, weight: .medium) }
+        return .system(size: 16, weight: .medium, design: .rounded)
+    }
+
+    private var qualitySubtitleFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, weight: .regular, design: .rounded)
+    }
+
+    private func qualityNameColor(isLocked: Bool) -> Color {
+        if isLocked { return lockedTextColor }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var qualitySubtitleColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var lockedTextColor: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.72) }
+        return .monologueTextSecondary.opacity(0.5)
+    }
+
+    private var lockBadgeBackground: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.78) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.78) }
+        return Color.monologueSeparator.opacity(0.5)
+    }
+
     private var qualityPanelCornerRadius: CGFloat {
-        NeumorphicStyle.isActive ? 22 : 16
+        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 22 : 16
     }
 
     @ViewBuilder
     private var qualityPanelBackground: some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false, role: .list)
         } else {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -324,6 +398,9 @@ struct DownloadQualitySheet: View {
     private var closeButtonBackground: some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
+                .clipShape(Circle())
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, role: .list)
                 .clipShape(Circle())
         } else {
             Circle()
@@ -342,6 +419,15 @@ struct DownloadQualitySheet: View {
                 tint: NeumorphicStyle.surfacePressed.opacity(0.72)
             )
             .opacity(isLocked ? 0.5 : 1)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: 10,
+                elevated: false,
+                pressed: isLocked,
+                fill: SequoiaStyle.accent.opacity(isLocked ? 0.04 : 0.10),
+                role: .selected
+            )
+            .opacity(isLocked ? 0.55 : 1)
         } else {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isLocked ? Color.monologueIconBackground.opacity(0.04) : Color.monologueIconBackground.opacity(0.08))
@@ -349,9 +435,10 @@ struct DownloadQualitySheet: View {
     }
 
     private func qualityIconColor(isLocked: Bool) -> Color {
-        if isLocked { return .monologueTextSecondary.opacity(0.4) }
+        if isLocked { return SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.5) : .monologueTextSecondary.opacity(0.4) }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
@@ -359,6 +446,7 @@ struct DownloadQualitySheet: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(9.5, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(9, weight: .semibold) }
         return .system(size: 9, weight: .bold, design: .rounded)
     }
 
@@ -374,6 +462,7 @@ struct DownloadQualitySheet: View {
         if MangaStyle.isActive { return 6 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 6 }
+        if SequoiaStyle.isActive { return 6 }
         return 4
     }
 
@@ -381,12 +470,13 @@ struct DownloadQualitySheet: View {
         if isLocked { return .monologueTextSecondary.opacity(0.4) }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
     }
 
     @ViewBuilder
     private func qualityBadgeBackground(isLocked: Bool) -> some View {
-        let tint = MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
+        let tint = MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueIconBackground)))
         if isLocked {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .fill(Color.monologueIconBackground.opacity(0.3))
@@ -397,6 +487,9 @@ struct DownloadQualitySheet: View {
                 pressed: true,
                 tint: tint.opacity(colorScheme == .dark ? 0.18 : 0.13)
             )
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
+                .fill(tint.opacity(0.92))
         } else {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .fill(tint.opacity(MangaStyle.isActive ? 0.26 : (MujiStyle.isActive ? 0.10 : 1)))
@@ -405,11 +498,11 @@ struct DownloadQualitySheet: View {
 
     @ViewBuilder
     private func qualityBadgeStroke(isLocked: Bool) -> some View {
-        let tint = MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.clear))
+        let tint = MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.clear)))
         if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .stroke(tint, lineWidth: MangaStyle.fineStrokeWidth)
-        } else if MujiStyle.isActive || NeumorphicStyle.isActive {
+        } else if MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .stroke(tint.opacity(isLocked ? 0.12 : 0.28), lineWidth: 0.6)
         }

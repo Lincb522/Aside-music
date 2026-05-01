@@ -22,6 +22,12 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
     if NeumorphicStyle.isActive {
         return NeumorphicStyle.labelFont(size, weight: weight)
     }
+    if SignalStyle.isActive {
+        return SignalStyle.labelFont(size, weight: weight)
+    }
+    if SequoiaStyle.isActive {
+        return SequoiaStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
+    }
     if MujiStyle.isActive {
         return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
     }
@@ -50,7 +56,7 @@ struct SettingsView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: themedSettingsSpacing) {
+                LazyVStack(spacing: themedSettingsSpacing) {
                     settingsContent
                     FloatingBarBottomSpacer()
                 }
@@ -74,6 +80,8 @@ struct SettingsView: View {
     private var themedSettingsSpacing: CGFloat {
         if MangaStyle.isActive { return 16 }
         if NeumorphicStyle.isActive { return 18 }
+        if SignalStyle.isActive { return 17 }
+        if SequoiaStyle.isActive { return 16 }
         if MujiStyle.isActive { return 18 }
         return 20
     }
@@ -88,6 +96,10 @@ struct SettingsView: View {
             mangaSettingsContent
         } else if NeumorphicStyle.isActive {
             neumorphicSettingsContent
+        } else if SignalStyle.isActive {
+            signalSettingsContent
+        } else if SequoiaStyle.isActive {
+            sequoiaSettingsContent
         } else if MujiStyle.isActive {
             mujiSettingsContent
         } else {
@@ -124,6 +136,34 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var neumorphicSettingsContent: some View {
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
+
+        settingsHeaderCard
+        themeSection
+        navigationCardsSection
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var signalSettingsContent: some View {
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
+
+        settingsHeaderCard
+        themeSection
+        navigationCardsSection
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var sequoiaSettingsContent: some View {
         settingsMainPageHeader
             .padding(.horizontal, -settingsOuterHorizontalPadding)
 
@@ -418,6 +458,12 @@ struct SettingsView: View {
         if NeumorphicStyle.isActive {
             return hasToken ? NeumorphicStyle.sage : NeumorphicStyle.accent
         }
+        if SignalStyle.isActive {
+            return hasToken ? SignalStyle.olive : SignalStyle.accent
+        }
+        if SequoiaStyle.isActive {
+            return hasToken ? SequoiaStyle.green : SequoiaStyle.accent
+        }
         if MujiStyle.isActive {
             return hasToken ? MujiStyle.tea : MujiStyle.clay
         }
@@ -430,6 +476,12 @@ struct SettingsView: View {
         }
         if NeumorphicStyle.isActive {
             return hasToken ? NeumorphicStyle.inkSoft : NeumorphicStyle.inkMuted
+        }
+        if SignalStyle.isActive {
+            return hasToken ? SignalStyle.inkSoft : SignalStyle.inkMuted
+        }
+        if SequoiaStyle.isActive {
+            return hasToken ? SequoiaStyle.inkSoft : SequoiaStyle.inkMuted
         }
         if MujiStyle.isActive {
             return hasToken ? MujiStyle.inkSoft : MujiStyle.inkMuted
@@ -444,6 +496,12 @@ struct SettingsView: View {
         if NeumorphicStyle.isActive {
             return tokenSaved || hasToken ? NeumorphicStyle.sage.opacity(0.16) : NeumorphicStyle.surfacePressed.opacity(0.76)
         }
+        if SignalStyle.isActive {
+            return tokenSaved || hasToken ? SignalStyle.olive.opacity(0.16) : SignalStyle.controlPressed.opacity(0.82)
+        }
+        if SequoiaStyle.isActive {
+            return tokenSaved || hasToken ? SequoiaStyle.green.opacity(0.14) : SequoiaStyle.materialList.opacity(0.86)
+        }
         if MujiStyle.isActive {
             return tokenSaved || hasToken ? MujiStyle.tea.opacity(0.18) : MujiStyle.surface.opacity(0.82)
         }
@@ -456,6 +514,8 @@ struct SettingsView: View {
     private var headerPrimaryTextColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueTextPrimary
     }
@@ -463,6 +523,8 @@ struct SettingsView: View {
     private var headerSecondaryTextColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return .monologueTextSecondary
     }
@@ -470,6 +532,8 @@ struct SettingsView: View {
     private var headerDeveloperIconColor: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.aqua }
         if MujiStyle.isActive { return MujiStyle.tea }
         return .green
     }
@@ -477,6 +541,8 @@ struct SettingsView: View {
     private var headerSoftFill: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.62) }
+        if SignalStyle.isActive { return SignalStyle.controlPressed.opacity(0.78) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.82) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
         return Color.monologueSeparator.opacity(0.4)
     }
@@ -484,6 +550,8 @@ struct SettingsView: View {
     private var headerSoftStroke: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.5) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.5) }
+        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.56) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
         return Color.clear
     }
@@ -491,6 +559,8 @@ struct SettingsView: View {
     private var headerPrimaryActionFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         return .monologueAccent
     }
@@ -498,12 +568,14 @@ struct SettingsView: View {
     private var headerPrimaryActionForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        if SignalStyle.isActive { return SignalStyle.onAccent }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         return Color(light: .white, dark: .black)
     }
 
     private var headerAvatarRadius: CGFloat {
-        MangaStyle.isActive ? 16 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 16 : 14))
+        MangaStyle.isActive ? 16 : (MujiStyle.isActive ? 10 : (SignalStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 16 : (SequoiaStyle.isActive ? 14 : 14))))
     }
 
     private var playlistSyncStatusText: String {
@@ -594,7 +666,7 @@ struct SettingsView: View {
 
                             MonologueIcon(icon: .chevronRight, size: 10, color: tokenStatusColor, lineWidth: 1.8)
                                 .rotationEffect(.degrees(isHeaderCardExpanded ? -90 : 90))
-                                .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isHeaderCardExpanded)
+                                .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isHeaderCardExpanded)
                         }
                         .foregroundColor(tokenStatusColor)
                         .lineLimit(1)
@@ -853,11 +925,13 @@ struct SettingsView: View {
             }
             if MangaStyle.isActive { return MangaStyle.decoBlue }
             if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+            if SequoiaStyle.isActive { return SequoiaStyle.green }
             if MujiStyle.isActive { return MujiStyle.tea }
             return .green
         }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         return .monologueTextSecondary
     }
@@ -1008,7 +1082,6 @@ struct SettingsIconBadge: View {
 
     var body: some View {
         let _ = settings.globalThemeRevision
-
         if MangaStyle.isActive {
             MonologueIcon(
                 icon: icon,
@@ -1032,6 +1105,10 @@ struct SettingsIconBadge: View {
             )
         } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
+        } else if SignalStyle.isActive {
+            SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 32)
+        } else if SequoiaStyle.isActive {
+            SequoiaIconBadge(icon: icon, tint: SequoiaStyle.accent, size: 32)
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(MujiStyle.clay.opacity(0.11))
@@ -1066,7 +1143,7 @@ struct SettingsSection<Content: View>: View {
                 .font(sectionTitleFont)
                 .foregroundColor(sectionTitleColor)
                 .padding(.leading, 16)
-                .tracking(MujiStyle.isActive || NeumorphicStyle.isActive ? 1.0 : 0.4)
+                .tracking(MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive ? 1.0 : 0.4)
 
             VStack(spacing: 0) {
                 content
@@ -1077,7 +1154,11 @@ struct SettingsSection<Content: View>: View {
                 } else if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 15, elevated: false)
                 } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true)
+                    NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
+                } else if SignalStyle.isActive {
+                    SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device)
                 }
             }
             .monologueGlassConditionalForSettings(cornerRadius: 22)
@@ -1089,6 +1170,8 @@ struct SettingsSection<Content: View>: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: .bold) }
         return .system(size: 12, weight: .bold, design: .rounded)
     }
 
@@ -1096,6 +1179,8 @@ struct SettingsSection<Content: View>: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         return Color.secondary
     }
 }
@@ -1103,7 +1188,7 @@ struct SettingsSection<Content: View>: View {
 private extension View {
     @ViewBuilder
     func monologueGlassConditionalForSettings(cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive {
+        if MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive {
             self
         } else {
             monologueGlass(cornerRadius: cornerRadius)
@@ -1118,7 +1203,11 @@ private extension View {
         } else if MujiStyle.isActive {
             background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true))
         } else if NeumorphicStyle.isActive {
-            background(NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 26), elevated: true))
+            background(NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 26), elevated: true, lightweight: true))
+        } else if SequoiaStyle.isActive {
+            background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 24), elevated: true, role: .chrome))
+        } else if SignalStyle.isActive {
+            background(SignalSurfaceBackground(cornerRadius: min(max(cornerRadius, 12), 18), elevated: true, fill: SignalStyle.device))
         } else {
             monologueGlass(cornerRadius: cornerRadius)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -1134,17 +1223,27 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
 
     private var offTrackColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
         return Color(light: Color.black.opacity(0.12), dark: Color.white.opacity(0.2))
     }
 
     private var offStrokeColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.45) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
+        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.52) }
         return Color(light: Color.black.opacity(0.08), dark: Color.white.opacity(0.14))
     }
 
     private func knobColor(isOn: Bool) -> Color {
         if NeumorphicStyle.isActive {
             return isOn ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface
+        }
+        if SequoiaStyle.isActive {
+            return isOn ? SequoiaStyle.onAccent : SequoiaStyle.materialRaised
+        }
+        if SignalStyle.isActive {
+            return isOn ? SignalStyle.accent : SignalStyle.deviceRaised
         }
         if isOn {
             return colorScheme == .dark ? .black : .white
@@ -1154,6 +1253,9 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
 
     private func strokeColor(isOn: Bool) -> Color {
         if isOn {
+            if SequoiaStyle.isActive {
+                return SequoiaStyle.accent.opacity(colorScheme == .dark ? 0.28 : 0.16)
+            }
             return Color.monologueToggleTint.opacity(colorScheme == .dark ? 0.24 : 0.08)
         }
         return offStrokeColor
@@ -1188,7 +1290,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     }
 
     private var activeTrackColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueToggleTint
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueToggleTint)
     }
 }
 
@@ -1465,6 +1567,7 @@ struct SettingsThemeRow: View {
 private struct SettingsHeaderReveal<Content: View>: View {
     let isExpanded: Bool
     let content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var measuredHeight: CGFloat = 0
 
     private var targetHeight: CGFloat {
@@ -1472,7 +1575,14 @@ private struct SettingsHeaderReveal<Content: View>: View {
     }
 
     private var revealAnimation: Animation {
-        .timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22)
+        if reduceMotion {
+            return .easeOut(duration: 0.12)
+        }
+        return .interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04)
+    }
+
+    private var revealOffset: CGFloat {
+        isExpanded || reduceMotion ? 0 : -10
     }
 
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
@@ -1481,33 +1591,27 @@ private struct SettingsHeaderReveal<Content: View>: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            content
-                .fixedSize(horizontal: false, vertical: true)
-                .hidden()
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .onAppear { updateMeasuredHeight(proxy.size.height) }
-                            .onChange(of: proxy.size.height) { _, newValue in
-                                updateMeasuredHeight(newValue)
-                            }
-                    }
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .opacity(isExpanded ? 1 : 0)
+            .offset(y: revealOffset)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { updateMeasuredHeight(proxy.size.height) }
+                        .onChange(of: proxy.size.height) { _, newValue in
+                            updateMeasuredHeight(newValue)
+                        }
                 }
-
-            if isExpanded {
-                content
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(.identity)
             }
-        }
-        .frame(height: targetHeight, alignment: .top)
-        .clipShape(Rectangle())
-        .clipped()
-        .allowsHitTesting(isExpanded)
-        .animation(revealAnimation, value: isExpanded)
+            .frame(height: targetHeight, alignment: .top)
+            .clipShape(Rectangle())
+            .clipped()
+            .contentShape(Rectangle())
+            .allowsHitTesting(isExpanded)
+            .accessibilityHidden(!isExpanded)
+            .animation(revealAnimation, value: isExpanded)
     }
 
     private func updateMeasuredHeight(_ height: CGFloat) {
@@ -1538,7 +1642,7 @@ struct SettingsFloatingBarRow: View {
 
                     Text(title)
                         .font(themedSettingsFont(16, weight: .medium))
-                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)))
+                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))))
 
                     Spacer(minLength: 12)
 
@@ -1554,11 +1658,11 @@ struct SettingsFloatingBarRow: View {
                     MonologueIcon(
                         icon: .chevronRight,
                         size: 11,
-                        color: MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary.opacity(0.8))),
+                        color: MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.8))))),
                         lineWidth: 1.7
                     )
                     .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                    .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
+                    .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
                 }
             }
             .buttonStyle(.plain)
@@ -1604,6 +1708,12 @@ struct SettingsFloatingBarRow: View {
                 .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.6))
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true)
+        } else if SequoiaStyle.isActive {
+            Capsule()
+                .fill(SequoiaStyle.selectedWash.opacity(0.86))
+                .overlay(Capsule().stroke(SequoiaStyle.accent.opacity(0.2), lineWidth: 0.55))
+        } else if SignalStyle.isActive {
+            SignalSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
         } else {
             Capsule()
                 .fill(Color.monologueIconBackground.opacity(0.16))
@@ -1614,6 +1724,8 @@ struct SettingsFloatingBarRow: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
         return .monologueTextSecondary
     }
 }
@@ -1647,6 +1759,8 @@ private struct SettingsFloatingBarOptionCard: View {
         if MangaStyle.isActive { return MangaStyle.cardRadius }
         if MujiStyle.isActive { return 11 }
         if NeumorphicStyle.isActive { return 18 }
+        if SequoiaStyle.isActive { return 16 }
+        if SignalStyle.isActive { return 18 }
         return 12
     }
 
@@ -1654,6 +1768,8 @@ private struct SettingsFloatingBarOptionCard: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(13, weight: .bold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
 
@@ -1661,6 +1777,8 @@ private struct SettingsFloatingBarOptionCard: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.ink }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.ink : SequoiaStyle.inkSoft }
+        if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.ink }
         return isSelected ? .monologueIconForeground : .monologueTextPrimary
     }
 
@@ -1668,6 +1786,8 @@ private struct SettingsFloatingBarOptionCard: View {
         if MangaStyle.isActive { return isSelected ? MangaStyle.strokeInk : MangaStyle.inkSub }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.clay }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.accent : SequoiaStyle.inkSoft }
+        if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.accent }
         return isSelected ? .monologueIconForeground : .monologueTextSecondary
     }
 
@@ -1675,6 +1795,8 @@ private struct SettingsFloatingBarOptionCard: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+        if SignalStyle.isActive { return SignalStyle.onAccent }
         return .monologueIconForeground
     }
 
@@ -1706,6 +1828,22 @@ private struct SettingsFloatingBarOptionCard: View {
             MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.55)
                 .frame(width: 32, height: 32)
                 .background(NeumorphicSurfaceBackground(cornerRadius: 11, elevated: false, pressed: isSelected, lightweight: true))
+        } else if SequoiaStyle.isActive {
+            MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.55)
+                .frame(width: 32, height: 32)
+                .background(
+                    SequoiaSurfaceBackground(
+                        cornerRadius: 11,
+                        elevated: isSelected,
+                        pressed: !isSelected,
+                        fill: isSelected ? SequoiaStyle.selectedWash : SequoiaStyle.materialList,
+                        role: isSelected ? .selected : .list
+                    )
+                )
+        } else if SignalStyle.isActive {
+            MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.55)
+                .frame(width: 32, height: 32)
+                .background(SignalSurfaceBackground(cornerRadius: 11, elevated: false, pressed: isSelected, fill: isSelected ? SignalStyle.accent : SignalStyle.control))
         } else {
             MonologueIcon(icon: style.iconType, size: 18, color: iconColor, lineWidth: 1.6)
                 .frame(width: 32, height: 32)
@@ -1742,6 +1880,12 @@ private struct SettingsFloatingBarOptionCard: View {
         } else if NeumorphicStyle.isActive {
             Circle()
                 .fill(NeumorphicStyle.accent)
+        } else if SequoiaStyle.isActive {
+            Circle()
+                .fill(SequoiaStyle.accent)
+        } else if SignalStyle.isActive {
+            Circle()
+                .fill(SignalStyle.accent)
         } else {
             Circle()
                 .fill(Color.monologueIconBackground)
@@ -1752,6 +1896,8 @@ private struct SettingsFloatingBarOptionCard: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.45) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.65) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.86) }
+        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.72) }
         return .monologueSeparator.opacity(0.8)
     }
 
@@ -1781,6 +1927,21 @@ private struct SettingsFloatingBarOptionCard: View {
                 pressed: !isSelected,
                 tint: isSelected ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface,
                 lightweight: true
+            )
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: cardRadius,
+                elevated: isSelected,
+                pressed: !isSelected,
+                fill: isSelected ? SequoiaStyle.selectedWash : SequoiaStyle.materialList,
+                role: isSelected ? .selected : .list
+            )
+        } else if SignalStyle.isActive {
+            SignalSurfaceBackground(
+                cornerRadius: cardRadius,
+                elevated: isSelected,
+                pressed: !isSelected,
+                fill: isSelected ? SignalStyle.accent : SignalStyle.control
             )
         } else {
             RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
@@ -1824,7 +1985,7 @@ struct SettingsHitokotoTypeRow: View {
 
                     Text(title)
                         .font(themedSettingsFont(16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary)
 
                     Spacer()
 
@@ -1832,9 +1993,9 @@ struct SettingsHitokotoTypeRow: View {
                         .font(themedSettingsFont(14, weight: .medium))
                         .foregroundStyle(activeSummaryColor)
 
-                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                    MonologueIcon(icon: .chevronRight, size: 11, color: SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                        .animation(.timingCurve(0.22, 0.0, 0.16, 1.0, duration: 0.22), value: isExpanded)
+                        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
                 }
             }
             .buttonStyle(.plain)
@@ -1862,6 +2023,8 @@ struct SettingsHitokotoTypeRow: View {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
         return .secondary
     }
 
@@ -1908,6 +2071,17 @@ struct SettingsHitokotoTypeRow: View {
                 tint: selected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface,
                 lightweight: true
             )
+        } else if SequoiaStyle.isActive {
+            Capsule()
+                .fill(selected ? SequoiaStyle.selectedWash.opacity(0.88) : SequoiaStyle.materialList.opacity(0.72))
+                .overlay(Capsule().stroke(selected ? SequoiaStyle.accent.opacity(0.22) : SequoiaStyle.separator.opacity(0.82), lineWidth: 0.55))
+        } else if SignalStyle.isActive {
+            SignalSurfaceBackground(
+                cornerRadius: 15,
+                elevated: selected,
+                pressed: !selected,
+                fill: selected ? SignalStyle.accent : SignalStyle.control
+            )
         } else {
             Capsule()
                 .fill(selected ? Color.monologueIconBackground : Color.monologueSeparator.opacity(0.6))
@@ -1915,9 +2089,15 @@ struct SettingsHitokotoTypeRow: View {
     }
 
     private func chipForeground(selected: Bool) -> Color {
-        if MangaStyle.isActive { return selected ? MangaStyle.strokeInk : MangaStyle.inkSub }
+        if MangaStyle.isActive {
+            return selected
+                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+                : MangaStyle.inkSub
+        }
         if MujiStyle.isActive { return selected ? MujiStyle.clay : MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return selected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return selected ? SequoiaStyle.accent : SequoiaStyle.inkSoft }
+        if SignalStyle.isActive { return selected ? SignalStyle.onAccent : SignalStyle.inkSoft }
         return selected ? Color.monologueIconForeground : Color.monologueTextSecondary
     }
 }

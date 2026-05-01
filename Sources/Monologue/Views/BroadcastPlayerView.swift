@@ -7,6 +7,7 @@ struct BroadcastPlayerView: View {
     let channel: BroadcastChannel
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: BroadcastPlayerViewModel
+    @ObservedObject private var settings = SettingsManager.shared
 
     init(channel: BroadcastChannel) {
         self.channel = channel
@@ -14,6 +15,8 @@ struct BroadcastPlayerView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -49,16 +52,16 @@ struct BroadcastPlayerView: View {
             if viewModel.isPlaying {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color.monologueAccentRed)
+                        .fill(liveTint)
                         .frame(width: 8, height: 8)
-                        .shadow(color: .monologueAccentRed.opacity(0.6), radius: 4)
+                        .shadow(color: liveTint.opacity(0.6), radius: 4)
                     Text("LIVE")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(.monologueAccentRed)
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(liveTint)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Color.monologueAccentRed.opacity(0.1))
+                .background(liveTint.opacity(0.1))
                 .clipShape(Capsule())
             }
             Spacer()
@@ -96,7 +99,7 @@ struct BroadcastPlayerView: View {
                         let isMajor = i % 5 == 0
                         VStack(spacing: 0) {
                             Rectangle()
-                                .fill(Color.monologueTextSecondary.opacity(isMajor ? 0.4 : 0.15))
+                                .fill(broadcastSecondary.opacity(isMajor ? 0.4 : 0.15))
                                 .frame(width: 1, height: isMajor ? 14 : 7)
                             Spacer()
                         }
@@ -106,9 +109,9 @@ struct BroadcastPlayerView: View {
                 VStack(spacing: 0) {
                     Spacer()
                     BroadcastTriangle()
-                        .fill(Color.monologueAccentRed)
+                        .fill(liveTint)
                         .frame(width: 10, height: 6)
-                        .shadow(color: .monologueAccentRed.opacity(0.4), radius: 3)
+                        .shadow(color: liveTint.opacity(0.4), radius: 3)
                 }
             }
         }
@@ -147,25 +150,25 @@ struct BroadcastPlayerView: View {
                     .fill(broadcastSurfaceFill)
                     .frame(width: 80, height: 80)
                     .monologueGlass(cornerRadius: 16)
-                    .overlay(MonologueIcon(icon: .radio, size: 32, color: .monologueTextSecondary, lineWidth: 1.4))
+                    .overlay(MonologueIcon(icon: .radio, size: 32, color: broadcastSecondary, lineWidth: 1.4))
             }
 
             Text(channel.displayName)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(stationTitleFont)
                 .foregroundColor(broadcastPrimary)
                 .lineLimit(1)
 
             if let program = viewModel.currentProgram, !program.isEmpty {
                 HStack(spacing: 6) {
-                    Circle().fill(Color.monologueAccentGreen).frame(width: 6, height: 6)
+                    Circle().fill(programLiveTint).frame(width: 6, height: 6)
                     Text(program)
-                        .font(.system(size: 13, design: .rounded))
+                        .font(stationSubtitleFont)
                         .foregroundColor(broadcastSecondary)
                         .lineLimit(1)
                 }
             } else if viewModel.isPlaying {
                 Text("直播中")
-                    .font(.system(size: 13, design: .rounded))
+                    .font(stationSubtitleFont)
                     .foregroundColor(broadcastSecondary)
             }
         }
@@ -181,7 +184,7 @@ struct BroadcastPlayerView: View {
                     .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
                 if viewModel.isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .monologueIconForeground))
+                        .progressViewStyle(CircularProgressViewStyle(tint: broadcastButtonForeground))
                         .scaleEffect(1.2)
                 } else {
                     MonologueIcon(
@@ -196,23 +199,51 @@ struct BroadcastPlayerView: View {
     }
 
     private var broadcastPrimary: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
     }
 
     private var broadcastSecondary: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
     }
 
     private var broadcastSurfaceFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        return Color.monologueGlassTint
     }
 
     private var broadcastButtonFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return Color.monologueIconBackground
     }
 
     private var broadcastButtonForeground: Color {
-        NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+        return .monologueIconForeground
+    }
+
+    private var liveTint: Color {
+        SequoiaStyle.isActive ? SequoiaStyle.red : .monologueAccentRed
+    }
+
+    private var programLiveTint: Color {
+        SequoiaStyle.isActive ? SequoiaStyle.green : .monologueAccentGreen
+    }
+
+    private var stationTitleFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(20, weight: .semibold) }
+        return .system(size: 20, weight: .bold, design: .rounded)
+    }
+
+    private var stationSubtitleFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        return .system(size: 13, design: .rounded)
     }
 }
 

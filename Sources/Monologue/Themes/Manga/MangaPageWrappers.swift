@@ -4,6 +4,7 @@ import SwiftUI
 
 private struct MangaThemeRoot<Content: View>: View {
     let content: Content
+    @ObservedObject private var settings = SettingsManager.shared
 
     init(
         @ViewBuilder content: () -> Content
@@ -12,9 +13,11 @@ private struct MangaThemeRoot<Content: View>: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         content
-            .mangaSurfaceIfNeeded()
             .tint(MangaStyle.accentPink)
+            .themeRenderSceneLayer()
     }
 }
 

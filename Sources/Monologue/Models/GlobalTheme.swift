@@ -9,8 +9,16 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     case muji          // 无印良品 — 极简暖色纸质感、大量留白
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
+    case material      // Material Design — 色彩角色、圆润控件、tonal surface
+    case sequoia       // Sequoia — 系统级清透材质、薄层级、精致控件状态
+    case clay          // 已移除：仅用于迁移旧存档
+    case signal        // 已移除：仅用于迁移旧存档
 
     var id: String { rawValue }
+
+    static var allCases: [GlobalThemeId] {
+        [.default, .muji, .manga, .neumorphic, .material]
+    }
 
     var displayName: String {
         switch self {
@@ -18,6 +26,10 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .muji:      return String(localized: "无印良品")
         case .manga:     return String(localized: "漫画风")
         case .neumorphic: return String(localized: "新拟物")
+        case .material:  return "Material Design"
+        case .sequoia:   return "macOS Sequoia"
+        case .clay:      return String(localized: "默认")
+        case .signal:    return String(localized: "默认")
         }
     }
 
@@ -27,6 +39,10 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .muji:      return String(localized: "极简纸质感，温暖呼吸感")
         case .manga:     return String(localized: "粗线描边，网点气泡，漫画世界")
         case .neumorphic: return String(localized: "柔软凸起与凹陷控件，安静的实体触感")
+        case .material:  return String(localized: "Material Design 3 色彩层级与圆润控件")
+        case .sequoia:   return String(localized: "系统级清透材质，薄层级，精致控件状态")
+        case .clay:      return String(localized: "Monologue 原始设计风格")
+        case .signal:    return String(localized: "Monologue 原始设计风格")
         }
     }
 
@@ -36,6 +52,10 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .muji:      return .catLife
         case .manga:     return .catBook
         case .neumorphic: return .layers
+        case .material:  return .layers
+        case .sequoia:   return .layers
+        case .clay:      return .playerTheme
+        case .signal:    return .playerTheme
         }
     }
 }

@@ -11,6 +11,7 @@ struct PlayerMoreMenu: View {
     
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var gameMode = GameModeManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var showTimerSheet = false
 
     private let textColor: Color = .monologueTextPrimary
@@ -26,6 +27,8 @@ struct PlayerMoreMenu: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack(alignment: .topTrailing) {
             // 半透明遮罩，点击关闭
             Color.black.opacity(0.01)

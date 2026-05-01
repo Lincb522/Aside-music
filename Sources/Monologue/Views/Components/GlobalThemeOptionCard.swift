@@ -5,9 +5,12 @@ struct GlobalThemeOptionCard: View {
     let themeId: GlobalThemeId
     let isSelected: Bool
 
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(alignment: .leading, spacing: 9) {
             ZStack(alignment: .topTrailing) {
                 previewArea
@@ -85,6 +88,12 @@ struct GlobalThemeOptionCard: View {
             mangaPreview
         case .neumorphic:
             neumorphicPreview
+        case .material:
+            materialPreview
+        case .sequoia:
+            sequoiaPreview
+        case .clay, .signal:
+            defaultPreview
         }
     }
 
@@ -94,6 +103,9 @@ struct GlobalThemeOptionCard: View {
         case .muji:      return Color(hex: "C4775A")
         case .manga:     return Color(hex: "FF8FAB")
         case .neumorphic: return Color(hex: "4F8E86")
+        case .material:  return Color(hex: "6750A4")
+        case .sequoia:   return Color(hex: "0A84FF")
+        case .clay, .signal: return .monologueAccent
         }
     }
 
@@ -400,4 +412,139 @@ struct GlobalThemeOptionCard: View {
                 .padding(.leading, 1.5)
         }
     }
+
+    // MARK: - Sequoia 预览
+
+    private var sequoiaPreview: some View {
+        ZStack {
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "070A10"), Color(hex: "151922"), Color(hex: "06080D")]
+                    : [Color(hex: "FCFEFF"), Color(hex: "F4F7FB"), Color(hex: "E3EBF2")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 7) {
+                HStack(spacing: 6) {
+                    Capsule().fill(SequoiaStyle.accent.opacity(0.52)).frame(width: 24, height: 5)
+                    Capsule().fill(SequoiaStyle.aqua.opacity(0.34)).frame(width: 14, height: 5)
+                    Capsule().fill(SequoiaStyle.separator).frame(width: 5, height: 5)
+                    Spacer()
+                    SequoiaMeter(tint: SequoiaStyle.aqua, count: 5)
+                }
+
+                HStack(spacing: 7) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(SequoiaStyle.selectedWash)
+                        .frame(width: 48, height: 52)
+                        .overlay(
+                            MonologueIcon(icon: .musicNote, size: 18, color: SequoiaStyle.accent, lineWidth: 1.6)
+                        )
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Capsule().fill(SequoiaStyle.ink.opacity(0.24)).frame(width: 62, height: 5)
+                        Capsule().fill(SequoiaStyle.inkSoft.opacity(0.18)).frame(width: 42, height: 4)
+                        HStack(spacing: 5) {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(SequoiaStyle.accent.opacity(0.18))
+                                .frame(width: 28, height: 16)
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(SequoiaStyle.aqua.opacity(0.18))
+                                .frame(width: 28, height: 16)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                HStack(spacing: 6) {
+                    ForEach(0..<3, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill([SequoiaStyle.materialList, SequoiaStyle.selectedWash, SequoiaStyle.aqua.opacity(0.16)][index])
+                            .frame(height: 18)
+                    }
+                }
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(SequoiaStyle.glass.opacity(0.5)))
+            )
+            .padding(10)
+        }
+    }
+
+    // MARK: - Material 预览
+
+    private var materialPreview: some View {
+        ZStack {
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "141218"), Color(hex: "211F26"), Color(hex: "1D1B2E")]
+                    : [Color(hex: "FFFBFE"), Color(hex: "F7F2FA"), Color(hex: "EEF4FF")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(MaterialStyle.primary.opacity(0.16))
+                        .frame(width: 26, height: 26)
+                        .overlay(MonologueIcon(icon: .profileFilled, size: 12, color: MaterialStyle.primary, lineWidth: 1.5))
+
+                    Capsule().fill(MaterialStyle.ink.opacity(0.22)).frame(width: 60, height: 6)
+
+                    Spacer(minLength: 0)
+
+                    Circle().fill(MaterialStyle.secondary.opacity(0.16)).frame(width: 22, height: 22)
+                    Circle().fill(MaterialStyle.primary).frame(width: 22, height: 22)
+                }
+
+                HStack(spacing: 9) {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(MaterialStyle.primary.opacity(0.18))
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            HStack(alignment: .bottom, spacing: 3) {
+                                ForEach(0 ..< 4, id: \.self) { index in
+                                    Capsule()
+                                        .fill(MaterialStyle.primary)
+                                        .frame(width: 4, height: CGFloat([12, 24, 18, 30][index]))
+                                }
+                            }
+                        )
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Capsule().fill(MaterialStyle.ink.opacity(0.28)).frame(width: 72, height: 7)
+                        Capsule().fill(MaterialStyle.inkSoft.opacity(0.2)).frame(width: 48, height: 5)
+                        HStack(spacing: 5) {
+                            Capsule().fill(MaterialStyle.primary.opacity(0.2)).frame(width: 38, height: 15)
+                            Capsule().fill(MaterialStyle.tertiary.opacity(0.18)).frame(width: 28, height: 15)
+                        }
+                    }
+                }
+                .padding(9)
+                .background(MaterialSurfaceBackground(cornerRadius: 22, elevated: false, role: .tonal))
+
+                HStack(spacing: 6) {
+                    ForEach(0 ..< 4, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill([
+                                MaterialStyle.primary.opacity(0.18),
+                                MaterialStyle.green.opacity(0.16),
+                                MaterialStyle.blue.opacity(0.16),
+                                MaterialStyle.tertiary.opacity(0.16),
+                            ][index])
+                            .frame(height: 24)
+                    }
+                }
+            }
+            .padding(10)
+            .background(MaterialSurfaceBackground(cornerRadius: 24, elevated: true, role: .elevated))
+            .padding(10)
+        }
+    }
+
 }

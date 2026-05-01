@@ -29,7 +29,7 @@ struct MacProfileView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .sheet(isPresented: $showLoginView) {
+        .monologueSheet(isPresented: $showLoginView, preset: .large) {
             LoginView()
                 .frame(minWidth: 400, minHeight: 500)
         }

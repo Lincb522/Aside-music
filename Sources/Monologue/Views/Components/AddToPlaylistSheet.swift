@@ -7,6 +7,7 @@ struct AddToPlaylistSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @ObservedObject private var manager = LocalPlaylistManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showCreateLocal = false
     @State private var showCreateNetease = false
@@ -62,6 +63,8 @@ struct AddToPlaylistSheet: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
                 ScrollView {
                 VStack(spacing: 20) {

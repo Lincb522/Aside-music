@@ -8,6 +8,7 @@ struct MinimalPlayerLayout: View {
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var colorExtractor = CoverColorExtractor()
     @State private var showPlaylist = false
@@ -35,6 +36,8 @@ struct MinimalPlayerLayout: View {
     private var headerIconColor: Color { isCoverBright ? .black : .white }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         GeometryReader { geo in
             let coverH = geo.size.width * 1.05
             let sw = geo.size.width

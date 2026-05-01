@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
@@ -33,6 +34,7 @@ private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
 
 struct NeumorphicHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
@@ -46,6 +48,8 @@ struct NeumorphicHomeView: View {
     private let bannerTimer = Timer.publish(every: 5.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
@@ -515,7 +519,7 @@ struct NeumorphicHomeView: View {
     private var newSongsDrawer: some View {
         VStack(spacing: 12) {
             ScrollView(.horizontal) {
-                HStack(spacing: 12) {
+                LazyHStack(spacing: 12) {
                     ForEach(visibleQQNewSongs) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
@@ -724,7 +728,9 @@ struct NeumorphicHomeView: View {
 private struct NeumorphicFeaturedDial: View {
     let dailySongs: [Song]
 
-    @ObservedObject private var playerManager = PlayerManager.shared
+    @State private var currentSong = PlayerManager.shared.currentSong
+    @State private var historyFirstSong = PlayerManager.shared.history.first
+    @State private var isPlaying = PlayerManager.shared.isPlaying
 
     var body: some View {
         ZStack {
@@ -741,7 +747,7 @@ private struct NeumorphicFeaturedDial: View {
             if let song = featuredSong {
                 NeumorphicHomeSpinningCover(
                     coverUrl: song.coverUrl,
-                    isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying
+                    isPlaying: currentSong?.id == song.id && isPlaying
                 )
             } else {
                 MonologueIcon(icon: .musicNote, size: 30, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
@@ -753,85 +759,108 @@ private struct NeumorphicFeaturedDial: View {
                 .overlay(Circle().fill(NeumorphicStyle.inkMuted.opacity(0.18)).frame(width: 7, height: 7))
         }
         .frame(maxWidth: .infinity)
+        .onReceive(PlayerManager.shared.$currentSong) { song in
+            currentSong = song
+        }
+        .onReceive(PlayerManager.shared.$history.map { $0.first }.removeDuplicates { $0?.id == $1?.id }) { song in
+            historyFirstSong = song
+        }
+        .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            self.isPlaying = isPlaying
+        }
     }
 
     private var featuredSong: Song? {
-        playerManager.currentSong ?? playerManager.history.first ?? dailySongs.first
+        currentSong ?? historyFirstSong ?? dailySongs.first
     }
 }
 
 private struct NeumorphicFeaturedSongButton: View {
     let dailySongs: [Song]
 
-    @ObservedObject private var playerManager = PlayerManager.shared
+    @State private var currentSong = PlayerManager.shared.currentSong
+    @State private var historyFirstSong = PlayerManager.shared.history.first
+    @State private var isPlaying = PlayerManager.shared.isPlaying
 
     var body: some View {
-        if let song = featuredSong {
-            Button {
-                playFeatured(song)
-            } label: {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(currentSongCaption(for: song))
-                            .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                            .foregroundStyle(NeumorphicStyle.inkMuted)
-                            .tracking(1.0)
+        Group {
+            if let song = featuredSong {
+                Button {
+                    playFeatured(song)
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(currentSongCaption(for: song))
+                                .font(NeumorphicStyle.labelFont(10, weight: .semibold))
+                                .foregroundStyle(NeumorphicStyle.inkMuted)
+                                .tracking(1.0)
 
-                        Text(song.name)
-                            .font(NeumorphicStyle.labelFont(16, weight: .semibold))
-                            .foregroundStyle(NeumorphicStyle.ink)
-                            .lineLimit(1)
+                            Text(song.name)
+                                .font(NeumorphicStyle.labelFont(16, weight: .semibold))
+                                .foregroundStyle(NeumorphicStyle.ink)
+                                .lineLimit(1)
 
-                        Text(song.artistName)
-                            .font(NeumorphicStyle.labelFont(12, weight: .regular))
-                            .foregroundStyle(NeumorphicStyle.inkSoft)
-                            .lineLimit(1)
-                    }
+                            Text(song.artistName)
+                                .font(NeumorphicStyle.labelFont(12, weight: .regular))
+                                .foregroundStyle(NeumorphicStyle.inkSoft)
+                                .lineLimit(1)
+                        }
 
-                    Spacer(minLength: 8)
+                        Spacer(minLength: 8)
 
-                    ZStack {
-                        Circle()
-                            .fill(NeumorphicStyle.accent.opacity(0.18))
-                            .frame(width: 42, height: 42)
+                        ZStack {
+                            Circle()
+                                .fill(NeumorphicStyle.accent.opacity(0.18))
+                                .frame(width: 42, height: 42)
 
-                        if playerManager.currentSong?.id == song.id && playerManager.isPlaying {
-                            PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
-                                .frame(width: 20, height: 16)
-                        } else {
-                            MonologueIcon(icon: .play, size: 14, color: NeumorphicStyle.accent, lineWidth: 1.8)
+                            if currentSong?.id == song.id && isPlaying {
+                                PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
+                                    .frame(width: 20, height: 16)
+                            } else {
+                                MonologueIcon(icon: .play, size: 14, color: NeumorphicStyle.accent, lineWidth: 1.8)
+                            }
                         }
                     }
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 13)
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true))
                 }
-                .padding(.horizontal, 15)
-                .padding(.vertical, 13)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true))
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+        }
+        .onReceive(PlayerManager.shared.$currentSong) { song in
+            currentSong = song
+        }
+        .onReceive(PlayerManager.shared.$history.map { $0.first }.removeDuplicates { $0?.id == $1?.id }) { song in
+            historyFirstSong = song
+        }
+        .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            self.isPlaying = isPlaying
         }
     }
 
     private var featuredSong: Song? {
-        playerManager.currentSong ?? playerManager.history.first ?? dailySongs.first
+        currentSong ?? historyFirstSong ?? dailySongs.first
     }
 
     private func currentSongCaption(for song: Song) -> String {
-        if playerManager.currentSong?.id == song.id {
+        if currentSong?.id == song.id {
             return String(localized: "正在播放")
         }
-        if playerManager.currentSong == nil, playerManager.history.first?.id == song.id {
+        if currentSong == nil, historyFirstSong?.id == song.id {
             return String(localized: "上次播放")
         }
         return String(localized: "今日首选")
     }
 
     private func playFeatured(_ song: Song) {
-        if playerManager.currentSong?.id == song.id {
-            playerManager.togglePlayPause()
+        let player = PlayerManager.shared
+        if currentSong?.id == song.id {
+            player.togglePlayPause()
         } else if dailySongs.contains(where: { $0.id == song.id }) {
-            playerManager.play(song: song, in: dailySongs)
+            player.play(song: song, in: dailySongs)
         } else {
-            playerManager.play(song: song, in: [song])
+            player.play(song: song, in: [song])
         }
     }
 }
@@ -846,7 +875,7 @@ private struct NeumorphicHomeSpinningCover: View {
     private let degreesPerSecond: Double = 10
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 24, paused: !isPlaying)) { timeline in
+        TimelineView(.animation(minimumInterval: 1 / 12, paused: !isPlaying)) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
             CachedAsyncImage(url: coverUrl, width: 86, height: 86) {
@@ -930,7 +959,8 @@ private struct NeumorphicHomeSongRow: View {
     let index: Int
     let action: () -> Void
 
-    @ObservedObject private var playerManager = PlayerManager.shared
+    @State private var currentSongID = PlayerManager.shared.currentSong?.id
+    @State private var playerIsPlaying = PlayerManager.shared.isPlaying
 
     var body: some View {
         Button(action: action) {
@@ -975,10 +1005,16 @@ private struct NeumorphicHomeSongRow: View {
             .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: !isPlaying, tint: isPlaying ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface, lightweight: true))
         }
         .buttonStyle(.plain)
+        .onReceive(PlayerManager.shared.$currentSong.map { $0?.id }.removeDuplicates()) { songID in
+            currentSongID = songID
+        }
+        .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            playerIsPlaying = isPlaying
+        }
     }
 
     private var isPlaying: Bool {
-        playerManager.currentSong?.id == song.id && playerManager.isPlaying
+        currentSongID == song.id && playerIsPlaying
     }
 }
 

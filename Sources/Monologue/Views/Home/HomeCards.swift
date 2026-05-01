@@ -12,12 +12,12 @@ struct SectionHeader: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(sectionTitleFont)
-                    .foregroundColor(.monologueTextPrimary)
-                    .tracking(MujiStyle.isActive ? 0.5 : (NeumorphicStyle.isActive ? 0 : -0.3))
+                    .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary)
+                    .tracking(MujiStyle.isActive ? 0.5 : 0)
                 if let subtitle {
                     Text(subtitle)
                         .font(sectionSubtitleFont)
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary)
                 }
             }
             Spacer()
@@ -44,18 +44,21 @@ struct SectionHeader: View {
     private var sectionTitleFont: Font {
         if MujiStyle.isActive { return MujiStyle.titleFont(20, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(20, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.titleFont(20, weight: .bold) }
         return .system(size: 22, weight: .heavy, design: .rounded)
     }
 
     private var sectionSubtitleFont: Font {
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: .medium) }
         return .system(size: 12, weight: .semibold, design: .rounded)
     }
 
     private var sectionActionFont: Font {
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: .bold) }
         return .system(size: 11, weight: .bold, design: .rounded)
     }
 
@@ -63,6 +66,8 @@ struct SectionHeader: View {
         Group {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
             } else {
                 Capsule().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueTextSecondary.opacity(0.06))
             }

@@ -4,6 +4,7 @@ import Combine
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = LoginViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
     
     @State private var selectedTab: LoginTab = .qr
@@ -15,13 +16,15 @@ struct LoginView: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
             
             VStack(spacing: 0) {
                 HStack {
                     Button { dismiss() } label: {
-                        MonologueIcon(icon: .xmark, size: 14, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .xmark, size: 14, color: loginSecondaryText)
                             .frame(width: 32, height: 32)
                             .monologueGlassCircle()
                     }
@@ -64,7 +67,7 @@ struct LoginView: View {
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("login_subtitle"))
                     .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(loginSecondaryText)
             }
             .padding(.top, 8)
         }
@@ -100,10 +103,10 @@ struct LoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? loginAccentText : .monologueTextSecondary)
+                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? loginAccentText : loginSecondaryText)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? loginAccentText : .monologueTextSecondary)
+                    .foregroundColor(selectedTab == tab ? loginAccentText : loginSecondaryText)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -119,9 +122,9 @@ struct LoginView: View {
         VStack(spacing: 24) {
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
+                    .fill(SequoiaStyle.isActive ? SequoiaStyle.materialList.opacity(0.62) : (NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint))
                     .monologueGlass(cornerRadius: 24)
-                    .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 8)
+                    .shadow(color: Color.black.opacity(SequoiaStyle.isActive ? 0.05 : 0.08), radius: SequoiaStyle.isActive ? 14 : 20, x: 0, y: 8)
                 
                 if let qrImage = viewModel.qrCodeImage {
                     Image(uiImage: qrImage)
@@ -136,27 +139,27 @@ struct LoginView: View {
                             .scaleEffect(1.2)
                         Text(LocalizedStringKey("login_loading"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(loginSecondaryText)
                     }
                 }
                 
                 if viewModel.isQRExpired {
                     ZStack {
-                        Color.monologueGlassTint.opacity(0.9)
+                        (SequoiaStyle.isActive ? SequoiaStyle.materialFloating : Color.monologueGlassTint).opacity(0.9)
                         
                         VStack(spacing: 16) {
-                            MonologueIcon(icon: .refresh, size: 32, color: .monologueTextPrimary)
+                            MonologueIcon(icon: .refresh, size: 32, color: loginText)
                             Text(LocalizedStringKey("qr_expired"))
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
+                                .foregroundColor(loginText)
                             
                             Button(action: { viewModel.refreshQR() }) {
                                 Text(LocalizedStringKey("login_tap_refresh"))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(loginAccentText)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 10)
-                                    .background(Color.black)
+                                    .background(loginAccent)
                                     .cornerRadius(20)
                             }
                             .buttonStyle(MonologueBouncingButtonStyle())
@@ -170,7 +173,7 @@ struct LoginView: View {
             
             Text(viewModel.qrStatusMessage)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(loginSecondaryText)
                 .multilineTextAlignment(.center)
             
             VStack(spacing: 8) {
@@ -189,14 +192,14 @@ struct LoginView: View {
         HStack(spacing: 12) {
             Text(number)
                 .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .foregroundColor(loginAccentText)
                 .frame(width: 20, height: 20)
-                .background(Color.black.opacity(0.2))
+                .background(loginAccent.opacity(SequoiaStyle.isActive ? 0.92 : 0.2))
                 .cornerRadius(10)
             
             Text(text)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(loginSecondaryText)
             
             Spacer()
         }
@@ -209,12 +212,12 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(LocalizedStringKey("phone_number"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(loginSecondaryText)
                 
                 HStack {
                     Text("+86")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(loginText)
                         .padding(.trailing, 8)
                     
                     Divider()
@@ -234,7 +237,7 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(LocalizedStringKey("captcha"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(loginSecondaryText)
                 
                 HStack {
                     TextField(String(localized: "login_captcha_placeholder"), text: $viewModel.captchaCode)
@@ -251,7 +254,7 @@ struct LoginView: View {
                             }
                         }
                         .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(viewModel.phoneNumber.count == 11 && viewModel.captchaCooldown == 0 ? .monologueTextPrimary : .monologueTextSecondary)
+                        .foregroundColor(viewModel.phoneNumber.count == 11 && viewModel.captchaCooldown == 0 ? loginText : loginSecondaryText)
                     }
                     .disabled(viewModel.phoneNumber.count != 11 || viewModel.captchaCooldown > 0)
                 }
@@ -276,13 +279,13 @@ struct LoginView: View {
                     Text(LocalizedStringKey("login"))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.white)
+                .foregroundColor(loginAccentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
                     (viewModel.phoneNumber.count == 11 && viewModel.captchaCode.count >= 4)
                     ? loginAccent
-                    : Color.gray.opacity(0.3)
+                    : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : Color.gray.opacity(0.3))
                 )
                 .cornerRadius(16)
             }
@@ -298,16 +301,16 @@ struct LoginView: View {
         VStack(spacing: 8) {
             Text(LocalizedStringKey("login_agreement_prefix"))
                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(loginSecondaryText)
             
             HStack(spacing: 4) {
                 Text(LocalizedStringKey("login_user_agreement"))
                 Text(LocalizedStringKey("login_and"))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(loginSecondaryText)
                 Text(LocalizedStringKey("login_privacy_policy"))
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundColor(.monologueTextPrimary)
+            .foregroundColor(loginText)
         }
         .padding(.bottom, 40)
     }
@@ -328,11 +331,27 @@ struct LoginView: View {
     }
 
     private var loginAccent: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return Color.monologueIconBackground
     }
 
     private var loginAccentText: Color {
-        NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : Color.monologueIconForeground
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        return Color.monologueIconForeground
+    }
+
+    private var loginText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return Color.monologueTextPrimary
+    }
+
+    private var loginSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return Color.monologueTextSecondary
     }
 }
 

@@ -56,10 +56,8 @@ enum NeumorphicStyle {
 
 struct NeumorphicRootBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
-        let _ = settings.globalThemeRevision
         ZStack {
             ThemeCustomDiffuseBackground(
                 theme: .neumorphic,
@@ -70,9 +68,8 @@ struct NeumorphicRootBackdrop: View {
 
             NeumorphicDiffuseGradient()
 
-            NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.08 : 0.13)
+            NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.035 : 0.055)
         }
-        .compositingGroup()
         .transaction { transaction in
             transaction.animation = nil
             transaction.disablesAnimations = true
@@ -117,9 +114,6 @@ struct NeumorphicDiffuseGradient: View {
                 endPoint: .topTrailing
             )
         }
-        .blendMode(colorScheme == .dark ? .screen : .softLight)
-        .saturation(colorScheme == .dark ? 0.92 : 0.86)
-        .drawingGroup(opaque: false, colorMode: .linear)
         .transaction { transaction in
             transaction.animation = nil
             transaction.disablesAnimations = true
@@ -132,26 +126,27 @@ struct NeumorphicReliefTexture: View {
     var opacity: Double = 0.12
 
     var body: some View {
-        Canvas(rendersAsynchronously: true) { context, size in
-            let highlight = Color.white.opacity(opacity)
-            let shadow = Color.black.opacity(opacity * 0.22)
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(opacity),
+                    .clear,
+                    Color.black.opacity(opacity * 0.16),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
-            for index in stride(from: -80, through: Int(size.width + size.height) + 80, by: 74) {
-                let start = CGPoint(x: CGFloat(index) - size.height * 0.32, y: 0)
-                let end = CGPoint(x: CGFloat(index), y: size.height)
-
-                var hi = Path()
-                hi.move(to: start)
-                hi.addLine(to: end)
-                context.stroke(hi, with: .color(highlight.opacity(index.isMultiple(of: 3) ? 0.26 : 0.12)), lineWidth: 0.48)
-
-                var low = Path()
-                low.move(to: CGPoint(x: start.x + 2, y: start.y))
-                low.addLine(to: CGPoint(x: end.x + 2, y: end.y))
-                context.stroke(low, with: .color(shadow.opacity(0.22)), lineWidth: 0.38)
-            }
+            LinearGradient(
+                colors: [
+                    .clear,
+                    Color.white.opacity(opacity * 0.42),
+                    .clear,
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         }
-        .drawingGroup(opaque: false, colorMode: .linear)
         .transaction { transaction in
             transaction.animation = nil
             transaction.disablesAnimations = true
@@ -171,12 +166,9 @@ struct NeumorphicSurfaceBackground: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        let darkShadowRadius: CGFloat = lightweight ? (elevated ? 7 : 3) : (elevated ? 10 : 5)
-        let lightShadowRadius: CGFloat = lightweight ? (elevated ? 6 : 3) : (elevated ? 9 : 5)
-        let darkOffset: CGFloat = lightweight ? (elevated ? 4 : 2) : (elevated ? 6 : 2.5)
-        let lightOffset: CGFloat = lightweight ? (elevated ? -3 : -2) : (elevated ? -5 : -2.5)
-        let darkIntensity: Double = lightweight ? (elevated ? 0.52 : 0.24) : (elevated ? 0.68 : 0.34)
-        let lightIntensity: Double = lightweight ? (elevated ? 0.7 : 0.34) : (elevated ? 0.86 : 0.48)
+        let darkShadowRadius: CGFloat = lightweight ? (elevated ? 5 : 2) : (elevated ? 7 : 3)
+        let darkOffset: CGFloat = lightweight ? (elevated ? 3 : 1.5) : (elevated ? 4 : 2)
+        let darkIntensity: Double = lightweight ? (elevated ? 0.42 : 0.2) : (elevated ? 0.48 : 0.24)
         let fillGradient = LinearGradient(
             colors: [
                 (tint ?? (pressed ? NeumorphicStyle.surfacePressed : NeumorphicStyle.surfaceRaised)).opacity(pressed ? 0.96 : 1),
@@ -195,12 +187,29 @@ struct NeumorphicSurfaceBackground: View {
         )
         let strokeWidth: CGFloat = lightweight ? (pressed ? 0.85 : 0.65) : (pressed ? 1.2 : 0.8)
 
-        if lightweight && pressed {
+        if lightweight {
             shape
                 .fill(fillGradient)
                 .overlay(
                     shape.stroke(strokeGradient, lineWidth: strokeWidth)
                 )
+                .shadow(
+                    color: pressed ? .clear : NeumorphicStyle.darkShadow(colorScheme, intensity: darkIntensity),
+                    radius: darkShadowRadius,
+                    x: darkOffset,
+                    y: darkOffset
+                )
+                .overlay {
+                    if elevated && !pressed {
+                        shape
+                            .stroke(
+                                NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.22 : 0.42),
+                                lineWidth: 0.7
+                            )
+                            .offset(x: -0.8, y: -0.8)
+                            .clipShape(shape)
+                    }
+                }
                 .transaction { transaction in
                     transaction.animation = nil
                     transaction.disablesAnimations = true
@@ -218,23 +227,23 @@ struct NeumorphicSurfaceBackground: View {
                     x: darkOffset,
                     y: darkOffset
                 )
-                .shadow(
-                    color: pressed ? .clear : NeumorphicStyle.lightShadow(colorScheme, intensity: lightIntensity),
-                    radius: lightShadowRadius,
-                    x: lightOffset,
-                    y: lightOffset
-                )
                 .overlay {
                     if pressed && !lightweight {
                         shape
-                            .stroke(NeumorphicStyle.darkShadow(colorScheme, intensity: 0.52), lineWidth: 1)
-                            .blur(radius: 0.8)
+                            .stroke(NeumorphicStyle.darkShadow(colorScheme, intensity: 0.36), lineWidth: 0.8)
                             .offset(x: 1.3, y: 1.3)
                             .clipShape(shape)
                         shape
-                            .stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.78), lineWidth: 1)
-                            .blur(radius: 0.8)
+                            .stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.58), lineWidth: 0.8)
                             .offset(x: -1.3, y: -1.3)
+                            .clipShape(shape)
+                    } else if elevated {
+                        shape
+                            .stroke(
+                                NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.28 : 0.5),
+                                lineWidth: 0.8
+                            )
+                            .offset(x: -0.9, y: -0.9)
                             .clipShape(shape)
                     }
                 }
@@ -251,9 +260,11 @@ struct NeumorphicIconBadge: View {
     let icon: MonologueIcon.IconType
     var tint: Color = NeumorphicStyle.accent
     var size: CGFloat = 46
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
-        NeumorphicSurfaceBackground(cornerRadius: size * 0.32, elevated: true, tint: NeumorphicStyle.surfaceRaised)
+        let _ = settings.globalThemeRevision
+        NeumorphicSurfaceBackground(cornerRadius: size * 0.32, elevated: true, tint: NeumorphicStyle.surfaceRaised, lightweight: true)
             .frame(width: size, height: size)
             .overlay(
                 MonologueIcon(icon: icon, size: size * 0.42, color: tint, lineWidth: 1.55)
@@ -268,8 +279,10 @@ struct NeumorphicPill: View {
     var icon: MonologueIcon.IconType?
     var selected: Bool = false
     var compact: Bool = false
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         HStack(spacing: icon == nil ? 0 : 7) {
             if let icon {
                 MonologueIcon(icon: icon, size: compact ? 11 : 13, color: foreground, lineWidth: 1.55)
@@ -304,13 +317,15 @@ struct NeumorphicPlayPill: View {
     let title: String
     var icon: MonologueIcon.IconType = .play
     var tint: Color = NeumorphicStyle.accent
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 13, color: Color(light: .white, dark: .black), lineWidth: 1.7)
+            MonologueIcon(icon: icon, size: 13, color: foreground, lineWidth: 1.7)
             Text(title)
                 .font(NeumorphicStyle.labelFont(12, weight: .semibold))
-                .foregroundStyle(Color(light: .white, dark: .black))
+                .foregroundStyle(foreground)
                 .lineLimit(1)
         }
         .padding(.horizontal, 15)
@@ -321,6 +336,14 @@ struct NeumorphicPlayPill: View {
         )
         .shadow(color: tint.opacity(0.24), radius: 10, x: 0, y: 5)
         .themeRenderInteractiveLayer()
+    }
+
+    private var foreground: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: tint,
+            light: Color(hex: "172026"),
+            dark: Color.white
+        )
     }
 }
 
@@ -339,7 +362,7 @@ struct NeumorphicActionButton<Content: View>: View {
         Button(action: action) {
             content
                 .frame(width: size, height: size)
-                .background(NeumorphicSurfaceBackground(cornerRadius: size * 0.36, elevated: true))
+                .background(NeumorphicSurfaceBackground(cornerRadius: size * 0.36, elevated: true, lightweight: true))
                 .contentShape(RoundedRectangle(cornerRadius: size * 0.36, style: .continuous))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))

@@ -9,6 +9,7 @@ struct QQLoginView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @StateObject private var viewModel = QQLoginViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     
     @State private var selectedTab: LoginTab = .qr
     
@@ -20,6 +21,7 @@ struct QQLoginView: View {
     private var themeAccent: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return Color.monologueIconBackground
     }
@@ -27,11 +29,26 @@ struct QQLoginView: View {
     private var themeAccentText: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.paper }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
         return Color.monologueIconForeground
     }
+
+    private var themeText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return Color.monologueTextPrimary
+    }
+
+    private var themeSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return Color.monologueTextSecondary
+    }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             MonologueSheetAwareBackground {
                 ThemedPageBackground()
@@ -40,7 +57,7 @@ struct QQLoginView: View {
             VStack(spacing: 0) {
                 HStack {
                     Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
-                        MonologueIcon(icon: .xmark, size: 14, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .xmark, size: 14, color: themeSecondaryText)
                             .frame(width: 32, height: 32)
                             .monologueGlassCircle()
                     }
@@ -78,7 +95,7 @@ struct QQLoginView: View {
             VStack(spacing: 8) {
                 Text(LocalizedStringKey("qq_login_subtitle"))
                     .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(themeSecondaryText)
             }
             .padding(.top, 8)
         }
@@ -129,10 +146,10 @@ struct QQLoginView: View {
             }
         }) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? themeAccentText : .monologueTextSecondary)
+                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? themeAccentText : themeSecondaryText)
                 Text(title)
                     .font(loginTabFont)
-                    .foregroundColor(selectedTab == tab ? themeAccentText : .monologueTextSecondary)
+                    .foregroundColor(selectedTab == tab ? themeAccentText : themeSecondaryText)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -170,20 +187,20 @@ struct QQLoginView: View {
                             .scaleEffect(1.2)
                         Text(LocalizedStringKey("qq_qr_loading"))
                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(themeSecondaryText)
                     }
                 }
                 
                 // 过期遮罩
                 if viewModel.isQRExpired {
                     ZStack {
-                        Color.monologueGlassTint.opacity(0.9)
+                        (SequoiaStyle.isActive ? SequoiaStyle.materialFloating : Color.monologueGlassTint).opacity(0.9)
                         
                         VStack(spacing: 16) {
-                            MonologueIcon(icon: .refresh, size: 32, color: .monologueTextPrimary)
+                            MonologueIcon(icon: .refresh, size: 32, color: themeText)
                             Text(LocalizedStringKey("qq_qr_expired"))
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
+                                .foregroundColor(themeText)
                             
                             Button(action: { viewModel.refreshQR() }) {
                                 Text(LocalizedStringKey("qq_qr_refresh"))
@@ -206,7 +223,7 @@ struct QQLoginView: View {
             HStack(spacing: 16) {
                 Text(viewModel.qrStatusMessage)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(themeSecondaryText)
                     .multilineTextAlignment(.center)
                 
                 if viewModel.qrCodeImage != nil && !viewModel.isQRExpired {
@@ -255,7 +272,7 @@ struct QQLoginView: View {
         }) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(viewModel.qrLoginType == type ? .monologueTextPrimary : .monologueTextSecondary)
+                .foregroundColor(viewModel.qrLoginType == type ? themeText : themeSecondaryText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
@@ -271,14 +288,14 @@ struct QQLoginView: View {
         HStack(spacing: 12) {
             Text(number)
                 .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(SequoiaStyle.isActive ? themeAccentText : themeSecondaryText)
                 .frame(width: 20, height: 20)
-                .background(Color.monologueSeparator)
+                .background(SequoiaStyle.isActive ? themeAccent : Color.monologueSeparator)
                 .cornerRadius(10)
             
             Text(text)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(themeSecondaryText)
             
             Spacer()
         }
@@ -303,12 +320,12 @@ struct QQLoginView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(LocalizedStringKey("qq_phone_number"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(themeSecondaryText)
                 
                 HStack {
                     Text("+86")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(themeText)
                         .padding(.trailing, 8)
                     
                     Divider()
@@ -329,7 +346,7 @@ struct QQLoginView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(LocalizedStringKey("qq_captcha"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(themeSecondaryText)
                 
                 HStack {
                     TextField(NSLocalizedString("qq_captcha_placeholder", comment: ""), text: $viewModel.captchaCode)
@@ -344,7 +361,7 @@ struct QQLoginView: View {
                         } else {
                             Text(viewModel.isCaptchaSent ? NSLocalizedString("qq_resend", comment: "") : NSLocalizedString("qq_get_captcha", comment: ""))
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(viewModel.phoneNumber.count == 11 ? .monologueTextPrimary : .monologueTextSecondary)
+                                .foregroundColor(viewModel.phoneNumber.count == 11 ? themeText : themeSecondaryText)
                         }
                     }
                     .disabled(viewModel.phoneNumber.count != 11 || (viewModel.isLoading && !viewModel.isCaptchaSent))
@@ -378,7 +395,7 @@ struct QQLoginView: View {
                 .background(
                     (viewModel.phoneNumber.count == 11 && viewModel.captchaCode.count >= 4)
                     ? themeAccent
-                    : Color.monologueSeparator
+                    : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : Color.monologueSeparator)
                 )
                 .cornerRadius(16)
             }
@@ -391,11 +408,13 @@ struct QQLoginView: View {
     private var loginTabFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
         return .system(size: 14, weight: .semibold, design: .rounded)
     }
 
     private var loginSelectedFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint
+        if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint
     }
 }

@@ -6,6 +6,7 @@ struct RadioDetailView: View {
     @State private var viewModel: RadioDetailViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showRadioPlayer = false
     @State private var isSearchExpanded = false
@@ -18,6 +19,8 @@ struct RadioDetailView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
@@ -76,19 +79,19 @@ struct RadioDetailView: View {
 
     private func errorView(_ error: String) -> some View {
         VStack(spacing: 16) {
-            MonologueIcon(icon: .warning, size: 40, color: .monologueTextSecondary)
+            MonologueIcon(icon: .warning, size: 40, color: SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
             Text(error)
-                .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, design: .rounded))))
-                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
+                .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .system(size: 14, design: .rounded)))))
+                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                 .multilineTextAlignment(.center)
             Button(String(localized: "radio_retry")) {
                 viewModel.fetchDetail()
             }
-            .font(MangaStyle.isActive ? MangaStyle.labelFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))))
-            .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)))
+            .font(MangaStyle.isActive ? MangaStyle.labelFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded)))))
+            .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SequoiaStyle.isActive ? SequoiaStyle.onAccent : .monologueIconForeground))))
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
-            .background(MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)), in: Capsule())
+            .background(MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueIconBackground))), in: Capsule())
         }
         .padding(.horizontal, 40)
     }
@@ -100,9 +103,9 @@ struct RadioDetailView: View {
             if let radio = viewModel.radioDetail {
                 CachedAsyncImage(url: radio.coverUrl) {
                     RoundedRectangle(cornerRadius: radioCoverRadius)
-                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)))
+                        .fill(radioCoverPlaceholderFill)
                 }
-                .frame(width: NeumorphicStyle.isActive ? 148 : (MangaStyle.isActive ? 150 : 160), height: NeumorphicStyle.isActive ? 148 : (MangaStyle.isActive ? 150 : 160))
+                .frame(width: radioCoverSize, height: radioCoverSize)
                 .clipShape(RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous))
                 .overlay {
                     if MangaStyle.isActive {
@@ -114,6 +117,9 @@ struct RadioDetailView: View {
                     } else if NeumorphicStyle.isActive {
                         RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous)
                             .stroke(NeumorphicStyle.separator.opacity(0.55), lineWidth: 0.75)
+                    } else if SequoiaStyle.isActive {
+                        RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous)
+                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.65)
                     }
                 }
                 .background {
@@ -123,13 +129,15 @@ struct RadioDetailView: View {
                             .offset(x: 3, y: 3)
                     } else if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: radioCoverRadius, elevated: true)
+                    } else if SequoiaStyle.isActive {
+                        SequoiaSurfaceBackground(cornerRadius: radioCoverRadius + 6, elevated: true, role: .chrome)
                     }
                 }
                 .shadow(color: .black.opacity(ThemedPageStyle.isActive ? 0.055 : 0.15), radius: ThemedPageStyle.isActive ? 10 : 12, x: 0, y: ThemedPageStyle.isActive ? 5 : 6)
 
                 Text(radio.name)
-                    .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)))
+                    .font(radioTitleFont)
+                    .foregroundColor(radioTitleColor)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
 
@@ -154,8 +162,8 @@ struct RadioDetailView: View {
 
                 if let desc = radio.desc, !desc.isEmpty {
                     Text(desc)
-                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(13, weight: .regular) : .system(size: 13, design: .rounded))))
-                        .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
+                        .font(radioDescriptionFont)
+                        .foregroundColor(radioMetaColor)
                         .lineLimit(3)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -177,6 +185,8 @@ struct RadioDetailView: View {
                             MujiActionPill(title: String(localized: "radio_mode"), icon: .radio, selected: true, tint: MujiStyle.indigo)
                         } else if NeumorphicStyle.isActive {
                             NeumorphicPlayPill(title: String(localized: "radio_mode"), icon: .radio, tint: NeumorphicStyle.sage)
+                        } else if SequoiaStyle.isActive {
+                            SequoiaPill(text: String(localized: "radio_mode"), icon: .radio, tint: SequoiaStyle.aqua, selected: true)
                         } else {
                             HStack(spacing: 8) {
                                 MonologueIcon(icon: .radio, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
@@ -205,6 +215,10 @@ struct RadioDetailView: View {
                         .overlay(NeumorphicStyle.separator.opacity(0.6))
                         .padding(.top, 10)
                         .padding(.horizontal, 18)
+                } else if SequoiaStyle.isActive {
+                    SequoiaHairline(tint: SequoiaStyle.separator)
+                        .padding(.top, 10)
+                        .padding(.horizontal, 18)
                 }
             }
         }
@@ -222,6 +236,11 @@ struct RadioDetailView: View {
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
+            } else if SequoiaStyle.isActive && viewModel.radioDetail != nil {
+                SequoiaGlassBand(tint: SequoiaStyle.aqua, cornerRadius: 28)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
             }
         }
     }
@@ -230,13 +249,46 @@ struct RadioDetailView: View {
         if MangaStyle.isActive { return 14 }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 26 }
+        if SequoiaStyle.isActive { return 24 }
         return 20
+    }
+
+    private var radioCoverSize: CGFloat {
+        if NeumorphicStyle.isActive { return 148 }
+        if SequoiaStyle.isActive { return 148 }
+        if MangaStyle.isActive { return 150 }
+        return 160
+    }
+
+    private var radioCoverPlaceholderFill: Color {
+        if MangaStyle.isActive { return MangaStyle.paperCool }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        return Color.monologueGlassTint
+    }
+
+    private var radioTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.titleFont(24, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(24, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(24, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(24, weight: .semibold) }
+        return .system(size: 20, weight: .bold, design: .rounded)
+    }
+
+    private var radioTitleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
     }
 
     private var radioMetaFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
         return .system(size: 13, design: .rounded)
     }
 
@@ -244,7 +296,16 @@ struct RadioDetailView: View {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
+    }
+
+    private var radioDescriptionFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(13, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(13, weight: .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(13, weight: .regular) }
+        return .system(size: 13, design: .rounded)
     }
 
     // MARK: - 节目列表
@@ -255,8 +316,8 @@ struct RadioDetailView: View {
                 VStack(spacing: 0) {
                     HStack {
                         Text("radio_program_list_title")
-                            .font(MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 17, weight: .bold, design: .rounded)))
-                            .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
+                            .font(programListTitleFont)
+                            .foregroundColor(programListTitleColor)
 
                         Spacer()
 
@@ -268,7 +329,7 @@ struct RadioDetailView: View {
                                         ? String(localized: "podcast_sort_oldest")
                                         : String(localized: "podcast_sort_latest")
                                 )
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .medium, design: .rounded)))
+                                .font(listControlFont)
                                 .foregroundColor(listControlColor)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
@@ -323,17 +384,17 @@ struct RadioDetailView: View {
                             } label: {
                                 MonologueIcon(icon: .close, size: 12, color: listControlColor)
                                     .frame(width: 22, height: 22)
-                                    .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueSeparator))
+                                    .background(searchCloseBackground)
                                     .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.72) : (MujiStyle.isActive ? MujiStyle.surface.opacity(0.84) : Color.monologueSeparator.opacity(0.85)))
-                        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 18 : 14, style: .continuous))
+                        .background(searchFieldBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: searchFieldRadius, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 18 : 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: searchFieldRadius, style: .continuous)
                                 .stroke(listControlStroke, lineWidth: NeumorphicStyle.isActive ? 0.7 : 0.6)
                         )
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -346,10 +407,10 @@ struct RadioDetailView: View {
             LazyVStack(spacing: 0) {
                 if filteredOrderedPrograms.isEmpty && !searchKeyword.isEmpty {
                     VStack(spacing: 12) {
-                        MonologueIcon(icon: .search, size: 36, color: .monologueTextSecondary.opacity(0.3))
+                        MonologueIcon(icon: .search, size: 36, color: programMetaColor.opacity(0.42))
                         Text("podcast_episode_search_empty")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(programMetaColor)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 32)
@@ -390,19 +451,61 @@ struct RadioDetailView: View {
     private var listControlColor: Color {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return .monologueTextSecondary
     }
 
     private var listControlBackground: Color {
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
         return Color.monologueSeparator.opacity(0.9)
     }
 
     private var listControlStroke: Color {
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.45) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.55) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.62) }
         return .clear
+    }
+
+    private var listControlFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .semibold) }
+        return .system(size: 11, weight: .medium, design: .rounded)
+    }
+
+    private var programListTitleFont: Font {
+        if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(18, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(18, weight: .semibold) }
+        return .system(size: 17, weight: .bold, design: .rounded)
+    }
+
+    private var programListTitleColor: Color {
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var searchFieldRadius: CGFloat {
+        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : 14
+    }
+
+    private var searchFieldBackground: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
+        return Color.monologueSeparator.opacity(0.85)
+    }
+
+    private var searchCloseBackground: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        return Color.monologueSeparator
     }
 
     // MARK: - 节目行
@@ -418,11 +521,12 @@ struct RadioDetailView: View {
     private func programRow(program: RadioProgram, index: Int) -> some View {
         let isCurrentPlaying = isOwnContent && player.currentSong?.id == program.mainSong?.id && player.isPlaying
         let episodeNumber = displayEpisodeNumber(for: index)
+        let themedRow = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
 
         return HStack(spacing: 14) {
             CachedAsyncImage(url: program.programCoverUrl) {
                 RoundedRectangle(cornerRadius: programCoverRadius, style: .continuous)
-                    .fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
+                    .fill(programCoverPlaceholderFill)
             }
             .frame(width: 48, height: 48)
             .clipShape(RoundedRectangle(cornerRadius: programCoverRadius, style: .continuous))
@@ -433,6 +537,9 @@ struct RadioDetailView: View {
                 } else if NeumorphicStyle.isActive {
                     RoundedRectangle(cornerRadius: programCoverRadius, style: .continuous)
                         .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+                } else if SequoiaStyle.isActive {
+                    RoundedRectangle(cornerRadius: programCoverRadius, style: .continuous)
+                        .stroke(SequoiaStyle.separator.opacity(0.72), lineWidth: 0.6)
                 }
             }
             .overlay(
@@ -447,23 +554,23 @@ struct RadioDetailView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(program.name ?? String(localized: "radio_unknown_program"))
-                    .font(MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .system(size: 14, weight: .medium, design: .rounded)))
-                    .foregroundColor(isCurrentPlaying ? (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccentBlue)) : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)))
+                    .font(programTitleFont)
+                    .foregroundColor(programTitleColor(isCurrentPlaying: isCurrentPlaying))
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     Text(String(format: String(localized: "radio_episode_label"), episodeNumber))
-                        .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded)))
+                        .font(programMetaFont)
                         .foregroundColor(programMetaColor)
 
                     if !program.durationText.isEmpty {
                         Text(program.durationText)
-                            .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded)))
+                            .font(programMetaFont)
                             .foregroundColor(programMetaColor)
                     }
                     if let listeners = program.listenerCount, listeners > 0 {
                         Text(String(format: String(localized: "radio_play_count"), formatCount(listeners)))
-                            .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded)))
+                            .font(programMetaFont)
                             .foregroundColor(programMetaColor)
                     }
                 }
@@ -472,35 +579,73 @@ struct RadioDetailView: View {
             Spacer()
 
             if program.mainSong != nil {
-                MonologueIcon(icon: .playCircle, size: 22, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary), lineWidth: 1.4)
+                MonologueIcon(icon: .playCircle, size: 22, color: SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)), lineWidth: 1.4)
             } else {
                 Text("radio_not_playable")
-                    .font(MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded)))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6)))
+                    .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded))))
+                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.6))))
             }
         }
-        .padding(.horizontal, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 12 : DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 11 : 10)
+        .padding(.horizontal, themedRow ? 12 : DeviceLayout.viewHorizontalPadding)
+        .padding(.vertical, themedRow ? 11 : 10)
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isCurrentPlaying)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 18, elevated: isCurrentPlaying, role: isCurrentPlaying ? .selected : .list)
             }
         }
-        .padding(.horizontal, (MujiStyle.isActive || NeumorphicStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
-        .padding(.vertical, (MujiStyle.isActive || NeumorphicStyle.isActive) ? 5 : 0)
+        .padding(.horizontal, themedRow ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.vertical, themedRow ? 5 : 0)
         .contentShape(Rectangle())
     }
 
     private var programCoverRadius: CGFloat {
-        NeumorphicStyle.isActive ? 14 : 8
+        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 8
     }
 
     private var programMetaColor: Color {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
+    }
+
+    private var programCoverPlaceholderFill: Color {
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        return Color.monologueGlassTint
+    }
+
+    private var programTitleFont: Font {
+        if MujiStyle.isActive { return MujiStyle.bodyFont(14, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(14, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(14, weight: .semibold) }
+        return .system(size: 14, weight: .medium, design: .rounded)
+    }
+
+    private var programMetaFont: Font {
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, weight: .medium, design: .rounded)
+    }
+
+    private func programTitleColor(isCurrentPlaying: Bool) -> Color {
+        if isCurrentPlaying {
+            if MujiStyle.isActive { return MujiStyle.clay }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            return .monologueAccentBlue
+        }
+
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
     }
 
     private func playProgram(_ program: RadioProgram) {

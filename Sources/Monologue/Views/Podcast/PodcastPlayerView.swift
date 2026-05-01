@@ -6,6 +6,7 @@ struct PodcastPlayerView: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var showEpisodeList = false
@@ -19,6 +20,8 @@ struct PodcastPlayerView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             Color(.systemBackground)
                 .ignoresSafeArea()

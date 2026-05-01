@@ -3,12 +3,48 @@ import Combine
 
 // MARK: - 用户动态
 
+private enum EventThemePalette {
+    static var accent: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
+    }
+
+    static var accentForeground: Color {
+        if NeumorphicStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: NeumorphicStyle.accent,
+                light: Color(hex: "172026"),
+                dark: .white
+            )
+        }
+        return .monologueIconForeground
+    }
+
+    static var primaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    static var secondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    static var mutedText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
+    static var pressedSurface: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
+    }
+}
+
 struct UserEventView: View {
     @StateObject private var viewModel = UserEventViewModel()
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -21,10 +57,10 @@ struct UserEventView: View {
                 } else if viewModel.events.isEmpty {
                     Spacer()
                     VStack(spacing: 12) {
-                        MonologueIcon(icon: .send, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                        MonologueIcon(icon: .send, size: 40, color: EventThemePalette.mutedText.opacity(0.36))
                         Text(LocalizedStringKey("event_empty"))
                             .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(EventThemePalette.secondaryText)
                     }
                     Spacer()
                 } else {
@@ -43,7 +79,7 @@ struct UserEventView: View {
                                 Button(action: { viewModel.loadMore() }) {
                                     Text(LocalizedStringKey("event_load_more"))
                                         .font(.system(size: 13, weight: .medium, design: .rounded))
-                                        .foregroundColor(.monologueTextSecondary)
+                                        .foregroundColor(EventThemePalette.secondaryText)
                                         .padding(.vertical, 12)
                                 }
                             } else if !viewModel.events.isEmpty {
@@ -72,43 +108,46 @@ struct UserEventView: View {
 private struct EventCard: View {
     let event: UserEvent
     let onPlaySong: () -> Void
+    @ObservedObject private var settings = SettingsManager.shared
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(alignment: .leading, spacing: 12) {
             // 用户信息 + 时间
             HStack(spacing: 10) {
                 if let url = event.userAvatarURL {
                     CachedAsyncImage(url: url) {
-                        Circle().fill(Color.monologueSeparator)
+                        Circle().fill(EventThemePalette.pressedSurface)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 38, height: 38)
                     .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color.monologueSeparator)
+                        .fill(EventThemePalette.pressedSurface)
                         .frame(width: 38, height: 38)
-                        .overlay(MonologueIcon(icon: .profile, size: 16, color: .monologueTextSecondary.opacity(0.5)))
+                        .overlay(MonologueIcon(icon: .profile, size: 16, color: EventThemePalette.mutedText.opacity(0.55)))
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.userName)
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(EventThemePalette.primaryText)
                     
                     HStack(spacing: 6) {
                         if !event.actName.isEmpty {
                             Text(event.actName)
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueIconForeground)
+                                .foregroundColor(EventThemePalette.accentForeground)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.monologueIconBackground.opacity(0.5))
+                                .background(EventThemePalette.accent.opacity(NeumorphicStyle.isActive ? 0.95 : 0.5))
                                 .clipShape(Capsule())
                         }
                         Text(event.timeText)
                             .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                            .foregroundColor(EventThemePalette.mutedText.opacity(0.72))
                     }
                 }
                 
@@ -119,7 +158,7 @@ private struct EventCard: View {
             if !event.content.isEmpty {
                 Text(event.content)
                     .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(EventThemePalette.primaryText)
                     .lineLimit(5)
             }
             
@@ -129,7 +168,7 @@ private struct EventCard: View {
                     HStack(spacing: 10) {
                         CachedAsyncImage(url: song.coverUrl) {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.monologueSeparator)
+                                .fill(EventThemePalette.pressedSurface)
                         }
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 44, height: 44)
@@ -138,25 +177,25 @@ private struct EventCard: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(song.name)
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
+                                .foregroundColor(EventThemePalette.primaryText)
                                 .lineLimit(1)
                             Text(song.artistName)
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(EventThemePalette.secondaryText)
                                 .lineLimit(1)
                         }
                         
                         Spacer()
                         
-                        MonologueIcon(icon: .play, size: 14, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .play, size: 14, color: NeumorphicStyle.isActive ? EventThemePalette.accent : EventThemePalette.secondaryText)
                             .frame(width: 28, height: 28)
-                            .background(Color.monologueSeparator)
+                            .background(EventThemePalette.pressedSurface)
                             .clipShape(Circle())
                     }
                     .padding(10)
                     .background {
                         if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false)
+                            NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                         } else {
                             Color.monologueSeparator.opacity(0.5)
                         }

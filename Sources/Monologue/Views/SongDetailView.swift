@@ -5,6 +5,7 @@ struct SongDetailView: View {
     @State private var viewModel = SongDetailViewModel()
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
@@ -14,12 +15,58 @@ struct SongDetailView: View {
     @State private var selectedMlog: MlogItem?
 
     struct Theme {
-        static let text = Color.monologueTextPrimary
-        static let secondaryText = Color.monologueTextSecondary
-        static let accent = Color.monologueIconBackground
+        static var text: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.ink }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+            return Color.monologueTextPrimary
+        }
+
+        static var secondaryText: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+            return Color.monologueTextSecondary
+        }
+
+        static var accent: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            return Color.monologueIconBackground
+        }
+
+        static var accentForeground: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+            if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+            return Color.monologueIconForeground
+        }
+
+        static var coverFill: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+            return Color.gray.opacity(0.3)
+        }
+
+        static func titleFont(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+            if SequoiaStyle.isActive { return SequoiaStyle.titleFont(size, weight: weight) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight) }
+            return .system(size: size, weight: weight, design: .rounded)
+        }
+
+        static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+            return .system(size: size, weight: weight, design: .rounded)
+        }
+
+        static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+            return .system(size: size, weight: weight, design: .rounded)
+        }
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
 
@@ -86,21 +133,27 @@ struct SongDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.3)
+                    Theme.coverFill
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 100, height: 100)
                 .cornerRadius(12)
-                .shadow(radius: 8)
+                .overlay {
+                    if SequoiaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(SequoiaStyle.separator, lineWidth: 0.7)
+                    }
+                }
+                .shadow(color: .black.opacity(SequoiaStyle.isActive ? 0.08 : 0.15), radius: SequoiaStyle.isActive ? 10 : 8)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(song.name)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(Theme.titleFont(20, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(2)
 
                     Text(song.artistName)
-                        .font(.system(size: 14))
+                        .font(Theme.bodyFont(14))
                         .foregroundColor(Theme.secondaryText)
                         .lineLimit(1)
 
@@ -113,7 +166,7 @@ struct SongDetailView: View {
                         }) {
                             HStack(spacing: 4) {
                                 Text(album)
-                                    .font(.system(size: 12))
+                                    .font(Theme.labelFont(12))
                                     .foregroundColor(Theme.secondaryText.opacity(0.8))
                                     .lineLimit(1)
                                 if let albumId = song.al?.id, albumId > 0 {
@@ -134,14 +187,14 @@ struct SongDetailView: View {
                     }
                 }) {
                     HStack(spacing: 6) {
-                        MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
+                        MonologueIcon(icon: .play, size: 12, color: Theme.accentForeground)
                         Text(LocalizedStringKey("action_play"))
-                            .font(.system(size: 12, weight: .bold))
+                            .font(Theme.labelFont(12, weight: .semibold))
                     }
-                    .foregroundColor(.monologueIconForeground)
+                    .foregroundColor(Theme.accentForeground)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Theme.accent)
+                    .background(Theme.accent)
                     .cornerRadius(20)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
@@ -152,7 +205,7 @@ struct SongDetailView: View {
                     MonologueIcon(icon: .playNext, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint).monologueGlassCircle()
+                            Circle().fill(SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)).monologueGlassCircle()
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -165,7 +218,7 @@ struct SongDetailView: View {
                     MonologueIcon(icon: .add, size: 14, color: Theme.accent)
                         .padding(8)
                         .background(
-                            Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint).monologueGlassCircle()
+                            Circle().fill(SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)).monologueGlassCircle()
                         )
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.08), radius: 2)
@@ -183,7 +236,7 @@ struct SongDetailView: View {
     private var songsListView: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(format: NSLocalizedString("more_by_artist", comment: ""), song.artistName))
-                .font(.headline)
+                .font(Theme.titleFont(17, weight: .semibold))
                 .foregroundColor(Theme.text)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
@@ -238,7 +291,7 @@ struct SongDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
+                    .fill(SequoiaStyle.isActive ? SequoiaStyle.materialList.opacity(0.6) : (NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint))
                     .monologueGlass(cornerRadius: 20)
                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
@@ -266,21 +319,21 @@ struct SongDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                                        .fill(SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
                                         .monologueGlass(cornerRadius: 12)
                                 }
                                 .frame(width: 120, height: 120)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                                 Text(simiSong.name)
-                                    .font(.rounded(size: 13, weight: .medium))
-                                    .foregroundColor(.monologueTextPrimary)
+                                    .font(Theme.bodyFont(13))
+                                    .foregroundColor(Theme.text)
                                     .lineLimit(1)
                                     .frame(width: 120, alignment: .leading)
 
                                 Text(simiSong.artistName)
-                                    .font(.rounded(size: 11))
-                                    .foregroundColor(.monologueTextSecondary)
+                                    .font(Theme.labelFont(11))
+                                    .foregroundColor(Theme.secondaryText)
                                     .lineLimit(1)
                                     .frame(width: 120, alignment: .leading)
                             }

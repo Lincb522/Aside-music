@@ -6,9 +6,12 @@ struct PlayerThemePickerSheet: View {
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.monologueSheetContext) private var monologueSheetContext
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var themeManager = PlayerThemeManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 16) {
             if monologueSheetContext == nil {
                 Capsule()
@@ -174,7 +177,15 @@ private struct PlayerThemeStaticPreview: View {
     private var previewBackground: some View {
         switch theme {
         case .classic:
-            LinearGradient(colors: isDark ? [Color(hex: "1B1D24"), Color(hex: "101218")] : [Color(hex: "F7F7F4"), Color(hex: "E9ECEF")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            if NeumorphicStyle.isActive {
+                LinearGradient(
+                    colors: isDark ? [Color(hex: "252A30"), Color(hex: "1A1F24")] : [Color(hex: "EEF2F4"), Color(hex: "DDE5E9")],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                LinearGradient(colors: isDark ? [Color(hex: "1B1D24"), Color(hex: "101218")] : [Color(hex: "F7F7F4"), Color(hex: "E9ECEF")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
         case .vinyl:
             LinearGradient(colors: isDark ? [Color(hex: "15120F"), Color(hex: "2B241B")] : [Color(hex: "F4F1EA"), Color(hex: "D8D0C2")], startPoint: .top, endPoint: .bottom)
         case .lyricFocus:
@@ -233,17 +244,79 @@ private struct PlayerThemeStaticPreview: View {
         }
     }
 
+    @ViewBuilder
     private func classicPreview(size: CGSize) -> some View {
-        VStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(LinearGradient(colors: isDark ? [Color(hex: "444854"), Color(hex: "262A34")] : [Color.white, Color(hex: "DADDE4")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 54, height: 54)
-                .overlay(MonologueIcon(icon: .musicNote, size: 19, color: muted))
+        if NeumorphicStyle.isActive {
+            neumorphicClassicPreview(size: size)
+        } else {
+            VStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(LinearGradient(colors: isDark ? [Color(hex: "444854"), Color(hex: "262A34")] : [Color.white, Color(hex: "DADDE4")], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 54, height: 54)
+                    .overlay(MonologueIcon(icon: .musicNote, size: 19, color: muted))
 
-            lineStack(widths: [70, 48], color: ink, mutedColor: muted)
-            progressBar(width: 80, progress: 0.58, tint: ink, track: muted.opacity(0.22))
-            controlsRow(tint: ink, muted: muted)
+                lineStack(widths: [70, 48], color: ink, mutedColor: muted)
+                progressBar(width: 80, progress: 0.58, tint: ink, track: muted.opacity(0.22))
+                controlsRow(tint: ink, muted: muted)
+            }
         }
+    }
+
+    private func neumorphicClassicPreview(size: CGSize) -> some View {
+        let base = isDark ? Color(hex: "252A30") : Color(hex: "EEF2F4")
+        let raised = isDark ? Color(hex: "2D333A") : Color(hex: "F8FAFA")
+        let pressed = isDark ? Color(hex: "1B1F24") : Color(hex: "DDE3E7")
+        let accent = isDark ? Color(hex: "7AB9B0") : Color(hex: "4F8E86")
+
+        return VStack(spacing: 8) {
+            HStack(spacing: 5) {
+                Capsule().fill(pressed).frame(width: 34, height: 12)
+                Spacer(minLength: 0)
+                Capsule().fill(accent.opacity(0.9)).frame(width: 18, height: 5)
+                Capsule().fill(Color(hex: "7D9475").opacity(0.55)).frame(width: 11, height: 5)
+                Capsule().fill(Color(hex: "C59A66").opacity(0.52)).frame(width: 7, height: 5)
+            }
+
+            HStack(spacing: 9) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(raised)
+                    .frame(width: 50, height: 50)
+                    .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 4, x: 3, y: 3)
+                    .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 4, x: -3, y: -3)
+                    .overlay(MonologueIcon(icon: .musicNote, size: 15, color: accent.opacity(0.86), lineWidth: 1.5))
+
+                VStack(alignment: .leading, spacing: 7) {
+                    lineStack(widths: [54, 38], color: ink, mutedColor: muted)
+
+                    HStack(spacing: 4) {
+                        ForEach(0..<5, id: \.self) { index in
+                            Capsule()
+                                .fill(index.isMultiple(of: 2) ? accent.opacity(0.76) : Color(hex: "7D9475").opacity(0.48))
+                                .frame(width: 4, height: CGFloat(7 + (index % 3) * 3))
+                        }
+                        Capsule().fill(pressed).frame(width: 34, height: 5)
+                    }
+                    .padding(6)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(pressed))
+                }
+            }
+
+            progressBar(width: 84, progress: 0.56, tint: accent, track: pressed)
+
+            HStack(spacing: 8) {
+                neumorphicButton(base: raised, icon: .previous, size: 22)
+                neumorphicButton(base: accent.opacity(0.24), icon: .play, size: 30)
+                neumorphicButton(base: raised, icon: .next, size: 22)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(base.opacity(0.86))
+                .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 7, x: 4, y: 4)
+                .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 7, x: -4, y: -4)
+        )
     }
 
     private func vinylPreview(size: CGSize) -> some View {

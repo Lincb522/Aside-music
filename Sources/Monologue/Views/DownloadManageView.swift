@@ -1,8 +1,65 @@
 import SwiftUI
 
+private enum DownloadTheme {
+    static var ink: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    static var inkSoft: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    static var inkMuted: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.5)
+    }
+
+    static var accent: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .monologueAccentBlue
+    }
+
+    static var destructive: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.red }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.red }
+        return .monologueAccentRed
+    }
+
+    static var coverFill: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color.monologueGlassTint
+    }
+
+    static var progressTrack: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color.monologueSeparator.opacity(0.3)
+    }
+
+    static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+        return .system(size: size, weight: weight, design: .rounded)
+    }
+
+    static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+        return .system(size: size, weight: weight, design: .rounded)
+    }
+}
+
 /// 下载管理页面
 struct DownloadManageView: View {
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab = 0  // 0=已下载, 1=下载中
     @State private var totalSize: String = String(localized: "计算中...")
@@ -17,6 +74,8 @@ struct DownloadManageView: View {
     private var isEditing: Bool { batchMode != .none }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedSettingsBackground()
             
@@ -69,7 +128,7 @@ struct DownloadManageView: View {
         .onChange(of: selectedTab) { _, _ in
             exitBatchMode()
         }
-        .sheet(isPresented: $showShareSheet) {
+        .monologueSheet(isPresented: $showShareSheet, preset: .standard) {
             ShareSheet(activityItems: shareItems)
         }
     }
@@ -84,14 +143,14 @@ struct DownloadManageView: View {
         action: @escaping () -> Void
     ) -> some View {
         let isActive = batchMode == activeMode
-        let activeColor: Color = destructive ? .monologueAccentRed : .monologueAccentBlue
+        let activeColor: Color = destructive ? DownloadTheme.destructive : DownloadTheme.accent
         
         Button(action: action) {
             ZStack(alignment: .topTrailing) {
                 MonologueIcon(
                     icon: icon,
                     size: 18,
-                    color: isActive ? activeColor : .monologueTextSecondary,
+                    color: isActive ? activeColor : DownloadTheme.inkSoft,
                     lineWidth: 1.4
                 )
                 .frame(width: 32, height: 32)
@@ -118,7 +177,7 @@ struct DownloadManageView: View {
             tabButton(title: String(localized: "下载中"), index: 1)
         }
         .padding(ThemedPageStyle.isActive ? 4 : 0)
-        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 20 : 14), elevated: false)
+        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : (SequoiaStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 20 : 14)), elevated: false)
         .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
     }
     
@@ -158,6 +217,8 @@ struct DownloadManageView: View {
             return isSelected ? MangaStyle.ink : .monologueTextSecondary
         } else if MujiStyle.isActive {
             return isSelected ? MujiStyle.paper : .monologueTextSecondary
+        } else if SequoiaStyle.isActive {
+            return isSelected ? SequoiaStyle.onAccent : SequoiaStyle.inkSoft
         } else if NeumorphicStyle.isActive {
             return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft
         } else {
@@ -168,6 +229,7 @@ struct DownloadManageView: View {
     private func tabFont(isSelected: Bool) -> Font {
         if MangaStyle.isActive { return MangaStyle.comicFont(14, weight: isSelected ? .bold : .medium) }
         if MujiStyle.isActive { return MujiStyle.labelFont(14, weight: isSelected ? .medium : .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(14, weight: isSelected ? .semibold : .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) }
         return .system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded)
     }
@@ -178,6 +240,8 @@ struct DownloadManageView: View {
             return MangaStyle.labelYellow
         } else if MujiStyle.isActive {
             return MujiStyle.clay
+        } else if SequoiaStyle.isActive {
+            return SequoiaStyle.accent
         } else if NeumorphicStyle.isActive {
             return NeumorphicStyle.accent.opacity(0.14)
         } else {
@@ -193,10 +257,10 @@ struct DownloadManageView: View {
             if songs.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .download, size: 40, color: .monologueTextSecondary.opacity(0.3), lineWidth: 1.4)
+                    MonologueIcon(icon: .download, size: 40, color: DownloadTheme.inkMuted.opacity(0.36), lineWidth: 1.4)
                     Text("暂无下载")
-                        .font(.system(size: 14, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(DownloadTheme.labelFont(14))
+                        .foregroundColor(DownloadTheme.inkSoft)
                 }
                 Spacer()
             } else {
@@ -211,16 +275,16 @@ struct DownloadManageView: View {
                                 }
                             } label: {
                                 Text(selectedKeys.count == songs.count ? String(localized: "取消全选") : String(localized: "全选"))
-                                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccentBlue)
+                                    .font(DownloadTheme.labelFont(13, weight: .semibold))
+                                    .foregroundColor(DownloadTheme.accent)
                             }
                             .buttonStyle(.plain)
                             
                             Spacer()
                             
                             Text("已选 \(selectedKeys.count) 首")
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(DownloadTheme.labelFont(13))
+                                .foregroundColor(DownloadTheme.inkSoft)
                             
                             Spacer()
                             
@@ -228,18 +292,18 @@ struct DownloadManageView: View {
                                 withAnimation(.easeInOut(duration: 0.2)) { exitBatchMode() }
                             } label: {
                                 Text("取消")
-                                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                    .font(DownloadTheme.labelFont(13))
+                                    .foregroundColor(DownloadTheme.inkSoft)
                             }
                             .buttonStyle(.plain)
                         } else {
                             Text("\(songs.count) 首歌曲")
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(DownloadTheme.labelFont(13))
+                                .foregroundColor(DownloadTheme.inkSoft)
                             Spacer()
                             Text(totalSize)
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(DownloadTheme.labelFont(13))
+                                .foregroundColor(DownloadTheme.inkSoft)
                         }
                     }
                     .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
@@ -267,7 +331,7 @@ struct DownloadManageView: View {
                 MonologueSymbolIcon(
                     name: isSelected ? "checkmark.circle.fill" : "circle",
                     size: 22,
-                    color: isSelected ? .monologueAccentBlue : .monologueTextSecondary.opacity(0.4)
+                    color: isSelected ? DownloadTheme.accent : DownloadTheme.inkMuted.opacity(0.5)
                 )
                     .animation(.easeInOut(duration: 0.15), value: isSelected)
             }
@@ -276,7 +340,7 @@ struct DownloadManageView: View {
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
                     RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                        .fill(DownloadTheme.coverFill)
                         .monologueGlass(cornerRadius: coverRadius)
                 }
                 .frame(width: 48, height: 48)
@@ -284,22 +348,24 @@ struct DownloadManageView: View {
                 .overlay(coverStroke)
             } else {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                    .fill(DownloadTheme.coverFill)
                     .frame(width: 48, height: 48)
                     .monologueGlass(cornerRadius: coverRadius)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.4))
+                    .overlay(MonologueIcon(icon: .musicNote, size: 20, color: DownloadTheme.accent, lineWidth: 1.4))
                     .overlay(coverStroke)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(song.name)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(DownloadTheme.bodyFont(15, weight: .semibold))
+                    .foregroundColor(DownloadTheme.ink)
                     .lineLimit(1)
                 
                 HStack(spacing: 6) {
                     if let badge = song.quality.badgeText {
-                        if NeumorphicStyle.isActive {
+                        if SequoiaStyle.isActive {
+                            SequoiaPill(text: badge, tint: MusicSource.netease.themedBadgeColor, selected: true, compact: true)
+                        } else if NeumorphicStyle.isActive {
                             NeumorphicPill(text: badge, tint: MusicSource.netease.themedBadgeColor, compact: true)
                         } else {
                             Text(badge)
@@ -314,8 +380,8 @@ struct DownloadManageView: View {
                         }
                     }
                     Text("\(song.artistName) · \(song.fileSizeText)")
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .font(DownloadTheme.labelFont(12))
+                        .foregroundColor(DownloadTheme.inkSoft)
                         .lineLimit(1)
                 }
             }
@@ -364,10 +430,10 @@ struct DownloadManageView: View {
             if tasks.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .download, size: 40, color: .monologueTextSecondary.opacity(0.3), lineWidth: 1.4)
+                    MonologueIcon(icon: .download, size: 40, color: DownloadTheme.inkMuted.opacity(0.36), lineWidth: 1.4)
                     Text("没有正在下载的任务")
-                        .font(.system(size: 14, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(DownloadTheme.labelFont(14))
+                        .foregroundColor(DownloadTheme.inkSoft)
                 }
                 Spacer()
             } else {
@@ -390,7 +456,7 @@ struct DownloadManageView: View {
             if let urlStr = song.coverUrl, let url = URL(string: urlStr) {
                 CachedAsyncImage(url: url) {
                     RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                        .fill(DownloadTheme.coverFill)
                         .monologueGlass(cornerRadius: coverRadius)
                 }
                 .frame(width: 48, height: 48)
@@ -398,7 +464,7 @@ struct DownloadManageView: View {
                 .overlay(coverStroke)
             } else {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                    .fill(DownloadTheme.coverFill)
                     .frame(width: 48, height: 48)
                     .monologueGlass(cornerRadius: coverRadius)
                     .overlay(coverStroke)
@@ -406,25 +472,25 @@ struct DownloadManageView: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(song.name)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(DownloadTheme.bodyFont(15, weight: .semibold))
+                    .foregroundColor(DownloadTheme.ink)
                     .lineLimit(1)
                 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator.opacity(0.3))
+                            .fill(DownloadTheme.progressTrack)
                             .frame(height: 3)
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccentBlue)
+                            .fill(DownloadTheme.accent)
                             .frame(width: geo.size.width * progress, height: 3)
                     }
                 }
                 .frame(height: 3)
                 
                 Text(song.status == .failed ? String(localized: "下载失败") : "\(Int(progress * 100))%")
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded))
-                    .foregroundColor(song.status == .failed ? (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueAccentRed) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
+                    .font(DownloadTheme.labelFont(11))
+                    .foregroundColor(song.status == .failed ? DownloadTheme.destructive : DownloadTheme.inkSoft)
             }
             
             Spacer()
@@ -432,9 +498,9 @@ struct DownloadManageView: View {
             Button {
                 downloadManager.cancelDownload(songId: song.id, isQQ: song.isQQMusic)
             } label: {
-                MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary, lineWidth: 1.4)
+                MonologueIcon(icon: .close, size: 14, color: DownloadTheme.inkSoft, lineWidth: 1.4)
                     .frame(width: 32, height: 32)
-                    .background(NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
+                    .background(SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint))
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
@@ -445,14 +511,15 @@ struct DownloadManageView: View {
     }
 
     private var coverRadius: CGFloat {
-        NeumorphicStyle.isActive ? 14 : 10
+        if SequoiaStyle.isActive { return 12 }
+        return NeumorphicStyle.isActive ? 14 : 10
     }
 
     @ViewBuilder
     private var coverStroke: some View {
-        if NeumorphicStyle.isActive {
+        if NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+                .stroke(SequoiaStyle.isActive ? SequoiaStyle.separator : NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         }
     }
     

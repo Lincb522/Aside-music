@@ -228,8 +228,10 @@ struct MujiIconBadge: View {
     let icon: MonologueIcon.IconType
     var tint: Color = MujiStyle.clay
     var size: CGFloat = 46
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(tint.opacity(0.11))
             .frame(width: size, height: size)
@@ -324,13 +326,15 @@ struct MujiActionPill: View {
     let icon: MonologueIcon.IconType
     var selected: Bool = false
     var tint: Color = MujiStyle.clay
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 13, color: selected ? MujiStyle.onTint : tint, lineWidth: 1.5)
+            MonologueIcon(icon: icon, size: 13, color: foreground, lineWidth: 1.5)
             Text(title)
                 .font(MujiStyle.labelFont(12, weight: .semibold))
-                .foregroundStyle(selected ? MujiStyle.onTint : MujiStyle.ink)
+                .foregroundStyle(foreground)
                 .lineLimit(1)
         }
         .padding(.horizontal, 12)
@@ -340,6 +344,12 @@ struct MujiActionPill: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(selected ? tint.opacity(0.0) : MujiStyle.hairline.opacity(0.48), lineWidth: 0.6)
         )
+    }
+
+    private var foreground: Color {
+        selected
+            ? ThemeColorCustomization.readableForegroundColor(on: tint, light: MujiStyle.ink, dark: Color.white)
+            : MujiStyle.ink
     }
 }
 
@@ -354,8 +364,10 @@ struct MujiListDivider: View {
 struct MujiPill: View {
     let text: String
     var tint: Color = MujiStyle.clay
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         Text(text)
             .font(MujiStyle.labelFont(10, weight: .semibold))
             .foregroundStyle(tint)

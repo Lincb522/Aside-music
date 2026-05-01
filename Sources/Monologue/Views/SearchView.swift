@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
@@ -26,8 +27,11 @@ struct SearchView: View {
     @State private var showSearchBatchPlaylist = false
     @State private var searchFilterText = ""
     @State private var isSearchFiltering = false
+    @Namespace private var sequoiaSearchNamespace
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground(useRenderLayer: true)
                 .ignoresSafeArea()
@@ -102,8 +106,12 @@ struct SearchView: View {
                     mangaSearchHeader
                 } else if NeumorphicStyle.isActive {
                     neumorphicSearchHeader
+                } else if SignalStyle.isActive {
+                    signalSearchHeader
                 } else if MujiStyle.isActive {
                     mujiSearchHeader
+                } else if SequoiaStyle.isActive {
+                    sequoiaSearchHeader
                 }
 
                 searchBarSection
@@ -165,9 +173,31 @@ struct SearchView: View {
         .padding(.bottom, 2)
     }
 
+    private var signalSearchHeader: some View {
+        SignalPageHeader(
+            eyebrow: "SEARCH",
+            title: String(localized: "搜索"),
+            subtitle: ""
+        ) {
+            SignalIconBadge(icon: .magnifyingGlass, tint: SignalStyle.accent, size: 46)
+        }
+        .padding(.bottom, 2)
+    }
+
+    private var sequoiaSearchHeader: some View {
+        SequoiaPageHeader(
+            eyebrow: "Search",
+            title: String(localized: "搜索"),
+            subtitle: ""
+        ) {
+            SequoiaIconBadge(icon: .magnifyingGlass, tint: SequoiaStyle.accent, size: 42)
+        }
+        .padding(.bottom, 2)
+    }
+
     private var searchBarSection: some View {
         let showFullSearch = isSearchBarExpanded
-        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? (showFullSearch ? 18 : 20) : (showFullSearch ? 16 : 21)))
+        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? (showFullSearch ? 18 : 20) : (SignalStyle.isActive ? (showFullSearch ? 20 : 22) : (SequoiaStyle.isActive ? (showFullSearch ? 16 : 18) : (showFullSearch ? 16 : 21)))))
 
         return HStack(spacing: 12) {
             Button {
@@ -182,19 +212,19 @@ struct SearchView: View {
             }
 
             HStack(spacing: showFullSearch ? 8 : 0) {
-                MonologueIcon(icon: .magnifyingGlass, size: 18, color: MangaStyle.isActive ? MangaStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .gray)))
+                MonologueIcon(icon: .magnifyingGlass, size: 18, color: searchIconColor)
 
                 HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
                         if viewModel.query.isEmpty, viewModel.hasSearched, !viewModel.displayKeyword.isEmpty {
                             Text(viewModel.displayKeyword)
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                                .font(searchFieldFont(weight: .medium))
+                                .foregroundColor(searchPlaceholderColor)
                                 .lineLimit(1)
                         } else if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
                             Text(defaultKw.showKeyword)
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                                .font(searchFieldFont(weight: .medium))
+                                .foregroundColor(searchPlaceholderColor)
                                 .lineLimit(1)
                                 .onTapWithHaptic {
                                     viewModel.performSearch(keyword: defaultKw.realkeyword)
@@ -206,8 +236,8 @@ struct SearchView: View {
                         }
 
                         TextField("", text: $viewModel.query)
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))))
+                            .foregroundColor(searchTextColor)
+                            .font(searchFieldFont(weight: .medium))
                             .monologueTextInputBehavior()
                             .focused($isFocused)
                             .submitLabel(.search)
@@ -242,7 +272,7 @@ struct SearchView: View {
                                 viewModel.query = ""
                             }
                         }) {
-                            MonologueIcon(icon: .xmark, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .gray)
+                            MonologueIcon(icon: .xmark, size: 18, color: searchIconColor)
                         }
                         .padding(.leading, 8)
                     }
@@ -252,7 +282,7 @@ struct SearchView: View {
                 .clipped()
             }
             .padding(.horizontal, showFullSearch ? 16 : 12)
-            .padding(.vertical, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 7 : 8) : (showFullSearch ? 10 : 12))
+            .padding(.vertical, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 7 : 8) : (showFullSearch ? (SequoiaStyle.isActive ? 9 : 10) : 12))
             .background(
                 Group {
                     if MangaStyle.isActive {
@@ -261,6 +291,10 @@ struct SearchView: View {
                         MujiPaperCardBackground(cornerRadius: searchRadius, elevated: true)
                     } else if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: searchRadius, elevated: true)
+                    } else if SignalStyle.isActive {
+                        SignalSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SignalStyle.device)
+                    } else if SequoiaStyle.isActive {
+                        SequoiaSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SequoiaStyle.materialChrome)
                     }
                 }
             )
@@ -290,11 +324,11 @@ struct SearchView: View {
     }
 
     private var searchBackButtonLabel: some View {
-        let radius: CGFloat = MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 16 : 21)
-        let fill = MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : (NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : Color.monologueTextPrimary.opacity(0.04)))
-        let stroke = MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.4) : Color.monologueTextPrimary.opacity(0.05)))
+        let radius: CGFloat = MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 16 : (SignalStyle.isActive ? 17 : (SequoiaStyle.isActive ? 15 : 21)))
+        let fill = MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : (NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : (SignalStyle.isActive ? SignalStyle.control : (SequoiaStyle.isActive ? SequoiaStyle.materialRaised : Color.monologueTextPrimary.opacity(0.04)))))
+        let stroke = MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.4) : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.72) : (SequoiaStyle.isActive ? SequoiaStyle.separator : Color.monologueTextPrimary.opacity(0.05)))))
 
-        return MonologueIcon(icon: .back, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary, lineWidth: 1.8)
+        return MonologueIcon(icon: .back, size: 18, color: SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)), lineWidth: 1.8)
             .frame(width: 42, height: 42)
             .background(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -307,6 +341,38 @@ struct SearchView: View {
             .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 
+    private var searchIconColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .gray
+    }
+
+    private var searchPlaceholderColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.6)
+    }
+
+    private var searchTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private func searchFieldFont(weight: Font.Weight) -> Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(15, weight: weight == .bold ? .bold : .medium) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(15, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .regular) }
+        return .rounded(size: 16, weight: .medium)
+    }
+
     // MARK: - 搜索类型 Tab 栏
 
     @ViewBuilder
@@ -315,8 +381,12 @@ struct SearchView: View {
             mangaSearchTabBar
         } else if NeumorphicStyle.isActive {
             neumorphicSearchTabBar
+        } else if SignalStyle.isActive {
+            signalSearchTabBar
         } else if MujiStyle.isActive {
             mujiSearchTabBar
+        } else if SequoiaStyle.isActive {
+            sequoiaSearchTabBar
         } else {
             GeometryReader { proxy in
                 let spacing: CGFloat = 8
@@ -433,6 +503,103 @@ struct SearchView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var signalSearchTabBar: some View {
+        GeometryReader { proxy in
+            let spacing: CGFloat = viewModel.hasSearched ? 7 : 8
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        let selected = viewModel.currentTab == tab
+                        HStack(spacing: viewModel.hasSearched ? 0 : 6) {
+                            if !viewModel.hasSearched {
+                                MonologueIcon(
+                                    icon: searchTabIcon(tab),
+                                    size: 12,
+                                    color: selected ? SignalStyle.accent : SignalStyle.inkSoft,
+                                    lineWidth: 1.6
+                                )
+                            }
+
+                            Text(tab.rawValue)
+                                .font(SignalStyle.labelFont(viewModel.hasSearched ? 11.5 : 12.5, weight: selected ? .bold : .semibold))
+                                .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkSoft)
+                        }
+                        .frame(width: itemWidth)
+                        .padding(.vertical, viewModel.hasSearched ? 6 : 9)
+                        .background(
+                            SignalSurfaceBackground(
+                                cornerRadius: viewModel.hasSearched ? 13 : 16,
+                                elevated: selected,
+                                pressed: !selected,
+                                fill: selected ? SignalStyle.accent.opacity(0.14) : SignalStyle.control
+                            )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, viewModel.hasSearched ? 2 : 8)
+        }
+        .frame(height: viewModel.hasSearched ? 40 : 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var sequoiaSearchTabBar: some View {
+        GeometryReader { proxy in
+            let spacing: CGFloat = viewModel.hasSearched ? 5 : 6
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        let selected = viewModel.currentTab == tab
+                        HStack(spacing: viewModel.hasSearched ? 0 : 6) {
+                            if !viewModel.hasSearched {
+                                MonologueIcon(
+                                    icon: searchTabIcon(tab),
+                                    size: 12,
+                                    color: selected ? SequoiaStyle.accent : SequoiaStyle.inkSoft,
+                                    lineWidth: 1.5
+                                )
+                            }
+
+                            Text(tab.rawValue)
+                                .font(SequoiaStyle.labelFont(viewModel.hasSearched ? 11.5 : 12.5, weight: selected ? .semibold : .medium))
+                                .foregroundStyle(selected ? SequoiaStyle.ink : SequoiaStyle.inkSoft)
+                        }
+                        .frame(width: itemWidth)
+                        .padding(.vertical, viewModel.hasSearched ? 6 : 9)
+                        .background {
+                            if selected {
+                                RoundedRectangle(cornerRadius: viewModel.hasSearched ? 11 : 14, style: .continuous)
+                                    .fill(SequoiaStyle.selectedWash)
+                                    .matchedGeometryEffect(id: "search-tab", in: sequoiaSearchNamespace)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: viewModel.hasSearched ? 11 : 14, style: .continuous)
+                                            .stroke(SequoiaStyle.accent.opacity(0.24), lineWidth: 0.56)
+                                    )
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(5)
+            .background(SequoiaSurfaceBackground(cornerRadius: viewModel.hasSearched ? 15 : 18, elevated: true, role: .chrome))
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, viewModel.hasSearched ? 2 : 7)
+        }
+        .frame(height: viewModel.hasSearched ? 48 : 58)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var mangaSearchTabBar: some View {
         GeometryReader { proxy in
             let spacing: CGFloat = 8
@@ -498,6 +665,10 @@ struct SearchView: View {
 
                 if NeumorphicStyle.isActive {
                     neumorphicResultConsole
+                } else if SignalStyle.isActive {
+                    signalResultConsole
+                } else if SequoiaStyle.isActive {
+                    sequoiaResultConsole
                 }
 
                 searchTabBar
@@ -595,6 +766,127 @@ struct SearchView: View {
             )
     }
 
+    private var signalResultConsole: some View {
+        HStack(spacing: 12) {
+            SignalPulseDot(tint: SignalStyle.accent, size: 22)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 7) {
+                    Text(platformTabName(viewModel.selectedPlatform).uppercased())
+                        .font(SignalStyle.monoFont(9, weight: .semibold))
+                        .foregroundStyle(SignalStyle.accent)
+
+                    signalResultChip(text: viewModel.currentTab.rawValue, tint: SignalStyle.violet)
+                }
+
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(SignalStyle.titleFont(19, weight: .bold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                SignalSearchGroove(tint: viewModel.selectedPlatform.themedBadgeColor)
+            }
+
+            Spacer(minLength: 8)
+
+            Group {
+                if isPlatformLoading {
+                    ProgressView()
+                        .tint(SignalStyle.accent)
+                        .scaleEffect(0.78)
+                } else {
+                    Text("\(selectedPlatformResultCount)")
+                        .font(SignalStyle.monoFont(15, weight: .semibold))
+                        .foregroundStyle(SignalStyle.accent)
+                        .monospacedDigit()
+                }
+            }
+            .frame(minWidth: 42, minHeight: 38)
+            .padding(.horizontal, 6)
+            .background(SignalSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, fill: SignalStyle.control))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(SignalSurfaceBackground(cornerRadius: 24, elevated: true, fill: SignalStyle.device))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private func signalResultChip(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(SignalStyle.labelFont(10, weight: .bold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(0.13)))
+    }
+
+    private struct SignalSearchGroove: View {
+        let tint: Color
+
+        var body: some View {
+            HStack(spacing: 4) {
+                ForEach(0..<12, id: \.self) { index in
+                    Capsule()
+                        .fill(index < 8 ? tint.opacity(0.74) : SignalStyle.inkMuted.opacity(0.2))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 3 + CGFloat(index % 4))
+                }
+            }
+            .frame(maxWidth: 150)
+        }
+    }
+
+    private var sequoiaResultConsole: some View {
+        HStack(spacing: 12) {
+            SequoiaIconBadge(icon: searchTabIcon(viewModel.currentTab), tint: viewModel.selectedPlatform.themedBadgeColor, size: 40)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 7) {
+                    Text(platformTabName(viewModel.selectedPlatform).uppercased())
+                        .font(SequoiaStyle.labelFont(9.5, weight: .semibold))
+                        .foregroundStyle(viewModel.selectedPlatform.themedBadgeColor)
+                        .tracking(0.8)
+
+                    SequoiaPill(text: viewModel.currentTab.rawValue, tint: SequoiaStyle.aqua, selected: false, compact: true)
+                }
+
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(SequoiaStyle.titleFont(19, weight: .semibold))
+                    .foregroundStyle(SequoiaStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                SequoiaMeter(tint: viewModel.selectedPlatform.themedBadgeColor, count: 14)
+            }
+
+            Spacer(minLength: 8)
+
+            Group {
+                if isPlatformLoading {
+                    ProgressView()
+                        .tint(SequoiaStyle.accent)
+                        .scaleEffect(0.78)
+                } else {
+                    Text("\(selectedPlatformResultCount)")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(SequoiaStyle.accent)
+                        .monospacedDigit()
+                }
+            }
+            .frame(minWidth: 44, minHeight: 38)
+            .padding(.horizontal, 6)
+            .background(SequoiaSurfaceBackground(cornerRadius: 14, elevated: false, role: .list))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
     @ViewBuilder
     private var searchLoadingState: some View {
         if NeumorphicStyle.isActive {
@@ -602,6 +894,21 @@ struct SearchView: View {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.top, 36)
                 .frame(minHeight: 320, alignment: .top)
+        } else if SignalStyle.isActive {
+            SignalLoadingPanel(title: "SEARCHING")
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 36)
+                .frame(minHeight: 320, alignment: .top)
+        } else if SequoiaStyle.isActive {
+            SequoiaSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: String(localized: "搜索中"),
+                tint: SequoiaStyle.accent,
+                loading: true
+            )
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 36)
+            .frame(minHeight: 320, alignment: .top)
         } else {
             MonologueLoadingView(text: "SEARCHING")
                 .frame(maxWidth: .infinity)
@@ -611,7 +918,7 @@ struct SearchView: View {
 
     private var searchEmptyState: some View {
         emptyResultsView
-            .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.horizontal, (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 320)
     }
@@ -625,7 +932,7 @@ struct SearchView: View {
     }
 
     private var suggestionsTopPadding: CGFloat {
-        viewModel.hasSearched ? (NeumorphicStyle.isActive ? 54 : 58) : 4
+        viewModel.hasSearched ? ((NeumorphicStyle.isActive || SignalStyle.isActive) ? 54 : 58) : 4
     }
 
     private func resultCount(for source: MusicSource, tab: SearchTab) -> Int {
@@ -679,6 +986,24 @@ struct SearchView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 38)
             .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+        }
+    }
+
+    private struct SignalLoadingPanel: View {
+        let title: String
+
+        var body: some View {
+            VStack(spacing: 14) {
+                ProgressView()
+                    .tint(SignalStyle.accent)
+
+                Text(title)
+                    .font(SignalStyle.monoFont(11, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkMuted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 38)
+            .background(SignalSurfaceBackground(cornerRadius: 24, elevated: true, fill: SignalStyle.device))
         }
     }
 
@@ -764,6 +1089,88 @@ struct SearchView: View {
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
     }
 
+    private func signalSearchSongsToolbar(currentSource: MusicSource, currentSongs: [Song]) -> some View {
+        VStack(spacing: 0) {
+            if isSearchSelectMode {
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering,
+                    isSelectMode: $isSearchSelectMode,
+                    selectedIds: $searchSelectedIds,
+                    songs: currentSongs,
+                    onBatchQueue: {
+                        let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                        SongBatchActionHelper.addToQueue(selected) {
+                            isSearchSelectMode = false
+                            searchSelectedIds.removeAll()
+                        }
+                    },
+                    onBatchDownload: { searchBatchDownload(source: currentSource) },
+                    onBatchCollect: { showSearchBatchPlaylist = true }
+                )
+            } else if isSearchFiltering {
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering
+                )
+            } else {
+                HStack(spacing: 9) {
+                    Button {
+                        if !currentSongs.isEmpty {
+                            viewModel.playAllSongs(source: currentSource, currentSongs: currentSongs)
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            MonologueIcon(icon: .play, size: 12, color: SignalStyle.onAccent, lineWidth: 1.75)
+                                .frame(width: 24, height: 24)
+                                .background(SignalStyle.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                            Text(String(localized: "artist_play_all"))
+                                .font(SignalStyle.labelFont(12, weight: .bold))
+                                .foregroundStyle(SignalStyle.ink)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(SignalSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, fill: SignalStyle.control))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    .disabled(currentSongs.isEmpty)
+                    .opacity(currentSongs.isEmpty ? 0.55 : 1)
+
+                    Spacer(minLength: 8)
+
+                    signalToolbarButton(icon: .search, tint: SignalStyle.accent) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchFiltering = true
+                        }
+                    }
+
+                    signalToolbarButton(icon: .checkmark, tint: SignalStyle.olive) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
+                        }
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private func signalToolbarButton(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.65)
+                .frame(width: 32, height: 32)
+                .background(SignalSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, fill: SignalStyle.control))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
     // MARK: - 歌曲列表工具栏
 
     @ViewBuilder
@@ -773,6 +1180,8 @@ struct SearchView: View {
 
         if NeumorphicStyle.isActive {
             neumorphicSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
+        } else if SignalStyle.isActive {
+            signalSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
         } else {
             VStack(spacing: 0) {
                 if isSearchSelectMode {
@@ -865,8 +1274,12 @@ struct SearchView: View {
             mangaPlatformTabBar
         } else if NeumorphicStyle.isActive {
             neumorphicPlatformTabBar
+        } else if SignalStyle.isActive {
+            signalPlatformTabBar
         } else if MujiStyle.isActive {
             mujiPlatformTabBar
+        } else if SequoiaStyle.isActive {
+            sequoiaPlatformTabBar
         } else {
             let platforms: [MusicSource] = viewModel.currentTab == .songs
                 ? [.netease, .qqmusic, .qishui]
@@ -967,6 +1380,81 @@ struct SearchView: View {
         .padding(.bottom, viewModel.hasSearched ? 2 : 8)
     }
 
+    private var signalPlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    let tint = platform.themedBadgeColor
+                    let selected = viewModel.selectedPlatform == platform
+                    Text(platformTabName(platform))
+                        .font(SignalStyle.labelFont(viewModel.hasSearched ? 10.5 : 11, weight: .bold))
+                        .foregroundStyle(selected ? tint : tint.opacity(0.72))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, viewModel.hasSearched ? 6 : 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: viewModel.hasSearched ? 9 : 11, style: .continuous)
+                                .fill(selected ? tint.opacity(0.14) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(viewModel.hasSearched ? 4 : 5)
+        .background(SignalSurfaceBackground(cornerRadius: viewModel.hasSearched ? 14 : 16, elevated: false, pressed: true, fill: SignalStyle.controlPressed))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, viewModel.hasSearched ? 2 : 8)
+    }
+
+    private var sequoiaPlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 6) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    let tint = platform.themedBadgeColor
+                    let selected = viewModel.selectedPlatform == platform
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(tint)
+                            .frame(width: 6, height: 6)
+                        Text(platformTabName(platform))
+                            .font(SequoiaStyle.labelFont(viewModel.hasSearched ? 10.5 : 11, weight: selected ? .semibold : .medium))
+                            .foregroundStyle(selected ? SequoiaStyle.ink : SequoiaStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, viewModel.hasSearched ? 7 : 8)
+                    .background {
+                        if selected {
+                            Capsule()
+                                .fill(tint.opacity(0.13))
+                                .matchedGeometryEffect(id: "platform-tab", in: sequoiaSearchNamespace)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(SequoiaSurfaceBackground(cornerRadius: viewModel.hasSearched ? 14 : 16, elevated: false, role: .list))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, viewModel.hasSearched ? 3 : 8)
+    }
+
     private var mangaPlatformTabBar: some View {
         let platforms: [MusicSource] = viewModel.currentTab == .songs
             ? [.netease, .qqmusic, .qishui]
@@ -1059,7 +1547,7 @@ struct SearchView: View {
     }
 
     private var platformResultsRows: some View {
-        LazyVStack(spacing: NeumorphicStyle.isActive ? 2 : 0) {
+        LazyVStack(spacing: (NeumorphicStyle.isActive || SignalStyle.isActive) ? 2 : 0) {
             switch viewModel.selectedPlatform {
             case .netease:
                 neteaseResultsContent
@@ -1071,7 +1559,7 @@ struct SearchView: View {
                 EmptyView()
             }
         }
-        .padding(.top, NeumorphicStyle.isActive ? 2 : 0)
+        .padding(.top, (NeumorphicStyle.isActive || SignalStyle.isActive) ? 2 : 0)
     }
 
     @ViewBuilder
@@ -1382,7 +1870,7 @@ struct SearchView: View {
                 }
 
                 Text(String(localized: "加载更多"))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .rounded(size: 12, weight: .semibold))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .bold) : .rounded(size: 12, weight: .semibold)))
                     .foregroundStyle(source.themedBadgeColor)
             }
             .frame(maxWidth: .infinity)
@@ -1390,6 +1878,8 @@ struct SearchView: View {
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, tint: source.themedBadgeColor.opacity(0.1), lightweight: true)
+                } else if SignalStyle.isActive {
+                    SignalSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, fill: source.themedBadgeColor.opacity(0.12))
                 } else {
                     Capsule().fill(source.themedBadgeColor.opacity(0.1))
                 }
@@ -1496,7 +1986,7 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                    Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                    Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SignalStyle.isActive ? SignalStyle.controlPressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueSeparator)))
                 }
                 .frame(width: 52, height: 52)
                 .clipShape(Circle())
@@ -1504,44 +1994,54 @@ struct SearchView: View {
                     if NeumorphicStyle.isActive {
                         Circle()
                             .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    } else if SignalStyle.isActive {
+                        Circle()
+                            .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.7)
+                    } else if SequoiaStyle.isActive {
+                        Circle()
+                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(artist.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if let albumSize = artist.albumSize, albumSize > 0 {
                             Text(String(format: String(localized: "search_album_count"), albumSize))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                         }
                         if let musicSize = artist.musicSize, musicSize > 0 {
                             Text(String(format: String(localized: "search_song_count"), musicSize))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                         }
                     }
                 }
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))))
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive ? 12 : 10)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 12 : 10)
             .background {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
+                } else if SignalStyle.isActive {
+                    SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
                 }
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : (NeumorphicStyle.isActive ? 6 : 0))
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : ((NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 6 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1559,34 +2059,40 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                    RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SignalStyle.isActive ? SignalStyle.controlPressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueSeparator)))
                 }
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12, style: .continuous))
                 .overlay {
                     if NeumorphicStyle.isActive {
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
                             .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    } else if SignalStyle.isActive {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.7)
+                    } else if SequoiaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if let trackCount = playlist.trackCount, trackCount > 0 {
                             Text(String(format: String(localized: "search_track_count"), trackCount))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                         }
                         if let creator = playlist.creator?.nickname {
                             Text("by \(creator)")
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                                 .lineLimit(1)
                         }
                     }
@@ -1594,19 +2100,23 @@ struct SearchView: View {
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))))
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive ? 12 : 10)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 12 : 10)
             .background {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
+                } else if SignalStyle.isActive {
+                    SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
                 }
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : (NeumorphicStyle.isActive ? 6 : 0))
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : ((NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 6 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1625,53 +2135,63 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                    RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12)
+                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SignalStyle.isActive ? SignalStyle.controlPressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueSeparator)))
                 }
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 15 : 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12, style: .continuous))
                 .overlay {
                     if NeumorphicStyle.isActive {
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
                             .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    } else if SignalStyle.isActive {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.7)
+                    } else if SequoiaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         Text(album.artistName)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                             .lineLimit(1)
 
                         if let size = album.size, size > 0 {
                             Text(String(format: String(localized: "search_track_count"), size))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12, weight: .regular))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                         }
                     }
                 }
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))))
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive ? 12 : 10)
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 12 : 10)
             .background {
                 if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
+                } else if SignalStyle.isActive {
+                    SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
                 }
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : (NeumorphicStyle.isActive ? 6 : 0))
+            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.vertical, MujiStyle.isActive ? 5 : ((NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 6 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1740,7 +2260,7 @@ struct SearchView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(.clear).monologueGlass(cornerRadius: NeumorphicStyle.isActive ? 12 : 16)
+                            .background(.clear).monologueGlass(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive) ? 12 : 16)
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .padding(8)
                     }
@@ -1748,32 +2268,34 @@ struct SearchView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mv.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .rounded(size: 14, weight: .semibold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .semibold) : .rounded(size: 14, weight: .semibold)))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary))
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
                         Text(mv.singerName ?? String(localized: "search_unknown_artist"))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : .rounded(size: 12)))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary))
                             .lineLimit(1)
 
                         if !mv.playCountText.isEmpty {
                             Circle()
-                                .fill((NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Color.monologueTextSecondary).opacity(0.3))
+                                .fill((NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : Color.monologueTextSecondary)).opacity(0.3))
                                 .frame(width: 3, height: 3)
                             Text(mv.playCountText + String(localized: "search_play_count_suffix"))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(11, weight: .medium) : .rounded(size: 11)))
+                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : .monologueTextSecondary.opacity(0.6)))
                         }
                     }
                 }
                 .padding(.horizontal, 2)
             }
-            .padding(NeumorphicStyle.isActive ? 10 : 0)
+            .padding((NeumorphicStyle.isActive || SignalStyle.isActive) ? 10 : 0)
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
+                } else if SignalStyle.isActive {
+                    SignalSurfaceBackground(cornerRadius: 22, elevated: true, fill: SignalStyle.device)
                 }
             }
         }
@@ -1927,6 +2449,13 @@ struct SearchView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 38)
             .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
+        } else if SequoiaStyle.isActive {
+            SequoiaSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: viewModel.displayKeyword.isEmpty ? String(localized: "search_no_results") : viewModel.displayKeyword,
+                subtitle: String(localized: "search_no_results"),
+                tint: SequoiaStyle.inkMuted
+            )
         } else {
             ContentUnavailableView.search(text: viewModel.displayKeyword)
         }
@@ -1940,6 +2469,8 @@ struct SearchView: View {
             neumorphicEmptySearchView
         } else if MujiStyle.isActive {
             mujiEmptySearchView
+        } else if SequoiaStyle.isActive {
+            sequoiaEmptySearchView
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -2025,6 +2556,144 @@ struct SearchView: View {
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+        }
+    }
+
+    private var sequoiaEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let defaultKeyword = viewModel.defaultKeyword {
+                    Button {
+                        viewModel.performSearch(keyword: defaultKeyword.realkeyword)
+                        isFocused = false
+                    } label: {
+                        HStack(spacing: 13) {
+                            SequoiaIconBadge(icon: .magnifyingGlass, tint: SequoiaStyle.accent, size: 42)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(String(localized: "搜索"))
+                                    .font(SequoiaStyle.labelFont(10, weight: .semibold))
+                                    .foregroundStyle(SequoiaStyle.inkMuted)
+                                    .tracking(0.8)
+
+                                Text(defaultKeyword.showKeyword)
+                                    .font(SequoiaStyle.titleFont(19, weight: .semibold))
+                                    .foregroundStyle(SequoiaStyle.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.78)
+                            }
+
+                            Spacer(minLength: 8)
+                            SequoiaMeter(tint: SequoiaStyle.accent, count: 9)
+                        }
+                        .padding(13)
+                        .background(SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                }
+
+                if !viewModel.searchHistory.isEmpty {
+                    sequoiaSearchShelf(
+                        title: String(localized: "search_history"),
+                        icon: .clock,
+                        tint: SequoiaStyle.green,
+                        actionIcon: .trash,
+                        action: { viewModel.clearAllHistory() }
+                    ) {
+                        SequoiaListGroup {
+                            ForEach(Array(viewModel.searchHistory.prefix(6).enumerated()), id: \.element.id) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.keyword)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 11) {
+                                        MonologueIcon(icon: .clock, size: 14, color: SequoiaStyle.green, lineWidth: 1.5)
+                                        Text(item.keyword)
+                                            .font(SequoiaStyle.labelFont(14, weight: .medium))
+                                            .foregroundStyle(SequoiaStyle.ink)
+                                            .lineLimit(1)
+                                        Spacer(minLength: 8)
+                                        Button {
+                                            viewModel.deleteHistoryItem(keyword: item.keyword)
+                                        } label: {
+                                            MonologueIcon(icon: .xmark, size: 11, color: SequoiaStyle.inkMuted, lineWidth: 1.45)
+                                                .frame(width: 28, height: 28)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 10)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+
+                                if index < min(viewModel.searchHistory.count, 6) - 1 {
+                                    Divider()
+                                        .overlay(SequoiaStyle.separator)
+                                        .padding(.leading, 42)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    sequoiaSearchShelf(
+                        title: String(localized: "search_hot"),
+                        icon: .sparkle,
+                        tint: SequoiaStyle.aqua
+                    ) {
+                        FlowLayout(spacing: 9) {
+                            ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    SequoiaPill(text: item.searchWord, tint: SequoiaStyle.aqua, selected: false)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 4)
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+    }
+
+    private func sequoiaSearchShelf<Content: View>(
+        title: String,
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        actionIcon: MonologueIcon.IconType? = nil,
+        action: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                MonologueIcon(icon: icon, size: 15, color: tint, lineWidth: 1.55)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(tint.opacity(0.11))
+                    )
+                Text(title)
+                    .font(SequoiaStyle.titleFont(17, weight: .semibold))
+                    .foregroundStyle(SequoiaStyle.ink)
+                Spacer(minLength: 8)
+                if let actionIcon, let action {
+                    Button(action: action) {
+                        SequoiaControlButton(icon: actionIcon, tint: SequoiaStyle.inkMuted, size: 34)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            SequoiaHairline(tint: tint.opacity(0.26))
+            content()
         }
     }
 
@@ -2291,6 +2960,8 @@ struct SearchView: View {
         if viewModel.showSuggestions && !viewModel.suggestions.isEmpty {
             if NeumorphicStyle.isActive {
                 neumorphicSuggestionsOverlay
+            } else if SequoiaStyle.isActive {
+                sequoiaSuggestionsOverlay
             } else {
                 VStack(spacing: 0) {
                     ScrollView {
@@ -2380,5 +3051,96 @@ struct SearchView: View {
         .padding(.top, suggestionsTopPadding)
         .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
+    }
+
+    private var sequoiaSuggestionsOverlay: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.suggestions.enumerated()), id: \.element) { index, suggestion in
+                    Button {
+                        isFocused = false
+                        viewModel.performSearch(keyword: suggestion)
+                    } label: {
+                        HStack(spacing: 11) {
+                            MonologueIcon(icon: .magnifyingGlass, size: 13, color: SequoiaStyle.accent, lineWidth: 1.48)
+                                .frame(width: 30, height: 30)
+                                .background(SequoiaSurfaceBackground(cornerRadius: 11, elevated: false, role: .list))
+
+                            Text(suggestion)
+                                .font(SequoiaStyle.bodyFont(15, weight: .medium))
+                                .foregroundStyle(SequoiaStyle.ink)
+                                .lineLimit(1)
+
+                            Spacer(minLength: 8)
+
+                            MonologueIcon(icon: .chevronRight, size: 10, color: SequoiaStyle.inkMuted, lineWidth: 1.45)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < viewModel.suggestions.count - 1 {
+                        Divider()
+                            .overlay(SequoiaStyle.separator)
+                            .padding(.leading, 54)
+                    }
+                }
+            }
+            .padding(.vertical, 7)
+        }
+        .scrollDismissesKeyboard(.never)
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+        .frame(maxHeight: 328)
+        .background(SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, suggestionsTopPadding)
+        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
+    }
+}
+
+private struct SequoiaSearchStatePanel: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    var subtitle: String = ""
+    var tint: Color = SequoiaStyle.accent
+    var loading = false
+
+    var body: some View {
+        VStack(spacing: 13) {
+            SequoiaIconBadge(icon: icon, tint: tint, size: 52)
+
+            VStack(spacing: 5) {
+                Text(title)
+                    .font(SequoiaStyle.titleFont(18, weight: .semibold))
+                    .foregroundStyle(SequoiaStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(SequoiaStyle.labelFont(12, weight: .regular))
+                        .foregroundStyle(SequoiaStyle.inkMuted)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            if loading {
+                ProgressView()
+                    .tint(tint)
+                    .scaleEffect(0.82)
+            } else {
+                SequoiaMeter(tint: tint, count: 10)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 38)
+        .padding(.horizontal, 18)
+        .background(SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome))
     }
 }

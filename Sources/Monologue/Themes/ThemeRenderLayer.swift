@@ -39,15 +39,15 @@ struct ThemeRenderContext: Equatable {
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && theme == .neumorphic
+        isHosted && (theme == .neumorphic || theme == .sequoia || theme == .material || theme == .clay || theme == .signal)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && theme == .neumorphic
+        isHosted && (theme == .neumorphic || theme == .sequoia || theme == .material || theme == .clay || theme == .signal)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga)
+        isHosted && (theme == .neumorphic || theme == .sequoia || theme == .material || theme == .manga || theme == .clay || theme == .signal)
     }
 }
 
@@ -97,13 +97,13 @@ struct ThemeRenderHost<Content: View>: View {
 
     var body: some View {
         ZStack {
-            ThemeRenderUnderlay(theme: renderContext.theme)
+            ThemeRenderUnderlay(theme: renderContext.theme, revision: renderContext.revision)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
             if renderContext.providesGlobalBackdrop {
-                ThemeRenderBackdrop(theme: renderContext.theme)
+                ThemeRenderBackdrop(theme: renderContext.theme, revision: renderContext.revision)
                     .id("managed-backdrop-\(renderContext.backdropIdentity)")
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
@@ -117,6 +117,7 @@ struct ThemeRenderHost<Content: View>: View {
             content
                 .environment(\.themeRenderContext, renderContext)
                 .environment(\.themeRenderHostActive, true)
+                .environment(\.themeCustomizationRevision, renderContext.revision)
         }
     }
 
@@ -132,8 +133,13 @@ struct ThemeRenderHost<Content: View>: View {
 
 struct ThemeRenderUnderlay: View {
     let theme: GlobalThemeId
+    var revision: Int = 0
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = revision
+        let _ = settings.globalThemeRevision
+
         switch theme {
         case .manga:
             MangaStyle.paper
@@ -141,6 +147,14 @@ struct ThemeRenderUnderlay: View {
             MujiStyle.paper
         case .neumorphic:
             NeumorphicStyle.base
+        case .sequoia:
+            SequoiaStyle.base
+        case .material:
+            MaterialStyle.base
+        case .clay:
+            ClayStyle.base
+        case .signal:
+            SignalStyle.base
         case .default:
             Color.monologueBackground
         }
@@ -149,8 +163,13 @@ struct ThemeRenderUnderlay: View {
 
 struct ThemeRenderBackdrop: View {
     let theme: GlobalThemeId
+    var revision: Int = 0
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = revision
+        let _ = settings.globalThemeRevision
+
         switch theme {
         case .manga:
             MangaRootBackdrop()
@@ -158,6 +177,14 @@ struct ThemeRenderBackdrop: View {
             MujiRootBackdrop()
         case .neumorphic:
             NeumorphicRenderBackdrop()
+        case .sequoia:
+            SequoiaRootBackdrop()
+        case .material:
+            MaterialRootBackdrop()
+        case .clay:
+            ClayRootBackdrop()
+        case .signal:
+            SignalRenderBackdrop()
         case .default:
             MonologueBackground()
                 .ignoresSafeArea()
@@ -168,7 +195,6 @@ struct ThemeRenderBackdrop: View {
 struct NeumorphicRenderBackdrop: View {
     var body: some View {
         NeumorphicRootBackdrop()
-            .compositingGroup()
             .transaction { transaction in
                 transaction.animation = nil
                 transaction.disablesAnimations = true
@@ -198,7 +224,7 @@ private struct ThemeRenderLayerModifier: ViewModifier {
             if renderContext.stabilizesSceneRendering {
                 content
                     .transaction { transaction in
-                        if renderContext.theme == .neumorphic {
+                        if renderContext.theme == .neumorphic || renderContext.theme == .sequoia || renderContext.theme == .material || renderContext.theme == .clay || renderContext.theme == .signal {
                             transaction.animation = transaction.animation
                         }
                     }
@@ -249,7 +275,7 @@ private struct ThemeRenderLayerModifier: ViewModifier {
             if renderContext.isolatesInteractiveSurfaces {
                 content
                     .transaction { transaction in
-                        if renderContext.theme == .neumorphic {
+                        if renderContext.theme == .neumorphic || renderContext.theme == .sequoia || renderContext.theme == .material || renderContext.theme == .clay || renderContext.theme == .signal {
                             transaction.animation = transaction.animation
                         }
                     }

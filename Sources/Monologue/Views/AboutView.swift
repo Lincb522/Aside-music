@@ -25,6 +25,30 @@ struct AboutView: View {
         Color(hex: settings.appBrandStyle.logoGlowColor(for: settings.appBrandAppearance))
     }
 
+    private var aboutText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var aboutSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var aboutMutedText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.58)
+    }
+
+    private var aboutAccent: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .monologueAccent
+    }
+
     var body: some View {
         ZStack {
             ThemedPageBackground()
@@ -46,8 +70,8 @@ struct AboutView: View {
 
                         // 一句话介绍
                         Text("你的私人音乐宇宙")
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))
+                            .foregroundColor(aboutSecondaryText)
                             .opacity(logoVisible ? 1 : 0)
 
                         // 功能特性
@@ -144,7 +168,7 @@ struct AboutView: View {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: NeumorphicStyle.isActive ? [NeumorphicStyle.surfaceRaised, NeumorphicStyle.surface] : logoPlateColors,
+                            colors: SequoiaStyle.isActive ? [SequoiaStyle.materialRaised, SequoiaStyle.materialList] : (NeumorphicStyle.isActive ? [NeumorphicStyle.surfaceRaised, NeumorphicStyle.surface] : logoPlateColors),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -168,7 +192,10 @@ struct AboutView: View {
                     }
                     .shadow(color: .black.opacity(NeumorphicStyle.isActive ? 0.08 : 0.15), radius: 20, x: 0, y: 10)
                     .background {
-                        if NeumorphicStyle.isActive {
+                        if SequoiaStyle.isActive {
+                            SequoiaSurfaceBackground(cornerRadius: 26, elevated: true)
+                                .frame(width: 112, height: 112)
+                        } else if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true)
                                 .frame(width: 112, height: 112)
                         }
@@ -184,7 +211,7 @@ struct AboutView: View {
                 .font(.system(size: 30, weight: .black, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: NeumorphicStyle.isActive ? [NeumorphicStyle.ink, NeumorphicStyle.accent] : [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)],
+                        colors: SequoiaStyle.isActive ? [SequoiaStyle.ink, SequoiaStyle.accent] : (NeumorphicStyle.isActive ? [NeumorphicStyle.ink, NeumorphicStyle.accent] : [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)]),
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -193,10 +220,10 @@ struct AboutView: View {
             // 版本号（彩蛋入口）
             Text("Version \(appVersion)")
                 .font(NeumorphicStyle.isActive ? .system(size: 13, weight: .semibold, design: .monospaced) : .system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
+                .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.12) : Color.monologueTextSecondary.opacity(0.08)))
+                .background(Capsule().fill(SequoiaStyle.isActive ? SequoiaStyle.selectedWash : (NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.12) : Color.monologueTextSecondary.opacity(0.08))))
                 .onTapGesture {
                     tapCount += 1
                     if tapCount >= 5 {
@@ -227,13 +254,13 @@ struct AboutView: View {
 
     private func featureCard(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
         VStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 26, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
+            MonologueIcon(icon: icon, size: 26, color: aboutAccent)
             Text(title)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(14, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded)))
+                .foregroundColor(aboutText)
             Text(subtitle)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, weight: .medium, design: .rounded)))
+                .foregroundColor(aboutSecondaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
@@ -269,20 +296,20 @@ struct AboutView: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.16) : Color.monologueIconBackground)
+                    .fill((SequoiaStyle.isActive || NeumorphicStyle.isActive) ? aboutAccent.opacity(0.16) : Color.monologueIconBackground)
                     .frame(width: 32, height: 32)
-                MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground)
+                MonologueIcon(icon: icon, size: 16, color: SequoiaStyle.isActive ? aboutAccent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground))
             }
 
             Text(label)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))
+                .foregroundColor(aboutText)
 
             Spacer()
 
             Text(value)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .regular, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .regular, design: .rounded)))
+                .foregroundColor(aboutSecondaryText)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -294,24 +321,24 @@ struct AboutView: View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text("Made with")
-                MonologueIcon(icon: .liked, size: 14, color: .monologueAccent)
+                MonologueIcon(icon: .liked, size: 14, color: aboutAccent)
                 Text("in SwiftUI")
             }
             .font(.system(size: 13, weight: .medium, design: .rounded))
-            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+            .foregroundColor(aboutSecondaryText)
 
             Text("仅供学习交流 · 请支持正版音乐")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
+                .foregroundColor(aboutMutedText.opacity(0.86))
 
             Text("© 2024-2026 Monologue. All Rights Reserved.")
                 .font(.system(size: 11, weight: .regular, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                .foregroundColor(aboutMutedText)
 
             if tapCount >= 7 {
                 Text("你发现了彩蛋！你是一个有好奇心的人。")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
+                    .foregroundColor(aboutAccent)
                     .transition(.scale.combined(with: .opacity))
             }
         }
@@ -323,10 +350,10 @@ struct AboutView: View {
 
     private func sectionTitle(_ text: String, icon: MonologueIcon.IconType) -> some View {
         HStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
+            MonologueIcon(icon: icon, size: 16, color: aboutAccent)
             Text(text)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                .font(SequoiaStyle.isActive ? SequoiaStyle.titleFont(16, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))
+                .foregroundColor(aboutText)
         }
         .padding(.leading, 4)
     }

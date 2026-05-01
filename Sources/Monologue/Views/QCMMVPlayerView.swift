@@ -83,6 +83,7 @@ struct QQMVPlayerView: View {
     let vid: String
     @StateObject private var viewModel: QQMVPlayerViewModel
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
     @StateObject private var mvPlayerWrapper = MVPlayerWrapper()
@@ -100,6 +101,8 @@ struct QQMVPlayerView: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if isFullscreen {
                 fullscreenView

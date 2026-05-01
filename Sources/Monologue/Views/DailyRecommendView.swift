@@ -5,6 +5,7 @@ import SwiftUI
 struct DailyRecommendView: View {
     @StateObject private var viewModel = DailyRecommendViewModel()
     @ObservedObject private var styleManager = StyleManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedArtistId: Int?
     @State private var showArtistDetail = false
     @State private var selectedSongForDetail: Song?
@@ -20,6 +21,8 @@ struct DailyRecommendView: View {
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack(alignment: .top) {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
@@ -27,6 +30,8 @@ struct DailyRecommendView: View {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
+            } else if SignalStyle.isActive {
+                ThemeRenderBackdrop(theme: .signal)
             } else {
                 ThemedPageBackground()
             }
@@ -108,8 +113,12 @@ struct DailyRecommendView: View {
             mangaHeaderSection
         } else if NeumorphicStyle.isActive {
             neumorphicHeaderSection
+        } else if SignalStyle.isActive {
+            signalHeaderSection
         } else if MujiStyle.isActive {
             mujiHeaderSection
+        } else if SequoiaStyle.isActive {
+            sequoiaHeaderSection
         } else {
             defaultHeaderSection
         }
@@ -370,6 +379,210 @@ struct DailyRecommendView: View {
         .padding(.bottom, 10)
     }
 
+    private var signalHeaderSection: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(dayString)
+                            .font(SignalStyle.titleFont(48, weight: .bold))
+                            .foregroundStyle(SignalStyle.ink)
+                            .lineLimit(1)
+
+                        Text("/ \(monthString)")
+                            .font(SignalStyle.monoFont(12, weight: .semibold))
+                            .foregroundStyle(SignalStyle.inkMuted)
+                            .padding(.leading, 3)
+                    }
+                    .frame(width: 74, alignment: .leading)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            SignalPill(text: String(localized: "daily_recommend"), tint: SignalStyle.accent, selected: true, compact: true)
+                            if !viewModel.songs.isEmpty {
+                                SignalPill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
+                            }
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(SignalStyle.titleFont(24, weight: .bold))
+                            .foregroundStyle(SignalStyle.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            MonologueIcon(icon: .play, size: 16, color: SignalStyle.onAccent, lineWidth: 1.8)
+                                .frame(width: 46, height: 46)
+                                .background(
+                                    LinearGradient(
+                                        colors: [SignalStyle.accent, SignalStyle.violet],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                )
+                                .shadow(color: SignalStyle.accent.opacity(0.24), radius: 14, x: 0, y: 8)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+                }
+
+                HStack(spacing: 9) {
+                    Button(action: toggleStyleMenu) {
+                        SignalPill(
+                            text: dailyStyleChipTitle,
+                            tint: SignalStyle.accent,
+                            icon: .sparkle,
+                            selected: viewModel.showStyleMenu
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        viewModel.loadHistoryDates()
+                    }) {
+                        SignalPill(
+                            text: NSLocalizedString("daily_history", comment: ""),
+                            tint: SignalStyle.amber,
+                            icon: .history
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(16)
+
+            attachedStylePanel
+        }
+        .background(signalHeaderBackground)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 16)
+        .padding(.bottom, 10)
+    }
+
+    private var sequoiaHeaderSection: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(alignment: .center, spacing: 13) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(dayString)
+                            .font(SequoiaStyle.titleFont(46, weight: .semibold))
+                            .foregroundStyle(SequoiaStyle.ink)
+                            .lineLimit(1)
+
+                        Text("/ \(monthString)")
+                            .font(SequoiaStyle.labelFont(12, weight: .medium))
+                            .foregroundStyle(SequoiaStyle.inkMuted)
+                            .padding(.leading, 3)
+                    }
+                    .frame(width: 70, alignment: .leading)
+
+                    Rectangle()
+                        .fill(SequoiaStyle.separator)
+                        .frame(width: 0.6, height: 56)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            SequoiaPill(
+                                text: String(localized: "daily_recommend"),
+                                icon: .sparkle,
+                                tint: SequoiaStyle.accent,
+                                selected: true,
+                                compact: true
+                            )
+
+                            if !viewModel.songs.isEmpty {
+                                SequoiaPill(
+                                    text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))",
+                                    tint: SequoiaStyle.aqua,
+                                    compact: true
+                                )
+                            }
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(SequoiaStyle.titleFont(23, weight: .semibold))
+                            .foregroundStyle(SequoiaStyle.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            SequoiaControlButton(icon: .play, tint: SequoiaStyle.accent, size: 44, selected: true)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+                }
+
+                HStack(spacing: 9) {
+                    Button(action: toggleStyleMenu) {
+                        sequoiaHeaderChip(
+                            text: dailyStyleChipTitle,
+                            icon: .sparkle,
+                            tint: SequoiaStyle.accent,
+                            selected: viewModel.showStyleMenu
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        viewModel.loadHistoryDates()
+                    }) {
+                        sequoiaHeaderChip(
+                            text: NSLocalizedString("daily_history", comment: ""),
+                            icon: .history,
+                            tint: SequoiaStyle.green,
+                            selected: false
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(15)
+
+            attachedStylePanel
+        }
+        .background(SequoiaGlassBand(tint: SequoiaStyle.accent, cornerRadius: 24))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 16)
+        .padding(.bottom, 10)
+    }
+
+    private func sequoiaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color, selected: Bool) -> some View {
+        HStack(spacing: 7) {
+            MonologueIcon(icon: icon, size: 13, color: selected ? tint : SequoiaStyle.inkSoft, lineWidth: 1.5)
+            Text(text)
+                .font(SequoiaStyle.labelFont(12, weight: selected ? .semibold : .medium))
+                .foregroundStyle(selected ? SequoiaStyle.ink : SequoiaStyle.inkSoft)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 34)
+        .background(
+            SequoiaSurfaceBackground(
+                cornerRadius: 14,
+                elevated: selected,
+                pressed: !selected,
+                fill: selected ? tint.opacity(0.13) : SequoiaStyle.materialList,
+                role: selected ? .selected : .list
+            )
+        )
+    }
+
     private func mujiHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
         HStack(spacing: 7) {
             MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.5)
@@ -498,6 +711,11 @@ struct DailyRecommendView: View {
         NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true)
     }
 
+    @ViewBuilder
+    private var signalHeaderBackground: some View {
+        SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper)
+    }
+
     private func mangaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color, foreground: Color = MangaStyle.ink) -> some View {
         HStack(spacing: 7) {
             MonologueIcon(icon: icon, size: 13, color: foreground, lineWidth: 1.7)
@@ -591,12 +809,16 @@ struct DailyRecommendView: View {
         VStack(spacing: 14) {
             if NeumorphicStyle.isActive {
                 NeumorphicIconBadge(icon: .warning, tint: NeumorphicStyle.red, size: 56)
+            } else if SignalStyle.isActive {
+                SignalIconBadge(icon: .warning, tint: SignalStyle.rust, size: 56)
+            } else if SequoiaStyle.isActive {
+                SequoiaIconBadge(icon: .warning, tint: SequoiaStyle.red, size: 56)
             } else {
                 MonologueIcon(icon: .warning, size: 48, color: .monologueTextSecondary)
             }
             Text(msg)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .body)
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .body)))
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             Button("Retry") {
@@ -605,6 +827,13 @@ struct DailyRecommendView: View {
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
         }
         .frame(maxWidth: .infinity)
+        .padding(.vertical, SequoiaStyle.isActive ? 26 : 0)
+        .background {
+            if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
+            }
+        }
+        .padding(.horizontal, SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
         .padding(.top, 72)
     }
 
@@ -706,6 +935,8 @@ struct DailyHistoryView: View {
             MonologueSheetAwareBackground {
                 if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
+                } else if SignalStyle.isActive {
+                    ThemeRenderBackdrop(theme: .signal)
                 } else {
                     ThemedPageBackground()
                 }
@@ -741,11 +972,13 @@ struct DailyHistoryView: View {
     private var headerSection: some View {
         HStack {
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                MonologueIcon(icon: .close, size: 20, color: MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.text))
+                MonologueIcon(icon: .close, size: 20, color: MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.text)))
                     .padding(10)
                     .background {
                         if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
+                        } else if SignalStyle.isActive {
+                            SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
                         } else {
                             Circle().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.6))
                         }
@@ -757,12 +990,12 @@ struct DailyHistoryView: View {
 
             VStack(spacing: 2) {
                 Text(LocalizedStringKey("daily_history_title"))
-                    .font(MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded)))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text))
+                    .font(MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (SignalStyle.isActive ? SignalStyle.titleFont(19, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
+                    .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
 
                 Text(LocalizedStringKey("daily_history_subtitle"))
-                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded)))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText))
+                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))))
+                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)))
             }
 
             Spacer()
@@ -777,6 +1010,8 @@ struct DailyHistoryView: View {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
                     } else if NeumorphicStyle.isActive {
                         NeumorphicPlayPill(title: String(localized: "artist_play_all"), tint: NeumorphicStyle.accent)
+                    } else if SignalStyle.isActive {
+                        SignalPlayPill(title: String(localized: "artist_play_all"))
                     } else {
                         HStack(spacing: 8) {
                             MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
@@ -827,8 +1062,8 @@ struct DailyHistoryView: View {
             }
         }) {
             Text(displayDate)
-                .font(MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)))
-                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (NeumorphicStyle.isActive ? (isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextPrimary)))
+                .font(MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: isSelected ? .bold : .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))))
+                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (SignalStyle.isActive ? (isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft) : (NeumorphicStyle.isActive ? (isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextPrimary))))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(dateButtonBackground(isSelected: isSelected))
@@ -845,6 +1080,14 @@ struct DailyHistoryView: View {
                 pressed: !isSelected,
                 tint: isSelected ? NeumorphicStyle.accent.opacity(0.18) : NeumorphicStyle.surface
             )
+        } else if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(isSelected ? SignalStyle.accent : SignalStyle.control)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(isSelected ? Color.white.opacity(0.2) : SignalStyle.separator.opacity(0.75), lineWidth: 0.8)
+                )
+                .shadow(color: isSelected ? SignalStyle.accent.opacity(0.18) : .clear, radius: 12, x: 0, y: 7)
         } else {
             Capsule()
                 .fill(MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised) : (isSelected ? Color.monologueIconBackground.opacity(0.85) : Color.monologueGlassTint))
@@ -863,13 +1106,15 @@ struct DailyHistoryView: View {
 
             if NeumorphicStyle.isActive {
                 NeumorphicIconBadge(icon: .clock, tint: NeumorphicStyle.warm, size: 56)
+            } else if SignalStyle.isActive {
+                SignalIconBadge(icon: .clock, tint: SignalStyle.amber, size: 56)
             } else {
                 MonologueIcon(icon: .clock, size: 48, color: .monologueTextSecondary.opacity(0.5))
             }
 
             Text(LocalizedStringKey("daily_select_date"))
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded)))
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
 
             Spacer()
         }
@@ -881,20 +1126,23 @@ struct DailyHistoryView: View {
                 if let date = selectedDate {
                     HStack {
                         Text(formatFullDate(date))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.secondaryText)
+                            .font(SignalStyle.isActive ? SignalStyle.labelFont(13, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 14, weight: .medium, design: .rounded)))
+                            .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.secondaryText))
 
                         Spacer()
 
                         Text(String(format: NSLocalizedString("daily_song_count", comment: ""), songs.count))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText.opacity(0.7))
+                            .font(SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))
+                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText.opacity(0.7)))
                     }
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.vertical, 12)
                     .background {
                         if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true)
+                                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        } else if SignalStyle.isActive {
+                            SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
                                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                         }
                     }

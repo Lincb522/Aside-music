@@ -104,6 +104,7 @@ struct LocalModeHomeView: View {
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showImporter = false
     @State private var recentSongs: [Song] = []
@@ -125,6 +126,8 @@ struct LocalModeHomeView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
@@ -549,6 +552,7 @@ struct LocalMusicView: View {
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var searchText = ""
     @State private var showImporter = false
@@ -613,6 +617,8 @@ struct LocalMusicView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
@@ -907,6 +913,7 @@ struct LocalLibraryView: View {
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showFileImporter = false
     @State private var recentSongs: [Song] = []
@@ -924,6 +931,8 @@ struct LocalLibraryView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
@@ -937,6 +946,8 @@ struct LocalLibraryView: View {
                             mujiLocalLibraryHeader
                         } else if NeumorphicStyle.isActive {
                             neumorphicLocalLibraryHeader
+                        } else if SignalStyle.isActive {
+                            signalLocalLibraryHeader
                         }
 
                         libraryOverviewCard
@@ -1027,26 +1038,48 @@ struct LocalLibraryView: View {
         .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
 
-    private var libraryOverviewCard: some View {
-        MonologueLiquidGlassCard(cornerRadius: 24) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(localModeText("local_library_overview_title"))
-                    .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded))))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+    private var signalLocalLibraryHeader: some View {
+        SignalPageHeader(
+            eyebrow: "SHELF",
+            title: localModeText("local_library_navigation_title"),
+            subtitle: ""
+        ) {
+            SignalIconBadge(icon: .library, tint: SignalStyle.olive, size: 48)
+        }
+        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
 
-                HStack(spacing: 0) {
-                    StatCell(value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music"))
-                    Rectangle()
-                        .fill(Color.monologueSeparator)
-                        .frame(width: 0.5, height: 28)
-                    StatCell(value: "\(favoriteSongs.count)", label: localModeText("local_filter_favorites"))
-                    Rectangle()
-                        .fill(Color.monologueSeparator)
-                        .frame(width: 0.5, height: 28)
-                    StatCell(value: "\(downloadedSongs.count)", label: localModeText("local_filter_downloads"))
-                }
+    @ViewBuilder
+    private var libraryOverviewCard: some View {
+        if SignalStyle.isActive {
+            libraryOverviewContent
+                .padding(20)
+                .background(SignalSurfaceBackground(cornerRadius: 28, elevated: true, fill: SignalStyle.paper))
+        } else {
+            MonologueLiquidGlassCard(cornerRadius: 24) {
+                libraryOverviewContent
+                    .padding(20)
             }
-            .padding(20)
+        }
+    }
+
+    private var libraryOverviewContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(localModeText("local_library_overview_title"))
+                .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (SignalStyle.isActive ? SignalStyle.titleFont(24, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded)))))
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
+
+            HStack(spacing: 0) {
+                StatCell(value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music"))
+                Rectangle()
+                    .fill(SignalStyle.isActive ? SignalStyle.separator.opacity(0.7) : Color.monologueSeparator)
+                    .frame(width: 0.5, height: 28)
+                StatCell(value: "\(favoriteSongs.count)", label: localModeText("local_filter_favorites"))
+                Rectangle()
+                    .fill(SignalStyle.isActive ? SignalStyle.separator.opacity(0.7) : Color.monologueSeparator)
+                    .frame(width: 0.5, height: 28)
+                StatCell(value: "\(downloadedSongs.count)", label: localModeText("local_filter_downloads"))
+            }
         }
     }
 
@@ -1299,6 +1332,7 @@ struct LocalModeProfileView: View {
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var tokenInput = SecureConfig.apiToken ?? ""
     @State private var isSubmitting = false
@@ -1313,6 +1347,8 @@ struct LocalModeProfileView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)

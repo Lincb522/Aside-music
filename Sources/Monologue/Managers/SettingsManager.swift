@@ -12,7 +12,13 @@ final class SettingsManager: ObservableObject {
     @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.default.rawValue {
         didSet {
             if let id = GlobalThemeId(rawValue: globalThemeIdRaw) {
-                GlobalThemeManager.shared.switchTheme(to: id)
+                let resolvedId = Self.resolveRemovedTheme(id)
+                if resolvedId.rawValue != globalThemeIdRaw {
+                    globalThemeIdRaw = resolvedId.rawValue
+                    return
+                }
+
+                GlobalThemeManager.shared.switchTheme(to: resolvedId)
                 enforceCoverBackgroundPolicyForCurrentTheme()
                 globalThemeRevision &+= 1
             }
@@ -22,8 +28,22 @@ final class SettingsManager: ObservableObject {
     @Published private(set) var globalThemeRevision: Int = 0
 
     var globalThemeId: GlobalThemeId {
-        get { GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default }
-        set { globalThemeIdRaw = newValue.rawValue }
+        get {
+            let id = GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default
+            return Self.resolveRemovedTheme(id)
+        }
+        set {
+            globalThemeIdRaw = Self.resolveRemovedTheme(newValue).rawValue
+        }
+    }
+
+    private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
+        switch id {
+        case .clay, .signal:
+            return .default
+        default:
+            return id
+        }
     }
 
     /// 悬浮栏样式
@@ -43,7 +63,13 @@ final class SettingsManager: ObservableObject {
     }
 
     /// 实际生效的 ColorScheme，始终有明确值
-    @Published var activeColorScheme: ColorScheme = .light
+    @Published var activeColorScheme: ColorScheme = .light {
+        didSet {
+            UserDefaults.standard.set(activeColorScheme == .dark ? "dark" : "light", forKey: "themeResolvedColorScheme")
+            GlobalThemeManager.shared.refreshCurrentThemeTokens()
+            globalThemeRevision &+= 1
+        }
+    }
 
     /// 根据设置返回对应的 ColorScheme（用于 .preferredColorScheme 修饰符）
     var preferredColorScheme: ColorScheme? {

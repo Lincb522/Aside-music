@@ -70,15 +70,15 @@ struct MacContentView: View {
                 .zIndex(999)
             }
         }
-        .sheet(isPresented: $showNormalPlayer) {
+        .monologueSheet(isPresented: $showNormalPlayer, preset: .detail) {
             MacNowPlayingView()
                 .frame(minWidth: 560, minHeight: 700)
         }
-        .sheet(isPresented: $showPersonalFM) {
+        .monologueSheet(isPresented: $showPersonalFM, preset: .detail) {
             PersonalFMView()
                 .frame(minWidth: 480, minHeight: 640)
         }
-        .sheet(isPresented: $showRadioPlayer) {
+        .monologueSheet(isPresented: $showRadioPlayer, preset: .detail) {
             if let radioId = radioPlayerRadioId {
                 PodcastPlayerView(radioId: radioId)
                     .frame(minWidth: 480, minHeight: 640)

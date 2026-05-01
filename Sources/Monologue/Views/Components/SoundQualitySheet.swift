@@ -15,6 +15,7 @@ struct SoundQualitySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = SettingsManager.shared
     
     private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none }
     
@@ -46,12 +47,14 @@ struct SoundQualitySheet: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             VStack(spacing: 20) {
                 HStack {
                     Text(LocalizedStringKey("quality_title"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded)))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))
                     
                     if isQishui {
                         PlatformBadgeLabel(text: "QSM", source: .qishui)
@@ -61,7 +64,7 @@ struct SoundQualitySheet: View {
                     
                     Spacer()
                     Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                        MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .close, size: 14, color: SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
                             .padding(10)
                             .background { closeButtonBackground }
                     }
@@ -320,8 +323,8 @@ struct SoundQualitySheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(name)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(isLocked ? .monologueTextSecondary.opacity(0.5) : .monologueTextPrimary)
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(isLocked ? (SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.58) : .monologueTextSecondary.opacity(0.5)) : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))
                     
                     if let badge = badge {
                         Text(badge)
@@ -340,24 +343,24 @@ struct SoundQualitySheet: View {
 
                     if isLocked {
                         Text("风控限制")
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                            .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(9, weight: .medium) : .system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monologueSeparator.opacity(0.5))
+                            .background(SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monologueSeparator.opacity(0.5)))
                             .cornerRadius(4)
                     }
                 }
                 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(isLocked ? .monologueTextSecondary.opacity(0.4) : .monologueTextSecondary)
+                    .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundColor(isLocked ? (SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.52) : .monologueTextSecondary.opacity(0.4)) : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))
             }
             
             Spacer()
             
             if isSelected && !isLocked {
-                MonologueIcon(icon: .checkmark, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
+                MonologueIcon(icon: .checkmark, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : .monologueTextPrimary))
             }
         }
         .padding(.horizontal, 16)
@@ -365,13 +368,16 @@ struct SoundQualitySheet: View {
     }
 
     private var qualityPanelCornerRadius: CGFloat {
-        NeumorphicStyle.isActive ? 22 : 16
+        if SequoiaStyle.isActive { return 22 }
+        return NeumorphicStyle.isActive ? 22 : 16
     }
 
     @ViewBuilder
     private var qualityPanelBackground: some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: true, role: .chrome)
         } else {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -384,6 +390,9 @@ struct SoundQualitySheet: View {
     private var closeButtonBackground: some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
+                .clipShape(Circle())
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, role: .list)
                 .clipShape(Circle())
         } else {
             Circle()
@@ -402,6 +411,15 @@ struct SoundQualitySheet: View {
                 tint: isSelected ? NeumorphicStyle.accent.opacity(0.18) : NeumorphicStyle.surfacePressed.opacity(0.72)
             )
             .opacity(isLocked ? 0.5 : 1)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: 10,
+                elevated: isSelected,
+                pressed: !isSelected,
+                fill: isSelected ? SequoiaStyle.accent.opacity(0.13) : SequoiaStyle.materialList,
+                role: isSelected ? .selected : .list
+            )
+            .opacity(isLocked ? 0.5 : 1)
         } else {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isLocked ? Color.monologueIconBackground.opacity(0.04) : (isSelected ? Color.monologueIconBackground : Color.monologueIconBackground.opacity(0.08)))
@@ -413,6 +431,7 @@ struct SoundQualitySheet: View {
         if MangaStyle.isActive { return isSelected ? MangaStyle.ink : MangaStyle.inkSub }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.ink }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.accent : SequoiaStyle.inkSoft }
         return isSelected ? .monologueIconForeground : .monologueTextPrimary
     }
 
@@ -420,21 +439,25 @@ struct SoundQualitySheet: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(9.5, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(9, weight: .semibold) }
         return .system(size: 9, weight: .bold, design: .rounded)
     }
 
     private var qualityBadgeHorizontalPadding: CGFloat {
-        MangaStyle.isActive ? 6 : 5
+        if SequoiaStyle.isActive { return 6 }
+        return MangaStyle.isActive ? 6 : 5
     }
 
     private var qualityBadgeVerticalPadding: CGFloat {
-        MangaStyle.isActive ? 2.5 : 2
+        if SequoiaStyle.isActive { return 2.5 }
+        return MangaStyle.isActive ? 2.5 : 2
     }
 
     private var qualityBadgeCornerRadius: CGFloat {
         if MangaStyle.isActive { return 6 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 6 }
+        if SequoiaStyle.isActive { return 6 }
         return 4
     }
 
@@ -442,12 +465,13 @@ struct SoundQualitySheet: View {
         if isLocked { return .monologueTextSecondary.opacity(0.4) }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
     }
 
     @ViewBuilder
     private func qualityBadgeBackground(isLocked: Bool) -> some View {
-        let tint = MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
+        let tint = MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueIconBackground)))
         if isLocked {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .fill(Color.monologueIconBackground.opacity(0.3))
@@ -458,6 +482,14 @@ struct SoundQualitySheet: View {
                 pressed: true,
                 tint: tint.opacity(colorScheme == .dark ? 0.18 : 0.13)
             )
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: qualityBadgeCornerRadius,
+                elevated: false,
+                pressed: true,
+                fill: tint.opacity(0.12),
+                role: .selected
+            )
         } else {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .fill(tint.opacity(MangaStyle.isActive ? 0.26 : (MujiStyle.isActive ? 0.10 : 1)))
@@ -466,11 +498,11 @@ struct SoundQualitySheet: View {
 
     @ViewBuilder
     private func qualityBadgeStroke(isLocked: Bool) -> some View {
-        let tint = MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.clear))
+        let tint = MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.clear)))
         if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .stroke(tint, lineWidth: MangaStyle.fineStrokeWidth)
-        } else if MujiStyle.isActive || NeumorphicStyle.isActive {
+        } else if MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .stroke(tint.opacity(isLocked ? 0.12 : 0.28), lineWidth: 0.6)
         }

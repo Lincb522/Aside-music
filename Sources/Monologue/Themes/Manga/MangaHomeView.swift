@@ -3,6 +3,7 @@ import SwiftUI
 struct MangaHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
@@ -10,6 +11,8 @@ struct MangaHomeView: View {
     @State private var appeared = false
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
@@ -24,16 +27,15 @@ struct MangaHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
+                showHomeContentIfNeeded()
                 if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
                     viewModel.refreshHitokoto()
                 }
-                if !appeared {
-                    withAnimation(.spring(response: 0.52, dampingFraction: 0.76).delay(0.06)) {
-                        appeared = true
-                    }
-                }
+            }
+            .task {
+                showHomeContentIfNeeded()
             }
             .navigationDestination(for: HomeView.HomeDestination.self) { dest in
                 mangaDestination(for: dest)
@@ -44,6 +46,14 @@ struct MangaHomeView: View {
             .fullScreenCover(item: $bannerWebURL) { url in
                 MonologueWebView(url: url, title: nil)
             }
+        }
+        .themeRenderSceneLayer()
+    }
+
+    private func showHomeContentIfNeeded() {
+        guard !appeared else { return }
+        withAnimation(.spring(response: 0.48, dampingFraction: 0.78)) {
+            appeared = true
         }
     }
 

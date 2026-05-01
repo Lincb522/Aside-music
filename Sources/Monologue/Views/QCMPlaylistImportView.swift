@@ -5,6 +5,7 @@ import QQMusicKit
 struct QQPlaylistImportView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var manager = LocalPlaylistManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     
     @AppStorage("qqImportUin") private var savedUin = ""
     @State private var uin = ""
@@ -20,6 +21,8 @@ struct QQPlaylistImportView: View {
     private var qqClient: QQMusicClient { APIService.shared.qqClient }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ZStack {
                 ThemedPageBackground()

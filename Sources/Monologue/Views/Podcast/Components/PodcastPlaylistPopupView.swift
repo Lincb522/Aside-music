@@ -1,13 +1,42 @@
 import SwiftUI
 
+private enum PodcastQueuePalette {
+    static var accent: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccentBlue
+    }
+
+    static var primaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    static var secondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    static var mutedText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
+    static var separator: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.42) : .monologueSeparator
+    }
+
+    static var pressedSurface: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
+    }
+}
+
 /// 电台专属播放列表弹窗 — 独立于音乐播放列表
 struct PodcastPlaylistPopupView: View {
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var searchText = ""
     @State private var isSearchExpanded = false
     @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 0) {
             headerView
                 .padding(.top, 24)
@@ -18,7 +47,7 @@ struct PodcastPlaylistPopupView: View {
             }
 
             Rectangle()
-                .fill(Color.monologueSeparator)
+                .fill(PodcastQueuePalette.separator)
                 .frame(height: 0.5)
 
             if player.context.isEmpty {
@@ -74,12 +103,12 @@ struct PodcastPlaylistPopupView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(radioName)
                     .font(.rounded(size: 18, weight: .bold))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(PodcastQueuePalette.primaryText)
                     .lineLimit(1)
 
                 Text(String(format: String(localized: "podcast_playlist_count"), player.context.count))
                     .font(.rounded(size: 13, weight: .medium))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(PodcastQueuePalette.secondaryText)
             }
 
             Spacer()
@@ -91,27 +120,36 @@ struct PodcastPlaylistPopupView: View {
                     MonologueIcon(
                         icon: isSearchExpanded ? .close : .search,
                         size: 14,
-                        color: .monologueTextSecondary
+                        color: PodcastQueuePalette.secondaryText
                     )
                     .frame(width: 32, height: 32)
-                    .background(Color.monologueSeparator.opacity(0.8))
+                    .background {
+                        if NeumorphicStyle.isActive {
+                            NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+                        } else {
+                            PodcastQueuePalette.pressedSurface.opacity(0.8)
+                        }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
 
                 // 播放模式
                 HStack(spacing: 6) {
-                    MonologueIcon(icon: .repeatMode, size: 16, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .repeatMode, size: 16, color: PodcastQueuePalette.secondaryText)
                     Text(NSLocalizedString("mode_sequence", comment: ""))
                         .font(.rounded(size: 14, weight: .medium))
                 }
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(PodcastQueuePalette.secondaryText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Color.monologueSeparator)
-                )
+                .background {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
+                    } else {
+                        Capsule().fill(PodcastQueuePalette.pressedSurface)
+                    }
+                }
             }
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -119,7 +157,7 @@ struct PodcastPlaylistPopupView: View {
 
     private var searchFieldView: some View {
         HStack(spacing: 10) {
-            MonologueIcon(icon: .search, size: 14, color: .monologueTextSecondary)
+            MonologueIcon(icon: .search, size: 14, color: PodcastQueuePalette.secondaryText)
 
             TextField(
                 String(localized: "podcast_episode_search_placeholder"),
@@ -135,16 +173,22 @@ struct PodcastPlaylistPopupView: View {
                     searchText = ""
                 }
             } label: {
-                MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
+                MonologueIcon(icon: .close, size: 12, color: PodcastQueuePalette.secondaryText)
                     .frame(width: 22, height: 22)
-                    .background(Color.monologueSeparator)
+                    .background(PodcastQueuePalette.pressedSurface)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.monologueSeparator.opacity(0.85))
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+            } else {
+                PodcastQueuePalette.pressedSurface.opacity(0.85)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, 12)
@@ -167,10 +211,10 @@ struct PodcastPlaylistPopupView: View {
     private var emptyView: some View {
         VStack(spacing: 16) {
             Spacer().frame(height: 100)
-            MonologueIcon(icon: .radio, size: 48, color: .monologueTextSecondary.opacity(0.3))
+            MonologueIcon(icon: .radio, size: 48, color: PodcastQueuePalette.mutedText.opacity(0.36))
             Text(LocalizedStringKey("podcast_playlist_empty"))
                 .font(.rounded(size: 16, weight: .medium))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(PodcastQueuePalette.secondaryText)
             Spacer()
         }
     }
@@ -275,6 +319,7 @@ private struct PodcastQueueRow: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     private var isCurrent: Bool { role == .current }
     private var isPlayed: Bool { role == .played }
@@ -283,18 +328,20 @@ private struct PodcastQueueRow: View {
     private var leadingIndicator: some View {
         switch role {
         case .current:
-            PlayingVisualizerView(isAnimating: player.isPlaying, color: .monologueAccentBlue)
+            PlayingVisualizerView(isAnimating: player.isPlaying, color: PodcastQueuePalette.accent)
                 .frame(width: 18, height: 18)
         case .played:
-            MonologueIcon(icon: .history, size: 12, color: .monologueTextSecondary.opacity(0.58), lineWidth: 1.5)
+            MonologueIcon(icon: .history, size: 12, color: PodcastQueuePalette.mutedText.opacity(0.62), lineWidth: 1.5)
                 .frame(width: 18, height: 18)
         case .upcoming:
-            MonologueIcon(icon: .play, size: 12, color: .monologueTextSecondary.opacity(0.38), lineWidth: 1.5)
+            MonologueIcon(icon: .play, size: 12, color: PodcastQueuePalette.mutedText.opacity(0.42), lineWidth: 1.5)
                 .frame(width: 18, height: 18)
         }
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         HStack(spacing: 10) {
             Button(action: action) {
                 HStack(spacing: 12) {
@@ -312,20 +359,20 @@ private struct PodcastQueueRow: View {
                             .font(.rounded(size: 15, weight: isCurrent ? .bold : .medium))
                             .foregroundColor(
                                 isCurrent
-                                    ? .monologueAccentBlue
-                                    : .monologueTextPrimary.opacity(isPlayed ? 0.72 : 1)
+                                    ? PodcastQueuePalette.accent
+                                    : PodcastQueuePalette.primaryText.opacity(isPlayed ? 0.72 : 1)
                             )
                             .lineLimit(1)
 
                         if let radioName, !radioName.isEmpty {
                             Text(radioName)
                                 .font(.rounded(size: 12, weight: .medium))
-                                .foregroundColor(.monologueTextSecondary.opacity(isPlayed ? 0.7 : 1))
+                                .foregroundColor(PodcastQueuePalette.secondaryText.opacity(isPlayed ? 0.7 : 1))
                                 .lineLimit(1)
                         } else {
                             Text(song.artistName)
                                 .font(.rounded(size: 12, weight: .medium))
-                                .foregroundColor(.monologueTextSecondary.opacity(isPlayed ? 0.7 : 1))
+                                .foregroundColor(PodcastQueuePalette.secondaryText.opacity(isPlayed ? 0.7 : 1))
                                 .lineLimit(1)
                         }
                     }
@@ -338,7 +385,7 @@ private struct PodcastQueueRow: View {
 
             if let removeAction, !isCurrent {
                 Button(action: removeAction) {
-                    MonologueIcon(icon: .xmark, size: 11, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.6)
+                    MonologueIcon(icon: .xmark, size: 11, color: PodcastQueuePalette.mutedText.opacity(0.55), lineWidth: 1.6)
                         .padding(8)
                 }
                 .buttonStyle(.plain)
@@ -347,13 +394,23 @@ private struct PodcastQueueRow: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
         .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    isCurrent
-                        ? (colorScheme == .dark ? Color.monologueAccentBlue.opacity(0.14) : Color.monologueAccentBlue.opacity(0.08))
-                        : Color.monologueSeparator.opacity(colorScheme == .dark ? 0.14 : 0.22)
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 14,
+                    elevated: isCurrent,
+                    pressed: !isCurrent,
+                    tint: isCurrent ? PodcastQueuePalette.accent.opacity(0.18) : NeumorphicStyle.surface,
+                    lightweight: !isCurrent
                 )
-                .monologueGlassConditional(isActive: isCurrent, cornerRadius: 14)
+            } else {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        isCurrent
+                            ? (colorScheme == .dark ? PodcastQueuePalette.accent.opacity(0.14) : PodcastQueuePalette.accent.opacity(0.08))
+                            : Color.monologueSeparator.opacity(colorScheme == .dark ? 0.14 : 0.22)
+                    )
+                    .monologueGlassConditional(isActive: isCurrent, cornerRadius: 14)
+            }
         }
         .opacity(isPlayed ? 0.78 : 1)
     }

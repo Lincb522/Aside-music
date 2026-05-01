@@ -15,6 +15,74 @@ struct QQMVVidItem: Identifiable {
     var id: String { vid }
 }
 
+private enum MVTheme {
+    static var ink: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    static var inkSoft: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    static var inkMuted: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.55)
+    }
+
+    static var accent: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .monologueIconBackground
+    }
+
+    static var separator: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.separator }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.48) }
+        return .monologueSeparator
+    }
+
+    static var coverPlaceholder: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.72) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color.monologueTextSecondary.opacity(0.06)
+    }
+
+    static var selectedIconBackground: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color.monologueSeparator
+    }
+
+    static func titleFont(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight) }
+        return .rounded(size: size, weight: weight)
+    }
+
+    static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+        return .rounded(size: size, weight: weight)
+    }
+
+    static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+        return .rounded(size: size, weight: weight)
+    }
+
+    static func cardRadius(_ fallback: CGFloat = 20) -> CGFloat {
+        if SequoiaStyle.isActive { return 18 }
+        if NeumorphicStyle.isActive { return 18 }
+        return fallback
+    }
+}
+
 // MARK: - MV 网格卡片
 
 struct MVGridCard: View {
@@ -32,7 +100,7 @@ struct MVGridCard: View {
                     if !mv.durationText.isEmpty {
                         Text(mv.durationText)
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .primary)
+                            .foregroundColor(MVTheme.ink)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(.clear).monologueGlassCapsule()
@@ -42,23 +110,23 @@ struct MVGridCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mv.name ?? String(localized: "mv_unknown_name"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .rounded(size: 14, weight: .semibold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(MVTheme.bodyFont(14, weight: .semibold))
+                        .foregroundColor(MVTheme.ink)
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
                         Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(MVTheme.labelFont(12))
+                            .foregroundColor(MVTheme.inkSoft)
                             .lineLimit(1)
 
                         if !mv.playCountText.isEmpty {
                             Circle()
-                                .fill(Color.monologueTextSecondary.opacity(0.3))
+                                .fill(MVTheme.inkMuted.opacity(0.35))
                                 .frame(width: 3, height: 3)
                             Text(mv.playCountText + String(localized: "mv_play_suffix"))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                                .font(MVTheme.labelFont(11))
+                                .foregroundColor(MVTheme.inkMuted)
                         }
                     }
                 }
@@ -82,8 +150,8 @@ struct MVRowCard: View {
                 // 排名序号
                 if let rank {
                     Text("\(rank)")
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(rank <= 3 ? (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueAccentRed) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.35)))
+                        .font(MVTheme.labelFont(16, weight: .semibold))
+                        .foregroundColor(rank <= 3 ? (SequoiaStyle.isActive ? SequoiaStyle.red : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueAccentRed)) : MVTheme.inkMuted.opacity(0.68))
                         .frame(width: 24)
                 }
 
@@ -94,7 +162,7 @@ struct MVRowCard: View {
                     if !mv.durationText.isEmpty {
                         Text(mv.durationText)
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.primary)
+                            .foregroundColor(MVTheme.ink)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(.clear).monologueGlassCapsule()
@@ -104,21 +172,21 @@ struct MVRowCard: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(mv.name ?? String(localized: "mv_unknown_name"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(MVTheme.bodyFont(15, weight: .semibold))
+                        .foregroundColor(MVTheme.ink)
                         .lineLimit(2)
 
                     Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .font(MVTheme.labelFont(13))
+                        .foregroundColor(MVTheme.inkSoft)
                         .lineLimit(1)
 
                     if !mv.playCountText.isEmpty {
                         HStack(spacing: 3) {
-                            MonologueIcon(icon: .play, size: 9, color: .monologueTextSecondary.opacity(0.5))
+                            MonologueIcon(icon: .play, size: 9, color: MVTheme.inkMuted.opacity(0.72))
                             Text(mv.playCountText)
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
+                                .font(MVTheme.labelFont(11))
+                                .foregroundColor(MVTheme.inkMuted.opacity(0.9))
                         }
                     }
                 }
@@ -126,7 +194,7 @@ struct MVRowCard: View {
                 Spacer(minLength: 0)
             }
             .padding(10)
-            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 18 : 20, elevated: false)
+            .themedPageSurface(cornerRadius: MVTheme.cardRadius(), elevated: false)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
     }
@@ -140,26 +208,26 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
     if let urlStr = url, let imageUrl = URL(string: urlStr) {
         CachedAsyncImage(url: imageUrl) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextSecondary.opacity(0.06))
+                .fill(MVTheme.coverPlaceholder)
         }
         .aspectRatio(16/9, contentMode: .fill)
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay {
-            if NeumorphicStyle.isActive {
+            if NeumorphicStyle.isActive || SequoiaStyle.isActive {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(NeumorphicStyle.separator.opacity(0.48), lineWidth: 0.7)
+                    .stroke(MVTheme.separator, lineWidth: 0.7)
             }
         }
     } else {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextSecondary.opacity(0.06))
+            .fill(MVTheme.coverPlaceholder)
             .frame(width: width, height: height)
             .aspectRatio(16/9, contentMode: .fit)
             .overlay {
-                if NeumorphicStyle.isActive {
+                if NeumorphicStyle.isActive || SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(NeumorphicStyle.separator.opacity(0.48), lineWidth: 0.7)
+                        .stroke(MVTheme.separator, lineWidth: 0.7)
                 }
             }
     }
@@ -170,11 +238,14 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
 
 struct MVDiscoverView: View {
     @State private var viewModel = MVDiscoverViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedMV: MVIdItem?
     @State private var selectedMlog: MlogItem?
     @State private var showSublist = false
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             MonologueSheetAwareBackground {
                 ThemedPageBackground().ignoresSafeArea()
@@ -273,7 +344,7 @@ struct MVDiscoverView: View {
             ZStack(alignment: .bottomLeading) {
                 if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
                     CachedAsyncImage(url: url) {
-                        Rectangle().fill(Color.monologueTextSecondary.opacity(0.06))
+                        Rectangle().fill(MVTheme.coverPlaceholder)
                     }
                     .aspectRatio(16/9, contentMode: .fill)
                     .frame(maxWidth: .infinity)
@@ -281,7 +352,7 @@ struct MVDiscoverView: View {
                     .clipped()
                 } else {
                     Rectangle()
-                        .fill(Color.monologueTextSecondary.opacity(0.06))
+                        .fill(MVTheme.coverPlaceholder)
                         .frame(height: 220)
                 }
 
@@ -328,11 +399,11 @@ struct MVDiscoverView: View {
                 .padding(20)
             }
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: .black.opacity(NeumorphicStyle.isActive ? 0.04 : 0.1), radius: 16, x: 0, y: 8)
+            .shadow(color: .black.opacity((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 0.04 : 0.1), radius: SequoiaStyle.isActive ? 12 : 16, x: 0, y: 8)
             .overlay {
-                if NeumorphicStyle.isActive {
+                if NeumorphicStyle.isActive || SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(NeumorphicStyle.separator.opacity(0.48), lineWidth: 0.6)
+                        .stroke(MVTheme.separator, lineWidth: 0.6)
                 }
             }
         }
@@ -358,31 +429,31 @@ struct MVDiscoverView: View {
 
     private func actionCard(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
         HStack(spacing: 12) {
-            MonologueIcon(icon: icon, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground)
+            MonologueIcon(icon: icon, size: 20, color: MVTheme.accent)
                 .frame(width: 40, height: 40)
-                .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                .background(MVTheme.selectedIconBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .rounded(size: 14, weight: .semibold))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(MVTheme.bodyFont(14, weight: .semibold))
+                    .foregroundColor(MVTheme.ink)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                 Text(subtitle)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    .font(MVTheme.labelFont(11))
+                    .foregroundColor(MVTheme.inkSoft)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 0)
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.5))
+            MonologueIcon(icon: .chevronRight, size: 12, color: MVTheme.accent.opacity(0.78))
         }
         .padding(12)
         .frame(height: 64)
         .frame(maxWidth: .infinity)
-        .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 18 : 20, elevated: false)
+        .themedPageSurface(cornerRadius: MVTheme.cardRadius(), elevated: false)
     }
 
     // MARK: - 横向滚动区块
@@ -402,7 +473,7 @@ struct MVDiscoverView: View {
                                     if !mv.durationText.isEmpty {
                                         Text(mv.durationText)
                                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(MVTheme.ink)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
                                             .background(.clear).monologueGlassCapsule()
@@ -412,12 +483,12 @@ struct MVDiscoverView: View {
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(mv.name ?? String(localized: "mv_unknown_name"))
-                                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .rounded(size: 14, weight: .semibold))
-                                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                                        .font(MVTheme.bodyFont(14, weight: .semibold))
+                                        .foregroundColor(MVTheme.ink)
                                         .lineLimit(1)
                                     Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
-                                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
-                                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                        .font(MVTheme.labelFont(12))
+                                        .foregroundColor(MVTheme.inkSoft)
                                         .lineLimit(1)
                                 }
                                 .padding(.horizontal, 2)
@@ -479,11 +550,11 @@ struct MVDiscoverView: View {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(LocalizedStringKey("mlog_title"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .rounded(size: 22, weight: .bold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(MVTheme.titleFont(22, weight: .semibold))
+                        .foregroundColor(MVTheme.ink)
                     Text(LocalizedStringKey("mlog_subtitle"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 14))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .font(MVTheme.labelFont(14))
+                        .foregroundColor(MVTheme.inkSoft)
                 }
                 Spacer()
             }
@@ -498,14 +569,14 @@ struct MVDiscoverView: View {
                                     if let url = mlog.coverURL {
                                         CachedAsyncImage(url: url) {
                                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                                .fill(Color.monologueTextSecondary.opacity(0.06))
+                                                .fill(MVTheme.coverPlaceholder)
                                         }
                                         .aspectRatio(9/16, contentMode: .fill)
                                         .frame(width: 140, height: 200)
                                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                     } else {
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .fill(Color.monologueTextSecondary.opacity(0.06))
+                                            .fill(MVTheme.coverPlaceholder)
                                             .frame(width: 140, height: 200)
                                     }
 
@@ -513,7 +584,7 @@ struct MVDiscoverView: View {
                                     if !mlog.durationText.isEmpty {
                                         Text(mlog.durationText)
                                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(MVTheme.ink)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
                                             .background(.clear).monologueGlassCapsule()
@@ -528,17 +599,17 @@ struct MVDiscoverView: View {
                                 .frame(width: 140, height: 200)
 
                                 Text(mlog.text)
-                                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(13, weight: .semibold) : .rounded(size: 13, weight: .medium))
-                                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                                    .font(MVTheme.bodyFont(13, weight: .semibold))
+                                    .foregroundColor(MVTheme.ink)
                                     .lineLimit(2)
                                     .frame(width: 140, alignment: .leading)
 
                                 if let song = mlog.song {
                                     HStack(spacing: 4) {
-                                        MonologueIcon(icon: .musicNote, size: 10, color: .monologueTextSecondary)
+                                        MonologueIcon(icon: .musicNote, size: 10, color: MVTheme.inkMuted)
                                         Text(song.name)
-                                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
-                                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                            .font(MVTheme.labelFont(11))
+                                            .foregroundColor(MVTheme.inkSoft)
                                             .lineLimit(1)
                                     }
                                     .frame(width: 140, alignment: .leading)
@@ -561,11 +632,11 @@ struct MVDiscoverView: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .rounded(size: 22, weight: .bold))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(MVTheme.titleFont(22, weight: .semibold))
+                    .foregroundColor(MVTheme.ink)
                 Text(subtitle)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 14))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    .font(MVTheme.labelFont(14))
+                    .foregroundColor(MVTheme.inkSoft)
             }
 
             Spacer()
@@ -573,9 +644,9 @@ struct MVDiscoverView: View {
             NavigationLink(value: MVListDestination(title: title, listType: listType)) {
                 HStack(spacing: 4) {
                     Text("mv_more_section")
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .semibold) : .rounded(size: 14, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
-                    MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
+                        .font(MVTheme.labelFont(14, weight: .semibold))
+                        .foregroundColor(MVTheme.accent)
+                    MonologueIcon(icon: .chevronRight, size: 12, color: MVTheme.accent)
                 }
             }
         }
@@ -643,8 +714,8 @@ struct MVFullListView: View {
                         HStack(spacing: 8) {
                             ProgressView().scaleEffect(0.8)
                             Text("mv_loading_more")
-                                .font(.rounded(size: 13))
-                                .foregroundColor(.monologueTextSecondary)
+                                .font(MVTheme.labelFont(13))
+                                .foregroundColor(MVTheme.inkSoft)
                         }
                         .padding(.vertical, 14)
                     }
@@ -692,13 +763,13 @@ struct MVSublistSheet: View {
             // 头部
             HStack {
                 Text("mv_my_collection")
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(MVTheme.titleFont(20, weight: .semibold))
+                    .foregroundColor(MVTheme.ink)
                 Spacer()
                 if !viewModel.items.isEmpty {
                     Text(String(format: String(localized: "mv_mv_count"), viewModel.items.count))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .font(MVTheme.labelFont(13))
+                        .foregroundColor(MVTheme.inkSoft)
                 }
             }
             .padding(.horizontal, 24)
@@ -706,7 +777,7 @@ struct MVSublistSheet: View {
             .padding(.bottom, 14)
 
             Rectangle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator : Color.monologueSeparator)
+                .fill(MVTheme.separator)
                 .frame(height: 0.5)
 
             if viewModel.isLoading && viewModel.items.isEmpty {
@@ -716,10 +787,10 @@ struct MVSublistSheet: View {
             } else if viewModel.items.isEmpty {
                 Spacer()
                 VStack(spacing: 14) {
-                    MonologueIcon(icon: .like, size: 40, color: .monologueTextSecondary.opacity(0.25))
+                    MonologueIcon(icon: .like, size: 40, color: MVTheme.inkMuted.opacity(0.34))
                     Text("mv_no_collection")
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .rounded(size: 15))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .font(MVTheme.bodyFont(15))
+                        .foregroundColor(MVTheme.inkSoft)
                 }
                 Spacer()
             } else {
@@ -738,8 +809,8 @@ struct MVSublistSheet: View {
                             HStack(spacing: 8) {
                                 ProgressView().scaleEffect(0.8)
                                 Text("mv_loading_more")
-                                    .font(.rounded(size: 13))
-                                    .foregroundColor(.monologueTextSecondary)
+                                    .font(MVTheme.labelFont(13))
+                                    .foregroundColor(MVTheme.inkSoft)
                             }
                             .padding(.vertical, 14)
                         }
@@ -758,9 +829,9 @@ struct MVSublistSheet: View {
         }
         .background {
             Rectangle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
+                .fill(SequoiaStyle.isActive ? SequoiaStyle.materialFloating : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint))
                 .monologueGlass(cornerRadius: 20)
-                .overlay(NeumorphicStyle.isActive ? NeumorphicStyle.surface.opacity(0.38) : Color.monologueGlassTint.opacity(0.55))
+                .overlay(SequoiaStyle.isActive ? SequoiaStyle.materialChrome.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.surface.opacity(0.38) : Color.monologueGlassTint.opacity(0.55)))
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
@@ -785,7 +856,7 @@ struct MVSublistSheet: View {
                     if !item.durationText.isEmpty {
                         Text(item.durationText)
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.primary)
+                            .foregroundColor(MVTheme.ink)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(.clear).monologueGlassCapsule()
@@ -795,23 +866,23 @@ struct MVSublistSheet: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(item.title ?? String(localized: "mv_unknown_name"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(MVTheme.bodyFont(15, weight: .semibold))
+                        .foregroundColor(MVTheme.ink)
                         .lineLimit(1)
 
                     if let artist = item.artistName {
                         Text(artist)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(MVTheme.labelFont(13))
+                            .foregroundColor(MVTheme.inkSoft)
                             .lineLimit(1)
                     }
 
                     if !item.playCountText.isEmpty {
                         HStack(spacing: 3) {
-                            MonologueIcon(icon: .play, size: 9, color: .monologueTextSecondary.opacity(0.5))
+                            MonologueIcon(icon: .play, size: 9, color: MVTheme.inkMuted.opacity(0.72))
                             Text(item.playCountText)
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.5))
+                                .font(MVTheme.labelFont(11))
+                                .foregroundColor(MVTheme.inkMuted.opacity(0.9))
                                 .lineLimit(1)
                         }
                     }
@@ -821,7 +892,7 @@ struct MVSublistSheet: View {
             }
             .frame(height: 88)
             .padding(10)
-            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 18 : 20, elevated: false)
+            .themedPageSurface(cornerRadius: MVTheme.cardRadius(), elevated: false)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
     }

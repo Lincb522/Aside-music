@@ -6,6 +6,7 @@ import QQMusicKit
 
 struct QQAccountView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var isLoggedIn = false
     @State private var musicId: Int?
@@ -25,6 +26,7 @@ struct QQAccountView: View {
     private var themeAccent: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return MusicSource.qqmusic.themedBadgeColor
     }
@@ -32,11 +34,26 @@ struct QQAccountView: View {
     private var themeAccentText: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.paper }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
         return .white
     }
 
+    private var themeText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var themeSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -75,7 +92,7 @@ struct QQAccountView: View {
                 appearAnimation = true
             }
         }
-        .sheet(isPresented: $showQQLogin) {
+        .monologueSheet(isPresented: $showQQLogin, preset: .large) {
             NavigationStack {
                 QQLoginView()
 
@@ -101,7 +118,7 @@ struct QQAccountView: View {
             }
             Text(LocalizedStringKey("qq_checking_status"))
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(themeSecondaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 80)
@@ -154,7 +171,7 @@ struct QQAccountView: View {
                 HStack(spacing: 8) {
                     Text(nickname ?? NSLocalizedString("qq_user_default", comment: ""))
                         .font(accountTitleFont)
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(themeText)
                         .lineLimit(1)
 
                     // VIP 徽章
@@ -189,7 +206,7 @@ struct QQAccountView: View {
                         .fill(themeAccent)
                         .frame(width: 7, height: 7)
                     Text(LocalizedStringKey("qq_connected"))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(accountLabelFont(13, weight: .semibold))
                         .foregroundColor(themeAccent)
                 }
                 .padding(.horizontal, 12)
@@ -206,7 +223,7 @@ struct QQAccountView: View {
     private var avatarPlaceholder: some View {
         ZStack {
             Circle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                .fill(SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
                 .frame(width: 92, height: 92)
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
 
@@ -225,8 +242,8 @@ struct QQAccountView: View {
                 title: NSLocalizedString("qq_vip_status", comment: ""),
                 trailing: AnyView(
                     Text(isSVIP ? NSLocalizedString("qq_svip", comment: "") : isVIP ? NSLocalizedString("qq_vip", comment: "") : NSLocalizedString("qq_normal_user", comment: ""))
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(isSVIP || isVIP ? .monologueOrange : .monologueTextSecondary)
+                        .font(accountLabelFont(14))
+                        .foregroundColor(isSVIP || isVIP ? .monologueOrange : themeSecondaryText)
                 )
             )
         }
@@ -237,14 +254,14 @@ struct QQAccountView: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.monologueIconBackground.opacity(0.08))
+                    .fill(themeAccent.opacity(0.1))
                     .frame(width: 32, height: 32)
-                MonologueIcon(icon: icon, size: 15, color: .monologueTextSecondary)
+                MonologueIcon(icon: icon, size: 15, color: themeSecondaryText)
             }
 
             Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .font(accountBodyFont(15))
+                .foregroundColor(themeText)
 
             Spacer()
 
@@ -266,11 +283,11 @@ struct QQAccountView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(LocalizedStringKey("qq_expiry_title"))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(accountLabelFont(13, weight: .semibold))
+                    .foregroundColor(themeText)
                 Text(LocalizedStringKey("qq_expiry_desc"))
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(accountLabelFont(11, weight: .regular))
+                    .foregroundColor(themeSecondaryText)
             }
 
             Spacer()
@@ -321,8 +338,8 @@ struct QQAccountView: View {
                 )
             }) {
                 Text(LocalizedStringKey("qq_logout"))
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                    .font(accountLabelFont(14))
+                    .foregroundColor(themeSecondaryText.opacity(0.62))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .monologueGlass(cornerRadius: 14)
@@ -352,9 +369,9 @@ struct QQAccountView: View {
 
                 ZStack {
                     Circle()
-                        .fill(Color.monologueSeparator)
+                        .fill(SequoiaStyle.isActive ? SequoiaStyle.materialPressed : Color.monologueSeparator)
                         .frame(width: 64, height: 64)
-                    MonologueIcon(icon: .musicNote, size: 28, color: .monologueTextSecondary.opacity(0.4))
+                    MonologueIcon(icon: .musicNote, size: 28, color: themeSecondaryText.opacity(0.5))
                 }
             }
             .opacity(appearAnimation ? 1 : 0)
@@ -364,12 +381,12 @@ struct QQAccountView: View {
 
             VStack(spacing: 10) {
                 Text(LocalizedStringKey("qq_not_logged_in"))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(accountTitleFont)
+                    .foregroundColor(themeText)
 
                 Text(LocalizedStringKey("qq_not_logged_desc"))
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(accountBodyFont(14))
+                    .foregroundColor(themeSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
             }
@@ -417,6 +434,7 @@ struct QQAccountView: View {
     private var accountTitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.titleFont(23, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(22, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(22, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(22, weight: .semibold) }
         return .system(size: 22, weight: .bold, design: .rounded)
     }
@@ -424,26 +442,39 @@ struct QQAccountView: View {
     private var accountHeroFill: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleBlue }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         return Color.monologueGlassTint
+    }
+
+    private func accountBodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+        return .system(size: size, weight: weight, design: .rounded)
+    }
+
+    private func accountLabelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+        return .system(size: size, weight: weight, design: .rounded)
     }
 
     private func featureRow(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.monologueIconBackground.opacity(0.08))
+                    .fill(themeAccent.opacity(0.1))
                     .frame(width: 32, height: 32)
-                MonologueIcon(icon: icon, size: 15, color: .monologueTextSecondary)
+                MonologueIcon(icon: icon, size: 15, color: themeSecondaryText)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(accountBodyFont(15))
+                    .foregroundColor(themeText)
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(accountLabelFont(12, weight: .regular))
+                    .foregroundColor(themeSecondaryText)
             }
 
             Spacer()

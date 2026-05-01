@@ -30,6 +30,26 @@ struct SubscribeButton: View {
                 )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+        } else if SignalStyle.isActive {
+            Button(action: action) {
+                SignalPill(
+                    text: isSubscribed ? label.subscribed : label.unsubscribed,
+                    tint: isSubscribed ? SignalStyle.rust : SignalStyle.accent,
+                    icon: isSubscribed ? .liked : .like,
+                    selected: true
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+        } else if SequoiaStyle.isActive {
+            Button(action: action) {
+                SequoiaPill(
+                    text: isSubscribed ? label.subscribed : label.unsubscribed,
+                    icon: isSubscribed ? .liked : .like,
+                    tint: isSubscribed ? SequoiaStyle.red : SequoiaStyle.accent,
+                    selected: true
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
         } else {
             Button(action: action) {
                 HStack(spacing: 6) {

@@ -6,6 +6,7 @@ struct QishuiQualityPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = SettingsManager.shared
 
     private static let qualities: [(key: String, name: String, subtitle: String)] = [
         ("lossless", "无损", "FLAC · ~820kbps"),
@@ -21,18 +22,20 @@ struct QishuiQualityPickerSheet: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 20) {
             HStack {
                 Text("QSM 音质")
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))
 
                 PlatformBadgeLabel(text: "QSM", source: .qishui)
 
                 Spacer()
 
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .close, size: 14, color: SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
                         .padding(10)
                         .background { closeButtonBackground }
                 }
@@ -58,18 +61,18 @@ struct QishuiQualityPickerSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.name)
-                                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                                        .foregroundColor(.monologueTextPrimary)
+                                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 16, weight: .medium, design: .rounded))
+                                        .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)
 
                                     Text(item.subtitle)
-                                        .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundColor(.monologueTextSecondary)
+                                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
                                 }
 
                                 Spacer()
 
                                 if currentQuality == item.key {
-                                    MonologueIcon(icon: .checkmark, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
+                                    MonologueIcon(icon: .checkmark, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : .monologueTextPrimary))
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -96,21 +99,26 @@ struct QishuiQualityPickerSheet: View {
     }
 
     private var qualityPanelCornerRadius: CGFloat {
-        NeumorphicStyle.isActive ? 22 : 16
+        if SequoiaStyle.isActive { return 22 }
+        return NeumorphicStyle.isActive ? 22 : 16
     }
 
     private var selectedIconColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
     }
 
     private var defaultIconColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
     @ViewBuilder
     private var qualityPanelBackground: some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: true, role: .chrome)
         } else {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -123,6 +131,9 @@ struct QishuiQualityPickerSheet: View {
     private var closeButtonBackground: some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
+                .clipShape(Circle())
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, role: .list)
                 .clipShape(Circle())
         } else {
             Circle()
@@ -139,6 +150,14 @@ struct QishuiQualityPickerSheet: View {
                 elevated: false,
                 pressed: isSelected,
                 tint: isSelected ? NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.2 : 0.16) : NeumorphicStyle.surfacePressed.opacity(0.72)
+            )
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: 10,
+                elevated: isSelected,
+                pressed: !isSelected,
+                fill: isSelected ? SequoiaStyle.accent.opacity(0.13) : SequoiaStyle.materialList,
+                role: isSelected ? .selected : .list
             )
         } else {
             RoundedRectangle(cornerRadius: 8, style: .continuous)

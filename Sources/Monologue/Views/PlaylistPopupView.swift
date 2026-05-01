@@ -1,8 +1,46 @@
 import SwiftUI
 
+private enum QueuePopupPalette {
+    static var accent: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
+    }
+
+    static var accentForeground: Color {
+        if NeumorphicStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: NeumorphicStyle.accent,
+                light: Color(hex: "172026"),
+                dark: .white
+            )
+        }
+        return .monologueIconForeground
+    }
+
+    static var primaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    static var secondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    static var mutedText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
+    static var separator: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.separator : .monologueSeparator
+    }
+
+    static var pressedSurface: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
+    }
+}
+
 struct PlaylistPopupView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedTab = 0 // 0: 总览, 1: 历史
     @Namespace private var namespace
 
@@ -59,6 +97,8 @@ struct PlaylistPopupView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 0) {
             headerView
                 .padding(.top, 24)
@@ -90,11 +130,11 @@ struct PlaylistPopupView: View {
 
             Button(action: { player.switchMode() }) {
                 HStack(spacing: 6) {
-                    MonologueIcon(icon: player.mode.monologueIcon, size: 16, color: .monologueTextPrimary)
+                    MonologueIcon(icon: player.mode.monologueIcon, size: 16, color: QueuePopupPalette.primaryText)
                     Text(modeName(player.mode))
                         .font(.rounded(size: 14, weight: .medium))
                 }
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(QueuePopupPalette.primaryText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
@@ -111,11 +151,11 @@ struct PlaylistPopupView: View {
             VStack(spacing: 6) {
                 Text(LocalizedStringKey(title))
                     .font(.rounded(size: 18, weight: selectedTab == tabIndex ? .bold : .medium))
-                    .foregroundColor(selectedTab == tabIndex ? .monologueTextPrimary : .monologueTextSecondary)
+                    .foregroundColor(selectedTab == tabIndex ? QueuePopupPalette.primaryText : QueuePopupPalette.secondaryText)
 
                 if selectedTab == tabIndex {
                     Capsule()
-                        .fill(Color.monologueIconBackground)
+                        .fill(NeumorphicStyle.isActive ? QueuePopupPalette.accent : Color.monologueIconBackground)
                         .frame(width: 20, height: 4)
                         .matchedGeometryEffect(id: "tabIndicator", in: namespace)
                 } else {
@@ -131,11 +171,11 @@ struct PlaylistPopupView: View {
                 ScrollViewReader { proxy in
                     VStack(spacing: 0) {
                         HStack(spacing: 8) {
-                            MonologueIcon(icon: .musicNoteList, size: 14, color: .monologueTextSecondary, lineWidth: 1.5)
+                            MonologueIcon(icon: .musicNoteList, size: 14, color: QueuePopupPalette.secondaryText, lineWidth: 1.5)
 
                             Text(String(localized: "queue_tab_now_playing") + " · \(linearQueueItems.count)")
                                 .font(.rounded(size: 13, weight: .semibold))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(QueuePopupPalette.secondaryText)
 
                             Spacer()
 
@@ -147,7 +187,7 @@ struct PlaylistPopupView: View {
                                 }) {
                                     Text(NSLocalizedString("queue_clear", comment: ""))
                                         .font(.rounded(size: 12, weight: .medium))
-                                        .foregroundColor(.monologueTextSecondary)
+                                        .foregroundColor(QueuePopupPalette.secondaryText)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -302,25 +342,28 @@ private struct QueueSectionHeader: View {
     var count: Int? = nil
     var actionTitle: String? = nil
     var action: (() -> Void)? = nil
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         HStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 14, color: .monologueTextSecondary, lineWidth: 1.5)
+            MonologueIcon(icon: icon, size: 14, color: QueuePopupPalette.secondaryText, lineWidth: 1.5)
 
             Text(title)
                 .font(.rounded(size: 11, weight: .bold))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(QueuePopupPalette.secondaryText)
                 .tracking(1.4)
 
             if let count {
                 Text("\(count)")
                     .font(.rounded(size: 11, weight: .semibold))
-                    .foregroundColor(.monologueTextSecondary.opacity(0.8))
+                    .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.8))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(
                         Capsule()
-                            .fill(Color.monologueSeparator.opacity(0.45))
+                            .fill(QueuePopupPalette.pressedSurface.opacity(NeumorphicStyle.isActive ? 0.9 : 0.45))
                     )
             }
 
@@ -330,7 +373,7 @@ private struct QueueSectionHeader: View {
                 Button(action: action) {
                     Text(actionTitle)
                         .font(.rounded(size: 12, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QueuePopupPalette.secondaryText)
                 }
                 .buttonStyle(.plain)
             }
@@ -381,6 +424,7 @@ private struct QueueShelfCard: View {
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = SettingsManager.shared
 
     private var cardBackground: Color {
         if NeumorphicStyle.isActive {
@@ -390,6 +434,8 @@ private struct QueueShelfCard: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         Button(action: action) {
             HStack(spacing: 8) {
                 CachedAsyncImage(url: song.coverUrl) {
@@ -403,24 +449,24 @@ private struct QueueShelfCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
                         .font(.rounded(size: 13, weight: .semibold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(QueuePopupPalette.primaryText)
                         .lineLimit(1)
 
                     Text(song.artistName)
                         .font(.rounded(size: 11, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QueuePopupPalette.secondaryText)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Circle()
-                    .fill(Color.black.opacity(colorScheme == .dark ? 0.22 : 0.10))
+                    .fill(NeumorphicStyle.isActive ? QueuePopupPalette.accent.opacity(0.18) : Color.black.opacity(colorScheme == .dark ? 0.22 : 0.10))
                     .frame(width: 22, height: 22)
                     .overlay {
                         MonologueIcon(
                             icon: icon,
                             size: 9,
-                            color: colorScheme == .dark ? .white : .monologueTextPrimary,
+                            color: NeumorphicStyle.isActive ? QueuePopupPalette.accent : (colorScheme == .dark ? .white : .monologueTextPrimary),
                             lineWidth: 1.4
                         )
                     }
@@ -451,6 +497,7 @@ private struct QueueLinearRow: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     private var isCurrent: Bool {
         role == .current
@@ -464,18 +511,20 @@ private struct QueueLinearRow: View {
     private var leadingIndicator: some View {
         switch role {
         case .current:
-            PlayingVisualizerView(isAnimating: player.isPlaying, color: .monologueTextPrimary)
+            PlayingVisualizerView(isAnimating: player.isPlaying, color: NeumorphicStyle.isActive ? QueuePopupPalette.accent : QueuePopupPalette.primaryText)
                 .frame(width: 18, height: 18)
         case .played:
-            MonologueIcon(icon: .history, size: 12, color: .monologueTextSecondary.opacity(0.58), lineWidth: 1.5)
+            MonologueIcon(icon: .history, size: 12, color: QueuePopupPalette.mutedText.opacity(0.62), lineWidth: 1.5)
                 .frame(width: 18, height: 18)
         case .upcoming:
-            MonologueIcon(icon: .play, size: 12, color: .monologueTextSecondary.opacity(0.38), lineWidth: 1.5)
+            MonologueIcon(icon: .play, size: 12, color: QueuePopupPalette.mutedText.opacity(0.42), lineWidth: 1.5)
                 .frame(width: 18, height: 18)
         }
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         HStack(spacing: 10) {
             Button(action: action) {
                 HStack(spacing: 12) {
@@ -491,12 +540,12 @@ private struct QueueLinearRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
                             .font(.rounded(size: 15, weight: isCurrent ? .bold : .medium))
-                            .foregroundColor(isCurrent ? .monologueTextPrimary : .monologueTextPrimary.opacity(isPlayed ? 0.72 : 1))
+                            .foregroundColor(isCurrent ? QueuePopupPalette.primaryText : QueuePopupPalette.primaryText.opacity(isPlayed ? 0.72 : 1))
                             .lineLimit(1)
 
                         Text(song.artistName)
                             .font(.rounded(size: 12, weight: .medium))
-                            .foregroundColor(.monologueTextSecondary.opacity(isPlayed ? 0.7 : 1))
+                            .foregroundColor(QueuePopupPalette.secondaryText.opacity(isPlayed ? 0.7 : 1))
                             .lineLimit(1)
                     }
 
@@ -508,7 +557,7 @@ private struct QueueLinearRow: View {
 
             if let removeAction, !isCurrent {
                 Button(action: removeAction) {
-                    MonologueIcon(icon: .xmark, size: 11, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.6)
+                    MonologueIcon(icon: .xmark, size: 11, color: QueuePopupPalette.mutedText.opacity(0.55), lineWidth: 1.6)
                         .padding(8)
                 }
                 .buttonStyle(.plain)
@@ -544,8 +593,11 @@ struct QueueRow: View {
     let isCurrent: Bool
     let action: () -> Void
     var removeAction: (() -> Void)? = nil
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         Button(action: action) {
             HStack(spacing: 12) {
                 CachedAsyncImage(url: song.coverUrl) {
@@ -558,11 +610,11 @@ struct QueueRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
                         .font(.rounded(size: 15, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(QueuePopupPalette.primaryText)
                         .lineLimit(1)
                     Text(song.artistName)
                         .font(.rounded(size: 12, weight: .regular))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QueuePopupPalette.secondaryText)
                         .lineLimit(1)
                 }
 
@@ -570,7 +622,7 @@ struct QueueRow: View {
 
                 if let removeAction = removeAction {
                     Button(action: removeAction) {
-                        MonologueIcon(icon: .xmark, size: 12, color: .monologueTextSecondary.opacity(0.5))
+                        MonologueIcon(icon: .xmark, size: 12, color: QueuePopupPalette.mutedText.opacity(0.55))
                             .padding(8)
                     }
                 }
@@ -587,8 +639,11 @@ struct QueueRow: View {
 struct HistoryRow: View {
     let song: Song
     let action: () -> Void
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         Button(action: action) {
             HStack(spacing: 12) {
                 CachedAsyncImage(url: song.coverUrl) {
@@ -601,15 +656,15 @@ struct HistoryRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
                         .font(.rounded(size: 15, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(QueuePopupPalette.primaryText)
                         .lineLimit(1)
                     Text(song.artistName)
                         .font(.rounded(size: 12, weight: .regular))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QueuePopupPalette.secondaryText)
                         .lineLimit(1)
                 }
                 Spacer()
-                MonologueIcon(icon: .play, size: 24, color: .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .play, size: 24, color: NeumorphicStyle.isActive ? QueuePopupPalette.accent.opacity(0.72) : QueuePopupPalette.secondaryText.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 8)
@@ -623,15 +678,18 @@ struct HistoryRow: View {
 struct EmptyStateView: View {
     let text: String
     let icon: MonologueIcon.IconType
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 16) {
             Spacer()
                 .frame(height: 100)
-            MonologueIcon(icon: icon, size: 48, color: .monologueTextSecondary.opacity(0.3))
+            MonologueIcon(icon: icon, size: 48, color: QueuePopupPalette.mutedText.opacity(0.36))
             Text(LocalizedStringKey(text))
                 .font(.rounded(size: 16, weight: .medium))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(QueuePopupPalette.secondaryText)
             Spacer()
         }
     }

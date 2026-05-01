@@ -54,6 +54,7 @@ private final class MonologueSheetPassthroughWindow: UIWindow {
 
 private struct MonologueSheetWindowContent: View {
     @ObservedObject private var sheetManager = MonologueSheetManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
         ZStack {
@@ -65,8 +66,19 @@ private struct MonologueSheetWindowContent: View {
                 .zIndex(Double(index))
             }
         }
+        .environment(\.themeRenderContext, sheetRenderContext)
+        .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
+    }
+
+    private var sheetRenderContext: ThemeRenderContext {
+        ThemeRenderContext(
+            theme: settings.globalThemeId,
+            revision: settings.globalThemeRevision,
+            colorScheme: settings.activeColorScheme,
+            isHosted: true
+        )
     }
 }
 
@@ -75,6 +87,7 @@ private struct MonologuePresentedSheetView: View {
     let isTopmost: Bool
 
     @StateObject private var dragCoordinator = MonologueSheetDragCoordinator()
+    @Environment(\.themeCustomizationRevision) private var themeRevision
 
     var body: some View {
         GeometryReader { proxy in
@@ -94,6 +107,7 @@ private struct MonologuePresentedSheetView: View {
                 ) {
                     MonologueStaticSheetContentHost(
                         version: entry.contentVersion,
+                        themeRevision: themeRevision,
                         content: entry.content
                     )
                     .equatable()
@@ -160,10 +174,11 @@ private struct MonologuePresentedSheetView: View {
 
 private struct MonologueStaticSheetContentHost: View, Equatable {
     let version: Int
+    let themeRevision: Int
     let content: AnyView
 
     nonisolated static func == (lhs: MonologueStaticSheetContentHost, rhs: MonologueStaticSheetContentHost) -> Bool {
-        lhs.version == rhs.version
+        lhs.version == rhs.version && lhs.themeRevision == rhs.themeRevision
     }
 
     var body: some View {

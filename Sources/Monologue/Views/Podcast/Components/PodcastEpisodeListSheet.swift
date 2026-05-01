@@ -3,6 +3,7 @@ import SwiftUI
 struct PodcastEpisodeListSheet: View {
     @Bindable var viewModel: PodcastPlayerViewModel
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @State private var isSearchExpanded = false
@@ -10,29 +11,31 @@ struct PodcastEpisodeListSheet: View {
     @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 0) {
             headerSection
 
             Rectangle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.42) : Color.monologueSeparator)
+                .fill(separatorColor)
                 .frame(height: 0.5)
 
             if viewModel.programs.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .micSlash, size: 44, color: .monologueTextSecondary.opacity(0.3))
+                    MonologueIcon(icon: .micSlash, size: 44, color: secondaryTextColor.opacity(0.38))
                     Text("radio_no_programs")
-                        .font(.rounded(size: 15, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(emptyFont)
+                        .foregroundColor(secondaryTextColor)
                 }
                 Spacer()
             } else if filteredPrograms.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .search, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                    MonologueIcon(icon: .search, size: 40, color: secondaryTextColor.opacity(0.38))
                     Text("podcast_episode_search_empty")
-                        .font(.rounded(size: 15, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(emptyFont)
+                        .foregroundColor(secondaryTextColor)
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 Spacer()
@@ -65,8 +68,8 @@ struct PodcastEpisodeListSheet: View {
                                 HStack(spacing: 8) {
                                     ProgressView().scaleEffect(0.8)
                                     Text("mv_loading_more")
-                                        .font(.rounded(size: 13))
-                                        .foregroundColor(.monologueTextSecondary)
+                                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .regular) : .rounded(size: 13))
+                                        .foregroundColor(secondaryTextColor)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -94,6 +97,8 @@ struct PodcastEpisodeListSheet: View {
         }
         .background {
             if NeumorphicStyle.isActive {
+                Color.clear
+            } else if SequoiaStyle.isActive {
                 Color.clear
             } else {
                 Rectangle()
@@ -125,7 +130,7 @@ struct PodcastEpisodeListSheet: View {
                 if let radio = viewModel.radioDetail {
                     CachedAsyncImage(url: radio.coverUrl) {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.monologueTextSecondary.opacity(0.08))
+                            .fill(coverPlaceholderFill)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 52, height: 52)
@@ -134,8 +139,8 @@ struct PodcastEpisodeListSheet: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(viewModel.radioDetail?.name ?? String(localized: "radio_program_list"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(17, weight: .semibold) : .rounded(size: 17, weight: .bold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(headerTitleFont)
+                        .foregroundColor(primaryTextColor)
                         .lineLimit(1)
 
                     if let program = viewModel.currentProgram {
@@ -144,14 +149,14 @@ struct PodcastEpisodeListSheet: View {
                                 miniWaveform
                             }
                             Text(program.name ?? String(localized: "radio_unknown_program"))
-                                .font(.rounded(size: 13))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(headerCaptionFont)
+                                .foregroundColor(secondaryTextColor)
                                 .lineLimit(1)
                         }
                     } else if let count = viewModel.radioDetail?.programCount {
                         Text(String(format: String(localized: "radio_total_episodes"), count))
-                            .font(.rounded(size: 13))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(headerCaptionFont)
+                            .foregroundColor(secondaryTextColor)
                     }
                 }
 
@@ -160,15 +165,15 @@ struct PodcastEpisodeListSheet: View {
                 HStack(spacing: 8) {
                     Button(action: { viewModel.toggleEpisodeOrder() }) {
                         HStack(spacing: 5) {
-                            MonologueIcon(icon: .filter, size: 11, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            MonologueIcon(icon: .filter, size: 11, color: controlColor)
 
                             Text(
                                 viewModel.isAscendingOrder
                                     ? String(localized: "podcast_sort_oldest")
                                     : String(localized: "podcast_sort_latest")
                             )
-                            .font(.rounded(size: 11, weight: .medium))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(controlFont)
+                            .foregroundColor(controlColor)
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                         }
@@ -185,7 +190,7 @@ struct PodcastEpisodeListSheet: View {
                         MonologueIcon(
                             icon: isSearchExpanded ? .close : .search,
                             size: 13,
-                            color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+                            color: controlColor
                         )
                         .frame(width: 32, height: 32)
                         .background {
@@ -203,14 +208,14 @@ struct PodcastEpisodeListSheet: View {
                     if let count = viewModel.radioDetail?.programCount {
                         HStack(spacing: 2) {
                             Text("\(count)")
-                                .font(.rounded(size: 11, weight: .semibold))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                                .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .rounded(size: 11, weight: .semibold))
+                                .foregroundColor(primaryTextColor)
                                 .monospacedDigit()
                                 .lineLimit(1)
 
                             Text("radio_episode_unit")
-                                .font(.rounded(size: 10, weight: .medium))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                                .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(10, weight: .medium) : .rounded(size: 10, weight: .medium))
+                                .foregroundColor(secondaryTextColor)
                                 .lineLimit(1)
                         }
                         .fixedSize(horizontal: true, vertical: false)
@@ -227,7 +232,7 @@ struct PodcastEpisodeListSheet: View {
 
             if isSearchExpanded {
                 HStack(spacing: 10) {
-                    MonologueIcon(icon: .search, size: 14, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .search, size: 14, color: controlColor)
 
                     TextField(
                         String(localized: "podcast_episode_search_placeholder"),
@@ -243,9 +248,9 @@ struct PodcastEpisodeListSheet: View {
                             searchText = ""
                         }
                     } label: {
-                        MonologueIcon(icon: .close, size: 12, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .close, size: 12, color: controlColor)
                             .frame(width: 22, height: 22)
-                            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                            .background(searchCloseBackground)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -255,6 +260,8 @@ struct PodcastEpisodeListSheet: View {
                 .background {
                     if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+                    } else if SequoiaStyle.isActive {
+                        SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, role: .list)
                     } else {
                         Color.monologueSeparator.opacity(0.85)
                     }
@@ -285,11 +292,11 @@ struct PodcastEpisodeListSheet: View {
                 if isCurrent && viewModel.isRadioPlaying {
                     miniWaveform
                 } else if isCurrent {
-                    MonologueIcon(icon: .pause, size: 14, color: .monologueAccentBlue, lineWidth: 1.6)
+                    MonologueIcon(icon: .pause, size: 14, color: activeTint, lineWidth: 1.6)
                 } else {
                     Text("\(episodeNumber)")
                         .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                        .foregroundColor(secondaryTextColor.opacity(0.55))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .allowsTightening(true)
@@ -299,32 +306,32 @@ struct PodcastEpisodeListSheet: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 highlightedTitle(for: program)
-                    .font(.rounded(size: 15, weight: isCurrent ? .semibold : .regular))
-                    .foregroundColor(isCurrent ? .monologueAccentBlue : .monologueTextPrimary)
+                    .font(episodeTitleFont(isCurrent: isCurrent))
+                    .foregroundColor(isCurrent ? activeTint : primaryTextColor)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     if let episodeLabel = matchedEpisodeLabel(for: program, index: index) {
                         Text(episodeLabel)
-                            .font(.rounded(size: 11, weight: .semibold))
-                            .foregroundColor(.monologueAccentBlue)
+                            .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .rounded(size: 11, weight: .semibold))
+                            .foregroundColor(activeTint)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
-                            .background(Color.monologueAccentBlue.opacity(0.12))
+                            .background(activeTint.opacity(0.12))
                             .clipShape(Capsule())
                     }
                     if !program.durationText.isEmpty {
                         Text(program.durationText)
-                            .font(.rounded(size: 11))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                            .font(metaFont)
+                            .foregroundColor(secondaryTextColor.opacity(0.78))
                     }
                     if let listeners = program.listenerCount, listeners > 0 {
                         Circle()
-                            .fill(Color.monologueTextSecondary.opacity(0.3))
+                            .fill(secondaryTextColor.opacity(0.32))
                             .frame(width: 3, height: 3)
                         Text("\(formatCount(listeners))" + String(localized: "radio_play_suffix"))
-                            .font(.rounded(size: 11))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                            .font(metaFont)
+                            .foregroundColor(secondaryTextColor.opacity(0.78))
                     }
                 }
             }
@@ -333,11 +340,11 @@ struct PodcastEpisodeListSheet: View {
 
             if isCurrent {
                 Text("radio_now_playing")
-                    .font(.rounded(size: 10, weight: .semibold))
-                    .foregroundColor(.monologueAccentBlue)
+                    .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(10, weight: .semibold) : .rounded(size: 10, weight: .semibold))
+                    .foregroundColor(activeTint)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.monologueAccentBlue.opacity(0.12))
+                    .background(activeTint.opacity(0.12))
                     .clipShape(Capsule())
             }
         }
@@ -350,6 +357,8 @@ struct PodcastEpisodeListSheet: View {
     private func podcastControlBackground(cornerRadius: CGFloat) -> some View {
         if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true, lightweight: true)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true, role: .list)
         } else {
             Color.monologueSeparator.opacity(0.9)
         }
@@ -361,7 +370,7 @@ struct PodcastEpisodeListSheet: View {
         HStack(spacing: 1.5) {
             ForEach(0..<3, id: \.self) { i in
                 RoundedRectangle(cornerRadius: 0.5)
-                    .fill(Color.monologueAccentBlue)
+                    .fill(activeTint)
                     .frame(width: 2, height: viewModel.isRadioPlaying ? CGFloat([5, 10, 7][i]) : 3)
                     .animation(
                         .easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.12),
@@ -430,7 +439,7 @@ struct PodcastEpisodeListSheet: View {
 
         var attributedTitle = AttributedString(title)
         if let attributedRange = Range(range, in: attributedTitle) {
-            attributedTitle[attributedRange].foregroundColor = UIColor(Color.monologueAccentBlue)
+            attributedTitle[attributedRange].foregroundColor = UIColor(activeTint)
         }
 
         return Text(attributedTitle)
@@ -485,5 +494,76 @@ struct PodcastEpisodeListSheet: View {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
             isSearchExpanded.toggle()
         }
+    }
+
+    private var activeTint: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return .monologueAccentBlue
+    }
+
+    private var primaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var controlColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return .monologueTextSecondary
+    }
+
+    private var separatorColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.42) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
+        return Color.monologueSeparator
+    }
+
+    private var coverPlaceholderFill: Color {
+        SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextSecondary.opacity(0.08)
+    }
+
+    private var searchCloseBackground: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        return Color.monologueSeparator
+    }
+
+    private var headerTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(17, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(17, weight: .semibold) }
+        return .rounded(size: 17, weight: .bold)
+    }
+
+    private var headerCaptionFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        return .rounded(size: 13)
+    }
+
+    private var controlFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .medium) }
+        return .rounded(size: 11, weight: .medium)
+    }
+
+    private var emptyFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .medium) }
+        return .rounded(size: 15, weight: .medium)
+    }
+
+    private var metaFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .regular) }
+        return .rounded(size: 11)
+    }
+
+    private func episodeTitleFont(isCurrent: Bool) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: isCurrent ? .semibold : .regular) }
+        return .rounded(size: 15, weight: isCurrent ? .semibold : .regular)
     }
 }

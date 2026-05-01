@@ -5,6 +5,7 @@ struct TopChartsView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -15,6 +16,8 @@ struct TopChartsView: View {
     ]
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
@@ -28,9 +31,9 @@ struct TopChartsView: View {
                 MonologueLoadingView(text: "LOADING CHARTS")
             } else if let error = errorMessage {
                 VStack {
-                    MonologueIcon(icon: .warning, size: 48, color: .monologueTextSecondary)
+                    MonologueIcon(icon: .warning, size: 48, color: secondaryTextColor)
                     Text(error)
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(secondaryTextColor)
                         .padding()
                     Button("Retry") {
                         loadData()
@@ -70,6 +73,14 @@ struct TopChartsView: View {
                             ) {
                                 NeumorphicIconBadge(icon: .chart, tint: NeumorphicStyle.warm, size: 48)
                             }
+                        } else if SequoiaStyle.isActive {
+                            SequoiaPageHeader(
+                                eyebrow: "RANKING",
+                                title: String(localized: "top_charts"),
+                                subtitle: ""
+                            ) {
+                                SequoiaIconBadge(icon: .chart, tint: SequoiaStyle.violet, size: 48)
+                            }
                         }
 
                         LazyVGrid(columns: columns, spacing: 20) {
@@ -103,11 +114,11 @@ struct TopChartsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .bottomTrailing) {
                     CachedAsyncImage(url: list.coverUrl) {
-                        MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.1)))
+                        chartCoverPlaceholder
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(height: 110)
-                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)), style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous))
                     .overlay {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -118,6 +129,9 @@ struct TopChartsView: View {
                         } else if NeumorphicStyle.isActive {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(NeumorphicStyle.separator.opacity(0.34), lineWidth: 0.7)
+                        } else if SequoiaStyle.isActive {
+                            RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous)
+                                .stroke(SequoiaStyle.separator.opacity(0.76), lineWidth: 0.6)
                         }
                     }
                     .shadow(color: Color.black.opacity(ThemedPageStyle.isActive ? 0.055 : 0.1), radius: ThemedPageStyle.isActive ? 8 : 5, x: 0, y: ThemedPageStyle.isActive ? 4 : 2)
@@ -130,7 +144,7 @@ struct TopChartsView: View {
                         MonologueIcon(
                             icon: isSubscribed ? .liked : .like,
                             size: 14,
-                            color: MangaStyle.isActive ? (isSubscribed ? MangaStyle.red : MangaStyle.strokeInk) : (MujiStyle.isActive ? (isSubscribed ? MujiStyle.red : MujiStyle.inkSoft) : (NeumorphicStyle.isActive ? (isSubscribed ? NeumorphicStyle.red : NeumorphicStyle.inkSoft) : (isSubscribed ? .red : .primary))),
+                            color: chartLikeColor(isSubscribed: isSubscribed),
                             lineWidth: 1.4
                         )
                         .padding(6)
@@ -141,6 +155,8 @@ struct TopChartsView: View {
                                 Circle().fill(MujiStyle.surface.opacity(0.92))
                             } else if NeumorphicStyle.isActive {
                                 Circle().fill(NeumorphicStyle.surfaceRaised.opacity(0.94))
+                            } else if SequoiaStyle.isActive {
+                                Circle().fill(SequoiaStyle.materialFloating.opacity(0.92))
                             } else {
                                 Circle().fill(.ultraThinMaterial)
                             }
@@ -153,14 +169,14 @@ struct TopChartsView: View {
                 }
 
                 Text(list.name)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .medium))))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
+                    .font(chartTitleFont)
+                    .foregroundColor(primaryTextColor)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 Text(list.updateFrequency)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .medium) : .system(size: 10))))
-                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)))
+                    .font(chartSubtitleFont)
+                    .foregroundColor(secondaryTextColor)
             }
             .padding(ThemedPageStyle.isActive ? 8 : 0)
             .background {
@@ -170,9 +186,65 @@ struct TopChartsView: View {
                     MujiPaperCardBackground(cornerRadius: 10)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
                 }
             }
         }
+    }
+
+    private var chartCoverPlaceholder: Color {
+        if MangaStyle.isActive { return MangaStyle.paperCool }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        return Color.gray.opacity(0.1)
+    }
+
+    private var chartCoverRadius: CGFloat {
+        if MangaStyle.isActive || MujiStyle.isActive { return 8 }
+        if NeumorphicStyle.isActive || SequoiaStyle.isActive { return 16 }
+        return 12
+    }
+
+    private var chartTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(12, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(12, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .semibold) }
+        return .system(size: 12, weight: .medium)
+    }
+
+    private var chartSubtitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(10, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(10, weight: .regular) }
+        return .system(size: 10)
+    }
+
+    private var primaryTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return Theme.text
+    }
+
+    private var secondaryTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return Theme.secondaryText
+    }
+
+    private func chartLikeColor(isSubscribed: Bool) -> Color {
+        if MangaStyle.isActive { return isSubscribed ? MangaStyle.red : MangaStyle.strokeInk }
+        if MujiStyle.isActive { return isSubscribed ? MujiStyle.red : MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return isSubscribed ? NeumorphicStyle.red : NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return isSubscribed ? SequoiaStyle.red : SequoiaStyle.inkSoft }
+        return isSubscribed ? .red : .primary
     }
 
     private func loadData() {

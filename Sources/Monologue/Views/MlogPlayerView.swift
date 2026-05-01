@@ -9,9 +9,12 @@ struct MlogPlayerView: View {
     
     @StateObject private var viewModel = MlogPlayerViewModel()
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             Color.black.ignoresSafeArea()
             

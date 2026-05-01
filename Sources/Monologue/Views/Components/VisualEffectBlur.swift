@@ -32,6 +32,12 @@ struct LiquidGlassBlur: View {
                 MangaCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
             } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(
+                    cornerRadius: cornerRadius == 0 ? 1 : min(max(cornerRadius, 14), 26),
+                    elevated: useFloatingBarFill,
+                    role: useFloatingBarFill ? .floating : .content
+                )
             } else if #available(iOS 26, *) {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(useFloatingBarFill ? Color.monologueFloatingBarFill : Color.monologueGlassTint)
@@ -67,6 +73,9 @@ struct MonologueLiquidCard<Content: View>: View {
             } else if MujiStyle.isActive {
                 content
                     .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
+            } else if SequoiaStyle.isActive {
+                content
+                    .background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: true, role: .content))
             } else if #available(iOS 26, *) {
                 content
                     .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -99,6 +108,9 @@ extension View {
                 .themeRenderSurfaceLayer()
         } else if NeumorphicStyle.isActive {
             self.background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true))
+                .themeRenderSurfaceLayer()
+        } else if SequoiaStyle.isActive {
+            self.background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: true, role: .content))
                 .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
@@ -144,6 +156,15 @@ extension View {
                     .shadow(color: Color.white.opacity(0.52), radius: 10, x: -6, y: -6)
             )
             .themeRenderSurfaceLayer()
+        } else if SequoiaStyle.isActive {
+            self.background(
+                Circle()
+                    .fill(SequoiaStyle.materialRaised.opacity(0.82))
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().stroke(SequoiaStyle.separator.opacity(0.82), lineWidth: 0.6))
+                    .shadow(color: Color(light: Color(hex: "304760").opacity(0.1), dark: Color.black.opacity(0.32)), radius: 8, x: 0, y: 4)
+            )
+            .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .circle)
@@ -185,6 +206,15 @@ extension View {
                     .shadow(color: Color.white.opacity(0.52), radius: 10, x: -6, y: -6)
             )
             .themeRenderSurfaceLayer()
+        } else if SequoiaStyle.isActive {
+            self.background(
+                Capsule()
+                    .fill(SequoiaStyle.materialRaised.opacity(0.82))
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().stroke(SequoiaStyle.separator.opacity(0.82), lineWidth: 0.6))
+                    .shadow(color: Color(light: Color(hex: "304760").opacity(0.1), dark: Color.black.opacity(0.32)), radius: 8, x: 0, y: 4)
+            )
+            .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .capsule)
@@ -207,6 +237,9 @@ extension View {
                 .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16)))
+                .themeRenderSurfaceLayer()
+        } else if SequoiaStyle.isActive {
+            self.background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: true, role: .content))
                 .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -232,6 +265,9 @@ extension View {
                 .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
             self.background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: useMetal))
+                .themeRenderSurfaceLayer()
+        } else if SequoiaStyle.isActive {
+            self.background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: useMetal, role: useMetal ? .chrome : .content))
                 .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -323,6 +359,8 @@ extension View {
             MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 24), elevated: true, role: .content)
         }
     }
 

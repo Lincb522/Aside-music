@@ -5,9 +5,24 @@ import Combine
 
 struct MessageListView: View {
     @StateObject private var viewModel = MessageListViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
+
+    private var themeSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var themeEmptyIcon: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.42) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted.opacity(0.42) }
+        return .monologueTextSecondary.opacity(0.3)
+    }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -20,10 +35,10 @@ struct MessageListView: View {
                 } else if viewModel.messages.isEmpty {
                     Spacer()
                     VStack(spacing: 12) {
-                        MonologueIcon(icon: .send, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                        MonologueIcon(icon: .send, size: 40, color: themeEmptyIcon)
                         Text(LocalizedStringKey("message_empty"))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))
+                            .foregroundColor(themeSecondaryText)
                     }
                     Spacer()
                 } else {
@@ -57,6 +72,36 @@ struct MessageListView: View {
 
 private struct MessageRow: View {
     let message: PrivateMessage
+
+    private var text: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var mutedText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.6)
+    }
+
+    private var accent: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .monologueTextSecondary.opacity(0.5)
+    }
+
+    private var avatarFill: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color.monologueSeparator
+    }
     
     var body: some View {
         HStack(spacing: 14) {
@@ -64,16 +109,16 @@ private struct MessageRow: View {
             ZStack(alignment: .topTrailing) {
                 if let url = message.avatarURL {
                     CachedAsyncImage(url: url) {
-                        Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                        Circle().fill(avatarFill)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 50, height: 50)
                     .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                        .fill(avatarFill)
                         .frame(width: 50, height: 50)
-                        .overlay(MonologueIcon(icon: .profile, size: 22, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.5)))
+                        .overlay(MonologueIcon(icon: .profile, size: 22, color: accent))
                 }
                 
                 // 未读标记
@@ -92,18 +137,18 @@ private struct MessageRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(message.nickname)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded)))
+                        .foregroundColor(text)
                         .lineLimit(1)
                     Spacer()
                     Text(message.timeText)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.6))
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded)))
+                        .foregroundColor(mutedText)
                 }
                 
                 Text(message.lastMsg)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .regular, design: .rounded)))
+                    .foregroundColor(secondaryText)
                     .lineLimit(1)
             }
         }

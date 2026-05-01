@@ -3,6 +3,7 @@ import SwiftUI
 struct QCMNewSongsView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var isSelectMode = false
     @State private var selectedSongIds: Set<Int> = []
     @State private var showBatchAddToPlaylist = false
@@ -11,7 +12,32 @@ struct QCMNewSongsView: View {
         viewModel.qqNewSongs
     }
 
+    private var qcmAccent: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : MusicSource.qqmusic.themedBadgeColor
+    }
+
+    private var qcmAccentForeground: Color {
+        if NeumorphicStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: NeumorphicStyle.accent,
+                light: Color(hex: "172026"),
+                dark: .white
+            )
+        }
+        return Color(light: .white, dark: .black)
+    }
+
+    private var qcmPrimaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var qcmSecondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -77,7 +103,16 @@ struct QCMNewSongsView: View {
 
     @ViewBuilder
     private var header: some View {
-        if ThemedPageStyle.isActive {
+        if SignalStyle.isActive {
+            SignalPageHeader(
+                eyebrow: "QCM NEW",
+                title: "QCM 新歌",
+                subtitle: "\(songs.count) \(String(localized: "首"))"
+            ) {
+                SignalIconBadge(icon: .musicNote, tint: MusicSource.qqmusic.themedBadgeColor, size: 48)
+            }
+            .padding(.bottom, 2)
+        } else if ThemedPageStyle.isActive {
             ThemedPageHeader(
                 eyebrow: "QCM NEW",
                 title: "QCM 新歌",
@@ -119,7 +154,7 @@ struct QCMNewSongsView: View {
             Button {
                 playAll()
             } label: {
-                toolbarPill(title: String(localized: "artist_play_all"), icon: .play, tint: MusicSource.qqmusic.themedBadgeColor)
+                toolbarPill(title: String(localized: "artist_play_all"), icon: .play, tint: qcmAccent)
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
@@ -133,7 +168,7 @@ struct QCMNewSongsView: View {
                     }
                 }
             } label: {
-                toolbarIcon(icon: isSelectMode ? .close : .checkmark, tint: isSelectMode ? Color.monologueTextSecondary : MusicSource.qqmusic.themedBadgeColor)
+                toolbarIcon(icon: isSelectMode ? .close : .checkmark, tint: isSelectMode ? qcmSecondaryText : qcmAccent)
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
@@ -141,7 +176,7 @@ struct QCMNewSongsView: View {
                 Button {
                     showBatchAddToPlaylist = true
                 } label: {
-                    toolbarIcon(icon: .add, tint: MusicSource.qqmusic.themedBadgeColor)
+                    toolbarIcon(icon: .add, tint: qcmAccent)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
                 .disabled(selectedSongIds.isEmpty)
@@ -154,18 +189,24 @@ struct QCMNewSongsView: View {
     }
 
     private func toolbarPill(title: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
-        HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 12, color: Color(light: .white, dark: .black), lineWidth: 1.7)
-                .frame(width: 24, height: 24)
-                .background(tint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        Group {
+            if SignalStyle.isActive {
+                SignalPlayPill(title: title, icon: icon, tint: tint)
+            } else {
+                HStack(spacing: 7) {
+                    MonologueIcon(icon: icon, size: 12, color: qcmAccentForeground, lineWidth: 1.7)
+                        .frame(width: 24, height: 24)
+                        .background(tint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-            Text(title)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .rounded(size: 13, weight: .semibold))
-                .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    Text(title)
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .rounded(size: 13, weight: .semibold))
+                        .foregroundStyle(qcmPrimaryText)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .themedPageSurface(cornerRadius: 15, elevated: false)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .themedPageSurface(cornerRadius: 15, elevated: false)
     }
 
     private func toolbarIcon(icon: MonologueIcon.IconType, tint: Color) -> some View {
@@ -182,10 +223,16 @@ struct QCMNewSongsView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            MonologueIcon(icon: .musicNote, size: 38, color: MusicSource.qqmusic.themedBadgeColor.opacity(0.65), lineWidth: 1.7)
+            if SignalStyle.isActive {
+                SignalIconBadge(icon: .musicNote, tint: MusicSource.qqmusic.themedBadgeColor, size: 54)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicIconBadge(icon: .musicNote, tint: qcmAccent, size: 54)
+            } else {
+                MonologueIcon(icon: .musicNote, size: 38, color: MusicSource.qqmusic.themedBadgeColor.opacity(0.65), lineWidth: 1.7)
+            }
             Text("暂无 QCM 新歌")
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold))
-                .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold)))
+                .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : qcmSecondaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 120)

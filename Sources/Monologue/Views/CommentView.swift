@@ -6,6 +6,7 @@ import NeteaseCloudMusicAPI
 
 struct CommentView: View {
     @StateObject private var vm: CommentViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @FocusState private var isInputFocused: Bool
@@ -24,6 +25,8 @@ struct CommentView: View {
     @State private var showEmojiPicker = false
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -92,7 +95,7 @@ struct CommentView: View {
                     if !songName.isEmpty {
                         Text(songName)
                             .font(.rounded(size: 16, weight: .semibold))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(commentText)
                             .lineLimit(1)
                     }
                     
@@ -100,16 +103,16 @@ struct CommentView: View {
                         if !artistName.isEmpty {
                             Text(artistName)
                                 .font(.rounded(size: 13))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(commentSecondaryText)
                                 .lineLimit(1)
                         }
                         
                         if vm.totalCount > 0 {
                             Text("·")
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(commentSecondaryText)
                             Text(String(format: NSLocalizedString("comment_count", comment: ""), vm.totalCount))
                                 .font(.rounded(size: 13))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(commentSecondaryText)
                         }
                     }
                 }
@@ -120,9 +123,9 @@ struct CommentView: View {
                 Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
                     ZStack {
                         Circle()
-                            .fill(Color.monologueTextPrimary.opacity(0.06))
+                            .fill(commentControlFill)
                             .frame(width: 32, height: 32)
-                        MonologueIcon(icon: .close, size: 14, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .close, size: 14, color: commentSecondaryText)
                     }
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -157,7 +160,7 @@ struct CommentView: View {
                             MonologueIcon(icon: .sparkle, size: 14, color: .monologueOrange)
                             Text(LocalizedStringKey("comment_hot_section"))
                                 .font(.rounded(size: 14, weight: .semibold))
-                                .foregroundColor(.monologueTextPrimary)
+                                .foregroundColor(commentText)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 4)
@@ -184,11 +187,11 @@ struct CommentView: View {
                     HStack(spacing: 6) {
                         Text(LocalizedStringKey("comment_all_section"))
                             .font(.rounded(size: 14, weight: .semibold))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(commentText)
                         if vm.totalCount > 0 {
                             Text("\(vm.totalCount)")
                                 .font(.rounded(size: 12, weight: .medium))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(commentSecondaryText)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -266,12 +269,12 @@ struct CommentView: View {
                         .font(.rounded(size: 14, weight: .medium))
                 }
             }
-            .foregroundColor(.monologueTextSecondary)
+            .foregroundColor(commentSecondaryText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.monologueTextPrimary.opacity(0.04))
+                    .fill(commentControlFill)
             )
         }
         .disabled(vm.isLoadingMore)
@@ -285,20 +288,20 @@ struct CommentView: View {
             ForEach(0..<4, id: \.self) { _ in
                 HStack(alignment: .top, spacing: 12) {
                     Circle()
-                        .fill(Color.monologueTextPrimary.opacity(0.06))
+                        .fill(commentControlFill)
                         .frame(width: 36, height: 36)
                     
                     VStack(alignment: .leading, spacing: 8) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.monologueTextPrimary.opacity(0.06))
+                            .fill(commentControlFill)
                             .frame(width: 80, height: 12)
                         
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.monologueTextPrimary.opacity(0.04))
+                            .fill(commentInputFill)
                             .frame(height: 14)
                         
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.monologueTextPrimary.opacity(0.04))
+                            .fill(commentInputFill)
                             .frame(width: 200, height: 14)
                     }
                 }
@@ -320,18 +323,18 @@ struct CommentView: View {
             
             ZStack {
                 Circle()
-                    .fill(Color.monologueTextPrimary.opacity(0.04))
+                    .fill(commentControlFill)
                     .frame(width: 80, height: 80)
-                MonologueIcon(icon: .comment, size: 36, color: .monologueTextSecondary.opacity(0.4))
+                MonologueIcon(icon: .comment, size: 36, color: commentSecondaryText.opacity(0.46))
             }
             
             VStack(spacing: 6) {
                 Text(LocalizedStringKey("comment_no_comments"))
                     .font(.rounded(size: 17, weight: .semibold))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(commentText)
                 Text(LocalizedStringKey("comment_be_first_text"))
                     .font(.rounded(size: 14))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(commentSecondaryText)
             }
             
             Spacer().frame(height: 40)
@@ -351,15 +354,15 @@ struct CommentView: View {
                 HStack(spacing: 8) {
                     Text("回复")
                         .font(.rounded(size: 12))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(commentSecondaryText)
                     Text("@\(reply.user.nickname)")
                         .font(.rounded(size: 12, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(commentText)
                     Spacer()
                     Button {
                         withAnimation { vm.replyTarget = nil }
                     } label: {
-                        MonologueIcon(icon: .xmark, size: 10, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .xmark, size: 10, color: commentSecondaryText)
                             .padding(6)
                             .background(Circle().fill(commentControlFill))
                     }
@@ -382,7 +385,7 @@ struct CommentView: View {
                         MonologueIcon(
                             icon: .emoji,
                             size: 18,
-                            color: showEmojiPicker ? .monologueIconForeground : .monologueTextSecondary
+                            color: showEmojiPicker ? commentAccentForeground : commentSecondaryText
                         )
                     }
                 }
@@ -407,7 +410,7 @@ struct CommentView: View {
                         Button {
                             vm.commentText = ""
                         } label: {
-                            MonologueIcon(icon: .xmark, size: 10, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .xmark, size: 10, color: commentSecondaryText)
                                 .padding(4)
                                 .background(Circle().fill(commentControlFill))
                         }
@@ -436,12 +439,12 @@ struct CommentView: View {
                         if vm.isSending {
                             ProgressView()
                                 .scaleEffect(0.7)
-                                .tint(.monologueIconForeground)
+                                .tint(commentAccentForeground)
                         } else {
                             MonologueIcon(
                                 icon: .send,
                                 size: 16,
-                                color: canSend ? .monologueIconForeground : .monologueTextSecondary.opacity(0.4)
+                                color: canSend ? commentAccentForeground : commentSecondaryText.opacity(0.4)
                             )
                         }
                     }
@@ -460,26 +463,52 @@ struct CommentView: View {
     }
 
     private var commentSeparator: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.5) : Color.monologueSeparator
+        if SequoiaStyle.isActive { return SequoiaStyle.separator }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.5) : Color.monologueSeparator
     }
 
     private var commentControlFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.06)
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.78) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.06)
     }
 
     private var commentInputFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.05)
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.74) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueTextPrimary.opacity(0.05)
     }
 
     private var commentAccentFill: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground
+    }
+
+    private var commentAccentForeground: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        return Color.monologueIconForeground
+    }
+
+    private var commentText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return Color.monologueTextPrimary
+    }
+
+    private var commentSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return Color.monologueTextSecondary
     }
 
     private var commentBarBackground: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.surface.opacity(0.96) : Color(UIColor.systemBackground)
+        if SequoiaStyle.isActive { return SequoiaStyle.materialFloating.opacity(0.96) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surface.opacity(0.96) : Color(UIColor.systemBackground)
     }
 
     private func sortForeground(isSelected: Bool) -> Color {
+        if SequoiaStyle.isActive {
+            return isSelected ? SequoiaStyle.onAccent : SequoiaStyle.inkSoft
+        }
         if NeumorphicStyle.isActive {
             return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft
         }
@@ -488,7 +517,11 @@ struct CommentView: View {
 
     @ViewBuilder
     private func sortPillBackground(isSelected: Bool) -> some View {
-        if NeumorphicStyle.isActive {
+        if SequoiaStyle.isActive {
+            Capsule()
+                .fill(isSelected ? SequoiaStyle.accent : SequoiaStyle.materialList.opacity(0.66))
+                .overlay(Capsule().stroke(isSelected ? SequoiaStyle.accent.opacity(0.18) : SequoiaStyle.separator, lineWidth: 0.55))
+        } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(
                 cornerRadius: 15,
                 elevated: isSelected,
@@ -510,12 +543,35 @@ struct CommentRow: View {
     var isHot: Bool = false
     let onLike: () -> Void
     let onReply: () -> Void
+
+    private var text: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var mutedText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.6)
+    }
+
+    private var rowFill: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.62) }
+        return Color.monologueTextPrimary.opacity(0.06)
+    }
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // 头像
             CachedAsyncImage(url: comment.user.avatarURL) {
-                Circle().fill(Color.monologueTextPrimary.opacity(0.06))
+                Circle().fill(rowFill)
             }
             .frame(width: 36, height: 36)
             .clipShape(Circle())
@@ -525,19 +581,19 @@ struct CommentRow: View {
                 HStack(spacing: 6) {
                     Text(comment.user.nickname)
                         .font(.rounded(size: 13, weight: .semibold))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(secondaryText)
                     
                     if let location = comment.locationText {
                         Text("· \(location)")
                             .font(.rounded(size: 11))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.5))
+                            .foregroundColor(mutedText.opacity(0.76))
                     }
                 }
                 
                 // 评论内容
                 Text(comment.content)
                     .font(.rounded(size: 15))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(text)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(3)
                 
@@ -545,7 +601,7 @@ struct CommentRow: View {
                 if let replies = comment.beReplied, let first = replies.first,
                    let user = first.user, let content = first.content {
                     HStack(alignment: .top, spacing: 0) {
-                        Text("\(Text("@\(user.nickname)").font(.rounded(size: 13, weight: .medium)).foregroundColor(.monologueTextSecondary))\(Text("：\(content)").font(.rounded(size: 13)).foregroundColor(.monologueTextSecondary.opacity(0.8)))")
+                        Text("\(Text("@\(user.nickname)").font(.rounded(size: 13, weight: .medium)).foregroundColor(secondaryText))\(Text("：\(content)").font(.rounded(size: 13)).foregroundColor(secondaryText.opacity(0.8)))")
                     }
                     .lineLimit(3)
                     .padding(.horizontal, 10)
@@ -553,7 +609,7 @@ struct CommentRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.monologueTextPrimary.opacity(0.03))
+                            .fill(SequoiaStyle.isActive ? SequoiaStyle.materialList.opacity(0.54) : Color.monologueTextPrimary.opacity(0.03))
                     )
                 }
                 
@@ -561,14 +617,14 @@ struct CommentRow: View {
                 HStack(spacing: 0) {
                     Text(comment.formattedTime)
                         .font(.rounded(size: 12))
-                        .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                        .foregroundColor(mutedText)
                     
                     Spacer()
                     
                     // 回复
                     Button(action: onReply) {
                         HStack(spacing: 3) {
-                            MonologueIcon(icon: .comment, size: 14, color: .monologueTextSecondary.opacity(0.5))
+                            MonologueIcon(icon: .comment, size: 14, color: mutedText.opacity(0.78))
                         }
                     }
                     .padding(.trailing, 16)
@@ -579,12 +635,12 @@ struct CommentRow: View {
                             MonologueIcon(
                                 icon: comment.liked ? .liked : .like,
                                 size: 14,
-                                color: comment.liked ? .monologueAccentRed : .monologueTextSecondary.opacity(0.5)
+                                color: comment.liked ? .monologueAccentRed : mutedText.opacity(0.78)
                             )
                             if comment.likedCount > 0 {
                                 Text(formatCount(comment.likedCount))
                                     .font(.rounded(size: 12))
-                                    .foregroundColor(comment.liked ? .monologueAccentRed : .monologueTextSecondary.opacity(0.6))
+                                    .foregroundColor(comment.liked ? .monologueAccentRed : mutedText)
                             }
                         }
                     }
@@ -597,6 +653,8 @@ struct CommentRow: View {
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, role: .list)
             }
         }
     }

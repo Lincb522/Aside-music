@@ -8,6 +8,7 @@ struct MonologueSheetContainer<Content: View>: View {
     let content: Content
 
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = SettingsManager.shared
 
     init(
         preset: MonologueSheetPreset = .standard,
@@ -24,6 +25,8 @@ struct MonologueSheetContainer<Content: View>: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         GeometryReader { proxy in
             let panelWidth = max(0, min(preset.maxContentWidth, proxy.size.width - (preset.horizontalPadding * 2)))
             let maximumPanelHeight = resolvedMaximumHeight(in: proxy)
@@ -159,17 +162,21 @@ private struct MonologueSheetLiquidSurfaceModifier: ViewModifier {
 
 enum MonologueSheetThemeStyle {
     static var usesCustomThemeSurface: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
     }
 
     static var shadowColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.22) }
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
         if NeumorphicStyle.isActive { return Color.black.opacity(0.16) }
+        if SequoiaStyle.isActive { return Color(light: Color(hex: "304760").opacity(0.11), dark: Color.black.opacity(0.34)) }
+        if MaterialStyle.isActive { return Color.black.opacity(0.13) }
+        if ClayStyle.isActive { return Color.black.opacity(0.14) }
+        if SignalStyle.isActive { return Color.black.opacity(0.16) }
         return Color.monologueSheetShadow
     }
 
@@ -178,6 +185,10 @@ enum MonologueSheetThemeStyle {
         if MangaStyle.isActive { return 0 }
         if MujiStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return colorScheme == .dark ? 24 : 22 }
+        if SequoiaStyle.isActive { return colorScheme == .dark ? 24 : 20 }
+        if MaterialStyle.isActive { return colorScheme == .dark ? 22 : 18 }
+        if ClayStyle.isActive { return colorScheme == .dark ? 24 : 20 }
+        if SignalStyle.isActive { return colorScheme == .dark ? 26 : 22 }
         return colorScheme == .dark ? 30 : 24
     }
 
@@ -186,6 +197,10 @@ enum MonologueSheetThemeStyle {
         if MangaStyle.isActive { return 5 }
         if MujiStyle.isActive { return 9 }
         if NeumorphicStyle.isActive { return 10 }
+        if SequoiaStyle.isActive { return 9 }
+        if MaterialStyle.isActive { return 8 }
+        if ClayStyle.isActive { return 9 }
+        if SignalStyle.isActive { return 10 }
         return 14
     }
 }
@@ -260,6 +275,60 @@ struct MonologueSheetHandleView: View {
                     .frame(width: 34, height: 4)
                     .shadow(color: NeumorphicStyle.lightShadow(colorScheme, intensity: 0.32), radius: 1, x: 0, y: -0.5)
             }
+        } else if ClayStyle.isActive {
+            ZStack {
+                Capsule()
+                    .fill(Color.clear)
+                    .frame(width: 54, height: 12)
+                    .background(ClaySurfaceBackground(cornerRadius: 9, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true))
+
+                Capsule()
+                    .fill(ClayStyle.accent.opacity(0.55))
+                    .frame(width: 34, height: 4)
+            }
+        } else if SequoiaStyle.isActive {
+            HStack(spacing: 5) {
+                Capsule()
+                    .fill(SequoiaStyle.accent.opacity(0.74))
+                    .frame(width: 22, height: 4)
+                Capsule()
+                    .fill(SequoiaStyle.aqua.opacity(0.54))
+                    .frame(width: 10, height: 4)
+                Capsule()
+                    .fill(SequoiaStyle.inkMuted.opacity(0.22))
+                    .frame(width: 10, height: 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(SequoiaStyle.materialChrome.opacity(colorScheme == .dark ? 0.8 : 0.64))
+                    .overlay(Capsule().stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.55))
+            )
+        } else if MaterialStyle.isActive {
+            Capsule()
+                .fill(MaterialStyle.primary.opacity(colorScheme == .dark ? 0.42 : 0.34))
+                .frame(width: 38, height: 4)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(MaterialStyle.surfaceContainerHigh.opacity(0.86), in: Capsule())
+                .overlay(Capsule().stroke(MaterialStyle.outline.opacity(0.8), lineWidth: 0.7))
+        } else if SignalStyle.isActive {
+            HStack(spacing: 5) {
+                Capsule()
+                    .fill(SignalStyle.accent)
+                    .frame(width: 22, height: 4)
+                Capsule()
+                    .fill(SignalStyle.mint.opacity(0.62))
+                    .frame(width: 9, height: 4)
+                Capsule()
+                    .fill(SignalStyle.inkMuted.opacity(0.24))
+                    .frame(width: 9, height: 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(SignalStyle.control.opacity(0.86), in: Capsule())
+            .overlay(Capsule().stroke(SignalStyle.separator.opacity(0.56), lineWidth: 0.7))
         } else {
             Capsule()
                 .fill(Color.monologueSheetHandle)
@@ -353,6 +422,109 @@ struct MonologueSheetSurfaceBackground: View {
 
                 NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.045 : 0.06)
                     .clipShape(shape)
+            } else if MaterialStyle.isActive {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                MaterialStyle.surfaceContainerHigh.opacity(colorScheme == .dark ? 0.94 : 0.99),
+                                MaterialStyle.surfaceContainer.opacity(0.98),
+                                MaterialStyle.surfaceContainerLow.opacity(colorScheme == .dark ? 0.78 : 0.74)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [
+                        MaterialStyle.primary.opacity(colorScheme == .dark ? 0.16 : 0.1),
+                        .clear,
+                        MaterialStyle.tertiary.opacity(colorScheme == .dark ? 0.12 : 0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+            } else if ClayStyle.isActive {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                ClayStyle.creamRaised.opacity(colorScheme == .dark ? 0.88 : 0.99),
+                                ClayStyle.cream.opacity(0.98),
+                                ClayStyle.butter.opacity(colorScheme == .dark ? 0.14 : 0.2),
+                                ClayStyle.creamPressed.opacity(colorScheme == .dark ? 0.58 : 0.42)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [
+                        ClayStyle.accent.opacity(colorScheme == .dark ? 0.12 : 0.1),
+                        .clear,
+                        ClayStyle.mint.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+            } else if SignalStyle.isActive {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                SignalStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.86 : 0.98),
+                                SignalStyle.paper.opacity(0.98),
+                                SignalStyle.screen.opacity(colorScheme == .dark ? 0.36 : 0.52)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [
+                        SignalStyle.accent.opacity(colorScheme == .dark ? 0.14 : 0.12),
+                        .clear,
+                        SignalStyle.mint.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+
+                SignalAmbientTexture(opacity: colorScheme == .dark ? 0.06 : 0.08)
+                    .clipShape(shape)
+            } else if SequoiaStyle.isActive {
+                shape
+                    .fill(.ultraThinMaterial)
+
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                SequoiaStyle.materialFloating.opacity(colorScheme == .dark ? 0.9 : 0.76),
+                                SequoiaStyle.materialChrome.opacity(colorScheme == .dark ? 0.78 : 0.62),
+                                SequoiaStyle.materialList.opacity(colorScheme == .dark ? 0.58 : 0.5),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [
+                        SequoiaStyle.highlight(colorScheme).opacity(colorScheme == .dark ? 0.12 : 0.42),
+                        .clear,
+                        SequoiaStyle.accent.opacity(colorScheme == .dark ? 0.1 : 0.07),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
             } else if #available(iOS 26, *) {
                 Color.clear
             } else {
@@ -450,6 +622,86 @@ struct MonologueSheetSurfaceOverlay: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
+                    .clipShape(shape)
+                }
+            } else if MaterialStyle.isActive {
+                shape
+                    .strokeBorder(MaterialStyle.outline.opacity(colorScheme == .dark ? 0.72 : 0.82), lineWidth: 0.8)
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.035 : 0.2),
+                            .clear,
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 102)
+                    .clipShape(shape)
+                }
+            } else if ClayStyle.isActive {
+                shape
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                ClayStyle.highlightColor(colorScheme, intensity: 0.9),
+                                ClayStyle.separator.opacity(colorScheme == .dark ? 0.34 : 0.46),
+                                ClayStyle.shadowColor(colorScheme, intensity: 0.3)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.28), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 110)
+                    .clipShape(shape)
+                }
+            } else if SignalStyle.isActive {
+                shape
+                    .strokeBorder(SignalStyle.separator.opacity(colorScheme == .dark ? 0.72 : 0.66), lineWidth: 0.8)
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.28), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 110)
+                    .clipShape(shape)
+                }
+            } else if SequoiaStyle.isActive {
+                shape
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.2 : 0.62),
+                                SequoiaStyle.separator.opacity(0.86),
+                                SequoiaStyle.strongSeparator.opacity(colorScheme == .dark ? 0.34 : 0.22),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.72
+                    )
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.055 : 0.32),
+                            .clear,
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 112)
                     .clipShape(shape)
                 }
             } else {

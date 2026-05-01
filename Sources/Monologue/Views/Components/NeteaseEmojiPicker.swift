@@ -103,12 +103,15 @@ enum NeteaseEmojiCategory: String, CaseIterable {
 
 struct NeteaseEmojiPicker: View {
     let onSelect: (String) -> Void
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var selectedCategory: NeteaseEmojiCategory = .face
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 0) {
             Rectangle()
                 .fill(Color.monologueSeparator)

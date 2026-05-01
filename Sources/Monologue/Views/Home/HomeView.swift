@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var showPersonalFM = false
     @State private var navigationPath = NavigationPath()
     @State private var bannerWebURL: URL?
@@ -42,6 +43,8 @@ struct HomeView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true).ignoresSafeArea()

@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 
 struct LibraryView: View {
     @StateObject private var viewModel = LibraryViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -20,6 +21,7 @@ struct LibraryView: View {
     private let allTabs = LibraryViewModel.LibraryTab.allCases
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         NavigationStack(path: $viewModel.navigationPath) {
             Group {
                 if MangaStyle.isActive {
@@ -83,6 +85,7 @@ struct LibraryView: View {
                 if let idx = allTabs.firstIndex(of: newTab), idx != tabIndex {
                     tabIndex = idx
                 }
+                guard !NeumorphicStyle.isActive else { return }
                 if newTab == .square {
                     if viewModel.squareSource == .qq {
                         viewModel.fetchQQSquareData()
@@ -386,6 +389,7 @@ private struct NeumorphicLibraryWorkspace: View {
 
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
+    @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var localManager = LocalPlaylistManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var qqSession = QQUserSession.shared
@@ -417,6 +421,7 @@ private struct NeumorphicLibraryWorkspace: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         ZStack {
             ThemedPageBackground(useRenderLayer: true)
                 .ignoresSafeArea()
@@ -440,9 +445,11 @@ private struct NeumorphicLibraryWorkspace: View {
         }
         .onChange(of: viewModel.currentTab) { _, _ in
             syncTabFromViewModel()
-            loadCurrentTab()
         }
         .onChange(of: tabIndex) { _, _ in
+            if viewModel.currentTab != selectedTab {
+                viewModel.currentTab = selectedTab
+            }
             loadCurrentTab()
         }
         .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
@@ -454,7 +461,7 @@ private struct NeumorphicLibraryWorkspace: View {
                 hasLoadedQQUserPlaylists = false
             }
         }
-        .sheet(isPresented: $showQQImport) {
+        .monologueSheet(isPresented: $showQQImport, preset: .large) {
             QQPlaylistImportView()
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
@@ -538,8 +545,7 @@ private struct NeumorphicLibraryWorkspace: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(NeumorphicStyle.surfaceRaised)
                         .matchedGeometryEffect(id: "library-tab", in: tabNamespace)
-                        .shadow(color: Color.black.opacity(0.12), radius: 8, x: 4, y: 5)
-                        .shadow(color: Color.white.opacity(0.38), radius: 8, x: -4, y: -4)
+                        .shadow(color: Color.black.opacity(0.09), radius: 5, x: 3, y: 4)
                 }
             }
         }
@@ -560,9 +566,10 @@ private struct NeumorphicLibraryWorkspace: View {
                 chartFlowPage
             }
         }
-        .id(selectedTab)
-        .transition(.opacity.combined(with: .scale(scale: 0.992, anchor: .top)))
-        .animation(.easeInOut(duration: 0.18), value: selectedTab)
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
     }
 
     private var myLibraryPage: some View {
@@ -1176,21 +1183,21 @@ private struct NeumorphicLibraryWorkspace: View {
             )
             .shadow(
                 color: Color(
-                    light: Color.black.opacity(0.08),
-                    dark: Color.black.opacity(0.34)
+                    light: Color.black.opacity(0.06),
+                    dark: Color.black.opacity(0.26)
                 ),
-                radius: 18,
-                x: 7,
-                y: 10
+                radius: 12,
+                x: 5,
+                y: 7
             )
             .shadow(
                 color: Color(
-                    light: Color.white.opacity(0.72),
-                    dark: Color.white.opacity(0.06)
+                    light: Color.white.opacity(0.54),
+                    dark: Color.white.opacity(0.045)
                 ),
-                radius: 12,
-                x: -6,
-                y: -7
+                radius: 7,
+                x: -4,
+                y: -5
             )
     }
 
@@ -1425,11 +1432,11 @@ private struct NeumorphicLibraryWorkspace: View {
     }
 
     private func selectTab(_ tab: LibraryViewModel.LibraryTab, index: Int) {
+        guard tabIndex != index || viewModel.currentTab != tab else { return }
         withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
             tabIndex = index
             viewModel.currentTab = tab
         }
-        load(tab)
     }
 
     private func syncTabFromViewModel() {
@@ -1761,6 +1768,7 @@ private struct ScrollableLibraryExperience: View {
 
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
+    @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var localManager = LocalPlaylistManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var qqSession = QQUserSession.shared
@@ -1772,6 +1780,7 @@ private struct ScrollableLibraryExperience: View {
     @State private var qqUserPlaylists: [Playlist] = []
     @State private var isLoadingQQUserPlaylists = false
     @State private var hasLoadedQQUserPlaylists = false
+    @Namespace private var sequoiaLibraryNamespace
 
     private let tabs = LibraryViewModel.LibraryTab.allCases
     private let twoColumns = [GridItem(.flexible(), spacing: 13), GridItem(.flexible(), spacing: 13)]
@@ -1804,35 +1813,8 @@ private struct ScrollableLibraryExperience: View {
         }
     }
 
-    private var activeTabDetail: String {
-        switch selectedTab {
-        case .my:
-            return String(localized: "整理本地收藏、平台歌单和播客订阅。")
-        case .square:
-            return String(localized: "在不同平台之间切换，快速发现新的歌单。")
-        case .artists:
-            return String(localized: "用来源和筛选条件缩小歌手浏览范围。")
-        case .charts:
-            return String(localized: "查看平台榜单，找到正在流行的音乐。")
-        }
-    }
-
-    private var currentSquarePlaylistCount: Int {
-        viewModel.squareSource == .qq ? viewModel.qqSquarePlaylists.count : viewModel.squarePlaylists.count
-    }
-
-    private var currentArtistCount: Int {
-        viewModel.artistSource == .qq ? viewModel.qqArtists.count : viewModel.topArtists.count
-    }
-
-    private var currentChartsCount: Int {
-        if viewModel.chartsSource == .qq {
-            return viewModel.qqTopLists.reduce(0) { $0 + $1.items.count }
-        }
-        return viewModel.topLists.count
-    }
-
     var body: some View {
+        let _ = settings.globalThemeRevision
         ZStack {
             ThemedPageBackground(useRenderLayer: true)
                 .ignoresSafeArea()
@@ -1870,7 +1852,7 @@ private struct ScrollableLibraryExperience: View {
                 hasLoadedQQUserPlaylists = false
             }
         }
-        .sheet(isPresented: $showQQImport) {
+        .monologueSheet(isPresented: $showQQImport, preset: .large) {
             QQPlaylistImportView()
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
@@ -1893,6 +1875,10 @@ private struct ScrollableLibraryExperience: View {
     private var header: some View {
         if NeumorphicStyle.isActive {
             neumorphicHeaderDeck
+        } else if SignalStyle.isActive {
+            signalHeaderDeck
+        } else if SequoiaStyle.isActive {
+            sequoiaHeaderDeck
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 if MujiStyle.isActive {
@@ -1937,12 +1923,6 @@ private struct ScrollableLibraryExperience: View {
                             .font(NeumorphicStyle.titleFont(30, weight: .semibold))
                             .foregroundStyle(NeumorphicStyle.ink)
                             .lineLimit(1)
-
-                        Text(activeTabDetail)
-                            .font(NeumorphicStyle.bodyFont(12, weight: .medium))
-                            .foregroundStyle(NeumorphicStyle.inkSoft)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     Spacer(minLength: 8)
@@ -1959,11 +1939,6 @@ private struct ScrollableLibraryExperience: View {
                         )
                 }
 
-                HStack(spacing: 8) {
-                    neumorphicMetricPill(title: String(localized: "本地"), value: "\(localManager.playlists.count)", tint: NeumorphicStyle.accent)
-                    neumorphicMetricPill(title: "NCM", value: "\(viewModel.userPlaylists.count)", tint: MusicSource.netease.themedBadgeColor)
-                    neumorphicMetricPill(title: String(localized: "播客"), value: "\(subManager.localSubscribedRadios.count + subManager.subscribedRadios.count)", tint: NeumorphicStyle.sage)
-                }
             }
             .padding(16)
             .background(
@@ -1980,36 +1955,89 @@ private struct ScrollableLibraryExperience: View {
         .padding(.top, DeviceLayout.headerTopPadding + 10)
     }
 
-    private func neumorphicMetricPill(title: String, value: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(NeumorphicStyle.titleFont(18, weight: .semibold))
-                .foregroundStyle(NeumorphicStyle.ink)
-                .lineLimit(1)
+    private var signalHeaderDeck: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 7) {
+                        SignalPulseDot(tint: activeTabTint, size: 18)
 
-            Text(title)
-                .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                .foregroundStyle(tint)
-                .lineLimit(1)
+                        Text(activeTabEyebrow)
+                            .font(SignalStyle.monoFont(10, weight: .semibold))
+                            .foregroundStyle(activeTabTint)
+                    }
+
+                    Text(String(localized: "tabbar_library"))
+                        .font(SignalStyle.titleFont(27, weight: .bold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 8) {
+                    SignalLibraryMiniBars(tint: activeTabTint)
+                    SignalPill(text: activeTabShortLabel, tint: activeTabTint, selected: true, compact: true)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(SignalSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, fill: SignalStyle.control))
+            }
+
+            tabStrip
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            NeumorphicSurfaceBackground(
-                cornerRadius: 16,
-                elevated: false,
-                pressed: true,
-                tint: tint.opacity(0.08),
-                lightweight: true
-            )
-        )
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 10)
+    }
+
+    private var sequoiaHeaderDeck: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(spacing: 13) {
+                VStack(spacing: 4) {
+                    Capsule()
+                        .fill(activeTabTint)
+                        .frame(width: 4, height: 26)
+                    Capsule()
+                        .fill(SequoiaStyle.separator)
+                        .frame(width: 4, height: 10)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(activeTabEyebrow)
+                        .font(SequoiaStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(activeTabTint)
+                        .tracking(0.9)
+
+                    Text(String(localized: "tabbar_library"))
+                        .font(SequoiaStyle.titleFont(25, weight: .semibold))
+                        .foregroundStyle(SequoiaStyle.ink)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 9) {
+                    SequoiaMeter(tint: activeTabTint, count: 9)
+                    SequoiaPill(text: activeTabShortLabel, tint: activeTabTint, selected: true, compact: true)
+                }
+            }
+            .padding(14)
+            .background(SequoiaChromeBar(cornerRadius: 23))
+
+            tabStrip
+        }
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
     }
 
     @ViewBuilder
     private var tabStrip: some View {
         if NeumorphicStyle.isActive {
             neumorphicTabDeck
+        } else if SignalStyle.isActive {
+            signalTabDeck
+        } else if SequoiaStyle.isActive {
+            sequoiaTabDeck
         } else {
             HStack(spacing: 6) {
                 ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
@@ -2086,6 +2114,101 @@ private struct ScrollableLibraryExperience: View {
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
     }
 
+    private var signalTabDeck: some View {
+        HStack(spacing: 7) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                signalTabButton(tab: tab, index: index)
+            }
+        }
+        .padding(5)
+        .background(SignalSurfaceBackground(cornerRadius: 22, elevated: true, fill: SignalStyle.device))
+        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
+    }
+
+    private func signalTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
+        let selected = tabIndex == index
+        let tint = tint(for: tab)
+
+        return Button {
+            selectTab(tab, index: index)
+        } label: {
+            HStack(spacing: 6) {
+                MonologueIcon(
+                    icon: icon(for: tab),
+                    size: 14,
+                    color: selected ? tint : SignalStyle.inkSoft,
+                    lineWidth: selected ? 1.9 : 1.55
+                )
+
+                Text(tab.localizedKey)
+                    .font(SignalStyle.labelFont(11.5, weight: selected ? .bold : .semibold))
+                    .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .background(
+                SignalSurfaceBackground(
+                    cornerRadius: 16,
+                    elevated: selected,
+                    pressed: !selected,
+                    fill: selected ? tint.opacity(0.16) : SignalStyle.control
+                )
+            )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+    }
+
+    private var sequoiaTabDeck: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                sequoiaTabButton(tab: tab, index: index)
+            }
+        }
+        .padding(5)
+        .background(SequoiaSurfaceBackground(cornerRadius: 18, elevated: true, role: .chrome))
+        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
+    }
+
+    private func sequoiaTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
+        let selected = tabIndex == index
+        let tint = tint(for: tab)
+
+        return Button {
+            selectTab(tab, index: index)
+        } label: {
+            HStack(spacing: 6) {
+                MonologueIcon(
+                    icon: icon(for: tab),
+                    size: 13,
+                    color: selected ? tint : SequoiaStyle.inkSoft,
+                    lineWidth: selected ? 1.75 : 1.45
+                )
+
+                Text(tab.localizedKey)
+                    .font(SequoiaStyle.labelFont(11.5, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? SequoiaStyle.ink : SequoiaStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(SequoiaStyle.selectedWash)
+                        .matchedGeometryEffect(id: "library-tab", in: sequoiaLibraryNamespace)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(tint.opacity(0.24), lineWidth: 0.55)
+                        )
+                }
+            }
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+    }
+
     @ViewBuilder
     private var tabContent: some View {
         switch selectedTab {
@@ -2102,100 +2225,9 @@ private struct ScrollableLibraryExperience: View {
 
     private var myLibraryPage: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if NeumorphicStyle.isActive {
-                neumorphicMyOverview
-            }
             myLibraryControlPanel
             myLibraryColumnContent
         }
-    }
-
-    private var neumorphicMyOverview: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "个人库架"))
-                        .font(NeumorphicStyle.titleFont(18, weight: .semibold))
-                        .foregroundStyle(NeumorphicStyle.ink)
-
-                    Text(String(localized: "本地、云端歌单和播客集中在这里"))
-                        .font(NeumorphicStyle.labelFont(12, weight: .medium))
-                        .foregroundStyle(NeumorphicStyle.inkMuted)
-                        .lineLimit(2)
-                }
-
-                Spacer(minLength: 8)
-
-                MonologueIcon(icon: .libraryFilled, size: 20, color: NeumorphicStyle.accent, lineWidth: 1.8)
-                    .frame(width: 42, height: 42)
-                    .background(
-                        NeumorphicSurfaceBackground(
-                            cornerRadius: 15,
-                            elevated: true,
-                            tint: NeumorphicStyle.accent.opacity(0.13),
-                            lightweight: true
-                        )
-                    )
-            }
-
-            LazyVGrid(columns: actionColumns, spacing: 9) {
-                neumorphicOverviewTile(title: String(localized: "本地歌单"), value: "\(localManager.playlists.count)", icon: .musicNoteList, tint: NeumorphicStyle.accent)
-                neumorphicOverviewTile(title: String(localized: "NCM 歌单"), value: "\(viewModel.userPlaylists.count)", icon: .list, tint: MusicSource.netease.themedBadgeColor)
-                neumorphicOverviewTile(title: String(localized: "QCM 歌单"), value: qqSession.isLoggedIn ? "\(qqUserPlaylists.count)" : "--", icon: .musicNoteList, tint: MusicSource.qqmusic.themedBadgeColor)
-                neumorphicOverviewTile(title: String(localized: "播客收藏"), value: "\(subManager.localSubscribedRadios.count + subManager.subscribedRadios.count)", icon: .radio, tint: NeumorphicStyle.sage)
-            }
-        }
-        .padding(15)
-        .background(
-            NeumorphicSurfaceBackground(
-                cornerRadius: 26,
-                elevated: true,
-                tint: NeumorphicStyle.accent.opacity(0.05)
-            )
-        )
-        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
-    }
-
-    private func neumorphicOverviewTile(title: String, value: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
-        HStack(spacing: 10) {
-            MonologueIcon(icon: icon, size: 15, color: tint, lineWidth: 1.7)
-                .frame(width: 34, height: 34)
-                .background(
-                    NeumorphicSurfaceBackground(
-                        cornerRadius: 13,
-                        elevated: false,
-                        pressed: true,
-                        tint: tint.opacity(0.1),
-                        lightweight: true
-                    )
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(NeumorphicStyle.titleFont(16, weight: .semibold))
-                    .foregroundStyle(NeumorphicStyle.ink)
-                    .lineLimit(1)
-
-                Text(title)
-                    .font(NeumorphicStyle.labelFont(10, weight: .medium))
-                    .foregroundStyle(NeumorphicStyle.inkMuted)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-        .background(
-            NeumorphicSurfaceBackground(
-                cornerRadius: 18,
-                elevated: false,
-                pressed: true,
-                tint: tint.opacity(0.07),
-                lightweight: true
-            )
-        )
     }
 
     @ViewBuilder
@@ -2472,16 +2504,6 @@ private struct ScrollableLibraryExperience: View {
 
     private var playlistSquarePage: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if NeumorphicStyle.isActive {
-                neumorphicContextPanel(
-                    title: String(localized: "歌单广场"),
-                    detail: viewModel.squareSource == .qq ? String(localized: "正在浏览 QCM 推荐歌单") : String(localized: "正在浏览 NCM 推荐歌单"),
-                    icon: .gridSquare,
-                    tint: secondaryAccent,
-                    status: "\(currentSquarePlaylistCount)"
-                )
-            }
-
             sourceStrip(selected: viewModel.squareSource) { source in
                 viewModel.squareSource = source
                 source == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
@@ -2508,16 +2530,6 @@ private struct ScrollableLibraryExperience: View {
 
     private var artistsPage: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if NeumorphicStyle.isActive {
-                neumorphicContextPanel(
-                    title: String(localized: "歌手索引"),
-                    detail: viewModel.artistSource == .qq ? String(localized: "按地区、性别和风格筛选 QCM 歌手") : String(localized: "按地区、类型和首字母筛选 NCM 歌手"),
-                    icon: .personCircle,
-                    tint: tertiaryAccent,
-                    status: "\(currentArtistCount)"
-                )
-            }
-
             sourceStrip(selected: viewModel.artistSource) { source in
                 viewModel.artistSource = source
                 source == .qq ? viewModel.fetchQQArtistData(reset: true) : viewModel.fetchArtistData(reset: true)
@@ -2543,14 +2555,6 @@ private struct ScrollableLibraryExperience: View {
     private var chartsPage: some View {
         VStack(alignment: .leading, spacing: 16) {
             if NeumorphicStyle.isActive {
-                neumorphicContextPanel(
-                    title: String(localized: "排行榜"),
-                    detail: viewModel.chartsSource == .qq ? String(localized: "QCM 榜单集合") : String(localized: "NCM 官方榜和更多榜单"),
-                    icon: .chart,
-                    tint: quaternaryAccent,
-                    status: "\(currentChartsCount)"
-                )
-
                 sourceStrip(selected: viewModel.chartsSource) { source in
                     viewModel.chartsSource = source
                     source == .qq ? viewModel.fetchQQTopLists() : viewModel.fetchTopLists()
@@ -2644,58 +2648,6 @@ private struct ScrollableLibraryExperience: View {
                 }
             }
         }
-    }
-
-    private func neumorphicContextPanel(title: String, detail: String, icon: MonologueIcon.IconType, tint: Color, status: String) -> some View {
-        HStack(alignment: .center, spacing: 13) {
-            MonologueIcon(icon: icon, size: 18, color: tint, lineWidth: 1.8)
-                .frame(width: 44, height: 44)
-                .background(
-                    NeumorphicSurfaceBackground(
-                        cornerRadius: 16,
-                        elevated: true,
-                        tint: tint.opacity(0.13),
-                        lightweight: true
-                    )
-                )
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(NeumorphicStyle.titleFont(18, weight: .semibold))
-                    .foregroundStyle(NeumorphicStyle.ink)
-                    .lineLimit(1)
-
-                Text(detail)
-                    .font(NeumorphicStyle.labelFont(12, weight: .medium))
-                    .foregroundStyle(NeumorphicStyle.inkMuted)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 8)
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(status)
-                    .font(NeumorphicStyle.titleFont(18, weight: .semibold))
-                    .foregroundStyle(NeumorphicStyle.ink)
-                    .lineLimit(1)
-
-                Text(String(localized: "项目"))
-                    .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .lineLimit(1)
-            }
-        }
-        .padding(14)
-        .background(
-            NeumorphicSurfaceBackground(
-                cornerRadius: 24,
-                elevated: true,
-                tint: tint.opacity(0.06),
-                lightweight: true
-            )
-        )
-        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
     }
 
     private var ncmCategoryBar: some View {
@@ -2795,6 +2747,11 @@ private struct ScrollableLibraryExperience: View {
                         NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                             if NeumorphicStyle.isActive {
                                 NeumorphicPlaylistPoster(
+                                    playlist: playlist,
+                                    tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
+                                )
+                            } else if SequoiaStyle.isActive {
+                                SequoiaLibraryPlaylistTile(
                                     playlist: playlist,
                                     tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
                                 )
@@ -3348,68 +3305,88 @@ private struct ScrollableLibraryExperience: View {
 
     private var primaryText: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryText: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var defaultAccent: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
         if MujiStyle.isActive { return MujiStyle.tea }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return .monologueAccent
     }
 
     private var secondaryAccent: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+        if SignalStyle.isActive { return SignalStyle.olive }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if SequoiaStyle.isActive { return SequoiaStyle.aqua }
         return .monologueAccentBlue
     }
 
     private var tertiaryAccent: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.warm }
+        if SignalStyle.isActive { return SignalStyle.rust }
         if MujiStyle.isActive { return MujiStyle.indigo }
+        if SequoiaStyle.isActive { return SequoiaStyle.green }
         return .monologueAccentGreen
     }
 
     private var quaternaryAccent: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.red }
+        if SignalStyle.isActive { return SignalStyle.red }
         if MujiStyle.isActive { return MujiStyle.red }
+        if SequoiaStyle.isActive { return SequoiaStyle.violet }
         return .monologueAccentRed
     }
 
     private var selectedChipText: Color {
-        MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueIconForeground)
+        MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueIconForeground)))
     }
 
     private var tabCornerRadius: CGFloat {
-        NeumorphicStyle.isActive ? 15 : (MujiStyle.isActive ? 8 : 14)
+        NeumorphicStyle.isActive ? 15 : (SignalStyle.isActive ? 16 : (MujiStyle.isActive ? 8 : (SequoiaStyle.isActive ? 14 : 14)))
     }
 
     private func tabFont(selected: Bool) -> Font {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: selected ? .semibold : .medium) }
         return .system(size: 13, weight: selected ? .bold : .medium, design: .rounded)
     }
 
     private func chipFont(selected: Bool) -> Font {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: selected ? .semibold : .medium) }
         return .system(size: 13, weight: selected ? .semibold : .medium, design: .rounded)
     }
 
     private func tabForeground(selected: Bool) -> Color {
-        selected ? primaryText : secondaryText
+        selected ? selectedChipText : secondaryText
     }
 
     private func tabBackground(selected: Bool, tint: Color) -> some View {
         Group {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, tint: selected ? tint.opacity(0.15) : NeumorphicStyle.surface, lightweight: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.16) : SignalStyle.control)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, fill: selected ? SequoiaStyle.selectedWash : SequoiaStyle.materialList, role: selected ? .selected : .list)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
                     .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
@@ -3425,6 +3402,10 @@ private struct ScrollableLibraryExperience: View {
         Group {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, pressed: !selected, tint: selected ? tint.opacity(0.16) : NeumorphicStyle.surface, lightweight: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: capsule ? 12 : 10, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.18) : SignalStyle.control)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: capsule ? 18 : 13, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.13) : SequoiaStyle.materialList, role: selected ? .selected : .list)
             } else if MujiStyle.isActive {
                 let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 8, style: .continuous)
                 shape
@@ -3443,6 +3424,10 @@ private struct ScrollableLibraryExperience: View {
         Group {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true, lightweight: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: min(cornerRadius, 18), elevated: true, fill: SignalStyle.device)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: min(cornerRadius, 20), elevated: true, role: .chrome)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(MujiStyle.surface.opacity(0.82))
@@ -3471,12 +3456,51 @@ private struct ThemedLibrarySectionHeader: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        } else if SignalStyle.isActive {
+            HStack(spacing: 9) {
+                SignalPulseDot(tint: SignalStyle.accent, size: 17)
+
+                Text(title)
+                    .font(SignalStyle.titleFont(16, weight: .bold))
+                    .foregroundColor(SignalStyle.ink)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        } else if SequoiaStyle.isActive {
+            HStack(spacing: 9) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(SequoiaStyle.accentGradient)
+                    .frame(width: 3, height: 18)
+
+                Text(title)
+                    .font(SequoiaStyle.titleFont(17, weight: .semibold))
+                    .foregroundColor(SequoiaStyle.ink)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         } else {
             Text(title)
                 .font(MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .semibold) : .system(size: 17, weight: .bold, design: .rounded))
                 .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary)
                 .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         }
+    }
+}
+
+private struct SignalLibraryMiniBars: View {
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 3) {
+            ForEach(0..<4, id: \.self) { index in
+                Capsule()
+                    .fill(index < 3 ? tint : SignalStyle.inkMuted.opacity(0.24))
+                    .frame(width: 4, height: 6 + CGFloat(index) * 3)
+            }
+        }
+        .frame(height: 17)
     }
 }
 
@@ -3489,10 +3513,23 @@ private struct LibraryLoadingStateView: View {
         let resolvedMinHeight = minHeight ?? (DeviceLayout.isPad ? 420 : 320)
         let resolvedPadding = horizontalPadding ?? DeviceLayout.libraryHorizontalPadding
 
-        MonologueLoadingView(text: text)
+        if SequoiaStyle.isActive {
+            VStack(spacing: 12) {
+                SequoiaIconBadge(icon: .library, tint: SequoiaStyle.accent, size: 50)
+                ProgressView()
+                    .tint(SequoiaStyle.accent)
+                    .scaleEffect(0.82)
+            }
             .frame(maxWidth: .infinity)
             .frame(minHeight: resolvedMinHeight, alignment: .center)
+            .background(SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome))
             .padding(.horizontal, resolvedPadding)
+        } else {
+            MonologueLoadingView(text: text)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: resolvedMinHeight, alignment: .center)
+                .padding(.horizontal, resolvedPadding)
+        }
     }
 }
 
@@ -3513,10 +3550,14 @@ private struct ThemedLibraryEmptyState: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            MonologueIcon(icon: icon, size: 28, color: tint.opacity(0.72), lineWidth: 1.8)
+            if SequoiaStyle.isActive {
+                SequoiaIconBadge(icon: icon, tint: tint, size: 50)
+            } else {
+                MonologueIcon(icon: icon, size: 28, color: tint.opacity(0.72), lineWidth: 1.8)
+            }
             Text(title)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary)))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
@@ -3527,6 +3568,8 @@ private struct ThemedLibraryEmptyState: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(MujiStyle.surface.opacity(0.76))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
@@ -3545,17 +3588,23 @@ private struct ThemedLibraryPodcastRow: View {
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: DeviceLayout.listRowCoverStandard, height: DeviceLayout.listRowCoverStandard)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: SequoiaStyle.isActive ? 14 : 12, style: .continuous))
+            .overlay {
+                if SequoiaStyle.isActive {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(radio.name)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
                     .lineLimit(1)
 
                 Text(radio.dj?.nickname ?? radio.category ?? "Podcast")
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
                     .lineLimit(1)
             }
 
@@ -3571,6 +3620,8 @@ private struct ThemedLibraryPodcastRow: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(MujiStyle.surface.opacity(0.82))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
@@ -3593,17 +3644,76 @@ private struct ThemedLibraryArtistCard: View {
             .shadow(color: tint.opacity(0.14), radius: 7, y: 3)
 
             Text(artist.name)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded)))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : .monologueTextPrimary))
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
                 .lineLimit(1)
         }
-        .padding(NeumorphicStyle.isActive ? 12 : 0)
+        .padding(NeumorphicStyle.isActive || SequoiaStyle.isActive ? 12 : 0)
         .frame(maxWidth: .infinity)
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, tint: tint.opacity(0.06), lightweight: true)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
             }
         }
+    }
+}
+
+private struct SequoiaLibraryPlaylistTile: View {
+    let playlist: Playlist
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 11) {
+            CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(tint.opacity(0.12))
+                    .overlay(
+                        MonologueIcon(icon: .musicNoteList, size: 20, color: tint.opacity(0.62), lineWidth: 1.55)
+                    )
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 58, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(SequoiaStyle.separator, lineWidth: 0.55)
+            )
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(playlist.name)
+                    .font(SequoiaStyle.labelFont(13, weight: .semibold))
+                    .foregroundStyle(SequoiaStyle.ink)
+                    .lineLimit(2)
+                    .frame(minHeight: 33, alignment: .topLeading)
+
+                HStack(spacing: 6) {
+                    Capsule()
+                        .fill(tint.opacity(0.74))
+                        .frame(width: 18, height: 3)
+                    Text(metaText)
+                        .font(SequoiaStyle.labelFont(10, weight: .medium))
+                        .foregroundStyle(SequoiaStyle.inkMuted)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
+        .background(SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list))
+    }
+
+    private var metaText: String {
+        if let count = playlist.playCount, count > 0 {
+            return cinematicFormatCount(count)
+        }
+        if let trackCount = playlist.trackCount, trackCount > 0 {
+            return String(format: String(localized: "songs_count_format"), trackCount)
+        }
+        return playlist.source == .qqmusic ? "QCM" : "NCM"
     }
 }
 
@@ -4309,10 +4419,12 @@ private struct NeumorphicLibraryExperience: View {
 
 struct MyPlaylistsContainerView: View {
     @ObservedObject var viewModel: LibraryViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedSubTab: Int = 0
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         VStack(spacing: 0) {
             if NeumorphicStyle.isActive {
                 ScrollView(.horizontal) {
@@ -4611,7 +4723,7 @@ struct LocalPlaylistsView: View {
             .themeRenderScrollLayer()
             }
         }
-        .sheet(isPresented: $showQQImport) {
+        .monologueSheet(isPresented: $showQQImport, preset: .large) {
             QQPlaylistImportView()
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
@@ -5435,8 +5547,14 @@ struct LocalPlaylistRow: View {
                 }
             }
             .frame(width: DeviceLayout.listRowCoverStandard, height: DeviceLayout.listRowCoverStandard)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+            .cornerRadius(SequoiaStyle.isActive ? 14 : 12)
+            .overlay {
+                if SequoiaStyle.isActive {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+                }
+            }
+            .shadow(color: SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08), radius: SequoiaStyle.isActive ? 3 : 4, x: 0, y: 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(playlist.name)
@@ -5457,12 +5575,14 @@ struct LocalPlaylistRow: View {
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
             } else {
                 Color.clear
                     .monologueGlass(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : 18))
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 20 : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : 18)), style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 20 : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (SequoiaStyle.isActive ? 20 : 18))), style: .continuous))
     }
 
     private var systemPlaceholder: some View {
@@ -5475,8 +5595,8 @@ struct LocalPlaylistRow: View {
                         ? LinearGradient(colors: [.blue.opacity(0.5), .cyan.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
                         : LinearGradient(
                             colors: [
-                                NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint,
-                                NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint,
+                                NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint),
+                                NeumorphicStyle.isActive ? NeumorphicStyle.surface : (SequoiaStyle.isActive ? SequoiaStyle.materialRaised : Color.monologueGlassTint),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -5485,7 +5605,7 @@ struct LocalPlaylistRow: View {
             MonologueIcon(
                 icon: playlist.isFavorite ? .liked : playlist.isDownload ? .download : .musicNoteList,
                 size: 24,
-                color: playlist.isSystem ? .white : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary.opacity(0.3))
+                color: playlist.isSystem ? .white : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3)))
             )
         }
     }
@@ -5500,6 +5620,9 @@ struct LocalPlaylistRow: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.bodyFont(15, weight: .semibold)
         }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.bodyFont(15, weight: .semibold)
+        }
         return .system(size: 15, weight: .semibold, design: .rounded)
     }
 
@@ -5513,15 +5636,20 @@ struct LocalPlaylistRow: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(12, weight: .medium)
         }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(12, weight: .regular)
+        }
         return .system(size: 12, weight: .medium, design: .rounded)
     }
 
     private var localRowPrimaryColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text
     }
 
     private var localRowSecondaryColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText
     }
 }
 
@@ -5530,9 +5658,11 @@ struct LocalPlaylistRow: View {
 struct MyPodcastsView: View {
     typealias Theme = PlaylistDetailView.Theme
     @ObservedObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedTab: Int = 0
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         VStack(spacing: 0) {
             // 自定义标签栏（与下载管理等页面风格统一）
             HStack(spacing: 0) {
@@ -6382,7 +6512,9 @@ struct PlaylistSquareView: View {
             return selected ? neumorphicTint : NeumorphicStyle.inkSoft
         }
         if MujiStyle.isActive {
-            return selected ? MujiStyle.onTint : MujiStyle.inkSoft
+            return selected
+                ? ThemeColorCustomization.readableForegroundColor(on: MujiStyle.clay, light: MujiStyle.ink, dark: Color.white)
+                : MujiStyle.inkSoft
         }
         return selected ? .monologueIconForeground : .monologueTextPrimary
     }
@@ -6410,8 +6542,8 @@ struct PlaylistSquareView: View {
     private func loadMoreIfLast(_ playlist: Playlist) {
         if playlist.id == viewModel.squarePlaylists.last?.id {
             viewModel.loadMoreSquarePlaylists()
-        }
     }
+}
 
     private func loadMoreQQIfLast(_ playlist: Playlist) {
         if playlist.id == viewModel.qqSquarePlaylists.last?.id {
@@ -6989,7 +7121,7 @@ struct ArtistLibraryView: View {
     private func mujiFilterPill(title: String, selected: Bool) -> some View {
         Text(title)
             .font(MujiStyle.labelFont(12, weight: selected ? .semibold : .regular))
-            .foregroundStyle(selected ? MujiStyle.onTint : MujiStyle.inkSoft)
+            .foregroundStyle(selected ? ThemeColorCustomization.readableForegroundColor(on: MujiStyle.clay, light: MujiStyle.ink, dark: Color.white) : MujiStyle.inkSoft)
             .padding(.horizontal, 13)
             .padding(.vertical, 9)
             .background(
@@ -7018,35 +7150,35 @@ private struct LibraryDisclosureReveal<Content: View>: View {
     }
 
     var body: some View {
-        content
-            .fixedSize(horizontal: false, vertical: true)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: LibraryDisclosureHeightPreferenceKey.self,
-                        value: proxy.size.height
-                    )
-                }
-            )
-            .onPreferenceChange(LibraryDisclosureHeightPreferenceKey.self) { height in
-                if height > 0 {
-                    measuredHeight = height
-                }
+        ZStack(alignment: .top) {
+            if isExpanded {
+                content
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear
+                                .onAppear { updateMeasuredHeight(proxy.size.height) }
+                                .onChange(of: proxy.size.height) { _, newValue in
+                                    updateMeasuredHeight(newValue)
+                                }
+                        }
+                    }
             }
-            .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
-            .opacity(isExpanded ? 1 : 0.001)
-            .clipped()
-            .compositingGroup()
-            .allowsHitTesting(isExpanded)
-            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
+        }
+        .frame(height: isExpanded ? measuredHeight : 0, alignment: .top)
+        .clipShape(Rectangle())
+        .clipped()
+        .allowsHitTesting(isExpanded)
+        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isExpanded)
     }
-}
 
-private struct LibraryDisclosureHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+    private func updateMeasuredHeight(_ height: CGFloat) {
+        guard height > 0, abs(measuredHeight - height) > 0.5 else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            measuredHeight = height
+        }
     }
 }
 
@@ -7477,33 +7609,41 @@ struct LibraryPlaylistRow: View {
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: DeviceLayout.listRowCoverStandard, height: DeviceLayout.listRowCoverStandard)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+            .cornerRadius(SequoiaStyle.isActive ? 14 : 12)
+            .overlay {
+                if SequoiaStyle.isActive {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+                }
+            }
+            .shadow(color: SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08), radius: SequoiaStyle.isActive ? 3 : 4, x: 0, y: 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(playlist.name)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : Theme.text))
                     .lineLimit(1)
 
                 Text(String(format: NSLocalizedString("track_count_songs", comment: ""), playlist.trackCount ?? 0))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded)))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Theme.secondaryText))
             }
 
             Spacer()
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText).opacity(0.7))
+            MonologueIcon(icon: .chevronRight, size: 12, color: (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : Theme.secondaryText)).opacity(0.7))
         }
         .padding(14)
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 20 : 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 20 : (SequoiaStyle.isActive ? 20 : 18), style: .continuous))
     }
 }
 
@@ -7548,6 +7688,7 @@ private struct MangaLibraryExperience: View {
 
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
+    @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var localManager = LocalPlaylistManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var qqSession = QQUserSession.shared
@@ -7576,6 +7717,7 @@ private struct MangaLibraryExperience: View {
     ]
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         ZStack {
             ThemedPageBackground(useRenderLayer: true)
 
@@ -7612,7 +7754,7 @@ private struct MangaLibraryExperience: View {
                 hasLoadedQQUserPlaylists = false
             }
         }
-        .sheet(isPresented: $showQQImport) {
+        .monologueSheet(isPresented: $showQQImport, preset: .large) {
             QQPlaylistImportView()
         }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in

@@ -7,6 +7,7 @@ struct BatchAddToPlaylistSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @ObservedObject private var manager = LocalPlaylistManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showCreateAlert = false
     @State private var newPlaylistName = ""
@@ -44,6 +45,8 @@ struct BatchAddToPlaylistSheet: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {

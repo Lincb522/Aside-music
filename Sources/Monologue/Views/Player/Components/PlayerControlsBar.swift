@@ -4,6 +4,7 @@ import SwiftUI
 struct PlayerControlsBar: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var showDownloadSheet = false
     
     var contentColor: Color = .monologueTextPrimary
@@ -14,6 +15,8 @@ struct PlayerControlsBar: View {
     var onShowEQ: () -> Void = {}
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         VStack(spacing: 16) {
             HStack(spacing: 0) {
                 Button(action: { player.switchMode() }) {

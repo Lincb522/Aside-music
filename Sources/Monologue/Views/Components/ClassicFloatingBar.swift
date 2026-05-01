@@ -11,11 +11,17 @@ struct ClassicFloatingBar: View {
         if settings.globalThemeId == .manga { return MangaStyle.strokeInk.opacity(0.82) }
         if settings.globalThemeId == .muji { return MujiStyle.separator.opacity(0.82) }
         if settings.globalThemeId == .neumorphic { return NeumorphicStyle.separator.opacity(0.68) }
+        if settings.globalThemeId == .sequoia { return SequoiaStyle.separator.opacity(0.92) }
+        if settings.globalThemeId == .material { return MaterialStyle.outline.opacity(0.9) }
+        if settings.globalThemeId == .clay { return ClayStyle.separator.opacity(0.72) }
+        if settings.globalThemeId == .signal { return SignalStyle.separator.opacity(0.84) }
         return Color.monologueSeparator.opacity(0.3)
     }
 
     private var dividerHeight: CGFloat {
-        settings.globalThemeId == .manga ? 1.4 : (settings.globalThemeId == .neumorphic ? 0.8 : 0.5)
+        if settings.globalThemeId == .sequoia { return 0.6 }
+        if settings.globalThemeId == .material { return 0.75 }
+        return settings.globalThemeId == .manga ? 1.4 : ((settings.globalThemeId == .neumorphic || settings.globalThemeId == .clay || settings.globalThemeId == .signal) ? 0.8 : 0.5)
     }
 
     private var bottomSink: CGFloat {
@@ -56,9 +62,18 @@ struct ClassicFloatingBar: View {
                     .ignoresSafeArea(.container, edges: .bottom)
             }
             .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(dividerColor)
-                    .frame(height: dividerHeight)
+                ZStack(alignment: .top) {
+                    Rectangle()
+                        .fill(dividerColor)
+                        .frame(height: dividerHeight)
+
+                    if settings.globalThemeId == .sequoia {
+                        Capsule()
+                            .fill(SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.2 : 0.68))
+                            .frame(width: 52, height: 3)
+                            .offset(y: 6)
+                    }
+                }
             }
             .offset(y: bottomSink)
             .padding(.bottom, -bottomSink)
@@ -118,6 +133,69 @@ struct ClassicFloatingBar: View {
             Rectangle()
                 .fill(NeumorphicStyle.surface)
                 .overlay(NeumorphicReliefTexture(opacity: 0.045))
+        } else if settings.globalThemeId == .sequoia {
+            ZStack(alignment: .top) {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+
+                Rectangle()
+                    .fill(SequoiaStyle.materialFloating.opacity(colorScheme == .dark ? 0.9 : 0.78))
+
+                LinearGradient(
+                    colors: [
+                        SequoiaStyle.highlight(colorScheme).opacity(colorScheme == .dark ? 0.08 : 0.42),
+                        .clear,
+                        SequoiaStyle.accent.opacity(colorScheme == .dark ? 0.055 : 0.035),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                Rectangle()
+                    .fill(SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.16 : 0.52))
+                    .frame(height: 0.65)
+            }
+            .shadow(color: SequoiaStyle.shadow(colorScheme, elevated: true), radius: 16, x: 0, y: -6)
+        } else if settings.globalThemeId == .material {
+            ZStack(alignment: .top) {
+                Rectangle()
+                    .fill(MaterialStyle.surfaceContainerHigh.opacity(colorScheme == .dark ? 0.94 : 0.98))
+
+                LinearGradient(
+                    colors: [
+                        MaterialStyle.primary.opacity(colorScheme == .dark ? 0.12 : 0.07),
+                        .clear,
+                        MaterialStyle.tertiary.opacity(colorScheme == .dark ? 0.08 : 0.055),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Rectangle()
+                    .fill(MaterialStyle.primary.opacity(0.42))
+                    .frame(height: 3)
+            }
+            .shadow(color: MaterialStyle.elevationShadow(colorScheme, level: 2), radius: 14, x: 0, y: -5)
+        } else if settings.globalThemeId == .clay {
+            Rectangle()
+                .fill(ClayStyle.cream)
+                .overlay(alignment: .top) {
+                    HStack(spacing: 0) {
+                        ClayStyle.accent.opacity(0.72).frame(width: 64, height: 4)
+                        ClayStyle.butter.opacity(0.8).frame(width: 52, height: 4)
+                        ClayStyle.mint.opacity(0.76).frame(width: 58, height: 4)
+                        Spacer()
+                        ClayStyle.sky.opacity(0.7).frame(width: 70, height: 4)
+                    }
+                }
+        } else if settings.globalThemeId == .signal {
+            Rectangle()
+                .fill(SignalStyle.device)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(SignalStyle.accent)
+                        .frame(height: 3)
+                }
         } else {
             ZStack {
                 Rectangle()
@@ -148,18 +226,30 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var coverCornerRadius: CGFloat {
-        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 9 : 8))
+        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 9 : (SequoiaStyle.isActive ? 11 : 8)))
+    }
+
+    private var coverSize: CGFloat {
+        SequoiaStyle.isActive ? 42 : 38
+    }
+
+    private var playControlSize: CGFloat {
+        SequoiaStyle.isActive ? 36 : 34
+    }
+
+    private var sectionHorizontalPadding: CGFloat {
+        SequoiaStyle.isActive ? (DeviceLayout.isPad ? 26 : 18) : (DeviceLayout.isPad ? 24 : 16)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                CachedAsyncImage(url: song.coverUrl, width: 38, height: 38) {
+                CachedAsyncImage(url: song.coverUrl, width: coverSize, height: coverSize) {
                     RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                         .fill(coverPlaceholderFill)
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 38, height: 38)
+                .frame(width: coverSize, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous))
                 .overlay(coverStroke)
                 .overlay {
@@ -195,7 +285,7 @@ private struct ClassicMiniPlayerSection: View {
                         ZStack {
                             Circle()
                                 .fill(controlFill)
-                                .frame(width: 34, height: 34)
+                                .frame(width: playControlSize, height: playControlSize)
                                 .overlay(controlStroke)
 
                             if player.isLoading {
@@ -237,9 +327,9 @@ private struct ClassicMiniPlayerSection: View {
                 }
                 .zIndex(1)
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
-            .padding(.top, 10)
-            .padding(.bottom, 7)
+            .padding(.horizontal, sectionHorizontalPadding)
+            .padding(.top, SequoiaStyle.isActive ? 11 : 10)
+            .padding(.bottom, SequoiaStyle.isActive ? 8 : 7)
             .background {
                 Color.clear
                     .contentShape(Rectangle())
@@ -279,6 +369,8 @@ private struct ClassicMiniPlayerSection: View {
     private var titleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
+        if ClayStyle.isActive { return ClayStyle.labelFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
@@ -286,6 +378,8 @@ private struct ClassicMiniPlayerSection: View {
     private var subtitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .regular) }
+        if ClayStyle.isActive { return ClayStyle.labelFont(11, weight: .medium) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         return .rounded(size: 11, weight: .medium)
     }
@@ -293,6 +387,8 @@ private struct ClassicMiniPlayerSection: View {
     private var titleColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if ClayStyle.isActive { return ClayStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueTextPrimary
     }
@@ -300,6 +396,8 @@ private struct ClassicMiniPlayerSection: View {
     private var subtitleColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if ClayStyle.isActive { return ClayStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return .monologueTextSecondary
     }
@@ -307,6 +405,8 @@ private struct ClassicMiniPlayerSection: View {
     private var coverPlaceholderFill: Color {
         if MangaStyle.isActive { return MangaStyle.paperCool }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.84) }
+        if ClayStyle.isActive { return ClayStyle.creamPressed }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.74) }
         return Color.gray.opacity(0.15)
     }
@@ -322,12 +422,20 @@ private struct ClassicMiniPlayerSection: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.55), lineWidth: 0.7)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                .stroke(SequoiaStyle.luminousSeparator.opacity(0.42), lineWidth: 0.6)
+        } else if ClayStyle.isActive {
+            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                .stroke(ClayStyle.separator.opacity(0.5), lineWidth: 0.7)
         }
     }
 
     private var controlFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+        if ClayStyle.isActive { return ClayStyle.butter.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
         return .monologueIconBackground
     }
@@ -335,6 +443,8 @@ private struct ClassicMiniPlayerSection: View {
     private var controlForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if ClayStyle.isActive { return ClayStyle.accent }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueIconForeground
     }
@@ -347,12 +457,18 @@ private struct ClassicMiniPlayerSection: View {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
             Circle().stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        } else if SequoiaStyle.isActive {
+            Circle().stroke(SequoiaStyle.accent.opacity(0.22), lineWidth: 0.65)
+        } else if ClayStyle.isActive {
+            Circle().stroke(ClayStyle.separator.opacity(0.42), lineWidth: 0.7)
         }
     }
 
     private var closeFill: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.12) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
+        if ClayStyle.isActive { return ClayStyle.creamPressed.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.06) }
         return Color.monologueTextPrimary.opacity(0.08)
     }
@@ -365,12 +481,18 @@ private struct ClassicMiniPlayerSection: View {
             Circle().stroke(MujiStyle.hairline.opacity(0.3), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
             Circle().stroke(NeumorphicStyle.separator.opacity(0.45), lineWidth: 0.7)
+        } else if SequoiaStyle.isActive {
+            Circle().stroke(SequoiaStyle.separator.opacity(0.7), lineWidth: 0.55)
+        } else if ClayStyle.isActive {
+            Circle().stroke(ClayStyle.separator.opacity(0.38), lineWidth: 0.7)
         }
     }
 
     private var sourceIndicatorForeground: Color {
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+        if ClayStyle.isActive { return ClayStyle.ink }
         if MujiStyle.isActive { return MujiStyle.onTint }
         return .white
     }
@@ -473,6 +595,12 @@ private struct ClassicTabBarSection: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(10, weight: isSelected ? .semibold : .medium)
         }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(10, weight: isSelected ? .semibold : .medium)
+        }
+        if ClayStyle.isActive {
+            return ClayStyle.labelFont(10, weight: isSelected ? .bold : .semibold)
+        }
         if MujiStyle.isActive {
             return MujiStyle.labelFont(10, weight: isSelected ? .semibold : .medium)
         }
@@ -483,12 +611,16 @@ private struct ClassicTabBarSection: View {
         guard isSelected else {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+            if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+            if ClayStyle.isActive { return ClayStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             return .monologueTextPrimary.opacity(0.35)
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return neumorphicTabTint(index) }
+        if SequoiaStyle.isActive { return sequoiaTabTint(index) }
+        if ClayStyle.isActive { return clayTabTint(index) }
         if MujiStyle.isActive { return mujiTabTint(index) }
         return .monologueTextPrimary
     }
@@ -509,6 +641,28 @@ private struct ClassicTabBarSection: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(NeumorphicStyle.accent.opacity(0.12))
                 .background(NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true).padding(.horizontal, 4))
+                .padding(.horizontal, 5)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(sequoiaTabTint(index).opacity(0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(sequoiaTabTint(index).opacity(0.2), lineWidth: 0.55)
+                )
+                .background(
+                    SequoiaSurfaceBackground(
+                        cornerRadius: 15,
+                        elevated: false,
+                        fill: sequoiaTabTint(index).opacity(0.08),
+                        role: .selected
+                    )
+                    .padding(.horizontal, 4)
+                )
+                .padding(.horizontal, 5)
+        } else if ClayStyle.isActive {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(clayTabTint(index).opacity(0.22))
+                .background(ClaySurfaceBackground(cornerRadius: 14, tint: clayTabTint(index).opacity(0.12), elevated: false, pressed: true, compact: true).padding(.horizontal, 4))
                 .padding(.horizontal, 5)
         }
     }
@@ -537,6 +691,24 @@ private struct ClassicTabBarSection: View {
         case 1: return NeumorphicStyle.warm
         case 2: return NeumorphicStyle.sage
         default: return NeumorphicStyle.red
+        }
+    }
+
+    private func sequoiaTabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return SequoiaStyle.accent
+        case 1: return SequoiaStyle.violet
+        case 2: return SequoiaStyle.aqua
+        default: return SequoiaStyle.green
+        }
+    }
+
+    private func clayTabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return ClayStyle.accent
+        case 1: return ClayStyle.mint
+        case 2: return ClayStyle.sky
+        default: return ClayStyle.grape
         }
     }
 }

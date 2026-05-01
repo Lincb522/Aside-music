@@ -9,6 +9,7 @@ struct ClassicPlayerLayout: View {
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
@@ -31,6 +32,8 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if ClayStyle.isActive { return ClayStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -38,6 +41,8 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if ClayStyle.isActive { return ClayStyle.inkSoft }
         return .monologueTextSecondary
     }
 
@@ -45,6 +50,8 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if ClayStyle.isActive { return ClayStyle.accent }
         return contentColor.opacity(0.7)
     }
 
@@ -52,6 +59,8 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return 12 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
+        if SequoiaStyle.isActive { return 24 }
+        if ClayStyle.isActive { return 30 }
         return 24
     }
 
@@ -59,6 +68,8 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.titleFont(size, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(size, weight: weight == .bold ? .medium : weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
+        if ClayStyle.isActive { return ClayStyle.titleFont(size, weight: weight == .bold ? .bold : weight) }
         return .rounded(size: size, weight: weight)
     }
 
@@ -66,10 +77,14 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.bodyFont(size, weight: weight == .regular ? .bold : weight) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(size, weight: weight == .bold ? .medium : weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight == .bold ? .semibold : weight) }
+        if ClayStyle.isActive { return ClayStyle.bodyFont(size, weight: weight) }
         return .rounded(size: size, weight: weight)
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         GeometryReader { geometry in
             ZStack {
                 if isThemedClassic {
@@ -90,6 +105,8 @@ struct ClassicPlayerLayout: View {
                     mujiPlayerContent(geometry: geometry)
                 } else if NeumorphicStyle.isActive {
                     neumorphicPlayerContent(geometry: geometry)
+                } else if ClayStyle.isActive {
+                    clayPlayerContent(geometry: geometry)
                 } else {
                     classicPlayerContent(geometry: geometry)
                 }
@@ -293,6 +310,10 @@ struct ClassicPlayerLayout: View {
                     MujiPaperCardBackground(cornerRadius: 18, elevated: false)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true, tint: NeumorphicStyle.surface)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 26, elevated: true, role: .chrome)
+                } else if ClayStyle.isActive {
+                    ClaySurfaceBackground(cornerRadius: 30, tint: ClayStyle.cream.opacity(0.96), elevated: true)
                 }
             }
             .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
@@ -473,7 +494,7 @@ struct ClassicPlayerLayout: View {
         VStack(spacing: 0) {
             headerView
                 .padding(.top, DeviceLayout.headerTopPadding)
-                .padding(.bottom, 12)
+                .padding(.bottom, 8)
 
             Group {
                 if showLyrics {
@@ -483,24 +504,37 @@ struct ClassicPlayerLayout: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .center)
-            .animation(.spring(response: 0.46, dampingFraction: 0.84), value: showLyrics)
+            .animation(.spring(response: 0.42, dampingFraction: 0.86), value: showLyrics)
 
             neumorphicTransportConsole
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 14)
                 .padding(.bottom, DeviceLayout.playerBottomSafePadding)
         }
+        .themeRenderSceneLayer()
     }
 
     private func neumorphicListeningConsole(geometry: GeometryProxy) -> some View {
-        let artSize = min(DeviceLayout.isPad ? 288 : 226, max(174, geometry.size.width - 138))
+        let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
+        let availableWidth = geometry.size.width - horizontalPadding * 2
+        let artSize = min(DeviceLayout.isPad ? 220 : 168, max(132, availableWidth * 0.42))
 
-        return VStack(spacing: 18) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(Color.clear)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 32, elevated: true, tint: NeumorphicStyle.surfaceRaised))
-                    .frame(height: artSize + 54)
+        return VStack(spacing: 12) {
+            neumorphicArtworkStage(artSize: artSize)
+        }
+        .padding(.horizontal, horizontalPadding)
+    }
 
+    private func neumorphicArtworkStage(artSize: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                neumorphicQualityChip
+
+                Spacer(minLength: 12)
+
+                neumorphicPlaybackMark
+            }
+
+            HStack(alignment: .center, spacing: 16) {
                 artworkTile(size: artSize)
                     .frame(width: artSize, height: artSize)
                     .onTapWithHaptic {
@@ -509,59 +543,507 @@ struct ClassicPlayerLayout: View {
                         }
                     }
 
-                VStack {
-                    HStack {
-                        NeumorphicPill(
-                            text: player.qualityButtonText,
-                            tint: NeumorphicStyle.warm,
-                            icon: .headphones,
-                            selected: true,
-                            compact: true
-                        )
-                        .onTapGesture { showQualitySheet = true }
+                VStack(alignment: .leading, spacing: 13) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(player.currentSong?.name ?? "Unknown Song")
+                            .font(NeumorphicStyle.titleFont(24, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.74)
 
-                        Spacer()
-
-                        if let song = player.currentSong {
-                            LikeButton(
-                                songId: song.id,
-                                isQQMusic: song.isQQMusic,
-                                song: song,
-                                size: 23,
-                                activeColor: NeumorphicStyle.red,
-                                inactiveColor: NeumorphicStyle.inkSoft
-                            )
-                            .frame(width: 40, height: 40)
-                            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false))
+                        Button { showArtistDetail = true } label: {
+                            Text(player.currentSong?.artistName ?? "Unknown Artist")
+                                .font(NeumorphicStyle.bodyFont(14, weight: .medium))
+                                .foregroundStyle(NeumorphicStyle.inkSoft)
+                                .lineLimit(2)
                         }
+                        .buttonStyle(.plain)
                     }
 
-                    Spacer()
-                }
-                .padding(18)
-            }
-            .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 22)
+                    neumorphicStatusDeck
 
-            neumorphicTrackPanel
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 24)
+                    HStack(spacing: 10) {
+                        neumorphicLikeControl
+                        neumorphicLyricsToggle
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 17)
+        .frame(maxWidth: .infinity)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 32,
+                elevated: true,
+                tint: NeumorphicStyle.surfaceRaised
+            )
+        )
+        .overlay(alignment: .topLeading) {
+            HStack(spacing: 6) {
+                Capsule().fill(NeumorphicStyle.accent.opacity(0.5)).frame(width: 24, height: 6)
+                Capsule().fill(NeumorphicStyle.sage.opacity(0.34)).frame(width: 12, height: 6)
+            }
+            .padding(.leading, 26)
+            .padding(.top, 12)
         }
     }
 
-    private var neumorphicTrackPanel: some View {
+    private var neumorphicStatusDeck: some View {
+        HStack(spacing: 8) {
+            neumorphicMiniMeter
+
+            VStack(alignment: .leading, spacing: 5) {
+                Capsule()
+                    .fill(NeumorphicStyle.accent.opacity(player.isPlaying ? 0.76 : 0.34))
+                    .frame(width: player.isPlaying ? 58 : 36, height: 6)
+                Capsule()
+                    .fill(NeumorphicStyle.separator.opacity(0.55))
+                    .frame(width: 78, height: 5)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 16,
+                elevated: false,
+                pressed: true,
+                tint: NeumorphicStyle.surfacePressed,
+                lightweight: true
+            )
+        )
+        .animation(.spring(response: 0.36, dampingFraction: 0.82), value: player.isPlaying)
+    }
+
+    private var neumorphicQualityChip: some View {
+        Button(action: { showQualitySheet = true }) {
+            HStack(spacing: 7) {
+                MonologueIcon(icon: .headphones, size: 12, color: NeumorphicStyle.warm, lineWidth: 1.5)
+                Text(player.qualityButtonText)
+                    .font(NeumorphicStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .background(
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 17,
+                    elevated: false,
+                    pressed: true,
+                    tint: NeumorphicStyle.surfacePressed,
+                    lightweight: true
+                )
+            )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+    }
+
+    @ViewBuilder
+    private var neumorphicLikeControl: some View {
+        if let song = player.currentSong {
+            LikeButton(
+                songId: song.id,
+                isQQMusic: song.isQQMusic,
+                song: song,
+                size: 23,
+                activeColor: NeumorphicStyle.red,
+                inactiveColor: NeumorphicStyle.inkSoft
+            )
+            .frame(width: 42, height: 42)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true, lightweight: true))
+        } else {
+            MonologueIcon(icon: .like, size: 22, color: NeumorphicStyle.inkSoft, lineWidth: 1.5)
+                .frame(width: 42, height: 42)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true, lightweight: true))
+        }
+    }
+
+    private var neumorphicPlaybackMark: some View {
+        HStack(spacing: 6) {
+            Capsule()
+                .fill(NeumorphicStyle.accent.opacity(player.isPlaying ? 0.92 : 0.42))
+                .frame(width: player.isPlaying ? 22 : 10, height: 7)
+            Capsule()
+                .fill(NeumorphicStyle.sage.opacity(player.isPlaying ? 0.72 : 0.34))
+                .frame(width: player.isPlaying ? 12 : 18, height: 7)
+            Capsule()
+                .fill(NeumorphicStyle.warm.opacity(player.isPlaying ? 0.68 : 0.3))
+                .frame(width: player.isPlaying ? 8 : 12, height: 7)
+        }
+        .padding(.horizontal, 11)
+        .frame(height: 30)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 15,
+                elevated: false,
+                pressed: true,
+                tint: NeumorphicStyle.surfacePressed,
+                lightweight: true
+            )
+        )
+        .animation(.spring(response: 0.36, dampingFraction: 0.78), value: player.isPlaying)
+    }
+
+    private var neumorphicLyricsToggle: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                showLyrics.toggle()
+            }
+        }) {
+            MonologueIcon(
+                icon: .karaoke,
+                size: 17,
+                color: showLyrics ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft,
+                lineWidth: 1.5
+            )
+            .frame(width: 42, height: 42)
+            .background(
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 17,
+                    elevated: !showLyrics,
+                    pressed: showLyrics,
+                    tint: showLyrics ? NeumorphicStyle.accent.opacity(0.14) : NeumorphicStyle.surfaceRaised,
+                    lightweight: true
+                )
+            )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
+    private var neumorphicMiniMeter: some View {
+        HStack(alignment: .bottom, spacing: 4) {
+            ForEach(0..<5, id: \.self) { index in
+                Capsule()
+                    .fill(index.isMultiple(of: 2) ? NeumorphicStyle.accent.opacity(0.72) : NeumorphicStyle.sage.opacity(0.52))
+                    .frame(width: 4, height: player.isPlaying ? CGFloat(9 + (index % 3) * 5) : 8)
+            }
+        }
+        .frame(width: 36, height: 30)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 12,
+                elevated: false,
+                pressed: true,
+                tint: NeumorphicStyle.surfacePressed,
+                lightweight: true
+            )
+        )
+        .animation(.spring(response: 0.38, dampingFraction: 0.8), value: player.isPlaying)
+    }
+
+    private var neumorphicTransportConsole: some View {
+        VStack(spacing: 14) {
+            if showLyrics {
+                lyricsModeSongInfo
+                    .padding(.horizontal, 10)
+            }
+
+            neumorphicProgressChannel
+
+            neumorphicTransportControls
+
+            if let song = player.currentSong {
+                neumorphicUtilityRail(song: song)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 31, elevated: true, tint: NeumorphicStyle.surface))
+        .overlay(alignment: .top) {
+            Capsule()
+                .fill(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.34))
+                .frame(width: 62, height: 4)
+                .offset(y: 9)
+        }
+    }
+
+    private var neumorphicProgressChannel: some View {
+        VStack(spacing: 7) {
+            FullScreenPlayerView.WaveformProgressBar(
+                currentTime: Binding(
+                    get: { isDraggingSlider ? dragTimeValue : timePublisher.currentTime },
+                    set: { _ in }
+                ),
+                duration: timePublisher.duration,
+                color: NeumorphicStyle.accent,
+                trackOpacity: 0.12,
+                isAnimating: player.isPlaying,
+                onSeek: { time in
+                    isDraggingSlider = true
+                    dragTimeValue = time
+                },
+                onCommit: { time in
+                    isDraggingSlider = false
+                    player.seek(to: time)
+                }
+            )
+            .frame(height: 22)
+
+            HStack {
+                Text(formatTime(isDraggingSlider ? dragTimeValue : timePublisher.currentTime))
+                Spacer()
+                Text(formatTime(timePublisher.duration))
+            }
+            .font(NeumorphicStyle.labelFont(11, weight: .medium))
+            .foregroundColor(NeumorphicStyle.inkMuted)
+            .monospacedDigit()
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 20,
+                elevated: false,
+                pressed: true,
+                tint: NeumorphicStyle.surfacePressed,
+                lightweight: true
+            )
+        )
+    }
+
+    private var neumorphicTransportControls: some View {
+        HStack(spacing: 8) {
+            neumorphicIconButton(icon: player.mode.monologueIcon, diameter: 40, iconSize: 20, tint: NeumorphicStyle.inkSoft) {
+                player.switchMode()
+            }
+
+            HStack(spacing: 6) {
+                neumorphicIconButton(icon: .previous, diameter: 44, iconSize: 24, tint: NeumorphicStyle.ink) {
+                    player.previous()
+                }
+
+                neumorphicMainPlayButton
+
+                neumorphicIconButton(icon: .next, diameter: 44, iconSize: 24, tint: NeumorphicStyle.ink) {
+                    player.next()
+                }
+            }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 6)
+            .background(
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 31,
+                    elevated: false,
+                    pressed: true,
+                    tint: NeumorphicStyle.surfacePressed,
+                    lightweight: true
+                )
+            )
+
+            neumorphicIconButton(icon: .list, diameter: 40, iconSize: 20, tint: NeumorphicStyle.inkSoft) {
+                showPlaylist = true
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var neumorphicMainPlayButton: some View {
+        Button(action: { player.togglePlayPause() }) {
+            ZStack {
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 64, height: 64)
+                    .background(
+                        NeumorphicSurfaceBackground(
+                            cornerRadius: 32,
+                            elevated: true,
+                            tint: NeumorphicStyle.accent.opacity(player.isPlaying ? 0.22 : 0.16)
+                        )
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        NeumorphicStyle.lightShadow(colorScheme, intensity: 0.58),
+                                        NeumorphicStyle.accent.opacity(0.32),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                            .padding(5)
+                    )
+
+                if player.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: NeumorphicStyle.accent))
+                        .scaleEffect(1.08)
+                } else {
+                    MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 30, color: NeumorphicStyle.accent, lineWidth: 1.6)
+                }
+            }
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+        .scaleEffect(player.isPlaying ? 1 : 0.97)
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: player.isPlaying)
+    }
+
+    private func neumorphicIconButton(
+        icon: MonologueIcon.IconType,
+        diameter: CGFloat,
+        iconSize: CGFloat,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: iconSize, color: tint, lineWidth: 1.5)
+                .frame(width: diameter, height: diameter)
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: diameter / 2,
+                        elevated: true,
+                        tint: NeumorphicStyle.surfaceRaised,
+                        lightweight: true
+                    )
+                )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+    }
+
+    private func neumorphicUtilityRail(song: Song) -> some View {
+        HStack(spacing: 12) {
+            neumorphicUtilityButton(icon: .comment, tint: NeumorphicStyle.sage) {
+                showComments = true
+            }
+
+            neumorphicDownloadButton(song: song)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 20,
+                elevated: false,
+                pressed: true,
+                tint: NeumorphicStyle.surfacePressed,
+                lightweight: true
+            )
+        )
+    }
+
+    private func neumorphicUtilityButton(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 21, color: tint, lineWidth: 1.45)
+                .frame(width: 42, height: 42)
+                .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, lightweight: true))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
+    private func neumorphicDownloadButton(song: Song) -> some View {
+        let isDownloaded = downloadManager.isDownloaded(songId: song.id)
+
+        return Button {
+            if !isDownloaded {
+                showDownloadSheet = true
+            }
+        } label: {
+            MonologueIcon(
+                icon: .playerDownload,
+                size: 21,
+                color: isDownloaded ? NeumorphicStyle.inkMuted.opacity(0.58) : NeumorphicStyle.warm,
+                lineWidth: 1.45
+            )
+            .frame(width: 42, height: 42)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: !isDownloaded, pressed: isDownloaded, lightweight: true))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        .disabled(isDownloaded)
+        .opacity(isDownloaded ? 0.62 : 1)
+    }
+
+    private func clayPlayerContent(geometry: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            headerView
+                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.bottom, 12)
+
+            Group {
+                if showLyrics {
+                    themedLyricsPanel(geometry: geometry)
+                } else {
+                    clayListeningPod(geometry: geometry)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .center)
+            .animation(.spring(response: 0.48, dampingFraction: 0.86), value: showLyrics)
+
+            clayTransportTray
+                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+                .padding(.bottom, DeviceLayout.playerBottomSafePadding)
+        }
+    }
+
+    private func clayListeningPod(geometry: GeometryProxy) -> some View {
+        let artSize = min(DeviceLayout.isPad ? 286 : 224, max(174, geometry.size.width - 142))
+
+        return VStack(spacing: 18) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 42, style: .continuous)
+                    .fill(Color.clear)
+                    .background(ClaySurfaceBackground(cornerRadius: 42, tint: ClayStyle.sky.opacity(0.12), elevated: true))
+                    .frame(width: artSize + 54, height: artSize + 62)
+                    .rotationEffect(.degrees(-1.5))
+
+                artworkTile(size: artSize)
+                    .frame(width: artSize, height: artSize)
+                    .rotationEffect(.degrees(1.2))
+                    .onTapWithHaptic {
+                        withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+                            showLyrics.toggle()
+                        }
+                    }
+
+                VStack {
+                    HStack {
+                        qualityButton
+                        Spacer()
+                        if let song = player.currentSong {
+                            LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 23, activeColor: ClayStyle.berry, inactiveColor: ClayStyle.inkSoft)
+                                .frame(width: 42, height: 42)
+                                .background(ClaySurfaceBackground(cornerRadius: 17, tint: ClayStyle.cream, elevated: true, compact: true))
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(18)
+                .frame(width: artSize + 54, height: artSize + 62)
+            }
+
+            clayTrackCapsule
+                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 24)
+        }
+        .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+    }
+
+    private var clayTrackCapsule: some View {
         HStack(alignment: .center, spacing: 14) {
-            NeumorphicIconBadge(icon: player.isPlaying ? .pause : .play, tint: NeumorphicStyle.accent, size: 42)
+            ClayIconBubble(icon: player.isPlaying ? .pause : .play, tint: ClayStyle.accent, size: 46)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(NeumorphicStyle.titleFont(23, weight: .semibold))
-                    .foregroundStyle(NeumorphicStyle.ink)
+                    .font(ClayStyle.titleFont(23, weight: .bold))
+                    .foregroundStyle(ClayStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
 
                 Button { showArtistDetail = true } label: {
                     Text(player.currentSong?.artistName ?? "Unknown Artist")
-                        .font(NeumorphicStyle.bodyFont(14, weight: .medium))
-                        .foregroundStyle(NeumorphicStyle.inkSoft)
+                        .font(ClayStyle.bodyFont(14, weight: .medium))
+                        .foregroundStyle(ClayStyle.inkSoft)
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
@@ -569,16 +1051,16 @@ struct ClassicPlayerLayout: View {
 
             Spacer(minLength: 8)
 
-            MonologueIcon(icon: .karaoke, size: 17, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
-                .frame(width: 34, height: 34)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false))
+            MonologueIcon(icon: .karaoke, size: 17, color: ClayStyle.inkMuted, lineWidth: 1.55)
+                .frame(width: 36, height: 36)
+                .background(ClaySurfaceBackground(cornerRadius: 15, tint: ClayStyle.creamPressed, elevated: false, pressed: true, compact: true))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, tint: NeumorphicStyle.surface))
+        .padding(.horizontal, 15)
+        .padding(.vertical, 13)
+        .background(ClaySurfaceBackground(cornerRadius: 24, tint: ClayStyle.cream.opacity(0.96), elevated: true))
     }
 
-    private var neumorphicTransportConsole: some View {
+    private var clayTransportTray: some View {
         VStack(spacing: 15) {
             if showLyrics {
                 lyricsModeSongInfo
@@ -586,14 +1068,20 @@ struct ClassicPlayerLayout: View {
             }
 
             progressSection
-                .padding(.top, 4)
+                .padding(.top, 2)
+
+            HStack(spacing: 8) {
+                Circle().fill(ClayStyle.butter).frame(width: 8, height: 8)
+                Circle().fill(ClayStyle.mint).frame(width: 8, height: 8)
+                Capsule().fill(ClayStyle.berry.opacity(0.8)).frame(width: 20, height: 8)
+            }
 
             controlsView
         }
         .padding(.horizontal, 8)
         .padding(.top, 15)
         .padding(.bottom, 17)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true, tint: NeumorphicStyle.surface))
+        .background(ClaySurfaceBackground(cornerRadius: 28, tint: ClayStyle.cream.opacity(0.96), elevated: true))
     }
 
     private var qualityButton: some View {
@@ -625,6 +1113,12 @@ struct ClassicPlayerLayout: View {
                 .ignoresSafeArea()
         } else if NeumorphicStyle.isActive {
             ThemeRenderBackdrop(theme: .neumorphic)
+                .ignoresSafeArea()
+        } else if SequoiaStyle.isActive {
+            ThemeRenderBackdrop(theme: .sequoia)
+                .ignoresSafeArea()
+        } else if ClayStyle.isActive {
+            ClayRootBackdrop()
                 .ignoresSafeArea()
         }
     }
@@ -672,6 +1166,17 @@ struct ClassicPlayerLayout: View {
                             .fill(Color.clear)
                             .frame(width: 44, height: 44)
                             .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
+                    } else if SequoiaStyle.isActive {
+                        Circle()
+                            .fill(SequoiaStyle.materialRaised.opacity(0.82))
+                            .frame(width: 44, height: 44)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().stroke(SequoiaStyle.separator.opacity(0.72), lineWidth: 0.55))
+                    } else if ClayStyle.isActive {
+                        Circle()
+                            .fill(Color.clear)
+                            .frame(width: 44, height: 44)
+                            .background(ClaySurfaceBackground(cornerRadius: 22, tint: ClayStyle.cream, elevated: true, compact: true))
                     } else {
                         Circle()
                             .fill(Color.monologueGlassTint)
@@ -703,7 +1208,7 @@ struct ClassicPlayerLayout: View {
                 if let song = player.currentSong {
                     ZStack {
                         CachedAsyncImage(url: song.coverUrl?.sized(800)) {
-                            MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.2)))
+                            MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2)))))
                         }
                         .aspectRatio(contentMode: .fill)
 
@@ -713,7 +1218,7 @@ struct ClassicPlayerLayout: View {
                     }
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.1))))
+                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.1))))))
                         .overlay(
                             MonologueIcon(icon: .musicNoteList, size: 80, color: secondaryContentColor.opacity(0.32))
                         )
@@ -754,6 +1259,22 @@ struct ClassicPlayerLayout: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius + 12, style: .continuous)
                         .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
+                )
+        } else if SequoiaStyle.isActive {
+            content
+                .padding(9)
+                .background(SequoiaSurfaceBackground(cornerRadius: cornerRadius + 11, elevated: true, role: .chrome))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius + 11, style: .continuous)
+                        .stroke(SequoiaStyle.luminousSeparator.opacity(0.52), lineWidth: 0.65)
+                )
+        } else if ClayStyle.isActive {
+            content
+                .padding(10)
+                .background(ClaySurfaceBackground(cornerRadius: cornerRadius + 14, tint: ClayStyle.creamRaised, elevated: true))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius + 14, style: .continuous)
+                        .stroke(ClayStyle.separator.opacity(0.34), lineWidth: 0.8)
                 )
         } else {
             content
@@ -820,6 +1341,10 @@ struct ClassicPlayerLayout: View {
             MujiPaperCardBackground(cornerRadius: 12, elevated: false)
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: 18, elevated: true, role: .chrome)
+        } else if ClayStyle.isActive {
+            ClaySurfaceBackground(cornerRadius: 18, tint: ClayStyle.cream.opacity(0.94), elevated: true, compact: true)
         } else {
             Color.clear
         }
@@ -836,6 +1361,12 @@ struct ClassicPlayerLayout: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(NeumorphicStyle.surfaceRaised)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(SequoiaStyle.selectedWash.opacity(0.86))
+        } else if ClayStyle.isActive {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(ClayStyle.butter.opacity(0.28))
         } else {
             Color.clear
         }
@@ -845,11 +1376,15 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.hairline }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.24) }
+        if ClayStyle.isActive { return ClayStyle.accent.opacity(0.28) }
         return contentColor.opacity(0.5)
     }
 
     private var qualityBadgeForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if ClayStyle.isActive { return ClayStyle.accent }
         return contentColor
     }
 
@@ -955,6 +1490,28 @@ struct ClassicPlayerLayout: View {
                 .fill(Color.clear)
                 .frame(width: size, height: size)
                 .background(NeumorphicSurfaceBackground(cornerRadius: size / 2, elevated: true))
+        } else if SequoiaStyle.isActive {
+            Circle()
+                .fill(SequoiaStyle.accent)
+                .frame(width: size, height: size)
+                .overlay(
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.28), .clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .padding(1)
+                )
+                .shadow(color: SequoiaStyle.accent.opacity(0.22), radius: 12, x: 0, y: 6)
+        } else if ClayStyle.isActive {
+            Circle()
+                .fill(Color.clear)
+                .frame(width: size, height: size)
+                .background(ClaySurfaceBackground(cornerRadius: size / 2, tint: ClayStyle.cream, elevated: true))
+                .overlay(Circle().fill(ClayStyle.accent.opacity(0.12)).padding(8))
         } else {
             Circle()
                 .fill(Color.monologueGlassTint)
@@ -967,6 +1524,8 @@ struct ClassicPlayerLayout: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+        if ClayStyle.isActive { return ClayStyle.accent }
         return .monologueTextPrimary
     }
 

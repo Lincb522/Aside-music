@@ -29,12 +29,28 @@ struct MonologueLoadingView: View {
             // 文字
             if let text = text, !text.isEmpty {
                 Text(text)
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded)))
+                    .font(loadingTextFont)
                     .tracking(2)
-                    .foregroundColor(.monologueTextPrimary.opacity(0.8))
+                    .foregroundColor(loadingTextColor)
                     .textCase(.uppercase)
             }
         }
+    }
+
+    private var loadingTextFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(12, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .semibold) }
+        return .system(size: 12, weight: .bold, design: .rounded)
+    }
+
+    private var loadingTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.84) }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextPrimary.opacity(0.8)
     }
 }
 
@@ -48,11 +64,19 @@ private struct LoadingBar: View {
             let phase = reduceMotion ? 0.62 : wavePhase(at: context.date)
 
             Capsule()
-                .fill(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.clay : Color.monologueTextPrimary))
+                .fill(barColor)
                 .frame(width: 5, height: 32)
                 .scaleEffect(y: 0.4 + phase * 0.6)
                 .opacity(0.6 + phase * 0.4)
         }
+    }
+
+    private var barColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return .monologueTextPrimary
     }
 
     private func wavePhase(at date: Date) -> Double {

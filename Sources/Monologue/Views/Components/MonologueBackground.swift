@@ -90,6 +90,14 @@ struct MonologueBackground: View {
             mangaBackground
         case .neumorphic:
             neumorphicBackground
+        case .sequoia:
+            SequoiaRootBackdrop()
+        case .material:
+            MaterialRootBackdrop()
+        case .clay:
+            ClayRootBackdrop()
+        case .signal:
+            SignalRootBackdrop()
         case .default:
             defaultBackground
         }
@@ -260,6 +268,12 @@ struct MonologueLiquidGlassCard<Content: View>: View {
         } else if NeumorphicStyle.isActive {
             content
                 .background(NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true))
+        } else if SequoiaStyle.isActive {
+            content
+                .background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true))
+        } else if SignalStyle.isActive {
+            content
+                .background(SignalSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true, fill: SignalStyle.device))
         } else {
             content
                 .background(
@@ -290,6 +304,10 @@ struct SwiftUIGlassBackground: View {
                 MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true)
             } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true, fill: SignalStyle.device)
             } else {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(Color.monologueGlassTint)

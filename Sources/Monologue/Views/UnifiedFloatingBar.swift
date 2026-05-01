@@ -19,21 +19,25 @@ struct MiniPlayerSection: View {
 
     private var primaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return Color.monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return Color.monologueTextSecondary
     }
 
     private var controlFillColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
         return Color.monologueIconBackground
     }
 
     private var controlForegroundColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return Color.monologueIconForeground
     }
 
@@ -44,6 +48,9 @@ struct MiniPlayerSection: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(13, weight: .semibold)
         }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(13, weight: .semibold)
+        }
         return MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded)
     }
 
@@ -53,6 +60,9 @@ struct MiniPlayerSection: View {
         }
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(11, weight: .regular)
+        }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(11, weight: .regular)
         }
         return MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .rounded(size: 11, weight: .medium)
     }
@@ -222,6 +232,10 @@ struct ProgressBarView: View {
             return MujiStyle.separator.opacity(0.55)
         } else if NeumorphicStyle.isActive {
             return NeumorphicStyle.surfacePressed.opacity(0.9)
+        } else if SequoiaStyle.isActive {
+            return SequoiaStyle.separator.opacity(0.58)
+        } else if SignalStyle.isActive {
+            return SignalStyle.separator.opacity(0.52)
         }
         return Color.monologueTextPrimary.opacity(0.06)
     }
@@ -233,6 +247,10 @@ struct ProgressBarView: View {
             return AnyShapeStyle(MujiStyle.accentGradient)
         } else if NeumorphicStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [NeumorphicStyle.accent, NeumorphicStyle.sage], startPoint: .leading, endPoint: .trailing))
+        } else if SequoiaStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [SequoiaStyle.accent, SequoiaStyle.aqua], startPoint: .leading, endPoint: .trailing))
+        } else if SignalStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [SignalStyle.accent, SignalStyle.mint], startPoint: .leading, endPoint: .trailing))
         }
         return AnyShapeStyle(LinearGradient(colors: [Color.monologueAccent.opacity(0.5), Color.monologueAccent.opacity(0.5)], startPoint: .leading, endPoint: .trailing))
     }
@@ -260,12 +278,14 @@ struct MonologueTabBar: View {
     private var selectedColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return MujiStyle.isActive ? MujiStyle.clay : .monologueTextPrimary
     }
 
     private var idleColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         return MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextPrimary.opacity(0.35)
     }
 
@@ -359,6 +379,8 @@ struct MonologueTabBar: View {
             return MujiStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
         } else if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
+        } else if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
         }
         return .system(size: 10, weight: isSelected ? .semibold : .medium)
     }
@@ -367,6 +389,7 @@ struct MonologueTabBar: View {
         if MangaStyle.isActive { return MangaStyle.accentPink.opacity(0.15) }
         if MujiStyle.isActive { return MujiStyle.clay.opacity(0.1) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent.opacity(0.14) }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.12) }
         return Color.monologueTextPrimary.opacity(0.1)
     }
 }
@@ -381,7 +404,7 @@ struct UnifiedFloatingBar: View {
     @Namespace private var glassNS
 
     private var cornerRadius: CGFloat {
-        MujiStyle.isActive ? 16 : 22
+        SignalStyle.isActive ? 18 : (MujiStyle.isActive ? 16 : 22)
     }
 
     var body: some View {
@@ -392,6 +415,14 @@ struct UnifiedFloatingBar: View {
             MujiUnifiedFloatingBar(currentTab: $currentTab)
         case .neumorphic:
             NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
+        case .material:
+            MaterialUnifiedFloatingBar(currentTab: $currentTab)
+        case .sequoia:
+            SequoiaUnifiedFloatingBar(currentTab: $currentTab)
+        case .clay:
+            ClayUnifiedFloatingBar(currentTab: $currentTab)
+        case .signal:
+            SignalUnifiedFloatingBar(currentTab: $currentTab)
         case .default:
             defaultFloatingBar
         }
@@ -467,6 +498,674 @@ struct UnifiedFloatingBar: View {
             withAnimation(MonologueAnimation.tabSwitch) {
                 currentTab = allTabs[nextIndex]
             }
+        }
+    }
+}
+
+private struct MaterialUnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = PlayerManager.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 7) {
+            if let song = player.currentSong {
+                MiniPlayerSection(
+                    song: song,
+                    isPlaying: player.isPlaying,
+                    togglePlayPause: { player.togglePlayPause() }
+                )
+                .swipeToSkip()
+                .background(
+                    MaterialSurfaceBackground(
+                        cornerRadius: 21,
+                        elevated: false,
+                        role: player.isPlaying ? .selected : .container
+                    )
+                )
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottom)),
+                    removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottom))
+                ))
+            }
+
+            MonologueTabBar(selectedIndex: Binding(
+                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
+                set: { currentTab = Tab.allCases[$0] }
+            ))
+            .contentShape(Rectangle())
+            .simultaneousGesture(tabSwipeGesture)
+            .padding(.vertical, 1)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(MaterialStyle.surfaceContainer.opacity(colorScheme == .dark ? 0.84 : 0.78))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(MaterialStyle.outline, lineWidth: 0.75)
+                    )
+            )
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(MaterialSurfaceBackground(cornerRadius: 28, elevated: true, role: .floating))
+        .overlay(alignment: .topLeading) {
+            HStack(spacing: 5) {
+                Circle().fill(MaterialStyle.primary).frame(width: 7, height: 7)
+                Circle().fill(MaterialStyle.tertiary.opacity(0.72)).frame(width: 7, height: 7)
+                Circle().fill(MaterialStyle.blue.opacity(0.66)).frame(width: 7, height: 7)
+            }
+            .padding(.top, 8)
+            .padding(.leading, 18)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(MaterialStyle.outlineStrong.opacity(0.44), lineWidth: 0.8)
+        )
+        .shadow(color: MaterialStyle.elevationShadow(colorScheme, level: 3), radius: 18, x: 0, y: 8)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+        .themeRenderInteractiveLayer()
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                switchTab(direction: value.translation.width < 0 ? 1 : -1)
+            }
+    }
+
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+        let nextIndex = currentIndex + direction
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+private struct SequoiaUnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = PlayerManager.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 6) {
+            if let song = player.currentSong {
+                MiniPlayerSection(
+                    song: song,
+                    isPlaying: player.isPlaying,
+                    togglePlayPause: { player.togglePlayPause() }
+                )
+                .swipeToSkip()
+                .background(
+                    SequoiaGlassBand(
+                        tint: player.isPlaying ? SequoiaStyle.accent : SequoiaStyle.graphite,
+                        cornerRadius: 20
+                    )
+                )
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.975, anchor: .bottom)),
+                    removal: .opacity.combined(with: .scale(scale: 0.975, anchor: .bottom))
+                ))
+            }
+
+            MonologueTabBar(selectedIndex: Binding(
+                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
+                set: { currentTab = Tab.allCases[$0] }
+            ))
+            .contentShape(Rectangle())
+            .simultaneousGesture(tabSwipeGesture)
+            .background(
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .fill(SequoiaStyle.materialList.opacity(colorScheme == .dark ? 0.72 : 0.56))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 19, style: .continuous)
+                            .stroke(SequoiaStyle.separator, lineWidth: 0.55)
+                    )
+            )
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 7)
+        .background(SequoiaSurfaceBackground(cornerRadius: 25, elevated: true, role: .floating))
+        .overlay(alignment: .top) {
+            Capsule()
+                .fill(SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.22 : 0.7))
+                .frame(width: 48, height: 3)
+                .offset(y: 5)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.18 : 0.52),
+                            SequoiaStyle.separator.opacity(0.78),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.65
+                )
+        )
+        .shadow(color: SequoiaStyle.shadow(colorScheme, elevated: true), radius: 18, x: 0, y: 9)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+        .themeRenderInteractiveLayer()
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                switchTab(direction: value.translation.width < 0 ? 1 : -1)
+            }
+    }
+
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+        let nextIndex = currentIndex + direction
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+private struct ClayUnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = PlayerManager.shared
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if let song = player.currentSong {
+                ClayMiniPlayerStrip(song: song)
+                    .swipeToSkip()
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom)),
+                        removal: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom))
+                    ))
+            }
+
+            ClayDedicatedTabBar(currentTab: $currentTab)
+                .contentShape(Rectangle())
+                .simultaneousGesture(tabSwipeGesture)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(ClaySurfaceBackground(cornerRadius: 27, tint: ClayStyle.cream.opacity(0.96), elevated: true))
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 4) {
+                Circle().fill(ClayStyle.butter).frame(width: 8, height: 8)
+                Circle().fill(ClayStyle.mint).frame(width: 8, height: 8)
+                Circle().fill(ClayStyle.berry).frame(width: 8, height: 8)
+            }
+            .padding(.top, 11)
+            .padding(.trailing, 18)
+        }
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+        .themeRenderInteractiveLayer()
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+
+                if value.translation.width < 0 {
+                    switchTab(direction: 1)
+                } else if value.translation.width > 0 {
+                    switchTab(direction: -1)
+                }
+            }
+    }
+
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+        let nextIndex = currentIndex + direction
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+private struct ClayMiniPlayerStrip: View {
+    let song: Song
+    @State private var showPlaylist = false
+    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var lyricVM = LyricViewModel.shared
+
+    private var subtitleText: String {
+        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+            return text
+        }
+        return song.artistName
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                CachedAsyncImage(url: song.coverUrl, width: 40, height: 40) {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(ClayStyle.creamPressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 40, height: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    MarqueeText(
+                        text: song.name,
+                        font: ClayStyle.labelFont(13, weight: .bold),
+                        color: ClayStyle.ink,
+                        speed: 25
+                    )
+                    .frame(height: 16)
+
+                    Text(subtitleText)
+                        .font(ClayStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(ClayStyle.inkSoft)
+                        .lineLimit(1)
+                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 6) {
+                    clayControl(icon: player.isPlaying ? .pause : .play, tint: ClayStyle.accent) {
+                        player.togglePlayPause()
+                    }
+
+                    clayControl(icon: .list, tint: ClayStyle.sky) {
+                        showPlaylist.toggle()
+                    }
+
+                    if !player.isPlaying {
+                        clayControl(icon: .close, tint: ClayStyle.inkMuted, size: 9) {
+                            withAnimation(MonologueAnimation.floatingBar) {
+                                player.dismissMiniPlayerPreservingQueue()
+                            }
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapWithHaptic { openPlayer() }
+            }
+
+            ProgressBarView()
+                .frame(height: 2.4)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 2)
+        }
+        .background(ClaySurfaceBackground(cornerRadius: 22, tint: ClayStyle.creamRaised.opacity(0.96), elevated: false, pressed: true, compact: true))
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private func clayControl(icon: MonologueIcon.IconType, tint: Color, size: CGFloat = 13, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: size, color: tint, lineWidth: 1.75)
+                .frame(width: 32, height: 32)
+                .background(ClaySurfaceBackground(cornerRadius: 14, tint: tint.opacity(0.13), elevated: true, compact: true))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+    }
+
+    private func openPlayer() {
+        withAnimation(MonologueAnimation.playerTransition) {
+            switch player.playSource {
+            case .fm:
+                NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+            case let .podcast(radioId):
+                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+            case .normal:
+                NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+            }
+        }
+    }
+}
+
+private struct ClayDedicatedTabBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Namespace private var selectionNS
+
+    private let tints: [Color] = [ClayStyle.accent, ClayStyle.mint, ClayStyle.sky, ClayStyle.grape]
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(Array(Tab.allCases.enumerated()), id: \.element) { index, tab in
+                tabButton(tab: tab, index: index)
+            }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 5)
+        .frame(height: 48)
+        .background(ClaySurfaceBackground(cornerRadius: 20, tint: ClayStyle.creamPressed.opacity(0.88), elevated: false, pressed: true, compact: true))
+    }
+
+    private func tabButton(tab: Tab, index: Int) -> some View {
+        let isSelected = currentTab == tab
+        let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+        let tint = tints[index % tints.count]
+
+        return Button {
+            HapticManager.shared.light()
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = tab
+            }
+        } label: {
+            HStack(spacing: isSelected ? 5 : 0) {
+                MonologueIcon(
+                    icon: tab.icon,
+                    size: isSelected ? 16 : 18,
+                    color: isSelected ? ClayStyle.ink : ClayStyle.inkMuted,
+                    lineWidth: isSelected ? 1.85 : 1.55
+                )
+
+                if isSelected {
+                    Text(label)
+                        .font(ClayStyle.labelFont(9, weight: .bold))
+                        .foregroundStyle(ClayStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(tint.opacity(0.68))
+                        .matchedGeometryEffect(id: "clay-tab", in: selectionNS)
+                        .shadow(color: tint.opacity(0.22), radius: 7, x: 0, y: 4)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct SignalUnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = PlayerManager.shared
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if let song = player.currentSong {
+                SignalMiniPlayerStrip(song: song)
+                    .swipeToSkip()
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom)),
+                        removal: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom))
+                    ))
+            }
+
+            SignalDedicatedTabBar(currentTab: $currentTab)
+                .contentShape(Rectangle())
+                .simultaneousGesture(tabSwipeGesture)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(SignalSurfaceBackground(cornerRadius: 24, elevated: true, fill: SignalStyle.paper.opacity(0.96)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.75)
+                .padding(0.5)
+        )
+        .overlay(alignment: .topLeading) {
+            Capsule()
+                .fill(LinearGradient(colors: [SignalStyle.accent.opacity(0.74), SignalStyle.mint.opacity(0.46)], startPoint: .leading, endPoint: .trailing))
+                .frame(width: 56, height: 4)
+                .padding(.top, 10)
+                .padding(.leading, 18)
+        }
+        .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+        .themeRenderInteractiveLayer()
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+
+                if value.translation.width < 0 {
+                    switchTab(direction: 1)
+                } else if value.translation.width > 0 {
+                    switchTab(direction: -1)
+                }
+            }
+    }
+
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+        let nextIndex = currentIndex + direction
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+private struct SignalMiniPlayerStrip: View {
+    let song: Song
+    @State private var showPlaylist = false
+    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var lyricVM = LyricViewModel.shared
+
+    private var subtitleText: String {
+        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+            return text
+        }
+        return song.artistName
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                CachedAsyncImage(url: song.coverUrl) {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(SignalStyle.controlPressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 40, height: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.65)
+                )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    MarqueeText(
+                        text: song.name,
+                        font: SignalStyle.labelFont(13, weight: .bold),
+                        color: SignalStyle.ink,
+                        speed: 25
+                    )
+                    .frame(height: 16)
+
+                    Text(subtitleText)
+                        .font(SignalStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(SignalStyle.inkSoft)
+                        .lineLimit(1)
+                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 6) {
+                    signalControl(icon: player.isPlaying ? .pause : .play, tint: SignalStyle.accent) {
+                        player.togglePlayPause()
+                    }
+
+                    signalControl(icon: .list, tint: SignalStyle.inkSoft) {
+                        showPlaylist.toggle()
+                    }
+
+                    if !player.isPlaying {
+                        signalControl(icon: .close, tint: SignalStyle.inkMuted, size: 9) {
+                            withAnimation(MonologueAnimation.floatingBar) {
+                                player.dismissMiniPlayerPreservingQueue()
+                            }
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapWithHaptic { openPlayer() }
+            }
+
+            ProgressBarView()
+                .frame(height: 2.3)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
+        }
+        .background(SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.78)))
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private func signalControl(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        size: CGFloat = 14,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: size, color: tint, lineWidth: 1.75)
+                .frame(width: 32, height: 32)
+                .background(SignalSurfaceBackground(cornerRadius: 12, elevated: true, fill: SignalStyle.surfaceRaised))
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
+    private func openPlayer() {
+        withAnimation(MonologueAnimation.playerTransition) {
+            switch player.playSource {
+            case .fm:
+                NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+            case let .podcast(radioId):
+                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+            case .normal:
+                NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+            }
+        }
+    }
+}
+
+private struct SignalDedicatedTabBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Namespace private var selectionNS
+
+    private static let tabs: [(tab: Tab, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType)] = [
+        (.home, .home, .homeFilled),
+        (.podcast, .podcast, .podcastFilled),
+        (.library, .library, .libraryFilled),
+        (.profile, .profile, .profileFilled),
+    ]
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0 ..< Self.tabs.count, id: \.self) { index in
+                let item = Self.tabs[index]
+                tabButton(tab: item.tab, index: index, outline: item.outline, filled: item.filled)
+            }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 5)
+        .frame(height: 48)
+        .background(SignalSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true, fill: SignalStyle.controlPressed))
+    }
+
+    private func tabButton(tab: Tab, index: Int, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType) -> some View {
+        let isSelected = currentTab == tab
+        let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+        let tint = tabTint(index)
+
+        return Button {
+            HapticManager.shared.light()
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = tab
+            }
+        } label: {
+            HStack(spacing: isSelected ? 5 : 0) {
+                MonologueIcon(
+                    icon: isSelected ? filled : outline,
+                    size: isSelected ? 16 : 18,
+                    color: isSelected ? SignalStyle.onAccent : SignalStyle.inkMuted,
+                    lineWidth: isSelected ? 1.9 : 1.55
+                )
+
+                if isSelected {
+                    Text(label)
+                        .font(SignalStyle.labelFont(9, weight: .bold))
+                        .foregroundStyle(SignalStyle.onAccent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [tint, SignalStyle.mint.opacity(0.82)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .matchedGeometryEffect(id: "signal-tab", in: selectionNS)
+                        .shadow(color: tint.opacity(0.18), radius: 8, x: 0, y: 4)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func tabTint(_ index: Int) -> Color {
+        switch index {
+        case 0: return SignalStyle.accent
+        case 1: return SignalStyle.mint
+        case 2: return SignalStyle.lavender
+        default: return SignalStyle.clay
         }
     }
 }

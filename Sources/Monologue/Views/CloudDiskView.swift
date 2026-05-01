@@ -7,6 +7,7 @@ import Combine
 struct CloudDiskView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     
     @State private var songs: [CloudSong] = []
     @State private var isLoading = true
@@ -25,20 +26,61 @@ struct CloudDiskView: View {
 
     private struct Theme {
         static var accent: Color {
-            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
+            if MangaStyle.isActive { return MangaStyle.accentPink }
+            if MujiStyle.isActive { return MujiStyle.clay }
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            return Color.monologueIconBackground
         }
+
         static var accentForeground: Color {
-            MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.paper : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : Color.monologueIconForeground))
+            if MangaStyle.isActive { return MangaStyle.ink }
+            if MujiStyle.isActive { return MujiStyle.paper }
+            if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+            if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+            return Color.monologueIconForeground
         }
+
         static var text: Color {
-            NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary
+            if SequoiaStyle.isActive { return SequoiaStyle.ink }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+            return Color.monologueTextPrimary
         }
+
         static var secondaryText: Color {
-            NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary
+            if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+            return Color.monologueTextSecondary
+        }
+
+        static var mutedText: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+            return Color.monologueTextSecondary.opacity(0.5)
+        }
+
+        static var coverFill: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+            return Color.monologueGlassTint
+        }
+
+        static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+            return .system(size: size, weight: weight, design: .rounded)
+        }
+
+        static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+            return .system(size: size, weight: weight, design: .rounded)
         }
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -47,7 +89,7 @@ struct CloudDiskView: View {
                 if isLoading && songs.isEmpty {
                     Spacer()
                     ProgressView()
-                        .tint(.monologueTextSecondary)
+                        .tint(Theme.secondaryText)
                     Spacer()
                 } else if songs.isEmpty {
                     emptyState
@@ -98,9 +140,9 @@ struct CloudDiskView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
-            MonologueIcon(icon: .cloud, size: 48, color: .monologueTextSecondary.opacity(0.3), lineWidth: 1.4)
+            MonologueIcon(icon: .cloud, size: 48, color: Theme.mutedText.opacity(0.42), lineWidth: 1.4)
             Text(LocalizedStringKey("cloud_empty"))
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                .font(Theme.bodyFont(15))
                 .foregroundColor(Theme.secondaryText)
             Spacer()
         }
@@ -113,22 +155,22 @@ struct CloudDiskView: View {
             // 统计信息
             HStack {
                 Text(String(format: NSLocalizedString("cloud_song_count", comment: ""), totalCount))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
+                    .font(Theme.labelFont(13))
                     .foregroundColor(Theme.secondaryText)
                 if isEnrichingMetadata {
                     HStack(spacing: 6) {
                         ProgressView()
                             .controlSize(.mini)
-                            .tint(.monologueTextSecondary)
+                            .tint(Theme.secondaryText)
                         Text(LocalizedStringKey("cloud_syncing_metadata"))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .font(Theme.labelFont(12))
                             .foregroundColor(Theme.secondaryText)
                     }
                 }
                 Spacer()
                 if !usedSpace.isEmpty && !totalSpace.isEmpty {
                     Text("\(formatBytes(usedSpace)) / \(formatBytes(totalSpace))")
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, design: .rounded))
+                        .font(Theme.labelFont(13))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
@@ -144,7 +186,18 @@ struct CloudDiskView: View {
                     playerManager.playReplacingContext(song: first, in: allSongs)
                 }
             } label: {
-                if NeumorphicStyle.isActive {
+                if SequoiaStyle.isActive {
+                    HStack(spacing: 7) {
+                        MonologueIcon(icon: .play, size: 14, color: Theme.accentForeground, lineWidth: 1.6)
+                        Text(LocalizedStringKey("cloud_play_all"))
+                            .font(Theme.labelFont(14, weight: .semibold))
+                            .foregroundColor(Theme.accentForeground)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(Theme.accent))
+                    .overlay(Capsule().stroke(SequoiaStyle.luminousSeparator.opacity(0.28), lineWidth: 0.55))
+                } else if NeumorphicStyle.isActive {
                     NeumorphicPlayPill(title: String(localized: "cloud_play_all"), tint: NeumorphicStyle.accent)
                 } else {
                     HStack(spacing: 8) {
@@ -185,7 +238,7 @@ struct CloudDiskView: View {
                     
                     if isLoadingMore {
                         ProgressView()
-                            .tint(.monologueTextSecondary)
+                            .tint(Theme.secondaryText)
                             .padding(.vertical, 20)
                     }
                 }
@@ -210,7 +263,7 @@ struct CloudDiskView: View {
                 if let coverUrl = song.simpleSong?.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
                         RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                            .fill(Theme.coverFill)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
@@ -218,7 +271,7 @@ struct CloudDiskView: View {
                     .overlay(coverStroke)
                 } else {
                     RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                        .fill(Theme.coverFill)
                         .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
                         .overlay(
                             MonologueIcon(icon: .cloud, size: 20, color: Theme.secondaryText.opacity(0.5), lineWidth: 1.4)
@@ -228,12 +281,14 @@ struct CloudDiskView: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.songName)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(isCurrent && NeumorphicStyle.isActive ? NeumorphicStyle.accent : Theme.text)
+                        .font(Theme.bodyFont(15, weight: .semibold))
+                        .foregroundColor(isCurrent && (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
                         .lineLimit(1)
                     
                     HStack(spacing: 6) {
-                        if NeumorphicStyle.isActive {
+                        if SequoiaStyle.isActive {
+                            SequoiaPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
+                        } else if NeumorphicStyle.isActive {
                             NeumorphicPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
                         } else {
                             Text(song.bitrateText)
@@ -248,7 +303,7 @@ struct CloudDiskView: View {
                         }
                         
                         Text("\(song.artist) · \(song.fileSizeText)")
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
+                            .font(Theme.labelFont(12))
                             .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
                     }
@@ -257,13 +312,13 @@ struct CloudDiskView: View {
                 Spacer()
                 
                 if isCurrent {
-                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
+                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monologueTextPrimary)
                         .frame(width: 20)
                 }
             }
             .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
             .padding(.vertical, 8)
-            .background(isCurrent ? Color.monologueTextPrimary.opacity(0.05) : Color.clear)
+            .background(isCurrent ? Theme.accent.opacity(SequoiaStyle.isActive ? 0.08 : 0.05) : Color.clear)
             .themedOnlyPageSurface(
                 cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
                 elevated: isCurrent,
@@ -302,14 +357,15 @@ struct CloudDiskView: View {
     }
 
     private var coverRadius: CGFloat {
-        NeumorphicStyle.isActive ? 14 : 10
+        if SequoiaStyle.isActive { return 12 }
+        return NeumorphicStyle.isActive ? 14 : 10
     }
 
     @ViewBuilder
     private var coverStroke: some View {
-        if NeumorphicStyle.isActive {
+        if NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+                .stroke(SequoiaStyle.isActive ? SequoiaStyle.separator : NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         }
     }
     

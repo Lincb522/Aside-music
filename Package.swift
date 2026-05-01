@@ -28,7 +28,7 @@ let package = Package(
             name: "Monologue",
             dependencies: [
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
-                "FFmpegSwiftSDK",
+                .product(name: "FFmpegSwiftSDK", package: "ffmpeg-swift"),
                 "QQMusicKit",
                 "HiconIcons",
             ],

@@ -16,6 +16,46 @@ enum QQDetailType {
     case playlist(id: Int, name: String, coverUrl: String?, creatorName: String?)
 }
 
+private enum QQDetailPalette {
+    static var accent: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground
+    }
+
+    static var accentForeground: Color {
+        if NeumorphicStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: NeumorphicStyle.accent,
+                light: Color(hex: "172026"),
+                dark: .white
+            )
+        }
+        return .monologueIconForeground
+    }
+
+    static var primaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    static var secondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    static var mutedText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
+    static var placeholderFill: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueGlassTint
+    }
+
+    static func pageBase(for colorScheme: ColorScheme) -> Color {
+        if NeumorphicStyle.isActive {
+            return NeumorphicStyle.base
+        }
+        return colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7")
+    }
+}
+
 // MARK: - 路由入口
 
 struct QQMusicDetailView: View {
@@ -260,6 +300,7 @@ struct QQArtistDetailView: View {
     let coverUrl: String?
     
     @StateObject private var viewModel: QQArtistDetailViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
     
     @State private var selectedTab = 0
@@ -297,9 +338,16 @@ struct QQArtistDetailView: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
-            (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
-                .ignoresSafeArea()
+            if ThemedPageStyle.isActive {
+                ThemedPageBackground()
+                    .ignoresSafeArea()
+            } else {
+                QQDetailPalette.pageBase(for: colorScheme)
+                    .ignoresSafeArea()
+            }
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -372,7 +420,7 @@ struct QQArtistDetailView: View {
         return ZStack(alignment: .bottom) {
             if let url = displayCoverUrl {
                 CachedAsyncImage(url: url) {
-                    Rectangle().fill(Color.monologueGlassTint)
+                    Rectangle().fill(QQDetailPalette.placeholderFill)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(height: stretchHeight)
@@ -380,15 +428,16 @@ struct QQArtistDetailView: View {
                 .monologueBackgroundExtension()
             } else {
                 Rectangle()
-                    .fill(Color.monologueGlassTint)
+                    .fill(QQDetailPalette.placeholderFill)
                     .frame(height: stretchHeight)
             }
 
+            let pageBase = QQDetailPalette.pageBase(for: colorScheme)
             LinearGradient(
                 colors: [
                     .clear, .clear,
-                    (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7")).opacity(0.6),
-                    (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
+                    pageBase.opacity(0.62),
+                    pageBase
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -407,7 +456,7 @@ struct QQArtistDetailView: View {
             HStack(alignment: .bottom) {
                 Text(displayName)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(QQDetailPalette.primaryText)
                     .lineLimit(2)
                 Spacer()
                 
@@ -419,17 +468,17 @@ struct QQArtistDetailView: View {
                 if let fans = viewModel.fansCount, fans > 0 {
                     Text(String(format: String(localized: "qq_fans_count"), formatCount(fans)))
                         .font(.rounded(size: 13))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QQDetailPalette.secondaryText)
                 }
                 if let ac = viewModel.albumCount, ac > 0 {
                     Text(String(format: String(localized: "qq_album_count"), ac))
                         .font(.rounded(size: 13))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QQDetailPalette.secondaryText)
                 }
                 if let sc = viewModel.songCount, sc > 0 {
                     Text(String(format: String(localized: "qq_song_count"), sc))
                         .font(.rounded(size: 13))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QQDetailPalette.secondaryText)
                 }
             }
             
@@ -439,9 +488,9 @@ struct QQArtistDetailView: View {
                     HStack(spacing: 4) {
                         Text(desc)
                             .font(.rounded(size: 13))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(QQDetailPalette.secondaryText)
                             .lineLimit(1)
-                        MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary)
+                        MonologueIcon(icon: .chevronRight, size: 10, color: QQDetailPalette.secondaryText)
                     }
                 }
             }
@@ -454,14 +503,14 @@ struct QQArtistDetailView: View {
                     }
                 }) {
                     HStack(spacing: 8) {
-                        MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
+                        MonologueIcon(icon: .play, size: 14, color: QQDetailPalette.accentForeground)
                         Text("qq_play_all")
                             .font(.rounded(size: 14, weight: .bold))
-                            .foregroundColor(.monologueIconForeground)
+                            .foregroundColor(QQDetailPalette.accentForeground)
                     }
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.vertical, 12)
-                    .background(Capsule().fill(Color.monologueIconBackground))
+                    .background(Capsule().fill(QQDetailPalette.accent))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
@@ -491,9 +540,9 @@ struct QQArtistDetailView: View {
             VStack(spacing: 6) {
                 Text(title)
                     .font(.rounded(size: 17, weight: selectedTab == index ? .bold : .medium))
-                    .foregroundColor(selectedTab == index ? .monologueTextPrimary : .monologueTextSecondary)
+                    .foregroundColor(selectedTab == index ? QQDetailPalette.primaryText : QQDetailPalette.secondaryText)
                 Capsule()
-                    .fill(selectedTab == index ? Color.monologueIconBackground : Color.clear)
+                    .fill(selectedTab == index ? QQDetailPalette.accent : Color.clear)
                     .frame(width: 20, height: 3)
             }
         }
@@ -599,43 +648,43 @@ struct QQArtistDetailView: View {
             HStack(spacing: 14) {
                 if let coverUrl = album.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.monologueGlassTint)
+                        RoundedRectangle(cornerRadius: 10).fill(QQDetailPalette.placeholderFill)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.monologueGlassTint)
+                        .fill(QQDetailPalette.placeholderFill)
                         .frame(width: 72, height: 72)
-                        .overlay(MonologueIcon(icon: .album, size: 24, color: .monologueTextSecondary.opacity(0.3)))
+                        .overlay(MonologueIcon(icon: .album, size: 24, color: QQDetailPalette.mutedText.opacity(0.36)))
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(album.name)
                         .font(.rounded(size: 16, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(QQDetailPalette.primaryText)
                         .lineLimit(1)
                     HStack(spacing: 8) {
                         if !album.publishDateText.isEmpty {
                             Text(album.publishDateText)
                                 .font(.rounded(size: 12))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(QQDetailPalette.secondaryText)
                         }
                         if let size = album.size, size > 0 {
                             Text("\(size) Tracks")
                                 .font(.rounded(size: 12))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(QQDetailPalette.secondaryText)
                         }
                     }
                 }
                 Spacer(minLength: 0)
-                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.4))
+                MonologueIcon(icon: .chevronRight, size: 12, color: QQDetailPalette.mutedText.opacity(0.5))
             }
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.monologueGlassTint)
+                    .fill(QQDetailPalette.placeholderFill)
                     .monologueGlass(cornerRadius: 20)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -674,14 +723,14 @@ struct QQArtistDetailView: View {
                     if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
                         CachedAsyncImage(url: url) {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.monologueTextSecondary.opacity(0.06))
+                                .fill(QQDetailPalette.placeholderFill)
                         }
                         .aspectRatio(16/9, contentMode: .fill)
                         .frame(height: 100)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     } else {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.monologueTextSecondary.opacity(0.06))
+                            .fill(QQDetailPalette.placeholderFill)
                             .frame(height: 100)
                     }
                     if !mv.durationText.isEmpty {
@@ -697,7 +746,7 @@ struct QQArtistDetailView: View {
                 }
                 Text(mv.name)
                     .font(.rounded(size: 13, weight: .medium))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(QQDetailPalette.primaryText)
                     .lineLimit(1)
             }
         }
@@ -709,7 +758,7 @@ struct QQArtistDetailView: View {
     private var loadingView: some View {
         VStack {
             Spacer().frame(height: 60)
-            ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .monologueTextSecondary))
+            ProgressView().progressViewStyle(CircularProgressViewStyle(tint: QQDetailPalette.secondaryText))
             Spacer().frame(height: 60)
         }
         .frame(maxWidth: .infinity)
@@ -718,7 +767,7 @@ struct QQArtistDetailView: View {
     private func emptyView(_ text: String) -> some View {
         VStack(spacing: 12) {
             Spacer().frame(height: 60)
-            Text(text).font(.rounded(size: 15)).foregroundColor(.monologueTextSecondary)
+            Text(text).font(.rounded(size: 15)).foregroundColor(QQDetailPalette.secondaryText)
             Spacer().frame(height: 60)
         }
         .frame(maxWidth: .infinity)
@@ -931,6 +980,7 @@ struct QQAlbumDetailView: View {
     let artistName: String?
     
     @StateObject private var viewModel: QQAlbumDetailViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
     @State private var showAlbumDesc = false
@@ -958,6 +1008,8 @@ struct QQAlbumDetailView: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             MonologueSheetAwareBackground {
                 if SettingsManager.shared.coverBgPlaylist {
@@ -1003,7 +1055,7 @@ struct QQAlbumDetailView: View {
                 if let count = viewModel.songCount ?? (viewModel.songs.isEmpty ? nil : viewModel.songs.count), count > 0 {
                     Text(String(format: String(localized: "qq_track_count"), count))
                         .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(QQDetailPalette.secondaryText)
                 }
             }
         }
@@ -1026,7 +1078,7 @@ struct QQAlbumDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
                 CachedAsyncImage(url: displayCoverUrl) {
-                    Color.gray.opacity(0.1)
+                    QQDetailPalette.placeholderFill
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.detailCoverSize, height: DeviceLayout.detailCoverSize)
@@ -1039,21 +1091,21 @@ struct QQAlbumDetailView: View {
                         
                         Text(displayName)
                             .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
+                            .foregroundColor(QQDetailPalette.primaryText)
                             .lineLimit(2)
                     }
                     
                     if let artist = displayArtist, !artist.isEmpty {
                         Text(artist)
                             .font(.system(size: 13))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(QQDetailPalette.secondaryText)
                             .lineLimit(1)
                     }
                     
                     if let date = viewModel.publishDate, !date.isEmpty {
                         Text(date)
                             .font(.rounded(size: 11))
-                            .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                            .foregroundColor(QQDetailPalette.mutedText.opacity(0.78))
                     }
                     
                     Spacer().frame(height: 4)
@@ -1064,14 +1116,14 @@ struct QQAlbumDetailView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
+                            MonologueIcon(icon: .play, size: 12, color: QQDetailPalette.accentForeground)
                             Text(String(localized: "qq_play"))
                                 .font(.system(size: 12, weight: .bold))
                         }
-                        .foregroundColor(.monologueIconForeground)
+                        .foregroundColor(QQDetailPalette.accentForeground)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Color.monologueIconBackground)
+                        .background(QQDetailPalette.accent)
                         .cornerRadius(20)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
@@ -1091,8 +1143,8 @@ struct QQAlbumDetailView: View {
                 MonologueLoadingView(text: "LOADING TRACKS")
             } else if viewModel.songs.isEmpty {
                 VStack(spacing: 14) {
-                    MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
-                    Text(String(localized: "qq_no_songs")).font(.rounded(size: 15)).foregroundColor(.monologueTextSecondary)
+                    MonologueIcon(icon: .musicNoteList, size: 40, color: QQDetailPalette.mutedText.opacity(0.36))
+                    Text(String(localized: "qq_no_songs")).font(.rounded(size: 15)).foregroundColor(QQDetailPalette.secondaryText)
                 }
                 .padding(.top, 40)
             } else {
@@ -1103,13 +1155,13 @@ struct QQAlbumDetailView: View {
                             HStack {
                                 Text("qq_album_desc")
                                     .font(.rounded(size: 15, weight: .semibold))
-                                    .foregroundColor(.monologueTextPrimary)
+                                    .foregroundColor(QQDetailPalette.primaryText)
                                 Spacer()
-                                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
+                                MonologueIcon(icon: .chevronRight, size: 12, color: QQDetailPalette.secondaryText)
                             }
                             Text(desc)
                                 .font(.rounded(size: 13, weight: .regular))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(QQDetailPalette.secondaryText)
                                 .lineLimit(3)
                                 .lineSpacing(4)
                                 .multilineTextAlignment(.leading)
@@ -1445,6 +1497,7 @@ struct QQPlaylistDetailView: View {
     let creatorName: String?
     
     @StateObject private var viewModel: QQPlaylistDetailViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
     @State private var isCollectedLocally = false
@@ -1471,6 +1524,8 @@ struct QQPlaylistDetailView: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             MonologueSheetAwareBackground {
                 if SettingsManager.shared.coverBgPlaylist {
@@ -1532,21 +1587,19 @@ struct QQPlaylistDetailView: View {
         }
     }
     
-    typealias Theme = PlaylistDetailView.Theme
-    
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
                 Group {
                     if let url = displayCoverUrl {
                         CachedAsyncImage(url: url) {
-                            Color.gray.opacity(0.1)
+                            QQDetailPalette.placeholderFill
                         }
                         .aspectRatio(contentMode: .fill)
                     } else {
                         ZStack {
-                            Color.monologueGlassTint
-                            MonologueIcon(icon: .musicNote, size: 32, color: .monologueTextSecondary.opacity(0.3))
+                            QQDetailPalette.placeholderFill
+                            MonologueIcon(icon: .musicNote, size: 32, color: QQDetailPalette.mutedText.opacity(0.36))
                         }
                     }
                 }
@@ -1557,14 +1610,14 @@ struct QQPlaylistDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(displayName)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.text)
+                        .foregroundColor(QQDetailPalette.primaryText)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     
                     if let creator = creatorName {
                         Text("by \(creator)")
                             .font(.system(size: 13))
-                            .foregroundColor(Theme.secondaryText)
+                            .foregroundColor(QQDetailPalette.secondaryText)
                             .lineLimit(1)
                     }
                     
@@ -1582,17 +1635,17 @@ struct QQPlaylistDetailView: View {
                             }
                         }) {
                             HStack(spacing: 6) {
-                                MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
+                                MonologueIcon(icon: .play, size: 12, color: QQDetailPalette.accentForeground)
                                 Text(LocalizedStringKey("play_now"))
                                     .font(.system(size: 12, weight: .bold))
                             }
-                            .foregroundColor(.monologueIconForeground)
+                            .foregroundColor(QQDetailPalette.accentForeground)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Theme.accent)
+                            .background(QQDetailPalette.accent)
                             .cornerRadius(20)
                             .monologueGlassCapsule()
-                            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
+                            .shadow(color: QQDetailPalette.accent.opacity(0.2), radius: 5, x: 0, y: 2)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                         
@@ -1650,7 +1703,7 @@ struct QQPlaylistDetailView: View {
                 if viewModel.isLoadingMore {
                     HStack(spacing: 8) {
                         ProgressView().scaleEffect(0.8)
-                        Text("qq_loading_more").font(.rounded(size: 13)).foregroundColor(.monologueTextSecondary)
+                        Text("qq_loading_more").font(.rounded(size: 13)).foregroundColor(QQDetailPalette.secondaryText)
                     }
                     .padding(.vertical, 14)
                 }

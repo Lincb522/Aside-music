@@ -5,6 +5,7 @@ struct SongListRow: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var unavailableSongs = UnavailableSongsManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     let song: Song
     let index: Int
     var isSelecting: Bool = false
@@ -44,7 +45,13 @@ struct SongListRow: View {
         static let text = Color.monologueTextPrimary
         static let secondaryText = Color.monologueTextSecondary
         static var accent: Color {
-            MangaStyle.isActive ? MangaStyle.accentPink : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary))
+            MangaStyle.isActive
+                ? MangaStyle.accentPink
+                : (MujiStyle.isActive
+                    ? MujiStyle.clay
+                    : (NeumorphicStyle.isActive
+                        ? NeumorphicStyle.accent
+                        : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueTextPrimary)))
         }
     }
 
@@ -108,6 +115,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 32 }
         if MujiStyle.isActive { return 31 }
         if NeumorphicStyle.isActive { return 32 }
+        if SequoiaStyle.isActive { return 32 }
         return 30
     }
 
@@ -115,6 +123,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 11 }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 13 }
+        if SequoiaStyle.isActive { return 12 }
         return quickActionButtonSize / 2
     }
 
@@ -124,11 +133,13 @@ struct SongListRow: View {
             if MangaStyle.isActive { return MangaStyle.labelYellow }
             if MujiStyle.isActive { return MujiStyle.clay }
             if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
             return Color.monologueTextPrimary
         case .download:
             if MangaStyle.isActive { return MangaStyle.decoBlue }
             if MujiStyle.isActive { return MujiStyle.indigo }
             if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+            if SequoiaStyle.isActive { return SequoiaStyle.aqua }
             return Color.monologueTextPrimary
         }
     }
@@ -143,10 +154,31 @@ struct SongListRow: View {
         if NeumorphicStyle.isActive {
             return quickActionTint(for: kind).opacity(isDisabled ? 0.36 : 1)
         }
+        if SequoiaStyle.isActive {
+            return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 0.96)
+        }
         return isDisabled ? .monologueTextSecondary.opacity(0.45) : .monologueTextPrimary
+    }
+
+    private var rowCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 2 }
+        if MujiStyle.isActive { return 10 }
+        if NeumorphicStyle.isActive { return 18 }
+        if SequoiaStyle.isActive { return 17 }
+        return 12
+    }
+
+    private var coverCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 2 }
+        if MujiStyle.isActive { return 6 }
+        if NeumorphicStyle.isActive { return 14 }
+        if SequoiaStyle.isActive { return 13 }
+        return 12
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         HStack(spacing: 12) {
             Button {
                 onTap?()
@@ -161,7 +193,7 @@ struct SongListRow: View {
                             )
                         } else {
                             Text(String(format: "%02d", index + 1))
-                                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
+                                .font(indexFont)
                                 .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
@@ -174,7 +206,7 @@ struct SongListRow: View {
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 14 : 12)), style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous))
                     .overlay {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -185,6 +217,9 @@ struct SongListRow: View {
                         } else if NeumorphicStyle.isActive {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(NeumorphicStyle.separator.opacity(0.38), lineWidth: 0.6)
+                        } else if SequoiaStyle.isActive {
+                            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                                .stroke(SequoiaStyle.luminousSeparator.opacity(0.42), lineWidth: 0.55)
                         }
                     }
                     .overlay {
@@ -200,8 +235,8 @@ struct SongListRow: View {
 
                     VStack(alignment: .leading, spacing: songInfoVerticalSpacing) {
                         Text(song.name)
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) : .system(size: 16, weight: isCurrent ? .bold : .medium))))
-                            .foregroundColor(isGrayed ? Theme.secondaryText.opacity(0.4) : (isCurrent ? Theme.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
+                            .font(songTitleFont)
+                            .foregroundColor(songTitleColor)
                             .lineLimit(1)
                             .layoutPriority(2)
 
@@ -248,42 +283,70 @@ struct SongListRow: View {
         .padding(.vertical, 8)
         .background {
             if isCurrent {
-                ZStack(alignment: .leading) {
-                    // 主体渐变玻璃态
-                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : 12)), style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Theme.accent.opacity(0.12),
-                                    Theme.accent.opacity(0.01)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : 12)))
-                    
-                    // 左侧微光描边
-                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 2 : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 18 : 12)), style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Theme.accent.opacity(0.35),
-                                    Color.clear
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            lineWidth: 0.5
+                if SequoiaStyle.isActive {
+                    ZStack(alignment: .leading) {
+                        SequoiaSurfaceBackground(
+                            cornerRadius: rowCornerRadius,
+                            elevated: false,
+                            fill: Theme.accent.opacity(0.075),
+                            role: .selected
                         )
 
-                    // 呼吸发光指示条
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Theme.accent)
-                        .frame(width: 3.5, height: 20)
-                        .shadow(color: Theme.accent.opacity(0.6), radius: 4, x: 0, y: 0)
+                        LinearGradient(
+                            colors: [
+                                Theme.accent.opacity(0.14),
+                                SequoiaStyle.aqua.opacity(0.055),
+                                .clear,
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous))
+
+                        Capsule()
+                            .fill(SequoiaStyle.accentGradient)
+                            .frame(width: 3.5, height: 24)
+                            .shadow(color: Theme.accent.opacity(0.35), radius: 5, x: 0, y: 0)
+                    }
+                    .padding(.horizontal, 5)
+                } else {
+                    ZStack(alignment: .leading) {
+                        // 主体渐变玻璃态
+                        RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Theme.accent.opacity(0.12),
+                                        Theme.accent.opacity(0.01)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .monologueGlass(cornerRadius: rowCornerRadius)
+
+                        // 左侧微光描边
+                        RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Theme.accent.opacity(0.35),
+                                        Color.clear
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 0.5
+                            )
+
+                        // 呼吸发光指示条
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Theme.accent)
+                            .frame(width: 3.5, height: 20)
+                            .shadow(color: Theme.accent.opacity(0.6), radius: 4, x: 0, y: 0)
+                    }
+                    .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 4)
             }
         }
         .contentShape(Rectangle())
@@ -441,7 +504,32 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 3.5 }
         if MujiStyle.isActive { return 3 }
         if NeumorphicStyle.isActive { return 3.5 }
+        if SequoiaStyle.isActive { return 3.5 }
         return 3
+    }
+
+    private var indexFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(13, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .medium) }
+        return .system(size: 13, weight: .medium, design: .rounded)
+    }
+
+    private var songTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: isCurrent ? .semibold : .medium) }
+        return .system(size: 16, weight: isCurrent ? .bold : .medium)
+    }
+
+    private var songTitleColor: Color {
+        if isGrayed { return Theme.secondaryText.opacity(0.4) }
+        if isCurrent { return Theme.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return Theme.text
     }
 
     private var songArtistAlbumText: String {
@@ -460,17 +548,24 @@ struct SongListRow: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(12, weight: .medium)
         }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(12, weight: .regular)
+        }
         return .system(size: 13)
     }
 
     private var songArtistAlbumColor: Color {
-        isGrayed ? Theme.secondaryText.opacity(0.3) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)
+        if isGrayed { return Theme.secondaryText.opacity(0.3) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return Theme.secondaryText
     }
 
     private var songBadgeRailSpacing: CGFloat {
         if MangaStyle.isActive { return 5 }
         if MujiStyle.isActive { return 4 }
         if NeumorphicStyle.isActive { return 5 }
+        if SequoiaStyle.isActive { return 5 }
         return 4
     }
 
@@ -540,6 +635,9 @@ struct SongListRow: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(max(fontSize + 0.5, 8), weight: .semibold)
         }
+        if SequoiaStyle.isActive {
+            return SequoiaStyle.labelFont(max(fontSize + 0.5, 8), weight: .semibold)
+        }
         return .system(size: fontSize, weight: .bold, design: .rounded)
     }
 
@@ -547,6 +645,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 5.5 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 5.5 }
+        if SequoiaStyle.isActive { return 6 }
         return 4
     }
 
@@ -554,6 +653,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 2 }
         if MujiStyle.isActive { return 1.5 }
         if NeumorphicStyle.isActive { return 2 }
+        if SequoiaStyle.isActive { return 2.2 }
         return 1
     }
 
@@ -561,6 +661,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 6 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 6 }
+        if SequoiaStyle.isActive { return 7 }
         return 2
     }
 
@@ -577,6 +678,14 @@ struct SongListRow: View {
                 pressed: true,
                 tint: color.opacity(0.12),
                 lightweight: true
+            )
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: songMetaBadgeCornerRadius,
+                elevated: false,
+                pressed: true,
+                fill: color.opacity(0.095),
+                role: .selected
             )
         } else {
             RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
@@ -595,6 +704,9 @@ struct SongListRow: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
                 .stroke(color.opacity(0.2), lineWidth: 0.5)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(color.opacity(0.24), lineWidth: 0.55)
         } else {
             RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
                 .stroke(color, lineWidth: 0.5)
@@ -687,6 +799,20 @@ struct SongListRow: View {
             }
             .frame(width: size, height: size)
             .scaleEffect(isActive ? 1.06 : 1)
+        } else if SequoiaStyle.isActive {
+            ZStack {
+                SequoiaSurfaceBackground(
+                    cornerRadius: radius,
+                    elevated: isActive && !isDisabled,
+                    pressed: !isActive,
+                    fill: tint.opacity(isDisabled ? 0.045 : (isActive ? 0.18 : 0.08)),
+                    role: .selected
+                )
+
+                MonologueIcon(icon: icon, size: 13, color: iconColor, lineWidth: 1.58)
+            }
+            .frame(width: size, height: size)
+            .scaleEffect(isActive ? 1.06 : 1)
         } else {
             MonologueIcon(
                 icon: icon,
@@ -746,13 +872,21 @@ struct SongListRow: View {
         if MangaStyle.isActive { return MangaStyle.comicFont(10, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(10, weight: .semibold) }
         return .system(size: 10, weight: .semibold, design: .rounded)
     }
 
-    private func quickActionFeedbackForeground(for _: QuickAction) -> Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
+    private func quickActionFeedbackForeground(for action: QuickAction) -> Color {
+        if MangaStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: quickActionTint(for: action),
+                light: MangaStyle.strokeInk,
+                dark: MangaStyle.onStrokeInk
+            )
+        }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -792,6 +926,17 @@ struct SongListRow: View {
                     )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(
+                cornerRadius: 13,
+                elevated: true,
+                fill: tint.opacity(0.12),
+                role: .floating
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(tint.opacity(0.2), lineWidth: 0.55)
+            )
         } else {
             Capsule(style: .continuous)
                 .fill(Color.monologueTextPrimary.opacity(0.08))

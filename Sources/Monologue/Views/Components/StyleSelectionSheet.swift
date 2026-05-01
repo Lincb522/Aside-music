@@ -9,6 +9,7 @@ struct StyleSelectionMorphView: View {
     }
 
     @ObservedObject var styleManager: StyleManager
+    @ObservedObject private var settings = SettingsManager.shared
     @Binding var isPresented: Bool
     var placement: Placement = .standalone
 
@@ -20,6 +21,7 @@ struct StyleSelectionMorphView: View {
     private let columns = [GridItem(.adaptive(minimum: 66, maximum: 96), spacing: 10)]
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         panelContent
             .background {
                 if drawsOwnChrome {
@@ -300,6 +302,22 @@ struct StyleSelectionMorphView: View {
             panelShape
                 .fill(NeumorphicStyle.surface)
                 .overlay(NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.035 : 0.055).clipShape(panelShape))
+        } else if SequoiaStyle.isActive {
+            panelShape
+                .fill(.ultraThinMaterial)
+                .overlay(panelShape.fill(SequoiaStyle.materialFloating.opacity(colorScheme == .dark ? 0.86 : 0.74)))
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            SequoiaStyle.highlight(colorScheme).opacity(0.34),
+                            .clear,
+                            SequoiaStyle.accent.opacity(0.035)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(panelShape)
+                )
         } else {
             panelShape
                 .fill(Color(light: .white.opacity(0.92), dark: Color(hex: "1E2028").opacity(0.92)))
@@ -350,6 +368,13 @@ struct StyleSelectionMorphView: View {
             } else {
                 panelShape.stroke(NeumorphicStyle.lightShadow(colorScheme, intensity: 0.64), lineWidth: 0.8)
             }
+        } else if SequoiaStyle.isActive {
+            if isAttachedToHeader {
+                MangaConnectedPanelOutline(radius: panelRadius)
+                    .stroke(SequoiaStyle.separator.opacity(0.62), lineWidth: 0.7)
+            } else {
+                panelShape.stroke(SequoiaStyle.separator.opacity(0.76), lineWidth: 0.7)
+            }
         } else {
             if isAttachedToHeader {
                 MangaConnectedPanelOutline(radius: panelRadius)
@@ -361,7 +386,7 @@ struct StyleSelectionMorphView: View {
     }
 
     private var currentPillShape: some Shape {
-        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 14 : 15)), style: .continuous)
+        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 15)), style: .continuous)
     }
 
     @ViewBuilder
@@ -372,6 +397,8 @@ struct StyleSelectionMorphView: View {
             currentPillShape.stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
             currentPillShape.stroke(NeumorphicStyle.separator.opacity(0.38), lineWidth: 0.7)
+        } else if SequoiaStyle.isActive {
+            currentPillShape.stroke(SequoiaStyle.separator.opacity(0.54), lineWidth: 0.6)
         }
     }
 
@@ -383,6 +410,14 @@ struct StyleSelectionMorphView: View {
                     elevated: isSelected,
                     pressed: !isSelected,
                     tint: isSelected ? tint.opacity(0.2) : NeumorphicStyle.surface
+                )
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(
+                    cornerRadius: tagRadius,
+                    elevated: isSelected,
+                    pressed: !isSelected,
+                    fill: isSelected ? tint.opacity(0.13) : SequoiaStyle.materialList,
+                    role: isSelected ? .selected : .list
                 )
             } else {
                 RoundedRectangle(cornerRadius: tagRadius, style: .continuous)
@@ -406,6 +441,8 @@ struct StyleSelectionMorphView: View {
             confirmShape.stroke(MangaStyle.strokeInk, lineWidth: 1.55)
         } else if MujiStyle.isActive {
             confirmShape.stroke(MujiStyle.hairline.opacity(0.28), lineWidth: 0.6)
+        } else if SequoiaStyle.isActive {
+            confirmShape.stroke(SequoiaStyle.luminousSeparator.opacity(0.26), lineWidth: 0.55)
         }
     }
 
@@ -422,6 +459,10 @@ struct StyleSelectionMorphView: View {
             return [NeumorphicStyle.accent, NeumorphicStyle.sage, NeumorphicStyle.warm, NeumorphicStyle.red][index % 4]
         }
 
+        if SequoiaStyle.isActive {
+            return [SequoiaStyle.accent, SequoiaStyle.aqua, SequoiaStyle.green, SequoiaStyle.violet][index % 4]
+        }
+
         return [Color(hex: "D7264D"), Color(hex: "E85C72"), Color(hex: "C6315B"), Color(hex: "EC7890")][index % 4]
     }
 
@@ -429,6 +470,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return tint.opacity(0.18) }
         if NeumorphicStyle.isActive { return tint.opacity(0.28) }
+        if SequoiaStyle.isActive { return tint.opacity(0.26) }
         return tint.opacity(0.18)
     }
 
@@ -442,6 +484,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: isSelected ? .semibold : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: isSelected ? .semibold : .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: isSelected ? .semibold : .medium) }
         return .system(size: 12, weight: isSelected ? .semibold : .medium, design: .rounded)
     }
 
@@ -449,6 +492,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
         return .system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded)
     }
 
@@ -456,6 +500,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(14, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(14, weight: isPrimary ? .semibold : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(14, weight: isPrimary ? .semibold : .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(14, weight: isPrimary ? .semibold : .medium) }
         return .system(size: 14, weight: isPrimary ? .bold : .medium, design: .rounded)
     }
 
@@ -463,6 +508,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(15, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .semibold) }
         return .system(size: 15, weight: .semibold, design: .rounded)
     }
 
@@ -470,6 +516,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.labelFont(11, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .medium) }
         return .system(size: 11, weight: .medium, design: .rounded)
     }
 
@@ -477,6 +524,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
 
@@ -484,6 +532,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -491,6 +540,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
@@ -498,6 +548,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -505,6 +556,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
@@ -512,6 +564,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.bubblePink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return Color(hex: "D7264D")
     }
 
@@ -519,6 +572,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.bubblePink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return Color(hex: "D7264D")
     }
 
@@ -526,6 +580,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         return .white
     }
 
@@ -533,6 +588,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.72) }
         return Color.monologueGlassTint.opacity(0.64)
     }
 
@@ -540,6 +596,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.68) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.42) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.4) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.52) }
         return Color.monologueSeparator.opacity(0.42)
     }
 
@@ -547,6 +604,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.bubbleBlue.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.76) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.8) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.82) }
         return Color.monologueSeparator.opacity(0.42)
     }
 
@@ -554,6 +612,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return Color(hex: "D7264D")
     }
 
@@ -561,6 +620,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         return .white
     }
 
@@ -568,6 +628,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return 22 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
+        if SequoiaStyle.isActive { return 22 }
         return 20
     }
 
@@ -575,6 +636,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return 12 }
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 14 }
+        if SequoiaStyle.isActive { return 14 }
         return 12
     }
 
@@ -582,6 +644,7 @@ struct StyleSelectionMorphView: View {
         if MangaStyle.isActive { return 15 }
         if MujiStyle.isActive { return 20 }
         if NeumorphicStyle.isActive { return 18 }
+        if SequoiaStyle.isActive { return 18 }
         return 20
     }
 

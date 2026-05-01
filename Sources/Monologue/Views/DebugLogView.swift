@@ -10,6 +10,7 @@ import SwiftUI
 
 struct DebugLogView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var logs: [LogEntry] = []
     @State private var filterLevel: LogEntry.LogLevel? = nil
     @State private var searchText = ""
@@ -38,6 +39,8 @@ struct DebugLogView: View {
     
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         NavigationStack {
             ZStack {
                 // 背景
@@ -135,7 +138,7 @@ struct DebugLogView: View {
             .onChange(of: isCollecting) { _, newValue in
                 AppLogger.setCollectionEnabled(newValue)
             }
-            .sheet(isPresented: $showShareSheet) {
+            .monologueSheet(isPresented: $showShareSheet, preset: .standard) {
                 DebugLogShareSheet(items: [exportLogsAsText()])
             }
         }

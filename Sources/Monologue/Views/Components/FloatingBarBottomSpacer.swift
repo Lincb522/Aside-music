@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Bottom spacer for pages that scroll behind the custom floating bar.
@@ -6,37 +7,54 @@ import SwiftUI
 struct FloatingBarBottomSpacer: View {
     var extra: CGFloat = 0
 
-    @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @AppStorage("useSystemTabBar") private var useSystemTabBar = false
+    @AppStorage("floatingBarStyle") private var floatingBarStyleRaw = FloatingBarStyle.unified.rawValue
+    @AppStorage("globalThemeId") private var globalThemeIdRaw = GlobalThemeId.default.rawValue
+    @State private var isTabBarHidden = PlayerManager.shared.isTabBarHidden
+    @State private var hasCurrentSong = PlayerManager.shared.currentSong != nil
 
     var body: some View {
         Color.clear
             .frame(height: max(0, baseHeight + extra))
             .accessibilityHidden(true)
+            .onReceive(PlayerManager.shared.$isTabBarHidden.removeDuplicates()) { hidden in
+                isTabBarHidden = hidden
+            }
+            .onReceive(PlayerManager.shared.$currentSong.map { $0 != nil }.removeDuplicates()) { hasCurrentSong in
+                self.hasCurrentSong = hasCurrentSong
+            }
     }
 
     private var baseHeight: CGFloat {
-        guard !player.isTabBarHidden else { return 24 }
+        guard !isTabBarHidden else { return 24 }
 
-        if settings.useSystemTabBar {
-            return player.currentSong == nil ? 20 : 72
+        if useSystemTabBar {
+            return hasCurrentSong ? 72 : 20
         }
 
-        switch settings.floatingBarStyle {
+        switch floatingBarStyle {
         case .unified:
-            if player.currentSong == nil {
-                return ThemedPageStyle.isActive ? 76 : 68
+            if !hasCurrentSong {
+                return isThemedPageActive ? 76 : 68
             }
-            return ThemedPageStyle.isActive ? 124 : 114
+            return isThemedPageActive ? 124 : 114
 
         case .classic:
-            return player.currentSong == nil ? 56 : 104
+            return hasCurrentSong ? 104 : 56
 
         case .minimal:
-            return player.currentSong == nil ? 72 : 82
+            return hasCurrentSong ? 82 : 72
 
         case .floatingBall:
             return 88
         }
+    }
+
+    private var floatingBarStyle: FloatingBarStyle {
+        FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .unified
+    }
+
+    private var isThemedPageActive: Bool {
+        globalThemeIdRaw != GlobalThemeId.default.rawValue
     }
 }

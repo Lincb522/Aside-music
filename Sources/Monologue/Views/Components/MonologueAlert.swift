@@ -19,6 +19,7 @@ struct MonologueAlertView: View {
     var purchaseLink: String? = nil
     var inputAction: ((String) -> Void)?
     
+    @ObservedObject private var settings = SettingsManager.shared
     @FocusState private var isInputFocused: Bool
     
     init(
@@ -52,6 +53,8 @@ struct MonologueAlertView: View {
     }
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             Color.black.opacity(0.4)
                 .ignoresSafeArea()

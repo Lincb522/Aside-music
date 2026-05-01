@@ -13,6 +13,7 @@ struct EQSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @StateObject private var eqManager = EQManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     // [DEPRECATED] 智能分析功能已废弃，以下相关属性保留但不再使用
     // @StateObject private var labManager = AudioLabManager.shared
     // @State private var showSmartAnalyzingToast = false
@@ -36,7 +37,44 @@ struct EQSettingsView: View {
         return eqManager.customGains
     }
 
+    private var eqAccent: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
+    }
+
+    private var eqAccentForeground: Color {
+        if NeumorphicStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(
+                on: NeumorphicStyle.accent,
+                light: Color(hex: "172026"),
+                dark: .white
+            )
+        }
+        return .monologueIconForeground
+    }
+
+    private var eqPrimaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var eqSecondaryText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+    }
+
+    private var eqMutedText: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
+    private var eqSeparator: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.separator : .monologueSeparator
+    }
+
+    private var eqPressedSurface: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
+    }
+
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             MonologueSheetAwareBackground {
                 ThemedSettingsBackground()
@@ -161,18 +199,18 @@ struct EQSettingsView: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(eqManager.isEnabled ? Color.monologueAccent.opacity(0.15) : Color.monologueSeparator)
+                    .fill(eqManager.isEnabled ? eqAccent.opacity(0.16) : eqPressedSurface)
                     .frame(width: 44, height: 44)
-                MonologueIcon(icon: .waveform, size: 20, color: eqManager.isEnabled ? .monologueAccent : .monologueTextSecondary)
+                MonologueIcon(icon: .waveform, size: 20, color: eqManager.isEnabled ? eqAccent : eqSecondaryText)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(LocalizedStringKey("eq_toggle_title"))
                     .font(.rounded(size: 16, weight: .semibold))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(eqPrimaryText)
                 Text(eqManager.isEnabled ? (eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: "")) : NSLocalizedString("eq_original_output", comment: ""))
                     .font(.rounded(size: 13))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(eqSecondaryText)
                     .lineLimit(1)
             }
 
@@ -180,7 +218,7 @@ struct EQSettingsView: View {
 
             Toggle("", isOn: $eqManager.isEnabled)
                 .labelsHidden()
-                .tint(Color(light: .black, dark: Color(white: 0.55)))
+                .tint(NeumorphicStyle.isActive ? eqAccent : Color(light: .black, dark: Color(white: 0.55)))
         }
         .padding(16)
         .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
@@ -250,7 +288,7 @@ struct EQSettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(LocalizedStringKey("eq_effects"))
                 .font(.rounded(size: 16, weight: .semibold))
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(eqPrimaryText)
 
             HStack(spacing: 0) {
                 Spacer()
@@ -282,7 +320,7 @@ struct EQSettingsView: View {
                 .frame(width: 72, height: 72)
             Text(label)
                 .font(.rounded(size: 13, weight: .medium))
-                .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(eqSecondaryText)
         }
     }
 
@@ -293,12 +331,12 @@ struct EQSettingsView: View {
             HStack {
                 Text(LocalizedStringKey("eq_pitch"))
                     .font(.rounded(size: 16, weight: .semibold))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(eqPrimaryText)
                 Spacer()
                 // 当前半音数显示
                 Text(pitchDisplayText)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(pitchValue == 0 ? .monologueTextSecondary : .monologueAccent)
+                    .foregroundColor(pitchValue == 0 ? eqSecondaryText : eqAccent)
             }
 
             // 半音滑块
@@ -312,7 +350,7 @@ struct EQSettingsView: View {
                     Text("+12")
                 }
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                .foregroundColor(eqMutedText.opacity(0.7))
 
                 // 自定义滑块
                 GeometryReader { geo in
@@ -324,12 +362,12 @@ struct EQSettingsView: View {
                     ZStack(alignment: .leading) {
                         // 轨道
                         Capsule()
-                            .fill(Color.monologueSeparator)
+                            .fill(eqSeparator.opacity(NeumorphicStyle.isActive ? 0.58 : 1))
                             .frame(height: 4)
 
                         // 中线标记
                         Rectangle()
-                            .fill(Color.monologueTextSecondary.opacity(0.3))
+                            .fill(eqMutedText.opacity(0.38))
                             .frame(width: 2, height: 12)
                             .position(x: centerX, y: geo.size.height / 2)
 
@@ -338,16 +376,16 @@ struct EQSettingsView: View {
                         let barWidth = abs(thumbX - centerX)
                         if barWidth > 1 {
                             Capsule()
-                                .fill(Color.monologueAccent.opacity(0.6))
+                                .fill(eqAccent.opacity(0.66))
                                 .frame(width: barWidth, height: 4)
                                 .offset(x: barStart)
                         }
 
                         // 拇指
                         Circle()
-                            .fill(Color.monologueAccent)
+                            .fill(eqAccent)
                             .frame(width: 20, height: 20)
-                            .shadow(color: Color.monologueAccent.opacity(0.3), radius: 4, y: 2)
+                            .shadow(color: eqAccent.opacity(NeumorphicStyle.isActive ? 0.18 : 0.3), radius: 4, y: 2)
                             .position(x: thumbX, y: geo.size.height / 2)
                     }
                     .contentShape(Rectangle().inset(by: -12))
@@ -377,12 +415,12 @@ struct EQSettingsView: View {
                         }) {
                             Text(semitone > 0 ? "+\(semitone)" : "\(semitone)")
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundColor(pitchValue == s ? .monologueIconForeground : .monologueTextSecondary)
+                                .foregroundColor(pitchValue == s ? eqAccentForeground : eqSecondaryText)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(pitchValue == s ? Color.monologueAccent : Color.monologueSeparator)
+                                        .fill(pitchValue == s ? eqAccent : eqPressedSurface)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -407,15 +445,15 @@ struct EQSettingsView: View {
             HStack {
                 Text(LocalizedStringKey("eq_equalizer"))
                     .font(.rounded(size: 16, weight: .semibold))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(eqPrimaryText)
                 Spacer()
                 Button(action: { showSaveSheet = true }) {
                     Text(LocalizedStringKey("eq_save"))
                         .font(.rounded(size: 13, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(NeumorphicStyle.isActive ? eqAccent : eqSecondaryText)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
-                        .background(Color.monologueSeparator)
+                        .background(NeumorphicStyle.isActive ? eqPressedSurface : eqSeparator)
                         .clipShape(Capsule())
                 }
             }
@@ -461,7 +499,7 @@ struct EQSettingsView: View {
                         path.move(to: CGPoint(x: 0, y: y))
                         path.addLine(to: CGPoint(x: w, y: y))
                     }
-                    .stroke(Color.monologueSeparator.opacity(0.4), lineWidth: 0.5)
+                    .stroke(eqSeparator.opacity(NeumorphicStyle.isActive ? 0.32 : 0.4), lineWidth: 0.5)
                 }
 
                 if points.count >= 2 {
@@ -483,9 +521,9 @@ struct EQSettingsView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.monologueAccent.opacity(0.25),
-                                Color.monologueAccent.opacity(0.08),
-                                Color.monologueAccent.opacity(0.02)
+                                eqAccent.opacity(NeumorphicStyle.isActive ? 0.22 : 0.25),
+                                eqAccent.opacity(0.08),
+                                eqAccent.opacity(0.02)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
@@ -504,7 +542,7 @@ struct EQSettingsView: View {
                                           control2: CGPoint(x: midX, y: curr.y))
                         }
                     }
-                    .stroke(Color.monologueAccent.opacity(0.5), lineWidth: 2)
+                    .stroke(eqAccent.opacity(NeumorphicStyle.isActive ? 0.62 : 0.5), lineWidth: 2)
                 }
             }
             .animation(.easeOut(duration: 0.15), value: displayGains)
@@ -529,7 +567,7 @@ struct EQSettingsView: View {
 
                     // 轨道线
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(Color.monologueTextSecondary.opacity(0.15))
+                        .fill(eqMutedText.opacity(NeumorphicStyle.isActive ? 0.22 : 0.15))
                         .frame(width: 3, height: h)
                         .position(x: centerX, y: h / 2)
 
@@ -538,16 +576,16 @@ struct EQSettingsView: View {
                     let barMidY = min(thumbY, centerY) + barHeight / 2
                     if barHeight > 1 {
                         RoundedRectangle(cornerRadius: 1.5)
-                            .fill(Color.monologueAccent.opacity(0.5))
+                            .fill(eqAccent.opacity(0.56))
                             .frame(width: 3, height: barHeight)
                             .position(x: centerX, y: barMidY)
                     }
 
                     // 拇指
                     Capsule()
-                        .fill(Color.monologueAccent)
+                        .fill(eqAccent)
                         .frame(width: 8, height: 24)
-                        .shadow(color: Color.monologueAccent.opacity(0.3), radius: 4, y: 2)
+                        .shadow(color: eqAccent.opacity(NeumorphicStyle.isActive ? 0.18 : 0.3), radius: 4, y: 2)
                         .position(x: centerX, y: thumbY)
                 }
             }
@@ -574,7 +612,7 @@ struct EQSettingsView: View {
             ForEach(EQBand.allCases, id: \.self) { band in
                 Text(band.label)
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(eqSecondaryText)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -620,11 +658,11 @@ struct EQSettingsView: View {
         }) {
             HStack(spacing: 5) {
                 MonologueIcon(icon: category.icon, size: 13,
-                          color: isSelected ? .monologueIconForeground : .monologueTextSecondary)
+                          color: isSelected ? (NeumorphicStyle.isActive ? eqAccent : eqAccentForeground) : eqSecondaryText)
                 Text(category.rawValue)
                     .font(.rounded(size: 13, weight: .medium))
             }
-            .foregroundColor(isSelected ? .monologueIconForeground : .monologueTextSecondary)
+            .foregroundColor(isSelected ? (NeumorphicStyle.isActive ? eqAccent : eqAccentForeground) : eqSecondaryText)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background {
@@ -637,7 +675,7 @@ struct EQSettingsView: View {
                     )
                 } else {
                     Capsule()
-                        .fill(isSelected ? Color.monologueAccent : Color.monologueTextPrimary.opacity(0.06))
+                        .fill(isSelected ? eqAccent : eqPrimaryText.opacity(0.06))
                 }
             }
         }
@@ -655,12 +693,12 @@ struct EQSettingsView: View {
             VStack(spacing: 8) {
                 // 选中指示圆点
                 Circle()
-                    .fill(isSelected ? Color.monologueAccent : Color.monologueSeparator)
+                    .fill(isSelected ? eqAccent : eqSeparator)
                     .frame(width: 10, height: 10)
 
                 Text(preset.name)
                     .font(.rounded(size: 14, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(isSelected ? .monologueTextPrimary : .monologueTextSecondary)
+                    .foregroundColor(isSelected ? eqPrimaryText : eqSecondaryText)
                     .lineLimit(1)
             }
             .frame(width: 72, height: 72)
@@ -674,14 +712,14 @@ struct EQSettingsView: View {
                     )
                 } else {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.monologueTextPrimary.opacity(isSelected ? 0.08 : 0.04))
+                        .fill(eqPrimaryText.opacity(isSelected ? 0.08 : 0.04))
                 }
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? Color.monologueAccent : Color.monologueSeparator.opacity(0.3), lineWidth: isSelected ? 1.5 : 0.5)
+                    .stroke(isSelected ? eqAccent : eqSeparator.opacity(0.3), lineWidth: isSelected ? 1.5 : 0.5)
             )
-            .shadow(color: isSelected ? Color.monologueAccent.opacity(0.15) : .clear, radius: 8, y: 4)
+            .shadow(color: isSelected ? eqAccent.opacity(0.15) : .clear, radius: 8, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -692,7 +730,7 @@ struct EQSettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(LocalizedStringKey("eq_my_presets"))
                 .font(.rounded(size: 15, weight: .semibold))
-                .foregroundColor(.monologueTextPrimary)
+                .foregroundColor(eqPrimaryText)
 
             ForEach(eqManager.customPresets) { preset in
                 customPresetRow(preset)
@@ -707,24 +745,24 @@ struct EQSettingsView: View {
             Button(action: { eqManager.applyPreset(preset) }) {
                 HStack(spacing: 12) {
                     Circle()
-                        .fill(isSelected ? Color.monologueAccent : Color.monologueSeparator)
+                        .fill(isSelected ? eqAccent : eqSeparator)
                         .frame(width: 8, height: 8)
 
                     Text(preset.name)
                         .font(.rounded(size: 15, weight: .medium))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(eqPrimaryText)
 
                     Spacer()
 
                     if isSelected {
-                        MonologueIcon(icon: .checkmark, size: 14, color: .monologueAccent)
+                        MonologueIcon(icon: .checkmark, size: 14, color: eqAccent)
                     }
                 }
             }
             .buttonStyle(.plain)
 
             Button(action: { eqManager.deleteCustomPreset(preset) }) {
-                MonologueIcon(icon: .trash, size: 15, color: .monologueTextSecondary.opacity(0.6))
+                MonologueIcon(icon: .trash, size: 15, color: eqMutedText.opacity(0.72))
                     .padding(8)
             }
         }
@@ -732,7 +770,7 @@ struct EQSettingsView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isSelected ? Color.monologueAccent.opacity(0.08) : .clear)
+                .fill(isSelected ? eqAccent.opacity(0.08) : .clear)
                 .monologueGlassIdentityOrRegular(isIdentity: isSelected, cornerRadius: 14)
         )
         .background {
@@ -747,20 +785,20 @@ struct EQSettingsView: View {
     private var saveButton: some View {
         Button(action: { showSaveSheet = true }) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: .save, size: 16, color: .monologueAccent)
+                MonologueIcon(icon: .save, size: 16, color: eqAccent)
                 Text(LocalizedStringKey("eq_save_preset"))
                     .font(.rounded(size: 15, weight: .medium))
-                    .foregroundColor(.monologueAccent)
+                    .foregroundColor(eqAccent)
             }
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.monologueAccent.opacity(0.08))
+                    .fill(eqAccent.opacity(0.08))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.monologueAccent.opacity(0.2), lineWidth: 1)
+                    .stroke(eqAccent.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -779,7 +817,7 @@ struct EQSettingsView: View {
                 VStack(spacing: 24) {
                     Text(LocalizedStringKey("eq_save_custom"))
                         .font(.rounded(size: 18, weight: .semibold))
-                        .foregroundColor(.monologueTextPrimary)
+                        .foregroundColor(eqPrimaryText)
 
                     TextField(NSLocalizedString("eq_preset_name", comment: ""), text: $customPresetName)
                         .font(.rounded(size: 16))
@@ -795,12 +833,12 @@ struct EQSettingsView: View {
                     }) {
                         Text(LocalizedStringKey("eq_save"))
                             .font(.rounded(size: 16, weight: .semibold))
-                            .foregroundColor(.monologueIconForeground)
+                            .foregroundColor(eqAccentForeground)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color.monologueAccent)
+                                    .fill(eqAccent)
                             )
                     }
                     .buttonStyle(.plain)
@@ -891,10 +929,21 @@ struct EQSettingsView: View {
 struct CircularKnob: View {
     @Binding var value: CGFloat // 0~1
     var onChange: ((CGFloat) -> Void)?
+    @ObservedObject private var settings = SettingsManager.shared
 
     private let lineWidth: CGFloat = 6
-    private let trackColor = Color.monologueSeparator
-    private let activeColor = Color.monologueAccent
+
+    private var trackColor: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
+    }
+
+    private var activeColor: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
+    }
+
+    private var valueColor: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
 
     // 弧线参数：从左下 (225°) 顺时针到右下 (315°)，跨越 270°
     // SwiftUI trim 参数：startTrim = 0.125 (45°/360°), 总弧 = 0.75 (270°/360°)
@@ -905,6 +954,8 @@ struct CircularKnob: View {
     // 结束位置：右下方 315° → 在 rotated 坐标中对应 trim 0.875
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
 
@@ -926,7 +977,7 @@ struct CircularKnob: View {
                 // 中心百分比
                 Text("\(Int(value * 100))")
                     .font(.system(size: size * 0.22, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(valueColor)
             }
             .frame(width: size, height: size)
             .contentShape(Circle())

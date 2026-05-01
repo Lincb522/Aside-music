@@ -204,7 +204,7 @@ extension View {
         #if os(iOS)
         self.fullScreenCover(isPresented: isPresented, onDismiss: onDismiss, content: content)
         #elseif os(macOS)
-        self.sheet(isPresented: isPresented, onDismiss: onDismiss, content: content)
+        self.monologueSheet(isPresented: isPresented, onDismiss: onDismiss, preset: .detail, content: content)
         #endif
     }
 
@@ -217,7 +217,7 @@ extension View {
         #if os(iOS)
         self.fullScreenCover(item: item, onDismiss: onDismiss, content: content)
         #elseif os(macOS)
-        self.sheet(item: item, onDismiss: onDismiss, content: content)
+        self.monologueSheet(item: item, onDismiss: onDismiss, preset: .detail, content: content)
         #endif
     }
 

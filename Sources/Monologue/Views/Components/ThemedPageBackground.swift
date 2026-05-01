@@ -14,7 +14,7 @@ struct ThemedPageBackground: View {
         } else {
             ZStack {
                 if useRenderLayer {
-                    ThemeRenderBackdrop(theme: renderTheme)
+                    ThemeRenderBackdrop(theme: renderTheme, revision: renderRevision)
                 } else {
                     if MangaStyle.isActive {
                         MangaRootBackdrop()
@@ -22,6 +22,14 @@ struct ThemedPageBackground: View {
                         MujiRootBackdrop()
                     } else if NeumorphicStyle.isActive {
                         NeumorphicRenderBackdrop()
+                    } else if SequoiaStyle.isActive {
+                        SequoiaRootBackdrop()
+                    } else if MaterialStyle.isActive {
+                        MaterialRootBackdrop()
+                    } else if ClayStyle.isActive {
+                        ClayRootBackdrop()
+                    } else if SignalStyle.isActive {
+                        SignalRenderBackdrop()
                     } else {
                         MonologueBackground()
                             .ignoresSafeArea()
@@ -45,6 +53,10 @@ struct ThemedPageBackground: View {
             return "theme-background-\(renderContext.backdropIdentity)"
         }
         return "theme-background-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.activeColorScheme == .dark ? "dark" : "light")"
+    }
+
+    private var renderRevision: Int {
+        useRenderLayer && renderContext.isHosted ? renderContext.revision : settings.globalThemeRevision
     }
 }
 
@@ -101,6 +113,50 @@ struct ThemedPageHeader<Accessory: View>: View {
                 HStack(spacing: 10) {
                     accessory
                     NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 46)
+                }
+            }
+        } else if SequoiaStyle.isActive {
+            SequoiaPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    SequoiaIconBadge(icon: icon, tint: SequoiaStyle.accent, size: 46)
+                }
+            }
+        } else if MaterialStyle.isActive {
+            MaterialPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    MaterialIconBadge(icon: icon, tint: MaterialStyle.primary, size: 46)
+                }
+            }
+        } else if ClayStyle.isActive {
+            ClayPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    ClayIconBubble(icon: icon, tint: ClayStyle.accent, size: 46)
+                }
+            }
+        } else if SignalStyle.isActive {
+            SignalPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 46)
                 }
             }
         } else {
@@ -197,7 +253,7 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     let icon: MonologueIcon.IconType
 
     private var isThemed: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
     }
 
     func body(content: Content) -> some View {
@@ -241,6 +297,50 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                     )
                 )
                 .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if SequoiaStyle.isActive {
+            content
+                .background(
+                    SequoiaSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 16), 24),
+                        elevated: elevated,
+                        pressed: !elevated,
+                        role: elevated ? .chrome : .list
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if MaterialStyle.isActive {
+            content
+                .background(
+                    MaterialSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 18), 28),
+                        elevated: elevated,
+                        pressed: !elevated,
+                        role: elevated ? .elevated : .container
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if ClayStyle.isActive {
+            content
+                .background(
+                    ClaySurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 20), 30),
+                        elevated: elevated,
+                        pressed: !elevated,
+                        compact: !elevated
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if SignalStyle.isActive {
+            content
+                .background(
+                    SignalSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 18), 30),
+                        elevated: elevated,
+                        pressed: !elevated,
+                        fill: elevated ? SignalStyle.device : SignalStyle.paper
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
         } else {
             content
                 .monologueGlass(cornerRadius: cornerRadius)
@@ -250,15 +350,29 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
     }
 
     static var listSpacing: CGFloat {
-        MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 10 : 0))
+        if MangaStyle.isActive { return 10 }
+        if MujiStyle.isActive { return 8 }
+        if NeumorphicStyle.isActive { return 10 }
+        if SequoiaStyle.isActive { return 6 }
+        if MaterialStyle.isActive { return 8 }
+        if ClayStyle.isActive { return 10 }
+        if SignalStyle.isActive { return 9 }
+        return 0
     }
 
     static var looseListSpacing: CGFloat {
-        MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 14 : 12))
+        if MangaStyle.isActive { return 14 }
+        if MujiStyle.isActive { return 12 }
+        if NeumorphicStyle.isActive { return 14 }
+        if SequoiaStyle.isActive { return 10 }
+        if MaterialStyle.isActive { return 12 }
+        if ClayStyle.isActive { return 14 }
+        if SignalStyle.isActive { return 13 }
+        return 12
     }
 
     static var horizontalInset: CGFloat {
@@ -270,11 +384,25 @@ enum ThemedPageStyle {
     }
 
     static var surfaceCornerRadius: CGFloat {
-        MangaStyle.isActive ? 18 : (MujiStyle.isActive ? 14 : (NeumorphicStyle.isActive ? 22 : 18))
+        if MangaStyle.isActive { return 18 }
+        if MujiStyle.isActive { return 14 }
+        if NeumorphicStyle.isActive { return 22 }
+        if SequoiaStyle.isActive { return 20 }
+        if MaterialStyle.isActive { return 24 }
+        if ClayStyle.isActive { return 24 }
+        if SignalStyle.isActive { return 26 }
+        return 18
     }
 
     static var compactSurfaceCornerRadius: CGFloat {
-        MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 18 : 14))
+        if MangaStyle.isActive { return 14 }
+        if MujiStyle.isActive { return 12 }
+        if NeumorphicStyle.isActive { return 18 }
+        if SequoiaStyle.isActive { return 11 }
+        if MaterialStyle.isActive { return 16 }
+        if ClayStyle.isActive { return 18 }
+        if SignalStyle.isActive { return 18 }
+        return 14
     }
 }
 

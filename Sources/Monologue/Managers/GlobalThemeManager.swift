@@ -13,11 +13,16 @@ final class GlobalThemeManager {
         didSet {
             UserDefaults.standard.set(currentThemeId.rawValue, forKey: "globalThemeId")
             _cachedProvider = nil
+            tokenRevision &+= 1
         }
     }
 
+    /// 主题 token 刷新版本。配色变更时即使主题 ID 不变，也要让读取全局 token 的视图重新计算。
+    var tokenRevision: Int = 0
+
     /// 当前主题的 Provider 实例
     var current: GlobalThemeProvider {
+        let _ = tokenRevision
         if let cached = _cachedProvider { return cached }
         let provider = Self.makeProvider(for: currentThemeId)
         _cachedProvider = provider
@@ -59,7 +64,11 @@ final class GlobalThemeManager {
 
     private init() {
         let raw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.default.rawValue
-        currentThemeId = GlobalThemeId(rawValue: raw) ?? .default
+        let restored = GlobalThemeId(rawValue: raw) ?? .default
+        currentThemeId = Self.resolveRemovedTheme(restored)
+        if currentThemeId != restored {
+            UserDefaults.standard.set(GlobalThemeId.default.rawValue, forKey: "globalThemeId")
+        }
     }
 
     // MARK: - 主题工厂
@@ -70,17 +79,32 @@ final class GlobalThemeManager {
         case .muji: return MujiThemeProvider()
         case .manga: return MangaThemeProvider()
         case .neumorphic: return NeumorphicThemeProvider()
+        case .material: return MaterialThemeProvider()
+        case .sequoia: return SequoiaThemeProvider()
+        case .clay: return DefaultThemeProvider()
+        case .signal: return DefaultThemeProvider()
         }
     }
 
     // MARK: - 切换
 
     func switchTheme(to id: GlobalThemeId) {
-        guard id != currentThemeId else { return }
-        currentThemeId = id
+        let resolvedId = Self.resolveRemovedTheme(id)
+        guard resolvedId != currentThemeId else { return }
+        currentThemeId = resolvedId
     }
 
     func refreshCurrentThemeTokens() {
         _cachedProvider = nil
+        tokenRevision &+= 1
+    }
+
+    private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
+        switch id {
+        case .clay, .signal:
+            return .default
+        default:
+            return id
+        }
     }
 }

@@ -14,13 +14,15 @@ struct PlaylistPickerContainerCard<Content: View>: View {
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                } else if SequoiaStyle.isActive {
+                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
                 } else {
                     Color.monologueTextPrimary.opacity(0.04)
                 }
             }
-            .clipShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : 18, style: .continuous))
+            .clipShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : (SequoiaStyle.isActive ? 20 : 18), style: .continuous))
             .overlay {
-                if !NeumorphicStyle.isActive {
+                if !NeumorphicStyle.isActive && !SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
                 }
@@ -48,13 +50,13 @@ struct PlaylistPickerSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary)
+                    .font(sectionTitleFont)
+                    .foregroundStyle(sectionTitleColor)
 
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
-                        .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Color.monologueTextSecondary.opacity(0.75))
+                        .font(sectionSubtitleFont)
+                        .foregroundStyle(sectionSubtitleColor)
                 }
             }
             .padding(.horizontal, 4)
@@ -64,6 +66,30 @@ struct PlaylistPickerSection<Content: View>: View {
             }
         }
     }
+
+    private var sectionTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
+        return .system(size: 13, weight: .semibold, design: .rounded)
+    }
+
+    private var sectionSubtitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, design: .rounded)
+    }
+
+    private var sectionTitleColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var sectionSubtitleColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.75)
+    }
 }
 
 struct PlaylistPickerStatusBadge: View {
@@ -72,13 +98,17 @@ struct PlaylistPickerStatusBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .system(size: 11, weight: .semibold, design: .rounded))
             .foregroundStyle(tint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, tint: tint.opacity(0.15), lightweight: true)
+                } else if SequoiaStyle.isActive {
+                    Capsule()
+                        .fill(SequoiaStyle.materialList.opacity(0.74))
+                        .overlay(Capsule().stroke(tint.opacity(0.18), lineWidth: 0.55))
                 } else {
                     tint.opacity(0.12)
                 }
@@ -110,6 +140,8 @@ struct PlaylistPickerActionCard: View {
                             .background {
                                 if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, tint: tint.opacity(0.16), lightweight: true)
+                                } else if SequoiaStyle.isActive {
+                                    SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, fill: tint.opacity(0.10), role: .selected)
                                 } else {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                                         .fill(tint.opacity(0.12))
@@ -121,14 +153,14 @@ struct PlaylistPickerActionCard: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary)
+                            .font(actionTitleFont)
+                            .foregroundStyle(primaryTextColor)
                             .lineLimit(1)
 
                         if let subtitle, !subtitle.isEmpty {
                             Text(subtitle)
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary)
+                                .font(secondaryTextFont)
+                                .foregroundStyle(secondaryTextColor)
                                 .lineLimit(2)
                         }
                     }
@@ -149,12 +181,35 @@ struct PlaylistPickerActionCard: View {
         if isLoading {
             ProgressView()
                 .controlSize(.small)
-                .tint(Color.monologueTextSecondary)
+                .tint(SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueTextSecondary)
         } else if let statusText, !statusText.isEmpty {
             PlaylistPickerStatusBadge(text: statusText, tint: statusTint)
         } else if showsChevron {
-            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45))
+            MonologueIcon(icon: .chevronRight, size: 12, color: (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary).opacity(0.55))
         }
+    }
+
+    private var actionTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .semibold) }
+        return .system(size: 15, weight: .semibold, design: .rounded)
+    }
+
+    private var secondaryTextFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, design: .rounded)
+    }
+
+    private var primaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
     }
 }
 
@@ -178,13 +233,13 @@ struct PlaylistPickerPlaylistRow: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary)
+                            .font(playlistTitleFont)
+                            .foregroundStyle(primaryTextColor)
                             .lineLimit(1)
 
                         Text(subtitle)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundStyle(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary)
+                            .font(playlistSubtitleFont)
+                            .foregroundStyle(secondaryTextColor)
                             .lineLimit(1)
                     }
 
@@ -204,12 +259,35 @@ struct PlaylistPickerPlaylistRow: View {
         if isLoading {
             ProgressView()
                 .controlSize(.small)
-                .tint(Color.monologueTextSecondary)
+                .tint(SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueTextSecondary)
         } else if let statusText, !statusText.isEmpty {
             PlaylistPickerStatusBadge(text: statusText, tint: statusTint)
         } else if showsChevron {
-            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.45))
+            MonologueIcon(icon: .chevronRight, size: 12, color: (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary).opacity(0.55))
         }
+    }
+
+    private var playlistTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .medium) }
+        return .system(size: 15, weight: .medium, design: .rounded)
+    }
+
+    private var playlistSubtitleFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, design: .rounded)
+    }
+
+    private var primaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
     }
 }
 
@@ -223,8 +301,8 @@ struct PlaylistPickerEmptyStateCard: View {
                 MonologueIcon(icon: icon, size: 18, color: .monologueTextSecondary.opacity(0.7))
 
                 Text(message)
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundStyle(Color.monologueTextSecondary)
+                    .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .regular) : .system(size: 13, design: .rounded))
+                    .foregroundStyle(SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Color.monologueTextSecondary)
             }
         }
     }
@@ -252,14 +330,16 @@ private struct PlaylistPickerArtwork: View {
     private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint)
+                .fill((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Color.clear : Color.monologueGlassTint)
                 .background {
                     if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
+                    } else if SequoiaStyle.isActive {
+                        SequoiaSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, role: .list)
                     }
                 }
 
-            MonologueIcon(icon: placeholderIcon, size: 18, color: (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary).opacity(0.45))
+            MonologueIcon(icon: placeholderIcon, size: 18, color: (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary)).opacity(0.45))
         }
     }
 }

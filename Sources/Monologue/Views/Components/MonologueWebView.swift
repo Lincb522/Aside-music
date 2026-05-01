@@ -31,17 +31,17 @@ struct MonologueWebView: View {
     private var webHeader: some View {
         HStack {
             Button { dismiss() } label: {
-                MonologueIcon(icon: .xmark, size: 14)
+                MonologueIcon(icon: .xmark, size: 14, color: webSecondaryText)
                     .frame(width: 32, height: 32)
-                    .background(Color.monologueGlassTint)
+                    .background(SequoiaStyle.isActive ? SequoiaStyle.materialPressed : Color.monologueGlassTint)
                     .clipShape(Circle())
             }
             
             Spacer()
             
             Text(title ?? pageTitle ?? String(localized: "详情"))
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .medium) : .system(size: 16, weight: .semibold, design: .rounded)))
-                .foregroundColor(.monologueTextPrimary)
+                .font(webTitleFont)
+                .foregroundColor(webText)
                 .lineLimit(1)
             
             Spacer()
@@ -53,6 +53,26 @@ struct MonologueWebView: View {
         .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : 14, elevated: false)
         .padding(.horizontal, ThemedPageStyle.horizontalInset)
         .padding(.top, ThemedPageStyle.isActive ? 8 : 0)
+    }
+
+    private var webText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var webSecondaryText: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var webTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(16, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(16, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(16, weight: .semibold) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(16, weight: .semibold) }
+        return .system(size: 16, weight: .semibold, design: .rounded)
     }
 }
 

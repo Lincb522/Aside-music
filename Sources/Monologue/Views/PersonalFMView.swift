@@ -3,6 +3,7 @@ import Combine
 
 struct PersonalFMView: View {
     @ObservedObject var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var fmSongs: [Song] = []
     @State private var currentFMSong: Song?
@@ -13,12 +14,54 @@ struct PersonalFMView: View {
 
     private struct Theme {
         static var background: Color { .clear }
-        static var text: Color { NeumorphicStyle.isActive ? NeumorphicStyle.ink : Color.monologueTextPrimary }
-        static var secondaryText: Color { NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Color.monologueTextSecondary }
-        static var accent: Color { NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary }
-        static var accentForeground: Color { NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : Color.monologueIconForeground }
-        static var cardBackground: Color { NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.8) }
-        static var pressedBackground: Color { NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint }
+        static var text: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.ink }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+            return Color.monologueTextPrimary
+        }
+
+        static var secondaryText: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+            return Color.monologueTextSecondary
+        }
+
+        static var accent: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            return Color.monologueTextPrimary
+        }
+
+        static var accentForeground: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+            if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+            return Color.monologueIconForeground
+        }
+
+        static var cardBackground: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+            return Color.monologueGlassTint.opacity(0.8)
+        }
+
+        static var pressedBackground: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+            return Color.monologueGlassTint
+        }
+
+        static var iconWash: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+            return pressedBackground
+        }
+
+        static var titleFont: Font {
+            SequoiaStyle.isActive ? SequoiaStyle.titleFont(24, weight: .semibold) : .rounded(size: 24, weight: .bold)
+        }
+
+        static var artistFont: Font {
+            SequoiaStyle.isActive ? SequoiaStyle.bodyFont(17, weight: .medium) : .rounded(size: 17, weight: .medium)
+        }
     }
 
     // MARK: - Waveform Component
@@ -135,6 +178,8 @@ struct PersonalFMView: View {
     @State private var showFMModePicker = false
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
 
@@ -149,7 +194,7 @@ struct PersonalFMView: View {
                         VStack(spacing: 0) {
                             ZStack {
                                 CachedAsyncImage(url: song.coverUrl) {
-                                    Color.gray.opacity(0.05).overlay(
+                                    Theme.pressedBackground.opacity(0.72).overlay(
                                         MonologueIcon(icon: .fm, size: 80, color: Theme.accent.opacity(0.12))
                                     )
                                 }
@@ -175,6 +220,12 @@ struct PersonalFMView: View {
                                 }
                             }
                             .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
+                            .overlay {
+                                if SequoiaStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                        .stroke(SequoiaStyle.luminousSeparator.opacity(0.44), lineWidth: 0.7)
+                                }
+                            }
                             .padding(.bottom, 40)
 
                         WaveformProgressBar(
@@ -201,17 +252,20 @@ struct PersonalFMView: View {
 
                             VStack(spacing: 8) {
                                 Text(song.name)
-                                    .font(.rounded(size: 24, weight: .bold))
+                                    .font(Theme.titleFont)
                                     .foregroundColor(Theme.text)
                                     .multilineTextAlignment(.center)
                                     .lineLimit(2)
+                                    .minimumScaleFactor(0.82)
                                     .padding(.horizontal, DeviceLayout.isPad ? 60 : 40)
                                     .id("title-\(song.id)")
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
 
                                 Text(song.artistName)
-                                    .font(.rounded(size: 17, weight: .medium))
+                                    .font(Theme.artistFont)
                                     .foregroundColor(Theme.secondaryText)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.84)
                                     .padding(.horizontal, DeviceLayout.isPad ? 60 : 40)
                                     .id("artist-\(song.id)")
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -330,12 +384,12 @@ struct PersonalFMView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(NeumorphicStyle.isActive ? Theme.accent : Color.monologueGlassTint)
+                                .fill((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Color.monologueGlassTint)
                                 .frame(width: 72, height: 72)
                                 .monologueGlassCircle()
-                                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+                                .shadow(color: Color.black.opacity(SequoiaStyle.isActive ? 0.08 : 0.15), radius: SequoiaStyle.isActive ? 14 : 10, x: 0, y: 5)
 
-                            MonologueIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: NeumorphicStyle.isActive ? Theme.accentForeground : Theme.accent)
+                            MonologueIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accentForeground : Theme.accent)
                                 .offset(x: isFMPlaying ? 0 : 2)
                         }
                     }
@@ -412,6 +466,11 @@ struct PersonalFMView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Theme.cardBackground)
+                .overlay {
+                    if SequoiaStyle.isActive {
+                        SequoiaSurfaceBackground(cornerRadius: 28, elevated: true, role: .content)
+                    }
+                }
             
             // 只有当播放源是 FM 且歌词对应当前 FM 歌曲时才显示歌词
             if isOwnFMContent && lyricVM.currentSongId == song.id && lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
@@ -445,10 +504,10 @@ struct PersonalFMView: View {
                 }
             } else {
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .musicNote, size: 40, color: .monologueTextSecondary.opacity(0.3))
+                    MonologueIcon(icon: .musicNote, size: 40, color: Theme.secondaryText.opacity(0.3))
                     Text("暂无歌词")
                         .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(Theme.secondaryText)
                 }
             }
         }
@@ -579,17 +638,17 @@ struct PersonalFMView: View {
 
                 Text(LocalizedStringKey("fm_offline_desc"))
                     .font(.rounded(size: 15))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(Theme.secondaryText)
                     .multilineTextAlignment(.center)
             }
 
             Button(action: { loadFMData() }) {
                 Text(LocalizedStringKey("action_retry"))
                     .font(.rounded(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accentForeground : .white)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(NeumorphicStyle.isActive ? Theme.accent : Color.monologueIconBackground))
+                    .background(RoundedRectangle(cornerRadius: 12).fill((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Color.monologueIconBackground))
             }
         }
     }

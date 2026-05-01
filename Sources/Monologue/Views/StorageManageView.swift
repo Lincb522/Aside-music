@@ -1,10 +1,55 @@
 import SwiftUI
 
+private enum StorageTheme {
+    static var ink: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    static var inkSoft: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    static var separator: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        return Color.monologueSeparator.opacity(0.3)
+    }
+
+    static var destructive: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.red }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.red }
+        return .red
+    }
+
+    static func titleFont(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight) }
+        return .system(size: size, weight: weight, design: .rounded)
+    }
+
+    static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
+        return .rounded(size: size, weight: weight)
+    }
+
+    static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+        return .rounded(size: size, weight: weight)
+    }
+}
+
 /// 存储管理页面 - 重构版
 struct StorageManageView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     
     @State private var totalUsage: Int64 = 0
     @State private var songCacheSize: Int64 = 0
@@ -20,6 +65,8 @@ struct StorageManageView: View {
     @State private var cleaningCategory: String?
     
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedSettingsBackground()
             
@@ -93,14 +140,14 @@ struct StorageManageView: View {
             
             VStack(spacing: 4) {
                 Text(String(localized: "storage_available"))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    .font(StorageTheme.labelFont(13))
+                    .foregroundColor(StorageTheme.inkSoft)
                 Text(formatBytes(availableSpace))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(StorageTheme.titleFont(28, weight: .semibold))
+                    .foregroundColor(StorageTheme.ink)
                 Text(String(format: String(localized: "storage_total_format"), formatBytes(totalDiskSpace)))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .rounded(size: 13))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    .font(StorageTheme.labelFont(13))
+                    .foregroundColor(StorageTheme.inkSoft)
             }
         }
         .padding(.vertical, 28)
@@ -133,7 +180,7 @@ struct StorageManageView: View {
         
         return ZStack {
             Circle()
-                .stroke(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator.opacity(0.3), lineWidth: 22)
+                .stroke(StorageTheme.separator, lineWidth: 22)
             
             ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                 let startAngle = segments.prefix(index).reduce(0.0) { $0 + $1.0 + gap }
@@ -197,18 +244,18 @@ struct StorageManageView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(title)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .rounded(size: 15, weight: .medium))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                            .font(StorageTheme.bodyFont(15))
+                            .foregroundColor(StorageTheme.ink)
                         Spacer()
                         Text(formatBytes(size))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(StorageTheme.labelFont(13))
+                            .foregroundColor(StorageTheme.inkSoft)
                     }
                     
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule()
-                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator.opacity(0.3))
+                                .fill(StorageTheme.separator)
                                 .frame(height: 4)
                             Capsule()
                                 .fill(color)
@@ -239,16 +286,16 @@ struct StorageManageView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "storage_clear_all_title"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : .rounded(size: 16, weight: .semibold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.red : .red)
+                        .font(StorageTheme.bodyFont(16, weight: .semibold))
+                        .foregroundColor(StorageTheme.destructive)
                     Text(String(localized: "storage_clear_all_subtitle"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .font(StorageTheme.labelFont(12))
+                        .foregroundColor(StorageTheme.inkSoft)
                 }
                 
                 Spacer()
                 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.red.opacity(0.8) : .monologueTextSecondary.opacity(0.5))
+                MonologueIcon(icon: .chevronRight, size: 14, color: StorageTheme.destructive.opacity(0.8))
             }
             .padding(16)
             .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 16, elevated: true, mangaTint: MangaStyle.bubblePink.opacity(0.92))

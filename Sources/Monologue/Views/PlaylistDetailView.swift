@@ -10,6 +10,7 @@ struct PlaylistDetailView: View {
 
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
 
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
@@ -45,6 +46,8 @@ struct PlaylistDetailView: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
@@ -52,6 +55,8 @@ struct PlaylistDetailView: View {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
+            } else if SignalStyle.isActive {
+                ThemeRenderBackdrop(theme: .signal)
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist.coverUrl?.sized(200))
             } else {
@@ -161,8 +166,12 @@ struct PlaylistDetailView: View {
             mangaPlaylistHeaderContent
         } else if NeumorphicStyle.isActive {
             neumorphicPlaylistHeaderContent
+        } else if SignalStyle.isActive {
+            signalPlaylistHeaderContent
         } else if MujiStyle.isActive {
             mujiPlaylistHeaderContent
+        } else if SequoiaStyle.isActive {
+            sequoiaPlaylistHeaderContent
         } else {
             VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
@@ -266,6 +275,114 @@ struct PlaylistDetailView: View {
         }
     }
 
+    private var sequoiaPlaylistHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .top, spacing: 15) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
+                    sequoiaPlaylistCoverPlaceholder
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 168 : 126, height: DeviceLayout.isPad ? 168 : 126)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(SequoiaStyle.luminousSeparator.opacity(0.56), lineWidth: 0.7)
+                )
+                .background(SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome))
+
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 7) {
+                        SequoiaPill(text: "PLAYLIST", icon: .musicNoteList, tint: SequoiaStyle.accent, selected: true, compact: true)
+                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                            SequoiaPill(text: "\(count) \(String(localized: "songs_unit"))", tint: SequoiaStyle.aqua, compact: true)
+                        }
+                    }
+
+                    Text(viewModel.playlistDetail?.name ?? playlist.name)
+                        .font(SequoiaStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .foregroundStyle(SequoiaStyle.ink)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
+                            .font(SequoiaStyle.labelFont(12, weight: .medium))
+                            .foregroundStyle(SequoiaStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 7) {
+                        if let playCount = playlist.playCount, playCount > 0 {
+                            SequoiaPill(text: formatCount(playCount), tint: SequoiaStyle.green, compact: true)
+                        }
+                        SequoiaPill(
+                            text: playlist.isQQMusic ? "QCM" : "NCM",
+                            tint: playlist.isQQMusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor,
+                            compact: true
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllRemainingToQueue()
+                    }
+                }) {
+                    HStack(spacing: 7) {
+                        MonologueIcon(icon: .play, size: 13, color: SequoiaStyle.onAccent, lineWidth: 1.7)
+                        Text(LocalizedStringKey("play_now"))
+                            .font(SequoiaStyle.labelFont(12, weight: .semibold))
+                    }
+                    .foregroundStyle(SequoiaStyle.onAccent)
+                    .padding(.horizontal, 15)
+                    .frame(height: 38)
+                    .background(SequoiaStyle.accentGradient, in: Capsule())
+                    .overlay(Capsule().stroke(SequoiaStyle.luminousSeparator.opacity(0.24), lineWidth: 0.55))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: handleBannerPlaylistCollectTap
+                    )
+                    .disabled(playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty))
+                }
+            }
+        }
+        .padding(16)
+        .background(SequoiaGlassBand(tint: playlist.isQQMusic ? MusicSource.qqmusic.themedBadgeColor : SequoiaStyle.accent, cornerRadius: 26))
+        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.bottom, 12)
+        .iPadContentWidth(900)
+        .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+            Button(String(localized: "收藏到本地")) {
+                collectBannerPlaylistLocally()
+            }
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+            Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                subManager.togglePlaylistSubscription(id: playlist.id)
+            }
+
+            Button(String(localized: "取消"), role: .cancel) {}
+        }
+    }
+
+    private var sequoiaPlaylistCoverPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(SequoiaStyle.materialList)
+            .overlay(MonologueIcon(icon: .musicNoteList, size: 30, color: SequoiaStyle.inkMuted, lineWidth: 1.55))
+    }
+
     private func bannerPlaylistHeaderContent(_ imageURL: URL) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             bannerPlaylistArtwork(imageURL)
@@ -324,7 +441,7 @@ struct PlaylistDetailView: View {
         .overlay {
             bannerHeaderBorder
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+        .padding(.horizontal, bannerHeaderHorizontalPadding)
         .padding(.top, DeviceLayout.isPad ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
@@ -388,6 +505,20 @@ struct PlaylistDetailView: View {
                 selected: emphasis,
                 compact: true
             )
+        } else if SignalStyle.isActive {
+            SignalPill(
+                text: text,
+                tint: emphasis ? SignalStyle.accent : SignalStyle.olive,
+                selected: emphasis,
+                compact: true
+            )
+        } else if SequoiaStyle.isActive {
+            SequoiaPill(
+                text: text,
+                tint: emphasis ? SequoiaStyle.accent : SequoiaStyle.aqua,
+                selected: emphasis,
+                compact: true
+            )
         } else if MujiStyle.isActive {
             MujiPill(text: text, tint: emphasis ? MujiStyle.clay : MujiStyle.tea)
         } else {
@@ -418,6 +549,19 @@ struct PlaylistDetailView: View {
                 .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
             } else if NeumorphicStyle.isActive {
                 NeumorphicPlayPill(title: String(localized: "play_now"), tint: NeumorphicStyle.accent)
+            } else if SignalStyle.isActive {
+                SignalPlayPill(title: String(localized: "play_now"))
+            } else if SequoiaStyle.isActive {
+                HStack(spacing: 7) {
+                    MonologueIcon(icon: .play, size: 12, color: SequoiaStyle.onAccent, lineWidth: 1.7)
+                    Text(LocalizedStringKey("play_now"))
+                        .font(SequoiaStyle.labelFont(12, weight: .semibold))
+                }
+                .foregroundStyle(SequoiaStyle.onAccent)
+                .padding(.horizontal, 15)
+                .frame(height: 38)
+                .background(SequoiaStyle.accentGradient, in: Capsule())
+                .overlay(Capsule().stroke(SequoiaStyle.luminousSeparator.opacity(0.24), lineWidth: 0.55))
             } else if MujiStyle.isActive {
                 MujiActionPill(
                     title: String(localized: "play_now"),
@@ -471,13 +615,16 @@ struct PlaylistDetailView: View {
     }
 
     private var bannerArtworkHeight: CGFloat {
-        DeviceLayout.isPad ? 220 : 148
+        if SignalStyle.isActive { return DeviceLayout.isPad ? 230 : 160 }
+        return DeviceLayout.isPad ? 220 : 148
     }
 
     private var bannerArtworkRadius: CGFloat {
         if MangaStyle.isActive { return 16 }
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 22 }
+        if SignalStyle.isActive { return 24 }
+        if SequoiaStyle.isActive { return 22 }
         return 20
     }
 
@@ -485,6 +632,8 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return 22 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 28 }
+        if SignalStyle.isActive { return 30 }
+        if SequoiaStyle.isActive { return 26 }
         return 24
     }
 
@@ -492,13 +641,23 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return 16 }
         if MujiStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return 17 }
+        if SignalStyle.isActive { return 16 }
+        if SequoiaStyle.isActive { return 16 }
         return 16
+    }
+
+    private var bannerHeaderHorizontalPadding: CGFloat {
+        if SignalStyle.isActive { return DeviceLayout.isPad ? 36 : 14 }
+        if SequoiaStyle.isActive { return DeviceLayout.isPad ? 40 : 20 }
+        return DeviceLayout.isPad ? 40 : 20
     }
 
     private var bannerHeaderTitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.titleFont(DeviceLayout.isPad ? 27 : 23, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(DeviceLayout.isPad ? 32 : 28, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.titleFont(DeviceLayout.isPad ? 30 : 24, weight: .bold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold) }
         return .system(size: DeviceLayout.isPad ? 28 : 22, weight: .bold, design: .rounded)
     }
 
@@ -506,6 +665,8 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return MangaStyle.bodyFont(12, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .medium) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
 
@@ -513,6 +674,8 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return MangaStyle.bodyFont(12, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .regular) }
+        if SignalStyle.isActive { return SignalStyle.bodyFont(12, weight: .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
         return .system(size: 13, weight: .regular, design: .rounded)
     }
 
@@ -520,6 +683,8 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -527,6 +692,8 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
@@ -538,6 +705,10 @@ struct PlaylistDetailView: View {
             MujiPaperCardBackground(cornerRadius: bannerHeaderRadius, elevated: true)
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: bannerHeaderRadius, elevated: true)
+        } else if SignalStyle.isActive {
+            SignalSurfaceBackground(cornerRadius: bannerHeaderRadius, elevated: true, fill: SignalStyle.paper)
+        } else if SequoiaStyle.isActive {
+            SequoiaGlassBand(tint: SequoiaStyle.accent, cornerRadius: bannerHeaderRadius)
         } else {
             RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -555,6 +726,12 @@ struct PlaylistDetailView: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
+        } else if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
+                .stroke(SignalStyle.accent.opacity(0.22), lineWidth: 0.9)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
+                .stroke(SequoiaStyle.separator.opacity(0.82), lineWidth: 0.6)
         }
     }
 
@@ -575,6 +752,8 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive { return MangaStyle.paperCool }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
         return Color.monologueSeparator.opacity(0.35)
     }
 
@@ -589,6 +768,12 @@ struct PlaylistDetailView: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: bannerArtworkRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.8)
+        } else if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: bannerArtworkRadius, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: bannerArtworkRadius, style: .continuous)
+                .stroke(SequoiaStyle.luminousSeparator.opacity(0.58), lineWidth: 0.7)
         } else {
             RoundedRectangle(cornerRadius: bannerArtworkRadius, style: .continuous)
                 .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
@@ -697,6 +882,92 @@ struct PlaylistDetailView: View {
                         isCollectedLocally = true
                     }
                 }
+            }
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+            Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                subManager.togglePlaylistSubscription(id: playlist.id)
+            }
+
+            Button(String(localized: "取消"), role: .cancel) {}
+        }
+    }
+
+    private var signalPlaylistHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
+                    SignalStyle.controlPressed
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 178 : 132, height: DeviceLayout.isPad ? 178 : 132)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
+                )
+                .background(SignalSurfaceBackground(cornerRadius: 26, elevated: true, fill: SignalStyle.control))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 7) {
+                        SignalPill(text: "PLAYLIST", tint: SignalStyle.accent, selected: true, compact: true)
+                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                            SignalPill(text: "\(count) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
+                        }
+                    }
+
+                    Text(viewModel.playlistDetail?.name ?? playlist.name)
+                        .font(SignalStyle.titleFont(DeviceLayout.isPad ? 30 : 24, weight: .bold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
+                            .font(SignalStyle.labelFont(12, weight: .medium))
+                            .foregroundStyle(SignalStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 7) {
+                        if let playCount = playlist.playCount, playCount > 0 {
+                            SignalPill(text: formatCount(playCount), tint: SignalStyle.amber, compact: true)
+                        }
+                        if playlist.isQQMusic {
+                            SignalPill(text: "QCM", tint: SignalStyle.violet, compact: true)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: playBannerPlaylist) {
+                    SignalPlayPill(title: String(localized: "play_now"))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: handleBannerPlaylistCollectTap
+                    )
+                    .disabled(playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty))
+                }
+            }
+        }
+        .padding(16)
+        .background(SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper))
+        .padding(.horizontal, DeviceLayout.isPad ? 40 : 18)
+        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.bottom, 12)
+        .iPadContentWidth(900)
+        .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+            Button(String(localized: "收藏到本地")) {
+                collectBannerPlaylistLocally()
             }
             .disabled(isCollectedLocally || viewModel.songs.isEmpty)
 
@@ -953,6 +1224,8 @@ struct PlaylistDetailView: View {
                 MujiPill(text: "\(count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
             } else if NeumorphicStyle.isActive {
                 NeumorphicPill(text: "\(count)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
+            } else if SignalStyle.isActive {
+                SignalPill(text: "\(count)", tint: SignalStyle.olive, icon: .musicNoteList, compact: true)
             } else {
                 HStack(spacing: 4) {
                     MonologueIcon(icon: .musicNoteList, size: 10, color: .monologueTextSecondary.opacity(0.85))
@@ -999,22 +1272,26 @@ struct PlaylistDetailView: View {
                     VStack(spacing: 14) {
                         if NeumorphicStyle.isActive {
                             NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
+                        } else if SignalStyle.isActive {
+                            SignalIconBadge(icon: .musicNoteList, tint: SignalStyle.accent, size: 54)
                         } else {
                             MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
                         }
 
                         Text(LocalizedStringKey("album_no_songs"))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
+                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, NeumorphicStyle.isActive ? 34 : 0)
+                    .padding(.vertical, ThemedPageStyle.isActive ? 34 : 0)
                     .background {
                         if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
+                        } else if SignalStyle.isActive {
+                            SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
                         }
                     }
-                    .padding(.horizontal, NeumorphicStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+                    .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
                     .padding(.top, 40)
                 } else {
                     ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
@@ -1084,6 +1361,10 @@ struct PlaylistDetailView: View {
                 NeumorphicSectionTitle(title: String(localized: "related_playlists"))
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 20)
+            } else if SignalStyle.isActive {
+                SignalSectionTitle(title: String(localized: "related_playlists"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 20)
             } else if MujiStyle.isActive {
                 MujiSectionTitle(title: String(localized: "related_playlists"))
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -1119,12 +1400,12 @@ struct PlaylistDetailView: View {
                         }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 CachedAsyncImage(url: rp.coverUrl?.sized(300)) {
-                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)))
-                                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)))
-                                        .monologueGlass(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)))
+                                    RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous)
+                                        .fill(relatedPlaylistCoverFill)
+                                        .monologueGlass(cornerRadius: relatedPlaylistCoverRadius)
                                 }
                                 .frame(width: 130, height: 130)
-                                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (NeumorphicStyle.isActive ? 16 : 12)), style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous))
                                 .overlay {
                                     if MangaStyle.isActive {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -1135,18 +1416,21 @@ struct PlaylistDetailView: View {
                                     } else if NeumorphicStyle.isActive {
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                                             .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                                    } else if SignalStyle.isActive {
+                                        RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous)
+                                            .stroke(SignalStyle.separator.opacity(0.68), lineWidth: 0.8)
                                     }
                                 }
 
                                 Text(rp.name)
-                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : .rounded(size: 13, weight: .medium))))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)))
+                                    .font(relatedPlaylistTitleFont)
+                                    .foregroundColor(relatedPlaylistTitleColor)
                                     .lineLimit(2)
                                     .frame(width: 130, height: 34, alignment: .topLeading)
 
                                 Text(rp.creatorName.isEmpty ? " " : rp.creatorName)
-                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .rounded(size: 11))))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
+                                    .font(relatedPlaylistMetaFont)
+                                    .foregroundColor(relatedPlaylistMetaColor)
                                     .lineLimit(1)
                                     .frame(width: 130, alignment: .leading)
                             }
@@ -1158,6 +1442,8 @@ struct PlaylistDetailView: View {
                                     MujiPaperCardBackground(cornerRadius: 10)
                                 } else if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, lightweight: true)
+                                } else if SignalStyle.isActive {
+                                    SignalSurfaceBackground(cornerRadius: 22, elevated: false, fill: SignalStyle.paper)
                                 }
                             }
                         }
@@ -1169,6 +1455,54 @@ struct PlaylistDetailView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
+    }
+
+    private var relatedPlaylistCoverRadius: CGFloat {
+        if MangaStyle.isActive { return 8 }
+        if MujiStyle.isActive { return 8 }
+        if NeumorphicStyle.isActive { return 16 }
+        if SignalStyle.isActive { return 18 }
+        return 12
+    }
+
+    private var relatedPlaylistCoverFill: Color {
+        if MangaStyle.isActive { return MangaStyle.paperCool }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
+        return Color.monologueGlassTint
+    }
+
+    private var relatedPlaylistTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(13, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(13, weight: .bold) }
+        return .rounded(size: 13, weight: .medium)
+    }
+
+    private var relatedPlaylistMetaFont: Font {
+        if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: .medium) }
+        return .rounded(size: 11)
+    }
+
+    private var relatedPlaylistTitleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var relatedPlaylistMetaColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
+        return .monologueTextSecondary
     }
 }
 

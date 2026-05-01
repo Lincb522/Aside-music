@@ -6,21 +6,33 @@ struct MinimalMiniPlayer: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showPlaylist = false
 
     @State private var showingTabs = false
 
     private var shellCornerRadius: CGFloat {
-        MangaStyle.isActive ? 20 : (NeumorphicStyle.isActive ? 22 : (MujiStyle.isActive ? 16 : 18))
+        if MangaStyle.isActive { return 20 }
+        if NeumorphicStyle.isActive { return 22 }
+        if SequoiaStyle.isActive { return 24 }
+        if MaterialStyle.isActive { return 24 }
+        if MujiStyle.isActive { return 16 }
+        return 18
     }
 
     private var shellHorizontalPadding: CGFloat {
         if MangaStyle.isActive { return DeviceLayout.isPad ? 16 : 10 }
+        if SequoiaStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
+        if MaterialStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
         return DeviceLayout.isPad ? 20 : 14
     }
 
     private var shellVerticalPadding: CGFloat {
-        MangaStyle.isActive ? 7 : 10
+        if MangaStyle.isActive { return 7 }
+        if SequoiaStyle.isActive { return 9 }
+        if MaterialStyle.isActive { return 9 }
+        return 10
     }
 
     private var miniContentSpacing: CGFloat {
@@ -28,11 +40,11 @@ struct MinimalMiniPlayer: View {
     }
 
     private var artworkSize: CGFloat {
-        MangaStyle.isActive ? 34 : 40
+        MangaStyle.isActive ? 34 : (SequoiaStyle.isActive ? 38 : 40)
     }
 
     private var artworkCornerRadius: CGFloat {
-        MangaStyle.isActive ? 8 : 10
+        MangaStyle.isActive ? 8 : (SequoiaStyle.isActive ? 11 : 10)
     }
 
     private var transportSpacing: CGFloat {
@@ -59,6 +71,8 @@ struct MinimalMiniPlayer: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             if player.currentSong != nil {
                 // 有歌曲时：迷你播放器 / Tab 选择器切换
@@ -76,10 +90,7 @@ struct MinimalMiniPlayer: View {
         }
         .padding(.horizontal, shellHorizontalPadding)
         .padding(.vertical, shellVerticalPadding)
-        .background(
-            RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
-                .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
-        )
+        .background(shellBackground)
         .monologueGlass(cornerRadius: shellCornerRadius)
         .overlay {
             if MangaStyle.isActive {
@@ -98,12 +109,75 @@ struct MinimalMiniPlayer: View {
                         MangaSectionMark(kind: showingTabs ? .star : .heart, tint: showingTabs ? MangaStyle.decoBlue : MangaStyle.bubblePink, size: 12)
                             .offset(x: -14, y: -4)
                     }
+            } else if SequoiaStyle.isActive {
+                RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.2 : 0.58),
+                                SequoiaStyle.separator.opacity(0.72),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.65
+                    )
+                    .overlay(alignment: .top) {
+                        Capsule()
+                            .fill((showingTabs ? SequoiaStyle.aqua : SequoiaStyle.accent).opacity(0.68))
+                            .frame(width: showingTabs ? 42 : 30, height: 3)
+                            .offset(y: 5)
+                            .animation(MonologueAnimation.micro, value: showingTabs)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(showingTabs ? SequoiaStyle.inkMuted.opacity(0.35) : SequoiaStyle.accent)
+                                .frame(width: 5, height: 5)
+                            Circle()
+                                .fill(showingTabs ? SequoiaStyle.aqua : SequoiaStyle.inkMuted.opacity(0.35))
+                                .frame(width: 5, height: 5)
+                        }
+                        .padding(.trailing, 18)
+                        .padding(.bottom, 7)
+                    }
+            } else if MaterialStyle.isActive {
+                RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                    .stroke(MaterialStyle.outlineStrong.opacity(0.45), lineWidth: 0.8)
+                    .overlay(alignment: .topLeading) {
+                        HStack(spacing: 4) {
+                            Circle().fill(MaterialStyle.primary).frame(width: 6, height: 6)
+                            Circle().fill(MaterialStyle.tertiary.opacity(0.7)).frame(width: 6, height: 6)
+                        }
+                        .padding(.leading, 17)
+                        .padding(.top, 7)
+                    }
             }
         }
+        .shadow(
+            color: SequoiaStyle.isActive
+                ? SequoiaStyle.shadow(colorScheme, elevated: true)
+                : (MaterialStyle.isActive ? MaterialStyle.elevationShadow(colorScheme, level: 2) : .clear),
+            radius: SequoiaStyle.isActive ? 17 : (MaterialStyle.isActive ? 16 : 0),
+            x: 0,
+            y: SequoiaStyle.isActive ? 8 : (MaterialStyle.isActive ? 7 : 0)
+        )
         .contentShape(Rectangle())
         .simultaneousGesture(panelSwitchGesture)
         .animation(MonologueAnimation.panelToggle, value: showingTabs)
         .themeRenderInteractiveLayer()
+    }
+
+    @ViewBuilder
+    private var shellBackground: some View {
+        if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: shellCornerRadius, elevated: true, role: .floating)
+        } else if MaterialStyle.isActive {
+            MaterialSurfaceBackground(cornerRadius: shellCornerRadius, elevated: true, role: .floating)
+        } else {
+            RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
+        }
     }
 
     private var panelSwitchGesture: some Gesture {
@@ -218,15 +292,11 @@ struct MinimalMiniPlayer: View {
                 openPlayer()
             }
         }
-        .sheet(isPresented: $showPlaylist) {
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
             } else {
                 PlaylistPopupView()
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
             }
         }
     }
@@ -258,6 +328,16 @@ struct MinimalMiniPlayer: View {
                     .padding(8)
 
                 MonologueIcon(icon: .musicNote, size: 13, color: NeumorphicStyle.accent, lineWidth: 1.6)
+            } else if SequoiaStyle.isActive {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(SequoiaStyle.materialPressed.opacity(0.8))
+                    .background(SequoiaSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, role: .list))
+
+                Circle()
+                    .stroke(SequoiaStyle.aqua.opacity(0.24), lineWidth: 0.8)
+                    .padding(8)
+
+                MonologueIcon(icon: .musicNote, size: 13, color: SequoiaStyle.accent, lineWidth: 1.55)
             } else {
                 Circle()
                     .fill(Color(hex: "1A1A1A"))
@@ -341,6 +421,7 @@ struct MinimalMiniPlayer: View {
     private var titleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(12, weight: .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
@@ -348,6 +429,7 @@ struct MinimalMiniPlayer: View {
     private var subtitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.bodyFont(10, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .regular) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         return .rounded(size: 11, weight: .medium)
     }
@@ -355,6 +437,7 @@ struct MinimalMiniPlayer: View {
     private var titleColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueTextPrimary
     }
@@ -362,6 +445,7 @@ struct MinimalMiniPlayer: View {
     private var subtitleColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return .monologueTextSecondary
     }
@@ -369,6 +453,7 @@ struct MinimalMiniPlayer: View {
     private var controlFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.78) }
         return .monologueIconBackground
     }
@@ -376,6 +461,7 @@ struct MinimalMiniPlayer: View {
     private var controlForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueIconForeground
     }
@@ -383,6 +469,7 @@ struct MinimalMiniPlayer: View {
     private var transportControlColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return titleColor.opacity(0.72)
     }
@@ -410,6 +497,13 @@ struct MinimalMiniPlayer: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
                 )
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(SequoiaStyle.materialList.opacity(0.64))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(SequoiaStyle.separator.opacity(0.7), lineWidth: 0.55)
+                )
         } else {
             Color.clear
         }
@@ -423,12 +517,15 @@ struct MinimalMiniPlayer: View {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
             Circle().stroke(NeumorphicStyle.separator.opacity(0.52), lineWidth: 0.7)
+        } else if SequoiaStyle.isActive {
+            Circle().stroke(SequoiaStyle.luminousSeparator.opacity(0.5), lineWidth: 0.55)
         }
     }
 
     private var sourceIndicatorForeground: Color {
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         return .white
     }
@@ -436,6 +533,7 @@ struct MinimalMiniPlayer: View {
     private func tabFont(selected: Bool) -> Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(9, weight: selected ? .black : .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: selected ? .semibold : .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         return .system(size: 9, weight: selected ? .semibold : .medium)
     }
@@ -444,12 +542,14 @@ struct MinimalMiniPlayer: View {
         guard selected else {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+            if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             return .monologueTextSecondary.opacity(0.4)
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
+        if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if MujiStyle.isActive { return mujiTabTint(tab) }
         return .monologueAccent
     }
@@ -468,6 +568,10 @@ struct MinimalMiniPlayer: View {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(neumorphicTabTint(tab).opacity(0.16))
                 .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(sequoiaTabTint(tab).opacity(0.12))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(sequoiaTabTint(tab).opacity(0.2), lineWidth: 0.55))
         }
     }
 
@@ -495,6 +599,15 @@ struct MinimalMiniPlayer: View {
         case .podcast: return NeumorphicStyle.warm
         case .library: return NeumorphicStyle.sage
         case .profile: return NeumorphicStyle.red
+        }
+    }
+
+    private func sequoiaTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return SequoiaStyle.accent
+        case .podcast: return SequoiaStyle.aqua
+        case .library: return SequoiaStyle.green
+        case .profile: return SequoiaStyle.violet
         }
     }
 

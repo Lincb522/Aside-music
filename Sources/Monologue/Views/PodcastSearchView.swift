@@ -4,9 +4,12 @@ import SwiftUI
 struct PodcastSearchView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = PodcastSearchViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
@@ -46,31 +49,31 @@ struct PodcastSearchView: View {
     private var searchBar: some View {
         HStack(spacing: 12) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: .magnifyingGlass, size: 15, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.4)
+                MonologueIcon(icon: .magnifyingGlass, size: 15, color: searchAccentColor, lineWidth: 1.4)
 
                 TextField(String(localized: "podcast_search_placeholder"), text: $viewModel.searchText)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(searchFieldFont)
+                    .foregroundColor(primaryTextColor)
                     .monologueTextInputBehavior()
                     .focused($isSearchFocused)
                     .submitLabel(.search)
 
                 if !viewModel.searchText.isEmpty {
                     Button(action: { viewModel.searchText = "" }) {
-                        MonologueIcon(icon: .xmarkCircle, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary, lineWidth: 1.2)
+                        MonologueIcon(icon: .xmarkCircle, size: 14, color: secondaryTextColor, lineWidth: 1.2)
                     }
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, NeumorphicStyle.isActive ? 11 : 10)
-            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 18 : 12, elevated: false)
-            .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 18 : 12, style: .continuous))
+            .padding(.vertical, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 11 : 10)
+            .themedPageSurface(cornerRadius: searchRadius, elevated: false)
+            .clipShape(RoundedRectangle(cornerRadius: searchRadius, style: .continuous))
 
             Button(String(localized: "podcast_search_cancel")) {
                 dismiss()
             }
-            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
-            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
+            .font(searchCancelFont)
+            .foregroundColor(searchAccentColor)
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.bottom, 12)
@@ -82,8 +85,8 @@ struct PodcastSearchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("podcast_hot_radios")
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(sectionTitleFont)
+                    .foregroundColor(primaryTextColor)
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
                 if viewModel.isLoadingHot {
@@ -151,10 +154,10 @@ struct PodcastSearchView: View {
 
     private var emptyResultView: some View {
         VStack(spacing: 12) {
-            MonologueIcon(icon: .magnifyingGlass, size: 36, color: .monologueTextSecondary.opacity(0.5))
+            MonologueIcon(icon: .magnifyingGlass, size: 36, color: secondaryTextColor.opacity(0.5))
             Text("podcast_no_results")
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(secondaryTextColor)
         }
     }
 
@@ -164,7 +167,7 @@ struct PodcastSearchView: View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                    .fill(coverPlaceholderFill)
                     .monologueGlass(cornerRadius: coverRadius)
             }
             .frame(width: 56, height: 56)
@@ -173,28 +176,28 @@ struct PodcastSearchView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(radio.name)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(rowTitleFont)
+                    .foregroundColor(primaryTextColor)
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     if let dj = radio.dj?.nickname {
                         Text(dj)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(rowMetaFont)
+                            .foregroundColor(secondaryTextColor)
                             .lineLimit(1)
                     }
                     if let count = radio.programCount, count > 0 {
                         Text(String(format: String(localized: "podcast_episode_count"), count))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, design: .rounded))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary)
+                            .font(rowMetaFont)
+                            .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary))
                     }
                 }
             }
 
             Spacer()
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary, lineWidth: 1.2)
+            MonologueIcon(icon: .chevronRight, size: 12, color: searchAccentColor, lineWidth: 1.2)
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.homeHorizontalPadding)
         .padding(.vertical, 12)
@@ -203,7 +206,7 @@ struct PodcastSearchView: View {
     }
 
     private var coverRadius: CGFloat {
-        NeumorphicStyle.isActive ? 14 : 10
+        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
     }
 
     @ViewBuilder
@@ -211,6 +214,71 @@ struct PodcastSearchView: View {
         if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        } else if SequoiaStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
         }
+    }
+
+    private var searchRadius: CGFloat {
+        if NeumorphicStyle.isActive { return 18 }
+        if SequoiaStyle.isActive { return 16 }
+        return 12
+    }
+
+    private var searchFieldFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .regular) }
+        return .system(size: 15, design: .rounded)
+    }
+
+    private var searchCancelFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .semibold) }
+        return .system(size: 15, weight: .medium, design: .rounded)
+    }
+
+    private var sectionTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(17, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(18, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(18, weight: .semibold) }
+        return .system(size: 18, weight: .bold, design: .rounded)
+    }
+
+    private var rowTitleFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
+        return .system(size: 15, weight: .medium, design: .rounded)
+    }
+
+    private var rowMetaFont: Font {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        return .system(size: 12, design: .rounded)
+    }
+
+    private var primaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var searchAccentColor: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return .monologueTextSecondary
+    }
+
+    private var coverPlaceholderFill: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        return Color.monologueGlassTint
     }
 }

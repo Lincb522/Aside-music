@@ -128,7 +128,10 @@ public struct ContentView: View {
     }
 
     private var tabViewCore: some View {
-        TabView(selection: $currentTab) {
+        let _ = settings.globalThemeRevision
+        let tabTint = themeManager.colors.accent
+
+        return TabView(selection: $currentTab) {
             tabRootView(for: .home)
                 .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
@@ -170,10 +173,12 @@ public struct ContentView: View {
                 }
                 .tag(Tab.profile)
         }
+        .tint(tabTint)
     }
 
     @ViewBuilder
     private func tabRootView(for tab: Tab) -> some View {
+        let _ = themeManager.tokenRevision
         let theme = themeManager.current
         switch tab {
         case .home:
@@ -397,6 +402,7 @@ private struct ContentViewCompactPlayerContainer: View {
                 CompactMiniPlayerView(song: song)
                     .monologueGlassCapsule()
                     .themeRenderInteractiveLayer()
+                    .id("compact-mini-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                     .iPadContentWidth(600)
                     .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
                     .padding(.bottom, DeviceLayout.isPad ? 72 : 62)
@@ -405,6 +411,7 @@ private struct ContentViewCompactPlayerContainer: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(9)
             .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
+            .animation(MonologueAnimation.floatingBar, value: settings.globalThemeRevision)
         }
     }
 }
@@ -430,7 +437,7 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
                 TabViewBottomMiniPlayer(playlistPresented: $playlistPresented)
             }
             // sheet 挂在 TabView 层而不是 accessory 内部，避免按钮一点就被关
-            .sheet(isPresented: $playlistPresented) {
+            .monologueSheet(isPresented: $playlistPresented, preset: .standard) {
                 Group {
                     if PlayerManager.shared.isPlayingPodcast {
                         PodcastPlaylistPopupView()
@@ -438,9 +445,6 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
                         PlaylistPopupView()
                     }
                 }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationContentInteraction(.scrolls)
             }
     }
 }

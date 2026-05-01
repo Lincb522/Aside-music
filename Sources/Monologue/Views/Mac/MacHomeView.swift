@@ -42,7 +42,7 @@ struct MacHomeView: View {
                 case .qcmNewSongs:      QCMNewSongsView()
                 }
             }
-            .sheet(isPresented: $showPersonalFM) {
+            .monologueSheet(isPresented: $showPersonalFM, preset: .detail) {
                 PersonalFMView()
                     .frame(minWidth: 480, minHeight: 640)
             }

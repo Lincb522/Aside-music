@@ -202,11 +202,14 @@ private class ShazamDelegate: NSObject, SHSessionDelegate {
 
 struct AudioMatchView: View {
     @StateObject private var viewModel = AudioMatchViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedSongForDetail: Song?
     @State private var showSongDetail = false
     @State private var pulsePhase: CGFloat = 0
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
             ThemedPageBackground()
                 .ignoresSafeArea()
