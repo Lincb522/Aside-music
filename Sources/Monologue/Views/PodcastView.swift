@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct PodcastView: View {
@@ -6,7 +7,6 @@ struct PodcastView: View {
     @State private var radioIdToOpen: Int = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?
     @State private var bannerWebURL: URL?
-    @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     enum PodcastDestination: Hashable {
@@ -64,12 +64,12 @@ struct PodcastView: View {
                             } else if SequoiaStyle.isActive {
                                 sequoiaPodcastHeader
                                 sequoiaPodcastSummary
+                            } else if LiquidGlassStyle.isActive {
+                                liquidGlassPodcastHeader
+                                liquidGlassPodcastConstellation
                             }
 
-                            // 历史记录（如果存在）
-                            if !playerManager.podcastHistory.isEmpty {
-                                podcastHistorySection
-                            }
+                            PodcastHistorySection(onOpenRadio: openRadioPlayer)
 
                             // DJ Banner 轮播
                             if !viewModel.djBanners.isEmpty {
@@ -188,6 +188,12 @@ struct PodcastView: View {
         }
     }
 
+    private func openRadioPlayer(_ radioId: Int) {
+        guard radioId > 0 else { return }
+        radioIdToOpen = radioId
+        showRadioPlayer = true
+    }
+
     // MARK: - DJ Banner 轮播
 
     private var mangaPodcastHeader: some View {
@@ -273,6 +279,87 @@ struct PodcastView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, padH)
+    }
+
+    private var liquidGlassPodcastHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+            LiquidGlassDropletMark(tint: LiquidGlassStyle.violet)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("PODCAST")
+                    .font(LiquidGlassStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.inkMuted)
+                    .tracking(1.4)
+
+                Text(String(localized: "tabbar_podcast"))
+                    .font(LiquidGlassStyle.titleFont(27, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+            }
+
+            Spacer(minLength: 0)
+
+            NavigationLink(value: PodcastDestination.search) {
+                LiquidGlassControlButton(icon: .magnifyingGlass, tint: LiquidGlassStyle.violet, size: 44, selected: true)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, padH)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
+    private var liquidGlassPodcastConstellation: some View {
+        HStack(spacing: 10) {
+            liquidGlassPodcastMetric(
+                icon: .podcast,
+                value: "\(viewModel.personalizedRadios.count)",
+                label: String(localized: "podcast_for_you"),
+                tint: LiquidGlassStyle.violet
+            )
+            liquidGlassPodcastMetric(
+                icon: .gridSquare,
+                value: "\(viewModel.categories.count)",
+                label: String(localized: "podcast_all"),
+                tint: LiquidGlassStyle.cyan
+            )
+            liquidGlassPodcastMetric(
+                icon: .radio,
+                value: "\(viewModel.broadcastChannels.count)",
+                label: String(localized: "podcast_broadcast"),
+                tint: LiquidGlassStyle.mint
+            )
+        }
+        .padding(12)
+        .background(LiquidGlassPrismBand(tint: LiquidGlassStyle.violet, cornerRadius: 28))
+        .padding(.horizontal, padH)
+    }
+
+    private func liquidGlassPodcastMetric(
+        icon: MonologueIcon.IconType,
+        value: String,
+        label: String,
+        tint: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
+                MonologueIcon(icon: icon, size: 15, color: tint, lineWidth: 1.6)
+
+                Text(value)
+                    .font(LiquidGlassStyle.titleFont(19, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+
+            Text(label)
+                .font(LiquidGlassStyle.labelFont(10.5, weight: .medium))
+                .foregroundStyle(LiquidGlassStyle.inkSoft)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+        .background(LiquidGlassSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, role: .list))
     }
 
     @ViewBuilder
@@ -363,6 +450,43 @@ struct PodcastView: View {
                             text: String(localized: "view_all"),
                             icon: .chevronRight,
                             tint: SequoiaStyle.accent,
+                            selected: true,
+                            compact: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        } else if LiquidGlassStyle.isActive {
+            HStack(alignment: .center, spacing: 10) {
+                LiquidGlassDropletMark(tint: LiquidGlassStyle.violet)
+                    .frame(width: 22, height: 22)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(LiquidGlassStyle.titleFont(18, weight: .semibold))
+                        .foregroundStyle(LiquidGlassStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(LiquidGlassStyle.labelFont(11, weight: .regular))
+                            .foregroundStyle(LiquidGlassStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 8)
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        LiquidGlassPill(
+                            text: String(localized: "view_all"),
+                            icon: .chevronRight,
+                            tint: LiquidGlassStyle.violet,
                             selected: true,
                             compact: true
                         )
@@ -484,6 +608,13 @@ struct PodcastView: View {
                             tint: SequoiaStyle.accent,
                             selected: true
                         )
+                    } else if LiquidGlassStyle.isActive {
+                        LiquidGlassPill(
+                            text: String(localized: "podcast_all"),
+                            icon: .gridSquare,
+                            tint: LiquidGlassStyle.violet,
+                            selected: true
+                        )
                     } else {
                         HStack(spacing: 6) {
                             MonologueIcon(icon: .gridSquare, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
@@ -528,6 +659,12 @@ struct PodcastView: View {
                             text: cat.name,
                             icon: cat.monologueIconType,
                             tint: SequoiaStyle.aqua
+                        )
+                    } else if LiquidGlassStyle.isActive {
+                        LiquidGlassPill(
+                            text: cat.name,
+                            icon: cat.monologueIconType,
+                            tint: LiquidGlassStyle.cyan
                         )
                     } else {
                         HStack(spacing: 6) {
@@ -1444,220 +1581,6 @@ struct PodcastView: View {
 
     // MARK: - 广播电台
 
-    private var podcastHistorySection: some View {
-        let uniquePodcastHistory: [Song] = {
-            var seenIds = Set<Int>()
-            var result = [Song]()
-            for song in playerManager.podcastHistory {
-                if !seenIds.contains(song.id) {
-                    seenIds.insert(song.id)
-                    result.append(song)
-                }
-            }
-            return result
-        }()
-
-        return VStack(alignment: .leading, spacing: 14) {
-            if MujiStyle.isActive {
-                HStack(alignment: .bottom, spacing: 14) {
-                    MujiSectionTitle(
-                        title: String(localized: "profile_recently_played")
-                    )
-
-                    Spacer(minLength: 0)
-
-                    Button(action: {
-                        HapticStyle.light.trigger()
-                        playerManager.clearPodcastHistory()
-                    }) {
-                        MujiPill(text: String(localized: "storage_clear"), tint: MujiStyle.red)
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
-                        MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, padH)
-            } else if NeumorphicStyle.isActive {
-                HStack(alignment: .center, spacing: 14) {
-                    NeumorphicSectionTitle(title: String(localized: "profile_recently_played"))
-
-                    Spacer(minLength: 0)
-
-                    Button(action: {
-                        HapticStyle.light.trigger()
-                        playerManager.clearPodcastHistory()
-                    }) {
-                        NeumorphicPill(text: String(localized: "storage_clear"), tint: NeumorphicStyle.red, icon: .trash, compact: true)
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
-                        NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, padH)
-            } else if SequoiaStyle.isActive {
-                HStack(alignment: .center, spacing: 10) {
-                    SequoiaIconBadge(icon: .history, tint: SequoiaStyle.green, size: 32)
-
-                    Text(LocalizedStringKey("profile_recently_played"))
-                        .font(SequoiaStyle.titleFont(17, weight: .semibold))
-                        .foregroundStyle(SequoiaStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-
-                    Spacer(minLength: 8)
-
-                    Button(action: {
-                        HapticStyle.light.trigger()
-                        playerManager.clearPodcastHistory()
-                    }) {
-                        SequoiaPill(text: String(localized: "storage_clear"), icon: .trash, tint: SequoiaStyle.red, compact: true)
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
-                        SequoiaPill(text: String(localized: "view_all"), icon: .chevronRight, tint: SequoiaStyle.accent, selected: true, compact: true)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, padH)
-            } else {
-                HStack {
-                    Text(LocalizedStringKey("profile_recently_played"))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
-
-                    Spacer()
-
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            HapticStyle.light.trigger()
-                            playerManager.clearPodcastHistory()
-                        }) {
-                            HStack(spacing: 4) {
-                                MonologueIcon(icon: .trash, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                                Text(LocalizedStringKey("storage_clear"))
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                            }
-                            .foregroundColor(.monologueTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-
-                        NavigationLink(destination: RecentPlayHistoryView(songs: uniquePodcastHistory)) {
-                            HStack(spacing: 4) {
-                                Text(LocalizedStringKey("view_all"))
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
-                            }
-                            .foregroundColor(.monologueTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, padH)
-            }
-
-            ScrollView(.horizontal) {
-                HStack(spacing: 14) {
-                    ForEach(uniquePodcastHistory.prefix(10)) { song in
-                        podcastHistoryCard(song: song)
-                            .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
-                                content
-                                    .scaleEffect(phase.isIdentity ? 1 : 0.93)
-                                    .opacity(phase.isIdentity ? 1 : 0.5)
-                                    .offset(y: phase.isIdentity ? 0 : phase.value * 8)
-                            }
-                    }
-                }
-                .scrollTargetLayout()
-                .padding(.horizontal, padH)
-            }
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-        }
-    }
-
-    private func podcastHistoryCard(song: Song) -> some View {
-        let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
-        let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
-        let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 12)
-        let isCurrent = playerManager.currentSong?.id == song.id
-        let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
-        let titleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.bodyFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(13, weight: .semibold) : .system(size: 13, weight: .bold, design: .rounded)))
-        let subtitleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, design: .rounded))
-        let titleColor: Color
-        if isCurrent {
-            titleColor = SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
-        } else {
-            titleColor = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-        }
-        let subtitleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-        let cardFill: Color = SequoiaStyle.isActive ? .clear : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
-
-        return Button {
-            HapticStyle.light.trigger()
-            let rid = song.podcastRadioId ?? song.album?.id ?? 0
-            playerManager.playPodcast(song: song, in: playerManager.podcastHistory, radioId: rid)
-            if rid > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    radioIdToOpen = rid
-                    showRadioPlayer = true
-                }
-            }
-        } label: {
-            HStack(spacing: 12) {
-                ZStack(alignment: .bottomTrailing) {
-                    CachedAsyncImage(url: song.coverUrl) {
-                        RoundedRectangle(cornerRadius: cr)
-                            .fill(placeholderFill)
-                    }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: cardHeight, height: cardHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
-
-                    if isCurrent {
-                        PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .white)
-                            .frame(width: 10)
-                            .padding(4)
-                            .background(Circle().fill(.black.opacity(0.4)))
-                            .padding(4)
-                            .clipShape(Circle())
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(song.name)
-                        .font(titleFont)
-                        .foregroundColor(titleColor)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-
-                    let subtitle = song.podcastRadioName ?? song.ar?.first?.name ?? ""
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(subtitleFont)
-                            .foregroundColor(subtitleColor)
-                            .lineLimit(1)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.trailing, 12)
-            .frame(width: cardWidth, height: cardHeight)
-            .background(cardFill)
-            .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
-            .themedPageSurface(cornerRadius: cr, elevated: isCurrent)
-        }
-        .buttonStyle(MonologueBouncingButtonStyle())
-    }
-
     private var broadcastSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             podcastSectionHeader(
@@ -1779,5 +1702,250 @@ struct PodcastView: View {
             return String(format: String(localized: "%.1f万"), Double(count) / 10000)
         }
         return "\(count)"
+    }
+}
+
+private struct PodcastHistorySection: View {
+    let onOpenRadio: (Int) -> Void
+
+    @State private var history: [Song]
+    @State private var currentSongID: Int?
+    @State private var isPlaying: Bool
+
+    private let player = PlayerManager.shared
+
+    init(onOpenRadio: @escaping (Int) -> Void) {
+        self.onOpenRadio = onOpenRadio
+        _history = State(initialValue: Self.uniqued(PlayerManager.shared.podcastHistory))
+        _currentSongID = State(initialValue: PlayerManager.shared.currentSong?.id)
+        _isPlaying = State(initialValue: PlayerManager.shared.isPlaying)
+    }
+
+    var body: some View {
+        Group {
+            if !history.isEmpty {
+                content
+            }
+        }
+        .onReceive(PlayerManager.shared.$podcastHistory.map { Self.uniqued($0) }) { history in
+            self.history = history
+        }
+        .onReceive(PlayerManager.shared.$currentSong.map { $0?.id }.removeDuplicates()) { currentSongID in
+            self.currentSongID = currentSongID
+        }
+        .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            self.isPlaying = isPlaying
+        }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            historyHeader
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 14) {
+                    ForEach(history.prefix(10)) { song in
+                        historyCard(song: song)
+                            .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                                content
+                                    .scaleEffect(phase.isIdentity ? 1 : 0.93)
+                                    .opacity(phase.isIdentity ? 1 : 0.5)
+                                    .offset(y: phase.isIdentity ? 0 : phase.value * 8)
+                            }
+                    }
+                }
+                .scrollTargetLayout()
+                .padding(.horizontal, padH)
+            }
+            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+        }
+    }
+
+    @ViewBuilder
+    private var historyHeader: some View {
+        if MujiStyle.isActive {
+            HStack(alignment: .bottom, spacing: 14) {
+                MujiSectionTitle(title: String(localized: "profile_recently_played"))
+
+                Spacer(minLength: 0)
+
+                Button(action: clearHistory) {
+                    MujiPill(text: String(localized: "storage_clear"), tint: MujiStyle.red)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                    MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, padH)
+        } else if NeumorphicStyle.isActive {
+            HStack(alignment: .center, spacing: 14) {
+                NeumorphicSectionTitle(title: String(localized: "profile_recently_played"))
+
+                Spacer(minLength: 0)
+
+                Button(action: clearHistory) {
+                    NeumorphicPill(text: String(localized: "storage_clear"), tint: NeumorphicStyle.red, icon: .trash, compact: true)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                    NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, padH)
+        } else if SequoiaStyle.isActive {
+            HStack(alignment: .center, spacing: 10) {
+                SequoiaIconBadge(icon: .history, tint: SequoiaStyle.green, size: 32)
+
+                Text(LocalizedStringKey("profile_recently_played"))
+                    .font(SequoiaStyle.titleFont(17, weight: .semibold))
+                    .foregroundStyle(SequoiaStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                Spacer(minLength: 8)
+
+                Button(action: clearHistory) {
+                    SequoiaPill(text: String(localized: "storage_clear"), icon: .trash, tint: SequoiaStyle.red, compact: true)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                    SequoiaPill(text: String(localized: "view_all"), icon: .chevronRight, tint: SequoiaStyle.accent, selected: true, compact: true)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, padH)
+        } else {
+            HStack {
+                Text(LocalizedStringKey("profile_recently_played"))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    Button(action: clearHistory) {
+                        HStack(spacing: 4) {
+                            MonologueIcon(icon: .trash, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                            Text(LocalizedStringKey("storage_clear"))
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                        }
+                        .foregroundColor(.monologueTextSecondary)
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                        HStack(spacing: 4) {
+                            Text(LocalizedStringKey("view_all"))
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                        }
+                        .foregroundColor(.monologueTextSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        }
+    }
+
+    private func historyCard(song: Song) -> some View {
+        let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
+        let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
+        let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 12)
+        let isCurrent = currentSongID == song.id
+        let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+        let titleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.bodyFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(13, weight: .semibold) : .system(size: 13, weight: .bold, design: .rounded)))
+        let subtitleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .system(size: 11, design: .rounded))
+        let titleColor: Color
+        if isCurrent {
+            titleColor = SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
+        } else {
+            titleColor = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+        }
+        let subtitleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+        let cardFill: Color = SequoiaStyle.isActive ? .clear : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
+
+        return Button {
+            HapticStyle.light.trigger()
+            let rid = song.podcastRadioId ?? song.album?.id ?? 0
+            player.playPodcast(song: song, in: player.podcastHistory, radioId: rid)
+            if rid > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    onOpenRadio(rid)
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack(alignment: .bottomTrailing) {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: cr)
+                            .fill(placeholderFill)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: cardHeight, height: cardHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
+
+                    if isCurrent {
+                        PlayingVisualizerView(isAnimating: isPlaying, color: .white)
+                            .frame(width: 10)
+                            .padding(4)
+                            .background(Circle().fill(.black.opacity(0.4)))
+                            .padding(4)
+                            .clipShape(Circle())
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.name)
+                        .font(titleFont)
+                        .foregroundColor(titleColor)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    let subtitle = song.podcastRadioName ?? song.ar?.first?.name ?? ""
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(subtitleFont)
+                            .foregroundColor(subtitleColor)
+                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.trailing, 12)
+            .frame(width: cardWidth, height: cardHeight)
+            .background(cardFill)
+            .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
+            .themedPageSurface(cornerRadius: cr, elevated: isCurrent)
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
+    }
+
+    private var padH: CGFloat {
+        DeviceLayout.viewHorizontalPadding
+    }
+
+    private func clearHistory() {
+        HapticStyle.light.trigger()
+        player.clearPodcastHistory()
+    }
+
+    private static func uniqued(_ songs: [Song]) -> [Song] {
+        var seenIds = Set<Int>()
+        var result = [Song]()
+        for song in songs where !seenIds.contains(song.id) {
+            seenIds.insert(song.id)
+            result.append(song)
+        }
+        return result
     }
 }

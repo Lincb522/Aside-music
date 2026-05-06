@@ -57,6 +57,8 @@ struct PlaylistDetailView: View {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if SignalStyle.isActive {
                 ThemeRenderBackdrop(theme: .signal)
+            } else if BentoStyle.isActive {
+                BentoRootBackdrop()
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist.coverUrl?.sized(200))
             } else {
@@ -170,6 +172,8 @@ struct PlaylistDetailView: View {
             signalPlaylistHeaderContent
         } else if MujiStyle.isActive {
             mujiPlaylistHeaderContent
+        } else if BentoStyle.isActive {
+            bentoPlaylistHeaderContent
         } else if SequoiaStyle.isActive {
             sequoiaPlaylistHeaderContent
         } else {
@@ -1092,6 +1096,140 @@ struct PlaylistDetailView: View {
 
             Button(String(localized: "取消"), role: .cancel) {}
         }
+    }
+
+    // MARK: - Bento header
+    private var bentoPlaylistHeaderContent: some View {
+        VStack(spacing: BentoStyle.blockSpacing) {
+            // 大 hero 块：封面 + 标题 + 元信息
+            BentoBlock(fill: BentoStyle.surface, radius: BentoStyle.blockRadiusLarge, padding: 16) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) {
+                        CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(BentoStyle.buckwheat.opacity(0.5))
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: DeviceLayout.isPad ? 160 : 120, height: DeviceLayout.isPad ? 160 : 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("PLAYLIST")
+                                .font(BentoStyle.labelFont(10, weight: .heavy))
+                                .foregroundStyle(BentoStyle.tomato)
+                                .tracking(1.4)
+                            Text(viewModel.playlistDetail?.name ?? playlist.name)
+                                .font(BentoStyle.displayFont(20, weight: .heavy))
+                                .foregroundStyle(BentoStyle.ink)
+                                .lineLimit(3)
+                                .multilineTextAlignment(.leading)
+                            if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                                Text(creator)
+                                    .font(BentoStyle.labelFont(11, weight: .regular))
+                                    .foregroundStyle(BentoStyle.inkSoft)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+
+                    HStack(spacing: 8) {
+                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                            bentoPill(text: "\(count) 首", tint: BentoStyle.matcha)
+                        }
+                        if let playCount = playlist.playCount, playCount > 0 {
+                            bentoPill(text: formatCount(playCount), tint: BentoStyle.nori)
+                        }
+                    }
+                }
+            }
+
+            // 操作按钮区
+            HStack(spacing: BentoStyle.blockSpacing) {
+                Button {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllRemainingToQueue()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(icon: .play, size: 14, color: BentoStyle.onAccent, lineWidth: 2)
+                        Text("立即播放")
+                            .font(BentoStyle.bodyFont(13, weight: .heavy))
+                    }
+                    .foregroundStyle(BentoStyle.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(BentoStyle.tomato))
+                }
+                .buttonStyle(BentoPressStyle())
+                .disabled(viewModel.songs.isEmpty)
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    let collected = isCollectedLocally || serverSubscribed
+                    Button {
+                        if playlist.isQQMusic {
+                            guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                            let name = viewModel.playlistDetail?.name ?? playlist.name
+                            Task {
+                                let allSongs = await viewModel.loadAllRemainingAsync()
+                                LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isCollectedLocally = true
+                                }
+                            }
+                        } else {
+                            showCollectOptions = true
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: collected ? .liked : .like, size: 14, color: collected ? BentoStyle.onAccent : BentoStyle.ink, lineWidth: 2)
+                            Text(collected ? "已收藏" : "收藏")
+                                .font(BentoStyle.bodyFont(13, weight: .heavy))
+                                .foregroundStyle(collected ? BentoStyle.onAccent : BentoStyle.ink)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(collected ? BentoStyle.matcha : BentoStyle.surface))
+                    }
+                    .buttonStyle(BentoPressStyle())
+                    .disabled(playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty))
+                }
+            }
+        }
+        .padding(.horizontal, BentoStyle.blockSpacing)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+        .iPadContentWidth(900)
+        .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+            Button(String(localized: "收藏到本地")) {
+                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                let name = viewModel.playlistDetail?.name ?? playlist.name
+                Task {
+                    let allSongs = await viewModel.loadAllRemainingAsync()
+                    LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isCollectedLocally = true
+                    }
+                }
+            }
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+            Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                subManager.togglePlaylistSubscription(id: playlist.id)
+            }
+            Button(String(localized: "取消"), role: .cancel) {}
+        }
+    }
+
+    private func bentoPill(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(BentoStyle.labelFont(11, weight: .heavy))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(0.14)))
     }
 
     private var mangaPlaylistHeaderContent: some View {

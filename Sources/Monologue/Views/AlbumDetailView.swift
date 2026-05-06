@@ -54,6 +54,8 @@ struct AlbumDetailView: View {
                     ThemeRenderBackdrop(theme: .signal)
                 } else if SequoiaStyle.isActive {
                     SequoiaRootBackdrop()
+                } else if BentoStyle.isActive {
+                    BentoRootBackdrop()
                 } else if SettingsManager.shared.coverBgPlaylist {
             PlaylistColorBackground(coverUrl: effectiveCoverUrl)
         } else {
@@ -130,6 +132,8 @@ struct AlbumDetailView: View {
             sequoiaAlbumHeaderContent
         } else if MujiStyle.isActive {
             mujiAlbumHeaderContent
+        } else if BentoStyle.isActive {
+            bentoAlbumHeaderContent
         } else {
             VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
@@ -214,6 +218,107 @@ struct AlbumDetailView: View {
         .padding(.top, 16)
         .padding(.bottom, 24)
         }
+    }
+
+    private var bentoAlbumHeaderContent: some View {
+        VStack(spacing: BentoStyle.blockSpacing) {
+            BentoBlock(fill: BentoStyle.surface, radius: BentoStyle.blockRadiusLarge, padding: 16) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) {
+                        CachedAsyncImage(url: viewModel.albumInfo?.coverUrl?.sized(500) ?? albumCoverUrl?.sized(500)) {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(BentoStyle.buckwheat.opacity(0.5))
+                                .overlay(MonologueIcon(icon: .album, size: 28, color: BentoStyle.inkMuted, lineWidth: 1.8))
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: DeviceLayout.isPad ? 160 : 120, height: DeviceLayout.isPad ? 160 : 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("ALBUM")
+                                .font(BentoStyle.labelFont(10, weight: .heavy))
+                                .foregroundStyle(BentoStyle.tomato)
+                                .tracking(1.4)
+
+                            Text(viewModel.albumInfo?.name ?? albumName ?? "")
+                                .font(BentoStyle.displayFont(20, weight: .heavy))
+                                .foregroundStyle(BentoStyle.ink)
+                                .lineLimit(3)
+                                .multilineTextAlignment(.leading)
+
+                            if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
+                                Button {
+                                    if let artistId = viewModel.albumInfo?.artist?.id {
+                                        selectedArtistId = artistId
+                                        showArtistDetail = true
+                                    }
+                                } label: {
+                                    Text(artistName)
+                                        .font(BentoStyle.labelFont(11, weight: .regular))
+                                        .foregroundStyle(BentoStyle.inkSoft)
+                                        .lineLimit(1)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+
+                    HStack(spacing: 8) {
+                        if let size = viewModel.albumInfo?.size, size > 0 {
+                            bentoAlbumPill(text: "\(size) \(String(localized: "songs_unit"))", tint: BentoStyle.matcha)
+                        }
+                        if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
+                            bentoAlbumPill(text: date, tint: BentoStyle.nori)
+                        }
+                        if let company = viewModel.albumInfo?.company, !company.isEmpty {
+                            bentoAlbumPill(text: company, tint: BentoStyle.mustard)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: BentoStyle.blockSpacing) {
+                Button {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(icon: .play, size: 14, color: BentoStyle.onAccent, lineWidth: 2)
+                        Text(LocalizedStringKey("play_now"))
+                            .font(BentoStyle.bodyFont(13, weight: .heavy))
+                    }
+                    .foregroundStyle(BentoStyle.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(BentoStyle.tomato))
+                }
+                .buttonStyle(BentoPressStyle())
+                .disabled(viewModel.songs.isEmpty)
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+
+                SubscribeButton(
+                    isSubscribed: viewModel.isSubscribed,
+                    action: { viewModel.toggleSubscription(id: albumId) }
+                )
+                .disabled(viewModel.isTogglingSubscription)
+            }
+        }
+        .padding(.horizontal, BentoStyle.blockSpacing)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+        .iPadContentWidth(900)
+    }
+
+    private func bentoAlbumPill(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(BentoStyle.labelFont(11, weight: .heavy))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(0.14)))
     }
 
     private var sequoiaAlbumHeaderContent: some View {

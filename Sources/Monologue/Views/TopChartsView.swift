@@ -81,6 +81,14 @@ struct TopChartsView: View {
                             ) {
                                 SequoiaIconBadge(icon: .chart, tint: SequoiaStyle.violet, size: 48)
                             }
+                        } else if BentoStyle.isActive {
+                            BentoPageHeader(
+                                eyebrow: "BENTO RANK",
+                                title: String(localized: "top_charts"),
+                                subtitle: ""
+                            ) {
+                                BentoIconBadge(icon: .chart, foreground: BentoStyle.mustard, size: 48)
+                            }
                         }
 
                         LazyVGrid(columns: columns, spacing: 20) {
@@ -132,6 +140,9 @@ struct TopChartsView: View {
                         } else if SequoiaStyle.isActive {
                             RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous)
                                 .stroke(SequoiaStyle.separator.opacity(0.76), lineWidth: 0.6)
+                        } else if BentoStyle.isActive {
+                            RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous)
+                                .stroke(BentoStyle.hairline.opacity(0.62), lineWidth: 0.7)
                         }
                     }
                     .shadow(color: Color.black.opacity(ThemedPageStyle.isActive ? 0.055 : 0.1), radius: ThemedPageStyle.isActive ? 8 : 5, x: 0, y: ThemedPageStyle.isActive ? 4 : 2)
@@ -157,6 +168,8 @@ struct TopChartsView: View {
                                 Circle().fill(NeumorphicStyle.surfaceRaised.opacity(0.94))
                             } else if SequoiaStyle.isActive {
                                 Circle().fill(SequoiaStyle.materialFloating.opacity(0.92))
+                            } else if BentoStyle.isActive {
+                                Circle().fill(BentoStyle.surfaceRaised.opacity(0.94))
                             } else {
                                 Circle().fill(.ultraThinMaterial)
                             }
@@ -188,6 +201,10 @@ struct TopChartsView: View {
                     NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
                 } else if SequoiaStyle.isActive {
                     SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
+                } else if BentoStyle.isActive {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(BentoStyle.surface)
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BentoStyle.hairline.opacity(0.52), lineWidth: 0.7))
                 }
             }
         }
@@ -198,12 +215,14 @@ struct TopChartsView: View {
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        if BentoStyle.isActive { return BentoStyle.buckwheat.opacity(0.45) }
         return Color.gray.opacity(0.1)
     }
 
     private var chartCoverRadius: CGFloat {
         if MangaStyle.isActive || MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive || SequoiaStyle.isActive { return 16 }
+        if BentoStyle.isActive { return 16 }
         return 12
     }
 
@@ -212,6 +231,7 @@ struct TopChartsView: View {
         if MujiStyle.isActive { return MujiStyle.bodyFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .semibold) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(12, weight: .heavy) }
         return .system(size: 12, weight: .medium)
     }
 
@@ -220,6 +240,7 @@ struct TopChartsView: View {
         if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(10, weight: .regular) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(10, weight: .semibold) }
         return .system(size: 10)
     }
 
@@ -228,6 +249,7 @@ struct TopChartsView: View {
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.ink }
         return Theme.text
     }
 
@@ -236,6 +258,7 @@ struct TopChartsView: View {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkSoft }
         return Theme.secondaryText
     }
 
@@ -244,6 +267,7 @@ struct TopChartsView: View {
         if MujiStyle.isActive { return isSubscribed ? MujiStyle.red : MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return isSubscribed ? NeumorphicStyle.red : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return isSubscribed ? SequoiaStyle.red : SequoiaStyle.inkSoft }
+        if BentoStyle.isActive { return isSubscribed ? BentoStyle.tomato : BentoStyle.inkSoft }
         return isSubscribed ? .red : .primary
     }
 

@@ -32,6 +32,8 @@ struct DailyRecommendView: View {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if SignalStyle.isActive {
                 ThemeRenderBackdrop(theme: .signal)
+            } else if BentoStyle.isActive {
+                BentoRootBackdrop()
             } else {
                 ThemedPageBackground()
             }
@@ -119,9 +121,95 @@ struct DailyRecommendView: View {
             mujiHeaderSection
         } else if SequoiaStyle.isActive {
             sequoiaHeaderSection
+        } else if BentoStyle.isActive {
+            bentoHeaderSection
         } else {
             defaultHeaderSection
         }
+    }
+
+    private var bentoHeaderSection: some View {
+        VStack(spacing: 0) {
+            BentoBlock(fill: BentoStyle.surfaceRaised, radius: BentoStyle.blockRadiusLarge, padding: 16, stroked: true) {
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(alignment: .lastTextBaseline, spacing: 4) {
+                            Text(dayString)
+                                .font(BentoStyle.displayFont(46, weight: .black))
+                                .foregroundStyle(BentoStyle.ink)
+                            Text("/ \(monthString)")
+                                .font(BentoStyle.titleFont(16, weight: .heavy))
+                                .foregroundStyle(BentoStyle.inkSoft)
+                                .padding(.bottom, 8)
+                        }
+                        BentoTag(text: String(localized: "daily_recommend"), color: BentoStyle.tomato)
+                    }
+                    .frame(width: 104, alignment: .leading)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(dailyHeaderTitle)
+                            .font(BentoStyle.titleFont(24, weight: .black))
+                            .foregroundStyle(BentoStyle.ink)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 8) {
+                            Button(action: toggleStyleMenu) {
+                                bentoDailyChip(
+                                    text: dailyStyleChipTitle,
+                                    icon: .sparkle,
+                                    tint: viewModel.showStyleMenu ? BentoStyle.tomato : BentoStyle.nori
+                                )
+                            }
+                            .buttonStyle(BentoPressStyle())
+
+                            Button(action: { viewModel.loadHistoryDates() }) {
+                                bentoDailyChip(text: NSLocalizedString("daily_history", comment: ""), icon: .history, tint: BentoStyle.matcha)
+                            }
+                            .buttonStyle(BentoPressStyle())
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            MonologueIcon(icon: .play, size: 17, color: BentoStyle.onAccent, lineWidth: 2)
+                                .frame(width: 48, height: 48)
+                                .background(BentoStyle.tomato, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                        .buttonStyle(BentoPressStyle())
+                    }
+                }
+            }
+            .padding(.horizontal, BentoStyle.blockSpacing)
+            .padding(.top, 16)
+            .padding(.bottom, viewModel.showStyleMenu ? 8 : 10)
+
+            attachedStylePanel
+        }
+    }
+
+    private func bentoDailyChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
+        HStack(spacing: 6) {
+            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.8)
+            Text(text)
+                .font(BentoStyle.labelFont(12, weight: .heavy))
+                .foregroundStyle(BentoStyle.ink)
+                .lineLimit(1)
+            if icon == .sparkle {
+                MonologueIcon(icon: .chevronRight, size: 10, color: BentoStyle.inkMuted, lineWidth: 1.8)
+                    .rotationEffect(.degrees(viewModel.showStyleMenu ? -90 : 90))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(tint.opacity(0.13), in: Capsule())
+        .overlay(Capsule().stroke(tint.opacity(0.22), lineWidth: 0.7))
     }
 
     private var defaultHeaderSection: some View {

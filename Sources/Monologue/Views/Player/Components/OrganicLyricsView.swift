@@ -142,7 +142,7 @@ struct OrganicLyricLineViewWrapper: View {
     
     var body: some View {
         // TimelineView explicitly pauses updates when line is not active, saving up to 99% CPU
-        TimelineView(.animation(minimumInterval: 0.04, paused: !(isCurrent && PlayerManager.shared.isPlaying))) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !(isCurrent && PlayerManager.shared.isPlaying))) { timeline in
             let rawTime = PlayerManager.shared.streamPlayer.currentTime
             let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : PlaybackTimePublisher.shared.currentTime
             

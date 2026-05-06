@@ -2,7 +2,7 @@ import SwiftUI
 
 enum ClayStyle {
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.clay.rawValue
+        false
     }
 
     static var base: Color {

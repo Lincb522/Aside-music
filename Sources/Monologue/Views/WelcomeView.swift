@@ -645,7 +645,7 @@ private struct DefaultWelcomeLogoStage: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: !isAnimating)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
             let time = isAnimating ? timeline.date.timeIntervalSinceReferenceDate : 0
             Canvas { context, size in
                 let center = CGPoint(x: size.width * 0.5, y: size.height * 0.44)
@@ -685,7 +685,7 @@ private struct DefaultWelcomeConstellationDivider: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: !isAnimating)) { _ in
+        TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { _ in
             Canvas { context, size in
                 let baseline = size.height * 0.5
                 var line = Path()

@@ -79,8 +79,9 @@ final class GlobalThemeManager {
         case .muji: return MujiThemeProvider()
         case .manga: return MangaThemeProvider()
         case .neumorphic: return NeumorphicThemeProvider()
-        case .material: return MaterialThemeProvider()
-        case .sequoia: return SequoiaThemeProvider()
+        case .bento: return DefaultThemeProvider()
+        case .sequoia: return DefaultThemeProvider()
+        case .liquidGlass: return DefaultThemeProvider()
         case .clay: return DefaultThemeProvider()
         case .signal: return DefaultThemeProvider()
         }
@@ -101,7 +102,7 @@ final class GlobalThemeManager {
 
     private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
         switch id {
-        case .clay, .signal:
+        case .bento, .clay, .signal, .liquidGlass, .sequoia:
             return .default
         default:
             return id

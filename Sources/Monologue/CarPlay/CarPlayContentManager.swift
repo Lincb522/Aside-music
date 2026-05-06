@@ -643,15 +643,9 @@ final class CarPlayContentManager: NSObject {
     private func makeSearchTab() -> CPListTemplate {
         let loading = CPListItem(text: String(localized: "加载中..."), detailText: nil)
         loading.isEnabled = false
-        let assistantConfig = CPAssistantCellConfiguration(
-            position: .top,
-            visibility: .always,
-            assistantAction: .playMedia
-        )
         return CPListTemplate(
             title: String(localized: "搜索"),
-            sections: [CPListSection(items: [loading])],
-            assistantCellConfiguration: assistantConfig
+            sections: [CPListSection(items: [loading])]
         )
     }
     

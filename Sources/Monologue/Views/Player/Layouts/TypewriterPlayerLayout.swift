@@ -107,7 +107,7 @@ private struct TypewriterLyricsView: View {
     private func lyricRow(i: Int, line: LyricLine) -> some View {
         let idx = vm.currentLineIndex
         if i == idx {
-            TimelineView(.animation(minimumInterval: 0.04, paused: !player.isPlaying)) { _ in
+            TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { _ in
                 let rawT = player.streamPlayer.currentTime
                 let t = (rawT.isFinite && !rawT.isNaN && rawT >= 0) ? rawT : 0
                 currentLine(line, realTime: t)

@@ -96,7 +96,7 @@ struct FullScreenPlayerView: View {
         }
 
         var body: some View {
-            TimelineView(.animation(minimumInterval: 0.12, paused: !isAnimating)) { timeline in
+            TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
                 GeometryReader { geometry in
                     let totalWidth = geometry.size.width
                     let barWidth = (totalWidth - (CGFloat(barCount - 1) * barSpacing)) / CGFloat(barCount)

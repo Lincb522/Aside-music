@@ -24,12 +24,14 @@ struct ThemedPageBackground: View {
                         NeumorphicRenderBackdrop()
                     } else if SequoiaStyle.isActive {
                         SequoiaRootBackdrop()
-                    } else if MaterialStyle.isActive {
-                        MaterialRootBackdrop()
+                    } else if LiquidGlassStyle.isActive {
+                        LiquidGlassRootBackdrop()
                     } else if ClayStyle.isActive {
                         ClayRootBackdrop()
                     } else if SignalStyle.isActive {
                         SignalRenderBackdrop()
+                    } else if BentoStyle.isActive {
+                        BentoRootBackdrop()
                     } else {
                         MonologueBackground()
                             .ignoresSafeArea()
@@ -126,15 +128,15 @@ struct ThemedPageHeader<Accessory: View>: View {
                     SequoiaIconBadge(icon: icon, tint: SequoiaStyle.accent, size: 46)
                 }
             }
-        } else if MaterialStyle.isActive {
-            MaterialPageHeader(
+        } else if LiquidGlassStyle.isActive {
+            LiquidGlassPageHeader(
                 eyebrow: eyebrow,
                 title: title,
                 subtitle: subtitle
             ) {
                 HStack(spacing: 10) {
                     accessory
-                    MaterialIconBadge(icon: icon, tint: MaterialStyle.primary, size: 46)
+                    LiquidGlassIconBadge(icon: icon, tint: LiquidGlassStyle.accent, size: 46)
                 }
             }
         } else if ClayStyle.isActive {
@@ -157,6 +159,17 @@ struct ThemedPageHeader<Accessory: View>: View {
                 HStack(spacing: 10) {
                     accessory
                     SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 46)
+                }
+            }
+        } else if BentoStyle.isActive {
+            BentoPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    BentoIconBadge(icon: icon, foreground: BentoStyle.tomato, size: 46)
                 }
             }
         } else {
@@ -253,7 +266,7 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     let icon: MonologueIcon.IconType
 
     private var isThemed: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     func body(content: Content) -> some View {
@@ -308,14 +321,14 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                     )
                 )
                 .themeRenderSurfaceLayer(isEnabled: elevated)
-        } else if MaterialStyle.isActive {
+        } else if LiquidGlassStyle.isActive {
             content
                 .background(
-                    MaterialSurfaceBackground(
+                    LiquidGlassSurfaceBackground(
                         cornerRadius: min(max(cornerRadius, 18), 28),
                         elevated: elevated,
                         pressed: !elevated,
-                        role: elevated ? .elevated : .container
+                        role: elevated ? .chrome : .list
                     )
                 )
                 .themeRenderSurfaceLayer(isEnabled: elevated)
@@ -341,6 +354,18 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                     )
                 )
                 .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if BentoStyle.isActive {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: min(max(cornerRadius, 16), 28), style: .continuous)
+                        .fill(elevated ? BentoStyle.surfaceRaised : BentoStyle.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: min(max(cornerRadius, 16), 28), style: .continuous)
+                                .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.7)
+                        )
+                        .shadow(color: BentoStyle.ink.opacity(elevated ? 0.08 : 0.035), radius: elevated ? 14 : 6, x: 0, y: elevated ? 7 : 3)
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
         } else {
             content
                 .monologueGlass(cornerRadius: cornerRadius)
@@ -350,7 +375,7 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var listSpacing: CGFloat {
@@ -358,9 +383,10 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 10 }
         if SequoiaStyle.isActive { return 6 }
-        if MaterialStyle.isActive { return 8 }
+        if LiquidGlassStyle.isActive { return 8 }
         if ClayStyle.isActive { return 10 }
         if SignalStyle.isActive { return 9 }
+        if BentoStyle.isActive { return 10 }
         return 0
     }
 
@@ -369,9 +395,10 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 14 }
         if SequoiaStyle.isActive { return 10 }
-        if MaterialStyle.isActive { return 12 }
+        if LiquidGlassStyle.isActive { return 12 }
         if ClayStyle.isActive { return 14 }
         if SignalStyle.isActive { return 13 }
+        if BentoStyle.isActive { return 14 }
         return 12
     }
 
@@ -388,9 +415,10 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
         if SequoiaStyle.isActive { return 20 }
-        if MaterialStyle.isActive { return 24 }
+        if LiquidGlassStyle.isActive { return 22 }
         if ClayStyle.isActive { return 24 }
         if SignalStyle.isActive { return 26 }
+        if BentoStyle.isActive { return 24 }
         return 18
     }
 
@@ -399,9 +427,10 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 18 }
         if SequoiaStyle.isActive { return 11 }
-        if MaterialStyle.isActive { return 16 }
+        if LiquidGlassStyle.isActive { return 16 }
         if ClayStyle.isActive { return 18 }
         if SignalStyle.isActive { return 18 }
+        if BentoStyle.isActive { return 18 }
         return 14
     }
 }

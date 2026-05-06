@@ -29,7 +29,7 @@ extension PlayerManager {
             base = Self.mixingAudioSessionOptions
         }
         // 游戏模式 + 用户开启「游戏语音 / 系统语音优先」时，叠加
-        // `.interruptSpokenAudioAndMixWithOthers` —— Siri/VoIP/语音通话开始时自动压低音乐。
+        // `.interruptSpokenAudioAndMixWithOthers` —— VoIP/语音通话开始时自动压低音乐。
         // 该 option 要求 `.playback` category，与 `.mixWithOthers` 可共存。
         //
         // ⚠️ 不直接访问 `GameModeManager.shared.isActive`：

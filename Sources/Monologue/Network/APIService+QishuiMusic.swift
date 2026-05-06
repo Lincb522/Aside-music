@@ -10,11 +10,17 @@ import Foundation
 extension APIService {
 
     private static let qishuiBaseURL: String = {
-        Bundle.main.infoDictionary?["QISHUI_BASE_URL"] as? String ?? "http://114.66.37.231:8000"
+        let url = SecureConfig.qishuiBaseURL
+        return url.hasSuffix("/") ? String(url.dropLast()) : url
     }()
-    
+
     private static let qishuiSessionID: String = {
-        Bundle.main.infoDictionary?["QISHUI_SESSION_ID"] as? String ?? "276bc970d5806bb93266fc917cb42771"
+        if let sessionID = Bundle.main.infoDictionary?["QISHUI_SESSION_ID"] as? String,
+           !sessionID.isEmpty,
+           !sessionID.hasPrefix("$(") {
+            return sessionID
+        }
+        return "276bc970d5806bb93266fc917cb42771"
     }()
 
     private func qishuiURL(_ path: String) -> URL {
@@ -45,8 +51,25 @@ extension APIService {
                 URLQueryItem(name: "q", value: keyword),
                 URLQueryItem(name: "page", value: String(page)),
             ]
-            let (data, _) = try await URLSession.shared.data(from: components.url!)
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+            let (data, response) = try await URLSession.shared.data(from: components.url!)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLogger.error("[Qishui] 搜索失败: HTTP \(httpResponse.statusCode), body=\(body.prefix(300))")
+                throw PlaybackError.networkError
+            }
+            guard !data.isEmpty else {
+                AppLogger.warning("[Qishui] 搜索返回空响应: keyword=\(keyword), page=\(page)")
+                return (songs: [], total: 0, hasMore: false)
+            }
+            let json: [String: Any]
+            do {
+                json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+            } catch {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLogger.error("[Qishui] 搜索 JSON 解析失败: \(error), body=\(body.prefix(300))")
+                return (songs: [], total: 0, hasMore: false)
+            }
             guard let groups = json["result_groups"] as? [[String: Any]],
                   let trackGroup = groups.first(where: { ($0["id"] as? String) == "tracks" }) ?? groups.first else {
                 return (songs: [], total: Self.extractQishuiSearchTotal(from: json, itemCount: 0), hasMore: false)

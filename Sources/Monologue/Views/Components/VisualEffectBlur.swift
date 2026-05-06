@@ -112,6 +112,9 @@ extension View {
         } else if SequoiaStyle.isActive {
             self.background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: true, role: .content))
                 .themeRenderSurfaceLayer()
+        } else if LiquidGlassStyle.isActive {
+            self.background(LiquidGlassSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 32), elevated: true, role: .content))
+                .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -165,6 +168,15 @@ extension View {
                     .shadow(color: Color(light: Color(hex: "304760").opacity(0.1), dark: Color.black.opacity(0.32)), radius: 8, x: 0, y: 4)
             )
             .themeRenderSurfaceLayer()
+        } else if LiquidGlassStyle.isActive {
+            self.background(
+                Circle()
+                    .fill(LiquidGlassStyle.glassRaised.opacity(0.86))
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().stroke(LiquidGlassStyle.luminousEdge.opacity(0.48), lineWidth: 0.65))
+                    .shadow(color: LiquidGlassStyle.accent.opacity(0.12), radius: 10, x: 0, y: 5)
+            )
+            .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .circle)
@@ -215,6 +227,15 @@ extension View {
                     .shadow(color: Color(light: Color(hex: "304760").opacity(0.1), dark: Color.black.opacity(0.32)), radius: 8, x: 0, y: 4)
             )
             .themeRenderSurfaceLayer()
+        } else if LiquidGlassStyle.isActive {
+            self.background(
+                Capsule()
+                    .fill(LiquidGlassStyle.glassRaised.opacity(0.86))
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().stroke(LiquidGlassStyle.luminousEdge.opacity(0.48), lineWidth: 0.65))
+                    .shadow(color: LiquidGlassStyle.accent.opacity(0.12), radius: 10, x: 0, y: 5)
+            )
+            .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
                 .glassEffect(.regular, in: .capsule)
@@ -240,6 +261,9 @@ extension View {
                 .themeRenderSurfaceLayer()
         } else if SequoiaStyle.isActive {
             self.background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: true, role: .content))
+                .themeRenderSurfaceLayer()
+        } else if LiquidGlassStyle.isActive {
+            self.background(LiquidGlassSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 32), elevated: true, role: .content))
                 .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -268,6 +292,9 @@ extension View {
                 .themeRenderSurfaceLayer()
         } else if SequoiaStyle.isActive {
             self.background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 26), elevated: useMetal, role: useMetal ? .chrome : .content))
+                .themeRenderSurfaceLayer()
+        } else if LiquidGlassStyle.isActive {
+            self.background(LiquidGlassSurfaceBackground(cornerRadius: cornerRadius, elevated: useMetal, role: useMetal ? .chrome : .content))
                 .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
@@ -361,6 +388,8 @@ extension View {
             NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true)
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 14), 24), elevated: true, role: .content)
+        } else if LiquidGlassStyle.isActive {
+            LiquidGlassSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 32), elevated: true, role: .content)
         }
     }
 

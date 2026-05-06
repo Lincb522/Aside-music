@@ -875,7 +875,7 @@ private struct NeumorphicHomeSpinningCover: View {
     private let degreesPerSecond: Double = 10
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 12, paused: !isPlaying)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !isPlaying)) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
             CachedAsyncImage(url: coverUrl, width: 86, height: 86) {

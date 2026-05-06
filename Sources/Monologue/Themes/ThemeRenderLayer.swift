@@ -39,15 +39,15 @@ struct ThemeRenderContext: Equatable {
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .sequoia || theme == .material || theme == .clay || theme == .signal)
+        isHosted && theme == .neumorphic
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && (theme == .neumorphic || theme == .sequoia || theme == .material || theme == .clay || theme == .signal)
+        isHosted && theme == .neumorphic
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .sequoia || theme == .material || theme == .manga || theme == .clay || theme == .signal)
+        isHosted && (theme == .neumorphic || theme == .manga)
     }
 }
 
@@ -147,15 +147,7 @@ struct ThemeRenderUnderlay: View {
             MujiStyle.paper
         case .neumorphic:
             NeumorphicStyle.base
-        case .sequoia:
-            SequoiaStyle.base
-        case .material:
-            MaterialStyle.base
-        case .clay:
-            ClayStyle.base
-        case .signal:
-            SignalStyle.base
-        case .default:
+        case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             Color.monologueBackground
         }
     }
@@ -177,15 +169,7 @@ struct ThemeRenderBackdrop: View {
             MujiRootBackdrop()
         case .neumorphic:
             NeumorphicRenderBackdrop()
-        case .sequoia:
-            SequoiaRootBackdrop()
-        case .material:
-            MaterialRootBackdrop()
-        case .clay:
-            ClayRootBackdrop()
-        case .signal:
-            SignalRenderBackdrop()
-        case .default:
+        case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             MonologueBackground()
                 .ignoresSafeArea()
         }
@@ -224,7 +208,7 @@ private struct ThemeRenderLayerModifier: ViewModifier {
             if renderContext.stabilizesSceneRendering {
                 content
                     .transaction { transaction in
-                        if renderContext.theme == .neumorphic || renderContext.theme == .sequoia || renderContext.theme == .material || renderContext.theme == .clay || renderContext.theme == .signal {
+                        if renderContext.theme == .neumorphic {
                             transaction.animation = transaction.animation
                         }
                     }
@@ -275,7 +259,7 @@ private struct ThemeRenderLayerModifier: ViewModifier {
             if renderContext.isolatesInteractiveSurfaces {
                 content
                     .transaction { transaction in
-                        if renderContext.theme == .neumorphic || renderContext.theme == .sequoia || renderContext.theme == .material || renderContext.theme == .clay || renderContext.theme == .signal {
+                        if renderContext.theme == .neumorphic {
                             transaction.animation = transaction.animation
                         }
                     }

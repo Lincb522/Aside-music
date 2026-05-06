@@ -120,6 +120,9 @@ struct RadioDetailView: View {
                     } else if SequoiaStyle.isActive {
                         RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous)
                             .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.65)
+                    } else if BentoStyle.isActive {
+                        RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous)
+                            .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.7)
                     }
                 }
                 .background {
@@ -131,6 +134,10 @@ struct RadioDetailView: View {
                         NeumorphicSurfaceBackground(cornerRadius: radioCoverRadius, elevated: true)
                     } else if SequoiaStyle.isActive {
                         SequoiaSurfaceBackground(cornerRadius: radioCoverRadius + 6, elevated: true, role: .chrome)
+                    } else if BentoStyle.isActive {
+                        RoundedRectangle(cornerRadius: radioCoverRadius + 4, style: .continuous)
+                            .fill(BentoStyle.surface)
+                            .shadow(color: BentoStyle.ink.opacity(0.07), radius: 12, x: 0, y: 6)
                     }
                 }
                 .shadow(color: .black.opacity(ThemedPageStyle.isActive ? 0.055 : 0.15), radius: ThemedPageStyle.isActive ? 10 : 12, x: 0, y: ThemedPageStyle.isActive ? 5 : 6)
@@ -187,6 +194,16 @@ struct RadioDetailView: View {
                             NeumorphicPlayPill(title: String(localized: "radio_mode"), icon: .radio, tint: NeumorphicStyle.sage)
                         } else if SequoiaStyle.isActive {
                             SequoiaPill(text: String(localized: "radio_mode"), icon: .radio, tint: SequoiaStyle.aqua, selected: true)
+                        } else if BentoStyle.isActive {
+                            HStack(spacing: 8) {
+                                MonologueIcon(icon: .radio, size: 15, color: BentoStyle.onAccent, lineWidth: 1.8)
+                                Text("radio_mode")
+                                    .font(BentoStyle.labelFont(13, weight: .black))
+                            }
+                            .foregroundStyle(BentoStyle.onAccent)
+                            .padding(.horizontal, 18)
+                            .frame(height: 40)
+                            .background(BentoStyle.nori, in: Capsule())
                         } else {
                             HStack(spacing: 8) {
                                 MonologueIcon(icon: .radio, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
@@ -219,6 +236,10 @@ struct RadioDetailView: View {
                     SequoiaHairline(tint: SequoiaStyle.separator)
                         .padding(.top, 10)
                         .padding(.horizontal, 18)
+                } else if BentoStyle.isActive {
+                    BentoDivider()
+                        .padding(.top, 10)
+                        .padding(.horizontal, 18)
                 }
             }
         }
@@ -241,6 +262,16 @@ struct RadioDetailView: View {
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
+            } else if BentoStyle.isActive && viewModel.radioDetail != nil {
+                RoundedRectangle(cornerRadius: BentoStyle.blockRadiusLarge, style: .continuous)
+                    .fill(BentoStyle.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BentoStyle.blockRadiusLarge, style: .continuous)
+                            .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.7)
+                    )
+                    .padding(.horizontal, BentoStyle.blockSpacing)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
             }
         }
     }
@@ -250,6 +281,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 26 }
         if SequoiaStyle.isActive { return 24 }
+        if BentoStyle.isActive { return 24 }
         return 20
     }
 
@@ -257,6 +289,7 @@ struct RadioDetailView: View {
         if NeumorphicStyle.isActive { return 148 }
         if SequoiaStyle.isActive { return 148 }
         if MangaStyle.isActive { return 150 }
+        if BentoStyle.isActive { return 142 }
         return 160
     }
 
@@ -265,6 +298,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        if BentoStyle.isActive { return BentoStyle.buckwheat.opacity(0.45) }
         return Color.monologueGlassTint
     }
 
@@ -273,6 +307,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.titleFont(24, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(24, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.titleFont(24, weight: .semibold) }
+        if BentoStyle.isActive { return BentoStyle.displayFont(24, weight: .black) }
         return .system(size: 20, weight: .bold, design: .rounded)
     }
 
@@ -281,6 +316,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -289,6 +325,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(12, weight: .semibold) }
         return .system(size: 13, design: .rounded)
     }
 
@@ -297,6 +334,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkSoft }
         return .monologueTextSecondary
     }
 
@@ -305,6 +343,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.bodyFont(13, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(13, weight: .regular) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(13, weight: .regular) }
+        if BentoStyle.isActive { return BentoStyle.bodyFont(13, weight: .medium) }
         return .system(size: 13, design: .rounded)
     }
 
@@ -452,6 +491,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueTextSecondary
     }
 
@@ -459,6 +499,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
+        if BentoStyle.isActive { return BentoStyle.surface }
         return Color.monologueSeparator.opacity(0.9)
     }
 
@@ -466,6 +507,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.45) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.55) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.62) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.58) }
         return .clear
     }
 
@@ -473,6 +515,7 @@ struct RadioDetailView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .semibold) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(11, weight: .heavy) }
         return .system(size: 11, weight: .medium, design: .rounded)
     }
 
@@ -480,6 +523,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(18, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.titleFont(18, weight: .semibold) }
+        if BentoStyle.isActive { return BentoStyle.titleFont(20, weight: .black) }
         return .system(size: 17, weight: .bold, design: .rounded)
     }
 
@@ -487,17 +531,20 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.ink }
         return .monologueTextPrimary
     }
 
     private var searchFieldRadius: CGFloat {
-        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : 14
+        if BentoStyle.isActive { return 20 }
+        return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : 14
     }
 
     private var searchFieldBackground: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
+        if BentoStyle.isActive { return BentoStyle.surfaceRaised }
         return Color.monologueSeparator.opacity(0.85)
     }
 
@@ -505,6 +552,7 @@ struct RadioDetailView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if BentoStyle.isActive { return BentoStyle.paper }
         return Color.monologueSeparator
     }
 
@@ -521,7 +569,7 @@ struct RadioDetailView: View {
     private func programRow(program: RadioProgram, index: Int) -> some View {
         let isCurrentPlaying = isOwnContent && player.currentSong?.id == program.mainSong?.id && player.isPlaying
         let episodeNumber = displayEpisodeNumber(for: index)
-        let themedRow = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
+        let themedRow = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive
 
         return HStack(spacing: 14) {
             CachedAsyncImage(url: program.programCoverUrl) {
@@ -540,6 +588,9 @@ struct RadioDetailView: View {
                 } else if SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: programCoverRadius, style: .continuous)
                         .stroke(SequoiaStyle.separator.opacity(0.72), lineWidth: 0.6)
+                } else if BentoStyle.isActive {
+                    RoundedRectangle(cornerRadius: programCoverRadius, style: .continuous)
+                        .stroke(BentoStyle.hairline.opacity(0.55), lineWidth: 0.7)
                 }
             }
             .overlay(
@@ -579,11 +630,11 @@ struct RadioDetailView: View {
             Spacer()
 
             if program.mainSong != nil {
-                MonologueIcon(icon: .playCircle, size: 22, color: SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary)), lineWidth: 1.4)
+                MonologueIcon(icon: .playCircle, size: 22, color: BentoStyle.isActive ? BentoStyle.tomato : (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (MujiStyle.isActive ? MujiStyle.inkSoft : .monologueTextSecondary))), lineWidth: 1.4)
             } else {
                 Text("radio_not_playable")
-                    .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded))))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.6))))
+                    .font(BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, design: .rounded)))))
+                    .foregroundColor(BentoStyle.isActive ? BentoStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.6)))))
             }
         }
         .padding(.horizontal, themedRow ? 12 : DeviceLayout.viewHorizontalPadding)
@@ -595,6 +646,13 @@ struct RadioDetailView: View {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isCurrentPlaying)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 18, elevated: isCurrentPlaying, role: isCurrentPlaying ? .selected : .list)
+            } else if BentoStyle.isActive {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(isCurrentPlaying ? BentoStyle.tomato.opacity(0.14) : BentoStyle.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(isCurrentPlaying ? BentoStyle.tomato.opacity(0.36) : BentoStyle.hairline.opacity(0.55), lineWidth: 0.7)
+                    )
             }
         }
         .padding(.horizontal, themedRow ? DeviceLayout.viewHorizontalPadding : 0)
@@ -603,13 +661,15 @@ struct RadioDetailView: View {
     }
 
     private var programCoverRadius: CGFloat {
-        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 8
+        if BentoStyle.isActive { return 14 }
+        return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 8
     }
 
     private var programMetaColor: Color {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkMuted }
         return .monologueTextSecondary
     }
 
@@ -617,6 +677,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        if BentoStyle.isActive { return BentoStyle.buckwheat.opacity(0.45) }
         return Color.monologueGlassTint
     }
 
@@ -624,6 +685,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.bodyFont(14, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(14, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(14, weight: .semibold) }
+        if BentoStyle.isActive { return BentoStyle.bodyFont(14, weight: .heavy) }
         return .system(size: 14, weight: .medium, design: .rounded)
     }
 
@@ -631,6 +693,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(11, weight: .semibold) }
         return .system(size: 12, weight: .medium, design: .rounded)
     }
 
@@ -639,12 +702,14 @@ struct RadioDetailView: View {
             if MujiStyle.isActive { return MujiStyle.clay }
             if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
             if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            if BentoStyle.isActive { return BentoStyle.tomato }
             return .monologueAccentBlue
         }
 
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.ink }
         return .monologueTextPrimary
     }
 

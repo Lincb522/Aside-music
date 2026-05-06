@@ -3,7 +3,6 @@ import SwiftData
 import CarPlay
 import HiconIcons
 import UserNotifications
-import Intents
 import WidgetKit
 
 // MARK: - AppDelegate（控制设备方向 + CarPlay 场景配置）
@@ -39,10 +38,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if let error = error {
                 AppLogger.error("推送授权失败: \(error.localizedDescription)")
             }
-        }
-        
-        INPreferences.requestSiriAuthorization { status in
-            AppLogger.info("[Siri] 授权状态: \(status.rawValue)")
         }
         
         return true
@@ -143,11 +138,6 @@ struct MonologueApp: App {
                         AppLogger.info("未配置 Token，跳过在线启动刷新")
                     }
                     
-                    Task {
-                        MonologueShortcuts.updateAppShortcutParameters()
-                        AppLogger.info("[Siri] App Shortcuts 已注册")
-                    }
-
                     Task { @MainActor in
                         MonologueQuickActionsManager.refreshAsync()
                     }

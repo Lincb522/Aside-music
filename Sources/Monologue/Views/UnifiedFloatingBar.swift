@@ -20,24 +20,28 @@ struct MiniPlayerSection: View {
     private var primaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
         return Color.monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
         return Color.monologueTextSecondary
     }
 
     private var controlFillColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.selectedWash }
         return Color.monologueIconBackground
     }
 
     private var controlForegroundColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.accent }
         return Color.monologueIconForeground
     }
 
@@ -50,6 +54,9 @@ struct MiniPlayerSection: View {
         }
         if SequoiaStyle.isActive {
             return SequoiaStyle.labelFont(13, weight: .semibold)
+        }
+        if LiquidGlassStyle.isActive {
+            return LiquidGlassStyle.labelFont(13, weight: .semibold)
         }
         return MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded)
     }
@@ -64,6 +71,9 @@ struct MiniPlayerSection: View {
         if SequoiaStyle.isActive {
             return SequoiaStyle.labelFont(11, weight: .regular)
         }
+        if LiquidGlassStyle.isActive {
+            return LiquidGlassStyle.labelFont(11, weight: .regular)
+        }
         return MujiStyle.isActive ? MujiStyle.labelFont(11, weight: .regular) : .rounded(size: 11, weight: .medium)
     }
 
@@ -76,11 +86,14 @@ struct MiniPlayerSection: View {
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 5 : 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: LiquidGlassStyle.isActive ? 12 : (MujiStyle.isActive ? 5 : 8), style: .continuous))
                 .overlay {
                     if MujiStyle.isActive {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+                    } else if LiquidGlassStyle.isActive {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.34), lineWidth: 0.6)
                     }
                 }
                 .overlay {
@@ -234,6 +247,8 @@ struct ProgressBarView: View {
             return NeumorphicStyle.surfacePressed.opacity(0.9)
         } else if SequoiaStyle.isActive {
             return SequoiaStyle.separator.opacity(0.58)
+        } else if LiquidGlassStyle.isActive {
+            return LiquidGlassStyle.separator.opacity(0.72)
         } else if SignalStyle.isActive {
             return SignalStyle.separator.opacity(0.52)
         }
@@ -249,6 +264,8 @@ struct ProgressBarView: View {
             return AnyShapeStyle(LinearGradient(colors: [NeumorphicStyle.accent, NeumorphicStyle.sage], startPoint: .leading, endPoint: .trailing))
         } else if SequoiaStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [SequoiaStyle.accent, SequoiaStyle.aqua], startPoint: .leading, endPoint: .trailing))
+        } else if LiquidGlassStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [LiquidGlassStyle.accent, LiquidGlassStyle.cyan, LiquidGlassStyle.violet], startPoint: .leading, endPoint: .trailing))
         } else if SignalStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [SignalStyle.accent, SignalStyle.mint], startPoint: .leading, endPoint: .trailing))
         }
@@ -279,6 +296,7 @@ struct MonologueTabBar: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.accent }
         return MujiStyle.isActive ? MujiStyle.clay : .monologueTextPrimary
     }
 
@@ -286,6 +304,7 @@ struct MonologueTabBar: View {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkMuted }
         return MujiStyle.isActive ? MujiStyle.inkMuted : .monologueTextPrimary.opacity(0.35)
     }
 
@@ -381,6 +400,8 @@ struct MonologueTabBar: View {
             return NeumorphicStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
         } else if SequoiaStyle.isActive {
             return SequoiaStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
+        } else if LiquidGlassStyle.isActive {
+            return LiquidGlassStyle.labelFont(9, weight: isSelected ? .semibold : .medium)
         }
         return .system(size: 10, weight: isSelected ? .semibold : .medium)
     }
@@ -390,6 +411,7 @@ struct MonologueTabBar: View {
         if MujiStyle.isActive { return MujiStyle.clay.opacity(0.1) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent.opacity(0.14) }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.12) }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.selectedWash.opacity(0.88) }
         return Color.monologueTextPrimary.opacity(0.1)
     }
 }
@@ -404,7 +426,7 @@ struct UnifiedFloatingBar: View {
     @Namespace private var glassNS
 
     private var cornerRadius: CGFloat {
-        SignalStyle.isActive ? 18 : (MujiStyle.isActive ? 16 : 22)
+        return SignalStyle.isActive ? 18 : (MujiStyle.isActive ? 16 : 22)
     }
 
     var body: some View {
@@ -415,15 +437,7 @@ struct UnifiedFloatingBar: View {
             MujiUnifiedFloatingBar(currentTab: $currentTab)
         case .neumorphic:
             NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
-        case .material:
-            MaterialUnifiedFloatingBar(currentTab: $currentTab)
-        case .sequoia:
-            SequoiaUnifiedFloatingBar(currentTab: $currentTab)
-        case .clay:
-            ClayUnifiedFloatingBar(currentTab: $currentTab)
-        case .signal:
-            SignalUnifiedFloatingBar(currentTab: $currentTab)
-        case .default:
+        case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             defaultFloatingBar
         }
     }
@@ -456,23 +470,29 @@ struct UnifiedFloatingBar: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 5)
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.monologueFloatingBarFill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.12),
-                        lineWidth: 0.75
-                    )
-            )
+            .background(barBackground)
+            .overlay(barStroke)
             .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.16), radius: 18, x: 0, y: 8)
             .monologueGlass(cornerRadius: cornerRadius)
             .monologueGlassID("floatingBar", in: glassNS)
         }
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+
+    @ViewBuilder
+    private var barBackground: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.monologueFloatingBarFill)
+    }
+
+    @ViewBuilder
+    private var barStroke: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .stroke(
+                colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.12),
+                lineWidth: 0.75
+            )
     }
 
     private var tabSwipeGesture: some Gesture {
@@ -492,92 +512,6 @@ struct UnifiedFloatingBar: View {
         let allTabs = Tab.allCases
         guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
 
-        let nextIndex = currentIndex + direction
-
-        if nextIndex >= 0, nextIndex < allTabs.count {
-            withAnimation(MonologueAnimation.tabSwitch) {
-                currentTab = allTabs[nextIndex]
-            }
-        }
-    }
-}
-
-private struct MaterialUnifiedFloatingBar: View {
-    @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(spacing: 7) {
-            if let song = player.currentSong {
-                MiniPlayerSection(
-                    song: song,
-                    isPlaying: player.isPlaying,
-                    togglePlayPause: { player.togglePlayPause() }
-                )
-                .swipeToSkip()
-                .background(
-                    MaterialSurfaceBackground(
-                        cornerRadius: 21,
-                        elevated: false,
-                        role: player.isPlaying ? .selected : .container
-                    )
-                )
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottom)),
-                    removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottom))
-                ))
-            }
-
-            MonologueTabBar(selectedIndex: Binding(
-                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
-                set: { currentTab = Tab.allCases[$0] }
-            ))
-            .contentShape(Rectangle())
-            .simultaneousGesture(tabSwipeGesture)
-            .padding(.vertical, 1)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(MaterialStyle.surfaceContainer.opacity(colorScheme == .dark ? 0.84 : 0.78))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(MaterialStyle.outline, lineWidth: 0.75)
-                    )
-            )
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background(MaterialSurfaceBackground(cornerRadius: 28, elevated: true, role: .floating))
-        .overlay(alignment: .topLeading) {
-            HStack(spacing: 5) {
-                Circle().fill(MaterialStyle.primary).frame(width: 7, height: 7)
-                Circle().fill(MaterialStyle.tertiary.opacity(0.72)).frame(width: 7, height: 7)
-                Circle().fill(MaterialStyle.blue.opacity(0.66)).frame(width: 7, height: 7)
-            }
-            .padding(.top, 8)
-            .padding(.leading, 18)
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(MaterialStyle.outlineStrong.opacity(0.44), lineWidth: 0.8)
-        )
-        .shadow(color: MaterialStyle.elevationShadow(colorScheme, level: 3), radius: 18, x: 0, y: 8)
-        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
-        .animation(MonologueAnimation.tabSwitch, value: currentTab)
-        .themeRenderInteractiveLayer()
-    }
-
-    private var tabSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 50, coordinateSpace: .local)
-            .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                switchTab(direction: value.translation.width < 0 ? 1 : -1)
-            }
-    }
-
-    private func switchTab(direction: Int) {
-        let allTabs = Tab.allCases
-        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
         let nextIndex = currentIndex + direction
 
         if nextIndex >= 0, nextIndex < allTabs.count {
@@ -653,6 +587,95 @@ private struct SequoiaUnifiedFloatingBar: View {
                 )
         )
         .shadow(color: SequoiaStyle.shadow(colorScheme, elevated: true), radius: 18, x: 0, y: 9)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+        .themeRenderInteractiveLayer()
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                switchTab(direction: value.translation.width < 0 ? 1 : -1)
+            }
+    }
+
+    private func switchTab(direction: Int) {
+        let allTabs = Tab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+        let nextIndex = currentIndex + direction
+
+        if nextIndex >= 0, nextIndex < allTabs.count {
+            withAnimation(MonologueAnimation.tabSwitch) {
+                currentTab = allTabs[nextIndex]
+            }
+        }
+    }
+}
+
+private struct LiquidGlassUnifiedFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = PlayerManager.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 6) {
+            if let song = player.currentSong {
+                MiniPlayerSection(
+                    song: song,
+                    isPlaying: player.isPlaying,
+                    togglePlayPause: { player.togglePlayPause() }
+                )
+                .swipeToSkip()
+                .background(
+                    LiquidGlassPrismBand(
+                        tint: player.isPlaying ? LiquidGlassStyle.accent : LiquidGlassStyle.inkMuted,
+                        cornerRadius: 21
+                    )
+                )
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.975, anchor: .bottom)),
+                    removal: .opacity.combined(with: .scale(scale: 0.975, anchor: .bottom))
+                ))
+            }
+
+            MonologueTabBar(selectedIndex: Binding(
+                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
+                set: { currentTab = Tab.allCases[$0] }
+            ))
+            .contentShape(Rectangle())
+            .simultaneousGesture(tabSwipeGesture)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(LiquidGlassStyle.glassList.opacity(colorScheme == .dark ? 0.72 : 0.58))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(LiquidGlassStyle.luminousEdge.opacity(colorScheme == .dark ? 0.18 : 0.46), lineWidth: 0.6)
+                    )
+            )
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 7)
+        .background(LiquidGlassSurfaceBackground(cornerRadius: 27, elevated: true, role: .floating))
+        .overlay(alignment: .top) {
+            LiquidGlassHairline(tint: LiquidGlassStyle.accent.opacity(colorScheme == .dark ? 0.28 : 0.5))
+                .frame(width: 72)
+                .offset(y: 6)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            LiquidGlassStyle.luminousEdge.opacity(colorScheme == .dark ? 0.2 : 0.58),
+                            LiquidGlassStyle.separator.opacity(0.82),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.7
+                )
+        )
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonologueAnimation.tabSwitch, value: currentTab)
         .themeRenderInteractiveLayer()

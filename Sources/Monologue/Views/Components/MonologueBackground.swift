@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 // MARK: - 返回按钮组件
@@ -37,12 +38,12 @@ struct MonologueBackButton: View {
 // MARK: - 弥散背景组件
 struct MonologueBackground: View {
     @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @State private var themeManager = GlobalThemeManager.shared
+    @State private var coverURL = PlayerManager.shared.currentSong?.coverUrl?.sized(200)
 
     private var useCoverBg: Bool {
-        settings.coverBgGlobal && player.currentSong != nil
+        settings.coverBgGlobal && coverURL != nil
     }
 
     /// 当前全局主题 ID
@@ -56,7 +57,7 @@ struct MonologueBackground: View {
             themeAwareBackground
                 .opacity(useCoverBg ? 0 : 1)
 
-            if let coverUrl = player.currentSong?.coverUrl?.sized(200),
+            if let coverUrl = coverURL,
                settings.coverBgGlobal {
                 PlaylistColorBackground(
                     coverUrl: coverUrl,
@@ -77,6 +78,13 @@ struct MonologueBackground: View {
                 settings.globalCoverIsDark = false
             }
         }
+        .onReceive(
+            PlayerManager.shared.$currentSong
+                .map { $0?.coverUrl?.sized(200) }
+                .removeDuplicates()
+        ) { coverURL in
+            self.coverURL = coverURL
+        }
     }
 
     // MARK: - 主题感知的默认背景
@@ -90,10 +98,12 @@ struct MonologueBackground: View {
             mangaBackground
         case .neumorphic:
             neumorphicBackground
+        case .bento:
+            defaultBackground
         case .sequoia:
             SequoiaRootBackdrop()
-        case .material:
-            MaterialRootBackdrop()
+        case .liquidGlass:
+            LiquidGlassRootBackdrop()
         case .clay:
             ClayRootBackdrop()
         case .signal:
@@ -150,16 +160,22 @@ struct MonologueBackground: View {
     @ViewBuilder
     private var defaultBackground: some View {
         if ThemeColorCustomization.usesCustomBackground(for: .default) {
-            ThemeCustomDiffuseBackground(
-                theme: .default,
-                fallbackHexes: [
-                    ThemeColorCustomization.defaultBackgroundStartHex(for: .default),
-                    ThemeColorCustomization.defaultBackgroundEndHex(for: .default),
-                ],
-                accentFallbackHexes: [ThemeColorCustomization.defaultAccentHex(for: .default)],
-                opacity: 0.92
-            )
-            .ignoresSafeArea()
+            ZStack {
+                ThemeCustomDiffuseBackground(
+                    theme: .default,
+                    fallbackHexes: [
+                        ThemeColorCustomization.defaultBackgroundStartHex(for: .default),
+                        ThemeColorCustomization.defaultBackgroundEndHex(for: .default),
+                    ],
+                    accentFallbackHexes: [ThemeColorCustomization.defaultAccentHex(for: .default)],
+                    opacity: 0.92
+                )
+                .ignoresSafeArea()
+
+                if ThemeColorCustomization.usesDefaultCatPawPreset() {
+                    DefaultPawPrintTexture(opacity: colorScheme == .dark ? 0.032 : 0.055)
+                }
+            }
         } else {
             defaultSystemBackground
         }
@@ -229,6 +245,55 @@ struct MonologueBackground: View {
             Gradient(colors: [color.opacity(opacity), color.opacity(opacity * 0.3), color.opacity(0)]),
             center: center, startRadius: 0, endRadius: radius
         ))
+    }
+}
+
+private struct DefaultPawPrintTexture: View {
+    var opacity: Double
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Canvas(rendersAsynchronously: true) { context, size in
+            let pawColor = (colorScheme == .dark ? Color(hex: "FFE4D3") : Color(hex: "8A5F4B")).opacity(opacity)
+            let stepX: CGFloat = 92
+            let stepY: CGFloat = 128
+
+            var y: CGFloat = -24
+            var row = 0
+            while y < size.height + stepY {
+                var x: CGFloat = row.isMultiple(of: 2) ? 18 : 62
+                while x < size.width + stepX {
+                    context.drawLayer { layer in
+                        layer.translateBy(x: x, y: y)
+                        layer.rotate(by: .degrees(row.isMultiple(of: 2) ? -9 : 12))
+                        drawPaw(in: &layer, color: pawColor)
+                    }
+                    x += stepX
+                }
+                row += 1
+                y += stepY
+            }
+        }
+        .blendMode(colorScheme == .dark ? .screen : .multiply)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func drawPaw(in context: inout GraphicsContext, color: Color) {
+        let pad = Path(ellipseIn: CGRect(x: 8, y: 13, width: 17, height: 12))
+        context.fill(pad, with: .color(color))
+
+        let toes = [
+            CGRect(x: 1, y: 6, width: 7, height: 8),
+            CGRect(x: 8, y: 1, width: 7, height: 8),
+            CGRect(x: 17, y: 1, width: 7, height: 8),
+            CGRect(x: 24, y: 6, width: 7, height: 8),
+        ]
+
+        toes.forEach { rect in
+            context.fill(Path(ellipseIn: rect), with: .color(color))
+        }
     }
 }
 

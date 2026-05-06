@@ -178,7 +178,7 @@ extension CassettePlayerLayout {
     private func cassetteBody(width: CGFloat) -> some View {
         let height = width * 0.58
 
-        return TimelineView(.animation(minimumInterval: 0.033, paused: !player.isPlaying)) { timeline in
+        return TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let isPlaying = player.isPlaying
 

@@ -1158,7 +1158,7 @@ struct LyricsView: View {
     @AppStorage("lyricGradientEndHex") private var lyricGradientEndHex: String = "4ECDC4"
     
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.05, paused: !player.isPlaying)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
             let rawTime = player.streamPlayer.currentTime
             let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : timePublisher.currentTime
             

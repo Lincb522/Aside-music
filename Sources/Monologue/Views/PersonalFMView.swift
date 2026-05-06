@@ -81,7 +81,7 @@ struct PersonalFMView: View {
         @State private var amplitudes: [CGFloat] = []
 
         var body: some View {
-            TimelineView(.animation(minimumInterval: isPlaying ? 0.05 : 0.5)) { timeline in
+            TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: isPlaying ? AppFrameRate.preferredFramesPerSecond : 2)) { timeline in
                 GeometryReader { geometry in
                     let totalWidth = geometry.size.width
                     let barWidth = (totalWidth - (CGFloat(barCount - 1) * barSpacing)) / CGFloat(barCount)

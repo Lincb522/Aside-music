@@ -162,11 +162,11 @@ private struct MonologueSheetLiquidSurfaceModifier: ViewModifier {
 
 enum MonologueSheetThemeStyle {
     static var usesCustomThemeSurface: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || MaterialStyle.isActive || ClayStyle.isActive || SignalStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var shadowColor: Color {
@@ -174,9 +174,10 @@ enum MonologueSheetThemeStyle {
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
         if NeumorphicStyle.isActive { return Color.black.opacity(0.16) }
         if SequoiaStyle.isActive { return Color(light: Color(hex: "304760").opacity(0.11), dark: Color.black.opacity(0.34)) }
-        if MaterialStyle.isActive { return Color.black.opacity(0.13) }
+        if LiquidGlassStyle.isActive { return Color(light: Color(hex: "2D6B8A").opacity(0.14), dark: Color.black.opacity(0.38)) }
         if ClayStyle.isActive { return Color.black.opacity(0.14) }
         if SignalStyle.isActive { return Color.black.opacity(0.16) }
+        if BentoStyle.isActive { return Color.black.opacity(0.11) }
         return Color.monologueSheetShadow
     }
 
@@ -186,9 +187,10 @@ enum MonologueSheetThemeStyle {
         if MujiStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return colorScheme == .dark ? 24 : 22 }
         if SequoiaStyle.isActive { return colorScheme == .dark ? 24 : 20 }
-        if MaterialStyle.isActive { return colorScheme == .dark ? 22 : 18 }
+        if LiquidGlassStyle.isActive { return colorScheme == .dark ? 30 : 24 }
         if ClayStyle.isActive { return colorScheme == .dark ? 24 : 20 }
         if SignalStyle.isActive { return colorScheme == .dark ? 26 : 22 }
+        if BentoStyle.isActive { return colorScheme == .dark ? 22 : 18 }
         return colorScheme == .dark ? 30 : 24
     }
 
@@ -198,9 +200,10 @@ enum MonologueSheetThemeStyle {
         if MujiStyle.isActive { return 9 }
         if NeumorphicStyle.isActive { return 10 }
         if SequoiaStyle.isActive { return 9 }
-        if MaterialStyle.isActive { return 8 }
+        if LiquidGlassStyle.isActive { return 11 }
         if ClayStyle.isActive { return 9 }
         if SignalStyle.isActive { return 10 }
+        if BentoStyle.isActive { return 8 }
         return 14
     }
 }
@@ -305,14 +308,25 @@ struct MonologueSheetHandleView: View {
                     .fill(SequoiaStyle.materialChrome.opacity(colorScheme == .dark ? 0.8 : 0.64))
                     .overlay(Capsule().stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.55))
             )
-        } else if MaterialStyle.isActive {
-            Capsule()
-                .fill(MaterialStyle.primary.opacity(colorScheme == .dark ? 0.42 : 0.34))
-                .frame(width: 38, height: 4)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(MaterialStyle.surfaceContainerHigh.opacity(0.86), in: Capsule())
-                .overlay(Capsule().stroke(MaterialStyle.outline.opacity(0.8), lineWidth: 0.7))
+        } else if LiquidGlassStyle.isActive {
+            HStack(spacing: 5) {
+                Capsule()
+                    .fill(LiquidGlassStyle.accent.opacity(0.82))
+                    .frame(width: 24, height: 4)
+                Capsule()
+                    .fill(LiquidGlassStyle.cyan.opacity(0.62))
+                    .frame(width: 10, height: 4)
+                Capsule()
+                    .fill(LiquidGlassStyle.violet.opacity(0.42))
+                    .frame(width: 10, height: 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(LiquidGlassStyle.glassChrome.opacity(colorScheme == .dark ? 0.86 : 0.7))
+                    .overlay(Capsule().stroke(LiquidGlassStyle.luminousEdge.opacity(0.36), lineWidth: 0.55))
+            )
         } else if SignalStyle.isActive {
             HStack(spacing: 5) {
                 Capsule()
@@ -329,6 +343,22 @@ struct MonologueSheetHandleView: View {
             .padding(.vertical, 6)
             .background(SignalStyle.control.opacity(0.86), in: Capsule())
             .overlay(Capsule().stroke(SignalStyle.separator.opacity(0.56), lineWidth: 0.7))
+        } else if BentoStyle.isActive {
+            HStack(spacing: 5) {
+                Capsule()
+                    .fill(BentoStyle.tomato)
+                    .frame(width: 20, height: 5)
+                Capsule()
+                    .fill(BentoStyle.mustard.opacity(0.86))
+                    .frame(width: 9, height: 5)
+                Capsule()
+                    .fill(BentoStyle.matcha.opacity(0.74))
+                    .frame(width: 9, height: 5)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(BentoStyle.surface.opacity(0.94), in: Capsule())
+            .overlay(Capsule().stroke(BentoStyle.hairline.opacity(0.62), lineWidth: 0.7))
         } else {
             Capsule()
                 .fill(Color.monologueSheetHandle)
@@ -422,30 +452,6 @@ struct MonologueSheetSurfaceBackground: View {
 
                 NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.045 : 0.06)
                     .clipShape(shape)
-            } else if MaterialStyle.isActive {
-                shape
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                MaterialStyle.surfaceContainerHigh.opacity(colorScheme == .dark ? 0.94 : 0.99),
-                                MaterialStyle.surfaceContainer.opacity(0.98),
-                                MaterialStyle.surfaceContainerLow.opacity(colorScheme == .dark ? 0.78 : 0.74)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                LinearGradient(
-                    colors: [
-                        MaterialStyle.primary.opacity(colorScheme == .dark ? 0.16 : 0.1),
-                        .clear,
-                        MaterialStyle.tertiary.opacity(colorScheme == .dark ? 0.12 : 0.08)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .clipShape(shape)
             } else if ClayStyle.isActive {
                 shape
                     .fill(
@@ -498,6 +504,20 @@ struct MonologueSheetSurfaceBackground: View {
 
                 SignalAmbientTexture(opacity: colorScheme == .dark ? 0.06 : 0.08)
                     .clipShape(shape)
+            } else if BentoStyle.isActive {
+                shape
+                    .fill(BentoStyle.surface)
+
+                LinearGradient(
+                    colors: [
+                        BentoStyle.paperWarm.opacity(colorScheme == .dark ? 0.22 : 0.42),
+                        BentoStyle.surface.opacity(0.98),
+                        BentoStyle.mustard.opacity(colorScheme == .dark ? 0.08 : 0.06)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
             } else if SequoiaStyle.isActive {
                 shape
                     .fill(.ultraThinMaterial)
@@ -525,6 +545,37 @@ struct MonologueSheetSurfaceBackground: View {
                     endPoint: .bottomTrailing
                 )
                 .clipShape(shape)
+            } else if LiquidGlassStyle.isActive {
+                shape
+                    .fill(.ultraThinMaterial)
+
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                LiquidGlassStyle.glassFloating.opacity(colorScheme == .dark ? 0.9 : 0.78),
+                                LiquidGlassStyle.glassChrome.opacity(colorScheme == .dark ? 0.78 : 0.62),
+                                LiquidGlassStyle.glassList.opacity(colorScheme == .dark ? 0.58 : 0.48),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [
+                        LiquidGlassStyle.highlight(colorScheme).opacity(colorScheme == .dark ? 0.12 : 0.46),
+                        .clear,
+                        LiquidGlassStyle.accent.opacity(colorScheme == .dark ? 0.11 : 0.08),
+                        LiquidGlassStyle.violet.opacity(colorScheme == .dark ? 0.08 : 0.05),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+
+                LiquidGlassCausticField(opacity: colorScheme == .dark ? 0.04 : 0.06)
+                    .clipShape(shape)
             } else if #available(iOS 26, *) {
                 Color.clear
             } else {
@@ -624,22 +675,6 @@ struct MonologueSheetSurfaceOverlay: View {
                     )
                     .clipShape(shape)
                 }
-            } else if MaterialStyle.isActive {
-                shape
-                    .strokeBorder(MaterialStyle.outline.opacity(colorScheme == .dark ? 0.72 : 0.82), lineWidth: 0.8)
-
-                if !isInteractiveMotionActive {
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(colorScheme == .dark ? 0.035 : 0.2),
-                            .clear,
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 102)
-                    .clipShape(shape)
-                }
             } else if ClayStyle.isActive {
                 shape
                     .strokeBorder(
@@ -677,6 +712,19 @@ struct MonologueSheetSurfaceOverlay: View {
                     .frame(height: 110)
                     .clipShape(shape)
                 }
+            } else if BentoStyle.isActive {
+                shape
+                    .strokeBorder(BentoStyle.hairline.opacity(colorScheme == .dark ? 0.72 : 0.66), lineWidth: 0.8)
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.22), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 96)
+                    .clipShape(shape)
+                }
             } else if SequoiaStyle.isActive {
                 shape
                     .strokeBorder(
@@ -702,6 +750,33 @@ struct MonologueSheetSurfaceOverlay: View {
                         endPoint: .bottom
                     )
                     .frame(height: 112)
+                    .clipShape(shape)
+                }
+            } else if LiquidGlassStyle.isActive {
+                shape
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                LiquidGlassStyle.luminousEdge.opacity(colorScheme == .dark ? 0.24 : 0.74),
+                                LiquidGlassStyle.separator.opacity(0.9),
+                                LiquidGlassStyle.strongSeparator.opacity(colorScheme == .dark ? 0.36 : 0.26),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.8
+                    )
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.05 : 0.34),
+                            .clear,
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 120)
                     .clipShape(shape)
                 }
             } else {

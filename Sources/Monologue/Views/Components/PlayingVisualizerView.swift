@@ -14,7 +14,7 @@ struct PlayingVisualizerView: View {
     @State private var phases: [Double] = []
     
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.12, paused: !isAnimating)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             
             HStack(alignment: .center, spacing: barSpacing) {

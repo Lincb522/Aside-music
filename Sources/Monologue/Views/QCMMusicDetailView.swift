@@ -341,7 +341,9 @@ struct QQArtistDetailView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            if ThemedPageStyle.isActive {
+            if NeumorphicStyle.isActive {
+                ThemeRenderBackdrop(theme: .neumorphic)
+            } else if ThemedPageStyle.isActive {
                 ThemedPageBackground()
                     .ignoresSafeArea()
             } else {
@@ -350,19 +352,25 @@ struct QQArtistDetailView: View {
             }
 
             ScrollView {
-                VStack(spacing: 0) {
-                    heroSection
+                if NeumorphicStyle.isActive {
+                    neumorphicQQArtistDetailBody
+                        .iPadContentWidth(900)
+                } else {
+                    VStack(spacing: 0) {
+                        heroSection
 
-                    infoSection
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                        .padding(.top, -40)
+                        infoSection
+                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                            .padding(.top, -40)
 
-                    tabBar
-                        .padding(.top, 20)
+                        tabBar
+                            .padding(.top, 20)
 
-                    tabContent
-                        .padding(.top, 8)
-                        .padding(.bottom, 120)
+                        tabContent
+                            .padding(.top, 8)
+                            .padding(.bottom, 120)
+                    }
+                    .iPadContentWidth(900)
                 }
             }
             .scrollIndicators(.hidden)
@@ -410,6 +418,258 @@ struct QQArtistDetailView: View {
             if newTab == 1 { viewModel.loadAlbums() }
             if newTab == 2 { viewModel.loadMVs() }
         }
+    }
+
+    // MARK: - 新拟物 QCM 歌手详情
+
+    private var neumorphicQQArtistDetailBody: some View {
+        VStack(spacing: 15) {
+            neumorphicQQArtistConsole
+            neumorphicQQArtistTabDock
+            tabContent
+                .padding(.top, 2)
+        }
+        .padding(.top, DeviceLayout.headerTopPadding + 18)
+        .padding(.bottom, 120)
+    }
+
+    private var neumorphicQQArtistConsole: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 15) {
+                    neumorphicQQArtistIdentityBlock
+                    neumorphicQQArtistPortrait
+                        .frame(width: DeviceLayout.isPad ? 150 : 122)
+                }
+
+                VStack(alignment: .leading, spacing: 14) {
+                    neumorphicQQArtistPortrait
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    neumorphicQQArtistIdentityBlock
+                }
+            }
+
+            neumorphicQQArtistMetricGrid
+        }
+        .padding(15)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 32,
+                elevated: true,
+                tint: NeumorphicStyle.sage.opacity(0.052),
+                lightweight: true
+            )
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+    }
+
+    private var neumorphicQQArtistIdentityBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                NeumorphicPill(text: "QCM", tint: NeumorphicStyle.sage, icon: .headphones, selected: true, compact: true)
+                NeumorphicPill(text: "ARTIST", tint: NeumorphicStyle.accent, compact: true)
+            }
+
+            Text(displayName)
+                .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 34 : 29, weight: .semibold))
+                .foregroundStyle(NeumorphicStyle.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let desc = viewModel.resolvedDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 8) {
+                        Text(desc)
+                            .font(NeumorphicStyle.bodyFont(13, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.inkSoft)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Spacer(minLength: 0)
+
+                        MonologueIcon(icon: .chevronRight, size: 10, color: NeumorphicStyle.inkMuted, lineWidth: 1.6)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        NeumorphicSurfaceBackground(
+                            cornerRadius: 17,
+                            elevated: false,
+                            pressed: true,
+                            tint: NeumorphicStyle.surfacePressed,
+                            lightweight: true
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                NeumorphicPlayPill(title: String(localized: "qq_play_all"), tint: NeumorphicStyle.sage)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+            .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
+            .disabled(viewModel.songs.isEmpty)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var neumorphicQQArtistPortrait: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Circle()
+                .fill(NeumorphicStyle.surfacePressed)
+                .frame(width: DeviceLayout.isPad ? 150 : 122, height: DeviceLayout.isPad ? 150 : 122)
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: DeviceLayout.isPad ? 75 : 61,
+                        elevated: true,
+                        tint: NeumorphicStyle.surfaceRaised,
+                        lightweight: true
+                    )
+                )
+
+            CachedAsyncImage(url: displayCoverUrl?.sized(700)) {
+                Circle()
+                    .fill(NeumorphicStyle.surfacePressed)
+                    .overlay(MonologueIcon(icon: .personCircle, size: 32, color: NeumorphicStyle.inkMuted.opacity(0.5), lineWidth: 1.8))
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: DeviceLayout.isPad ? 132 : 106, height: DeviceLayout.isPad ? 132 : 106)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(NeumorphicStyle.separator.opacity(0.36), lineWidth: 0.7))
+
+            HStack(spacing: 4) {
+                Capsule().fill(NeumorphicStyle.sage.opacity(0.82)).frame(width: 10, height: 4)
+                Capsule().fill(NeumorphicStyle.accent.opacity(0.65)).frame(width: 18, height: 4)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 13,
+                    elevated: true,
+                    tint: NeumorphicStyle.sage.opacity(0.12),
+                    lightweight: true
+                )
+            )
+            .offset(x: 4, y: 3)
+        }
+        .frame(height: DeviceLayout.isPad ? 160 : 132)
+    }
+
+    private var neumorphicQQArtistMetricGrid: some View {
+        let songCount = viewModel.songCount ?? (viewModel.songs.isEmpty ? nil : viewModel.songs.count)
+
+        return LazyVGrid(columns: [
+            GridItem(.flexible(), spacing: 9),
+            GridItem(.flexible(), spacing: 9),
+            GridItem(.flexible(), spacing: 9)
+        ], spacing: 9) {
+            if let songCount, songCount > 0 {
+                neumorphicQQArtistMetricTile(
+                    title: String(localized: "qq_tab_music"),
+                    value: "\(songCount)",
+                    icon: .musicNoteList,
+                    tint: NeumorphicStyle.sage
+                )
+            }
+
+            if let albumCount = viewModel.albumCount, albumCount > 0 {
+                neumorphicQQArtistMetricTile(
+                    title: String(localized: "qq_tab_album"),
+                    value: "\(albumCount)",
+                    icon: .album,
+                    tint: NeumorphicStyle.accent
+                )
+            }
+
+            if let fans = viewModel.fansCount, fans > 0 {
+                neumorphicQQArtistMetricTile(
+                    title: String(localized: "粉丝"),
+                    value: formatCount(fans),
+                    icon: .like,
+                    tint: NeumorphicStyle.warm
+                )
+            }
+        }
+    }
+
+    private func neumorphicQQArtistMetricTile(title: String, value: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
+        HStack(spacing: 9) {
+            MonologueIcon(icon: icon, size: 14, color: tint, lineWidth: 1.65)
+                .frame(width: 30, height: 30)
+                .background(
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 13,
+                        elevated: false,
+                        pressed: true,
+                        tint: tint.opacity(0.1),
+                        lightweight: true
+                    )
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(NeumorphicStyle.labelFont(13, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(title)
+                    .font(NeumorphicStyle.labelFont(10, weight: .medium))
+                    .foregroundStyle(NeumorphicStyle.inkMuted)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true))
+    }
+
+    private var neumorphicQQArtistTabDock: some View {
+        HStack(spacing: 7) {
+            neumorphicQQArtistTabDockItem(String(localized: "qq_tab_music"), index: 0, icon: .musicNoteList, tint: NeumorphicStyle.sage)
+            neumorphicQQArtistTabDockItem(String(localized: "qq_tab_album"), index: 1, icon: .album, tint: NeumorphicStyle.accent)
+            neumorphicQQArtistTabDockItem(String(localized: "qq_tab_video"), index: 2, icon: .mv, tint: NeumorphicStyle.warm)
+        }
+        .padding(6)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 23, elevated: true, lightweight: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+    }
+
+    private func neumorphicQQArtistTabDockItem(_ title: String, index: Int, icon: MonologueIcon.IconType, tint: Color) -> some View {
+        let selected = selectedTab == index
+
+        return Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                selectedTab = index
+            }
+        } label: {
+            HStack(spacing: 7) {
+                MonologueIcon(icon: icon, size: 14, color: selected ? tint : NeumorphicStyle.inkMuted, lineWidth: 1.65)
+                Text(title)
+                    .font(NeumorphicStyle.labelFont(11, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 46)
+            .background(
+                NeumorphicSurfaceBackground(
+                    cornerRadius: 17,
+                    elevated: selected,
+                    pressed: !selected,
+                    tint: selected ? tint.opacity(0.14) : NeumorphicStyle.surface,
+                    lightweight: true
+                )
+            )
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Hero 大图

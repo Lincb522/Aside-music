@@ -1,0 +1,18 @@
+ M Sources/Monologue/Managers/GlobalThemeManager.swift
+ M Sources/Monologue/Models/GlobalTheme.swift
+ D Sources/Monologue/Themes/Material/MaterialHomeView.swift
+ D Sources/Monologue/Themes/Material/MaterialPageWrappers.swift
+ D Sources/Monologue/Themes/Material/MaterialThemeKit.swift
+ D Sources/Monologue/Themes/Material/MaterialThemeProvider.swift
+ M Sources/Monologue/Themes/ThemeColorCustomization.swift
+ M Sources/Monologue/Themes/ThemeRenderLayer.swift
+ M Sources/Monologue/Views/AppearanceSettingsView.swift
+ M Sources/Monologue/Views/Components/ClassicFloatingBar.swift
+ M Sources/Monologue/Views/Components/GlobalThemeOptionCard.swift
+ M Sources/Monologue/Views/Components/MinimalMiniPlayer.swift
+ M Sources/Monologue/Views/Components/MonologueBackground.swift
+ M Sources/Monologue/Views/Components/Sheet/MonologueSheetContainer.swift
+ M Sources/Monologue/Views/Components/ThemedPageBackground.swift
+ M Sources/Monologue/Views/LibraryView.swift
+ M Sources/Monologue/Views/UnifiedFloatingBar.swift
+?? .local-backups/

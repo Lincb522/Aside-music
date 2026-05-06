@@ -87,7 +87,7 @@ struct FloatingBallView: View {
                 .animation(.linear(duration: 0.1), value: progress)
 
             // 黑胶唱片
-            TimelineView(.animation(minimumInterval: 0.033, paused: !player.isPlaying)) { timeline in
+            TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
                 vinylDisc
                     .frame(width: ballSize - 8, height: ballSize - 8)
                     .rotationEffect(.degrees(rotationAngle))
@@ -142,6 +142,18 @@ struct FloatingBallView: View {
                             .offset(x: 10, y: 8)
                     }
                     .shadow(color: SequoiaStyle.shadow(colorScheme, elevated: true), radius: 16, x: 0, y: 7)
+            } else if BentoStyle.isActive {
+                Circle()
+                    .stroke(BentoStyle.tomato, lineWidth: 2.4)
+                    .frame(width: ballSize + 4, height: ballSize + 4)
+                    .overlay(alignment: .topTrailing) {
+                        Circle()
+                            .fill(BentoStyle.mustard)
+                            .frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(BentoStyle.paper, lineWidth: 1.5))
+                            .offset(x: 1, y: -1)
+                    }
+                    .shadow(color: BentoStyle.ink.opacity(0.18), radius: 10, x: 0, y: 5)
             }
         }
         .contentShape(Circle())
@@ -253,6 +265,18 @@ struct FloatingBallView: View {
                             .frame(width: 42, height: 3)
                             .offset(x: 18, y: 7)
                     }
+            } else if BentoStyle.isActive {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(BentoStyle.ink.opacity(0.08), lineWidth: 1)
+                    .overlay(alignment: .top) {
+                        HStack(spacing: 0) {
+                            BentoStyle.tomato.frame(width: 18, height: 4)
+                            BentoStyle.matcha.frame(width: 12, height: 4)
+                            BentoStyle.mustard.frame(width: 14, height: 4)
+                        }
+                        .clipShape(Capsule())
+                        .offset(y: 6)
+                    }
             }
         }
         .padding(.trailing, 8)
@@ -262,6 +286,10 @@ struct FloatingBallView: View {
     private var panelBackground: some View {
         if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: panelCornerRadius, elevated: true, role: .floating)
+        } else if BentoStyle.isActive {
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .fill(BentoStyle.surface)
+                .shadow(color: BentoStyle.ink.opacity(0.08), radius: 14, x: 0, y: 6)
         } else {
             RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                 .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill.opacity(0.06))
@@ -359,6 +387,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink.opacity(0.18) }
         if SequoiaStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.2 : 0.12) }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.16) }
+        if BentoStyle.isActive { return BentoStyle.ink.opacity(0.18) }
         return Color.black.opacity(0.3)
     }
 
@@ -371,6 +400,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.62) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.6) }
         return Color.monologueTextPrimary.opacity(0.08)
     }
 
@@ -380,6 +410,9 @@ struct FloatingBallView: View {
         }
         if MujiStyle.isActive {
             return AnyShapeStyle(MujiStyle.accentGradient)
+        }
+        if BentoStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [BentoStyle.tomato, BentoStyle.mustard], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         if NeumorphicStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [NeumorphicStyle.accent, NeumorphicStyle.sage], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -395,6 +428,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.95) }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.82) }
+        if BentoStyle.isActive { return BentoStyle.ink.opacity(0.85) }
         return Color(hex: "1A1A1A")
     }
 
@@ -403,6 +437,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent.opacity(0.18) }
         if SequoiaStyle.isActive { return SequoiaStyle.luminousSeparator.opacity(0.28) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.2) }
+        if BentoStyle.isActive { return BentoStyle.surface.opacity(0.2) }
         return Color.white.opacity(0.06)
     }
 
@@ -411,6 +446,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
         if MujiStyle.isActive { return MujiStyle.paperWarm }
+        if BentoStyle.isActive { return BentoStyle.surface }
         return Color.gray.opacity(0.3)
     }
 
@@ -419,6 +455,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkSoft }
         return Color.white.opacity(0.5)
     }
 
@@ -427,6 +464,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.58) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.separator.opacity(0.72) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.5) }
         return Color.monologueSeparator.opacity(0.3)
     }
 
@@ -435,6 +473,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueIconBackground
     }
 
@@ -443,6 +482,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if MujiStyle.isActive { return MujiStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.onAccent }
         return .monologueIconForeground
     }
 
@@ -456,6 +496,8 @@ struct FloatingBallView: View {
             Circle().stroke(NeumorphicStyle.separator.opacity(0.52), lineWidth: 0.8)
         } else if SequoiaStyle.isActive {
             Circle().stroke(SequoiaStyle.accent.opacity(0.22), lineWidth: 0.65)
+        } else if BentoStyle.isActive {
+            Circle().stroke(BentoStyle.tomato.opacity(0.0), lineWidth: 0)
         }
     }
 
@@ -465,6 +507,7 @@ struct FloatingBallView: View {
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
+            if BentoStyle.isActive { return BentoStyle.inkMuted }
             return .monologueTextSecondary
         }
 
@@ -472,6 +515,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if MujiStyle.isActive { return mujiTabTint(tab) }
+        if BentoStyle.isActive { return bentoTabTint(tab) }
         return .monologueAccent
     }
 
@@ -485,6 +529,9 @@ struct FloatingBallView: View {
             Circle()
                 .fill(MujiStyle.surface.opacity(0.78))
                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6))
+        } else if BentoStyle.isActive {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(bentoTabTint(tab))
         } else if NeumorphicStyle.isActive {
             Circle()
                 .fill(neumorphicTabTint(tab).opacity(0.16))
@@ -523,6 +570,15 @@ struct FloatingBallView: View {
         case .podcast: return MujiStyle.tea
         case .library: return MujiStyle.indigo
         case .profile: return MujiStyle.straw
+        }
+    }
+
+    private func bentoTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return BentoStyle.tomato
+        case .podcast: return BentoStyle.nori
+        case .library: return BentoStyle.matcha
+        case .profile: return BentoStyle.mustard
         }
     }
 

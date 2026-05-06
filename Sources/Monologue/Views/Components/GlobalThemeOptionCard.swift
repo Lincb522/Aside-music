@@ -88,11 +88,11 @@ struct GlobalThemeOptionCard: View {
             mangaPreview
         case .neumorphic:
             neumorphicPreview
-        case .material:
-            materialPreview
         case .sequoia:
             sequoiaPreview
-        case .clay, .signal:
+        case .liquidGlass:
+            liquidGlassPreview
+        case .bento, .clay, .signal:
             defaultPreview
         }
     }
@@ -103,9 +103,9 @@ struct GlobalThemeOptionCard: View {
         case .muji:      return Color(hex: "C4775A")
         case .manga:     return Color(hex: "FF8FAB")
         case .neumorphic: return Color(hex: "4F8E86")
-        case .material:  return Color(hex: "6750A4")
         case .sequoia:   return Color(hex: "0A84FF")
-        case .clay, .signal: return .monologueAccent
+        case .liquidGlass: return Color(hex: "18A7FF")
+        case .bento, .clay, .signal: return .monologueAccent
         }
     }
 
@@ -475,75 +475,128 @@ struct GlobalThemeOptionCard: View {
         }
     }
 
-    // MARK: - Material 预览
+    // MARK: - Liquid Glass 预览
 
-    private var materialPreview: some View {
+    private var liquidGlassPreview: some View {
         ZStack {
             LinearGradient(
                 colors: colorScheme == .dark
-                    ? [Color(hex: "141218"), Color(hex: "211F26"), Color(hex: "1D1B2E")]
-                    : [Color(hex: "FFFBFE"), Color(hex: "F7F2FA"), Color(hex: "EEF4FF")],
+                    ? [Color(hex: "07111E"), Color(hex: "12243A"), Color(hex: "10142A")]
+                    : [Color(hex: "F2F8FF"), Color(hex: "E8FBFF"), Color(hex: "F4F1FF")],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
+            LiquidGlassCausticField(opacity: colorScheme == .dark ? 0.1 : 0.16)
+
             VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 7) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(MaterialStyle.primary.opacity(0.16))
-                        .frame(width: 26, height: 26)
-                        .overlay(MonologueIcon(icon: .profileFilled, size: 12, color: MaterialStyle.primary, lineWidth: 1.5))
-
-                    Capsule().fill(MaterialStyle.ink.opacity(0.22)).frame(width: 60, height: 6)
-
-                    Spacer(minLength: 0)
-
-                    Circle().fill(MaterialStyle.secondary.opacity(0.16)).frame(width: 22, height: 22)
-                    Circle().fill(MaterialStyle.primary).frame(width: 22, height: 22)
+                HStack(spacing: 5) {
+                    Capsule().fill(LiquidGlassStyle.accent.opacity(0.72)).frame(width: 26, height: 5)
+                    Capsule().fill(LiquidGlassStyle.cyan.opacity(0.42)).frame(width: 14, height: 5)
+                    Capsule().fill(LiquidGlassStyle.violet.opacity(0.34)).frame(width: 8, height: 5)
+                    Spacer()
+                    Circle().fill(LiquidGlassStyle.mint.opacity(0.68)).frame(width: 12, height: 12)
                 }
 
-                HStack(spacing: 9) {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(MaterialStyle.primary.opacity(0.18))
-                        .frame(width: 48, height: 48)
-                        .overlay(
-                            HStack(alignment: .bottom, spacing: 3) {
-                                ForEach(0 ..< 4, id: \.self) { index in
-                                    Capsule()
-                                        .fill(MaterialStyle.primary)
-                                        .frame(width: 4, height: CGFloat([12, 24, 18, 30][index]))
-                                }
-                            }
-                        )
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 50, height: 50)
+                            .overlay(Circle().fill(LiquidGlassStyle.glassPressed.opacity(0.74)))
+                        Circle()
+                            .fill(LiquidGlassStyle.accent.opacity(0.72))
+                            .frame(width: 34, height: 34)
+                            .overlay(MonologueIcon(icon: .musicNote, size: 13, color: LiquidGlassStyle.onAccent, lineWidth: 1.5))
+                    }
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Capsule().fill(MaterialStyle.ink.opacity(0.28)).frame(width: 72, height: 7)
-                        Capsule().fill(MaterialStyle.inkSoft.opacity(0.2)).frame(width: 48, height: 5)
+                        Capsule().fill(LiquidGlassStyle.ink.opacity(0.22)).frame(width: 62, height: 5)
+                        Capsule().fill(LiquidGlassStyle.inkSoft.opacity(0.16)).frame(width: 42, height: 4)
                         HStack(spacing: 5) {
-                            Capsule().fill(MaterialStyle.primary.opacity(0.2)).frame(width: 38, height: 15)
-                            Capsule().fill(MaterialStyle.tertiary.opacity(0.18)).frame(width: 28, height: 15)
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(LiquidGlassStyle.accent.opacity(0.18))
+                                .frame(width: 28, height: 16)
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(LiquidGlassStyle.violet.opacity(0.16))
+                                .frame(width: 28, height: 16)
                         }
                     }
+
+                    Spacer(minLength: 0)
                 }
-                .padding(9)
-                .background(MaterialSurfaceBackground(cornerRadius: 22, elevated: false, role: .tonal))
 
                 HStack(spacing: 6) {
-                    ForEach(0 ..< 4, id: \.self) { index in
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill([
-                                MaterialStyle.primary.opacity(0.18),
-                                MaterialStyle.green.opacity(0.16),
-                                MaterialStyle.blue.opacity(0.16),
-                                MaterialStyle.tertiary.opacity(0.16),
-                            ][index])
-                            .frame(height: 24)
+                    ForEach(0..<3, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill([LiquidGlassStyle.glassList, LiquidGlassStyle.selectedWash, LiquidGlassStyle.cyan.opacity(0.15)][index])
+                            .frame(height: 18)
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.22), lineWidth: 0.5))
                     }
                 }
             }
             .padding(10)
-            .background(MaterialSurfaceBackground(cornerRadius: 24, elevated: true, role: .elevated))
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(LiquidGlassStyle.glass.opacity(0.62)))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.32), lineWidth: 0.65))
+            )
             .padding(10)
+        }
+    }
+
+    // MARK: - Bento 预览
+
+    private var bentoPreview: some View {
+        ZStack {
+            BentoStyle.paper
+
+            VStack(spacing: 5) {
+                HStack(spacing: 5) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(BentoStyle.tomato)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay(alignment: .topLeading) {
+                            Capsule()
+                                .fill(BentoStyle.onAccent.opacity(0.3))
+                                .frame(width: 26, height: 5)
+                                .padding(7)
+                        }
+                        .overlay(alignment: .bottomLeading) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Capsule().fill(BentoStyle.onAccent).frame(width: 38, height: 5)
+                                Capsule().fill(BentoStyle.onAccent.opacity(0.5)).frame(width: 22, height: 3)
+                            }
+                            .padding(7)
+                        }
+
+                    VStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(BentoStyle.sakura)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(BentoStyle.mustard)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .frame(width: 36)
+                }
+                .frame(height: 76)
+
+                HStack(spacing: 5) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(BentoStyle.matcha)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(BentoStyle.ocean)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(BentoStyle.nori)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(height: 26)
+            }
+            .padding(8)
         }
     }
 

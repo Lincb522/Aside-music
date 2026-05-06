@@ -39,7 +39,7 @@ final class SettingsManager: ObservableObject {
 
     private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
         switch id {
-        case .clay, .signal:
+        case .bento, .sequoia, .liquidGlass, .clay, .signal:
             return .default
         default:
             return id
@@ -322,6 +322,13 @@ final class SettingsManager: ObservableObject {
     @AppStorage("lyricGradientEndHex") var lyricGradientEndHex: String = "4ECDC4"
 
     private init() {
+        let restored = GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default
+        let resolved = Self.resolveRemovedTheme(restored)
+        if resolved != restored {
+            UserDefaults.standard.set(resolved.rawValue, forKey: "globalThemeId")
+            globalThemeIdRaw = resolved.rawValue
+        }
+
         enforceCoverBackgroundPolicyForCurrentTheme()
         // 启动时应用一次主题
         applyTheme()

@@ -167,7 +167,7 @@ enum ThemeColorCustomization {
     }
 
     static func supports(_ theme: GlobalThemeId) -> Bool {
-        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .material || theme == .sequoia
+        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .sequoia || theme == .liquidGlass
     }
 
     static func key(_ theme: GlobalThemeId, _ role: ThemeCustomColorRole, _ suffix: String) -> String {
@@ -187,6 +187,11 @@ enum ThemeColorCustomization {
     }
 
     static let backgroundGradientSuffixes = ["start", "end", "stop3", "stop4"]
+    static let defaultCatPawPresetId = "default-cat-paw"
+
+    static func usesDefaultCatPawPreset() -> Bool {
+        selectedPreset(for: .default)?.id == defaultCatPawPresetId
+    }
 
     static func mode(for theme: GlobalThemeId, role: ThemeCustomColorRole) -> ThemeCustomColorMode {
         if role == .accent || (theme == .muji && role == .background) {
@@ -295,12 +300,18 @@ enum ThemeColorCustomization {
         return stored?.isEmpty == false ? stored! : fallback
     }
 
+    private static func storedMangaHex(_ suffix: String) -> String? {
+        let stored = UserDefaults.standard.string(forKey: mangaKey(suffix))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return stored?.isEmpty == false ? stored : nil
+    }
+
     static func defaultAccentHex(for theme: GlobalThemeId) -> String {
         switch theme {
         case .muji: return "B56B4B"
         case .neumorphic: return "4F8E86"
-        case .material: return "6750A4"
+        case .bento: return "E54B3B"
         case .sequoia: return "0A84FF"
+        case .liquidGlass: return "18A7FF"
         case .clay: return "35BFE6"
         case .signal: return "2F80ED"
         case .manga: return "FF4F84"
@@ -312,8 +323,9 @@ enum ThemeColorCustomization {
         switch theme {
         case .muji: return "F7F1E8"
         case .neumorphic: return "E9EDF0"
-        case .material: return "FFFBFE"
+        case .bento: return "F5F1EA"
         case .sequoia: return "F4F7FB"
+        case .liquidGlass: return "F2F8FF"
         case .clay: return "F7EAD8"
         case .signal: return "EEF5F8"
         case .manga: return "FFF3D7"
@@ -325,8 +337,9 @@ enum ThemeColorCustomization {
         switch theme {
         case .muji: return "F7F1E8"
         case .neumorphic: return "F2EEE8"
-        case .material: return "F7F2FA"
+        case .bento: return "F5F1EA"
         case .sequoia: return "E3EBF2"
+        case .liquidGlass: return "F4F1FF"
         case .clay: return "DDF3FA"
         case .signal: return "F7F2EA"
         case .manga: return "E8F1FF"
@@ -344,8 +357,9 @@ enum ThemeColorCustomization {
             switch theme {
             case .muji: return "F4EBDD"
             case .neumorphic: return "E4ECE7"
-            case .material: return "EEF4FF"
+            case .bento: return "EFE9DD"
             case .sequoia: return "F8F2FA"
+            case .liquidGlass: return "E8FBFF"
             case .clay: return "FFEAD8"
             case .signal: return "EAF4F8"
             case .manga: return "FFEAF4"
@@ -355,8 +369,9 @@ enum ThemeColorCustomization {
             switch theme {
             case .muji: return "FAF4E8"
             case .neumorphic: return "EEF0F5"
-            case .material: return "FFF2F6"
+            case .bento: return "EFE9DD"
             case .sequoia: return "EEF7FA"
+            case .liquidGlass: return "EFFAF3"
             case .clay: return "F4E9FF"
             case .signal: return "F8F1E6"
             case .manga: return "F8F6DE"
@@ -448,6 +463,8 @@ enum ThemeColorCustomization {
     }
 
     static func selectedPreset(for theme: GlobalThemeId) -> ThemeColorPreset? {
+        guard hasStoredCustomization(for: theme) else { return nil }
+
         let allPresets = presets(for: theme)
         if let selectedPresetId = UserDefaults.standard.string(forKey: selectedPresetKey(theme)),
            let selectedPreset = allPresets.first(where: { $0.id == selectedPresetId }),
@@ -505,17 +522,6 @@ enum ThemeColorCustomization {
                 ThemeColorPreset(id: "neu-celadon", name: "Celadon", accentStartHex: "5F8F78", accentEndHex: "5F8F78", backgroundStartHex: "E5EFEA", backgroundEndHex: "F2F0E7", backgroundHexes: ["E5EFEA", "F2F0E7", "DDEBE4", "EDF3F0"], gradientStyle: .radial),
                 ThemeColorPreset(id: "neu-lilac", name: "Lilac", accentStartHex: "7B79A8", accentEndHex: "7B79A8", backgroundStartHex: "ECEAF4", backgroundEndHex: "E8EFF2", backgroundHexes: ["ECEAF4", "E8EFF2", "F3E8F1", "E4EEF4"], gradientStyle: .conic),
             ]
-        case .material:
-            return [
-                ThemeColorPreset(id: "material-baseline", name: "Baseline", accentStartHex: "6750A4", accentEndHex: "6750A4", backgroundStartHex: "FFFBFE", backgroundEndHex: "F7F2FA", backgroundHexes: ["FFFBFE", "F7F2FA", "EEF4FF", "FFF2F6"], gradientStyle: .diffuse),
-                ThemeColorPreset(id: "material-lavender", name: "Lavender", accentStartHex: "7257B4", accentEndHex: "7257B4", backgroundStartHex: "FFFBFE", backgroundEndHex: "F4EEFF", backgroundHexes: ["FFFBFE", "F4EEFF", "EEF4FF", "FFF3F7"], gradientStyle: .mesh),
-                ThemeColorPreset(id: "material-sage", name: "Sage", accentStartHex: "4E7F61", accentEndHex: "4E7F61", backgroundStartHex: "FBFEF8", backgroundEndHex: "EEF6EF", backgroundHexes: ["FBFEF8", "EEF6EF", "F7F3FF", "FFF4F0"], gradientStyle: .radial),
-                ThemeColorPreset(id: "material-sky", name: "Sky", accentStartHex: "3E6E9E", accentEndHex: "3E6E9E", backgroundStartHex: "F8FCFF", backgroundEndHex: "EEF4FF", backgroundHexes: ["F8FCFF", "EEF4FF", "F6F1FF", "FFF6F0"], gradientStyle: .linear),
-                ThemeColorPreset(id: "material-rose", name: "Rose", accentStartHex: "8D4A60", accentEndHex: "8D4A60", backgroundStartHex: "FFFBFE", backgroundEndHex: "FFF1F5", backgroundHexes: ["FFFBFE", "FFF1F5", "F2F3FF", "FFF7EC"], gradientStyle: .diffuse),
-                ThemeColorPreset(id: "material-citrus", name: "Citrus", accentStartHex: "9B642E", accentEndHex: "9B642E", backgroundStartHex: "FFFDF7", backgroundEndHex: "FFF4E5", backgroundHexes: ["FFFDF7", "FFF4E5", "EEF8F3", "F5F0FF"], gradientStyle: .conic),
-                ThemeColorPreset(id: "material-mint", name: "Mint", accentStartHex: "247B6A", accentEndHex: "247B6A", backgroundStartHex: "F8FFFC", backgroundEndHex: "EDF8F4", backgroundHexes: ["F8FFFC", "EDF8F4", "F4F1FF", "FFF5EC"], gradientStyle: .mesh),
-                ThemeColorPreset(id: "material-iris", name: "Iris", accentStartHex: "5D5BA8", accentEndHex: "5D5BA8", backgroundStartHex: "FCFBFF", backgroundEndHex: "F1F0FF", backgroundHexes: ["FCFBFF", "F1F0FF", "EEF6FF", "FFF2F4"], gradientStyle: .radial),
-            ]
         case .sequoia:
             return [
                 ThemeColorPreset(id: "sequoia-aqua", name: "Aqua", accentStartHex: "0A84FF", accentEndHex: "26AFCF", backgroundStartHex: "F4F7FB", backgroundEndHex: "E3EBF2", backgroundHexes: ["F4F7FB", "E3EBF2", "F8F2FA", "EEF7FA"], gradientStyle: .mesh),
@@ -526,6 +532,17 @@ enum ThemeColorCustomization {
                 ThemeColorPreset(id: "sequoia-tide", name: "Tide", accentStartHex: "148FB8", accentEndHex: "2E9F73", backgroundStartHex: "F1FAFC", backgroundEndHex: "E0E8F1", backgroundHexes: ["F1FAFC", "E0E8F1", "E7F7F3", "F7FBFD"], gradientStyle: .radial),
                 ThemeColorPreset(id: "sequoia-orchid", name: "Orchid", accentStartHex: "B15EC7", accentEndHex: "0A84FF", backgroundStartHex: "FBF4FF", backgroundEndHex: "EAF1FB", backgroundHexes: ["FBF4FF", "EAF1FB", "F4E8FF", "E9FAFF"], gradientStyle: .mesh),
                 ThemeColorPreset(id: "sequoia-sky", name: "Sky", accentStartHex: "2B8CFF", accentEndHex: "26AFCF", backgroundStartHex: "F2F8FF", backgroundEndHex: "E5F1F6", backgroundHexes: ["F2F8FF", "E5F1F6", "EEF7FF", "E7FBF8"], gradientStyle: .linear),
+            ]
+        case .liquidGlass:
+            return [
+                ThemeColorPreset(id: "glass-prism", name: "Prism", accentStartHex: "18A7FF", accentEndHex: "18A7FF", backgroundStartHex: "F2F8FF", backgroundEndHex: "F4F1FF", backgroundHexes: ["F2F8FF", "E8FBFF", "F4F1FF", "EFFAF3"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "glass-aqua", name: "Aqua", accentStartHex: "22C7E6", accentEndHex: "22C7E6", backgroundStartHex: "F0FBFF", backgroundEndHex: "EEF7FF", backgroundHexes: ["F0FBFF", "E4FAFF", "EEF7FF", "F3FBF5"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "glass-lilac", name: "Lilac", accentStartHex: "8C72FF", accentEndHex: "8C72FF", backgroundStartHex: "F6F3FF", backgroundEndHex: "EAF8FF", backgroundHexes: ["F6F3FF", "EAF8FF", "FFF2FA", "F0FBF7"], gradientStyle: .radial),
+                ThemeColorPreset(id: "glass-mint", name: "Mint", accentStartHex: "38B992", accentEndHex: "38B992", backgroundStartHex: "F1FBF7", backgroundEndHex: "EEF7FF", backgroundHexes: ["F1FBF7", "E7F8F4", "F5F8FF", "F3F1FF"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "glass-pearl", name: "Pearl", accentStartHex: "6B8FD9", accentEndHex: "6B8FD9", backgroundStartHex: "FAFCFF", backgroundEndHex: "EEF2F8", backgroundHexes: ["FAFCFF", "EEF2F8", "F7F1FF", "EFFBF8"], gradientStyle: .linear),
+                ThemeColorPreset(id: "glass-coral", name: "Coral", accentStartHex: "E77C9A", accentEndHex: "E77C9A", backgroundStartHex: "FFF6F8", backgroundEndHex: "EEF8FF", backgroundHexes: ["FFF6F8", "EEF8FF", "F7F0FF", "F2FCF8"], gradientStyle: .conic),
+                ThemeColorPreset(id: "glass-skyline", name: "Skyline", accentStartHex: "3F86FF", accentEndHex: "3F86FF", backgroundStartHex: "F1F8FF", backgroundEndHex: "EAF0FA", backgroundHexes: ["F1F8FF", "EAF0FA", "E7FAFF", "F8F3FF"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "glass-celadon", name: "Celadon", accentStartHex: "55BFA8", accentEndHex: "55BFA8", backgroundStartHex: "F2FAF7", backgroundEndHex: "F0F4FF", backgroundHexes: ["F2FAF7", "F0F4FF", "E8FBF7", "F8F3FA"], gradientStyle: .radial),
             ]
         case .clay:
             return [
@@ -538,6 +555,15 @@ enum ThemeColorCustomization {
             ]
         case .signal:
             return []
+        case .bento:
+            return [
+                ThemeColorPreset(id: "bento-tomato", name: "Tomato", accentStartHex: "E54B3B", accentEndHex: "EB7E48", backgroundStartHex: "F5F1EA", backgroundEndHex: "EFE9DD", gradientStyle: .diffuse),
+                ThemeColorPreset(id: "bento-matcha", name: "Matcha", accentStartHex: "5E8C44", accentEndHex: "7AAB60", backgroundStartHex: "F2F0E2", backgroundEndHex: "EAEEDA", gradientStyle: .diffuse),
+                ThemeColorPreset(id: "bento-sakura", name: "Sakura", accentStartHex: "EE92A8", accentEndHex: "F5A8BA", backgroundStartHex: "FBF3EF", backgroundEndHex: "F4E6E2", gradientStyle: .radial),
+                ThemeColorPreset(id: "bento-ocean", name: "Ocean", accentStartHex: "3D6EA8", accentEndHex: "5C8FCC", backgroundStartHex: "EEF2F4", backgroundEndHex: "E1E8EC", gradientStyle: .linear),
+                ThemeColorPreset(id: "bento-mustard", name: "Mustard", accentStartHex: "DDB42E", accentEndHex: "EFC74F", backgroundStartHex: "F8F2DF", backgroundEndHex: "EFE6CB", gradientStyle: .diffuse),
+                ThemeColorPreset(id: "bento-nori", name: "Nori", accentStartHex: "7C5BA0", accentEndHex: "9B7CC0", backgroundStartHex: "F1ECEE", backgroundEndHex: "E5DEE6", gradientStyle: .conic),
+            ]
         case .manga:
             return [
                 ThemeColorPreset(id: "manga-pop", name: "Pop", accentStartHex: "FF4F84", accentEndHex: "FF4F84", backgroundStartHex: "FFF3D7", backgroundEndHex: "E8F1FF", backgroundHexes: ["FFF3D7", "E8F1FF", "FFEAF4", "F8F6DE"], gradientStyle: .diffuse, mangaBlockAHex: "FFE067", mangaBlockBHex: "58B9FF", mangaBlockCHex: "8DE4B8", mangaStrokeHex: "3B3145", mangaSettingsIconHex: "17151F"),
@@ -554,6 +580,7 @@ enum ThemeColorCustomization {
         case .default:
             return [
                 ThemeColorPreset(id: "default-mist", name: "Mist", accentStartHex: "4D6F95", accentEndHex: "4D6F95", backgroundStartHex: "F8FAFC", backgroundEndHex: "E6EDF6", backgroundHexes: ["F8FAFC", "E6EDF6", "EEF4EE", "F6F1EA"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: defaultCatPawPresetId, name: "Cat Paw", accentStartHex: "FF9B83", accentEndHex: "FF9B83", backgroundStartHex: "FFF7EC", backgroundEndHex: "FFE7D8", backgroundHexes: ["FFF7EC", "FFE7D8", "F2F8EF", "EAF4FF"], gradientStyle: .diffuse),
                 ThemeColorPreset(id: "default-dawn", name: "Dawn", accentStartHex: "B66E57", accentEndHex: "B66E57", backgroundStartHex: "FFF6EB", backgroundEndHex: "EAF0FA", backgroundHexes: ["FFF6EB", "EAF0FA", "FFEAE2", "EEF8F5"], gradientStyle: .linear),
                 ThemeColorPreset(id: "default-lake", name: "Lake", accentStartHex: "4D8196", accentEndHex: "4D8196", backgroundStartHex: "EEF6FA", backgroundEndHex: "E9F2EC", backgroundHexes: ["EEF6FA", "E9F2EC", "F7F5EC", "E6F1F8"], gradientStyle: .radial),
                 ThemeColorPreset(id: "default-sage", name: "Sage", accentStartHex: "6A8368", accentEndHex: "6A8368", backgroundStartHex: "F5F7EF", backgroundEndHex: "E8EFE7", backgroundHexes: ["F5F7EF", "E8EFE7", "F7F1E7", "EEF4F0"], gradientStyle: .diffuse),
@@ -568,6 +595,8 @@ enum ThemeColorCustomization {
     }
 
     static func isPresetSelected(_ preset: ThemeColorPreset, for theme: GlobalThemeId) -> Bool {
+        guard hasStoredCustomization(for: theme) else { return false }
+
         if let selectedPresetId = UserDefaults.standard.string(forKey: selectedPresetKey(theme)) {
             return preset.id == selectedPresetId && isPresetColorMatched(preset, for: theme)
         }
@@ -577,13 +606,12 @@ enum ThemeColorCustomization {
 
     private static func isPresetColorMatched(_ preset: ThemeColorPreset, for theme: GlobalThemeId) -> Bool {
         guard supports(theme) else { return false }
+        guard hasStoredAccent(for: theme), hasStoredBackground(for: theme) else { return false }
         guard mode(for: theme, role: .accent) == .solid else { return false }
-        if theme == .default {
-            guard hasStoredAccent(for: theme), hasStoredBackground(for: theme) else { return false }
-        }
 
         let presetBackgroundMode = preset.backgroundMode ?? (theme == .muji ? .solid : .gradient)
         guard mode(for: theme, role: .background) == presetBackgroundMode else { return false }
+        guard gradientStyle(for: theme, role: .background) == preset.gradientStyle.normalized else { return false }
 
         let presetBackgroundHexes = preset.backgroundPaletteHexes
         let accentSolid = hex(theme, .accent, "solid", fallback: preset.accentStartHex)
@@ -608,11 +636,11 @@ enum ThemeColorCustomization {
 
         guard theme == .manga else { return true }
 
-        if let value = preset.mangaBlockAHex, normalizedHex(mangaHex("blockA", fallback: value)) != normalizedHex(value) { return false }
-        if let value = preset.mangaBlockBHex, normalizedHex(mangaHex("blockB", fallback: value)) != normalizedHex(value) { return false }
-        if let value = preset.mangaBlockCHex, normalizedHex(mangaHex("blockC", fallback: value)) != normalizedHex(value) { return false }
-        if let value = preset.mangaStrokeHex, normalizedHex(mangaHex("stroke", fallback: value)) != normalizedHex(value) { return false }
-        if let value = preset.mangaSettingsIconHex, normalizedHex(mangaHex("settingsIcon", fallback: value)) != normalizedHex(value) { return false }
+        if let value = preset.mangaBlockAHex, normalizedHex(storedMangaHex("blockA") ?? "") != normalizedHex(value) { return false }
+        if let value = preset.mangaBlockBHex, normalizedHex(storedMangaHex("blockB") ?? "") != normalizedHex(value) { return false }
+        if let value = preset.mangaBlockCHex, normalizedHex(storedMangaHex("blockC") ?? "") != normalizedHex(value) { return false }
+        if let value = preset.mangaStrokeHex, normalizedHex(storedMangaHex("stroke") ?? "") != normalizedHex(value) { return false }
+        if let value = preset.mangaSettingsIconHex, normalizedHex(storedMangaHex("settingsIcon") ?? "") != normalizedHex(value) { return false }
 
         return true
     }
@@ -664,7 +692,9 @@ enum ThemeColorCustomization {
 
     @MainActor
     static func setGradientStyle(_ style: ThemeCustomGradientStyle, for theme: GlobalThemeId, role: ThemeCustomColorRole) {
-        UserDefaults.standard.set(style.rawValue, forKey: key(theme, role, "gradientStyle"))
+        let defaults = UserDefaults.standard
+        defaults.set(style.rawValue, forKey: key(theme, role, "gradientStyle"))
+        defaults.removeObject(forKey: selectedPresetKey(theme))
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }
 

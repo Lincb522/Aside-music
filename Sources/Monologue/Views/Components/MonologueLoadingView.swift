@@ -60,7 +60,7 @@ private struct LoadingBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+        TimelineView(AppFrameRate.animationTimeline(paused: reduceMotion)) { context in
             let phase = reduceMotion ? 0.62 : wavePhase(at: context.date)
 
             Capsule()

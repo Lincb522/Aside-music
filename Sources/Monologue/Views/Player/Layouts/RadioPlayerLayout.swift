@@ -646,7 +646,7 @@ private struct BouncingSpheres: View {
     ]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.04, paused: !isPlaying)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !isPlaying)) { timeline in
             let t = isPlaying ? timeline.date.timeIntervalSinceReferenceDate : 0
 
             GeometryReader { geo in
@@ -739,7 +739,7 @@ private struct LEDDotMatrixBanner: View {
     private static let imageCache = LEDImageCache()
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.04)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline()) { timeline in
             Canvas { ctx, size in
                 let rows = Self.res
                 let cell = size.height / CGFloat(rows)

@@ -20,7 +20,7 @@ struct AnimatedLogoView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: !shouldAnimate)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !shouldAnimate)) { timeline in
             let time = shouldAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0
             let bobOffset = shouldAnimate ? CGFloat(sin(time * 1.5)) * size * 0.02 : 0
             let squash = shouldAnimate ? 1 + CGFloat(sin(time * 1.5 + 0.4)) * 0.012 : 1

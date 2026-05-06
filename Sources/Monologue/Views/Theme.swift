@@ -40,6 +40,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.base }
         if ClayStyle.isActive { return ClayStyle.base }
         if SignalStyle.isActive { return SignalStyle.base }
+        if BentoStyle.isActive { return BentoStyle.paper }
         return Color(light: Color(hex: "F5F5F7"), dark: Color(hex: "0A0A0A"))
     }
         
@@ -49,6 +50,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if ClayStyle.isActive { return ClayStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.ink }
         return Color.primary
     }
 
@@ -58,6 +60,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if ClayStyle.isActive { return ClayStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkSoft }
         return Color.secondary
     }
     
@@ -95,6 +98,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if ClayStyle.isActive { return ClayStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         return monologueDefaultAccent
     }
     
@@ -105,6 +109,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if ClayStyle.isActive { return ClayStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         return monologueDefaultAccent.opacity(0.9)
     }
     
@@ -119,6 +124,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.82) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.86) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.86) }
+        if BentoStyle.isActive { return BentoStyle.surface.opacity(0.88) }
         return Color(light: Color.white.opacity(0.8), dark: Color.white.opacity(0.1))
     }
 
@@ -129,6 +135,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.92) }
         if ClayStyle.isActive { return ClayStyle.creamRaised.opacity(0.94) }
         if SignalStyle.isActive { return SignalStyle.deviceRaised.opacity(0.94) }
+        if BentoStyle.isActive { return BentoStyle.surfaceRaised.opacity(0.94) }
         return Color(light: Color.white.opacity(0.45), dark: Color.white.opacity(0.12))
     }
     
@@ -139,6 +146,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised.opacity(0.88) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.96) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.95) }
+        if BentoStyle.isActive { return BentoStyle.surface.opacity(0.96) }
         return Color(light: Color.white.opacity(0.18), dark: Color(hex: "1C1C1E").opacity(0.45))
     }
     
@@ -149,6 +157,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised }
         if ClayStyle.isActive { return ClayStyle.creamRaised }
         if SignalStyle.isActive { return SignalStyle.deviceRaised }
+        if BentoStyle.isActive { return BentoStyle.surfaceRaised }
         return Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5))
     }
     
@@ -160,6 +169,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.72) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.78) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.78) }
+        if BentoStyle.isActive { return BentoStyle.surface.opacity(0.78) }
         return Color(light: Color.white.opacity(0.55), dark: Color(hex: "3A3A3C").opacity(0.4))
     }
     
@@ -171,6 +181,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised.opacity(0.96) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.96) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.96) }
+        if BentoStyle.isActive { return BentoStyle.surface.opacity(0.96) }
         return Color(light: Color.white.opacity(0.45), dark: Color(hex: "2C2C2E").opacity(0.45))
     }
 
@@ -181,6 +192,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised }
         if ClayStyle.isActive { return ClayStyle.creamRaised }
         if SignalStyle.isActive { return SignalStyle.device }
+        if BentoStyle.isActive { return BentoStyle.surfaceRaised }
         return Color(light: Color(hex: "FFFFFF").opacity(0.98), dark: Color(hex: "242734").opacity(0.98))
     }
 
@@ -191,6 +203,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.glassPressed }
         if ClayStyle.isActive { return ClayStyle.creamPressed }
         if SignalStyle.isActive { return SignalStyle.control }
+        if BentoStyle.isActive { return BentoStyle.paper }
         return Color(light: Color(hex: "F3F6FB").opacity(0.98), dark: Color(hex: "161922").opacity(0.98))
     }
 
@@ -201,6 +214,7 @@ extension Color {
         if SequoiaStyle.isActive { return Color.white.opacity(0.42) }
         if ClayStyle.isActive { return ClayStyle.butter.opacity(0.2) }
         if SignalStyle.isActive { return SignalStyle.accent.opacity(0.13) }
+        if BentoStyle.isActive { return BentoStyle.mustard.opacity(0.16) }
         return Color(light: Color.white.opacity(0.82), dark: Color.white.opacity(0.08))
     }
 
@@ -211,6 +225,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.12) }
         if ClayStyle.isActive { return ClayStyle.accent.opacity(0.1) }
         if SignalStyle.isActive { return SignalStyle.accent.opacity(0.1) }
+        if BentoStyle.isActive { return BentoStyle.tomato.opacity(0.1) }
         return Color(light: Color(hex: "DCE9FF").opacity(0.42), dark: Color(hex: "4A5B86").opacity(0.18))
     }
 
@@ -221,6 +236,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.9) }
         if ClayStyle.isActive { return ClayStyle.separator.opacity(0.72) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.78) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.72) }
         return Color(light: Color.white.opacity(0.72), dark: Color.white.opacity(0.08))
     }
 
@@ -231,6 +247,7 @@ extension Color {
         if SequoiaStyle.isActive { return Color.black.opacity(0.16) }
         if ClayStyle.isActive { return Color.black.opacity(0.12) }
         if SignalStyle.isActive { return Color.black.opacity(0.2) }
+        if BentoStyle.isActive { return BentoStyle.ink.opacity(0.14) }
         return Color(light: Color.black.opacity(0.12), dark: Color.black.opacity(0.34))
     }
 
@@ -241,6 +258,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.5) }
         if ClayStyle.isActive { return ClayStyle.inkMuted.opacity(0.5) }
         if SignalStyle.isActive { return SignalStyle.inkMuted.opacity(0.55) }
+        if BentoStyle.isActive { return BentoStyle.inkMuted.opacity(0.5) }
         return Color(light: Color.black.opacity(0.14), dark: Color.white.opacity(0.16))
     }
     
@@ -250,6 +268,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.separator }
         if ClayStyle.isActive { return ClayStyle.separator }
         if SignalStyle.isActive { return SignalStyle.separator }
+        if BentoStyle.isActive { return BentoStyle.separator }
         return Color(light: Color.black.opacity(0.1), dark: Color.white.opacity(0.1))
     }
     
@@ -259,6 +278,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.16) }
         if ClayStyle.isActive { return ClayStyle.accent.opacity(0.18) }
         if SignalStyle.isActive { return SignalStyle.control }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         return monologueDefaultAccent
     }
     
@@ -268,6 +288,7 @@ extension Color {
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if ClayStyle.isActive { return ClayStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.onAccent }
         return Color(light: .white, dark: .black)
     }
 }

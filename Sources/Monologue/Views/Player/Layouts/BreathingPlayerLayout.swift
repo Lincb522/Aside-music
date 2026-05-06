@@ -447,7 +447,7 @@ extension BreathingPlayerLayout {
     }
 
     private func interactiveOrb(coreSize: CGFloat, size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !player.isPlaying && interactionAxis == .idle)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying && interactionAxis == .idle)) { timeline in
             let phase = timeline.date.timeIntervalSinceReferenceDate
             let amplitude = player.isPlaying ? coreSize * 0.075 : coreSize * 0.04
             let drift = blobDrift(for: coreSize)
@@ -480,7 +480,7 @@ extension BreathingPlayerLayout {
         leadingColor: Color,
         secondaryColor: Color
     ) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: !player.isPlaying && interactionAxis == .idle)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying && interactionAxis == .idle)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
 
             ZStack {

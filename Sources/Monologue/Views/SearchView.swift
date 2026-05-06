@@ -112,6 +112,8 @@ struct SearchView: View {
                     mujiSearchHeader
                 } else if SequoiaStyle.isActive {
                     sequoiaSearchHeader
+                } else if LiquidGlassStyle.isActive {
+                    liquidGlassSearchHeader
                 }
 
                 searchBarSection
@@ -195,9 +197,44 @@ struct SearchView: View {
         .padding(.bottom, 2)
     }
 
+    private var liquidGlassSearchHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(LiquidGlassStyle.accent.opacity(0.16))
+                    .frame(width: 52, height: 52)
+                    .blur(radius: 8)
+
+                LiquidGlassIconBadge(icon: .magnifyingGlass, tint: LiquidGlassStyle.accent, size: 46)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 7) {
+                    Capsule()
+                        .fill(LiquidGlassStyle.accentGradient)
+                        .frame(width: 28, height: 5)
+                    Capsule()
+                        .fill(LiquidGlassStyle.violet.opacity(0.42))
+                        .frame(width: 10, height: 5)
+                }
+
+                Text(String(localized: "搜索"))
+                    .font(LiquidGlassStyle.titleFont(28, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+            }
+
+            Spacer(minLength: 0)
+
+            LiquidGlassPulseGlyphSmall(tint: LiquidGlassStyle.cyan)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .padding(.bottom, 12)
+    }
+
     private var searchBarSection: some View {
         let showFullSearch = isSearchBarExpanded
-        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? (showFullSearch ? 18 : 20) : (SignalStyle.isActive ? (showFullSearch ? 20 : 22) : (SequoiaStyle.isActive ? (showFullSearch ? 16 : 18) : (showFullSearch ? 16 : 21)))))
+        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? (showFullSearch ? 18 : 20) : (SignalStyle.isActive ? (showFullSearch ? 20 : 22) : (SequoiaStyle.isActive ? (showFullSearch ? 16 : 18) : (LiquidGlassStyle.isActive ? (showFullSearch ? 20 : 24) : (showFullSearch ? 16 : 21))))))
 
         return HStack(spacing: 12) {
             Button {
@@ -324,15 +361,21 @@ struct SearchView: View {
     }
 
     private var searchBackButtonLabel: some View {
-        let radius: CGFloat = MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 16 : (SignalStyle.isActive ? 17 : (SequoiaStyle.isActive ? 15 : 21)))
-        let fill = MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : (NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : (SignalStyle.isActive ? SignalStyle.control : (SequoiaStyle.isActive ? SequoiaStyle.materialRaised : Color.monologueTextPrimary.opacity(0.04)))))
-        let stroke = MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.4) : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.72) : (SequoiaStyle.isActive ? SequoiaStyle.separator : Color.monologueTextPrimary.opacity(0.05)))))
+        let radius: CGFloat = MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 16 : (SignalStyle.isActive ? 17 : (SequoiaStyle.isActive ? 15 : (LiquidGlassStyle.isActive ? 17 : 21))))
+        let fill = MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : (NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : (SignalStyle.isActive ? SignalStyle.control : (SequoiaStyle.isActive ? SequoiaStyle.materialRaised : (LiquidGlassStyle.isActive ? LiquidGlassStyle.glassList : Color.monologueTextPrimary.opacity(0.04))))))
+        let stroke = MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.4) : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.72) : (SequoiaStyle.isActive ? SequoiaStyle.separator : (LiquidGlassStyle.isActive ? LiquidGlassStyle.luminousEdge.opacity(0.48) : Color.monologueTextPrimary.opacity(0.05))))))
 
-        return MonologueIcon(icon: .back, size: 18, color: SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)), lineWidth: 1.8)
+        return MonologueIcon(icon: .back, size: 18, color: SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (LiquidGlassStyle.isActive ? LiquidGlassStyle.ink : .monologueTextPrimary))), lineWidth: 1.8)
             .frame(width: 42, height: 42)
             .background(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(fill)
+                Group {
+                    if LiquidGlassStyle.isActive {
+                        LiquidGlassSurfaceBackground(cornerRadius: radius, elevated: true, role: .list)
+                    } else {
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .fill(fill)
+                    }
+                }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -347,6 +390,7 @@ struct SearchView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
         return .gray
     }
 
@@ -354,6 +398,7 @@ struct SearchView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkMuted }
         return .monologueTextSecondary.opacity(0.6)
     }
 
@@ -361,6 +406,7 @@ struct SearchView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -370,6 +416,7 @@ struct SearchView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .regular) }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(15, weight: .medium) }
         return .rounded(size: 16, weight: .medium)
     }
 
@@ -387,6 +434,8 @@ struct SearchView: View {
             mujiSearchTabBar
         } else if SequoiaStyle.isActive {
             sequoiaSearchTabBar
+        } else if LiquidGlassStyle.isActive {
+            liquidGlassSearchTabBar
         } else {
             GeometryReader { proxy in
                 let spacing: CGFloat = 8
@@ -639,6 +688,55 @@ struct SearchView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var liquidGlassSearchTabBar: some View {
+        GeometryReader { proxy in
+            let spacing: CGFloat = viewModel.hasSearched ? 6 : 7
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        let selected = viewModel.currentTab == tab
+                        HStack(spacing: viewModel.hasSearched ? 0 : 6) {
+                            if !viewModel.hasSearched {
+                                MonologueIcon(
+                                    icon: searchTabIcon(tab),
+                                    size: 12,
+                                    color: selected ? LiquidGlassStyle.onAccent : LiquidGlassStyle.inkSoft,
+                                    lineWidth: 1.5
+                                )
+                            }
+
+                            Text(tab.rawValue)
+                                .font(LiquidGlassStyle.labelFont(viewModel.hasSearched ? 11 : 12.5, weight: selected ? .semibold : .medium))
+                                .foregroundStyle(selected ? LiquidGlassStyle.onAccent : LiquidGlassStyle.inkSoft)
+                                .lineLimit(1)
+                        }
+                        .frame(width: itemWidth)
+                        .padding(.vertical, viewModel.hasSearched ? 6 : 9)
+                        .background(
+                            Capsule()
+                                .fill(selected ? LiquidGlassStyle.accent.opacity(0.88) : LiquidGlassStyle.glassList.opacity(0.58))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(selected ? Color.white.opacity(0.42) : LiquidGlassStyle.separator.opacity(0.7), lineWidth: 0.55)
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(5)
+            .background(LiquidGlassChromeBar(cornerRadius: viewModel.hasSearched ? 17 : 20))
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, viewModel.hasSearched ? 2 : 7)
+        }
+        .frame(height: viewModel.hasSearched ? 48 : 58)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func searchTabItemWidth(totalWidth: CGFloat, spacing: CGFloat) -> CGFloat {
         let count = CGFloat(SearchTab.allCases.count)
         let horizontalPadding = DeviceLayout.viewHorizontalPadding * 2
@@ -669,6 +767,8 @@ struct SearchView: View {
                     signalResultConsole
                 } else if SequoiaStyle.isActive {
                     sequoiaResultConsole
+                } else if LiquidGlassStyle.isActive {
+                    liquidGlassResultConsole
                 }
 
                 searchTabBar
@@ -839,6 +939,43 @@ struct SearchView: View {
         }
     }
 
+    private struct LiquidGlassMicroSpectrum: View {
+        let tint: Color
+
+        var body: some View {
+            HStack(spacing: 4) {
+                ForEach(0..<12, id: \.self) { index in
+                    Capsule()
+                        .fill(index < 7 ? tint.opacity(0.68) : LiquidGlassStyle.inkMuted.opacity(0.18))
+                        .frame(width: index.isMultiple(of: 3) ? 13 : 8, height: 3 + CGFloat((index + 1) % 3))
+                }
+            }
+            .frame(maxWidth: 142, alignment: .leading)
+        }
+    }
+
+    private struct LiquidGlassPulseGlyphSmall: View {
+        let tint: Color
+
+        var body: some View {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.12))
+                    .frame(width: 42, height: 42)
+                    .background(LiquidGlassSurfaceBackground(cornerRadius: 16, elevated: false, role: .list))
+
+                HStack(spacing: 3) {
+                    ForEach(0..<3, id: \.self) { index in
+                        Capsule()
+                            .fill(index == 1 ? tint : LiquidGlassStyle.inkMuted.opacity(0.38))
+                            .frame(width: 4, height: CGFloat([13, 22, 16][index]))
+                    }
+                }
+            }
+            .accessibilityHidden(true)
+        }
+    }
+
     private var sequoiaResultConsole: some View {
         HStack(spacing: 12) {
             SequoiaIconBadge(icon: searchTabIcon(viewModel.currentTab), tint: viewModel.selectedPlatform.themedBadgeColor, size: 40)
@@ -887,6 +1024,54 @@ struct SearchView: View {
         .padding(.bottom, 8)
     }
 
+    private var liquidGlassResultConsole: some View {
+        HStack(spacing: 12) {
+            LiquidGlassIconBadge(icon: searchTabIcon(viewModel.currentTab), tint: viewModel.selectedPlatform.themedBadgeColor, size: 42)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    Text(platformTabName(viewModel.selectedPlatform))
+                        .font(LiquidGlassStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(viewModel.selectedPlatform.themedBadgeColor)
+                        .tracking(0.7)
+
+                    LiquidGlassPill(text: viewModel.currentTab.rawValue, tint: LiquidGlassStyle.violet, compact: true)
+                }
+
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(LiquidGlassStyle.titleFont(20, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                LiquidGlassMicroSpectrum(tint: viewModel.selectedPlatform.themedBadgeColor)
+            }
+
+            Spacer(minLength: 8)
+
+            Group {
+                if isPlatformLoading {
+                    ProgressView()
+                        .tint(LiquidGlassStyle.accent)
+                        .scaleEffect(0.78)
+                } else {
+                    Text("\(selectedPlatformResultCount)")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(LiquidGlassStyle.accent)
+                        .monospacedDigit()
+                }
+            }
+            .frame(minWidth: 44, minHeight: 38)
+            .padding(.horizontal, 6)
+            .background(LiquidGlassSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(LiquidGlassPrismBand(tint: viewModel.selectedPlatform.themedBadgeColor, cornerRadius: 24))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
     @ViewBuilder
     private var searchLoadingState: some View {
         if NeumorphicStyle.isActive {
@@ -909,6 +1094,17 @@ struct SearchView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, 36)
             .frame(minHeight: 320, alignment: .top)
+        } else if LiquidGlassStyle.isActive {
+            LiquidGlassStatePanel(
+                title: String(localized: "搜索中"),
+                subtitle: nil,
+                icon: .magnifyingGlass,
+                tint: LiquidGlassStyle.accent,
+                showsProgress: true
+            )
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 36)
+            .frame(minHeight: 320, alignment: .top)
         } else {
             MonologueLoadingView(text: "SEARCHING")
                 .frame(maxWidth: .infinity)
@@ -918,7 +1114,7 @@ struct SearchView: View {
 
     private var searchEmptyState: some View {
         emptyResultsView
-            .padding(.horizontal, (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.horizontal, (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 320)
     }
@@ -1280,6 +1476,8 @@ struct SearchView: View {
             mujiPlatformTabBar
         } else if SequoiaStyle.isActive {
             sequoiaPlatformTabBar
+        } else if LiquidGlassStyle.isActive {
+            liquidGlassPlatformTabBar
         } else {
             let platforms: [MusicSource] = viewModel.currentTab == .songs
                 ? [.netease, .qqmusic, .qishui]
@@ -1489,6 +1687,46 @@ struct SearchView: View {
         .background(MangaCardBackground(cornerRadius: 12, elevated: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, 8)
+    }
+
+    private var liquidGlassPlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    let tint = platform.themedBadgeColor
+                    let selected = viewModel.selectedPlatform == platform
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(tint.opacity(selected ? 0.9 : 0.42))
+                            .frame(width: 6, height: 6)
+                        Text(platformTabName(platform))
+                            .font(LiquidGlassStyle.labelFont(viewModel.hasSearched ? 10.5 : 11.5, weight: .semibold))
+                            .foregroundStyle(selected ? LiquidGlassStyle.ink : LiquidGlassStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, viewModel.hasSearched ? 7 : 8)
+                    .background(
+                        Capsule()
+                            .fill(selected ? tint.opacity(0.13) : Color.clear)
+                            .overlay(Capsule().stroke(selected ? tint.opacity(0.26) : Color.clear, lineWidth: 0.55))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(LiquidGlassSurfaceBackground(cornerRadius: viewModel.hasSearched ? 15 : 17, elevated: false, pressed: true, role: .list))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, viewModel.hasSearched ? 3 : 8)
     }
 
     private func platformTabName(_ source: MusicSource) -> String {

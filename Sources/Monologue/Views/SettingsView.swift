@@ -25,6 +25,9 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
     if SignalStyle.isActive {
         return SignalStyle.labelFont(size, weight: weight)
     }
+    if BentoStyle.isActive {
+        return BentoStyle.labelFont(size, weight: weight == .bold ? .heavy : weight)
+    }
     if SequoiaStyle.isActive {
         return SequoiaStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
     }
@@ -98,8 +101,12 @@ struct SettingsView: View {
             neumorphicSettingsContent
         } else if SignalStyle.isActive {
             signalSettingsContent
+        } else if BentoStyle.isActive {
+            bentoSettingsContent
         } else if SequoiaStyle.isActive {
             sequoiaSettingsContent
+        } else if LiquidGlassStyle.isActive {
+            liquidGlassSettingsContent
         } else if MujiStyle.isActive {
             mujiSettingsContent
         } else {
@@ -163,6 +170,20 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
+    private var bentoSettingsContent: some View {
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
+
+        settingsHeaderCard
+        bentoSettingsModeBlock
+        bentoSettingsGrid
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
     private var sequoiaSettingsContent: some View {
         settingsMainPageHeader
             .padding(.horizontal, -settingsOuterHorizontalPadding)
@@ -170,6 +191,22 @@ struct SettingsView: View {
         settingsHeaderCard
         themeSection
         navigationCardsSection
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var liquidGlassSettingsContent: some View {
+        liquidGlassSettingsHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
+
+        liquidGlassModeDeck
+
+        liquidGlassSettingsMatrix
+
+        settingsHeaderCard
 
         if qqDevMode {
             otherSection
@@ -196,6 +233,229 @@ struct SettingsView: View {
             icon: .infoCircle
         )
     }
+
+    private var liquidGlassSettingsHeader: some View {
+        HStack(spacing: 14) {
+            LiquidGlassDropletMark(tint: LiquidGlassStyle.accent)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Capsule()
+                        .fill(LiquidGlassStyle.accentGradient)
+                        .frame(width: 26, height: 5)
+                    Capsule()
+                        .fill(LiquidGlassStyle.mint.opacity(0.44))
+                        .frame(width: 10, height: 5)
+                }
+
+                Text(String(localized: "settings_title"))
+                    .font(LiquidGlassStyle.titleFont(27, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 10)
+
+            LiquidGlassIconBadge(icon: .settings, tint: LiquidGlassStyle.cyan, size: 44)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .padding(.bottom, 4)
+    }
+
+    private var liquidGlassModeDeck: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                LiquidGlassIconBadge(icon: .sparkle, tint: LiquidGlassStyle.accent, size: 34)
+
+                Text(String(localized: "settings_theme_mode_section_title"))
+                    .font(LiquidGlassStyle.titleFont(17, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+
+                Spacer(minLength: 0)
+            }
+
+            SettingsThemeRow(
+                icon: .sparkle,
+                title: String(localized: "settings_theme_mode"),
+                selection: $settings.themeMode
+            )
+            .background(LiquidGlassSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, role: .list))
+            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        .padding(14)
+        .background(LiquidGlassPrismBand(tint: LiquidGlassStyle.accent, cornerRadius: 26))
+    }
+
+    private var liquidGlassSettingsMatrix: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12),
+            ],
+            spacing: 12
+        ) {
+            NavigationLink(destination: AppearanceSettingsView()) {
+                LiquidGlassSettingsTile(
+                    icon: .sparkle,
+                    title: settingsText("settings_navigation_appearance_title"),
+                    value: "STYLE",
+                    tint: LiquidGlassStyle.accent
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: PlaybackSettingsView()) {
+                LiquidGlassSettingsTile(
+                    icon: .soundQuality,
+                    title: settingsText("settings_navigation_playback_title"),
+                    value: "PLAY",
+                    tint: LiquidGlassStyle.violet
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: CloudSyncSettingsView()) {
+                LiquidGlassSettingsTile(
+                    icon: .cloud,
+                    title: settingsText("settings_navigation_cloud_sync_title"),
+                    value: hasToken ? "SYNC" : "OFF",
+                    tint: LiquidGlassStyle.mint
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: StorageManageView()) {
+                LiquidGlassSettingsTile(
+                    icon: .storage,
+                    title: String(localized: "settings_storage_manage"),
+                    value: cacheSize,
+                    tint: LiquidGlassStyle.cyan
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: DownloadManageView()) {
+                LiquidGlassSettingsTile(
+                    icon: .download,
+                    title: String(localized: "settings_download_manage"),
+                    value: "DL",
+                    tint: LiquidGlassStyle.amber
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: AboutView()) {
+                LiquidGlassSettingsTile(
+                    icon: .infoCircle,
+                    title: String(localized: "settings_about"),
+                    value: appVersion,
+                    tint: LiquidGlassStyle.pink
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var bentoSettingsModeBlock: some View {
+        BentoBlock(fill: BentoStyle.surface, radius: 24, padding: 12, stroked: true) {
+            VStack(alignment: .leading, spacing: 12) {
+                BentoBlockHeader(
+                    eyebrow: "MODE",
+                    title: String(localized: "settings_theme_mode_section_title"),
+                    titleColor: BentoStyle.ink,
+                    eyebrowColor: BentoStyle.tomato,
+                    tightSpacing: true
+                )
+
+                SettingsThemeRow(
+                    icon: .sparkle,
+                    title: String(localized: "settings_theme_mode"),
+                    selection: $settings.themeMode
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(BentoStyle.paperWarm.opacity(0.72))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(BentoStyle.hairline.opacity(0.55), lineWidth: 0.7)
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+        }
+    }
+
+    private var bentoSettingsGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: BentoStyle.blockSpacing),
+                GridItem(.flexible(), spacing: BentoStyle.blockSpacing),
+            ],
+            spacing: BentoStyle.blockSpacing
+        ) {
+            NavigationLink(destination: AppearanceSettingsView()) {
+                BentoSettingsTile(
+                    icon: .sparkle,
+                    title: settingsText("settings_navigation_appearance_title"),
+                    value: "STYLE",
+                    tint: BentoStyle.tomato
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: PlaybackSettingsView()) {
+                BentoSettingsTile(
+                    icon: .soundQuality,
+                    title: settingsText("settings_navigation_playback_title"),
+                    value: "PLAY",
+                    tint: BentoStyle.ocean
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: CloudSyncSettingsView()) {
+                BentoSettingsTile(
+                    icon: .cloud,
+                    title: settingsText("settings_navigation_cloud_sync_title"),
+                    value: hasToken ? "SYNC" : "OFF",
+                    tint: BentoStyle.matcha
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: StorageManageView()) {
+                BentoSettingsTile(
+                    icon: .storage,
+                    title: String(localized: "settings_storage_manage"),
+                    value: cacheSize,
+                    tint: BentoStyle.mustard
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: DownloadManageView()) {
+                BentoSettingsTile(
+                    icon: .download,
+                    title: String(localized: "settings_download_manage"),
+                    value: "DL",
+                    tint: BentoStyle.salmon
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: AboutView()) {
+                BentoSettingsTile(
+                    icon: .infoCircle,
+                    title: String(localized: "settings_about"),
+                    value: appVersion,
+                    tint: BentoStyle.nori
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
 
     // MARK: - 日夜模式
 
@@ -483,6 +743,9 @@ struct SettingsView: View {
         if SequoiaStyle.isActive {
             return hasToken ? SequoiaStyle.inkSoft : SequoiaStyle.inkMuted
         }
+        if BentoStyle.isActive {
+            return hasToken ? BentoStyle.inkSoft : BentoStyle.inkMuted
+        }
         if MujiStyle.isActive {
             return hasToken ? MujiStyle.inkSoft : MujiStyle.inkMuted
         }
@@ -498,6 +761,9 @@ struct SettingsView: View {
         }
         if SignalStyle.isActive {
             return tokenSaved || hasToken ? SignalStyle.olive.opacity(0.16) : SignalStyle.controlPressed.opacity(0.82)
+        }
+        if BentoStyle.isActive {
+            return tokenSaved || hasToken ? BentoStyle.matcha.opacity(0.16) : BentoStyle.paperWarm.opacity(0.78)
         }
         if SequoiaStyle.isActive {
             return tokenSaved || hasToken ? SequoiaStyle.green.opacity(0.14) : SequoiaStyle.materialList.opacity(0.86)
@@ -515,6 +781,7 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
+        if BentoStyle.isActive { return BentoStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         return .monologueTextPrimary
@@ -524,6 +791,7 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         return .monologueTextSecondary
@@ -533,6 +801,7 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         if SequoiaStyle.isActive { return SequoiaStyle.aqua }
         if MujiStyle.isActive { return MujiStyle.tea }
         return .green
@@ -542,6 +811,7 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.62) }
         if SignalStyle.isActive { return SignalStyle.controlPressed.opacity(0.78) }
+        if BentoStyle.isActive { return BentoStyle.paperWarm.opacity(0.82) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.82) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
         return Color.monologueSeparator.opacity(0.4)
@@ -551,6 +821,7 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.5) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.5) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.56) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.58) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
         return Color.clear
@@ -560,6 +831,7 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         return .monologueAccent
@@ -569,13 +841,14 @@ struct SettingsView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
         if SignalStyle.isActive { return SignalStyle.onAccent }
+        if BentoStyle.isActive { return BentoStyle.onAccent }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         return Color(light: .white, dark: .black)
     }
 
     private var headerAvatarRadius: CGFloat {
-        MangaStyle.isActive ? 16 : (MujiStyle.isActive ? 10 : (SignalStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 16 : (SequoiaStyle.isActive ? 14 : 14))))
+        MangaStyle.isActive ? 16 : (MujiStyle.isActive ? 10 : (BentoStyle.isActive ? 17 : (SignalStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 16 : (SequoiaStyle.isActive ? 14 : 14)))))
     }
 
     private var playlistSyncStatusText: String {
@@ -1107,6 +1380,17 @@ struct SettingsIconBadge: View {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else if SignalStyle.isActive {
             SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 32)
+        } else if BentoStyle.isActive {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(BentoStyle.tomato.opacity(0.14))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    MonologueIcon(icon: icon, size: 15, color: BentoStyle.tomato, lineWidth: 1.65)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65)
+                )
         } else if SequoiaStyle.isActive {
             SequoiaIconBadge(icon: icon, tint: SequoiaStyle.accent, size: 32)
         } else if MujiStyle.isActive {
@@ -1143,7 +1427,7 @@ struct SettingsSection<Content: View>: View {
                 .font(sectionTitleFont)
                 .foregroundColor(sectionTitleColor)
                 .padding(.leading, 16)
-                .tracking(MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive ? 1.0 : 0.4)
+                .tracking(MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4)
 
             VStack(spacing: 0) {
                 content
@@ -1159,6 +1443,13 @@ struct SettingsSection<Content: View>: View {
                     SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
                 } else if SignalStyle.isActive {
                     SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device)
+                } else if BentoStyle.isActive {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(BentoStyle.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(BentoStyle.hairline.opacity(0.56), lineWidth: 0.7)
+                        )
                 }
             }
             .monologueGlassConditionalForSettings(cornerRadius: 22)
@@ -1172,6 +1463,7 @@ struct SettingsSection<Content: View>: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: .bold) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(11, weight: .heavy) }
         return .system(size: 12, weight: .bold, design: .rounded)
     }
 
@@ -1181,6 +1473,7 @@ struct SettingsSection<Content: View>: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if BentoStyle.isActive { return BentoStyle.inkMuted }
         return Color.secondary
     }
 }
@@ -1188,7 +1481,7 @@ struct SettingsSection<Content: View>: View {
 private extension View {
     @ViewBuilder
     func monologueGlassConditionalForSettings(cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive {
+        if MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive || BentoStyle.isActive {
             self
         } else {
             monologueGlass(cornerRadius: cornerRadius)
@@ -1208,6 +1501,15 @@ private extension View {
             background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 24), elevated: true, role: .chrome))
         } else if SignalStyle.isActive {
             background(SignalSurfaceBackground(cornerRadius: min(max(cornerRadius, 12), 18), elevated: true, fill: SignalStyle.device))
+        } else if BentoStyle.isActive {
+            background(
+                RoundedRectangle(cornerRadius: min(max(cornerRadius, 18), 26), style: .continuous)
+                    .fill(BentoStyle.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: min(max(cornerRadius, 18), 26), style: .continuous)
+                            .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.7)
+                    )
+            )
         } else {
             monologueGlass(cornerRadius: cornerRadius)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -1225,6 +1527,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
         if SignalStyle.isActive { return SignalStyle.controlPressed }
+        if BentoStyle.isActive { return BentoStyle.paperWarm }
         return Color(light: Color.black.opacity(0.12), dark: Color.white.opacity(0.2))
     }
 
@@ -1232,6 +1535,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.45) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.52) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.62) }
         return Color(light: Color.black.opacity(0.08), dark: Color.white.opacity(0.14))
     }
 
@@ -1245,6 +1549,9 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
         if SignalStyle.isActive {
             return isOn ? SignalStyle.accent : SignalStyle.deviceRaised
         }
+        if BentoStyle.isActive {
+            return isOn ? BentoStyle.onAccent : BentoStyle.surface
+        }
         if isOn {
             return colorScheme == .dark ? .black : .white
         }
@@ -1255,6 +1562,9 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
         if isOn {
             if SequoiaStyle.isActive {
                 return SequoiaStyle.accent.opacity(colorScheme == .dark ? 0.28 : 0.16)
+            }
+            if BentoStyle.isActive {
+                return BentoStyle.tomato.opacity(0.22)
             }
             return Color.monologueToggleTint.opacity(colorScheme == .dark ? 0.24 : 0.08)
         }
@@ -1290,7 +1600,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     }
 
     private var activeTrackColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueToggleTint)
+        NeumorphicStyle.isActive ? NeumorphicStyle.accent : (BentoStyle.isActive ? BentoStyle.tomato : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueToggleTint))
     }
 }
 
@@ -1642,7 +1952,7 @@ struct SettingsFloatingBarRow: View {
 
                     Text(title)
                         .font(themedSettingsFont(16, weight: .medium))
-                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))))
+                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (BentoStyle.isActive ? BentoStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))))
 
                     Spacer(minLength: 12)
 
@@ -1658,7 +1968,7 @@ struct SettingsFloatingBarRow: View {
                     MonologueIcon(
                         icon: .chevronRight,
                         size: 11,
-                        color: MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.8))))),
+                        color: MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.8)))))),
                         lineWidth: 1.7
                     )
                     .rotationEffect(.degrees(isExpanded ? -90 : 90))
@@ -1714,6 +2024,10 @@ struct SettingsFloatingBarRow: View {
                 .overlay(Capsule().stroke(SequoiaStyle.accent.opacity(0.2), lineWidth: 0.55))
         } else if SignalStyle.isActive {
             SignalSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
+        } else if BentoStyle.isActive {
+            Capsule()
+                .fill(BentoStyle.tomato.opacity(0.14))
+                .overlay(Capsule().stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             Capsule()
                 .fill(Color.monologueIconBackground.opacity(0.16))
@@ -1726,6 +2040,7 @@ struct SettingsFloatingBarRow: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueTextSecondary
     }
 }
@@ -1758,6 +2073,7 @@ private struct SettingsFloatingBarOptionCard: View {
     private var cardRadius: CGFloat {
         if MangaStyle.isActive { return MangaStyle.cardRadius }
         if MujiStyle.isActive { return 11 }
+        if BentoStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return 18 }
         if SequoiaStyle.isActive { return 16 }
         if SignalStyle.isActive { return 18 }
@@ -1767,6 +2083,7 @@ private struct SettingsFloatingBarOptionCard: View {
     private var cardTitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
+        if BentoStyle.isActive { return BentoStyle.labelFont(13, weight: .heavy) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.labelFont(13, weight: .bold) }
@@ -1776,6 +2093,7 @@ private struct SettingsFloatingBarOptionCard: View {
     private var titleColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.ink }
+        if BentoStyle.isActive { return isSelected ? BentoStyle.onAccent : BentoStyle.ink }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.ink : SequoiaStyle.inkSoft }
         if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.ink }
@@ -1785,6 +2103,7 @@ private struct SettingsFloatingBarOptionCard: View {
     private var iconColor: Color {
         if MangaStyle.isActive { return isSelected ? MangaStyle.strokeInk : MangaStyle.inkSub }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.clay }
+        if BentoStyle.isActive { return isSelected ? BentoStyle.onAccent : BentoStyle.tomato }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.accent : SequoiaStyle.inkSoft }
         if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.accent }
@@ -1794,6 +2113,7 @@ private struct SettingsFloatingBarOptionCard: View {
     private var selectedMarkColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.onTint }
+        if BentoStyle.isActive { return BentoStyle.onAccent }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if SignalStyle.isActive { return SignalStyle.onAccent }
@@ -1844,6 +2164,17 @@ private struct SettingsFloatingBarOptionCard: View {
             MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.55)
                 .frame(width: 32, height: 32)
                 .background(SignalSurfaceBackground(cornerRadius: 11, elevated: false, pressed: isSelected, fill: isSelected ? SignalStyle.accent : SignalStyle.control))
+        } else if BentoStyle.isActive {
+            MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.6)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(isSelected ? BentoStyle.tomato.opacity(0.92) : BentoStyle.paperWarm.opacity(0.78))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65)
+                        )
+                )
         } else {
             MonologueIcon(icon: style.iconType, size: 18, color: iconColor, lineWidth: 1.6)
                 .frame(width: 32, height: 32)
@@ -1886,6 +2217,9 @@ private struct SettingsFloatingBarOptionCard: View {
         } else if SignalStyle.isActive {
             Circle()
                 .fill(SignalStyle.accent)
+        } else if BentoStyle.isActive {
+            Circle()
+                .fill(BentoStyle.tomato)
         } else {
             Circle()
                 .fill(Color.monologueIconBackground)
@@ -1898,6 +2232,7 @@ private struct SettingsFloatingBarOptionCard: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.65) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.86) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.72) }
+        if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.82) }
         return .monologueSeparator.opacity(0.8)
     }
 
@@ -1943,6 +2278,13 @@ private struct SettingsFloatingBarOptionCard: View {
                 pressed: !isSelected,
                 fill: isSelected ? SignalStyle.accent : SignalStyle.control
             )
+        } else if BentoStyle.isActive {
+            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                .fill(isSelected ? BentoStyle.tomato : BentoStyle.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                        .stroke(BentoStyle.hairline.opacity(isSelected ? 0.25 : 0.58), lineWidth: 0.7)
+                )
         } else {
             RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
                 .fill(isSelected ? Color.monologueIconBackground : Color.monologueSeparator.opacity(0.48))
@@ -1951,6 +2293,46 @@ private struct SettingsFloatingBarOptionCard: View {
                         .stroke(Color.monologueIconBackground.opacity(isSelected ? 0.24 : 0), lineWidth: 1)
                 )
         }
+    }
+}
+
+private struct BentoSettingsTile: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        BentoBlock(fill: tint, foreground: BentoStyle.onAccent, radius: 24, padding: 13) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top) {
+                    MonologueIcon(icon: icon, size: 18, color: BentoStyle.onAccent, lineWidth: 1.75)
+                        .frame(width: 36, height: 36)
+                        .background(BentoStyle.onAccent.opacity(0.16), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+
+                    Spacer(minLength: 8)
+
+                    Text(value.uppercased())
+                        .font(BentoStyle.labelFont(10, weight: .black))
+                        .tracking(0.8)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .foregroundStyle(BentoStyle.onAccent.opacity(0.88))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(BentoStyle.onAccent.opacity(0.14), in: Capsule())
+                }
+
+                Text(title)
+                    .font(BentoStyle.titleFont(15, weight: .heavy))
+                    .foregroundStyle(BentoStyle.onAccent)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(minHeight: 116)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 
@@ -2022,6 +2404,7 @@ struct SettingsHitokotoTypeRow: View {
     private var activeSummaryColor: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
+        if BentoStyle.isActive { return BentoStyle.tomato }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
@@ -2040,11 +2423,11 @@ struct SettingsHitokotoTypeRow: View {
     }
 
     private var chipHorizontalPadding: CGFloat {
-        MangaStyle.isActive ? 13 : 12
+        MangaStyle.isActive ? 13 : (BentoStyle.isActive ? 13 : 12)
     }
 
     private var chipVerticalPadding: CGFloat {
-        NeumorphicStyle.isActive ? 7 : 6
+        NeumorphicStyle.isActive ? 7 : (BentoStyle.isActive ? 7 : 6)
     }
 
     @ViewBuilder
@@ -2063,6 +2446,10 @@ struct SettingsHitokotoTypeRow: View {
                 .fill(selected ? MujiStyle.clay.opacity(0.15) : MujiStyle.surface.opacity(0.76))
                 .overlay(Capsule().stroke(selected ? MujiStyle.clay.opacity(0.42) : MujiStyle.hairline.opacity(0.44), lineWidth: 0.65))
                 .overlay(MujiPaperTexture(opacity: selected ? 0.04 : 0.08).clipShape(Capsule()))
+        } else if BentoStyle.isActive {
+            Capsule()
+                .fill(selected ? BentoStyle.tomato : BentoStyle.surface)
+                .overlay(Capsule().stroke(BentoStyle.hairline.opacity(selected ? 0.3 : 0.58), lineWidth: 0.65))
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(
                 cornerRadius: 15,
@@ -2095,10 +2482,78 @@ struct SettingsHitokotoTypeRow: View {
                 : MangaStyle.inkSub
         }
         if MujiStyle.isActive { return selected ? MujiStyle.clay : MujiStyle.inkSoft }
+        if BentoStyle.isActive { return selected ? BentoStyle.onAccent : BentoStyle.inkSoft }
         if NeumorphicStyle.isActive { return selected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return selected ? SequoiaStyle.accent : SequoiaStyle.inkSoft }
         if SignalStyle.isActive { return selected ? SignalStyle.onAccent : SignalStyle.inkSoft }
         return selected ? Color.monologueIconForeground : Color.monologueTextSecondary
+    }
+}
+
+private struct LiquidGlassSettingsTile: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                LiquidGlassIconBadge(icon: icon, tint: tint, size: 38)
+
+                Spacer(minLength: 8)
+
+                Text(value)
+                    .font(LiquidGlassStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(tint.opacity(0.12))
+                            .overlay(Capsule().stroke(tint.opacity(0.24), lineWidth: 0.55))
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(LiquidGlassStyle.titleFont(16, weight: .semibold))
+                    .foregroundStyle(LiquidGlassStyle.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+
+                HStack(spacing: 5) {
+                    Capsule()
+                        .fill(tint.opacity(0.58))
+                        .frame(width: 28, height: 4)
+                    Capsule()
+                        .fill(LiquidGlassStyle.luminousEdge.opacity(0.46))
+                        .frame(width: 10, height: 4)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
+        .padding(14)
+        .background(LiquidGlassSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            tint.opacity(0.1),
+                            Color.clear,
+                            LiquidGlassStyle.cyan.opacity(0.05),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .allowsHitTesting(false)
+        )
     }
 }
 

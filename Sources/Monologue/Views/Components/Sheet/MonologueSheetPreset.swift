@@ -98,8 +98,14 @@ enum MonologueSheetPreset: Equatable {
         if SequoiaStyle.isActive {
             return min(max(cornerRadius, 24), 30)
         }
+        if LiquidGlassStyle.isActive {
+            return min(max(cornerRadius, 26), 32)
+        }
         if SignalStyle.isActive {
             return min(max(cornerRadius, 28), 32)
+        }
+        if BentoStyle.isActive {
+            return min(max(cornerRadius, 24), 28)
         }
         return cornerRadius
     }

@@ -35,25 +35,6 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>INAlternativeAppNames</key>
-	<array>
-		<dict>
-			<key>INAlternativeAppName</key>
-			<string>独白音乐</string>
-		</dict>
-		<dict>
-			<key>INAlternativeAppName</key>
-			<string>独白</string>
-		</dict>
-	</array>
-	<key>INIntentsSupported</key>
-	<array>
-		<string>INPlayMediaIntent</string>
-	</array>
-	<key>INSupportedMediaCategories</key>
-	<array>
-		<string>INMediaCategoryMusic</string>
-	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -146,16 +127,10 @@
 	<string>听歌识曲需要使用麦克风来识别正在播放的音乐</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
-	<key>NSSiriUsageDescription</key>
-	<string>使用 Siri 语音搜索和播放音乐</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<true/>
-	<key>NSUserActivityTypes</key>
-	<array>
-		<string>INPlayMediaIntent</string>
-	</array>
 	<key>QQ_MUSIC_BASE_URL</key>
 	<string>$(QQ_MUSIC_BASE_URL)</string>
 	<key>UIAppFonts</key>
