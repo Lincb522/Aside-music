@@ -13,8 +13,7 @@ struct MarqueeText: View {
 
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
-    @State private var offset: CGFloat = 0
-    @State private var animating = false
+    @State private var animationStart = Date().timeIntervalSinceReferenceDate
     @State private var textId = UUID() // 用于强制重新测量
 
     /// 是否需要滚动
@@ -25,16 +24,17 @@ struct MarqueeText: View {
             let cw = geo.size.width
             ZStack {
                 if needsScroll {
-                    // 滚动模式：两段文字首尾相接
-                    HStack(spacing: spacing) {
-                        textView
-                        textView
+                    TimelineView(.animation) { context in
+                        HStack(spacing: spacing) {
+                            textView
+                            textView
+                        }
+                        .offset(x: marqueeOffset(at: context.date.timeIntervalSinceReferenceDate))
+                        .frame(width: cw, alignment: .leading)
                     }
-                    .offset(x: offset)
-                    .frame(width: cw, alignment: .leading)
                     .onAppear {
                         containerWidth = cw
-                        startAnimation()
+                        resetAnimationClock()
                     }
                     .onChange(of: text) { _, _ in
                         textId = UUID()
@@ -82,31 +82,25 @@ struct MarqueeText: View {
     /// 文字高度估算
     private var textHeight: CGFloat { 20 }
 
-    private func startAnimation() {
-        guard needsScroll else { return }
-        offset = 0
-        animating = false
+    private func marqueeOffset(at time: TimeInterval) -> CGFloat {
+        guard needsScroll else { return 0 }
 
-        // 先停顿一下
-        DispatchQueue.main.asyncAfter(deadline: .now() + delayBeforeScroll) {
-            guard needsScroll else { return }
-            let scrollDistance = textWidth + spacing
-            let duration = scrollDistance / speed
+        let scrollDistance = max(textWidth + spacing, 1)
+        let scrollDuration = max(scrollDistance / max(speed, 1), 0.1)
+        let elapsed = max(time - animationStart, 0)
 
-            withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
-                offset = -scrollDistance
-            }
-            animating = true
-        }
+        guard elapsed > delayBeforeScroll else { return 0 }
+
+        let cycleElapsed = (elapsed - delayBeforeScroll).truncatingRemainder(dividingBy: scrollDuration)
+        return -scrollDistance * CGFloat(cycleElapsed / scrollDuration)
+    }
+
+    private func resetAnimationClock() {
+        animationStart = Date().timeIntervalSinceReferenceDate
     }
 
     private func resetAndMeasure(containerWidth: CGFloat) {
         self.containerWidth = containerWidth
-        offset = 0
-        animating = false
-        // 等测量完成后重新启动
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            startAnimation()
-        }
+        resetAnimationClock()
     }
 }

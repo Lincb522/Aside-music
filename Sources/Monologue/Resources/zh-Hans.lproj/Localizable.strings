@@ -376,6 +376,7 @@
 "settings_navigation_playback_title" = "播放设置";
 "settings_navigation_playback_subtitle" = "音质、均衡器、播放行为";
 "settings_system_tab_bar" = "系统 TabBar";
+"settings_default_liquid_glass_tabbar" = "液态玻璃 TabBar";
 "settings_background_audio_policy" = "后台播放模式";
 "settings_background_audio_policy_exclusive" = "独占播放";
 "settings_background_audio_policy_exclusive_desc" = "优先作为主播放器，可能会中断其他音频";

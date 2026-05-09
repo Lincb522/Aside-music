@@ -137,16 +137,16 @@ struct EQSettingsView: View {
                     HStack(spacing: 8) {
                         if showSmartAnalyzingToast {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .progressViewStyle(CircularProgressViewStyle(tint: .monologueAccentForeground))
                                 .scaleEffect(0.8)
                             Text(LocalizedStringKey("eq_analyzing"))
                                 .font(.rounded(size: 14, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(.monologueAccentForeground)
                         } else {
-                            MonologueIcon(icon: .checkmark, size: 16, color: .white)
+                            MonologueIcon(icon: .checkmark, size: 16, color: .monologueAccentForeground)
                             Text(LocalizedStringKey("eq_applied"))
                                 .font(.rounded(size: 14, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(.monologueAccentForeground)
                         }
                     }
                     .padding(.horizontal, 20)

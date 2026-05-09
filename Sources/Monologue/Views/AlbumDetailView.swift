@@ -56,6 +56,8 @@ struct AlbumDetailView: View {
                     SequoiaRootBackdrop()
                 } else if BentoStyle.isActive {
                     BentoRootBackdrop()
+                } else if CapsuleStyle.isActive {
+                    CapsuleRootBackdrop()
                 } else if SettingsManager.shared.coverBgPlaylist {
             PlaylistColorBackground(coverUrl: effectiveCoverUrl)
         } else {
@@ -82,6 +84,8 @@ struct AlbumDetailView: View {
                         NeumorphicPill(text: "\(size)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
                     } else if SequoiaStyle.isActive {
                         SequoiaPill(text: "\(size)", icon: .musicNoteList, tint: SequoiaStyle.aqua, selected: false, compact: true)
+                    } else if CapsuleStyle.isActive {
+                        CapsuleDetailChip(text: "\(size)", icon: .musicNoteList, tint: CapsuleStyle.violet)
                     } else {
                         Text(String(format: NSLocalizedString("songs_count_format", comment: ""), size))
                             .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -132,6 +136,8 @@ struct AlbumDetailView: View {
             sequoiaAlbumHeaderContent
         } else if MujiStyle.isActive {
             mujiAlbumHeaderContent
+        } else if CapsuleStyle.isActive {
+            capsuleAlbumHeaderContent
         } else if BentoStyle.isActive {
             bentoAlbumHeaderContent
         } else {
@@ -319,6 +325,57 @@ struct AlbumDetailView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .background(Capsule().fill(tint.opacity(0.14)))
+    }
+
+    @ViewBuilder
+    private var capsuleAlbumHeaderContent: some View {
+        let album = viewModel.albumInfo
+        let size = album?.size ?? 0
+        let chips = [
+            size > 0 ? "\(size) \(String(localized: "songs_unit"))" : nil,
+            album?.publishDateText.isEmpty == false ? album?.publishDateText : nil,
+            album?.company?.isEmpty == false ? album?.company : nil
+        ].compactMap { $0 }
+
+        CapsuleDetailHeader(
+            eyebrow: "ALBUM",
+            title: album?.name ?? albumName ?? "",
+            subtitle: album?.artistName ?? "",
+            coverURL: album?.coverUrl?.sized(500) ?? albumCoverUrl?.sized(500),
+            fallbackIcon: .album,
+            tint: CapsuleStyle.violet,
+            chips: chips
+        ) {
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                }) {
+                    CapsuleDetailActionPill(
+                        title: String(localized: "play_now"),
+                        icon: .play,
+                        tint: CapsuleStyle.violet
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                SubscribeButton(
+                    isSubscribed: viewModel.isSubscribed,
+                    action: { viewModel.toggleSubscription(id: albumId) }
+                )
+                .disabled(viewModel.isTogglingSubscription)
+
+                if let description = album?.description, !description.isEmpty {
+                    Button(action: { showAlbumDesc = true }) {
+                        CapsuleDetailIconButton(icon: .info, tint: CapsuleStyle.cyan)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                }
+            }
+        }
     }
 
     private var sequoiaAlbumHeaderContent: some View {
@@ -807,131 +864,231 @@ struct AlbumDetailView: View {
     // MARK: - 歌曲列表
 
     private var songListSection: some View {
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleAlbumSongListSection
+            } else {
+                defaultAlbumSongListSection
+            }
+        }
+        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
+            BatchAddToPlaylistSheet(songs: albumFilteredSongs.filter { selectedSongIds.contains($0.id) })
+        }
+    }
+
+    private var capsuleAlbumSongListSection: some View {
+        LazyVStack(spacing: 14) {
+            if viewModel.isLoading {
+                CapsuleDetailSection(title: "TRACKS", icon: .album, tint: CapsuleStyle.violet) {
+                    MonologueLoadingView(text: "LOADING TRACKS")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 28)
+                }
+            } else if viewModel.songs.isEmpty {
+                CapsuleDetailSection(title: "TRACKS", icon: .album, tint: CapsuleStyle.violet) {
+                    CapsuleDetailEmptyState(title: "album_no_songs", icon: .musicNoteList, tint: CapsuleStyle.violet)
+                }
+            } else {
+                albumDescriptionCard
+
+                CapsuleDetailSection(
+                    title: "TRACKS",
+                    subtitle: String(format: NSLocalizedString("songs_count_format", comment: ""), albumFilteredSongs.count),
+                    icon: .musicNoteList,
+                    tint: CapsuleStyle.violet
+                ) {
+                    albumSearchBar
+                        .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+
+                    albumSongRows
+
+                    NoMoreDataView()
+                }
+
+                FloatingBarBottomSpacer()
+            }
+        }
+    }
+
+    private var defaultAlbumSongListSection: some View {
         LazyVStack(spacing: 0) {
             if viewModel.isLoading {
                 MonologueLoadingView(text: "LOADING TRACKS")
             } else if viewModel.songs.isEmpty {
-                VStack(spacing: 14) {
-                    if NeumorphicStyle.isActive {
-                        NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.warm, size: 54)
-                    } else if SequoiaStyle.isActive {
-                        SequoiaIconBadge(icon: .musicNoteList, tint: SequoiaStyle.violet, size: 54)
-                    } else {
-                        MonologueIcon(icon: .musicNoteList, size: 40, color: Theme.secondaryText.opacity(0.3))
-                    }
-                    Text(LocalizedStringKey("album_no_songs"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Theme.secondaryText))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 34 : 0)
-                .background {
-                    if NeumorphicStyle.isActive {
-                        NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
-                    } else if SequoiaStyle.isActive {
-                        SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
-                    }
-                }
-                .padding(.horizontal, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
-                .padding(.top, 40)
+                albumEmptyState
             } else {
-                // 专辑简介（如果有）
-                if let desc = viewModel.albumInfo?.description, !desc.isEmpty {
-                    Button(action: { showAlbumDesc = true }) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text(LocalizedStringKey("album_desc"))
-                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold)))))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : Theme.text))))
-                                Spacer()
-                                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : Theme.secondaryText))))
-                            }
-
-                            Text(desc)
-                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .regular) : .rounded(size: 13, weight: .regular)))))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Theme.secondaryText))))
-                                .lineLimit(3)
-                                .lineSpacing(4)
-                                .multilineTextAlignment(.leading)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
-                        .background {
-                            if MangaStyle.isActive {
-                                MangaCardBackground(cornerRadius: 18, elevated: true, tint: MangaStyle.bubbleWhite)
-                            } else if MujiStyle.isActive {
-                                MujiPaperCardBackground(cornerRadius: 12)
-                            } else if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
-                            } else if SequoiaStyle.isActive {
-                                SequoiaSurfaceBackground(cornerRadius: 20, elevated: true, role: .chrome)
-                            } else {
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .fill(Color.monologueGlassTint)
-                                    .monologueGlass(cornerRadius: 20)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .padding(.vertical, 12)
-                }
-
-                PlaylistSearchBar(
-                    searchText: $albumSearchText,
-                    isSearching: $isAlbumSearching,
-                    isSelectMode: $isSelectMode,
-                    selectedIds: $selectedSongIds,
-                    songs: albumFilteredSongs,
-                    onBatchQueue: {
-                        let selected = albumFilteredSongs.filter { selectedSongIds.contains($0.id) }
-                        SongBatchActionHelper.addToQueue(selected) {
-                            isSelectMode = false
-                            selectedSongIds.removeAll()
-                        }
-                    },
-                    onBatchDownload: { albumBatchDownload() },
-                    onBatchCollect: { showBatchAddToPlaylist = true }
-                )
-
-                ForEach(Array(albumFilteredSongs.enumerated()), id: \.element.id) { index, song in
-                    SongListRow(
-                        song: song,
-                        index: index,
-                        isSelecting: isSelectMode,
-                        isSelected: selectedSongIds.contains(song.id),
-                        onArtistTap: { artistId in
-                            selectedArtistId = artistId
-                            showArtistDetail = true
-                        },
-                        onDetailTap: { detailSong in
-                            selectedSongForDetail = detailSong
-                            showSongDetail = true
-                        },
-                        onAlbumTap: { albumId in
-                            selectedAlbumId = albumId
-                            showAlbumDetail = true
-                        },
-                        onTap: {
-                            if isSelectMode {
-                                if selectedSongIds.contains(song.id) {
-                                    selectedSongIds.remove(song.id)
-                                } else {
-                                    selectedSongIds.insert(song.id)
-                                }
-                            } else {
-                                PlayerManager.shared.play(song: song, in: albumFilteredSongs)
-                            }
-                        }
-                    )
-                }
-
+                albumDescriptionCard
+                albumSearchBar
+                albumSongRows
                 NoMoreDataView()
                 FloatingBarBottomSpacer()
             }
         }
-        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
-            BatchAddToPlaylistSheet(songs: albumFilteredSongs.filter { selectedSongIds.contains($0.id) })
+    }
+
+    private var albumEmptyState: some View {
+        VStack(spacing: 14) {
+            if NeumorphicStyle.isActive {
+                NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.warm, size: 54)
+            } else if SequoiaStyle.isActive {
+                SequoiaIconBadge(icon: .musicNoteList, tint: SequoiaStyle.violet, size: 54)
+            } else {
+                MonologueIcon(icon: .musicNoteList, size: 40, color: Theme.secondaryText.opacity(0.3))
+            }
+            Text(LocalizedStringKey("album_no_songs"))
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Theme.secondaryText))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 34 : 0)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
+            }
+        }
+        .padding(.horizontal, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.top, 40)
+    }
+
+    private var albumDescriptionCard: some View {
+        Group {
+            if let albumDescription = viewModel.albumInfo?.description, !albumDescription.isEmpty {
+                Button(action: { showAlbumDesc = true }) {
+                    VStack(alignment: .leading, spacing: CapsuleStyle.isActive ? 12 : 10) {
+                        HStack {
+                            if CapsuleStyle.isActive {
+                                CapsuleDetailChip(
+                                    text: String(localized: "album_desc"),
+                                    icon: .info,
+                                    tint: CapsuleStyle.cyan,
+                                    selected: true
+                                )
+                            } else {
+                                Text(LocalizedStringKey("album_desc"))
+                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold)))))
+                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : Theme.text))))
+                            }
+                            Spacer()
+                            MonologueIcon(icon: .chevronRight, size: 12, color: albumDescriptionChevronColor)
+                        }
+
+                        Text(albumDescription)
+                            .font(albumDescriptionFont)
+                            .foregroundColor(albumDescriptionTextColor)
+                            .lineLimit(3)
+                            .lineSpacing(4)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(albumDescriptionBackground)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, CapsuleStyle.isActive ? 0 : DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, CapsuleStyle.isActive ? 0 : 12)
+            }
+        }
+    }
+
+    private var albumSearchBar: some View {
+        PlaylistSearchBar(
+            searchText: $albumSearchText,
+            isSearching: $isAlbumSearching,
+            isSelectMode: $isSelectMode,
+            selectedIds: $selectedSongIds,
+            songs: albumFilteredSongs,
+            onBatchQueue: {
+                let selected = albumFilteredSongs.filter { selectedSongIds.contains($0.id) }
+                SongBatchActionHelper.addToQueue(selected) {
+                    isSelectMode = false
+                    selectedSongIds.removeAll()
+                }
+            },
+            onBatchDownload: { albumBatchDownload() },
+            onBatchCollect: { showBatchAddToPlaylist = true }
+        )
+    }
+
+    private var albumSongRows: some View {
+        ForEach(Array(albumFilteredSongs.enumerated()), id: \.element.id) { index, song in
+            SongListRow(
+                song: song,
+                index: index,
+                isSelecting: isSelectMode,
+                isSelected: selectedSongIds.contains(song.id),
+                onArtistTap: { artistId in
+                    selectedArtistId = artistId
+                    showArtistDetail = true
+                },
+                onDetailTap: { detailSong in
+                    selectedSongForDetail = detailSong
+                    showSongDetail = true
+                },
+                onAlbumTap: { albumId in
+                    selectedAlbumId = albumId
+                    showAlbumDetail = true
+                },
+                onTap: {
+                    if isSelectMode {
+                        if selectedSongIds.contains(song.id) {
+                            selectedSongIds.remove(song.id)
+                        } else {
+                            selectedSongIds.insert(song.id)
+                        }
+                    } else {
+                        PlayerManager.shared.play(song: song, in: albumFilteredSongs)
+                    }
+                }
+            )
+        }
+    }
+
+    private var albumDescriptionFont: Font {
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(13, weight: .semibold) }
+        if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(13, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        return .rounded(size: 13, weight: .regular)
+    }
+
+    private var albumDescriptionTextColor: Color {
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return Theme.secondaryText
+    }
+
+    private var albumDescriptionChevronColor: Color {
+        if CapsuleStyle.isActive { return CapsuleStyle.cyan }
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        return Theme.secondaryText
+    }
+
+    private var albumDescriptionBackground: some View {
+        Group {
+            if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 26, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
+            } else if MangaStyle.isActive {
+                MangaCardBackground(cornerRadius: 18, elevated: true, tint: MangaStyle.bubbleWhite)
+            } else if MujiStyle.isActive {
+                MujiPaperCardBackground(cornerRadius: 12)
+            } else if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 20, elevated: true, role: .chrome)
+            } else {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.monologueGlassTint)
+                    .monologueGlass(cornerRadius: 20)
+            }
         }
     }
 

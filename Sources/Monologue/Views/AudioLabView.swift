@@ -50,10 +50,10 @@ struct AudioLabView: View {
                 VStack {
                     Spacer()
                     HStack(spacing: 8) {
-                        MonologueIcon(icon: .checkmark, size: 16, color: .monologueIconForeground)
+                        MonologueIcon(icon: .checkmark, size: 16, color: .monologueAccentForeground)
                         Text("已应用智能音效")
                             .font(.rounded(size: 14, weight: .medium))
-                            .foregroundColor(.monologueIconForeground)
+                            .foregroundColor(.monologueAccentForeground)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -124,15 +124,15 @@ struct AudioLabView: View {
                 MonologueIcon(
                     icon: mode == .file ? .download : .waveform,
                     size: 16,
-                    color: isSelected ? .monologueIconForeground : .monologueTextSecondary
+                    color: isSelected ? .monologueAccentForeground : .monologueTextSecondary
                 )
                 Text(mode.rawValue)
                     .font(.rounded(size: 12, weight: .medium))
                 Text(mode == .file ? String(localized: "更准确") : String(localized: "更快速"))
                     .font(.rounded(size: 10))
-                    .foregroundColor(isSelected ? .monologueIconForeground.opacity(0.8) : .monologueTextSecondary.opacity(0.6))
+                    .foregroundColor(isSelected ? .monologueAccentForeground.opacity(0.8) : .monologueTextSecondary.opacity(0.6))
             }
-            .foregroundColor(isSelected ? .monologueIconForeground : .monologueTextSecondary)
+            .foregroundColor(isSelected ? .monologueAccentForeground : .monologueTextSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(
@@ -381,11 +381,11 @@ struct AudioLabView: View {
                 }
             }) {
                 HStack(spacing: 8) {
-                    MonologueIcon(icon: .checkmark, size: 16, color: .monologueIconForeground)
+                    MonologueIcon(icon: .checkmark, size: 16, color: .monologueAccentForeground)
                     Text("应用推荐设置")
                         .font(.rounded(size: 15, weight: .semibold))
                 }
-                .foregroundColor(.monologueIconForeground)
+                .foregroundColor(.monologueAccentForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(Color.monologueAccent)

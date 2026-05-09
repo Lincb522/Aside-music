@@ -1,5 +1,4 @@
 import SwiftUI
-@preconcurrency import FFmpegSwiftSDK
 
 /// 全屏播放器 - 路由层，根据主题切换不同布局
 struct FullScreenPlayerView: View {
@@ -68,7 +67,7 @@ struct FullScreenPlayerView: View {
         .monologueEdgeSwipeToDismiss()
     }
 
-    // MARK: - 波形进度条组件（供各布局复用）
+    // MARK: - 播放器进度条组件（供默认播放器及共享布局复用）
 
     struct WaveformProgressBar: View {
         @Binding var currentTime: Double
@@ -80,130 +79,31 @@ struct FullScreenPlayerView: View {
         let onSeek: (Double) -> Void
         let onCommit: (Double) -> Void
 
-        let barCount = 60
-        let barSpacing: CGFloat = 2
-        let minHeight: CGFloat = 3
-
-        /// 真实波形数据（从 WaveformGenerator 获取）
-        @State private var realAmplitudes: [CGFloat]?
-        /// 随机波形（加载前的占位）
-        @State private var fallbackAmplitudes: [CGFloat] = []
-        /// 当前歌曲 URL（用于检测切歌）
-        @State private var loadedSongId: Int?
-
-        private var amplitudes: [CGFloat] {
-            realAmplitudes ?? fallbackAmplitudes
-        }
-
         var body: some View {
-            TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
-                GeometryReader { geometry in
-                    let totalWidth = geometry.size.width
-                    let barWidth = (totalWidth - (CGFloat(barCount - 1) * barSpacing)) / CGFloat(barCount)
-                    let progress = duration > 0 ? currentTime / duration : 0
-                    let phase = isAnimating ? timeline.date.timeIntervalSinceReferenceDate * 1.8 : 0
+            let progress = duration > 0 ? CGFloat(min(max(currentTime / duration, 0), 1)) : 0
 
-                    HStack(alignment: .center, spacing: barSpacing) {
-                        ForEach(0..<barCount, id: \.self) { index in
-                            let barProgress = Double(index) / Double(barCount - 1)
-                            let isPlayed = barProgress <= progress
-                            let baseAmplitude = index < amplitudes.count ? amplitudes[index] : 0.5
-
-                            let height = barHeight(
-                                index: index,
-                                isPlayed: isPlayed,
-                                base: baseAmplitude,
-                                phase: phase,
-                                maxH: geometry.size.height
-                            )
-
-                            RoundedRectangle(cornerRadius: 1.5)
-                                .fill(isPlayed ? color : color.opacity(trackOpacity))
-                                .frame(width: max(2, barWidth), height: height)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let p = min(max(value.location.x / totalWidth, 0), 1)
-                                onSeek(p * duration)
-                            }
-                            .onEnded { value in
-                                let p = min(max(value.location.x / totalWidth, 0), 1)
-                                onCommit(p * duration)
-                            }
-                    )
-                }
-            }
-            .onAppear { generateFallback(); loadRealWaveform() }
-            .onChange(of: duration) { generateFallback(); loadRealWaveform() }
-            .onChange(of: PlayerManager.shared.currentSong?.id) { _, _ in
-                realAmplitudes = nil
-                loadedSongId = nil
-                generateFallback()
-                loadRealWaveform()
-            }
+            GlobalWaveformPlaybackProgressBar(
+                progress: progress,
+                isPlaying: isAnimating,
+                color: color,
+                trackOpacity: trackOpacity,
+                fillColors: progressFillColors,
+                onSeek: { p in onSeek(Double(p) * duration) },
+                onCommit: { p in onCommit(Double(p) * duration) }
+            )
         }
 
-        private func barHeight(index: Int, isPlayed: Bool, base: CGFloat, phase: Double, maxH: CGFloat) -> CGFloat {
-            var factor: CGFloat = 1.0
-            if isPlayed && realAmplitudes == nil {
-                // 只有占位波形才做呼吸动画，真实波形保持静态
-                let wave = sin(Double(index) * 0.6 + phase)
-                factor = 1.0 + CGFloat(wave) * 0.25
-            }
-            let amp = min(max(base * factor, 0), 1.0)
-            return minHeight + amp * (maxH - minHeight)
-        }
-
-        private func generateFallback() {
-            fallbackAmplitudes = (0..<barCount).map { index in
-                let n = Double(index) / Double(barCount - 1)
-                let envelope = sin(n * .pi)
-                let random = Double.random(in: 0.25...1.0)
-                return CGFloat(envelope * random)
-            }
-        }
-
-        /// 从 WaveformGenerator 加载真实波形
-        private func loadRealWaveform() {
-            guard let currentSong = PlayerManager.shared.currentSong else { return }
-            let songId = currentSong.id
-            guard songId != loadedSongId else { return }
-
-            // 优先使用本地文件
-            let url: String?
-            if let localURL = PlayerManager.shared.localPlaybackURL(for: currentSong) {
-                url = localURL.playerInputString
-            } else {
-                // 网络流暂不支持波形生成（需要完整解码），保持占位波形
-                url = nil
-            }
-
-            guard let fileURL = url else { return }
-
-            loadedSongId = songId
-            Task {
-                do {
-                    let samples = try await Task.detached(priority: .utility) {
-                        try await PlayerManager.shared.waveformGenerator.generate(
-                            url: fileURL, samplesCount: barCount
-                        )
-                    }.value
-                    let amps = samples.map { CGFloat(max($0.positive, -$0.negative)) }
-                    // 归一化
-                    let maxVal = amps.max() ?? 1.0
-                    let normalized = maxVal > 0 ? amps.map { $0 / maxVal } : amps
-                    await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            realAmplitudes = normalized
-                        }
-                    }
-                } catch {
-                    // 波形生成失败，保持占位
-                }
-            }
+        private var progressFillColors: [Color] {
+            if MangaStyle.isActive { return [MangaStyle.accentPink, MangaStyle.labelYellow] }
+            if MujiStyle.isActive { return [MujiStyle.clay, MujiStyle.indigo.opacity(0.86)] }
+            if NeumorphicStyle.isActive { return [NeumorphicStyle.accent, NeumorphicStyle.sage] }
+            if CapsuleStyle.isActive { return CapsuleStyle.accentGradient }
+            if SequoiaStyle.isActive { return [SequoiaStyle.accent, SequoiaStyle.aqua] }
+            if LiquidGlassStyle.isActive { return [LiquidGlassStyle.accent, LiquidGlassStyle.cyan, LiquidGlassStyle.violet] }
+            if ClayStyle.isActive { return [ClayStyle.sky, ClayStyle.peach] }
+            if SignalStyle.isActive { return [SignalStyle.accent, SignalStyle.mint] }
+            if BentoStyle.isActive { return [BentoStyle.tomato, BentoStyle.mustard] }
+            return [color.opacity(0.66), color.opacity(0.96)]
         }
         
     }

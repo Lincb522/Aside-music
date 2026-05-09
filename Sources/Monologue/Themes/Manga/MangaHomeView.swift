@@ -5,6 +5,7 @@ struct MangaHomeView: View {
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
+    @Environment(\.scenePhase) private var scenePhase
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
@@ -28,14 +29,14 @@ struct MangaHomeView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
                 showHomeContentIfNeeded()
-                if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
-                if hitokotoEnabled,
-                   viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    viewModel.refreshHitokoto()
-                }
+                hydrateHome(reason: "manga appear")
             }
             .task {
                 showHomeContentIfNeeded()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                hydrateHome(reason: "manga foreground")
             }
             .navigationDestination(for: HomeView.HomeDestination.self) { dest in
                 mangaDestination(for: dest)
@@ -54,6 +55,14 @@ struct MangaHomeView: View {
         guard !appeared else { return }
         withAnimation(.spring(response: 0.48, dampingFraction: 0.78)) {
             appeared = true
+        }
+    }
+
+    private func hydrateHome(reason: String) {
+        viewModel.ensureHomeDataLoaded(reason: reason)
+        if hitokotoEnabled,
+           viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            viewModel.refreshHitokoto()
         }
     }
 

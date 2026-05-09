@@ -95,6 +95,9 @@ enum MonologueSheetPreset: Equatable {
         if NeumorphicStyle.isActive {
             return min(cornerRadius, 28)
         }
+        if CapsuleStyle.isActive {
+            return min(max(cornerRadius, 24), 32)
+        }
         if SequoiaStyle.isActive {
             return min(max(cornerRadius, 24), 30)
         }

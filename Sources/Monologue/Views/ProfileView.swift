@@ -123,6 +123,7 @@ struct ProfileView: View {
     private var themedProfileSpacing: CGFloat {
         if MangaStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 18 }
+        if CapsuleStyle.isActive { return 16 }
         if SignalStyle.isActive { return 17 }
         if MujiStyle.isActive { return 18 }
         if SequoiaStyle.isActive { return 16 }
@@ -136,6 +137,8 @@ struct ProfileView: View {
             mangaProfileDashboard
         } else if NeumorphicStyle.isActive {
             neumorphicProfileDashboard
+        } else if CapsuleStyle.isActive {
+            capsuleProfileDashboard
         } else if SignalStyle.isActive {
             signalProfileDashboard
         } else if MujiStyle.isActive {
@@ -262,6 +265,227 @@ struct ProfileView: View {
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var capsuleProfileDashboard: some View {
+        capsuleProfileHeader
+
+        capsuleProfileIdentityPanel
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        capsuleProfileMetricDeck
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        ProfileRecentPlaysHost(variant: .capsule)
+
+        capsuleProfilePortalGrid
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        capsuleLogoutButton
+    }
+
+    private var capsuleProfileHeader: some View {
+        CapsulePageHeader(
+            eyebrow: "PROFILE",
+            title: String(localized: "我的")
+        ) {
+            NavigationLink(destination: SettingsView()) {
+                CapsuleIconBadge(icon: .settings, tint: CapsuleStyle.accent, size: 46)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var capsuleProfileIdentityPanel: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+        let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 14) {
+                capsuleAvatar(profile: profile, size: 82)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                            .font(CapsuleStyle.titleFont(23, weight: .bold))
+                            .foregroundStyle(CapsuleStyle.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+
+                        if let userLevel {
+                            CapsulePillLabel(
+                                title: "Lv.\(userLevel)",
+                                tint: CapsuleStyle.violet,
+                                selected: true
+                            )
+                        }
+                    }
+
+                    Text(signature.isEmpty ? String(localized: "profile_login_hint") : signature)
+                        .font(CapsuleStyle.bodyFont(12, weight: .medium))
+                        .foregroundStyle(CapsuleStyle.inkSoft)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 7) {
+                        CapsulePillLabel(
+                            title: String(format: String(localized: "profile_recent_count"), playerManager.history.count),
+                            icon: .clock,
+                            tint: CapsuleStyle.cyan
+                        )
+                        CapsulePillLabel(
+                            title: formatNumber(listenSongs ?? 0),
+                            icon: .headphones,
+                            tint: CapsuleStyle.mint
+                        )
+                    }
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(CapsuleStyle.accent)
+                    .frame(width: 58, height: 8)
+                Capsule()
+                    .fill(CapsuleStyle.cyan.opacity(0.75))
+                    .frame(width: 34, height: 8)
+                Capsule()
+                    .fill(CapsuleStyle.violet.opacity(0.75))
+                    .frame(width: 18, height: 8)
+                Spacer(minLength: 0)
+                CapsulePillLabel(
+                    title: "CAPSULE",
+                    tint: CapsuleStyle.accent
+                )
+            }
+        }
+        .padding(17)
+        .background(CapsuleSurfaceBackground(cornerRadius: 32, elevated: true, tint: CapsuleStyle.surface.opacity(0.94)))
+    }
+
+    @ViewBuilder
+    private func capsuleAvatar(profile: UserProfile?, size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.42, style: .continuous)
+                .fill(CapsuleStyle.surfaceTint)
+                .frame(width: size, height: size)
+                .background(
+                    CapsuleSurfaceBackground(
+                        cornerRadius: size * 0.42,
+                        elevated: true,
+                        tint: CapsuleStyle.surfaceRaised.opacity(0.98)
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.42, style: .continuous))
+
+            if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
+                CachedAsyncImage(url: url, width: size - 12, height: size - 12) {
+                    RoundedRectangle(cornerRadius: size * 0.34, style: .continuous)
+                        .fill(CapsuleStyle.surfaceTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size - 12, height: size - 12)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.34, style: .continuous))
+            } else {
+                MonologueIcon(
+                    icon: .profileFilled,
+                    size: size * 0.36,
+                    color: CapsuleStyle.accent,
+                    lineWidth: 1.65
+                )
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: size * 0.42, style: .continuous)
+                .stroke(CapsuleStyle.hairline.opacity(0.85), lineWidth: 1)
+        )
+    }
+
+    private var capsuleProfileMetricDeck: some View {
+        HStack(spacing: 10) {
+            CapsuleProfileMetricTile(
+                value: formatNumber(listenSongs ?? 0),
+                label: String(localized: "profile_total_songs"),
+                tint: CapsuleStyle.accent,
+                icon: .headphones
+            )
+            CapsuleProfileMetricTile(
+                value: "\(localPlaylistCount)",
+                label: String(localized: "profile_local_playlists"),
+                tint: CapsuleStyle.mint,
+                icon: .musicNoteList
+            )
+            CapsuleProfileMetricTile(
+                value: "\(downloadedSongCount)",
+                label: String(localized: "profile_downloads"),
+                tint: CapsuleStyle.amber,
+                icon: .download
+            )
+        }
+    }
+
+    private var capsuleProfilePortalGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 11),
+                GridItem(.flexible(), spacing: 11),
+            ],
+            spacing: 11
+        ) {
+            Button { showQQAccount = true } label: {
+                CapsuleProfilePortalTile(
+                    icon: .musicNote,
+                    title: String(localized: "settings_qq_account"),
+                    value: QQUserSession.shared.isLoggedIn ? String(localized: "settings_qq_logged_in") : String(localized: "settings_qq_not_logged_in"),
+                    tint: CapsuleStyle.accent
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+            .monologueSheet(isPresented: $showQQAccount, preset: .large) {
+                NavigationStack {
+                    QQAccountView()
+                }
+            }
+
+            NavigationLink(destination: DownloadManageView()) {
+                CapsuleProfilePortalTile(
+                    icon: .download,
+                    title: NSLocalizedString("profile_downloads", comment: ""),
+                    value: "\(downloadedSongCount)",
+                    tint: CapsuleStyle.amber
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+
+            NavigationLink(destination: StorageManageView()) {
+                CapsuleProfilePortalTile(
+                    icon: .storage,
+                    title: String(localized: "profile_cache_manage"),
+                    value: "CACHE",
+                    tint: CapsuleStyle.cyan
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+
+            NavigationLink(destination: CloudDiskView()) {
+                CapsuleProfilePortalTile(
+                    icon: .cloud,
+                    title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                    value: "CLOUD",
+                    tint: CapsuleStyle.violet
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+        }
+    }
+
+    private var capsuleLogoutButton: some View {
+        logoutButton
+            .padding(.top, 0)
     }
 
     @ViewBuilder
@@ -2302,6 +2526,8 @@ struct ProfileView: View {
             mujiNotLoggedInContent
         } else if NeumorphicStyle.isActive {
             neumorphicNotLoggedInContent
+        } else if CapsuleStyle.isActive {
+            capsuleNotLoggedInContent
         } else if LiquidGlassStyle.isActive {
             liquidGlassNotLoggedInContent
         } else {
@@ -2314,6 +2540,8 @@ struct ProfileView: View {
                             mangaProfileHeader
                         } else if NeumorphicStyle.isActive {
                             neumorphicProfileHeader
+                        } else if CapsuleStyle.isActive {
+                            capsuleProfileHeader
                         } else if SignalStyle.isActive {
                             signalProfileHeaderBar
                         } else if MujiStyle.isActive {
@@ -2464,6 +2692,108 @@ struct ProfileView: View {
         }
     }
 
+    private var capsuleNotLoggedInContent: some View {
+        NavigationStack {
+            ZStack {
+                ThemedProfileBackground()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        capsuleProfileHeader
+
+                        VStack(spacing: 18) {
+                            CapsuleIconBadge(icon: .profileFilled, tint: CapsuleStyle.accent, size: 78)
+
+                            VStack(spacing: 8) {
+                                Text(LocalizedStringKey("profile_not_logged_in"))
+                                    .font(CapsuleStyle.titleFont(25, weight: .bold))
+                                    .foregroundStyle(CapsuleStyle.ink)
+
+                                Text(LocalizedStringKey("profile_login_hint"))
+                                    .font(CapsuleStyle.bodyFont(13, weight: .medium))
+                                    .foregroundStyle(CapsuleStyle.inkSoft)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                            }
+
+                            Button(action: { showLoginView = true }) {
+                                Text(LocalizedStringKey("profile_login_button"))
+                                    .font(CapsuleStyle.labelFont(16, weight: .bold))
+                                    .foregroundStyle(CapsuleStyle.readableLabel(on: CapsuleStyle.accent))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 50)
+                                    .background(
+                                        Capsule()
+                                            .fill(CapsuleStyle.accent)
+                                            .shadow(color: CapsuleStyle.accent.opacity(0.22), radius: 12, x: 0, y: 7)
+                                    )
+                            }
+                            .buttonStyle(CapsulePressStyle())
+                        }
+                        .padding(22)
+                        .background(CapsuleSurfaceBackground(cornerRadius: 34, elevated: true, tint: CapsuleStyle.surface.opacity(0.95)))
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            CapsuleSectionTitle(title: String(localized: "profile_settings"), tint: CapsuleStyle.violet)
+
+                            VStack(spacing: 10) {
+                                Button(action: { showQQAccount = true }) {
+                                    ProfileMenuRow(
+                                        icon: .musicNote,
+                                        title: String(localized: "settings_qq_account"),
+                                        trailingText: QQUserSession.shared.isLoggedIn
+                                            ? String(localized: "settings_qq_logged_in")
+                                            : String(localized: "settings_qq_not_logged_in")
+                                    )
+                                }
+                                .buttonStyle(CapsulePressStyle())
+                                .monologueSheet(isPresented: $showQQAccount, preset: .large) {
+                                    NavigationStack {
+                                        QQAccountView()
+                                    }
+                                }
+
+                                NavigationLink(destination: DownloadManageView()) {
+                                    ProfileMenuRow(
+                                        icon: .download,
+                                        title: NSLocalizedString("profile_downloads", comment: ""),
+                                        trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                                    )
+                                }
+                                .buttonStyle(CapsulePressStyle())
+
+                                NavigationLink(destination: StorageManageView()) {
+                                    ProfileMenuRow(
+                                        icon: .storage,
+                                        title: String(localized: "profile_cache_manage")
+                                    )
+                                }
+                                .buttonStyle(CapsulePressStyle())
+
+                                NavigationLink(destination: SettingsView()) {
+                                    ProfileMenuRow(
+                                        icon: .settings,
+                                        title: NSLocalizedString("profile_settings", comment: "")
+                                    )
+                                }
+                                .buttonStyle(CapsulePressStyle())
+                            }
+                        }
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+                        FloatingBarBottomSpacer()
+                    }
+                    .iPadContentWidth(700)
+                }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+            }
+            .navigationTitle("")
+            .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
     private var liquidGlassNotLoggedInContent: some View {
         NavigationStack {
             ZStack {
@@ -2576,6 +2906,7 @@ private enum ProfileRecentPlaysVariant {
     case standard
     case manga
     case neumorphic
+    case capsule
     case signal
     case sequoia
 }
@@ -2614,6 +2945,8 @@ private struct ProfileRecentPlaysHost: View {
                     mangaRecentPlays(history: history)
                 case .neumorphic:
                     neumorphicRecentPlays(history: history)
+                case .capsule:
+                    capsuleRecentPlays(history: history)
                 case .signal:
                     signalRecentPlays(history: history)
                 case .sequoia:
@@ -2674,6 +3007,42 @@ private struct ProfileRecentPlaysHost: View {
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.vertical, 2)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+        }
+    }
+
+    private func capsuleRecentPlays(history: [Song]) -> some View {
+        VStack(alignment: .leading, spacing: 13) {
+            CapsuleSectionTitle(title: String(localized: "profile_recently_played"), tint: CapsuleStyle.cyan) {
+                NavigationLink(destination: RecentPlayHistoryView()) {
+                    CapsulePillLabel(
+                        title: String(format: String(localized: "profile_recent_count"), history.count),
+                        icon: .chevronRight,
+                        tint: CapsuleStyle.cyan
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 12) {
+                    ForEach(Array(history.prefix(14))) { song in
+                        Button {
+                            PlayerManager.shared.play(song: song, in: history)
+                        } label: {
+                            CapsuleProfileRecentCard(
+                                song: song,
+                                isPlaying: currentSongID == song.id && isPlaying
+                            )
+                        }
+                        .buttonStyle(CapsulePressStyle())
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.vertical, 3)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
@@ -2885,6 +3254,149 @@ private struct ProfileRecentPlaysHost: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
+    }
+}
+
+private struct CapsuleProfileMetricTile: View {
+    let value: String
+    let label: String
+    let tint: Color
+    let icon: MonologueIcon.IconType
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                CapsuleIconBadge(icon: icon, tint: tint, size: 32)
+
+                Spacer(minLength: 4)
+
+                Capsule()
+                    .fill(tint.opacity(0.72))
+                    .frame(width: 24, height: 7)
+            }
+
+            Text(value)
+                .font(CapsuleStyle.titleFont(18, weight: .bold))
+                .foregroundStyle(CapsuleStyle.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+            Text(label)
+                .font(CapsuleStyle.labelFont(9.5, weight: .semibold))
+                .foregroundStyle(CapsuleStyle.inkMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.66)
+        }
+        .frame(maxWidth: .infinity, minHeight: 90, alignment: .topLeading)
+        .padding(12)
+        .background(
+            CapsuleSurfaceBackground(
+                cornerRadius: 22,
+                elevated: true,
+                tint: CapsuleStyle.surfaceRaised.opacity(0.92)
+            )
+        )
+    }
+}
+
+private struct CapsuleProfilePortalTile: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                CapsuleIconBadge(icon: icon, tint: tint, size: 38)
+
+                Spacer(minLength: 8)
+
+                Text(value)
+                    .font(CapsuleStyle.labelFont(9.5, weight: .bold))
+                    .foregroundStyle(tint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(
+                        Capsule()
+                            .fill(tint.opacity(0.12))
+                    )
+            }
+
+            Text(title)
+                .font(CapsuleStyle.titleFont(15, weight: .bold))
+                .foregroundStyle(CapsuleStyle.ink)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, minHeight: 114, alignment: .topLeading)
+        .padding(14)
+        .background(
+            CapsuleSurfaceBackground(
+                cornerRadius: 26,
+                elevated: true,
+                tint: CapsuleStyle.surface.opacity(0.94)
+            )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+}
+
+private struct CapsuleProfileRecentCard: View {
+    let song: Song
+    let isPlaying: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: song.coverUrl, width: 118, height: 92) {
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(CapsuleStyle.surfaceTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 118, height: 92)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(CapsuleStyle.hairline.opacity(0.9), lineWidth: 1)
+                )
+
+                ZStack {
+                    Capsule()
+                        .fill(isPlaying ? CapsuleStyle.accent : CapsuleStyle.surfaceRaised)
+                        .frame(width: 42, height: 32)
+                        .shadow(color: CapsuleStyle.accent.opacity(isPlaying ? 0.18 : 0.05), radius: 8, x: 0, y: 4)
+
+                    if isPlaying {
+                        PlayingVisualizerView(isAnimating: true, color: CapsuleStyle.readableLabel(on: CapsuleStyle.accent))
+                            .frame(width: 17, height: 13)
+                    } else {
+                        MonologueIcon(icon: .play, size: 12, color: CapsuleStyle.accent, lineWidth: 1.8)
+                    }
+                }
+                .padding(7)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(song.name)
+                    .font(CapsuleStyle.labelFont(13, weight: .bold))
+                    .foregroundStyle(CapsuleStyle.ink)
+                    .lineLimit(1)
+
+                Text(song.artistName)
+                    .font(CapsuleStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(CapsuleStyle.inkSoft)
+                    .lineLimit(1)
+            }
+            .frame(width: 118, alignment: .leading)
+        }
+        .padding(10)
+        .background(CapsuleSurfaceBackground(cornerRadius: 28, elevated: true, tint: CapsuleStyle.surface.opacity(0.9)))
+        .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 }
 
@@ -3141,20 +3653,25 @@ struct ProfileMenuRow: View {
             profileMenuIcon
 
             Text(title)
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary)
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(15, weight: .bold) : (SignalStyle.isActive ? SignalStyle.labelFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))))))
+                .foregroundColor(CapsuleStyle.isActive ? CapsuleStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary))
 
             Spacer()
 
             if let text = trailingText {
                 Text(text)
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(13, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .regular, design: .rounded)))))
-                    .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary)
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(13, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .regular, design: .rounded))))))
+                    .foregroundColor(CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary))
             }
-            MonologueIcon(icon: .chevronRight, size: 13, color: SignalStyle.isActive ? SignalStyle.inkMuted : .monologueTextSecondary.opacity(0.4))
+            MonologueIcon(icon: .chevronRight, size: 13, color: CapsuleStyle.isActive ? CapsuleStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : .monologueTextSecondary.opacity(0.4)))
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(.horizontal, CapsuleStyle.isActive ? 14 : 18)
+        .padding(.vertical, CapsuleStyle.isActive ? 12 : 14)
+        .background {
+            if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 22, elevated: false, tint: CapsuleStyle.surfaceRaised.opacity(0.78))
+            }
+        }
         .contentShape(Rectangle())
     }
 
@@ -3174,6 +3691,8 @@ struct ProfileMenuRow: View {
                 .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
         } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
+        } else if CapsuleStyle.isActive {
+            CapsuleIconBadge(icon: icon, tint: CapsuleStyle.accent, size: 34)
         } else if SignalStyle.isActive {
             SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 32)
         } else {
@@ -3385,6 +3904,8 @@ private extension View {
             background(MujiPaperCardBackground(cornerRadius: cornerRadius, elevated: true))
         } else if NeumorphicStyle.isActive {
             background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true, lightweight: true))
+        } else if CapsuleStyle.isActive {
+            background(CapsuleSurfaceBackground(cornerRadius: min(max(cornerRadius, 22), 30), elevated: true, tint: CapsuleStyle.surface.opacity(0.94)))
         } else if SignalStyle.isActive {
             background(SignalSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true, fill: SignalStyle.device))
         } else if SequoiaStyle.isActive {

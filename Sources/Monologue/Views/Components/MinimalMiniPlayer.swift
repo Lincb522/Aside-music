@@ -3,9 +3,8 @@ import SwiftUI
 /// 极简模式的 MiniPlayer（同一容器内左滑显示 Tab，右滑回播放器）
 struct MinimalMiniPlayer: View {
     @Binding var currentTab: Tab
-    @ObservedObject var player = PlayerManager.shared
+    @ObservedObject var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var showPlaylist = false
@@ -17,6 +16,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return 22 }
         if SequoiaStyle.isActive { return 24 }
         if LiquidGlassStyle.isActive { return 24 }
+        if CapsuleStyle.isActive { return 26 }
         if MujiStyle.isActive { return 16 }
         if BentoStyle.isActive { return 22 }
         return 18
@@ -26,6 +26,7 @@ struct MinimalMiniPlayer: View {
         if MangaStyle.isActive { return DeviceLayout.isPad ? 16 : 10 }
         if SequoiaStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
         if LiquidGlassStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
+        if CapsuleStyle.isActive { return DeviceLayout.isPad ? 18 : 12 }
         return DeviceLayout.isPad ? 20 : 14
     }
 
@@ -33,19 +34,20 @@ struct MinimalMiniPlayer: View {
         if MangaStyle.isActive { return 7 }
         if SequoiaStyle.isActive { return 9 }
         if LiquidGlassStyle.isActive { return 9 }
+        if CapsuleStyle.isActive { return 8 }
         return 10
     }
 
     private var miniContentSpacing: CGFloat {
-        MangaStyle.isActive ? 8 : 10
+        CapsuleStyle.isActive ? 9 : (MangaStyle.isActive ? 8 : 10)
     }
 
     private var artworkSize: CGFloat {
-        MangaStyle.isActive ? 34 : ((SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 38 : 40)
+        CapsuleStyle.isActive ? 38 : (MangaStyle.isActive ? 34 : ((SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 38 : 40))
     }
 
     private var artworkCornerRadius: CGFloat {
-        return MangaStyle.isActive ? 8 : ((SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 11 : 10)
+        return CapsuleStyle.isActive ? 14 : (MangaStyle.isActive ? 8 : ((SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 11 : 10))
     }
 
     private var transportSpacing: CGFloat {
@@ -53,19 +55,19 @@ struct MinimalMiniPlayer: View {
     }
 
     private var compactControlWidth: CGFloat {
-        MangaStyle.isActive ? 27 : 30
+        CapsuleStyle.isActive ? 32 : (MangaStyle.isActive ? 27 : 30)
     }
 
     private var compactControlHeight: CGFloat {
-        MangaStyle.isActive ? 30 : 34
+        CapsuleStyle.isActive ? 34 : (MangaStyle.isActive ? 30 : 34)
     }
 
     private var playButtonSize: CGFloat {
-        MangaStyle.isActive ? 30 : 34
+        CapsuleStyle.isActive ? 34 : (MangaStyle.isActive ? 30 : 34)
     }
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return player.currentSong?.artistName ?? NSLocalizedString("select_song_to_play", comment: String(localized: "选择歌曲开始播放"))
@@ -92,7 +94,7 @@ struct MinimalMiniPlayer: View {
         .padding(.horizontal, shellHorizontalPadding)
         .padding(.vertical, shellVerticalPadding)
         .background(shellBackground)
-        .monologueGlass(cornerRadius: shellCornerRadius)
+        .monologueFloatingChromeGlass(cornerRadius: shellCornerRadius)
         .overlay {
             if MangaStyle.isActive {
                 RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
@@ -186,6 +188,34 @@ struct MinimalMiniPlayer: View {
                         .clipShape(Capsule())
                         .offset(y: 6)
                     }
+            } else if CapsuleStyle.isActive {
+                RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                    .stroke(CapsuleStyle.hairline.opacity(0.84), lineWidth: 0.9)
+                    .overlay(alignment: .topLeading) {
+                        HStack(spacing: 5) {
+                            Capsule()
+                                .fill(LinearGradient(colors: CapsuleStyle.accentGradient, startPoint: .leading, endPoint: .trailing))
+                                .frame(width: showingTabs ? 42 : 30, height: 4)
+                            Circle()
+                                .fill(showingTabs ? CapsuleStyle.violet : CapsuleStyle.cyan)
+                                .frame(width: 5, height: 5)
+                        }
+                        .padding(.leading, 16)
+                        .padding(.top, 6)
+                        .animation(MonologueAnimation.micro, value: showingTabs)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(showingTabs ? CapsuleStyle.inkMuted.opacity(0.32) : CapsuleStyle.accent)
+                                .frame(width: 5, height: 5)
+                            Circle()
+                                .fill(showingTabs ? CapsuleStyle.violet : CapsuleStyle.inkMuted.opacity(0.32))
+                                .frame(width: 5, height: 5)
+                        }
+                        .padding(.trailing, 18)
+                        .padding(.bottom, 7)
+                    }
             }
         }
         .shadow(
@@ -210,9 +240,45 @@ struct MinimalMiniPlayer: View {
             RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
                 .fill(BentoStyle.surface)
                 .shadow(color: BentoStyle.ink.opacity(0.06), radius: 12, x: 0, y: 4)
+        } else if CapsuleStyle.isActive {
+            CapsuleFloatingGlassSurface(
+                cornerRadius: shellCornerRadius,
+                tint: CapsuleStyle.surface,
+                lightOpacity: 0.46,
+                darkOpacity: 0.62,
+                elevated: true
+            )
         } else {
-            RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
-                .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
+            if !ThemedPageStyle.isActive && settings.defaultThemeUsesLiquidGlassTabBar {
+                RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                    .fill(Color.monologueFloatingBarFill)
+                    .monologueGlass(cornerRadius: shellCornerRadius)
+            } else {
+                RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                    .fill(ThemedPageStyle.isActive ? AnyShapeStyle(Color.clear) : AnyShapeStyle(.regularMaterial))
+                    .overlay {
+                        if !ThemedPageStyle.isActive {
+                            RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                                .fill(colorScheme == .dark ? Color(hex: "1C1C1E").opacity(0.48) : Color.white.opacity(0.5))
+                        }
+                    }
+                    .overlay {
+                        if !ThemedPageStyle.isActive {
+                            RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(colorScheme == .dark ? 0.045 : 0.24),
+                                            Color.white.opacity(colorScheme == .dark ? 0.015 : 0.08),
+                                            Color.monologueAccent.opacity(colorScheme == .dark ? 0.035 : 0.03),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                    }
+            }
         }
     }
 
@@ -273,12 +339,16 @@ struct MinimalMiniPlayer: View {
                 )
                 .frame(height: 16)
 
-                Text(subtitleText)
-                    .font(subtitleFont)
-                    .foregroundColor(subtitleColor)
-                    .lineLimit(1)
-                    .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                MarqueeText(
+                    text: subtitleText,
+                    font: subtitleFont,
+                    color: subtitleColor,
+                    speed: 22
+                )
+                .frame(height: 14)
+                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
             }
+            .swipeSkipTextMotion()
 
             Spacer(minLength: 4)
 
@@ -358,6 +428,17 @@ struct MinimalMiniPlayer: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(BentoStyle.tomato)
                 MonologueIcon(icon: .musicNote, size: 14, color: BentoStyle.onAccent, lineWidth: 1.8)
+            } else if CapsuleStyle.isActive {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(CapsuleStyle.surfaceTint)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 0.8)
+                    )
+                Circle()
+                    .stroke(CapsuleStyle.accent.opacity(0.28), lineWidth: 1)
+                    .padding(8)
+                MonologueIcon(icon: .musicNote, size: 13, color: CapsuleStyle.accent, lineWidth: 1.6)
             } else if NeumorphicStyle.isActive {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(NeumorphicStyle.surfacePressed)
@@ -473,6 +554,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(13, weight: .semibold) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
         if BentoStyle.isActive { return BentoStyle.bodyFont(13, weight: .heavy) }
         return .system(size: 13, weight: .semibold, design: .rounded)
@@ -483,6 +565,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .regular) }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(11, weight: .regular) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(11, weight: .medium) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         if BentoStyle.isActive { return BentoStyle.labelFont(11, weight: .semibold) }
         return .rounded(size: 11, weight: .medium)
@@ -493,6 +576,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if BentoStyle.isActive { return BentoStyle.ink }
         return .monologueTextPrimary
@@ -503,6 +587,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if BentoStyle.isActive { return BentoStyle.inkSoft }
         return .monologueTextSecondary
@@ -513,6 +598,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.78) }
         if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueIconBackground
@@ -523,6 +609,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.onAccent }
+        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.ink }
         if BentoStyle.isActive { return BentoStyle.onAccent }
         return .monologueIconForeground
@@ -533,6 +620,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if BentoStyle.isActive { return BentoStyle.inkSoft }
         return titleColor.opacity(0.72)
@@ -557,6 +645,13 @@ struct MinimalMiniPlayer: View {
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(BentoStyle.surface.opacity(0.65))
+        } else if CapsuleStyle.isActive {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(CapsuleStyle.surfaceTint.opacity(0.72))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(CapsuleStyle.separator.opacity(0.5), lineWidth: 0.7)
+                )
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(NeumorphicStyle.surfaceRaised)
@@ -597,6 +692,8 @@ struct MinimalMiniPlayer: View {
             Circle().stroke(SequoiaStyle.luminousSeparator.opacity(0.5), lineWidth: 0.55)
         } else if LiquidGlassStyle.isActive {
             Circle().stroke(LiquidGlassStyle.luminousEdge.opacity(0.38), lineWidth: 0.55)
+        } else if CapsuleStyle.isActive {
+            Circle().stroke(CapsuleStyle.hairline.opacity(0.82), lineWidth: 0.75)
         }
     }
 
@@ -605,6 +702,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.onAccent }
+        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if BentoStyle.isActive { return BentoStyle.onAccent }
         return .white
@@ -615,6 +713,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(9, weight: selected ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(9, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: selected ? .semibold : .medium) }
         if BentoStyle.isActive { return BentoStyle.labelFont(9, weight: selected ? .heavy : .semibold) }
         return .system(size: 9, weight: selected ? .semibold : .medium)
@@ -626,6 +725,7 @@ struct MinimalMiniPlayer: View {
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
             if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkMuted }
+            if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             if BentoStyle.isActive { return BentoStyle.inkMuted }
             return .monologueTextSecondary.opacity(0.4)
@@ -635,6 +735,7 @@ struct MinimalMiniPlayer: View {
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if LiquidGlassStyle.isActive { return liquidGlassTabTint(tab) }
+        if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: capsuleTabTint(tab)) }
         if MujiStyle.isActive { return mujiTabTint(tab) }
         if BentoStyle.isActive { return bentoTabTint(tab) }
         return .monologueAccent
@@ -653,6 +754,14 @@ struct MinimalMiniPlayer: View {
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(bentoTabTint(tab))
+        } else if CapsuleStyle.isActive {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(capsuleTabTint(tab))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 0.75)
+                )
+                .shadow(color: capsuleTabTint(tab).opacity(0.14), radius: 8, x: 0, y: 4)
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(neumorphicTabTint(tab).opacity(0.16))
@@ -693,6 +802,15 @@ struct MinimalMiniPlayer: View {
         case .podcast: return BentoStyle.nori
         case .library: return BentoStyle.matcha
         case .profile: return BentoStyle.mustard
+        }
+    }
+
+    private func capsuleTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return CapsuleStyle.accent
+        case .podcast: return CapsuleStyle.mint
+        case .library: return CapsuleStyle.amber
+        case .profile: return CapsuleStyle.violet
         }
     }
 

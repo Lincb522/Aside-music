@@ -9,6 +9,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     case muji          // 无印良品 — 极简暖色纸质感、大量留白
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
+    case capsule       // Capsule OS — 胶囊模块化系统界面
     case bento         // 已移除：仅用于迁移旧存档
     case sequoia       // 已移除：仅用于迁移旧存档
     case liquidGlass   // 已移除：仅用于迁移旧存档
@@ -18,7 +19,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     static var allCases: [GlobalThemeId] {
-        [.default, .muji, .manga, .neumorphic]
+        [.default, .muji, .manga, .neumorphic, .capsule]
     }
 
     var displayName: String {
@@ -31,6 +32,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return String(localized: "漫画风")
         case .neumorphic:
             return String(localized: "新拟物")
+        case .capsule:
+            return "Capsule OS"
         case .bento, .sequoia, .liquidGlass, .clay, .signal:
             return String(localized: "默认")
         }
@@ -46,6 +49,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return String(localized: "粗线描边，网点气泡，漫画世界")
         case .neumorphic:
             return String(localized: "柔软凸起与凹陷控件，安静的实体触感")
+        case .capsule:
+            return String(localized: "胶囊模块化音乐系统")
         case .bento, .sequoia, .liquidGlass, .clay, .signal:
             return String(localized: "Monologue 原始设计风格")
         }
@@ -60,6 +65,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .manga:
             return .catBook
         case .neumorphic:
+            return .layers
+        case .capsule:
             return .layers
         case .bento, .sequoia, .liquidGlass, .clay, .signal:
             return .playerTheme

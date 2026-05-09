@@ -39,15 +39,15 @@ struct ThemeRenderContext: Equatable {
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && theme == .neumorphic
+        isHosted && (theme == .neumorphic || theme == .capsule)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && theme == .neumorphic
+        isHosted && (theme == .neumorphic || theme == .capsule)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga)
+        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule)
     }
 }
 
@@ -147,6 +147,8 @@ struct ThemeRenderUnderlay: View {
             MujiStyle.paper
         case .neumorphic:
             NeumorphicStyle.base
+        case .capsule:
+            CapsuleStyle.base
         case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             Color.monologueBackground
         }
@@ -169,6 +171,8 @@ struct ThemeRenderBackdrop: View {
             MujiRootBackdrop()
         case .neumorphic:
             NeumorphicRenderBackdrop()
+        case .capsule:
+            CapsuleRootBackdrop()
         case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             MonologueBackground()
                 .ignoresSafeArea()

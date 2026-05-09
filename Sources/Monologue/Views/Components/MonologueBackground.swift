@@ -98,6 +98,8 @@ struct MonologueBackground: View {
             mangaBackground
         case .neumorphic:
             neumorphicBackground
+        case .capsule:
+            CapsuleRootBackdrop()
         case .bento:
             defaultBackground
         case .sequoia:

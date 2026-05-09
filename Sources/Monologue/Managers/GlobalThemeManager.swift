@@ -79,6 +79,7 @@ final class GlobalThemeManager {
         case .muji: return MujiThemeProvider()
         case .manga: return MangaThemeProvider()
         case .neumorphic: return NeumorphicThemeProvider()
+        case .capsule: return CapsuleThemeProvider()
         case .bento: return DefaultThemeProvider()
         case .sequoia: return DefaultThemeProvider()
         case .liquidGlass: return DefaultThemeProvider()

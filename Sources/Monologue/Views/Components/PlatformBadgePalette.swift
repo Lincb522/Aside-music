@@ -41,6 +41,19 @@ enum PlatformBadgePalette {
             }
         }
 
+        if CapsuleStyle.isActive {
+            switch source {
+            case .netease:
+                return CapsuleStyle.coral
+            case .qqmusic:
+                return CapsuleStyle.amber
+            case .qishui:
+                return CapsuleStyle.mint
+            case .local:
+                return CapsuleStyle.accent
+            }
+        }
+
         if ClayStyle.isActive {
             switch source {
             case .netease:
@@ -120,6 +133,9 @@ struct PlatformBadgeLabel: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(fontSize, weight: .semibold)
         }
+        if CapsuleStyle.isActive {
+            return CapsuleStyle.labelFont(fontSize, weight: .bold)
+        }
         if ClayStyle.isActive {
             return ClayStyle.labelFont(fontSize, weight: .bold)
         }
@@ -134,7 +150,7 @@ struct PlatformBadgeLabel: View {
     }
 
     private var badgeHorizontalPadding: CGFloat {
-        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (ClayStyle.isActive ? 8 : (SequoiaStyle.isActive ? 8 : 7)))
+        MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (CapsuleStyle.isActive ? 8 : (ClayStyle.isActive ? 8 : (SequoiaStyle.isActive ? 8 : 7))))
     }
 
     private var badgeVerticalPadding: CGFloat {
@@ -142,7 +158,7 @@ struct PlatformBadgeLabel: View {
     }
 
     private var badgeCornerRadius: CGFloat {
-        MangaStyle.isActive ? 7 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 8 : (ClayStyle.isActive ? 8 : (SequoiaStyle.isActive ? 9 : 4))))
+        MangaStyle.isActive ? 7 : (MujiStyle.isActive ? 6 : (NeumorphicStyle.isActive ? 8 : (CapsuleStyle.isActive ? 9 : (ClayStyle.isActive ? 8 : (SequoiaStyle.isActive ? 9 : 4)))))
     }
 
     private func badgeForeground(_ tint: Color) -> Color {
@@ -150,6 +166,9 @@ struct PlatformBadgeLabel: View {
             return MangaStyle.ink
         }
         if SequoiaStyle.isActive {
+            return tint
+        }
+        if CapsuleStyle.isActive {
             return tint
         }
         return tint
@@ -171,6 +190,12 @@ struct PlatformBadgeLabel: View {
                 elevated: false,
                 pressed: true,
                 compact: true
+            )
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(
+                cornerRadius: badgeCornerRadius,
+                elevated: false,
+                tint: tint.opacity(0.10)
             )
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(
@@ -200,6 +225,9 @@ struct PlatformBadgeLabel: View {
         } else if ClayStyle.isActive {
             RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
                 .stroke(tint.opacity(0.28), lineWidth: 0.6)
+        } else if CapsuleStyle.isActive {
+            RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
+                .stroke(tint.opacity(0.24), lineWidth: 0.7)
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: badgeCornerRadius, style: .continuous)
                 .stroke(tint.opacity(0.24), lineWidth: 0.55)

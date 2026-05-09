@@ -22,6 +22,8 @@ struct ThemedPageBackground: View {
                         MujiRootBackdrop()
                     } else if NeumorphicStyle.isActive {
                         NeumorphicRenderBackdrop()
+                    } else if CapsuleStyle.isActive {
+                        CapsuleRootBackdrop()
                     } else if SequoiaStyle.isActive {
                         SequoiaRootBackdrop()
                     } else if LiquidGlassStyle.isActive {
@@ -115,6 +117,17 @@ struct ThemedPageHeader<Accessory: View>: View {
                 HStack(spacing: 10) {
                     accessory
                     NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 46)
+                }
+            }
+        } else if CapsuleStyle.isActive {
+            CapsulePageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    CapsuleIconBadge(icon: icon, tint: CapsuleStyle.accent, size: 46)
                 }
             }
         } else if SequoiaStyle.isActive {
@@ -264,16 +277,21 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     let eyebrow: String
     let subtitle: String
     let icon: MonologueIcon.IconType
+    @Environment(\.monologueSheetContext) private var monologueSheetContext
 
     private var isThemed: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+    }
+
+    private var shouldRenderInlineHeader: Bool {
+        isThemed && monologueSheetContext == nil
     }
 
     func body(content: Content) -> some View {
         content
             .navigationTitle(isThemed ? "" : title)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if isThemed {
+                if shouldRenderInlineHeader {
                     ThemedPageHeader(
                         eyebrow: eyebrow,
                         title: title,
@@ -307,6 +325,16 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                         cornerRadius: min(max(cornerRadius, 18), 28),
                         elevated: elevated,
                         lightweight: !elevated
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if CapsuleStyle.isActive {
+            content
+                .background(
+                    CapsuleSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 20), 30),
+                        elevated: elevated,
+                        tint: elevated ? CapsuleStyle.surfaceRaised.opacity(0.92) : CapsuleStyle.surface.opacity(0.84)
                     )
                 )
                 .themeRenderSurfaceLayer(isEnabled: elevated)
@@ -375,13 +403,14 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var listSpacing: CGFloat {
         if MangaStyle.isActive { return 10 }
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 10 }
+        if CapsuleStyle.isActive { return 9 }
         if SequoiaStyle.isActive { return 6 }
         if LiquidGlassStyle.isActive { return 8 }
         if ClayStyle.isActive { return 10 }
@@ -394,6 +423,7 @@ enum ThemedPageStyle {
         if MangaStyle.isActive { return 14 }
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 14 }
+        if CapsuleStyle.isActive { return 13 }
         if SequoiaStyle.isActive { return 10 }
         if LiquidGlassStyle.isActive { return 12 }
         if ClayStyle.isActive { return 14 }
@@ -414,6 +444,7 @@ enum ThemedPageStyle {
         if MangaStyle.isActive { return 18 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
+        if CapsuleStyle.isActive { return 24 }
         if SequoiaStyle.isActive { return 20 }
         if LiquidGlassStyle.isActive { return 22 }
         if ClayStyle.isActive { return 24 }
@@ -426,6 +457,7 @@ enum ThemedPageStyle {
         if MangaStyle.isActive { return 14 }
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 18 }
+        if CapsuleStyle.isActive { return 18 }
         if SequoiaStyle.isActive { return 11 }
         if LiquidGlassStyle.isActive { return 16 }
         if ClayStyle.isActive { return 18 }

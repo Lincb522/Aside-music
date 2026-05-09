@@ -44,6 +44,18 @@ struct ThemedLibrarySectionHeader: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        } else if CapsuleStyle.isActive {
+            CapsuleSectionTitle(title: title, tint: CapsuleStyle.accent) {
+                HStack(spacing: 5) {
+                    Capsule()
+                        .fill(CapsuleStyle.accent.opacity(0.72))
+                        .frame(width: 18, height: 6)
+                    Capsule()
+                        .fill(CapsuleStyle.cyan.opacity(0.48))
+                        .frame(width: 8, height: 6)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         } else {
             Text(title)
                 .font(MujiStyle.isActive ? MujiStyle.titleFont(17, weight: .semibold) : .system(size: 17, weight: .bold, design: .rounded))
@@ -88,6 +100,17 @@ struct LibraryLoadingStateView: View {
             .frame(minHeight: resolvedMinHeight, alignment: .center)
             .background(SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome))
             .padding(.horizontal, resolvedPadding)
+        } else if CapsuleStyle.isActive {
+            VStack(spacing: 12) {
+                CapsuleIconBadge(icon: .library, tint: CapsuleStyle.accent, size: 50)
+                ProgressView()
+                    .tint(CapsuleStyle.accent)
+                    .scaleEffect(0.82)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: resolvedMinHeight, alignment: .center)
+            .background(CapsuleSurfaceBackground(cornerRadius: 26, elevated: true, tint: CapsuleStyle.surface.opacity(0.9)))
+            .padding(.horizontal, resolvedPadding)
         } else {
             MonologueLoadingView(text: text)
                 .frame(maxWidth: .infinity)
@@ -116,12 +139,14 @@ struct ThemedLibraryEmptyState: View {
         VStack(spacing: 12) {
             if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: icon, tint: tint, size: 50)
+            } else if CapsuleStyle.isActive {
+                CapsuleIconBadge(icon: icon, tint: tint, size: 50)
             } else {
                 MonologueIcon(icon: icon, size: 28, color: tint.opacity(0.72), lineWidth: 1.8)
             }
             Text(title)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary)))
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded)))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : .monologueTextSecondary))))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
@@ -134,6 +159,8 @@ struct ThemedLibraryEmptyState: View {
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
+            } else if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
@@ -186,6 +213,8 @@ struct ThemedLibraryPodcastRow: View {
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
+            } else if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 22, elevated: true, tint: CapsuleStyle.surface.opacity(0.88))
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
@@ -208,17 +237,19 @@ struct ThemedLibraryArtistCard: View {
             .shadow(color: tint.opacity(0.14), radius: 7, y: 3)
 
             Text(artist.name)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .semibold, design: .rounded))))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .bold) : .system(size: 13, weight: .semibold, design: .rounded)))))
+                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : .monologueTextPrimary))))
                 .lineLimit(1)
         }
-        .padding(NeumorphicStyle.isActive || SequoiaStyle.isActive ? 12 : 0)
+        .padding(NeumorphicStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive ? 12 : 0)
         .frame(maxWidth: .infinity)
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, tint: tint.opacity(0.06), lightweight: true)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
+            } else if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 22, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
             }
         }
     }

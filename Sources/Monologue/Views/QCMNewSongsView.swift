@@ -13,10 +13,14 @@ struct QCMNewSongsView: View {
     }
 
     private var qcmAccent: Color {
+        if CapsuleStyle.isActive { return CapsuleStyle.mint }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : MusicSource.qqmusic.themedBadgeColor
     }
 
     private var qcmAccentForeground: Color {
+        if CapsuleStyle.isActive {
+            return CapsuleStyle.readableLabel(on: CapsuleStyle.mint)
+        }
         if NeumorphicStyle.isActive {
             return ThemeColorCustomization.readableForegroundColor(
                 on: NeumorphicStyle.accent,
@@ -28,10 +32,12 @@ struct QCMNewSongsView: View {
     }
 
     private var qcmPrimaryText: Color {
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
     private var qcmSecondaryText: Color {
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
     }
 
@@ -50,24 +56,12 @@ struct QCMNewSongsView: View {
                         loadingState
                     } else if songs.isEmpty {
                         emptyState
+                    } else if CapsuleStyle.isActive {
+                        capsuleSongList
                     } else {
                         toolbar
 
-                        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                            SongListRow(
-                                song: song,
-                                index: index,
-                                isSelecting: isSelectMode,
-                                isSelected: selectedSongIds.contains(song.id),
-                                onTap: {
-                                    if isSelectMode {
-                                        toggleSelection(song.id)
-                                    } else {
-                                        playerManager.play(song: song, in: songs)
-                                    }
-                                }
-                            )
-                        }
+                        songRows
                     }
 
                     FloatingBarBottomSpacer()
@@ -112,6 +106,15 @@ struct QCMNewSongsView: View {
                 SignalIconBadge(icon: .musicNote, tint: MusicSource.qqmusic.themedBadgeColor, size: 48)
             }
             .padding(.bottom, 2)
+        } else if CapsuleStyle.isActive {
+            CapsulePageHeader(
+                eyebrow: "QCM NEW",
+                title: "QCM 新歌",
+                subtitle: "\(songs.count) \(String(localized: "首"))"
+            ) {
+                CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.mint, size: 48)
+            }
+            .padding(.bottom, 2)
         } else if ThemedPageStyle.isActive {
             ThemedPageHeader(
                 eyebrow: "QCM NEW",
@@ -146,6 +149,38 @@ struct QCMNewSongsView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, DeviceLayout.headerTopPadding + 8)
             .padding(.bottom, 12)
+        }
+    }
+
+    private var capsuleSongList: some View {
+        CapsuleDetailSection(
+            title: "QCM NEW",
+            subtitle: "\(songs.count) \(String(localized: "首"))",
+            icon: .musicNote,
+            tint: CapsuleStyle.mint
+        ) {
+            toolbar
+                .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+
+            songRows
+        }
+    }
+
+    private var songRows: some View {
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            SongListRow(
+                song: song,
+                index: index,
+                isSelecting: isSelectMode,
+                isSelected: selectedSongIds.contains(song.id),
+                onTap: {
+                    if isSelectMode {
+                        toggleSelection(song.id)
+                    } else {
+                        playerManager.play(song: song, in: songs)
+                    }
+                }
+            )
         }
     }
 
@@ -192,6 +227,8 @@ struct QCMNewSongsView: View {
         Group {
             if SignalStyle.isActive {
                 SignalPlayPill(title: title, icon: icon, tint: tint)
+            } else if CapsuleStyle.isActive {
+                CapsuleDetailActionPill(title: title, icon: icon, tint: tint)
             } else {
                 HStack(spacing: 7) {
                     MonologueIcon(icon: icon, size: 12, color: qcmAccentForeground, lineWidth: 1.7)
@@ -210,9 +247,16 @@ struct QCMNewSongsView: View {
     }
 
     private func toolbarIcon(icon: MonologueIcon.IconType, tint: Color) -> some View {
-        MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.7)
-            .frame(width: 32, height: 32)
-            .themedPageSurface(cornerRadius: 13, elevated: true)
+        Group {
+            if CapsuleStyle.isActive {
+                CapsuleDetailIconButton(icon: icon, tint: tint)
+                    .frame(width: 34, height: 34)
+            } else {
+                MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.7)
+                    .frame(width: 32, height: 32)
+                    .themedPageSurface(cornerRadius: 13, elevated: true)
+            }
+        }
     }
 
     private var loadingState: some View {
@@ -227,11 +271,13 @@ struct QCMNewSongsView: View {
                 SignalIconBadge(icon: .musicNote, tint: MusicSource.qqmusic.themedBadgeColor, size: 54)
             } else if NeumorphicStyle.isActive {
                 NeumorphicIconBadge(icon: .musicNote, tint: qcmAccent, size: 54)
+            } else if CapsuleStyle.isActive {
+                CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.mint, size: 54)
             } else {
                 MonologueIcon(icon: .musicNote, size: 38, color: MusicSource.qqmusic.themedBadgeColor.opacity(0.65), lineWidth: 1.7)
             }
             Text("暂无 QCM 新歌")
-                .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold)))
+                .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold))))
                 .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : qcmSecondaryText)
         }
         .frame(maxWidth: .infinity)

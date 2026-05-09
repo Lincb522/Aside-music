@@ -30,7 +30,12 @@ struct GlobalThemeOptionCard: View {
                     ZStack {
                         Circle()
                             .fill(previewAccent)
-                        MonologueIcon(icon: .checkmark, size: 11, color: .white, lineWidth: 2.2)
+                        MonologueIcon(
+                            icon: .checkmark,
+                            size: 11,
+                            color: ThemeColorCustomization.readableForegroundColor(on: previewAccent, light: Color(hex: "111821"), dark: .white),
+                            lineWidth: 2.2
+                        )
                     }
                     .frame(width: 23, height: 23)
                     .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1.2))
@@ -88,6 +93,8 @@ struct GlobalThemeOptionCard: View {
             mangaPreview
         case .neumorphic:
             neumorphicPreview
+        case .capsule:
+            capsulePreview
         case .sequoia:
             sequoiaPreview
         case .liquidGlass:
@@ -103,6 +110,7 @@ struct GlobalThemeOptionCard: View {
         case .muji:      return Color(hex: "C4775A")
         case .manga:     return Color(hex: "FF8FAB")
         case .neumorphic: return Color(hex: "4F8E86")
+        case .capsule: return Color(hex: "3867FF")
         case .sequoia:   return Color(hex: "0A84FF")
         case .liquidGlass: return Color(hex: "18A7FF")
         case .bento, .clay, .signal: return .monologueAccent
@@ -411,6 +419,70 @@ struct GlobalThemeOptionCard: View {
                 .frame(width: 42, height: 5)
                 .padding(.leading, 1.5)
         }
+    }
+
+    // MARK: - Capsule OS 预览
+
+    private var capsulePreview: some View {
+        ZStack {
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "111725"), Color(hex: "1B2440"), Color(hex: "221C38")]
+                    : [Color(hex: "F6F8FF"), Color(hex: "EAF1FF"), Color(hex: "F8F2FF")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 5) {
+                    Capsule().fill(Color(hex: "3867FF")).frame(width: 28, height: 7)
+                    Circle().fill(Color(hex: "2EC8E6")).frame(width: 7, height: 7)
+                    Circle().fill(Color(hex: "8476FF")).frame(width: 7, height: 7)
+                    Spacer()
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.white.opacity(colorScheme == .dark ? 0.12 : 0.66))
+                        .frame(width: 28, height: 20)
+                }
+
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(colorScheme == .dark ? 0.12 : 0.82))
+                        .frame(width: 58, height: 52)
+                        .overlay(
+                            VStack(spacing: 5) {
+                                Capsule().fill(Color(hex: "3867FF")).frame(width: 30, height: 8)
+                                Capsule().fill(Color(hex: "2EC8E6").opacity(0.4)).frame(width: 20, height: 5)
+                            }
+                        )
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Capsule().fill(CapsuleStyle.ink.opacity(0.22)).frame(width: 64, height: 6)
+                        Capsule().fill(CapsuleStyle.ink.opacity(0.12)).frame(width: 42, height: 5)
+                        HStack(spacing: 5) {
+                            Capsule().fill(Color(hex: "3867FF").opacity(0.24)).frame(width: 32, height: 17)
+                            Capsule().fill(Color(hex: "35CFA8").opacity(0.22)).frame(width: 25, height: 17)
+                        }
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    capsulePreviewPill(tint: Color(hex: "3867FF"), selected: true)
+                    capsulePreviewPill(tint: Color(hex: "35CFA8"))
+                    capsulePreviewPill(tint: Color(hex: "F0AD3D"))
+                }
+            }
+            .padding(10)
+        }
+    }
+
+    private func capsulePreviewPill(tint: Color, selected: Bool = false) -> some View {
+        Capsule()
+            .fill(selected ? tint : Color.white.opacity(colorScheme == .dark ? 0.12 : 0.58))
+            .frame(height: selected ? 22 : 18)
+            .overlay(
+                Capsule()
+                    .stroke(selected ? Color.white.opacity(0.38) : tint.opacity(0.18), lineWidth: 0.8)
+            )
     }
 
     // MARK: - Sequoia 预览

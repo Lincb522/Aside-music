@@ -13,7 +13,9 @@ enum MangaStyle {
     }
 
     static let strokeInkMuted = Color(light: Color(hex: "595260"), dark: Color(hex: "2E2434"))
-    static let onStrokeInk = Color(light: Color(hex: "FFFDF5"), dark: Color(hex: "F5F0E8"))
+    static var onStrokeInk: Color {
+        ThemeColorCustomization.readableForegroundColor(on: strokeInk, light: Color(hex: "17151F"), dark: Color(hex: "FFFDF5"))
+    }
     static var paper: Color {
         ThemeColorCustomization.backgroundBase(for: .manga, fallback: Color(light: Color(hex: "FFF3D7"), dark: Color(hex: "121018")), fallbackHex: "FFF3D7")
     }

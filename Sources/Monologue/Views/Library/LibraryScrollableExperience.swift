@@ -143,6 +143,8 @@ struct ScrollableLibraryExperience: View {
             signalHeaderDeck
         } else if SequoiaStyle.isActive {
             sequoiaHeaderDeck
+        } else if CapsuleStyle.isActive {
+            capsuleHeaderDeck
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 if MujiStyle.isActive {
@@ -304,6 +306,8 @@ struct ScrollableLibraryExperience: View {
             signalTabDeck
         } else if SequoiaStyle.isActive {
             sequoiaTabDeck
+        } else if CapsuleStyle.isActive {
+            capsuleTabDeck
         } else {
             HStack(spacing: 6) {
                 ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
@@ -331,6 +335,115 @@ struct ScrollableLibraryExperience: View {
             .background(panelBackground(cornerRadius: NeumorphicStyle.isActive ? 20 : 14))
             .animation(.spring(response: 0.34, dampingFraction: 0.86), value: tabIndex)
         }
+    }
+
+    private var capsuleHeaderDeck: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                CapsuleIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 46)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(activeTabEyebrow)
+                        .font(CapsuleStyle.labelFont(10, weight: .bold))
+                        .foregroundStyle(activeTabTint)
+                        .tracking(1.1)
+
+                    Text(String(localized: "tabbar_library"))
+                        .font(CapsuleStyle.titleFont(25, weight: .bold))
+                        .foregroundStyle(CapsuleStyle.ink)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 6) {
+                    Capsule()
+                        .fill(activeTabTint)
+                        .frame(width: 24, height: 8)
+                    Capsule()
+                        .fill(CapsuleStyle.cyan.opacity(0.65))
+                        .frame(width: 10, height: 8)
+                    Text(activeTabShortLabel)
+                        .font(CapsuleStyle.labelFont(11, weight: .bold))
+                        .foregroundStyle(CapsuleStyle.ink)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 36)
+                .background(
+                    CapsuleSurfaceBackground(
+                        cornerRadius: 18,
+                        elevated: true,
+                        tint: CapsuleStyle.surfaceRaised.opacity(0.82)
+                    )
+                )
+            }
+
+            tabStrip
+        }
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
+    private var capsuleTabDeck: some View {
+        HStack(spacing: 7) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                capsuleTabButton(tab: tab, index: index)
+            }
+        }
+        .padding(5)
+        .background(
+            CapsuleSurfaceBackground(
+                cornerRadius: 22,
+                elevated: true,
+                tint: CapsuleStyle.surface.opacity(0.88)
+            )
+        )
+        .animation(.spring(response: 0.34, dampingFraction: 0.88), value: tabIndex)
+    }
+
+    private func capsuleTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
+        let selected = tabIndex == index
+        let tint = tint(for: tab)
+
+        return Button {
+            selectTab(tab, index: index)
+        } label: {
+            VStack(spacing: 5) {
+                MonologueIcon(
+                    icon: icon(for: tab),
+                    size: 14,
+                    color: selected ? CapsuleStyle.readableLabel(on: tint) : CapsuleStyle.inkSoft,
+                    lineWidth: selected ? 1.9 : 1.55
+                )
+
+                Text(tab.localizedKey)
+                    .font(CapsuleStyle.labelFont(10.5, weight: selected ? .bold : .semibold))
+                    .foregroundStyle(selected ? CapsuleStyle.readableLabel(on: tint) : CapsuleStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(tint)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(CapsuleStyle.surfaceRaised.opacity(0.62))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                .stroke(CapsuleStyle.separator.opacity(0.35), lineWidth: 0.7)
+                        )
+                }
+            }
+        }
+        .buttonStyle(CapsulePressStyle())
     }
 
     private var liquidGlassHeaderDeck: some View {
@@ -607,7 +720,76 @@ struct ScrollableLibraryExperience: View {
 
     @ViewBuilder
     private var myLibraryControlPanel: some View {
-        if NeumorphicStyle.isActive {
+        if CapsuleStyle.isActive {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "浏览分区"))
+                            .font(CapsuleStyle.titleFont(16, weight: .bold))
+                            .foregroundStyle(CapsuleStyle.ink)
+
+                        Text(selectedMyLibraryColumn.title)
+                            .font(CapsuleStyle.labelFont(11, weight: .semibold))
+                            .foregroundStyle(tint(for: selectedMyLibraryColumn))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Button {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                            isLibraryActionsExpanded.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            MonologueIcon(
+                                icon: isLibraryActionsExpanded ? .close : .more,
+                                size: 13,
+                                color: isLibraryActionsExpanded ? CapsuleStyle.readableLabel(on: defaultAccent) : CapsuleStyle.inkSoft,
+                                lineWidth: 1.8
+                            )
+                            Text(String(localized: "工具"))
+                                .font(CapsuleStyle.labelFont(11, weight: .bold))
+                                .foregroundStyle(isLibraryActionsExpanded ? CapsuleStyle.readableLabel(on: defaultAccent) : CapsuleStyle.inkSoft)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                        .background(
+                            Capsule()
+                                .fill(isLibraryActionsExpanded ? defaultAccent : CapsuleStyle.surfaceRaised.opacity(0.8))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(isLibraryActionsExpanded ? Color.white.opacity(0.35) : CapsuleStyle.separator.opacity(0.45), lineWidth: 0.8)
+                                )
+                        )
+                    }
+                    .buttonStyle(CapsulePressStyle())
+                }
+
+                columnStrip
+
+                LibraryDisclosureReveal(isExpanded: isLibraryActionsExpanded) {
+                    actionStrip
+                        .padding(10)
+                        .background(
+                            CapsuleSurfaceBackground(
+                                cornerRadius: 20,
+                                elevated: false,
+                                tint: CapsuleStyle.surfaceTint.opacity(0.82)
+                            )
+                        )
+                }
+            }
+            .padding(13)
+            .background(
+                CapsuleSurfaceBackground(
+                    cornerRadius: 26,
+                    elevated: true,
+                    tint: CapsuleStyle.surface.opacity(0.9)
+                )
+            )
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        } else if NeumorphicStyle.isActive {
             VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -1684,6 +1866,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -1693,6 +1876,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return .monologueTextSecondary
     }
 
@@ -1702,6 +1886,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.accent }
         if MujiStyle.isActive { return MujiStyle.tea }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent }
         return .monologueAccent
     }
 
@@ -1711,6 +1896,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.olive }
         if MujiStyle.isActive { return MujiStyle.clay }
         if SequoiaStyle.isActive { return SequoiaStyle.aqua }
+        if CapsuleStyle.isActive { return CapsuleStyle.cyan }
         return .monologueAccentBlue
     }
 
@@ -1720,6 +1906,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.rust }
         if MujiStyle.isActive { return MujiStyle.indigo }
         if SequoiaStyle.isActive { return SequoiaStyle.green }
+        if CapsuleStyle.isActive { return CapsuleStyle.mint }
         return .monologueAccentGreen
     }
 
@@ -1729,11 +1916,13 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.red }
         if MujiStyle.isActive { return MujiStyle.red }
         if SequoiaStyle.isActive { return SequoiaStyle.violet }
+        if CapsuleStyle.isActive { return CapsuleStyle.violet }
         return .monologueAccentRed
     }
 
     private var selectedChipText: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         return MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueIconForeground)))
     }
 
@@ -1748,6 +1937,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         return .system(size: 13, weight: selected ? .bold : .medium, design: .rounded)
     }
 
@@ -1757,6 +1947,7 @@ struct ScrollableLibraryExperience: View {
         if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         return .system(size: 13, weight: selected ? .semibold : .medium, design: .rounded)
     }
 
@@ -1795,6 +1986,14 @@ struct ScrollableLibraryExperience: View {
                 SignalSurfaceBackground(cornerRadius: capsule ? 12 : 10, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.18) : SignalStyle.control)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: capsule ? 18 : 13, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.13) : SequoiaStyle.materialList, role: selected ? .selected : .list)
+            } else if CapsuleStyle.isActive {
+                let radius: CGFloat = capsule ? 18 : 15
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(selected ? tint : CapsuleStyle.surfaceRaised.opacity(0.72))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .stroke(selected ? Color.white.opacity(0.32) : CapsuleStyle.separator.opacity(0.46), lineWidth: 0.7)
+                    )
             } else if MujiStyle.isActive {
                 let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 8, style: .continuous)
                 shape
@@ -1819,6 +2018,12 @@ struct ScrollableLibraryExperience: View {
                 SignalSurfaceBackground(cornerRadius: min(cornerRadius, 18), elevated: true, fill: SignalStyle.device)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: min(cornerRadius, 20), elevated: true, role: .chrome)
+            } else if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, 16), 26),
+                    elevated: true,
+                    tint: CapsuleStyle.surface.opacity(0.9)
+                )
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(MujiStyle.surface.opacity(0.82))

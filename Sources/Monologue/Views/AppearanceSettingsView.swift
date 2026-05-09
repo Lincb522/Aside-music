@@ -137,6 +137,18 @@ struct AppearanceSettingsView: View {
                             set: { settings.floatingBarStyle = $0 }
                         )
                     )
+
+                    if settings.globalThemeId == .default {
+                        Divider()
+                            .padding(.leading, 56)
+
+                        SettingsToggleRow(
+                            icon: .sparkle,
+                            title: String(localized: "settings_default_liquid_glass_tabbar"),
+                            subtitle: nil,
+                            isOn: $settings.defaultThemeUsesLiquidGlassTabBar
+                        )
+                    }
                 }
             }
         }
@@ -282,7 +294,7 @@ struct AppearanceSettingsView: View {
 
     private func suggestedPlayerTheme(for themeId: GlobalThemeId) -> PlayerTheme? {
         switch themeId {
-        case .neumorphic, .sequoia, .liquidGlass:
+        case .neumorphic, .capsule, .sequoia, .liquidGlass:
             return .classic
         case .default, .muji, .manga, .bento, .clay, .signal:
             return nil
@@ -652,6 +664,10 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, lightweight: true)
+        } else if theme == .capsule {
+            Circle()
+                .fill(CapsuleStyle.surfaceRaised.opacity(0.8))
+                .overlay(Circle().stroke(CapsuleStyle.separator.opacity(0.5), lineWidth: 0.65))
         } else if theme == .sequoia {
             SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list)
         } else if theme == .liquidGlass {
@@ -942,6 +958,10 @@ private struct ThemeColorCustomizationSection: View {
         case (.neumorphic, .accent, _): return "4F8E86"
         case (.neumorphic, .background, "end"): return "F2EEE8"
         case (.neumorphic, .background, _): return "E9EDF0"
+        case (.capsule, .accent, "end"): return "3867FF"
+        case (.capsule, .accent, _): return "3867FF"
+        case (.capsule, .background, "end"): return "EAF1FF"
+        case (.capsule, .background, _): return "F6F8FF"
         case (.sequoia, .accent, "end"): return "26AFCF"
         case (.sequoia, .accent, _): return "0A84FF"
         case (.sequoia, .background, "end"): return "E3EBF2"
@@ -1010,6 +1030,10 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(MujiPaperTexture(opacity: isSelected ? 0.04 : 0.08).clipShape(Capsule()))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, tint: isSelected ? NeumorphicStyle.accent.opacity(0.14) : nil, lightweight: true)
+        } else if theme == .capsule {
+            Capsule()
+                .fill(isSelected ? CapsuleStyle.accent.opacity(0.16) : CapsuleStyle.surfaceRaised.opacity(0.82))
+                .overlay(Capsule().stroke(isSelected ? CapsuleStyle.accent.opacity(0.38) : CapsuleStyle.separator.opacity(0.5), lineWidth: isSelected ? 0.9 : 0.65))
         } else if theme == .sequoia {
             SequoiaSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SequoiaStyle.accent.opacity(0.14) : SequoiaStyle.glass)
         } else if theme == .liquidGlass {
@@ -1047,6 +1071,10 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.65))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, lightweight: true)
+        } else if theme == .capsule {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(CapsuleStyle.surfaceRaised.opacity(0.78))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(CapsuleStyle.separator.opacity(0.48), lineWidth: 0.65))
         } else if theme == .sequoia {
             SequoiaSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
         } else if theme == .liquidGlass {
@@ -1069,6 +1097,7 @@ private struct ThemeColorCustomizationSection: View {
     private var themeTextColor: Color {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
+        if theme == .capsule { return CapsuleStyle.ink }
         if theme == .sequoia { return SequoiaStyle.ink }
         if theme == .liquidGlass { return LiquidGlassStyle.ink }
         if theme == .clay { return ClayStyle.ink }
@@ -1081,6 +1110,7 @@ private struct ThemeColorCustomizationSection: View {
     private var themeSubtextColor: Color {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
+        if theme == .capsule { return CapsuleStyle.inkSoft }
         if theme == .sequoia { return SequoiaStyle.inkSoft }
         if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
         if theme == .clay { return ClayStyle.inkSoft }
@@ -1093,6 +1123,7 @@ private struct ThemeColorCustomizationSection: View {
     private var themeStrokeColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
+        if theme == .capsule { return CapsuleStyle.separator.opacity(0.64) }
         if theme == .sequoia { return SequoiaStyle.separator.opacity(0.74) }
         if theme == .liquidGlass { return LiquidGlassStyle.separator.opacity(0.78) }
         if theme == .clay { return ClayStyle.separator.opacity(0.62) }
@@ -1105,6 +1136,7 @@ private struct ThemeColorCustomizationSection: View {
     private var selectedPresetTextColor: Color {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
+        if theme == .capsule { return CapsuleStyle.accent }
         if theme == .sequoia { return SequoiaStyle.accent }
         if theme == .liquidGlass { return LiquidGlassStyle.accent }
         if theme == .clay { return ClayStyle.accent }
@@ -1115,15 +1147,16 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var selectedPresetMarkColor: Color {
-        if theme == .manga { return MangaStyle.strokeInk }
-        if theme == .muji { return MujiStyle.onTint }
-        if theme == .sequoia { return Color.white }
-        if theme == .liquidGlass { return LiquidGlassStyle.onAccent }
-        if theme == .clay { return ClayStyle.accent }
-        if theme == .default { return Color.monologueIconForeground }
-        if theme == .signal { return SignalStyle.onAccent }
-        if theme == .bento { return BentoStyle.onAccent }
-        return Color(light: .white, dark: .black)
+        if theme == .manga {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.bubblePink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
+        if theme == .muji {
+            return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
+        }
+        if theme == .clay {
+            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter.opacity(0.82), light: ClayStyle.ink, dark: .white)
+        }
+        return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
     @ViewBuilder
@@ -1138,6 +1171,9 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .default {
             Circle()
                 .fill(Color.monologueIconBackground)
+        } else if theme == .capsule {
+            Circle()
+                .fill(CapsuleStyle.accent)
         } else if theme == .sequoia {
             Circle()
                 .fill(SequoiaStyle.accent)
@@ -1160,15 +1196,13 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var savePresetIconColor: Color {
-        if theme == .manga { return MangaStyle.strokeInk }
-        if theme == .muji { return MujiStyle.onTint }
-        if theme == .sequoia { return Color.white }
-        if theme == .liquidGlass { return LiquidGlassStyle.onAccent }
-        if theme == .clay { return ClayStyle.accent }
-        if theme == .default { return Color.monologueIconForeground }
-        if theme == .signal { return SignalStyle.onAccent }
-        if theme == .bento { return BentoStyle.onAccent }
-        return Color(light: .white, dark: .black)
+        if theme == .manga {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
+        if theme == .clay {
+            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter.opacity(0.86), light: ClayStyle.ink, dark: .white)
+        }
+        return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
     @ViewBuilder
@@ -1184,6 +1218,10 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(NeumorphicStyle.accent)
                 .shadow(color: NeumorphicStyle.accent.opacity(0.18), radius: 5, x: 0, y: 3)
+        } else if theme == .capsule {
+            Circle()
+                .fill(CapsuleStyle.accent)
+                .shadow(color: CapsuleStyle.accent.opacity(0.16), radius: 6, x: 0, y: 3)
         } else if theme == .sequoia {
             Circle()
                 .fill(SequoiaStyle.accent)
@@ -1223,6 +1261,8 @@ private struct ThemeColorCustomizationSection: View {
                 .overlay(MujiPaperTexture(opacity: 0.065).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous)))
         } else if theme == .neumorphic {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08), lightweight: true)
+        } else if theme == .capsule {
+            CapsuleSurfaceBackground(cornerRadius: 16, elevated: true, tint: CapsuleStyle.surfaceRaised.opacity(0.86))
         } else if theme == .sequoia {
             SequoiaSurfaceBackground(cornerRadius: 16, elevated: true, fill: SequoiaStyle.accent.opacity(0.08))
         } else if theme == .liquidGlass {
@@ -1778,14 +1818,16 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var selectedCheckColor: Color {
-        if theme == .manga { return MangaStyle.strokeInk }
-        if theme == .muji { return MujiStyle.onTint }
-        if theme == .default { return Color.monologueIconForeground }
-        if theme == .sequoia { return Color.white }
-        if theme == .liquidGlass { return LiquidGlassStyle.onAccent }
-        if theme == .clay { return ClayStyle.accent }
-        if theme == .signal { return SignalStyle.onAccent }
-        return Color(light: .white, dark: .black)
+        if theme == .manga {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
+        if theme == .muji {
+            return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
+        }
+        if theme == .clay {
+            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter, light: ClayStyle.ink, dark: .white)
+        }
+        return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
     private var selectedCheckBackground: Color {
@@ -2160,7 +2202,7 @@ private struct AppBrandOptionCard: View {
                 Circle()
                     .fill(Color.monologueAccent)
                     .frame(width: 20, height: 20)
-                    .overlay(MonologueIcon(icon: .checkmark, size: 11, color: .white, lineWidth: 2.1))
+                    .overlay(MonologueIcon(icon: .checkmark, size: 11, color: .monologueAccentForeground, lineWidth: 2.1))
                     .padding(7)
             }
         }

@@ -333,7 +333,7 @@ public struct ContentView: View {
 private struct ContentViewFloatingBarContainer: View {
     @Binding var currentTab: Tab
     @ObservedObject var settings: SettingsManager
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     var body: some View {
         if !settings.useSystemTabBar && !player.isTabBarHidden {
@@ -382,7 +382,7 @@ private struct ContentViewFloatingBarContainer: View {
 
 private struct ContentViewCompactPlayerContainer: View {
     @ObservedObject var settings: SettingsManager
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     /// iOS 26+ 时改用 `.tabViewBottomAccessory` 原生嵌入，这里跳过避免重复显示
     private var shouldUseNativeBottomAccessory: Bool {
@@ -457,7 +457,7 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
 @available(iOS 26.0, *)
 private struct TabViewBottomMiniPlayer: View {
     @Binding var playlistPresented: Bool
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     private var hasActiveSong: Bool {
@@ -497,7 +497,6 @@ private struct TabViewBottomMiniPlayer: View {
 /// - 可操作：整条胶囊可点击，发送 `SwitchToHome` 通知跳回首页发现音乐
 @available(iOS 26.0, *)
 private struct TabBottomAccessoryPlaceholder: View {
-    @State private var breathing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -534,20 +533,7 @@ private struct TabBottomAccessoryPlaceholder: View {
             NotificationCenter.default.post(name: .init("SwitchToHome"), object: nil)
         } label: {
             HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(iconGradient)
-                        .frame(width: 34, height: 34)
-
-                    MonologueIcon(icon: .musicNote, size: 15, color: secondaryTextColor)
-                }
-                .scaleEffect(breathing ? 1.04 : 0.97)
-                .animation(
-                    reduceMotion
-                        ? .default
-                        : .easeInOut(duration: 1.8).repeatForever(autoreverses: true),
-                    value: breathing
-                )
+                idleIcon
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(NSLocalizedString("not_playing", comment: "未在播放"))
@@ -572,11 +558,33 @@ private struct TabBottomAccessoryPlaceholder: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onAppear {
-            if !reduceMotion {
-                breathing = true
+    }
+
+    @ViewBuilder
+    private var idleIcon: some View {
+        if reduceMotion {
+            idleIconContent
+        } else {
+            TimelineView(.animation) { context in
+                idleIconContent
+                    .scaleEffect(breathingScale(at: context.date.timeIntervalSinceReferenceDate))
             }
         }
+    }
+
+    private var idleIconContent: some View {
+        ZStack {
+            Circle()
+                .fill(iconGradient)
+                .frame(width: 34, height: 34)
+
+            MonologueIcon(icon: .musicNote, size: 15, color: secondaryTextColor)
+        }
+    }
+
+    private func breathingScale(at time: TimeInterval) -> CGFloat {
+        let phase = (time.truncatingRemainder(dividingBy: 1.8) / 1.8) * .pi * 2
+        return 1.005 + CGFloat(sin(phase)) * 0.035
     }
 }
 
@@ -591,11 +599,10 @@ private struct TabBottomAccessoryPlaceholder: View {
 private struct TabBottomAccessoryContent: View {
     let song: Song
     @Binding var playlistPresented: Bool
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -610,8 +617,6 @@ private struct TabBottomAccessoryContent: View {
     private var secondaryTextColor: Color {
         Color(uiColor: .secondaryLabel)
     }
-
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
     /// 进度条颜色 — 跟随系统 Liquid Glass 背景自动适配亮/暗
     private var progressTrackColor: Color {
@@ -652,6 +657,7 @@ private struct TabBottomAccessoryContent: View {
                     .frame(height: 14)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 Button(action: { player.togglePlayPause() }) {
                     MonologueIcon(
@@ -694,7 +700,13 @@ private struct TabBottomAccessoryContent: View {
             .padding(.horizontal, 12)
 
             // 进度条
-            accessoryProgressBar
+            MiniPlayerProgressStrip(
+                height: 2.5,
+                minFillWidth: 4,
+                trackColor: progressTrackColor,
+                strokeColor: .clear,
+                fillColors: progressFillColors
+            )
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
                 .padding(.bottom, 2)
@@ -715,47 +727,18 @@ private struct TabBottomAccessoryContent: View {
             }
         }
     }
-
-    /// 贴合 Liquid Glass 风格的超薄进度条
-    private var accessoryProgressBar: some View {
-        GeometryReader { geo in
-            let progress = min(max(CGFloat(timePublisher.progress), 0), 1)
-            let fillWidth = progress > 0 ? max(4, geo.size.width * progress) : 0
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(progressTrackColor)
-
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: progressFillColors,
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: fillWidth)
-            }
-            .frame(height: 2.5)
-            .clipShape(Capsule())
-        }
-        .frame(height: 2.5)
-        .allowsHitTesting(false)
-    }
 }
 
 // MARK: - 紧凑迷你播放器（独立视图，隔离高频订阅）
 
 private struct CompactMiniPlayerView: View {
     let song: Song
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var systemColorScheme
     @State private var showCompactPlaylist = false
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -791,18 +774,25 @@ private struct CompactMiniPlayerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(song.name)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
-                        .lineLimit(1)
+                    MarqueeText(
+                        text: song.name,
+                        font: .system(size: 13, weight: .semibold, design: .rounded),
+                        color: .monologueTextPrimary,
+                        speed: 25
+                    )
+                    .frame(height: 16)
 
-                    Text(subtitleText)
-                        .font(.rounded(size: 11, weight: .medium))
-                        .foregroundColor(.monologueTextSecondary)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: .rounded(size: 11, weight: .medium),
+                        color: .monologueTextSecondary,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 HStack(spacing: 8) {
                     Button(action: { player.togglePlayPause() }) {
@@ -844,7 +834,13 @@ private struct CompactMiniPlayerView: View {
             .padding(.top, 6)
             .padding(.bottom, 4)
 
-            compactProgressBar
+            MiniPlayerProgressStrip(
+                height: 3,
+                minFillWidth: 6,
+                trackColor: compactProgressTrackColor,
+                strokeColor: compactProgressStrokeColor,
+                fillColors: compactProgressFillColors
+            )
                 .padding(.horizontal, 26)
                 .padding(.bottom, 6)
         }
@@ -870,36 +866,26 @@ private struct CompactMiniPlayerView: View {
             }
         }
     }
+}
 
-    private var compactProgressBar: some View {
-        GeometryReader { geometry in
-            let progress = min(max(CGFloat(timePublisher.progress), 0), 1)
-            let trackHeight: CGFloat = 3
-            let fillWidth = progress > 0 ? max(6, geometry.size.width * progress) : 0
+private struct MiniPlayerProgressStrip: View {
+    let height: CGFloat
+    let minFillWidth: CGFloat
+    let trackColor: Color
+    let strokeColor: Color
+    let fillColors: [Color]
 
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(compactProgressTrackColor)
-                    .overlay {
-                        Capsule()
-                            .stroke(compactProgressStrokeColor, lineWidth: 0.5)
-                    }
+    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: compactProgressFillColors,
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: fillWidth)
-            }
-            .frame(height: trackHeight)
-            .clipShape(Capsule())
-        }
-        .frame(height: 3)
-        .allowsHitTesting(false)
+    var body: some View {
+        GlobalPlaybackProgressBar(
+            progress: CGFloat(timePublisher.progress),
+            height: height,
+            minFillWidth: minFillWidth,
+            trackColor: trackColor,
+            strokeColor: strokeColor,
+            fillColors: fillColors
+        )
     }
 }
 

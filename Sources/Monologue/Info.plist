@@ -133,6 +133,8 @@
 	<true/>
 	<key>QQ_MUSIC_BASE_URL</key>
 	<string>$(QQ_MUSIC_BASE_URL)</string>
+	<key>QISHUI_BASE_URL</key>
+	<string>$(QISHUI_BASE_URL)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>SanJiPoMoTi.ttf</string>

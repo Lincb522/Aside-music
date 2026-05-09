@@ -123,6 +123,9 @@ class GlobalRefreshManager: ObservableObject {
     /// 登录成功后调用 - 优化版
     func triggerLoginRefresh() {
         AppLogger.debug("登录成功，触发全量数据刷新...")
+
+        // 登录可能发生在非首页入口，先确保首页数据层已经订阅全局刷新事件。
+        _ = HomeViewModel.shared
         
         // 重置状态
         resetDataReadyState()

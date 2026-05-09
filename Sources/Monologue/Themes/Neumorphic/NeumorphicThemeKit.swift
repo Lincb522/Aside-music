@@ -267,7 +267,12 @@ struct NeumorphicIconBadge: View {
         NeumorphicSurfaceBackground(cornerRadius: size * 0.32, elevated: true, tint: NeumorphicStyle.surfaceRaised, lightweight: true)
             .frame(width: size, height: size)
             .overlay(
-                MonologueIcon(icon: icon, size: size * 0.42, color: tint, lineWidth: 1.55)
+                MonologueIcon(
+                    icon: icon,
+                    size: size * 0.42,
+                    color: ThemeColorCustomization.visibleTintColor(tint, darkFallback: NeumorphicStyle.ink),
+                    lineWidth: 1.55
+                )
             )
             .themeRenderInteractiveLayer()
     }

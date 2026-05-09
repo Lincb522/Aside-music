@@ -28,6 +28,7 @@ struct CloudDiskView: View {
         static var accent: Color {
             if MangaStyle.isActive { return MangaStyle.accentPink }
             if MujiStyle.isActive { return MujiStyle.clay }
+            if CapsuleStyle.isActive { return CapsuleStyle.cyan }
             if SequoiaStyle.isActive { return SequoiaStyle.accent }
             if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
             return Color.monologueIconBackground
@@ -36,42 +37,49 @@ struct CloudDiskView: View {
         static var accentForeground: Color {
             if MangaStyle.isActive { return MangaStyle.ink }
             if MujiStyle.isActive { return MujiStyle.paper }
+            if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: accent) }
             if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
             if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
             return Color.monologueIconForeground
         }
 
         static var text: Color {
+            if CapsuleStyle.isActive { return CapsuleStyle.ink }
             if SequoiaStyle.isActive { return SequoiaStyle.ink }
             if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
             return Color.monologueTextPrimary
         }
 
         static var secondaryText: Color {
+            if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
             if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
             return Color.monologueTextSecondary
         }
 
         static var mutedText: Color {
+            if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             return Color.monologueTextSecondary.opacity(0.5)
         }
 
         static var coverFill: Color {
+            if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
             if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
             return Color.monologueGlassTint
         }
 
         static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if CapsuleStyle.isActive { return CapsuleStyle.labelFont(size, weight: weight) }
             if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
             return .system(size: size, weight: weight, design: .rounded)
         }
 
         static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(size, weight: weight) }
             if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
             return .system(size: size, weight: weight, design: .rounded)
@@ -186,7 +194,14 @@ struct CloudDiskView: View {
                     playerManager.playReplacingContext(song: first, in: allSongs)
                 }
             } label: {
-                if SequoiaStyle.isActive {
+                if CapsuleStyle.isActive {
+                    CapsulePillLabel(
+                        title: String(localized: "cloud_play_all"),
+                        icon: .play,
+                        tint: Theme.accent,
+                        selected: true
+                    )
+                } else if SequoiaStyle.isActive {
                     HStack(spacing: 7) {
                         MonologueIcon(icon: .play, size: 14, color: Theme.accentForeground, lineWidth: 1.6)
                         Text(LocalizedStringKey("cloud_play_all"))
@@ -282,11 +297,13 @@ struct CloudDiskView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.songName)
                         .font(Theme.bodyFont(15, weight: .semibold))
-                        .foregroundColor(isCurrent && (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
+                        .foregroundColor(isCurrent && (CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
                         .lineLimit(1)
                     
                     HStack(spacing: 6) {
-                        if SequoiaStyle.isActive {
+                        if CapsuleStyle.isActive {
+                            CapsulePillLabel(title: song.bitrateText, tint: Theme.accent, selected: isCurrent)
+                        } else if SequoiaStyle.isActive {
                             SequoiaPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
                         } else if NeumorphicStyle.isActive {
                             NeumorphicPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
@@ -312,13 +329,13 @@ struct CloudDiskView: View {
                 Spacer()
                 
                 if isCurrent {
-                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monologueTextPrimary)
+                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: (CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monologueTextPrimary)
                         .frame(width: 20)
                 }
             }
             .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
             .padding(.vertical, 8)
-            .background(isCurrent ? Theme.accent.opacity(SequoiaStyle.isActive ? 0.08 : 0.05) : Color.clear)
+            .background(isCurrent ? Theme.accent.opacity((SequoiaStyle.isActive || CapsuleStyle.isActive) ? 0.08 : 0.05) : Color.clear)
             .themedOnlyPageSurface(
                 cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
                 elevated: isCurrent,
@@ -357,13 +374,17 @@ struct CloudDiskView: View {
     }
 
     private var coverRadius: CGFloat {
+        if CapsuleStyle.isActive { return 16 }
         if SequoiaStyle.isActive { return 12 }
         return NeumorphicStyle.isActive ? 14 : 10
     }
 
     @ViewBuilder
     private var coverStroke: some View {
-        if NeumorphicStyle.isActive || SequoiaStyle.isActive {
+        if CapsuleStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 0.8)
+        } else if NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(SequoiaStyle.isActive ? SequoiaStyle.separator : NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         }

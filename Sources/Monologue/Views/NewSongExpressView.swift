@@ -74,6 +74,14 @@ struct NewSongExpressView: View {
                     ) {
                         SignalIconBadge(icon: .musicNote, tint: SignalStyle.olive, size: 48)
                     }
+                } else if CapsuleStyle.isActive {
+                    CapsulePageHeader(
+                        eyebrow: "NEW SONGS",
+                        title: String(localized: "new_song_express"),
+                        subtitle: "\(viewModel.songs.count) \(String(localized: "songs_unit"))"
+                    ) {
+                        CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.amber, size: 48)
+                    }
                 } else if SequoiaStyle.isActive {
                     SequoiaPageHeader(
                         eyebrow: "NEW SONGS",
@@ -167,7 +175,7 @@ struct NewSongExpressView: View {
                         Text(LocalizedStringKey(type.nameKey))
                             .font(typeChipFont(isSelected: isSelected))
                             .foregroundColor(MangaStyle.isActive ? mangaForeground : typeChipForeground(isSelected: isSelected))
-                            .padding(.horizontal, MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 13 : ((SignalStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 16)))
+                            .padding(.horizontal, MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 13 : ((SignalStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive) ? 14 : 16)))
                             .padding(.vertical, ThemedPageStyle.isActive ? 9 : 8)
                             .background(typeChipBackground(isSelected: isSelected))
                             .clipShape(Capsule())
@@ -207,6 +215,14 @@ struct NewSongExpressView: View {
                         .stroke(isSelected ? Color.white.opacity(0.22) : SignalStyle.separator.opacity(0.75), lineWidth: 0.8)
                 )
                 .shadow(color: isSelected ? SignalStyle.accent.opacity(0.18) : .clear, radius: 12, x: 0, y: 7)
+        } else if CapsuleStyle.isActive {
+            Capsule()
+                .fill(isSelected ? CapsuleStyle.amber : CapsuleStyle.surfaceRaised.opacity(0.82))
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? Color.white.opacity(0.32) : CapsuleStyle.separator.opacity(0.48), lineWidth: 0.8)
+                )
+                .shadow(color: isSelected ? CapsuleStyle.amber.opacity(0.15) : .clear, radius: 12, x: 0, y: 7)
         } else {
             Capsule()
                 .fill(MangaStyle.isActive ? (isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.72)) : (MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78)) : (isSelected ? Color.monologueAccent : Color.clear)))
@@ -223,6 +239,8 @@ struct NewSongExpressView: View {
         VStack(spacing: 12) {
             if SignalStyle.isActive {
                 SignalIconBadge(icon: .musicNote, tint: SignalStyle.olive, size: 54)
+            } else if CapsuleStyle.isActive {
+                CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.amber, size: 54)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .musicNote, tint: SequoiaStyle.green, size: 54)
             } else {
@@ -237,112 +255,151 @@ struct NewSongExpressView: View {
     // MARK: - 完整列表
 
     private var fullListSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // 播放全部按钮
-            HStack {
-                Button(action: {
-                    if let first = viewModel.songs.first {
-                        playerManager.playReplacingContext(song: first, in: viewModel.songs)
-                    }
-                }) {
-                    if MangaStyle.isActive {
-                        HStack(spacing: 7) {
-                            MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
-                            Text(LocalizedStringKey("artist_play_all"))
-                                .font(MangaStyle.labelFont(12, weight: .black))
-                        }
-                        .foregroundStyle(MangaStyle.strokeInk)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .background(Capsule().fill(MangaStyle.labelYellow))
-                        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-                        .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
-                    } else if MujiStyle.isActive {
-                        MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
-                    } else if NeumorphicStyle.isActive {
-                        NeumorphicPlayPill(title: String(localized: "artist_play_all"), tint: NeumorphicStyle.accent)
-                    } else if SignalStyle.isActive {
-                        SignalPlayPill(title: String(localized: "artist_play_all"))
-                    } else if SequoiaStyle.isActive {
-                        SequoiaPill(text: String(localized: "artist_play_all"), icon: .play, tint: SequoiaStyle.accent, selected: true)
-                    } else {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
-                            Text(LocalizedStringKey("artist_play_all"))
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                                .foregroundColor(.monologueTextPrimary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.monologueTextPrimary.opacity(0.08))
-                        .clipShape(Capsule())
-                    }
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleFullListSection
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    fullListToolbar
+                    newSongSearchBar
+                    newSongRows
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-
-                Spacer()
-
-                Text(String(format: NSLocalizedString("songs_count_format", comment: ""), viewModel.songs.count))
-                    .font(countFont)
-                    .foregroundColor(countColor)
-            }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-
-            PlaylistSearchBar(
-                searchText: $newSongSearch,
-                isSearching: $isNewSongSearching,
-                isSelectMode: $isSelectMode,
-                selectedIds: $selectedSongIds,
-                songs: newSongFiltered,
-                onBatchQueue: {
-                    let selected = newSongFiltered.filter { selectedSongIds.contains($0.id) }
-                    SongBatchActionHelper.addToQueue(selected) {
-                        isSelectMode = false
-                        selectedSongIds.removeAll()
-                    }
-                },
-                onBatchDownload: { newSongBatchDownload() },
-                onBatchCollect: { showBatchAddToPlaylist = true }
-            )
-
-            LazyVStack(spacing: 0) {
-                ForEach(Array(newSongFiltered.enumerated()), id: \.element.id) { index, song in
-                    SongListRow(
-                        song: song,
-                        index: index,
-                        isSelecting: isSelectMode,
-                        isSelected: selectedSongIds.contains(song.id),
-                        onArtistTap: { id in
-                            selectedArtistId = id
-                            showArtistDetail = true
-                        },
-                        onDetailTap: { s in
-                            selectedSongForDetail = s
-                            showSongDetail = true
-                        },
-                        onAlbumTap: { id in
-                            selectedAlbumId = id
-                            showAlbumDetail = true
-                        },
-                        onTap: {
-                            if isSelectMode {
-                                if selectedSongIds.contains(song.id) {
-                                    selectedSongIds.remove(song.id)
-                                } else {
-                                    selectedSongIds.insert(song.id)
-                                }
-                            } else {
-                                playerManager.play(song: song, in: newSongFiltered)
-                            }
-                        }
-                    )
-                }
-
-                NoMoreDataView()
             }
         }
-        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
+        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: newSongFiltered.filter { selectedSongIds.contains($0.id) })
+        }
+    }
+
+    private var capsuleFullListSection: some View {
+        CapsuleDetailSection(
+            title: "NEW SONGS",
+            subtitle: String(format: NSLocalizedString("songs_count_format", comment: ""), viewModel.songs.count),
+            icon: .musicNote,
+            tint: CapsuleStyle.amber
+        ) {
+            fullListToolbar
+                .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+                .padding(.bottom, 2)
+
+            newSongSearchBar
+                .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+
+            newSongRows
+        }
+    }
+
+    private var fullListToolbar: some View {
+        HStack {
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    playerManager.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                if MangaStyle.isActive {
+                    HStack(spacing: 7) {
+                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
+                        Text(LocalizedStringKey("artist_play_all"))
+                            .font(MangaStyle.labelFont(12, weight: .black))
+                    }
+                    .foregroundStyle(MangaStyle.strokeInk)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(MangaStyle.labelYellow))
+                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                    .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                } else if MujiStyle.isActive {
+                    MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicPlayPill(title: String(localized: "artist_play_all"), tint: NeumorphicStyle.accent)
+                } else if SignalStyle.isActive {
+                    SignalPlayPill(title: String(localized: "artist_play_all"))
+                } else if CapsuleStyle.isActive {
+                    CapsuleDetailActionPill(
+                        title: String(localized: "artist_play_all"),
+                        icon: .play,
+                        tint: CapsuleStyle.amber
+                    )
+                } else if SequoiaStyle.isActive {
+                    SequoiaPill(text: String(localized: "artist_play_all"), icon: .play, tint: SequoiaStyle.accent, selected: true)
+                } else {
+                    HStack(spacing: 6) {
+                        MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
+                        Text(LocalizedStringKey("artist_play_all"))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.monologueTextPrimary.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+
+            Spacer()
+
+            Text(String(format: NSLocalizedString("songs_count_format", comment: ""), viewModel.songs.count))
+                .font(countFont)
+                .foregroundColor(countColor)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+    }
+
+    private var newSongSearchBar: some View {
+        PlaylistSearchBar(
+            searchText: $newSongSearch,
+            isSearching: $isNewSongSearching,
+            isSelectMode: $isSelectMode,
+            selectedIds: $selectedSongIds,
+            songs: newSongFiltered,
+            onBatchQueue: {
+                let selected = newSongFiltered.filter { selectedSongIds.contains($0.id) }
+                SongBatchActionHelper.addToQueue(selected) {
+                    isSelectMode = false
+                    selectedSongIds.removeAll()
+                }
+            },
+            onBatchDownload: { newSongBatchDownload() },
+            onBatchCollect: { showBatchAddToPlaylist = true }
+        )
+    }
+
+    private var newSongRows: some View {
+        LazyVStack(spacing: CapsuleStyle.isActive ? 4 : 0) {
+            ForEach(Array(newSongFiltered.enumerated()), id: \.element.id) { index, song in
+                SongListRow(
+                    song: song,
+                    index: index,
+                    isSelecting: isSelectMode,
+                    isSelected: selectedSongIds.contains(song.id),
+                    onArtistTap: { id in
+                        selectedArtistId = id
+                        showArtistDetail = true
+                    },
+                    onDetailTap: { s in
+                        selectedSongForDetail = s
+                        showSongDetail = true
+                    },
+                    onAlbumTap: { id in
+                        selectedAlbumId = id
+                        showAlbumDetail = true
+                    },
+                    onTap: {
+                        if isSelectMode {
+                            if selectedSongIds.contains(song.id) {
+                                selectedSongIds.remove(song.id)
+                            } else {
+                                selectedSongIds.insert(song.id)
+                            }
+                        } else {
+                            playerManager.play(song: song, in: newSongFiltered)
+                        }
+                    }
+                )
+            }
+
+            NoMoreDataView()
         }
     }
 
@@ -350,6 +407,7 @@ struct NewSongExpressView: View {
 
     private var loadingTint: Color {
         if SignalStyle.isActive { return SignalStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.amber }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return .monologueTextSecondary
     }
@@ -359,6 +417,7 @@ struct NewSongExpressView: View {
         if MujiStyle.isActive { return MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) }
         if SignalStyle.isActive { return SignalStyle.labelFont(14, weight: isSelected ? .bold : .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(14, weight: isSelected ? .bold : .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(14, weight: isSelected ? .semibold : .medium) }
         return .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)
     }
@@ -367,18 +426,21 @@ struct NewSongExpressView: View {
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.inkSoft }
         if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
+        if CapsuleStyle.isActive { return isSelected ? CapsuleStyle.readableLabel(on: CapsuleStyle.amber) : CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.onAccent : SequoiaStyle.inkSoft }
         return isSelected ? .monologueIconForeground : .monologueTextSecondary
     }
 
     private var emptyStateFont: Font {
         if SignalStyle.isActive { return SignalStyle.labelFont(14, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(14, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(14, weight: .medium) }
         return .system(size: 14, weight: .medium, design: .rounded)
     }
 
     private var emptyStateColor: Color {
         if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
@@ -388,6 +450,7 @@ struct NewSongExpressView: View {
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .regular) }
         if SignalStyle.isActive { return SignalStyle.labelFont(13, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(13, weight: .bold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
@@ -397,6 +460,7 @@ struct NewSongExpressView: View {
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }

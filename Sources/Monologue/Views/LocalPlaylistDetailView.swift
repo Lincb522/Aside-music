@@ -30,6 +30,11 @@ struct LocalPlaylistDetailView: View {
         manager.playlists.first { $0.id == playlistId }
     }
 
+    private var canRemoveSongsFromCurrentPlaylist: Bool {
+        guard let playlist else { return false }
+        return playlist.isFavorite || !playlist.isSystem
+    }
+
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
@@ -46,6 +51,8 @@ struct LocalPlaylistDetailView: View {
             ThemeRenderBackdrop(theme: .signal)
         } else if SequoiaStyle.isActive {
             SequoiaRootBackdrop()
+        } else if CapsuleStyle.isActive {
+            CapsuleRootBackdrop()
         } else if SettingsManager.shared.coverBgPlaylist {
             PlaylistColorBackground(coverUrl: playlist?.displayCoverUrl?.sized(200))
         } else {
@@ -145,7 +152,8 @@ struct LocalPlaylistDetailView: View {
                     }
                 },
                 onBatchDownload: { batchDownloadSelected() },
-                onBatchCollect: { showBatchAddToPlaylist = true }
+                onBatchCollect: playlist?.isFavorite == true ? nil : { showBatchAddToPlaylist = true },
+                onBatchRemove: canRemoveSongsFromCurrentPlaylist ? { batchRemoveSelected() } : nil
             )
 
             songListSection
@@ -185,6 +193,8 @@ struct LocalPlaylistDetailView: View {
             signalHeaderView
         } else if SequoiaStyle.isActive {
             sequoiaHeaderView
+        } else if CapsuleStyle.isActive {
+            capsuleHeaderView
         } else {
             VStack(alignment: .leading, spacing: 12) {
             if let p = playlist {
@@ -961,6 +971,83 @@ struct LocalPlaylistDetailView: View {
             )
     }
 
+    @ViewBuilder
+    private var capsuleHeaderView: some View {
+        if let p = playlist {
+            CapsuleDetailHeader(
+                eyebrow: String(localized: "local_playlist_label"),
+                title: p.name,
+                subtitle: p.desc ?? "",
+                coverURL: p.displayCoverUrl?.sized(500),
+                fallbackIcon: .musicNoteList,
+                tint: CapsuleStyle.accent,
+                chips: ["\(p.trackCount) \(String(localized: "songs_unit"))", p.isSystem ? "SYSTEM" : "LOCAL"]
+            ) {
+                HStack(spacing: 9) {
+                    Button(action: {
+                        let songs = p.songs
+                        if let first = songs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: songs)
+                        }
+                    }) {
+                        CapsuleDetailActionPill(
+                            title: String(localized: "play_now"),
+                            icon: .play,
+                            tint: CapsuleStyle.accent
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    .opacity(p.songs.isEmpty ? 0.55 : 1)
+                    .disabled(p.songs.isEmpty)
+
+                    if !p.isSystem {
+                        Button(action: {
+                            AlertManager.shared.showInput(
+                                title: NSLocalizedString("local_playlist_rename", comment: ""),
+                                message: "",
+                                placeholder: NSLocalizedString("local_playlist_name", comment: ""),
+                                primaryButtonTitle: NSLocalizedString("confirm", comment: ""),
+                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                onConfirm: { name in
+                                    if !name.isEmpty {
+                                        manager.renamePlaylist(p, name: name)
+                                    }
+                                }
+                            )
+                            AlertManager.shared.inputText = p.name
+                        }) {
+                            CapsuleDetailIconButton(icon: .settings, tint: CapsuleStyle.mint)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                    }
+
+                    Button(action: { exportPlaylist(p) }) {
+                        CapsuleDetailIconButton(icon: .download, tint: CapsuleStyle.cyan)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+
+                    if !p.isSystem {
+                        Button(action: {
+                            AlertManager.shared.show(
+                                title: NSLocalizedString("local_playlist_delete", comment: ""),
+                                message: String(format: NSLocalizedString("local_playlist_delete_confirm", comment: ""), p.name),
+                                primaryButtonTitle: NSLocalizedString("lib_delete", comment: ""),
+                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                primaryAction: {
+                                    manager.deletePlaylist(p)
+                                    dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
+                                }
+                            )
+                        }) {
+                            CapsuleDetailIconButton(icon: .trash, tint: CapsuleStyle.coral)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                    }
+                }
+            }
+        }
+    }
+
     private var coverPlaceholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
@@ -992,6 +1079,8 @@ struct LocalPlaylistDetailView: View {
                 SignalPill(text: "\(count)", tint: SignalStyle.olive, icon: .musicNoteList, compact: true)
             } else if SequoiaStyle.isActive {
                 SequoiaPill(text: "\(count)", icon: .musicNoteList, tint: SequoiaStyle.green, compact: true)
+            } else if CapsuleStyle.isActive {
+                CapsuleDetailChip(text: "\(count)", icon: .musicNoteList, tint: CapsuleStyle.accent)
             } else {
                 HStack(spacing: 4) {
                     MonologueIcon(icon: .musicNoteList, size: 10, color: .monologueTextSecondary.opacity(0.85))
@@ -1018,88 +1107,151 @@ struct LocalPlaylistDetailView: View {
     // MARK: - Song List
 
     private var songListSection: some View {
-        LazyVStack(spacing: 0) {
-            if let p = playlist {
-                let songs = p.songs
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleLocalSongListSection
+            } else {
+                defaultLocalSongListSection
+            }
+        }
+        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
+            let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }
+            BatchAddToPlaylistSheet(songs: selected)
+        }
+    }
+
+    private var capsuleLocalSongListSection: some View {
+        LazyVStack(spacing: 14) {
+            if let currentPlaylist = playlist {
+                let songs = currentPlaylist.songs
                 let displaySongs = songs.filtered(by: searchText)
                 if songs.isEmpty {
-                    VStack(spacing: 16) {
-                        if NeumorphicStyle.isActive {
-                            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
-                        } else if SignalStyle.isActive {
-                            SignalIconBadge(icon: .musicNoteList, tint: SignalStyle.accent, size: 54)
-                        } else if SequoiaStyle.isActive {
-                            SequoiaIconBadge(icon: .musicNoteList, tint: SequoiaStyle.green, size: 54)
-                        } else {
-                            MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
-                        }
-
-                        Text(LocalizedStringKey("local_playlist_no_songs"))
-                            .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .medium, design: .rounded))))
-                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                    CapsuleDetailSection(title: "LOCAL", icon: .musicNoteList, tint: CapsuleStyle.mint) {
+                        CapsuleDetailEmptyState(title: "local_playlist_no_songs", icon: .musicNoteList, tint: CapsuleStyle.mint)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, ThemedPageStyle.isActive ? 34 : 0)
-                    .background {
-                        if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
-                        } else if SignalStyle.isActive {
-                            SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
-                        } else if SequoiaStyle.isActive {
-                            SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
-                        }
-                    }
-                    .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-                    .padding(.top, 60)
                 } else {
-                    ForEach(Array(displaySongs.enumerated()), id: \.element.id) { index, song in
-                        SongListRow(
-                            song: song,
-                            index: index,
-                            isSelecting: isSelectMode,
-                            isSelected: selectedSongIds.contains(song.id),
-                            onArtistTap: { artistId in
-                                selectedArtistId = artistId
-                                showArtistDetail = true
-                            },
-                            onDetailTap: { detailSong in
-                                selectedSongForDetail = detailSong
-                                showSongDetail = true
-                            },
-                            onAlbumTap: { albumId in
-                                selectedAlbumId = albumId
-                                showAlbumDetail = true
-                            },
-                            onTap: {
-                                if isSelectMode {
-                                    if selectedSongIds.contains(song.id) {
-                                        selectedSongIds.remove(song.id)
-                                    } else {
-                                        selectedSongIds.insert(song.id)
-                                    }
-                                } else {
-                                    PlayerManager.shared.play(song: song, in: displaySongs)
-                                }
-                            }
-                        )
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                withAnimation {
-                                    manager.removeSong(id: song.id, from: p)
-                                }
-                            } label: {
-                                Label(NSLocalizedString("local_playlist_remove", comment: ""), systemImage: "trash")
-                            }
-                        }
+                    CapsuleDetailSection(
+                        title: "LOCAL",
+                        subtitle: String(format: NSLocalizedString("songs_count_format", comment: ""), displaySongs.count),
+                        icon: .musicNoteList,
+                        tint: CapsuleStyle.mint
+                    ) {
+                        localSongRows(playlist: currentPlaylist, songs: displaySongs)
                     }
                 }
             }
 
             FloatingBarBottomSpacer()
         }
-        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
-            let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }
-            BatchAddToPlaylistSheet(songs: selected)
+    }
+
+    private var defaultLocalSongListSection: some View {
+        LazyVStack(spacing: 0) {
+            if let currentPlaylist = playlist {
+                let songs = currentPlaylist.songs
+                let displaySongs = songs.filtered(by: searchText)
+                if songs.isEmpty {
+                    localEmptyState
+                } else {
+                    localSongRows(playlist: currentPlaylist, songs: displaySongs)
+                }
+            }
+
+            FloatingBarBottomSpacer()
+        }
+    }
+
+    private var localEmptyState: some View {
+        VStack(spacing: 16) {
+            if NeumorphicStyle.isActive {
+                NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
+            } else if SignalStyle.isActive {
+                SignalIconBadge(icon: .musicNoteList, tint: SignalStyle.accent, size: 54)
+            } else if SequoiaStyle.isActive {
+                SequoiaIconBadge(icon: .musicNoteList, tint: SequoiaStyle.green, size: 54)
+            } else {
+                MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
+            }
+
+            Text(LocalizedStringKey("local_playlist_no_songs"))
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .medium, design: .rounded))))
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, ThemedPageStyle.isActive ? 34 : 0)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
+            } else if SequoiaStyle.isActive {
+                SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
+            }
+        }
+        .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.top, 60)
+    }
+
+    private func localSongRows(playlist currentPlaylist: LocalPlaylist, songs displaySongs: [Song]) -> some View {
+        ForEach(Array(displaySongs.enumerated()), id: \.element.id) { index, song in
+            SongListRow(
+                song: song,
+                index: index,
+                isSelecting: isSelectMode,
+                isSelected: selectedSongIds.contains(song.id),
+                onArtistTap: { artistId in
+                    selectedArtistId = artistId
+                    showArtistDetail = true
+                },
+                onDetailTap: { detailSong in
+                    selectedSongForDetail = detailSong
+                    showSongDetail = true
+                },
+                onAlbumTap: { albumId in
+                    selectedAlbumId = albumId
+                    showAlbumDetail = true
+                },
+                onTap: {
+                    if isSelectMode {
+                        if selectedSongIds.contains(song.id) {
+                            selectedSongIds.remove(song.id)
+                        } else {
+                            selectedSongIds.insert(song.id)
+                        }
+                    } else {
+                        PlayerManager.shared.play(song: song, in: displaySongs)
+                    }
+                }
+            )
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    withAnimation {
+                        removeSongFromPlaylist(song, playlist: currentPlaylist)
+                    }
+                } label: {
+                    Label(NSLocalizedString("local_playlist_remove", comment: ""), systemImage: "trash")
+                }
+            }
+        }
+    }
+
+    private func removeSongFromPlaylist(_ song: Song, playlist currentPlaylist: LocalPlaylist) {
+        if currentPlaylist.isFavorite {
+            manager.removeFromFavorite(songId: song.id)
+        } else {
+            manager.removeSong(id: song.id, from: currentPlaylist)
+        }
+    }
+
+    private func batchRemoveSelected() {
+        guard canRemoveSongsFromCurrentPlaylist, let currentPlaylist = playlist else { return }
+        let ids = selectedSongIds
+        guard !ids.isEmpty else { return }
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            manager.removeSongs(ids: ids, from: currentPlaylist)
+            isSelectMode = false
+            selectedSongIds.removeAll()
         }
     }
 

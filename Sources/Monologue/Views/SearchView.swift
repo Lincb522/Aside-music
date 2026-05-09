@@ -114,6 +114,8 @@ struct SearchView: View {
                     sequoiaSearchHeader
                 } else if LiquidGlassStyle.isActive {
                     liquidGlassSearchHeader
+                } else if CapsuleStyle.isActive {
+                    capsuleSearchHeader
                 }
 
                 searchBarSection
@@ -232,9 +234,36 @@ struct SearchView: View {
         .padding(.bottom, 12)
     }
 
+    private var capsuleSearchHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            CapsuleIconBadge(icon: .magnifyingGlass, tint: CapsuleStyle.accent, size: 44)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Capsule()
+                        .fill(CapsuleStyle.accent)
+                        .frame(width: 22, height: 7)
+                    Capsule()
+                        .fill(CapsuleStyle.cyan.opacity(0.72))
+                        .frame(width: 9, height: 7)
+                }
+
+                Text(String(localized: "搜索"))
+                    .font(CapsuleStyle.titleFont(26, weight: .bold))
+                    .foregroundStyle(CapsuleStyle.ink)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .padding(.bottom, 12)
+    }
+
     private var searchBarSection: some View {
         let showFullSearch = isSearchBarExpanded
-        let searchRadius: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (NeumorphicStyle.isActive ? (showFullSearch ? 18 : 20) : (SignalStyle.isActive ? (showFullSearch ? 20 : 22) : (SequoiaStyle.isActive ? (showFullSearch ? 16 : 18) : (LiquidGlassStyle.isActive ? (showFullSearch ? 20 : 24) : (showFullSearch ? 16 : 21))))))
+        let searchRadius = searchBarCornerRadius(showFullSearch: showFullSearch)
 
         return HStack(spacing: 12) {
             Button {
@@ -332,6 +361,8 @@ struct SearchView: View {
                         SignalSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SignalStyle.device)
                     } else if SequoiaStyle.isActive {
                         SequoiaSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SequoiaStyle.materialChrome)
+                    } else if CapsuleStyle.isActive {
+                        CapsuleSurfaceBackground(cornerRadius: searchRadius, elevated: true, tint: CapsuleStyle.surfaceRaised)
                     }
                 }
             )
@@ -360,28 +391,86 @@ struct SearchView: View {
         }
     }
 
-    private var searchBackButtonLabel: some View {
-        let radius: CGFloat = MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 16 : (SignalStyle.isActive ? 17 : (SequoiaStyle.isActive ? 15 : (LiquidGlassStyle.isActive ? 17 : 21))))
-        let fill = MangaStyle.isActive ? MangaStyle.surface : (MujiStyle.isActive ? MujiStyle.surface : (NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised : (SignalStyle.isActive ? SignalStyle.control : (SequoiaStyle.isActive ? SequoiaStyle.materialRaised : (LiquidGlassStyle.isActive ? LiquidGlassStyle.glassList : Color.monologueTextPrimary.opacity(0.04))))))
-        let stroke = MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.hairline.opacity(0.5) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.4) : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.72) : (SequoiaStyle.isActive ? SequoiaStyle.separator : (LiquidGlassStyle.isActive ? LiquidGlassStyle.luminousEdge.opacity(0.48) : Color.monologueTextPrimary.opacity(0.05))))))
+    private func searchBarCornerRadius(showFullSearch: Bool) -> CGFloat {
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
+        if MujiStyle.isActive { return 10 }
+        if NeumorphicStyle.isActive { return showFullSearch ? 18 : 20 }
+        if SignalStyle.isActive { return showFullSearch ? 20 : 22 }
+        if SequoiaStyle.isActive { return showFullSearch ? 16 : 18 }
+        if LiquidGlassStyle.isActive { return showFullSearch ? 20 : 24 }
+        if CapsuleStyle.isActive { return showFullSearch ? 22 : 24 }
+        return showFullSearch ? 16 : 21
+    }
 
-        return MonologueIcon(icon: .back, size: 18, color: SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (LiquidGlassStyle.isActive ? LiquidGlassStyle.ink : .monologueTextPrimary))), lineWidth: 1.8)
+    private var searchBackButtonLabel: some View {
+        let radius = searchBackButtonRadius
+
+        return MonologueIcon(icon: .back, size: 18, color: searchBackButtonIconColor, lineWidth: 1.8)
             .frame(width: 42, height: 42)
             .background(
                 Group {
                     if LiquidGlassStyle.isActive {
                         LiquidGlassSurfaceBackground(cornerRadius: radius, elevated: true, role: .list)
+                    } else if CapsuleStyle.isActive {
+                        CapsuleSurfaceBackground(cornerRadius: radius, elevated: true, tint: CapsuleStyle.surfaceRaised)
                     } else {
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .fill(fill)
+                            .fill(searchBackButtonFill)
                     }
                 }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(stroke, lineWidth: MangaStyle.isActive ? MangaStyle.strokeWidth : 0.5)
+                    .stroke(searchBackButtonStroke, lineWidth: searchBackButtonStrokeWidth)
             )
             .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    private var searchBackButtonRadius: CGFloat {
+        if MangaStyle.isActive { return MangaStyle.buttonRadius }
+        if NeumorphicStyle.isActive { return 16 }
+        if SignalStyle.isActive { return 17 }
+        if SequoiaStyle.isActive { return 15 }
+        if LiquidGlassStyle.isActive { return 17 }
+        if CapsuleStyle.isActive { return 18 }
+        return 21
+    }
+
+    private var searchBackButtonFill: Color {
+        if MangaStyle.isActive { return MangaStyle.surface }
+        if MujiStyle.isActive { return MujiStyle.surface }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SignalStyle.isActive { return SignalStyle.control }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.glassList }
+        if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
+        return Color.monologueTextPrimary.opacity(0.04)
+    }
+
+    private var searchBackButtonStroke: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.4) }
+        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.72) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.luminousEdge.opacity(0.48) }
+        if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.58) }
+        return Color.monologueTextPrimary.opacity(0.05)
+    }
+
+    private var searchBackButtonStrokeWidth: CGFloat {
+        if MangaStyle.isActive { return MangaStyle.strokeWidth }
+        if CapsuleStyle.isActive { return 0.8 }
+        return 0.5
+    }
+
+    private var searchBackButtonIconColor: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        return .monologueTextPrimary
     }
 
     private var searchIconColor: Color {
@@ -391,22 +480,29 @@ struct SearchView: View {
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return .gray
     }
 
     private var searchPlaceholderColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkMuted }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
         return .monologueTextSecondary.opacity(0.6)
     }
 
     private var searchTextColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return .monologueTextPrimary
     }
 
@@ -417,6 +513,7 @@ struct SearchView: View {
         if SignalStyle.isActive { return SignalStyle.labelFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .regular) }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(15, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(15, weight: .semibold) }
         return .rounded(size: 16, weight: .medium)
     }
 
@@ -436,6 +533,8 @@ struct SearchView: View {
             sequoiaSearchTabBar
         } else if LiquidGlassStyle.isActive {
             liquidGlassSearchTabBar
+        } else if CapsuleStyle.isActive {
+            capsuleSearchTabBar
         } else {
             GeometryReader { proxy in
                 let spacing: CGFloat = 8
@@ -737,6 +836,56 @@ struct SearchView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var capsuleSearchTabBar: some View {
+        GeometryReader { proxy in
+            let spacing: CGFloat = viewModel.hasSearched ? 6 : 8
+            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+
+            HStack(spacing: spacing) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    Button {
+                        viewModel.switchTab(tab)
+                    } label: {
+                        let selected = viewModel.currentTab == tab
+                        HStack(spacing: viewModel.hasSearched ? 0 : 6) {
+                            if !viewModel.hasSearched {
+                                MonologueIcon(
+                                    icon: searchTabIcon(tab),
+                                    size: 12,
+                                    color: selected ? CapsuleStyle.onAccent : CapsuleStyle.inkSoft,
+                                    lineWidth: 1.65
+                                )
+                            }
+
+                            Text(tab.rawValue)
+                                .font(CapsuleStyle.labelFont(viewModel.hasSearched ? 11 : 12.5, weight: selected ? .bold : .semibold))
+                                .foregroundStyle(selected ? CapsuleStyle.onAccent : CapsuleStyle.inkSoft)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
+                        }
+                        .frame(width: itemWidth)
+                        .padding(.vertical, viewModel.hasSearched ? 7 : 9)
+                        .background(
+                            Capsule()
+                                .fill(selected ? CapsuleStyle.accent : CapsuleStyle.surfaceRaised.opacity(0.72))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(selected ? Color.white.opacity(0.34) : CapsuleStyle.separator.opacity(0.42), lineWidth: 0.8)
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(5)
+            .background(CapsuleSurfaceBackground(cornerRadius: viewModel.hasSearched ? 18 : 21, elevated: true, tint: CapsuleStyle.surface.opacity(0.88)))
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, viewModel.hasSearched ? 2 : 7)
+        }
+        .frame(height: viewModel.hasSearched ? 48 : 58)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func searchTabItemWidth(totalWidth: CGFloat, spacing: CGFloat) -> CGFloat {
         let count = CGFloat(SearchTab.allCases.count)
         let horizontalPadding = DeviceLayout.viewHorizontalPadding * 2
@@ -761,18 +910,28 @@ struct SearchView: View {
             LazyVStack(spacing: 0) {
                 searchBarSection
 
-                if NeumorphicStyle.isActive {
-                    neumorphicResultConsole
-                } else if SignalStyle.isActive {
-                    signalResultConsole
-                } else if SequoiaStyle.isActive {
-                    sequoiaResultConsole
-                } else if LiquidGlassStyle.isActive {
-                    liquidGlassResultConsole
-                }
+                if CapsuleStyle.isActive {
+                    capsuleSearchCommandBoard
+                } else {
+                    if MangaStyle.isActive {
+                        mangaResultConsole
+                    } else if MujiStyle.isActive {
+                        mujiResultConsole
+                    } else if NeumorphicStyle.isActive {
+                        neumorphicResultConsole
+                    } else if SignalStyle.isActive {
+                        signalResultConsole
+                    } else if SequoiaStyle.isActive {
+                        sequoiaResultConsole
+                    } else if LiquidGlassStyle.isActive {
+                        liquidGlassResultConsole
+                    } else {
+                        defaultResultConsole
+                    }
 
-                searchTabBar
-                platformTabBar
+                    searchTabBar
+                    platformTabBar
+                }
 
                 let platformLoading = isPlatformLoading
                 let platformEmpty = isPlatformEmpty
@@ -863,6 +1022,166 @@ struct SearchView: View {
             .background(
                 Capsule()
                     .fill(tint.opacity(0.13))
+            )
+    }
+
+    private var defaultResultConsole: some View {
+        return HStack(spacing: 12) {
+            MonologueIcon(icon: searchTabIcon(viewModel.currentTab), size: 18, color: .monologueTextPrimary, lineWidth: 1.7)
+                .frame(width: 42, height: 42)
+                .background(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(Color.monologueTextPrimary.opacity(0.07))
+                )
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(.rounded(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.monologueTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                HStack(spacing: 6) {
+                    defaultResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                    defaultResultChip(text: viewModel.currentTab.rawValue, tint: .monologueAccent)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            resultCountBadge(
+                textColor: .monologueAccent,
+                background: Color.monologueTextPrimary.opacity(0.06),
+                font: .rounded(size: 15, weight: .semibold)
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.monologueGlassTint.opacity(0.62))
+                .monologueGlass(cornerRadius: 22)
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private func defaultResultChip(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.rounded(size: 10.5, weight: .semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(0.12)))
+    }
+
+    private var mujiResultConsole: some View {
+        return HStack(spacing: 12) {
+            MonologueIcon(icon: searchTabIcon(viewModel.currentTab), size: 17, color: MujiStyle.clay, lineWidth: 1.55)
+                .frame(width: 40, height: 40)
+                .background(MujiStyle.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+                )
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    mujiResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                    mujiResultChip(text: viewModel.currentTab.rawValue, tint: MujiStyle.clay)
+                }
+
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(MujiStyle.titleFont(19, weight: .medium))
+                    .foregroundStyle(MujiStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+
+            Spacer(minLength: 8)
+
+            resultCountBadge(
+                textColor: MujiStyle.clay,
+                background: MujiStyle.surface.opacity(0.82),
+                font: MujiStyle.labelFont(15, weight: .semibold)
+            )
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
+        .background(MujiPaperCardBackground(cornerRadius: 13, elevated: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private func mujiResultChip(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(MujiStyle.labelFont(10, weight: .semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(tint.opacity(0.09))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(tint.opacity(0.24), lineWidth: 0.55)
+            )
+    }
+
+    private var mangaResultConsole: some View {
+        return HStack(spacing: 12) {
+            MangaSectionMark(kind: .star, tint: viewModel.selectedPlatform.themedBadgeColor)
+                .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(MangaStyle.comicFont(20, weight: .black))
+                    .foregroundStyle(MangaStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                HStack(spacing: 7) {
+                    mangaResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                    mangaResultChip(text: viewModel.currentTab.rawValue, tint: MangaStyle.labelYellow)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            resultCountBadge(
+                textColor: MangaStyle.ink,
+                background: MangaStyle.labelYellow.opacity(0.86),
+                font: MangaStyle.labelFont(15, weight: .black)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+            )
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
+        .background(MangaCardBackground(cornerRadius: 16, elevated: true))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private func mangaResultChip(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(MangaStyle.labelFont(10, weight: .black))
+            .foregroundStyle(MangaStyle.ink)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(tint.opacity(0.22))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
             )
     }
 
@@ -1072,9 +1391,244 @@ struct SearchView: View {
         .padding(.bottom, 8)
     }
 
+    private var capsuleSearchCommandBoard: some View {
+        VStack(spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Capsule()
+                    .fill(viewModel.selectedPlatform.themedBadgeColor)
+                    .frame(width: 7, height: 54)
+                    .overlay(
+                        Capsule()
+                            .fill(Color.white.opacity(0.42))
+                            .frame(width: 2, height: 28)
+                    )
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        capsuleResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                        capsuleResultChip(text: viewModel.currentTab.rawValue, tint: CapsuleStyle.cyan)
+                    }
+
+                    Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                        .font(CapsuleStyle.titleFont(22, weight: .bold))
+                        .foregroundStyle(CapsuleStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(spacing: 0) {
+                    Text("\(selectedPlatformResultCount)")
+                        .font(.system(size: 24, weight: .black, design: .rounded))
+                        .foregroundStyle(CapsuleStyle.ink)
+                        .monospacedDigit()
+                }
+                .frame(width: 54, height: 54)
+                .background(CapsuleStyle.surfaceRaised.opacity(0.82), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
+
+            capsulePlatformSwitch
+
+            capsuleSearchTypeSwitch
+        }
+        .padding(13)
+        .background(capsuleCommandPanelBackground)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 10)
+    }
+
+    private var capsulePlatformSwitch: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    let tint = platform.themedBadgeColor
+                    let selected = viewModel.selectedPlatform == platform
+                    HStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(tint.opacity(selected ? 0.95 : 0.34))
+                            .frame(width: selected ? 20 : 8, height: 8)
+
+                        Text(platformTabName(platform))
+                            .font(CapsuleStyle.labelFont(11.5, weight: selected ? .bold : .semibold))
+                            .foregroundStyle(selected ? CapsuleStyle.ink : CapsuleStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(selected ? tint.opacity(0.13) : CapsuleStyle.surfaceTint.opacity(0.42))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var capsuleSearchTypeSwitch: some View {
+        HStack(spacing: 7) {
+            ForEach(SearchTab.allCases, id: \.self) { tab in
+                Button {
+                    viewModel.switchTab(tab)
+                } label: {
+                    let selected = viewModel.currentTab == tab
+                    VStack(spacing: 6) {
+                        MonologueIcon(
+                            icon: searchTabIcon(tab),
+                            size: 12,
+                            color: selected ? CapsuleStyle.onAccent : CapsuleStyle.inkMuted,
+                            lineWidth: 1.65
+                        )
+                        .frame(width: 24, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(selected ? CapsuleStyle.accent : CapsuleStyle.surfaceTint.opacity(0.54))
+                        )
+
+                        Text(tab.rawValue)
+                            .font(CapsuleStyle.labelFont(10.5, weight: selected ? .bold : .semibold))
+                            .foregroundStyle(selected ? CapsuleStyle.ink : CapsuleStyle.inkSoft)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(selected ? CapsuleStyle.surfaceRaised.opacity(0.8) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var capsuleCommandPanelBackground: some View {
+        RoundedRectangle(cornerRadius: 30, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        CapsuleStyle.surfaceRaised.opacity(0.96),
+                        CapsuleStyle.surface.opacity(0.86),
+                        CapsuleStyle.surfaceTint.opacity(0.72),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .stroke(CapsuleStyle.hairline.opacity(0.82), lineWidth: 1)
+            )
+            .overlay(alignment: .topTrailing) {
+                HStack(spacing: 5) {
+                    ForEach(CapsuleStyle.accentGradient.indices, id: \.self) { index in
+                        Circle()
+                            .fill(CapsuleStyle.accentGradient[index].opacity(index == 0 ? 0.95 : 0.62))
+                            .frame(width: 8, height: 8)
+                    }
+                }
+                .padding(16)
+            }
+    }
+
+    private var capsuleResultConsole: some View {
+        return HStack(spacing: 12) {
+            CapsuleIconBadge(icon: searchTabIcon(viewModel.currentTab), tint: viewModel.selectedPlatform.themedBadgeColor, size: 42)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    capsuleResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                    capsuleResultChip(text: viewModel.currentTab.rawValue, tint: CapsuleStyle.cyan)
+                }
+
+                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                    .font(CapsuleStyle.titleFont(20, weight: .bold))
+                    .foregroundStyle(CapsuleStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+
+            Spacer(minLength: 8)
+
+            resultCountBadge(
+                textColor: CapsuleStyle.accent,
+                background: CapsuleStyle.surfaceRaised,
+                font: CapsuleStyle.labelFont(15, weight: .bold)
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.92)))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, 8)
+    }
+
+    private func capsuleResultChip(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(CapsuleStyle.labelFont(10.5, weight: .bold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(0.12)))
+            .overlay(Capsule().stroke(tint.opacity(0.24), lineWidth: 0.7))
+    }
+
+    private func resultCountBadge(textColor: Color, background: Color, font: Font) -> some View {
+        Group {
+            if isPlatformLoading {
+                ProgressView()
+                    .tint(textColor)
+                    .scaleEffect(0.78)
+            } else {
+                Text("\(selectedPlatformResultCount)")
+                    .font(font)
+                    .foregroundStyle(textColor)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+        }
+        .frame(minWidth: 42, minHeight: 38)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(background)
+        )
+    }
+
     @ViewBuilder
     private var searchLoadingState: some View {
-        if NeumorphicStyle.isActive {
+        if MangaStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: String(localized: "搜索中"),
+                tint: MangaStyle.labelYellow,
+                loading: true
+            )
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 36)
+            .frame(minHeight: 320, alignment: .top)
+        } else if MujiStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: String(localized: "搜索中"),
+                tint: MujiStyle.clay,
+                loading: true
+            )
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 36)
+            .frame(minHeight: 320, alignment: .top)
+        } else if NeumorphicStyle.isActive {
             NeumorphicLoadingPanel(title: "SEARCHING")
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.top, 36)
@@ -1105,6 +1659,16 @@ struct SearchView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, 36)
             .frame(minHeight: 320, alignment: .top)
+        } else if CapsuleStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: String(localized: "搜索中"),
+                tint: CapsuleStyle.accent,
+                loading: true
+            )
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 36)
+            .frame(minHeight: 320, alignment: .top)
         } else {
             MonologueLoadingView(text: "SEARCHING")
                 .frame(maxWidth: .infinity)
@@ -1114,9 +1678,19 @@ struct SearchView: View {
 
     private var searchEmptyState: some View {
         emptyResultsView
-            .padding(.horizontal, (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
+            .padding(.horizontal, searchStateNeedsHorizontalPadding ? DeviceLayout.viewHorizontalPadding : 0)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 320)
+    }
+
+    private var searchStateNeedsHorizontalPadding: Bool {
+        MangaStyle.isActive
+            || MujiStyle.isActive
+            || NeumorphicStyle.isActive
+            || SignalStyle.isActive
+            || SequoiaStyle.isActive
+            || LiquidGlassStyle.isActive
+            || CapsuleStyle.isActive
     }
 
     private var neumorphicResultMetaText: String {
@@ -1128,7 +1702,7 @@ struct SearchView: View {
     }
 
     private var suggestionsTopPadding: CGFloat {
-        viewModel.hasSearched ? ((NeumorphicStyle.isActive || SignalStyle.isActive) ? 54 : 58) : 4
+        return viewModel.hasSearched ? ((NeumorphicStyle.isActive || SignalStyle.isActive) ? 54 : 58) : 4
     }
 
     private func resultCount(for source: MusicSource, tab: SearchTab) -> Int {
@@ -1367,6 +1941,113 @@ struct SearchView: View {
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
     }
 
+    private func capsuleSearchSongsToolbar(currentSource: MusicSource, currentSongs: [Song]) -> some View {
+        VStack(spacing: 0) {
+            if isSearchSelectMode {
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering,
+                    isSelectMode: $isSearchSelectMode,
+                    selectedIds: $searchSelectedIds,
+                    songs: currentSongs,
+                    onBatchQueue: {
+                        let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                        SongBatchActionHelper.addToQueue(selected) {
+                            isSearchSelectMode = false
+                            searchSelectedIds.removeAll()
+                        }
+                    },
+                    onBatchDownload: { searchBatchDownload(source: currentSource) },
+                    onBatchCollect: { showSearchBatchPlaylist = true }
+                )
+            } else if isSearchFiltering {
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering
+                )
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 8)
+            } else {
+                HStack(spacing: 8) {
+                    Button {
+                        if !currentSongs.isEmpty {
+                            viewModel.playAllSongs(source: currentSource, currentSongs: currentSongs)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(CapsuleStyle.accent.opacity(currentSongs.isEmpty ? 0.36 : 1))
+                                .frame(width: 20, height: 8)
+
+                            MonologueIcon(
+                                icon: .play,
+                                size: 12,
+                                color: CapsuleStyle.onAccent,
+                                lineWidth: 1.75
+                            )
+                            .frame(width: 28, height: 28)
+                            .background(CapsuleStyle.accent.opacity(currentSongs.isEmpty ? 0.36 : 1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                            Text(String(localized: "artist_play_all"))
+                                .font(CapsuleStyle.labelFont(12, weight: .bold))
+                                .foregroundStyle(CapsuleStyle.ink.opacity(currentSongs.isEmpty ? 0.55 : 1))
+                                .lineLimit(1)
+                        }
+                        .padding(.leading, 10)
+                        .padding(.trailing, 13)
+                        .padding(.vertical, 7)
+                        .background(CapsuleStyle.surfaceRaised.opacity(0.84), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(CapsulePressStyle())
+                    .disabled(currentSongs.isEmpty)
+
+                    Spacer(minLength: 8)
+
+                    capsuleToolbarControl(icon: .search, tint: currentSource.themedBadgeColor) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                            isSearchFiltering = true
+                        }
+                    }
+
+                    capsuleToolbarControl(icon: .checkmark, tint: CapsuleStyle.mint) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
+                        }
+                    }
+                }
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(CapsuleStyle.surface.opacity(0.76))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .stroke(CapsuleStyle.separator.opacity(0.4), lineWidth: 0.7)
+                        )
+                )
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 5)
+            }
+        }
+    }
+
+    private func capsuleToolbarControl(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.65)
+                .frame(width: 36, height: 36)
+                .background(CapsuleStyle.surfaceRaised.opacity(0.86), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(tint.opacity(0.24), lineWidth: 0.7)
+                )
+        }
+        .buttonStyle(CapsulePressStyle())
+    }
+
     // MARK: - 歌曲列表工具栏
 
     @ViewBuilder
@@ -1378,6 +2059,10 @@ struct SearchView: View {
             neumorphicSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
         } else if SignalStyle.isActive {
             signalSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
+        } else if CapsuleStyle.isActive {
+            capsuleSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
+        } else if MangaStyle.isActive || MujiStyle.isActive {
+            themedSearchSongsToolbar(currentSource: currentSource, currentSongs: currentSongs)
         } else {
             VStack(spacing: 0) {
                 if isSearchSelectMode {
@@ -1462,6 +2147,160 @@ struct SearchView: View {
         }
     }
 
+    @ViewBuilder
+    private func themedSearchSongsToolbar(currentSource: MusicSource, currentSongs: [Song]) -> some View {
+        VStack(spacing: 0) {
+            if isSearchSelectMode {
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering,
+                    isSelectMode: $isSearchSelectMode,
+                    selectedIds: $searchSelectedIds,
+                    songs: currentSongs,
+                    onBatchQueue: {
+                        let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                        SongBatchActionHelper.addToQueue(selected) {
+                            isSearchSelectMode = false
+                            searchSelectedIds.removeAll()
+                        }
+                    },
+                    onBatchDownload: { searchBatchDownload(source: currentSource) },
+                    onBatchCollect: { showSearchBatchPlaylist = true }
+                )
+            } else if isSearchFiltering {
+                PlaylistSearchBar(
+                    searchText: $searchFilterText,
+                    isSearching: $isSearchFiltering
+                )
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 8)
+            } else {
+                HStack(spacing: 9) {
+                    Button {
+                        if !currentSongs.isEmpty {
+                            viewModel.playAllSongs(source: currentSource, currentSongs: currentSongs)
+                        }
+                    } label: {
+                        themedToolbarPlayLabel(isDisabled: currentSongs.isEmpty)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    .disabled(currentSongs.isEmpty)
+                    .opacity(currentSongs.isEmpty ? 0.55 : 1)
+
+                    Spacer(minLength: 8)
+
+                    themedToolbarIconButton(icon: .search, tint: currentSource.themedBadgeColor) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchFiltering = true
+                        }
+                    }
+
+                    themedToolbarIconButton(icon: .checkmark, tint: themeToolbarSecondaryTint) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
+                        }
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
+    private var themeToolbarSecondaryTint: Color {
+        if MangaStyle.isActive { return MangaStyle.decoBlue }
+        if MujiStyle.isActive { return MujiStyle.indigo }
+        if CapsuleStyle.isActive { return CapsuleStyle.mint }
+        return .monologueAccent
+    }
+
+    private func themedToolbarPlayLabel(isDisabled: Bool) -> some View {
+        HStack(spacing: 7) {
+            MonologueIcon(icon: .play, size: 12, color: themeToolbarPlayIconColor, lineWidth: 1.75)
+                .frame(width: 24, height: 24)
+                .background(themeToolbarPlayIconBackground, in: RoundedRectangle(cornerRadius: themeToolbarIconCornerRadius, style: .continuous))
+
+            Text(String(localized: "artist_play_all"))
+                .font(themeToolbarFont)
+                .foregroundStyle(themeToolbarPrimaryColor.opacity(isDisabled ? 0.6 : 1))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background { themeToolbarButtonBackground(tint: themeToolbarPlayIconBackground, selected: false) }
+    }
+
+    private func themedToolbarIconButton(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.65)
+                .frame(width: 32, height: 32)
+                .background { themeToolbarButtonBackground(tint: tint, selected: false) }
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+    }
+
+    private var themeToolbarFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: .bold) }
+        return .rounded(size: 12, weight: .semibold)
+    }
+
+    private var themeToolbarPrimaryColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var themeToolbarPlayIconColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
+        return Color(UIColor.systemBackground)
+    }
+
+    private var themeToolbarPlayIconBackground: Color {
+        if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent }
+        return .monologueTextPrimary
+    }
+
+    private var themeToolbarIconCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 8 }
+        if MujiStyle.isActive { return 9 }
+        if CapsuleStyle.isActive { return 11 }
+        return 12
+    }
+
+    @ViewBuilder
+    private func themeToolbarButtonBackground(tint: Color, selected: Bool) -> some View {
+        if MangaStyle.isActive {
+            ZStack {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(MangaStyle.strokeInk.opacity(0.76))
+                    .offset(x: 1.8, y: 1.8)
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(selected ? tint.opacity(0.22) : MangaStyle.bubbleWhite)
+                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+            }
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MujiStyle.surfaceRaised.opacity(0.94))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(tint.opacity(0.22), lineWidth: 0.6))
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(cornerRadius: 14, elevated: true, tint: CapsuleStyle.surfaceRaised)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(tint.opacity(0.18), lineWidth: 0.8))
+        } else {
+            Capsule().fill(Color.monologueTextPrimary.opacity(0.07))
+        }
+    }
+
     // MARK: - 平台标签页
 
     @ViewBuilder
@@ -1478,6 +2317,8 @@ struct SearchView: View {
             sequoiaPlatformTabBar
         } else if LiquidGlassStyle.isActive {
             liquidGlassPlatformTabBar
+        } else if CapsuleStyle.isActive {
+            capsulePlatformTabBar
         } else {
             let platforms: [MusicSource] = viewModel.currentTab == .songs
                 ? [.netease, .qqmusic, .qishui]
@@ -1729,6 +2570,48 @@ struct SearchView: View {
         .padding(.bottom, viewModel.hasSearched ? 3 : 8)
     }
 
+    private var capsulePlatformTabBar: some View {
+        let platforms: [MusicSource] = viewModel.currentTab == .songs
+            ? [.netease, .qqmusic, .qishui]
+            : [.netease, .qqmusic]
+
+        return HStack(spacing: 7) {
+            ForEach(platforms, id: \.self) { platform in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                        viewModel.selectedPlatform = platform
+                    }
+                } label: {
+                    let tint = platform.themedBadgeColor
+                    let selected = viewModel.selectedPlatform == platform
+                    HStack(spacing: 6) {
+                        Capsule()
+                            .fill(tint.opacity(selected ? 0.95 : 0.42))
+                            .frame(width: selected ? 18 : 7, height: 6)
+                            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: selected)
+
+                        Text(platformTabName(platform))
+                            .font(CapsuleStyle.labelFont(viewModel.hasSearched ? 10.5 : 11.5, weight: selected ? .bold : .semibold))
+                            .foregroundStyle(selected ? CapsuleStyle.ink : CapsuleStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, viewModel.hasSearched ? 7 : 8)
+                    .background(
+                        Capsule()
+                            .fill(selected ? tint.opacity(0.13) : Color.clear)
+                            .overlay(Capsule().stroke(selected ? tint.opacity(0.24) : Color.clear, lineWidth: 0.7))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(CapsuleSurfaceBackground(cornerRadius: viewModel.hasSearched ? 15 : 18, elevated: true, tint: CapsuleStyle.surface.opacity(0.78)))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.bottom, viewModel.hasSearched ? 3 : 8)
+    }
+
     private func platformTabName(_ source: MusicSource) -> String {
         switch source {
         case .netease: return "NCM"
@@ -1785,7 +2668,7 @@ struct SearchView: View {
     }
 
     private var platformResultsRows: some View {
-        LazyVStack(spacing: (NeumorphicStyle.isActive || SignalStyle.isActive) ? 2 : 0) {
+        LazyVStack(spacing: themedSearchResultRowsSpacing) {
             switch viewModel.selectedPlatform {
             case .netease:
                 neteaseResultsContent
@@ -1797,7 +2680,136 @@ struct SearchView: View {
                 EmptyView()
             }
         }
-        .padding(.top, (NeumorphicStyle.isActive || SignalStyle.isActive) ? 2 : 0)
+        .padding(.top, themedSearchResultRowsActive ? 2 : 0)
+    }
+
+    private var themedSearchResultRowsActive: Bool {
+        return MangaStyle.isActive
+            || MujiStyle.isActive
+            || NeumorphicStyle.isActive
+            || SignalStyle.isActive
+            || SequoiaStyle.isActive
+            || CapsuleStyle.isActive
+    }
+
+    private var themedSearchResultRowsSpacing: CGFloat {
+        return themedSearchResultRowsActive ? 6 : 0
+    }
+
+    private var searchResultRowHorizontalPadding: CGFloat {
+        return themedSearchResultRowsActive ? 14 : DeviceLayout.viewHorizontalPadding
+    }
+
+    private var searchResultRowVerticalPadding: CGFloat {
+        return themedSearchResultRowsActive ? 12 : 10
+    }
+
+    private var searchResultOuterHorizontalPadding: CGFloat {
+        return themedSearchResultRowsActive ? DeviceLayout.viewHorizontalPadding : 0
+    }
+
+    private var searchResultOuterVerticalPadding: CGFloat {
+        if MujiStyle.isActive { return 5 }
+        return themedSearchResultRowsActive ? 6 : 0
+    }
+
+    private var searchResultCoverCornerRadius: CGFloat {
+        if MangaStyle.isActive { return 14 }
+        if MujiStyle.isActive { return 10 }
+        if CapsuleStyle.isActive { return 17 }
+        if NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive { return 15 }
+        return 12
+    }
+
+    private var searchResultPlaceholderFill: Color {
+        if MangaStyle.isActive { return MangaStyle.surface }
+        if MujiStyle.isActive { return MujiStyle.paperWarm }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
+        return Color.monologueSeparator
+    }
+
+    private var searchResultImageStrokeColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.14) }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.55) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.42) }
+        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.62) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.78) }
+        if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.46) }
+        return .clear
+    }
+
+    private var searchResultImageStrokeWidth: CGFloat {
+        return themedSearchResultRowsActive ? 0.7 : 0
+    }
+
+    private var searchResultTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(15.5, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(16, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(16, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.bodyFont(16, weight: .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15.5, weight: .bold) }
+        return .rounded(size: 16, weight: .medium)
+    }
+
+    private var searchResultTitleColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var searchResultMetaFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: .medium) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: .semibold) }
+        return .rounded(size: 12, weight: .regular)
+    }
+
+    private var searchResultMetaColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var searchResultChevronColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.5)
+    }
+
+    @ViewBuilder
+    private var searchResultRowBackground: some View {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: 16, elevated: true)
+        } else if MujiStyle.isActive {
+            MujiPaperCardBackground(cornerRadius: 10)
+        } else if NeumorphicStyle.isActive {
+            NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
+        } else if SignalStyle.isActive {
+            SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
+        } else if SequoiaStyle.isActive {
+            SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(cornerRadius: 20, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
+        }
     }
 
     @ViewBuilder
@@ -2224,62 +3236,46 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                    Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SignalStyle.isActive ? SignalStyle.controlPressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueSeparator)))
+                    Circle().fill(searchResultPlaceholderFill)
                 }
                 .frame(width: 52, height: 52)
                 .clipShape(Circle())
                 .overlay {
-                    if NeumorphicStyle.isActive {
-                        Circle()
-                            .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
-                    } else if SignalStyle.isActive {
-                        Circle()
-                            .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.7)
-                    } else if SequoiaStyle.isActive {
-                        Circle()
-                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
-                    }
+                    Circle()
+                        .stroke(searchResultImageStrokeColor, lineWidth: searchResultImageStrokeWidth)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(artist.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                        .font(searchResultTitleFont)
+                        .foregroundColor(searchResultTitleColor)
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if let albumSize = artist.albumSize, albumSize > 0 {
                             Text(String(format: String(localized: "search_album_count"), albumSize))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                .font(searchResultMetaFont)
+                                .foregroundColor(searchResultMetaColor)
                         }
                         if let musicSize = artist.musicSize, musicSize > 0 {
                             Text(String(format: String(localized: "search_song_count"), musicSize))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                .font(searchResultMetaFont)
+                                .foregroundColor(searchResultMetaColor)
                         }
                     }
                 }
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))))
+                MonologueIcon(icon: .chevronRight, size: 14, color: searchResultChevronColor)
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 12 : 10)
+            .padding(.horizontal, searchResultRowHorizontalPadding)
+            .padding(.vertical, searchResultRowVerticalPadding)
             .background {
-                if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 10)
-                } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
-                } else if SignalStyle.isActive {
-                    SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
-                } else if SequoiaStyle.isActive {
-                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
-                }
+                searchResultRowBackground
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : ((NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 6 : 0))
+            .padding(.horizontal, searchResultOuterHorizontalPadding)
+            .padding(.vertical, searchResultOuterVerticalPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -2297,40 +3293,32 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SignalStyle.isActive ? SignalStyle.controlPressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueSeparator)))
+                    RoundedRectangle(cornerRadius: searchResultCoverCornerRadius, style: .continuous)
+                        .fill(searchResultPlaceholderFill)
                 }
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: searchResultCoverCornerRadius, style: .continuous))
                 .overlay {
-                    if NeumorphicStyle.isActive {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
-                    } else if SignalStyle.isActive {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.7)
-                    } else if SequoiaStyle.isActive {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
-                    }
+                    RoundedRectangle(cornerRadius: searchResultCoverCornerRadius, style: .continuous)
+                        .stroke(searchResultImageStrokeColor, lineWidth: searchResultImageStrokeWidth)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                        .font(searchResultTitleFont)
+                        .foregroundColor(searchResultTitleColor)
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if let trackCount = playlist.trackCount, trackCount > 0 {
                             Text(String(format: String(localized: "search_track_count"), trackCount))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                .font(searchResultMetaFont)
+                                .foregroundColor(searchResultMetaColor)
                         }
                         if let creator = playlist.creator?.nickname {
                             Text("by \(creator)")
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                .font(searchResultMetaFont)
+                                .foregroundColor(searchResultMetaColor)
                                 .lineLimit(1)
                         }
                     }
@@ -2338,23 +3326,15 @@ struct SearchView: View {
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))))
+                MonologueIcon(icon: .chevronRight, size: 14, color: searchResultChevronColor)
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 12 : 10)
+            .padding(.horizontal, searchResultRowHorizontalPadding)
+            .padding(.vertical, searchResultRowVerticalPadding)
             .background {
-                if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 10)
-                } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
-                } else if SignalStyle.isActive {
-                    SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
-                } else if SequoiaStyle.isActive {
-                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
-                }
+                searchResultRowBackground
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : ((NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 6 : 0))
+            .padding(.horizontal, searchResultOuterHorizontalPadding)
+            .padding(.vertical, searchResultOuterVerticalPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -2373,63 +3353,47 @@ struct SearchView: View {
         }) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: album.coverUrl?.sized(200)) {
-                    RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SignalStyle.isActive ? SignalStyle.controlPressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueSeparator)))
+                    RoundedRectangle(cornerRadius: searchResultCoverCornerRadius, style: .continuous)
+                        .fill(searchResultPlaceholderFill)
                 }
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 15 : 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: searchResultCoverCornerRadius, style: .continuous))
                 .overlay {
-                    if NeumorphicStyle.isActive {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(NeumorphicStyle.separator.opacity(0.42), lineWidth: 0.7)
-                    } else if SignalStyle.isActive {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.7)
-                    } else if SequoiaStyle.isActive {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
-                    }
+                    RoundedRectangle(cornerRadius: searchResultCoverCornerRadius, style: .continuous)
+                        .stroke(searchResultImageStrokeColor, lineWidth: searchResultImageStrokeWidth)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.bodyFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                        .font(searchResultTitleFont)
+                        .foregroundColor(searchResultTitleColor)
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         Text(album.artistName)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                            .font(searchResultMetaFont)
+                            .foregroundColor(searchResultMetaColor)
                             .lineLimit(1)
 
                         if let size = album.size, size > 0 {
                             Text(String(format: String(localized: "search_track_count"), size))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                .font(searchResultMetaFont)
+                                .foregroundColor(searchResultMetaColor)
                         }
                     }
                 }
 
                 Spacer()
 
-                MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.5))))
+                MonologueIcon(icon: .chevronRight, size: 14, color: searchResultChevronColor)
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 14 : DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? 12 : 10)
+            .padding(.horizontal, searchResultRowHorizontalPadding)
+            .padding(.vertical, searchResultRowVerticalPadding)
             .background {
-                if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 10)
-                } else if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
-                } else if SignalStyle.isActive {
-                    SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
-                } else if SequoiaStyle.isActive {
-                    SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
-                }
+                searchResultRowBackground
             }
-            .padding(.horizontal, MujiStyle.isActive || NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-            .padding(.vertical, MujiStyle.isActive ? 5 : ((NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive) ? 6 : 0))
+            .padding(.horizontal, searchResultOuterHorizontalPadding)
+            .padding(.vertical, searchResultOuterVerticalPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -2671,7 +3635,21 @@ struct SearchView: View {
 
     @ViewBuilder
     private var emptyResultsView: some View {
-        if NeumorphicStyle.isActive {
+        if MangaStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: viewModel.displayKeyword.isEmpty ? String(localized: "search_no_results") : viewModel.displayKeyword,
+                subtitle: String(localized: "search_no_results"),
+                tint: MangaStyle.labelYellow
+            )
+        } else if MujiStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: viewModel.displayKeyword.isEmpty ? String(localized: "search_no_results") : viewModel.displayKeyword,
+                subtitle: String(localized: "search_no_results"),
+                tint: MujiStyle.clay
+            )
+        } else if NeumorphicStyle.isActive {
             VStack(spacing: 14) {
                 NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.inkMuted, size: 52)
 
@@ -2694,8 +3672,117 @@ struct SearchView: View {
                 subtitle: String(localized: "search_no_results"),
                 tint: SequoiaStyle.inkMuted
             )
+        } else if CapsuleStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: viewModel.displayKeyword.isEmpty ? String(localized: "search_no_results") : viewModel.displayKeyword,
+                subtitle: String(localized: "search_no_results"),
+                tint: CapsuleStyle.accent
+            )
         } else {
             ContentUnavailableView.search(text: viewModel.displayKeyword)
+        }
+    }
+
+    @ViewBuilder
+    private func themeSearchStatePanel(
+        icon: MonologueIcon.IconType,
+        title: String,
+        subtitle: String = "",
+        tint: Color,
+        loading: Bool = false
+    ) -> some View {
+        VStack(spacing: 13) {
+            if MangaStyle.isActive {
+                MangaSectionMark(kind: .star, tint: tint)
+                    .frame(width: 50, height: 50)
+            } else if MujiStyle.isActive {
+                MonologueIcon(icon: icon, size: 22, color: tint, lineWidth: 1.55)
+                    .frame(width: 52, height: 52)
+                    .background(MujiStyle.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.65)
+                    )
+            } else if CapsuleStyle.isActive {
+                CapsuleIconBadge(icon: icon, tint: tint, size: 52)
+            } else {
+                MonologueIcon(icon: icon, size: 22, color: tint, lineWidth: 1.6)
+                    .frame(width: 52, height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(tint.opacity(0.12))
+                    )
+            }
+
+            VStack(spacing: 5) {
+                Text(title)
+                    .font(themeSearchStateTitleFont)
+                    .foregroundStyle(themeSearchPrimaryColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(themeSearchStateSubtitleFont)
+                        .foregroundStyle(themeSearchSecondaryColor)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            if loading {
+                ProgressView()
+                    .tint(tint)
+                    .scaleEffect(0.82)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 38)
+        .padding(.horizontal, 18)
+        .background { themeSearchStateBackground }
+    }
+
+    private var themeSearchStateTitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.titleFont(18, weight: .bold) }
+        return .rounded(size: 18, weight: .semibold)
+    }
+
+    private var themeSearchStateSubtitleFont: Font {
+        if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: .semibold) }
+        return .rounded(size: 12, weight: .regular)
+    }
+
+    private var themeSearchPrimaryColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var themeSearchSecondaryColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
+        return .monologueTextSecondary
+    }
+
+    @ViewBuilder
+    private var themeSearchStateBackground: some View {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: 18, elevated: true)
+        } else if MujiStyle.isActive {
+            MujiPaperCardBackground(cornerRadius: 13, elevated: true)
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.92))
+        } else {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.monologueGlassTint.opacity(0.62))
+                .monologueGlass(cornerRadius: 22)
         }
     }
 
@@ -2703,12 +3790,16 @@ struct SearchView: View {
 
     @ViewBuilder
     private var emptySearchView: some View {
-        if NeumorphicStyle.isActive {
+        if MangaStyle.isActive {
+            mangaEmptySearchView
+        } else if NeumorphicStyle.isActive {
             neumorphicEmptySearchView
         } else if MujiStyle.isActive {
             mujiEmptySearchView
         } else if SequoiaStyle.isActive {
             sequoiaEmptySearchView
+        } else if CapsuleStyle.isActive {
+            capsuleEmptySearchView
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -3191,15 +4282,372 @@ struct SearchView: View {
             .themeRenderScrollLayer()
     }
 
+    private var mangaEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let defaultKeyword = viewModel.defaultKeyword {
+                    Button {
+                        viewModel.performSearch(keyword: defaultKeyword.realkeyword)
+                        isFocused = false
+                    } label: {
+                        HStack(spacing: 12) {
+                            MangaSectionMark(kind: .heart, tint: MangaStyle.accentPink)
+                                .frame(width: 42, height: 42)
+
+                            Text(defaultKeyword.showKeyword)
+                                .font(MangaStyle.comicFont(18, weight: .black))
+                                .foregroundStyle(MangaStyle.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
+
+                            Spacer(minLength: 8)
+
+                            MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.ink, lineWidth: 1.8)
+                                .frame(width: 30, height: 30)
+                                .background(MangaStyle.labelYellow, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                        }
+                        .padding(13)
+                        .background(MangaCardBackground(cornerRadius: 16, elevated: true))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                }
+
+                if !viewModel.searchHistory.isEmpty {
+                    mangaSearchShelf(
+                        title: String(localized: "search_history"),
+                        tint: MangaStyle.decoBlue,
+                        actionIcon: .trash,
+                        action: { viewModel.clearAllHistory() }
+                    ) {
+                        VStack(spacing: 8) {
+                            ForEach(Array(viewModel.searchHistory.prefix(6).enumerated()), id: \.element.id) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.keyword)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(MangaStyle.labelFont(10, weight: .black))
+                                            .foregroundStyle(MangaStyle.inkMuted)
+                                            .frame(width: 24, alignment: .leading)
+
+                                        Text(item.keyword)
+                                            .font(MangaStyle.comicFont(14, weight: .bold))
+                                            .foregroundStyle(MangaStyle.ink)
+                                            .lineLimit(1)
+
+                                        Spacer(minLength: 8)
+
+                                        Button {
+                                            viewModel.deleteHistoryItem(keyword: item.keyword)
+                                        } label: {
+                                            MonologueIcon(icon: .xmark, size: 10, color: MangaStyle.inkMuted, lineWidth: 1.6)
+                                                .frame(width: 28, height: 28)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 10)
+                                    .background(MangaCardBackground(cornerRadius: 10, elevated: false, tint: MangaStyle.bubbleWhite))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    mangaSearchShelf(title: String(localized: "search_hot"), tint: MangaStyle.labelYellow) {
+                        FlowLayout(spacing: 9) {
+                            ForEach(Array(viewModel.hotSearchItems.prefix(20).enumerated()), id: \.element.searchWord) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(MangaStyle.labelFont(9, weight: .black))
+                                            .foregroundStyle(index < 3 ? MangaStyle.accentPink : MangaStyle.inkMuted)
+
+                                        Text(item.searchWord)
+                                            .font(MangaStyle.labelFont(12, weight: .bold))
+                                            .foregroundStyle(MangaStyle.ink)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                    .background(MangaStyle.bubbleWhite, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                                }
+                                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 4)
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+    }
+
+    private func mangaSearchShelf<Content: View>(
+        title: String,
+        tint: Color,
+        actionIcon: MonologueIcon.IconType? = nil,
+        action: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                MangaSectionMark(kind: .star, tint: tint)
+                    .frame(width: 28, height: 28)
+
+                Text(title)
+                    .font(MangaStyle.comicFont(17, weight: .black))
+                    .foregroundStyle(MangaStyle.ink)
+
+                Spacer(minLength: 8)
+
+                if let actionIcon, let action {
+                    Button(action: action) {
+                        MonologueIcon(icon: actionIcon, size: 13, color: MangaStyle.ink, lineWidth: 1.7)
+                            .frame(width: 32, height: 32)
+                            .background(MangaStyle.bubbleWhite, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            content()
+        }
+        .padding(14)
+        .background(MangaCardBackground(cornerRadius: 16, elevated: true))
+    }
+
+    private var capsuleEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let defaultKeyword = viewModel.defaultKeyword {
+                    Button {
+                        viewModel.performSearch(keyword: defaultKeyword.realkeyword)
+                        isFocused = false
+                    } label: {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(CapsuleStyle.accent)
+                                    .frame(width: 58, height: 58)
+
+                                MonologueIcon(icon: .magnifyingGlass, size: 22, color: CapsuleStyle.onAccent, lineWidth: 2)
+                            }
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 5) {
+                                    Capsule()
+                                        .fill(CapsuleStyle.cyan)
+                                        .frame(width: 24, height: 7)
+                                    Capsule()
+                                        .fill(CapsuleStyle.amber)
+                                        .frame(width: 10, height: 7)
+                                }
+
+                                Text(defaultKeyword.showKeyword)
+                                    .font(CapsuleStyle.titleFont(22, weight: .bold))
+                                    .foregroundStyle(CapsuleStyle.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.78)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            MonologueIcon(icon: .chevronRight, size: 13, color: CapsuleStyle.ink, lineWidth: 1.7)
+                                .frame(width: 38, height: 38)
+                                .background(CapsuleStyle.surfaceRaised.opacity(0.86), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            CapsuleStyle.surfaceRaised.opacity(0.96),
+                                            CapsuleStyle.surfaceTint.opacity(0.72),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                                        .stroke(CapsuleStyle.hairline.opacity(0.78), lineWidth: 1)
+                                )
+                        )
+                    }
+                    .buttonStyle(CapsulePressStyle())
+                }
+
+                if !viewModel.searchHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 11) {
+                        CapsuleSectionTitle(title: String(localized: "search_history"), tint: CapsuleStyle.mint) {
+                            Button(action: { viewModel.clearAllHistory() }) {
+                                MonologueIcon(icon: .trash, size: 13, color: CapsuleStyle.inkMuted, lineWidth: 1.55)
+                                    .frame(width: 34, height: 34)
+                                    .background(CapsuleStyle.surfaceRaised.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        ScrollView(.horizontal) {
+                            HStack(spacing: 10) {
+                                ForEach(viewModel.searchHistory.prefix(8), id: \.id) { item in
+                                    HStack(spacing: 8) {
+                                        Button {
+                                            viewModel.performSearch(keyword: item.keyword)
+                                            isFocused = false
+                                        } label: {
+                                            HStack(spacing: 8) {
+                                                MonologueIcon(icon: .clock, size: 12, color: CapsuleStyle.mint, lineWidth: 1.5)
+                                                Text(item.keyword)
+                                                    .font(CapsuleStyle.bodyFont(14, weight: .semibold))
+                                                    .foregroundStyle(CapsuleStyle.ink)
+                                                    .lineLimit(1)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        Button {
+                                            viewModel.deleteHistoryItem(keyword: item.keyword)
+                                        } label: {
+                                            MonologueIcon(icon: .xmark, size: 9, color: CapsuleStyle.inkMuted, lineWidth: 1.45)
+                                                .frame(width: 24, height: 24)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.leading, 12)
+                                    .padding(.trailing, 7)
+                                    .padding(.vertical, 10)
+                                    .background(CapsuleStyle.surfaceRaised.opacity(0.84), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .stroke(CapsuleStyle.separator.opacity(0.42), lineWidth: 0.7)
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        }
+                        .scrollIndicators(.hidden)
+                        .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+                    }
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 11) {
+                        CapsuleSectionTitle(title: String(localized: "search_hot"), tint: CapsuleStyle.coral)
+
+                        VStack(spacing: 8) {
+                            ForEach(Array(viewModel.hotSearchItems.prefix(12).enumerated()), id: \.element.searchWord) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 11) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(.system(size: 11, weight: .black, design: .rounded))
+                                            .foregroundStyle(index < 3 ? CapsuleStyle.onAccent : CapsuleStyle.inkMuted)
+                                            .monospacedDigit()
+                                            .frame(width: 34, height: 30)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                    .fill(index < 3 ? CapsuleStyle.coral : CapsuleStyle.surfaceTint.opacity(0.58))
+                                            )
+
+                                        Text(item.searchWord)
+                                            .font(CapsuleStyle.bodyFont(15, weight: .bold))
+                                            .foregroundStyle(CapsuleStyle.ink)
+                                            .lineLimit(1)
+
+                                        Spacer(minLength: 8)
+
+                                        HStack(spacing: 4) {
+                                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                                .fill(index < 3 ? CapsuleStyle.coral : CapsuleStyle.accent.opacity(0.56))
+                                                .frame(width: 18, height: 5)
+                                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                                .fill(CapsuleStyle.cyan.opacity(index < 3 ? 0.9 : 0.48))
+                                                .frame(width: 8, height: 5)
+                                        }
+                                    }
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                            .fill(index < 3 ? CapsuleStyle.surfaceRaised.opacity(0.94) : CapsuleStyle.surface.opacity(0.66))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                                    .stroke(index < 3 ? CapsuleStyle.coral.opacity(0.3) : CapsuleStyle.separator.opacity(0.35), lineWidth: 0.7)
+                                            )
+                                    )
+                                }
+                                .buttonStyle(CapsulePressStyle())
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 4)
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+    }
+
+    private func capsuleSearchShelf<Content: View>(
+        title: String,
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        actionIcon: MonologueIcon.IconType? = nil,
+        action: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 13) {
+            CapsuleSectionTitle(title: title, tint: tint) {
+                if let actionIcon, let action {
+                    Button(action: action) {
+                        MonologueIcon(icon: actionIcon, size: 13, color: CapsuleStyle.inkMuted, lineWidth: 1.55)
+                            .frame(width: 34, height: 34)
+                            .background(CapsuleSurfaceBackground(cornerRadius: 14, elevated: false, tint: CapsuleStyle.surfaceRaised.opacity(0.86)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            content()
+        }
+        .padding(14)
+        .background(CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.92)))
+    }
+
     // MARK: - 搜索建议浮层
 
     @ViewBuilder
     private var suggestionsOverlay: some View {
         if viewModel.showSuggestions && !viewModel.suggestions.isEmpty {
-            if NeumorphicStyle.isActive {
+            if MangaStyle.isActive {
+                themedSuggestionsOverlay
+            } else if MujiStyle.isActive {
+                themedSuggestionsOverlay
+            } else if NeumorphicStyle.isActive {
                 neumorphicSuggestionsOverlay
             } else if SequoiaStyle.isActive {
                 sequoiaSuggestionsOverlay
+            } else if CapsuleStyle.isActive {
+                themedSuggestionsOverlay
             } else {
                 VStack(spacing: 0) {
                     ScrollView {
@@ -3245,6 +4693,122 @@ struct SearchView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
             }
+        }
+    }
+
+    private var themedSuggestionsOverlay: some View {
+        ScrollView {
+            VStack(spacing: suggestionsRowSpacing) {
+                ForEach(viewModel.suggestions, id: \.self) { suggestion in
+                    Button {
+                        isFocused = false
+                        viewModel.performSearch(keyword: suggestion)
+                    } label: {
+                        HStack(spacing: 11) {
+                            suggestionsIcon
+
+                            Text(suggestion)
+                                .font(suggestionsFont)
+                                .foregroundStyle(suggestionsPrimaryColor)
+                                .lineLimit(1)
+
+                            Spacer(minLength: 8)
+
+                            MonologueIcon(icon: .chevronRight, size: 10, color: suggestionsSecondaryColor, lineWidth: 1.5)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background { suggestionsRowBackground }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(MangaStyle.isActive ? 11 : 10)
+        }
+        .scrollDismissesKeyboard(.never)
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+        .frame(maxHeight: 328)
+        .background { suggestionsPanelBackground }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, suggestionsTopPadding)
+        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.showSuggestions)
+    }
+
+    private var suggestionsRowSpacing: CGFloat {
+        return MangaStyle.isActive ? 8 : 7
+    }
+
+    private var suggestionsFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(14, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: .regular) }
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: .semibold) }
+        return .rounded(size: 15, weight: .regular)
+    }
+
+    private var suggestionsPrimaryColor: Color {
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var suggestionsSecondaryColor: Color {
+        if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if MujiStyle.isActive { return MujiStyle.inkMuted }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
+        return .monologueTextSecondary.opacity(0.5)
+    }
+
+    @ViewBuilder
+    private var suggestionsIcon: some View {
+        if MangaStyle.isActive {
+            MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
+                .frame(width: 30, height: 30)
+        } else if MujiStyle.isActive {
+            MonologueIcon(icon: .magnifyingGlass, size: 13, color: MujiStyle.clay, lineWidth: 1.5)
+                .frame(width: 30, height: 30)
+                .background(MujiStyle.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.55))
+        } else if CapsuleStyle.isActive {
+            MonologueIcon(icon: .magnifyingGlass, size: 13, color: CapsuleStyle.accent, lineWidth: 1.6)
+                .frame(width: 30, height: 30)
+                .background(CapsuleStyle.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        } else {
+            MonologueIcon(icon: .magnifyingGlass, size: 13, color: .monologueTextSecondary, lineWidth: 1.5)
+        }
+    }
+
+    @ViewBuilder
+    private var suggestionsRowBackground: some View {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: 10, elevated: false, tint: MangaStyle.bubbleWhite)
+        } else if MujiStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.82))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.35), lineWidth: 0.55))
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(cornerRadius: 16, elevated: false, tint: CapsuleStyle.surfaceRaised.opacity(0.86))
+        } else {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.monologueTextPrimary.opacity(0.06))
+        }
+    }
+
+    @ViewBuilder
+    private var suggestionsPanelBackground: some View {
+        if MangaStyle.isActive {
+            MangaCardBackground(cornerRadius: 18, elevated: true)
+        } else if MujiStyle.isActive {
+            MujiPaperCardBackground(cornerRadius: 13, elevated: true)
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.94))
+        } else {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .monologueGlass(cornerRadius: 18)
         }
     }
 

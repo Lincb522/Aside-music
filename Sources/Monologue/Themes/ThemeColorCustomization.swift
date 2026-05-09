@@ -167,7 +167,7 @@ enum ThemeColorCustomization {
     }
 
     static func supports(_ theme: GlobalThemeId) -> Bool {
-        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .sequoia || theme == .liquidGlass
+        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .capsule || theme == .sequoia || theme == .liquidGlass
     }
 
     static func key(_ theme: GlobalThemeId, _ role: ThemeCustomColorRole, _ suffix: String) -> String {
@@ -266,6 +266,11 @@ enum ThemeColorCustomization {
         resolvedLuminance(of: color) >= threshold
     }
 
+    static func visibleTintColor(_ tint: Color, darkFallback: Color, lightThreshold: CGFloat = 0.72) -> Color {
+        guard customColorsEnabled else { return tint }
+        return isLightColor(tint, threshold: lightThreshold) ? darkFallback : tint
+    }
+
     private static func resolvedLuminance(of color: Color) -> CGFloat {
         #if os(iOS)
             let uiColor = UIColor(color)
@@ -309,6 +314,7 @@ enum ThemeColorCustomization {
         switch theme {
         case .muji: return "B56B4B"
         case .neumorphic: return "4F8E86"
+        case .capsule: return "3867FF"
         case .bento: return "E54B3B"
         case .sequoia: return "0A84FF"
         case .liquidGlass: return "18A7FF"
@@ -323,6 +329,7 @@ enum ThemeColorCustomization {
         switch theme {
         case .muji: return "F7F1E8"
         case .neumorphic: return "E9EDF0"
+        case .capsule: return "F6F8FF"
         case .bento: return "F5F1EA"
         case .sequoia: return "F4F7FB"
         case .liquidGlass: return "F2F8FF"
@@ -337,6 +344,7 @@ enum ThemeColorCustomization {
         switch theme {
         case .muji: return "F7F1E8"
         case .neumorphic: return "F2EEE8"
+        case .capsule: return "EAF1FF"
         case .bento: return "F5F1EA"
         case .sequoia: return "E3EBF2"
         case .liquidGlass: return "F4F1FF"
@@ -357,6 +365,7 @@ enum ThemeColorCustomization {
             switch theme {
             case .muji: return "F4EBDD"
             case .neumorphic: return "E4ECE7"
+            case .capsule: return "F8F2FF"
             case .bento: return "EFE9DD"
             case .sequoia: return "F8F2FA"
             case .liquidGlass: return "E8FBFF"
@@ -369,6 +378,7 @@ enum ThemeColorCustomization {
             switch theme {
             case .muji: return "FAF4E8"
             case .neumorphic: return "EEF0F5"
+            case .capsule: return "EDF9FF"
             case .bento: return "EFE9DD"
             case .sequoia: return "EEF7FA"
             case .liquidGlass: return "EFFAF3"
@@ -396,6 +406,31 @@ enum ThemeColorCustomization {
         guard customColorsEnabled else { return fallback }
         guard let stored = storedHex(theme, .accent, "solid") else { return fallback }
         return Color(hex: stored)
+    }
+
+    static func accentForegroundColor(for theme: GlobalThemeId, fallbackHex: String? = nil) -> Color {
+        let accent = accentColor(
+            for: theme,
+            fallback: Color(hex: fallbackHex ?? defaultAccentHex(for: theme)),
+            fallbackHex: fallbackHex ?? defaultAccentHex(for: theme)
+        )
+
+        switch theme {
+        case .manga:
+            return readableForegroundColor(on: accent, light: Color(hex: "17151F"), dark: Color(hex: "FFFDF5"))
+        case .muji:
+            return readableForegroundColor(on: accent, light: Color(hex: "211A15"), dark: Color(hex: "FFF8EF"))
+        case .neumorphic:
+            return readableForegroundColor(on: accent, light: Color(hex: "172026"), dark: .white)
+        case .capsule:
+            return readableForegroundColor(on: accent, light: Color(hex: "101A2A"), dark: .white)
+        case .default:
+            return readableForegroundColor(on: accent, light: Color(hex: "111821"), dark: .white)
+        case .bento:
+            return readableForegroundColor(on: accent, light: Color(hex: "241916"), dark: .white)
+        case .sequoia, .liquidGlass, .clay, .signal:
+            return readableForegroundColor(on: accent, light: Color(hex: "10151D"), dark: .white)
+        }
     }
 
     static func accentGradientColors(for theme: GlobalThemeId, fallback: [Color], fallbackHexes: [String]) -> [Color] {
@@ -521,6 +556,17 @@ enum ThemeColorCustomization {
                 ThemeColorPreset(id: "neu-rose", name: "Rose", accentStartHex: "A86E77", accentEndHex: "A86E77", backgroundStartHex: "F2E7E8", backgroundEndHex: "ECEFF3", backgroundHexes: ["F2E7E8", "ECEFF3", "F4DFE6", "E8EEF2"], gradientStyle: .diffuse),
                 ThemeColorPreset(id: "neu-celadon", name: "Celadon", accentStartHex: "5F8F78", accentEndHex: "5F8F78", backgroundStartHex: "E5EFEA", backgroundEndHex: "F2F0E7", backgroundHexes: ["E5EFEA", "F2F0E7", "DDEBE4", "EDF3F0"], gradientStyle: .radial),
                 ThemeColorPreset(id: "neu-lilac", name: "Lilac", accentStartHex: "7B79A8", accentEndHex: "7B79A8", backgroundStartHex: "ECEAF4", backgroundEndHex: "E8EFF2", backgroundHexes: ["ECEAF4", "E8EFF2", "F3E8F1", "E4EEF4"], gradientStyle: .conic),
+            ]
+        case .capsule:
+            return [
+                ThemeColorPreset(id: "capsule-system", name: "System Blue", accentStartHex: "3867FF", accentEndHex: "3867FF", backgroundStartHex: "F6F8FF", backgroundEndHex: "EAF1FF", backgroundHexes: ["F6F8FF", "EAF1FF", "F8F2FF", "EDF9FF"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "capsule-mint", name: "Mint Dock", accentStartHex: "1AAE9F", accentEndHex: "1AAE9F", backgroundStartHex: "F3FBF8", backgroundEndHex: "EAF5FF", backgroundHexes: ["F3FBF8", "EAF5FF", "F7F3FF", "E9FAF4"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "capsule-coral", name: "Coral Pulse", accentStartHex: "EF6B73", accentEndHex: "EF6B73", backgroundStartHex: "FFF5F5", backgroundEndHex: "EEF5FF", backgroundHexes: ["FFF5F5", "EEF5FF", "FFF1E8", "F3F6FF"], gradientStyle: .radial),
+                ThemeColorPreset(id: "capsule-lilac", name: "Lilac OS", accentStartHex: "7D6DFF", accentEndHex: "7D6DFF", backgroundStartHex: "F7F4FF", backgroundEndHex: "EAF6FF", backgroundHexes: ["F7F4FF", "EAF6FF", "FFF1FA", "EFFAF6"], gradientStyle: .conic),
+                ThemeColorPreset(id: "capsule-sun", name: "Soft Sun", accentStartHex: "D89B2C", accentEndHex: "D89B2C", backgroundStartHex: "FFF8EA", backgroundEndHex: "EAF3FF", backgroundHexes: ["FFF8EA", "EAF3FF", "F7F0FF", "EDF9F2"], gradientStyle: .linear),
+                ThemeColorPreset(id: "capsule-sky", name: "Sky Rail", accentStartHex: "2F8FE8", accentEndHex: "2F8FE8", backgroundStartHex: "F2F9FF", backgroundEndHex: "EEF3FF", backgroundHexes: ["F2F9FF", "EEF3FF", "E7FBFF", "F6F2FF"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "capsule-rose", name: "Rose Link", accentStartHex: "D75B8A", accentEndHex: "D75B8A", backgroundStartHex: "FFF3F8", backgroundEndHex: "EDF4FF", backgroundHexes: ["FFF3F8", "EDF4FF", "FFF0E6", "EFFAF5"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "capsule-sage", name: "Sage Grid", accentStartHex: "5C8B73", accentEndHex: "5C8B73", backgroundStartHex: "F4FAF4", backgroundEndHex: "EAF2FF", backgroundHexes: ["F4FAF4", "EAF2FF", "F6F1E8", "EDF7F1"], gradientStyle: .radial),
             ]
         case .sequoia:
             return [

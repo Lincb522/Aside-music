@@ -31,6 +31,8 @@ struct RecentPlayHistoryView: View {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
+            } else if CapsuleStyle.isActive {
+                CapsuleRootBackdrop()
             } else if SequoiaStyle.isActive {
                 SequoiaRootBackdrop()
             } else {
@@ -71,6 +73,14 @@ struct RecentPlayHistoryView: View {
                                 subtitle: ""
                             ) {
                                 NeumorphicIconBadge(icon: .history, tint: NeumorphicStyle.warm, size: 48)
+                            }
+                        } else if CapsuleStyle.isActive {
+                            CapsulePageHeader(
+                                eyebrow: "HISTORY",
+                                title: String(localized: "profile_recently_played"),
+                                subtitle: ""
+                            ) {
+                                CapsuleIconBadge(icon: .history, tint: CapsuleStyle.cyan, size: 48)
                             }
                         } else if SequoiaStyle.isActive {
                             SequoiaPageHeader(
@@ -148,7 +158,7 @@ struct RecentPlayHistoryView: View {
                         MonologueIcon(
                             icon: .trash,
                             size: 16,
-                            color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : (SequoiaStyle.isActive ? SequoiaStyle.red : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextPrimary)))
+                            color: MangaStyle.isActive ? MangaStyle.red : (MujiStyle.isActive ? MujiStyle.red : (CapsuleStyle.isActive ? CapsuleStyle.coral : (SequoiaStyle.isActive ? SequoiaStyle.red : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextPrimary))))
                         )
                     }
                     .disabled(playerManager.history.isEmpty)
@@ -165,6 +175,13 @@ struct RecentPlayHistoryView: View {
                         MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
                     } else if NeumorphicStyle.isActive {
                         NeumorphicPlayPill(title: String(localized: "artist_play_all"))
+                    } else if CapsuleStyle.isActive {
+                        CapsulePillLabel(
+                            title: String(localized: "artist_play_all"),
+                            icon: .play,
+                            tint: CapsuleStyle.accent,
+                            selected: true
+                        )
                     } else if SequoiaStyle.isActive {
                         SequoiaPill(text: String(localized: "artist_play_all"), icon: .play, tint: SequoiaStyle.accent, selected: true)
                     } else {

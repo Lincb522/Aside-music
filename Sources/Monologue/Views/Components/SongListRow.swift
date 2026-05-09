@@ -2,8 +2,8 @@ import SwiftUI
 
 struct SongListRow: View {
     
-    @ObservedObject var player = PlayerManager.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject private var playback = SongRowPlaybackModel.shared
+    @ObservedObject private var rowDownloads = SongRowDownloadModel.shared
     @ObservedObject var unavailableSongs = UnavailableSongsManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     let song: Song
@@ -25,7 +25,7 @@ struct SongListRow: View {
     @State private var showQQAlbumDetail = false
     
     var isCurrent: Bool {
-        player.currentSong?.id == song.id
+        playback.currentSongId == song.id
     }
     
     /// 灰色条件：
@@ -51,7 +51,9 @@ struct SongListRow: View {
                     ? MujiStyle.clay
                     : (NeumorphicStyle.isActive
                         ? NeumorphicStyle.accent
-                        : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueTextPrimary)))
+                        : (CapsuleStyle.isActive
+                            ? CapsuleStyle.accent
+                            : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueTextPrimary))))
         }
     }
 
@@ -88,7 +90,7 @@ struct SongListRow: View {
     }
 
     private var isDownloaded: Bool {
-        downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic)
+        rowDownloads.isDownloaded(song: song)
     }
 
     private var isLocalSong: Bool {
@@ -115,6 +117,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 32 }
         if MujiStyle.isActive { return 31 }
         if NeumorphicStyle.isActive { return 32 }
+        if CapsuleStyle.isActive { return 31 }
         if SequoiaStyle.isActive { return 32 }
         return 30
     }
@@ -123,6 +126,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 11 }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 13 }
+        if CapsuleStyle.isActive { return 13 }
         if SequoiaStyle.isActive { return 12 }
         return quickActionButtonSize / 2
     }
@@ -133,12 +137,14 @@ struct SongListRow: View {
             if MangaStyle.isActive { return MangaStyle.labelYellow }
             if MujiStyle.isActive { return MujiStyle.clay }
             if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            if CapsuleStyle.isActive { return CapsuleStyle.amber }
             if SequoiaStyle.isActive { return SequoiaStyle.accent }
             return Color.monologueTextPrimary
         case .download:
             if MangaStyle.isActive { return MangaStyle.decoBlue }
             if MujiStyle.isActive { return MujiStyle.indigo }
             if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
+            if CapsuleStyle.isActive { return CapsuleStyle.cyan }
             if SequoiaStyle.isActive { return SequoiaStyle.aqua }
             return Color.monologueTextPrimary
         }
@@ -154,6 +160,9 @@ struct SongListRow: View {
         if NeumorphicStyle.isActive {
             return quickActionTint(for: kind).opacity(isDisabled ? 0.36 : 1)
         }
+        if CapsuleStyle.isActive {
+            return quickActionTint(for: kind).opacity(isDisabled ? 0.36 : 1)
+        }
         if SequoiaStyle.isActive {
             return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 0.96)
         }
@@ -164,6 +173,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 2 }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 18 }
+        if CapsuleStyle.isActive { return 19 }
         if SequoiaStyle.isActive { return 17 }
         return 12
     }
@@ -172,14 +182,43 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 2 }
         if MujiStyle.isActive { return 6 }
         if NeumorphicStyle.isActive { return 14 }
+        if CapsuleStyle.isActive { return 14 }
         if SequoiaStyle.isActive { return 13 }
         return 12
     }
-    
-    var body: some View {
-        let _ = settings.globalThemeRevision
 
-        HStack(spacing: 12) {
+    private var rowCoverSize: CGFloat {
+        if MangaStyle.isActive { return 47 }
+        if MujiStyle.isActive { return 46 }
+        if NeumorphicStyle.isActive { return 47 }
+        if CapsuleStyle.isActive { return 46 }
+        return 48
+    }
+
+    private var rowContentSpacing: CGFloat {
+        if MangaStyle.isActive { return 9 }
+        if MujiStyle.isActive { return 9 }
+        if CapsuleStyle.isActive { return 9 }
+        return 10
+    }
+
+    private var rowHorizontalPadding: CGFloat {
+        if MangaStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
+        if MujiStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
+        if NeumorphicStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
+        if CapsuleStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
+        return DeviceLayout.viewHorizontalPadding
+    }
+
+    private var rowIndexWidth: CGFloat {
+        if MangaStyle.isActive { return 15 }
+        if MujiStyle.isActive { return 14 }
+        if CapsuleStyle.isActive { return 14 }
+        return 16
+    }
+
+    private func capsuleSongResultRow(coverSize: CGFloat) -> some View {
+        HStack(spacing: 10) {
             Button {
                 onTap?()
             } label: {
@@ -189,80 +228,72 @@ struct SongListRow: View {
                             MonologueSymbolIcon(
                                 name: isSelected ? "checkmark.circle.fill" : "circle",
                                 size: 18,
-                                color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
+                                color: isSelected ? CapsuleStyle.accent : CapsuleStyle.inkMuted.opacity(0.46)
                             )
                         } else {
                             Text(String(format: "%02d", index + 1))
-                                .font(indexFont)
-                                .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.5)
+                                .font(CapsuleStyle.labelFont(10.5, weight: .black))
+                                .foregroundStyle(isCurrent ? CapsuleStyle.onAccent : CapsuleStyle.inkMuted)
+                                .monospacedDigit()
                         }
                     }
-                    .frame(width: 16)
+                    .frame(width: 34, height: 46)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(isCurrent ? CapsuleStyle.accent : CapsuleStyle.surfaceTint.opacity(0.54))
+                    )
 
-                    CachedAsyncImage(url: song.coverUrl, width: 48, height: 48) {
-                        Color.gray.opacity(0.1)
+                    CachedAsyncImage(url: song.coverUrl, width: coverSize, height: coverSize) {
+                        CapsuleStyle.surfaceTint.opacity(0.72)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous))
-                    .overlay {
-                        if MangaStyle.isActive {
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-                        } else if MujiStyle.isActive {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
-                        } else if NeumorphicStyle.isActive {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(NeumorphicStyle.separator.opacity(0.38), lineWidth: 0.6)
-                        } else if SequoiaStyle.isActive {
-                            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
-                                .stroke(SequoiaStyle.luminousSeparator.opacity(0.42), lineWidth: 0.55)
-                        }
-                    }
+                    .frame(width: coverSize, height: coverSize)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(isCurrent ? CapsuleStyle.accent.opacity(0.46) : CapsuleStyle.separator.opacity(0.42), lineWidth: 0.7)
+                    )
                     .overlay {
                         if isCurrent && !isSelecting {
                             ZStack {
-                                Color.black.opacity(0.35)
-                                PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
-                                    .scaleEffect(0.85)
+                                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                    .fill(Color.black.opacity(0.35))
+                                PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                    .scaleEffect(0.82)
                             }
                         }
                     }
                     .opacity(isGrayed ? 0.4 : 1.0)
 
-                    VStack(alignment: .leading, spacing: songInfoVerticalSpacing) {
+                    VStack(alignment: .leading, spacing: 5) {
                         Text(song.name)
-                            .font(songTitleFont)
-                            .foregroundColor(songTitleColor)
+                            .font(CapsuleStyle.bodyFont(15.5, weight: isCurrent ? .bold : .semibold))
+                            .foregroundStyle(CapsuleStyle.ink)
                             .lineLimit(1)
-                            .layoutPriority(2)
+                            .layoutPriority(3)
 
                         Text(songArtistAlbumText)
-                            .font(songArtistAlbumFont)
-                            .foregroundColor(songArtistAlbumColor)
+                            .font(CapsuleStyle.labelFont(12, weight: .medium))
+                            .foregroundStyle(CapsuleStyle.inkSoft)
                             .lineLimit(1)
                             .truncationMode(.tail)
-                            .layoutPriority(1)
+                            .layoutPriority(2)
 
                         songBadgeRail
+                            .layoutPriority(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .layoutPriority(1)
-
-                    Spacer(minLength: 0)
+                    .layoutPriority(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98, opacity: 0.8))
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.88))
             .disabled(onTap == nil)
 
             if !isSelecting {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     quickActionButton(icon: .add, kind: .addToQueue, isDisabled: false) {
-                        player.addToQueue(song: song)
+                        playback.addToQueue(song: song)
                     }
 
                     if !isLocalSong {
@@ -271,6 +302,7 @@ struct SongListRow: View {
                         }
                     }
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .overlay(alignment: .topTrailing) {
                     if let feedbackAction {
                         quickActionFeedbackBadge(for: feedbackAction)
@@ -279,86 +311,169 @@ struct SongListRow: View {
                 }
             }
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, 8)
+        .padding(.leading, 10)
+        .padding(.trailing, 10)
+        .padding(.vertical, 7)
         .background {
             if isCurrent {
-                if SequoiaStyle.isActive {
-                    ZStack(alignment: .leading) {
-                        SequoiaSurfaceBackground(
-                            cornerRadius: rowCornerRadius,
-                            elevated: false,
-                            fill: Theme.accent.opacity(0.075),
-                            role: .selected
-                        )
-
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
                         LinearGradient(
                             colors: [
-                                Theme.accent.opacity(0.14),
-                                SequoiaStyle.aqua.opacity(0.055),
-                                .clear,
+                                CapsuleStyle.accent.opacity(0.16),
+                                CapsuleStyle.cyan.opacity(0.08),
+                                CapsuleStyle.surfaceRaised.opacity(0.7),
                             ],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous))
-
-                        Capsule()
-                            .fill(SequoiaStyle.accentGradient)
-                            .frame(width: 3.5, height: 24)
-                            .shadow(color: Theme.accent.opacity(0.35), radius: 5, x: 0, y: 0)
-                    }
-                    .padding(.horizontal, 5)
-                } else {
-                    ZStack(alignment: .leading) {
-                        // 主体渐变玻璃态
-                        RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Theme.accent.opacity(0.12),
-                                        Theme.accent.opacity(0.01)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .monologueGlass(cornerRadius: rowCornerRadius)
-
-                        // 左侧微光描边
-                        RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Theme.accent.opacity(0.35),
-                                        Color.clear
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ),
-                                lineWidth: 0.5
-                            )
-
-                        // 呼吸发光指示条
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Theme.accent)
-                            .frame(width: 3.5, height: 20)
-                            .shadow(color: Theme.accent.opacity(0.6), radius: 4, x: 0, y: 0)
-                    }
-                    .padding(.horizontal, 4)
-                }
+                    )
+                    .padding(.horizontal, 2)
             }
         }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(CapsuleStyle.separator.opacity(0.38))
+                .frame(height: 0.7)
+                .padding(.leading, 104)
+                .padding(.trailing, 10)
+        }
         .contentShape(Rectangle())
+    }
+
+    var body: some View {
+        let _ = settings.globalThemeRevision
+        let coverSize = rowCoverSize
+
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleSongResultRow(coverSize: coverSize)
+            } else {
+                HStack(spacing: 12) {
+                    Button {
+                        onTap?()
+                    } label: {
+                        HStack(spacing: rowContentSpacing) {
+                            ZStack {
+                                if isSelecting {
+                                    MonologueSymbolIcon(
+                                        name: isSelected ? "checkmark.circle.fill" : "circle",
+                                        size: 18,
+                                        color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
+                                    )
+                                } else {
+                                    Text(String(format: "%02d", index + 1))
+                                        .font(indexFont)
+                                        .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
+                                }
+                            }
+                            .frame(width: rowIndexWidth)
+
+                            CachedAsyncImage(url: song.coverUrl, width: coverSize, height: coverSize) {
+                                Color.gray.opacity(0.1)
+                            }
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: coverSize, height: coverSize)
+                            .clipShape(RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous))
+                            .overlay {
+                                if MangaStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                                } else if MujiStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                                } else if NeumorphicStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(NeumorphicStyle.separator.opacity(0.38), lineWidth: 0.6)
+                                } else if CapsuleStyle.isActive {
+                                    RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                                        .stroke(CapsuleStyle.separator.opacity(0.42), lineWidth: 0.65)
+                                } else if SequoiaStyle.isActive {
+                                    RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                                        .stroke(SequoiaStyle.luminousSeparator.opacity(0.42), lineWidth: 0.55)
+                                }
+                            }
+                            .overlay {
+                                if isCurrent && !isSelecting {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                                            .fill(Color.black.opacity(0.35))
+                                        PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                            .scaleEffect(0.85)
+                                    }
+                                }
+                            }
+                            .opacity(isGrayed ? 0.4 : 1.0)
+
+                            VStack(alignment: .leading, spacing: songInfoVerticalSpacing) {
+                                Text(song.name)
+                                    .font(songTitleFont)
+                                    .foregroundColor(songTitleColor)
+                                    .lineLimit(1)
+                                    .layoutPriority(3)
+
+                                Text(songArtistAlbumText)
+                                    .font(songArtistAlbumFont)
+                                    .foregroundColor(songArtistAlbumColor)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .layoutPriority(2)
+
+                                songBadgeRail
+                                    .layoutPriority(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .layoutPriority(2)
+
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98, opacity: 0.8))
+                    .disabled(onTap == nil)
+
+                    if !isSelecting {
+                        HStack(spacing: 8) {
+                            quickActionButton(icon: .add, kind: .addToQueue, isDisabled: false) {
+                                playback.addToQueue(song: song)
+                            }
+
+                            if !isLocalSong {
+                                quickActionButton(icon: .download, kind: .download, isDisabled: isDownloaded) {
+                                    downloadSong()
+                                }
+                            }
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
+                        .overlay(alignment: .topTrailing) {
+                            if let feedbackAction {
+                                quickActionFeedbackBadge(for: feedbackAction)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, rowHorizontalPadding)
+                .padding(.vertical, 8)
+                .background {
+                    if isCurrent {
+                        currentRowBackground
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+        }
         .contextMenu {
             Button {
-                PlayerManager.shared.playNext(song: song)
+                playback.playNext(song: song)
             } label: {
                 Label(LocalizedStringKey("action_play_next"), systemImage: "text.line.first.and.arrowtriangle.forward")
             }
             
             Button {
-                PlayerManager.shared.addToQueue(song: song)
+                playback.addToQueue(song: song)
             } label: {
                 Label(LocalizedStringKey("action_add_to_queue"), systemImage: "text.append")
             }
@@ -367,9 +482,9 @@ struct SongListRow: View {
             
             if !isLocalSong {
                 // 下载选项
-                if downloadManager.isDownloaded(songId: song.id) {
+                if rowDownloads.isDownloaded(songId: song.id) {
                     Button(role: .destructive) {
-                        downloadManager.deleteDownload(songId: song.id, isQQ: song.isQQMusic)
+                        rowDownloads.deleteDownload(song: song)
                     } label: {
                         Label(String(localized: "song_delete_download"), systemImage: "trash")
                     }
@@ -500,10 +615,137 @@ struct SongListRow: View {
         }
     }
 
+    @ViewBuilder
+    private var currentRowBackground: some View {
+        if MangaStyle.isActive {
+            ZStack(alignment: .leading) {
+                MangaCardBackground(cornerRadius: rowCornerRadius, elevated: true, tint: MangaStyle.labelYellow.opacity(0.54))
+
+                Capsule()
+                    .fill(MangaStyle.accentPink)
+                    .frame(width: 5, height: 30)
+                    .padding(.leading, 6)
+            }
+            .padding(.horizontal, 4)
+        } else if MujiStyle.isActive {
+            ZStack(alignment: .leading) {
+                MujiPaperCardBackground(cornerRadius: rowCornerRadius, elevated: true)
+
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(MujiStyle.clay)
+                    .frame(width: 3, height: 24)
+                    .padding(.leading, 8)
+            }
+            .padding(.horizontal, 5)
+        } else if NeumorphicStyle.isActive {
+            ZStack(alignment: .leading) {
+                NeumorphicSurfaceBackground(
+                    cornerRadius: rowCornerRadius,
+                    elevated: false,
+                    pressed: true,
+                    tint: Theme.accent.opacity(0.13),
+                    lightweight: true
+                )
+
+                Capsule()
+                    .fill(Theme.accent)
+                    .frame(width: 4, height: 24)
+                    .padding(.leading, 7)
+            }
+            .padding(.horizontal, 5)
+        } else if CapsuleStyle.isActive {
+            ZStack(alignment: .leading) {
+                CapsuleSurfaceBackground(
+                    cornerRadius: rowCornerRadius,
+                    elevated: true,
+                    tint: CapsuleStyle.surfaceRaised
+                )
+
+                LinearGradient(
+                    colors: [
+                        Theme.accent.opacity(0.14),
+                        CapsuleStyle.cyan.opacity(0.08),
+                        Color.clear,
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .clipShape(RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous))
+
+                Capsule()
+                    .fill(LinearGradient(colors: CapsuleStyle.accentGradient, startPoint: .top, endPoint: .bottom))
+                    .frame(width: 4, height: 26)
+                    .padding(.leading, 7)
+            }
+            .padding(.horizontal, 5)
+        } else if SequoiaStyle.isActive {
+            ZStack(alignment: .leading) {
+                SequoiaSurfaceBackground(
+                    cornerRadius: rowCornerRadius,
+                    elevated: false,
+                    fill: Theme.accent.opacity(0.075),
+                    role: .selected
+                )
+
+                LinearGradient(
+                    colors: [
+                        Theme.accent.opacity(0.14),
+                        SequoiaStyle.aqua.opacity(0.055),
+                        .clear,
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .clipShape(RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous))
+
+                Capsule()
+                    .fill(SequoiaStyle.accentGradient)
+                    .frame(width: 3.5, height: 24)
+                    .shadow(color: Theme.accent.opacity(0.35), radius: 5, x: 0, y: 0)
+            }
+            .padding(.horizontal, 5)
+        } else {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Theme.accent.opacity(0.12),
+                                Theme.accent.opacity(0.01)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .monologueGlass(cornerRadius: rowCornerRadius)
+
+                RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Theme.accent.opacity(0.35),
+                                Color.clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 0.5
+                    )
+
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Theme.accent)
+                    .frame(width: 3.5, height: 20)
+                    .shadow(color: Theme.accent.opacity(0.6), radius: 4, x: 0, y: 0)
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
     private var songInfoVerticalSpacing: CGFloat {
         if MangaStyle.isActive { return 3.5 }
         if MujiStyle.isActive { return 3 }
         if NeumorphicStyle.isActive { return 3.5 }
+        if CapsuleStyle.isActive { return 3.5 }
         if SequoiaStyle.isActive { return 3.5 }
         return 3
     }
@@ -512,6 +754,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return MangaStyle.comicFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(11.5, weight: .bold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .medium) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
@@ -520,6 +763,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: isCurrent ? .bold : .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: isCurrent ? .semibold : .medium) }
         return .system(size: 16, weight: isCurrent ? .bold : .medium)
     }
@@ -528,6 +772,7 @@ struct SongListRow: View {
         if isGrayed { return Theme.secondaryText.opacity(0.4) }
         if isCurrent { return Theme.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return Theme.text
     }
@@ -548,6 +793,9 @@ struct SongListRow: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(12, weight: .medium)
         }
+        if CapsuleStyle.isActive {
+            return CapsuleStyle.labelFont(12, weight: .medium)
+        }
         if SequoiaStyle.isActive {
             return SequoiaStyle.labelFont(12, weight: .regular)
         }
@@ -557,6 +805,7 @@ struct SongListRow: View {
     private var songArtistAlbumColor: Color {
         if isGrayed { return Theme.secondaryText.opacity(0.3) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return Theme.secondaryText
     }
@@ -565,6 +814,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 5 }
         if MujiStyle.isActive { return 4 }
         if NeumorphicStyle.isActive { return 5 }
+        if CapsuleStyle.isActive { return 5 }
         if SequoiaStyle.isActive { return 5 }
         return 4
     }
@@ -635,6 +885,9 @@ struct SongListRow: View {
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.labelFont(max(fontSize + 0.5, 8), weight: .semibold)
         }
+        if CapsuleStyle.isActive {
+            return CapsuleStyle.labelFont(max(fontSize + 0.5, 8), weight: .bold)
+        }
         if SequoiaStyle.isActive {
             return SequoiaStyle.labelFont(max(fontSize + 0.5, 8), weight: .semibold)
         }
@@ -645,6 +898,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 5.5 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 5.5 }
+        if CapsuleStyle.isActive { return 5.5 }
         if SequoiaStyle.isActive { return 6 }
         return 4
     }
@@ -653,6 +907,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 2 }
         if MujiStyle.isActive { return 1.5 }
         if NeumorphicStyle.isActive { return 2 }
+        if CapsuleStyle.isActive { return 2 }
         if SequoiaStyle.isActive { return 2.2 }
         return 1
     }
@@ -661,12 +916,14 @@ struct SongListRow: View {
         if MangaStyle.isActive { return 6 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 6 }
+        if CapsuleStyle.isActive { return 7 }
         if SequoiaStyle.isActive { return 7 }
         return 2
     }
 
     private func songMetaBadgeForeground(_ color: Color) -> Color {
-        MangaStyle.isActive ? MangaStyle.ink : color
+        if CapsuleStyle.isActive { return color }
+        return MangaStyle.isActive ? MangaStyle.ink : color
     }
 
     @ViewBuilder
@@ -678,6 +935,12 @@ struct SongListRow: View {
                 pressed: true,
                 tint: color.opacity(0.12),
                 lightweight: true
+            )
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(
+                cornerRadius: songMetaBadgeCornerRadius,
+                elevated: false,
+                tint: color.opacity(0.10)
             )
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(
@@ -704,6 +967,9 @@ struct SongListRow: View {
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
                 .stroke(color.opacity(0.2), lineWidth: 0.5)
+        } else if CapsuleStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(color.opacity(0.24), lineWidth: 0.65)
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
                 .stroke(color.opacity(0.24), lineWidth: 0.55)
@@ -799,6 +1065,22 @@ struct SongListRow: View {
             }
             .frame(width: size, height: size)
             .scaleEffect(isActive ? 1.06 : 1)
+        } else if CapsuleStyle.isActive {
+            ZStack {
+                CapsuleSurfaceBackground(
+                    cornerRadius: radius,
+                    elevated: isActive && !isDisabled,
+                    tint: CapsuleStyle.surfaceRaised
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .stroke(tint.opacity(isActive ? 0.34 : 0.18), lineWidth: 0.75)
+                )
+
+                MonologueIcon(icon: icon, size: 13, color: iconColor, lineWidth: 1.58)
+            }
+            .frame(width: size, height: size)
+            .scaleEffect(isActive ? 1.06 : 1)
         } else if SequoiaStyle.isActive {
             ZStack {
                 SequoiaSurfaceBackground(
@@ -833,13 +1115,7 @@ struct SongListRow: View {
 
     private func downloadSong() {
         guard !song.isLocal else { return }
-        if song.isQishui {
-            downloadManager.downloadQishui(song: song, quality: SettingsManager.shared.defaultQishuiPlaybackQuality)
-        } else if song.isQQMusic {
-            downloadManager.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)
-        } else {
-            downloadManager.download(song: song, quality: DownloadManager.defaultNeteaseDownloadQuality)
-        }
+        rowDownloads.download(song: song)
     }
 
     private func quickActionFeedbackBadge(for action: QuickAction) -> some View {
@@ -872,6 +1148,7 @@ struct SongListRow: View {
         if MangaStyle.isActive { return MangaStyle.comicFont(10, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .semibold) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(10, weight: .bold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(10, weight: .semibold) }
         return .system(size: 10, weight: .semibold, design: .rounded)
     }
@@ -886,6 +1163,7 @@ struct SongListRow: View {
         }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
@@ -926,6 +1204,16 @@ struct SongListRow: View {
                     )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        } else if CapsuleStyle.isActive {
+            CapsuleSurfaceBackground(
+                cornerRadius: 13,
+                elevated: true,
+                tint: CapsuleStyle.surfaceRaised
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(tint.opacity(0.22), lineWidth: 0.7)
+            )
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(
                 cornerRadius: 13,

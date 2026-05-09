@@ -1,34 +1,16 @@
 import SwiftUI
 
 struct PodcastToolbar: View {
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var model = PodcastToolbarModel.shared
 
     var onSpeedTap: () -> Void
     var onTimerTap: () -> Void
     var onPlaylistTap: () -> Void
 
-    private var speedText: String {
-        let speed = player.playbackSpeed
-        if speed == Float(Int(speed)) {
-            return String(format: "%.0fx", speed)
-        }
-        return String(format: "%.1fx", speed)
-    }
-
-    private var timerText: String? {
-        if player.pendingSleepStopAfterCurrentTrack {
-            return String(localized: "podcast_timer_pending_short")
-        }
-        guard let remaining = player.sleepTimerRemaining else { return nil }
-        let minutes = Int(remaining) / 60
-        let seconds = Int(remaining) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-
     var body: some View {
         HStack(spacing: 24) {
-            toolButton(label: speedText, icon: nil, action: onSpeedTap)
-            toolButton(label: timerText, icon: .clock, action: onTimerTap)
+            toolButton(label: model.speedText, icon: nil, action: onSpeedTap)
+            toolButton(label: model.timerText, icon: .clock, action: onTimerTap)
             toolButton(label: nil, icon: .list, action: onPlaylistTap)
         }
     }

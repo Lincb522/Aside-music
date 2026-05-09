@@ -121,6 +121,8 @@ struct DailyRecommendView: View {
             mujiHeaderSection
         } else if SequoiaStyle.isActive {
             sequoiaHeaderSection
+        } else if CapsuleStyle.isActive {
+            capsuleHeaderSection
         } else if BentoStyle.isActive {
             bentoHeaderSection
         } else {
@@ -671,6 +673,95 @@ struct DailyRecommendView: View {
         )
     }
 
+    private var capsuleHeaderSection: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 13) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(dayString)
+                            .font(CapsuleStyle.titleFont(48, weight: .black))
+                            .foregroundStyle(CapsuleStyle.ink)
+                            .lineLimit(1)
+
+                        Text("/ \(monthString)")
+                            .font(CapsuleStyle.labelFont(12, weight: .bold))
+                            .foregroundStyle(CapsuleStyle.inkMuted)
+                            .padding(.leading, 4)
+                    }
+                    .frame(width: 74, alignment: .leading)
+
+                    Rectangle()
+                        .fill(CapsuleStyle.separator.opacity(0.64))
+                        .frame(width: 0.8, height: 58)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            CapsuleDetailChip(
+                                text: String(localized: "daily_recommend"),
+                                icon: .sparkle,
+                                tint: CapsuleStyle.accent,
+                                selected: true
+                            )
+
+                            if !viewModel.songs.isEmpty {
+                                CapsuleDetailChip(
+                                    text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))",
+                                    tint: CapsuleStyle.cyan
+                                )
+                            }
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(CapsuleStyle.titleFont(23, weight: .bold))
+                            .foregroundStyle(CapsuleStyle.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !viewModel.songs.isEmpty {
+                        Button(action: {
+                            if let first = viewModel.songs.first {
+                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                            }
+                        }) {
+                            CapsuleDetailIconButton(icon: .play, tint: CapsuleStyle.accent)
+                        }
+                        .buttonStyle(CapsulePressStyle())
+                    }
+                }
+
+                HStack(spacing: 9) {
+                    Button(action: toggleStyleMenu) {
+                        CapsuleDetailChip(
+                            text: dailyStyleChipTitle,
+                            icon: .sparkle,
+                            tint: CapsuleStyle.accent,
+                            selected: viewModel.showStyleMenu
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: { viewModel.loadHistoryDates() }) {
+                        CapsuleDetailChip(
+                            text: NSLocalizedString("daily_history", comment: ""),
+                            icon: .history,
+                            tint: CapsuleStyle.mint
+                        )
+                    }
+                    .buttonStyle(CapsulePressStyle())
+                }
+            }
+            .padding(15)
+
+            attachedStylePanel
+        }
+        .background(CapsuleSurfaceBackground(cornerRadius: 30, elevated: true, tint: CapsuleStyle.surface.opacity(0.92)))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 16)
+        .padding(.bottom, 10)
+    }
+
     private func mujiHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
         HStack(spacing: 7) {
             MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.5)
@@ -822,61 +913,101 @@ struct DailyRecommendView: View {
     private var dailyFilteredSongs: [Song] { viewModel.songs.filtered(by: searchText) }
 
     private var songList: some View {
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleSongList
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        headerSection
+
+                        if !viewModel.showStyleMenu {
+                            dailySearchBar
+                        }
+
+                        dailyRows
+                    }
+                    .padding(.bottom, 120)
+                    .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
+                }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+            }
+        }
+        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
+            BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.id) })
+        }
+    }
+
+    private var capsuleSongList: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            VStack(spacing: 14) {
                 headerSection
 
-                if !viewModel.showStyleMenu {
-                    PlaylistSearchBar(
-                        searchText: $searchText,
-                        isSearching: $isSearching,
-                        isSelectMode: $isSelectMode,
-                        selectedIds: $selectedSongIds,
-                        songs: dailyFilteredSongs,
-                        onBatchQueue: {
-                            let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.id) }
-                            SongBatchActionHelper.addToQueue(selected) {
-                                isSelectMode = false
-                                selectedSongIds.removeAll()
-                            }
-                        },
-                        onBatchDownload: { batchDownloadSelected() },
-                        onBatchCollect: { showBatchAddToPlaylist = true }
-                    )
-                }
-
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(dailyFilteredSongs.enumerated()), id: \.element.id) { index, song in
-                        SongListRow(song: song, index: index, isSelecting: isSelectMode, isSelected: selectedSongIds.contains(song.id), onArtistTap: { artistId in
-                            selectedArtistId = artistId
-                            showArtistDetail = true
-                        }, onDetailTap: { detailSong in
-                            selectedSongForDetail = detailSong
-                            showSongDetail = true
-                        }, onAlbumTap: { albumId in
-                            selectedAlbumId = albumId
-                            showAlbumDetail = true
-                        }, onTap: {
-                            if isSelectMode {
-                                if selectedSongIds.contains(song.id) {
-                                    selectedSongIds.remove(song.id)
-                                } else {
-                                    selectedSongIds.insert(song.id)
-                                }
-                            } else {
-                                PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
-                            }
-                        })
+                CapsuleDetailSection(
+                    title: "TODAY",
+                    subtitle: String(format: NSLocalizedString("songs_count_format", comment: ""), dailyFilteredSongs.count),
+                    icon: .sparkle,
+                    tint: CapsuleStyle.accent
+                ) {
+                    if !viewModel.showStyleMenu {
+                        dailySearchBar
+                            .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
                     }
+
+                    dailyRows
                 }
             }
             .padding(.bottom, 120)
             .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
         }
         .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-        .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
-            BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.id) })
+        .themeRenderScrollLayer()
+    }
+
+    private var dailySearchBar: some View {
+        PlaylistSearchBar(
+            searchText: $searchText,
+            isSearching: $isSearching,
+            isSelectMode: $isSelectMode,
+            selectedIds: $selectedSongIds,
+            songs: dailyFilteredSongs,
+            onBatchQueue: {
+                let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.id) }
+                SongBatchActionHelper.addToQueue(selected) {
+                    isSelectMode = false
+                    selectedSongIds.removeAll()
+                }
+            },
+            onBatchDownload: { batchDownloadSelected() },
+            onBatchCollect: { showBatchAddToPlaylist = true }
+        )
+    }
+
+    private var dailyRows: some View {
+        LazyVStack(spacing: CapsuleStyle.isActive ? 4 : 0) {
+            ForEach(Array(dailyFilteredSongs.enumerated()), id: \.element.id) { index, song in
+                SongListRow(song: song, index: index, isSelecting: isSelectMode, isSelected: selectedSongIds.contains(song.id), onArtistTap: { artistId in
+                    selectedArtistId = artistId
+                    showArtistDetail = true
+                }, onDetailTap: { detailSong in
+                    selectedSongForDetail = detailSong
+                    showSongDetail = true
+                }, onAlbumTap: { albumId in
+                    selectedAlbumId = albumId
+                    showAlbumDetail = true
+                }, onTap: {
+                    if isSelectMode {
+                        if selectedSongIds.contains(song.id) {
+                            selectedSongIds.remove(song.id)
+                        } else {
+                            selectedSongIds.insert(song.id)
+                        }
+                    } else {
+                        PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
+                    }
+                })
+            }
         }
     }
 

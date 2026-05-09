@@ -6,7 +6,7 @@ struct HomeDailySection: View {
     let onViewAll: () -> Void
     let onPlay: (Song) -> Void
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var playback = SongRowPlaybackModel.shared
     @State private var animatedCount: Int = 0
     @State private var countAnimated = false
 
@@ -99,8 +99,8 @@ struct HomeDailySection: View {
     private var cardWidth: CGFloat { DeviceLayout.dailyCardSize }
 
     private func dailySongCard(_ song: Song, rank: Int) -> some View {
-        let isCurrent = player.currentSong?.id == song.id
-        let isPlaying = isCurrent && player.isPlaying
+        let isCurrent = playback.currentSongId == song.id
+        let isPlaying = isCurrent && playback.isPlaying
 
         return VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {

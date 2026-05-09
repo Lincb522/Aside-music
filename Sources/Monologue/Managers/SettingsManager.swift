@@ -55,6 +55,9 @@ final class SettingsManager: ObservableObject {
         set { floatingBarStyleRaw = newValue.rawValue }
     }
 
+    /// 默认主题下自定义 TabBar 是否使用液态玻璃；关闭时使用更稳定的毛玻璃底。
+    @AppStorage("defaultThemeUsesLiquidGlassTabBar") var defaultThemeUsesLiquidGlassTabBar: Bool = false
+
     /// 主题模式: "system" 跟随系统, "light" 浅色, "dark" 深色
     @AppStorage("themeMode") var themeMode: String = "system" {
         didSet {

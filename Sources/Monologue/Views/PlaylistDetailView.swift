@@ -59,6 +59,8 @@ struct PlaylistDetailView: View {
                 ThemeRenderBackdrop(theme: .signal)
             } else if BentoStyle.isActive {
                 BentoRootBackdrop()
+            } else if CapsuleStyle.isActive {
+                CapsuleRootBackdrop()
             } else if SettingsManager.shared.coverBgPlaylist {
                 PlaylistColorBackground(coverUrl: playlist.coverUrl?.sized(200))
             } else {
@@ -172,6 +174,8 @@ struct PlaylistDetailView: View {
             signalPlaylistHeaderContent
         } else if MujiStyle.isActive {
             mujiPlaylistHeaderContent
+        } else if CapsuleStyle.isActive {
+            capsulePlaylistHeaderContent
         } else if BentoStyle.isActive {
             bentoPlaylistHeaderContent
         } else if SequoiaStyle.isActive {
@@ -385,6 +389,70 @@ struct PlaylistDetailView: View {
         RoundedRectangle(cornerRadius: 22, style: .continuous)
             .fill(SequoiaStyle.materialList)
             .overlay(MonologueIcon(icon: .musicNoteList, size: 30, color: SequoiaStyle.inkMuted, lineWidth: 1.55))
+    }
+
+    @ViewBuilder
+    private var capsulePlaylistHeaderContent: some View {
+        let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount
+        let playCount = playlist.playCount ?? 0
+        let source = playlist.isQQMusic ? "QCM" : "NCM"
+        let tint = playlist.isQQMusic ? CapsuleStyle.mint : CapsuleStyle.accent
+        let chips = [
+            count.map { "\($0) \(String(localized: "songs_unit"))" },
+            playCount > 0 ? formatCount(playCount) : nil,
+            source
+        ].compactMap { $0 }
+
+        CapsuleDetailHeader(
+            eyebrow: "PLAYLIST",
+            title: viewModel.playlistDetail?.name ?? playlist.name,
+            subtitle: (viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname).map {
+                String(format: NSLocalizedString("created_by_format", comment: ""), $0)
+            } ?? "",
+            coverURL: playlist.coverUrl?.sized(500),
+            fallbackIcon: .musicNoteList,
+            tint: tint,
+            chips: chips
+        ) {
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllRemainingToQueue()
+                    }
+                }) {
+                    CapsuleDetailActionPill(
+                        title: String(localized: "play_now"),
+                        icon: .play,
+                        tint: tint
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: handleBannerPlaylistCollectTap
+                    )
+                    .disabled(playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty))
+                }
+            }
+        }
+        .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+            Button(String(localized: "收藏到本地")) {
+                collectBannerPlaylistLocally()
+            }
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+            Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                subManager.togglePlaylistSubscription(id: playlist.id)
+            }
+
+            Button(String(localized: "取消"), role: .cancel) {}
+        }
     }
 
     private func bannerPlaylistHeaderContent(_ imageURL: URL) -> some View {
@@ -1364,6 +1432,8 @@ struct PlaylistDetailView: View {
                 NeumorphicPill(text: "\(count)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
             } else if SignalStyle.isActive {
                 SignalPill(text: "\(count)", tint: SignalStyle.olive, icon: .musicNoteList, compact: true)
+            } else if CapsuleStyle.isActive {
+                CapsuleDetailChip(text: "\(count)", icon: .musicNoteList, tint: CapsuleStyle.mint)
             } else {
                 HStack(spacing: 4) {
                     MonologueIcon(icon: .musicNoteList, size: 10, color: .monologueTextSecondary.opacity(0.85))
@@ -1402,80 +1472,60 @@ struct PlaylistDetailView: View {
     }
 
     private var songListSection: some View {
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleSongListSection
+            } else {
+                defaultSongListSection
+            }
+        }
+    }
+
+    private var capsuleSongListSection: some View {
+        LazyVStack(spacing: 16) {
+            if viewModel.isLoading {
+                CapsuleDetailSection(title: "TRACKS", icon: .musicNoteList, tint: CapsuleStyle.accent) {
+                    MonologueLoadingView(text: "LOADING TRACKS")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 28)
+                }
+            } else if filteredSongs.isEmpty {
+                CapsuleDetailSection(title: "TRACKS", icon: .musicNoteList, tint: CapsuleStyle.accent) {
+                    CapsuleDetailEmptyState(title: "album_no_songs", icon: .musicNoteList, tint: CapsuleStyle.accent)
+                }
+            } else {
+                CapsuleDetailSection(
+                    title: "TRACKS",
+                    subtitle: String(format: NSLocalizedString("songs_count_format", comment: ""), filteredSongs.count),
+                    icon: .musicNoteList,
+                    tint: CapsuleStyle.accent
+                ) {
+                    playlistSongRows
+                    playlistPagination
+                }
+
+                if !isSearching && !viewModel.relatedPlaylists.isEmpty && !viewModel.isLoading {
+                    relatedPlaylistsSection
+                }
+
+                FloatingBarBottomSpacer()
+            }
+        }
+    }
+
+    private var defaultSongListSection: some View {
         LazyVStack(spacing: 0) {
             if viewModel.isLoading {
                 MonologueLoadingView(text: "LOADING TRACKS")
             } else {
                 if filteredSongs.isEmpty {
-                    VStack(spacing: 14) {
-                        if NeumorphicStyle.isActive {
-                            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
-                        } else if SignalStyle.isActive {
-                            SignalIconBadge(icon: .musicNoteList, tint: SignalStyle.accent, size: 54)
-                        } else {
-                            MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
-                        }
-
-                        Text(LocalizedStringKey("album_no_songs"))
-                            .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
-                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, ThemedPageStyle.isActive ? 34 : 0)
-                    .background {
-                        if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
-                        } else if SignalStyle.isActive {
-                            SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
-                        }
-                    }
-                    .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
-                    .padding(.top, 40)
+                    playlistEmptyState
                 } else {
-                    ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
-                        SongListRow(
-                            song: song,
-                            index: index,
-                            isSelecting: isSelectMode,
-                            isSelected: selectedSongIds.contains(song.id),
-                            onArtistTap: { artistId in
-                                selectedArtistId = artistId
-                                showArtistDetail = true
-                            },
-                            onDetailTap: { detailSong in
-                                selectedSongForDetail = detailSong
-                                showSongDetail = true
-                            },
-                            onAlbumTap: { albumId in
-                                selectedAlbumId = albumId
-                                showAlbumDetail = true
-                            },
-                            onTap: {
-                                if isSelectMode {
-                                    if selectedSongIds.contains(song.id) {
-                                        selectedSongIds.remove(song.id)
-                                    } else {
-                                        selectedSongIds.insert(song.id)
-                                    }
-                                } else {
-                                    PlayerManager.shared.play(song: song, in: filteredSongs)
-                                }
-                            }
-                        )
-                    }
+                    playlistSongRows
                 }
 
                 if !isSearching {
-                    if viewModel.isLoadingMore {
-                        MonologueLoadingView(text: "LOADING MORE", centered: false)
-                            .padding()
-                    }
-                    if viewModel.hasMore && !viewModel.isLoading && !viewModel.isLoadingMore {
-                        Color.clear.frame(height: 20).onAppear { viewModel.loadMore() }
-                    }
-                    if !viewModel.hasMore && !viewModel.songs.isEmpty && !viewModel.isLoading {
-                        NoMoreDataView()
-                    }
+                    playlistPagination
 
                     if !viewModel.relatedPlaylists.isEmpty && !viewModel.isLoading {
                         relatedPlaylistsSection
@@ -1483,6 +1533,82 @@ struct PlaylistDetailView: View {
                 }
 
                 FloatingBarBottomSpacer()
+            }
+        }
+    }
+
+    private var playlistEmptyState: some View {
+        VStack(spacing: 14) {
+            if NeumorphicStyle.isActive {
+                NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
+            } else if SignalStyle.isActive {
+                SignalIconBadge(icon: .musicNoteList, tint: SignalStyle.accent, size: 54)
+            } else {
+                MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
+            }
+
+            Text(LocalizedStringKey("album_no_songs"))
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, ThemedPageStyle.isActive ? 34 : 0)
+        .background {
+            if NeumorphicStyle.isActive {
+                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
+            } else if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
+            }
+        }
+        .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.top, 40)
+    }
+
+    private var playlistSongRows: some View {
+        ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
+            SongListRow(
+                song: song,
+                index: index,
+                isSelecting: isSelectMode,
+                isSelected: selectedSongIds.contains(song.id),
+                onArtistTap: { artistId in
+                    selectedArtistId = artistId
+                    showArtistDetail = true
+                },
+                onDetailTap: { detailSong in
+                    selectedSongForDetail = detailSong
+                    showSongDetail = true
+                },
+                onAlbumTap: { albumId in
+                    selectedAlbumId = albumId
+                    showAlbumDetail = true
+                },
+                onTap: {
+                    if isSelectMode {
+                        if selectedSongIds.contains(song.id) {
+                            selectedSongIds.remove(song.id)
+                        } else {
+                            selectedSongIds.insert(song.id)
+                        }
+                    } else {
+                        PlayerManager.shared.play(song: song, in: filteredSongs)
+                    }
+                }
+            )
+        }
+    }
+
+    private var playlistPagination: some View {
+        Group {
+            if viewModel.isLoadingMore {
+                MonologueLoadingView(text: "LOADING MORE", centered: false)
+                    .padding()
+            }
+            if viewModel.hasMore && !viewModel.isLoading && !viewModel.isLoadingMore {
+                Color.clear.frame(height: 20).onAppear { viewModel.loadMore() }
+            }
+            if !viewModel.hasMore && !viewModel.songs.isEmpty && !viewModel.isLoading {
+                NoMoreDataView()
             }
         }
     }
@@ -1507,6 +1633,18 @@ struct PlaylistDetailView: View {
                 MujiSectionTitle(title: String(localized: "related_playlists"))
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 20)
+            } else if CapsuleStyle.isActive {
+                HStack {
+                    CapsuleDetailChip(
+                        text: String(localized: "related_playlists"),
+                        icon: .musicNoteList,
+                        tint: CapsuleStyle.cyan,
+                        selected: true
+                    )
+                    Spacer()
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 16)
             } else {
                 Text(LocalizedStringKey("related_playlists"))
                     .font(.rounded(size: 16, weight: .semibold))

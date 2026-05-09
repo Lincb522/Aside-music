@@ -376,6 +376,7 @@
 "settings_navigation_playback_title" = "Playback";
 "settings_navigation_playback_subtitle" = "Quality, EQ, playback behavior";
 "settings_system_tab_bar" = "System Tab Bar";
+"settings_default_liquid_glass_tabbar" = "Liquid Glass TabBar";
 "settings_background_audio_policy" = "Background Playback Mode";
 "settings_background_audio_policy_exclusive" = "Exclusive";
 "settings_background_audio_policy_exclusive_desc" = "Prefer Monologue as the primary player and may interrupt other audio";

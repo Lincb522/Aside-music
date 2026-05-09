@@ -26,8 +26,12 @@ class HomeViewModel: ObservableObject {
     private var lastHitokotoAttempt: Date?
     private var lastHitokotoFailure: Date?
     private var lastHitokotoSuccess: Date?
+    private var lastHomeHydrationAttempt: Date?
+    private var lastLoginRefreshAttempt: Date?
     private let apiService = APIService.shared
     private let styleManager = StyleManager.shared
+    private let homeHydrationCooldown: TimeInterval = 20
+    private let loginRefreshCooldown: TimeInterval = 3
     
     private init() {
         // 只订阅 GlobalRefreshManager，它会统一管理所有刷新逻辑
@@ -47,6 +51,15 @@ class HomeViewModel: ObservableObject {
                 self?.fetchDailySongsOrStyle(force: true, completion: {})
             }
             .store(in: &cancellables)
+
+        // 登录流程会通过 GlobalRefreshManager 触发刷新，这里再兜接一次登录通知：
+        // 如果首页 VM 当时已经存在，就立刻补齐首页数据；如果正在加载，则交给当前请求完成。
+        NotificationCenter.default.publisher(for: .didLogin)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleLogin()
+            }
+            .store(in: &cancellables)
         
         // 监听退出登录，清除数据并刷新
         NotificationCenter.default.publisher(for: .didLogout)
@@ -55,9 +68,6 @@ class HomeViewModel: ObservableObject {
                 self?.handleLogout()
             }
             .store(in: &cancellables)
-        
-        // NOTE: 移除了对 NotificationCenter.didLogin 和 apiService.$currentUserId 的订阅
-        // 这些事件现在由 GlobalRefreshManager 统一处理，避免登录时触发多次 fetchData
     }
     
     func fetchData(forceDaily: Bool = false) {
@@ -74,6 +84,61 @@ class HomeViewModel: ObservableObject {
         // 直接加载数据，不依赖用户登录状态
         // 后端 API 支持匿名访问，会返回公开推荐数据
         fetchAllData(forceDaily: forceDaily || styleMismatch)
+    }
+
+    func ensureHomeDataLoaded(reason: String = "home appear") {
+        loadCache()
+
+        guard needsHomeHydration else {
+            return
+        }
+
+        if isLoading {
+            return
+        }
+
+        let now = Date()
+        if let lastHomeHydrationAttempt,
+           now.timeIntervalSince(lastHomeHydrationAttempt) < homeHydrationCooldown {
+            return
+        }
+
+        lastHomeHydrationAttempt = now
+        AppLogger.debug("HomeViewModel: 补齐首页数据 - \(reason)")
+        fetchData(forceDaily: dailySongs.isEmpty)
+    }
+
+    private var needsHomeHydration: Bool {
+        dailySongs.isEmpty
+            || banners.isEmpty
+            || recommendPlaylists.isEmpty
+            || qqRecommendPlaylists.isEmpty
+            || qqNewSongs.isEmpty
+            || shouldLoadUserProfile && userProfile == nil
+    }
+
+    private var shouldLoadUserProfile: Bool {
+        UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+            && OnlineAccessManager.shared.hasStoredToken
+    }
+
+    private func handleLogin() {
+        let now = Date()
+        if let lastLoginRefreshAttempt,
+           now.timeIntervalSince(lastLoginRefreshAttempt) < loginRefreshCooldown {
+            return
+        }
+
+        lastLoginRefreshAttempt = now
+        lastHomeHydrationAttempt = nil
+
+        if isLoading {
+            AppLogger.debug("HomeViewModel: 登录后首页数据正在加载，跳过重复触发")
+            return
+        }
+
+        AppLogger.debug("HomeViewModel: 登录成功，自动加载首页数据")
+        fetchData(forceDaily: true)
     }
     
     private func loadCache() {
@@ -120,14 +185,9 @@ class HomeViewModel: ObservableObject {
             .sink(receiveCompletion: { [weak self] completionResult in
                 if case .failure(let error) = completionResult {
                     AppLogger.error("用户资料获取失败: \(error)")
-                    if self?.apiService.currentUserId != nil {
-                        completion()
-                    } else {
-                        self?.isLoading = false
-                    }
-                } else {
-                    completion()
                 }
+                self?.isLoading = false
+                completion()
             }, receiveValue: { [weak self] detailResponse in
                 self?.userProfile = detailResponse.profile
                 Task { @MainActor in
@@ -141,7 +201,7 @@ class HomeViewModel: ObservableObject {
         // 跟踪数据加载完成状态
         var dailySongsLoaded = false
         var bannersLoaded = false
-        var userProfileLoaded = apiService.currentUserId == nil // 未登录时直接标记完成
+        var userProfileLoaded = !shouldLoadUserProfile
         
         fetchHitokoto()
         
@@ -268,6 +328,11 @@ class HomeViewModel: ObservableObject {
                     checkAndMarkReady()
                 })
                 .store(in: &cancellables)
+        } else if shouldLoadUserProfile {
+            fetchUserProfile {
+                userProfileLoaded = true
+                checkAndMarkReady()
+            }
         }
     }
     

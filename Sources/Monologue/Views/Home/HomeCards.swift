@@ -80,9 +80,9 @@ struct SectionHeader: View {
 struct SongCard: View {
     let song: Song
     let onTap: () -> Void
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var playback = SongRowPlaybackModel.shared
 
-    private var isCurrent: Bool { player.currentSong?.id == song.id }
+    private var isCurrent: Bool { playback.currentSongId == song.id }
 
     var body: some View {
         Button(action: onTap) {
@@ -98,7 +98,7 @@ struct SongCard: View {
                     .overlay(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous).stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
 
                     if isCurrent {
-                        PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
+                        PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
                             .frame(width: 16)
                             .padding(8)
                             .background(Circle().fill(.black.opacity(0.4)))

@@ -382,6 +382,23 @@ class LocalPlaylistManager: ObservableObject {
         reload()
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
+
+    func removeSongs(ids: Set<Int>, from playlist: LocalPlaylist) {
+        guard !ids.isEmpty else { return }
+
+        let targetId = playlist.id
+        let descriptor = FetchDescriptor<LocalPlaylist>(
+            predicate: #Predicate { $0.id == targetId }
+        )
+        guard let target = (try? context.fetch(descriptor))?.first else { return }
+
+        var current = target.songs
+        current.removeAll { ids.contains($0.id) }
+        target.songs = current
+        try? context.save()
+        reload()
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+    }
     
     /// 添加已下载歌曲到"下载"歌单（自动创建）
     func addDownloadedSong(_ song: Song) {

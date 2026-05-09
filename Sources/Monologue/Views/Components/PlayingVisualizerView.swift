@@ -14,7 +14,7 @@ struct PlayingVisualizerView: View {
     @State private var phases: [Double] = []
     
     var body: some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isAnimating)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             
             HStack(alignment: .center, spacing: barSpacing) {
@@ -27,7 +27,6 @@ struct PlayingVisualizerView: View {
                     RoundedRectangle(cornerRadius: 1.5)
                         .fill(color)
                         .frame(width: barWidth, height: h)
-                        .animation(.easeInOut(duration: 0.15), value: h)
                 }
             }
             .frame(

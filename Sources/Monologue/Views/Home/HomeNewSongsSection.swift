@@ -6,7 +6,7 @@ struct HomeNewSongsSection: View {
     var onViewAll: (() -> Void)? = nil
     let onPlay: (Song) -> Void
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var playback = SongRowPlaybackModel.shared
     @State private var shimmerPhase: CGFloat = -1
     private var cardCornerRadius: CGFloat {
         if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 26 : 22 }
@@ -111,7 +111,7 @@ struct HomeNewSongsSection: View {
                 
                 // 正在播放 — 脉冲光圈
                 .overlay {
-                    if player.currentSong?.id == song.id {
+                    if playback.currentSongId == song.id {
                         PulseRingView(color: .white)
                     }
                 }
@@ -125,8 +125,8 @@ struct HomeNewSongsSection: View {
                     .padding(.top, 8)
 
                 // 播放指示器
-                if player.currentSong?.id == song.id {
-                    PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
+                if playback.currentSongId == song.id {
+                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
                         .frame(width: 18)
                         .padding(10)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
@@ -138,7 +138,7 @@ struct HomeNewSongsSection: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.name)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(player.currentSong?.id == song.id ? .monologueAccent : .monologueTextPrimary)
+                    .foregroundColor(playback.currentSongId == song.id ? .monologueAccent : .monologueTextPrimary)
                     .lineLimit(1)
                 Text(song.artistName)
                     .font(.system(size: 11, weight: .medium, design: .rounded))

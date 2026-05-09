@@ -33,7 +33,7 @@ struct PlayerProgressSection: View {
                         player.seek(to: time)
                     }
                 )
-                .frame(height: 20)
+                .frame(height: 28)
             } else {
                 // 简约滑条
                 GeometryReader { geo in

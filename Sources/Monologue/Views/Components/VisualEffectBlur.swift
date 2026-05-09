@@ -393,6 +393,27 @@ extension View {
         }
     }
 
+    /// 自定义悬浮栏专用玻璃：默认主题下避免 live backdrop sampling。
+    /// 系统 TabBar 能优化滚动时的玻璃采样，但我们的 SwiftUI overlay 会压在所有页面之上，
+    /// 默认主题滚动时如果继续用 glass/material，底下内容每帧变化都会触发昂贵合成。
+    @ViewBuilder
+    func monologueFloatingChromeGlass(cornerRadius: CGFloat) -> some View {
+        if ThemedPageStyle.isActive {
+            self.monologueGlass(cornerRadius: cornerRadius)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func monologueFloatingChromeGlassCircle() -> some View {
+        if ThemedPageStyle.isActive {
+            self.monologueGlassCircle()
+        } else {
+            self
+        }
+    }
+
     /// backgroundExtensionEffect 兼容
     @ViewBuilder
     func monologueBackgroundExtension() -> some View {

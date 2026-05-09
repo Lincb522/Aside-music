@@ -74,85 +74,33 @@ struct PersonalFMView: View {
         let onSeek: (Double) -> Void
         let onCommit: (Double) -> Void
 
-        let barCount = 30
-        let barSpacing: CGFloat = 3
-        let minHeight: CGFloat = 6
-
-        @State private var amplitudes: [CGFloat] = []
-
         var body: some View {
-            TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: isPlaying ? AppFrameRate.preferredFramesPerSecond : 2)) { timeline in
-                GeometryReader { geometry in
-                    let totalWidth = geometry.size.width
-                    let barWidth = (totalWidth - (CGFloat(barCount - 1) * barSpacing)) / CGFloat(barCount)
-                    let progress = duration > 0 ? currentTime / duration : 0
-                    let phase = timeline.date.timeIntervalSinceReferenceDate * 2
+            let progress = duration > 0 ? CGFloat(min(max(currentTime / duration, 0), 1)) : 0
 
-                    HStack(alignment: .center, spacing: barSpacing) {
-                        ForEach(0..<barCount, id: \.self) { index in
-                            let barProgress = Double(index) / Double(barCount - 1)
-                            let isPlayed = barProgress <= progress
-                            let baseAmplitude = index < amplitudes.count ? amplitudes[index] : 0.5
-
-                            let height = calculateBarHeight(
-                                index: index,
-                                isPlayed: isPlayed,
-                                baseAmplitude: baseAmplitude,
-                                phase: phase,
-                                maxHeight: geometry.size.height
-                            )
-
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(isPlayed ? color : color.opacity(0.15))
-                                .frame(width: max(2, barWidth), height: height)
-                                .animation(.linear(duration: 0.15), value: isPlayed)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let progress = min(max(value.location.x / totalWidth, 0), 1)
-                                let time = progress * duration
-                                onSeek(time)
-                            }
-                            .onEnded { value in
-                                let progress = min(max(value.location.x / totalWidth, 0), 1)
-                                let time = progress * duration
-                                onCommit(time)
-                            }
-                    )
-                }
-            }
-            .onAppear {
-                generateAmplitudes()
-            }
-            .onChange(of: duration) {
-                generateAmplitudes()
-            }
+            GlobalWaveformPlaybackProgressBar(
+                progress: progress,
+                isPlaying: isPlaying,
+                color: color,
+                trackOpacity: 0.12,
+                fillColors: progressFillColors,
+                onSeek: { p in onSeek(Double(p) * duration) },
+                onCommit: { p in onCommit(Double(p) * duration) }
+            )
         }
 
-        private func calculateBarHeight(index: Int, isPlayed: Bool, baseAmplitude: CGFloat, phase: Double, maxHeight: CGFloat) -> CGFloat {
-            var dynamicFactor: CGFloat = 1.0
-            if isPlayed {
-                let wave = sin(Double(index) * 0.5 + phase)
-                dynamicFactor = 1.0 + CGFloat(wave) * 0.35
-            }
-
-            let finalAmplitude = baseAmplitude * dynamicFactor
-            let safeAmplitude = min(max(finalAmplitude, 0), 1.0)
-
-            return minHeight + safeAmplitude * (maxHeight - minHeight)
+        private var progressFillColors: [Color] {
+            if MangaStyle.isActive { return [MangaStyle.accentPink, MangaStyle.labelYellow] }
+            if MujiStyle.isActive { return [MujiStyle.clay, MujiStyle.indigo.opacity(0.86)] }
+            if NeumorphicStyle.isActive { return [NeumorphicStyle.accent, NeumorphicStyle.sage] }
+            if CapsuleStyle.isActive { return CapsuleStyle.accentGradient }
+            if SequoiaStyle.isActive { return [SequoiaStyle.accent, SequoiaStyle.aqua] }
+            if LiquidGlassStyle.isActive { return [LiquidGlassStyle.accent, LiquidGlassStyle.cyan, LiquidGlassStyle.violet] }
+            if ClayStyle.isActive { return [ClayStyle.sky, ClayStyle.peach] }
+            if SignalStyle.isActive { return [SignalStyle.accent, SignalStyle.mint] }
+            if BentoStyle.isActive { return [BentoStyle.tomato, BentoStyle.mustard] }
+            return [color.opacity(0.66), color.opacity(0.96)]
         }
 
-        private func generateAmplitudes() {
-            amplitudes = (0..<barCount).map { index in
-                let normalizedIndex = Double(index) / Double(barCount - 1)
-                let envelope = sin(normalizedIndex * .pi)
-                let randomFactor = Double.random(in: 0.3...1.0)
-                return CGFloat(envelope * randomFactor)
-            }
-        }
     }
 
     // MARK: - FM 播放状态分离
@@ -245,7 +193,7 @@ struct PersonalFMView: View {
                                 }
                             }
                         )
-                        .frame(width: DeviceLayout.isPad ? 280 : 200, height: 32)
+                        .frame(width: DeviceLayout.isPad ? 300 : 246, height: 30)
                         .padding(.bottom, 12)
                         .opacity(dragOffset == .zero ? 1 : 0)
                         .animation(.easeInOut(duration: 0.2), value: dragOffset == .zero)

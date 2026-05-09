@@ -102,6 +102,7 @@ struct WelcomeView: View {
     private var welcomeBaseColor: Color {
         if MangaStyle.isActive { return MangaStyle.paper }
         if NeumorphicStyle.isActive { return NeumorphicStyle.base }
+        if CapsuleStyle.isActive { return CapsuleStyle.base }
         if MujiStyle.isActive { return MujiStyle.paper }
         return colorScheme == .dark ? Color(hex: "03050D") : Color(hex: "F7FAFA")
     }
@@ -112,6 +113,8 @@ struct WelcomeView: View {
             MangaWelcomeBackdrop()
         } else if NeumorphicStyle.isActive {
             NeumorphicWelcomeBackdrop()
+        } else if CapsuleStyle.isActive {
+            CapsuleWelcomeBackdrop()
         } else if MujiStyle.isActive {
             MujiWelcomeBackdrop()
         } else {
@@ -128,6 +131,10 @@ struct WelcomeView: View {
             NeumorphicWelcomeDecor()
                 .opacity(accentOpacity)
                 .scaleEffect(plateScale)
+        } else if CapsuleStyle.isActive {
+            CapsuleWelcomeDecor()
+                .opacity(accentOpacity)
+                .scaleEffect(plateScale)
         } else if MujiStyle.isActive {
             MujiWelcomeDecor()
                 .offset(y: plateOffset * 0.18)
@@ -142,6 +149,8 @@ struct WelcomeView: View {
             mangaHeroSection
         } else if NeumorphicStyle.isActive {
             neumorphicHeroSection
+        } else if CapsuleStyle.isActive {
+            capsuleHeroSection
         } else if MujiStyle.isActive {
             mujiHeroSection
         } else {
@@ -271,6 +280,57 @@ struct WelcomeView: View {
         }
     }
 
+    private var capsuleHeroSection: some View {
+        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+            ZStack {
+                RoundedRectangle(cornerRadius: plateSize * 0.28, style: .continuous)
+                    .fill(CapsuleStyle.surface.opacity(colorScheme == .dark ? 0.78 : 0.84))
+                    .frame(width: plateSize * 1.18, height: plateSize * 0.86)
+                    .offset(y: plateSize * 0.16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: plateSize * 0.28, style: .continuous)
+                            .stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 1)
+                            .offset(y: plateSize * 0.16)
+                    )
+                    .shadow(color: CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.12 : 0.16), radius: 22, x: 0, y: 14)
+
+                CapsuleWelcomeSignalStack()
+                    .frame(width: plateSize * 1.42, height: plateSize * 0.72)
+                    .offset(y: plateSize * 0.2)
+                    .scaleEffect(x: accentScaleX, y: 1, anchor: .center)
+                    .opacity(accentOpacity)
+
+                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                    .fill(CapsuleStyle.surfaceRaised)
+                    .frame(width: plateSize * 0.76, height: plateSize * 0.76)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                            .stroke(CapsuleStyle.hairline, lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.2 : 0.08), radius: 18, x: 0, y: 12)
+
+                welcomeLogoImage(size: logoSize * 0.92)
+
+                HStack(spacing: 7) {
+                    Capsule().fill(CapsuleStyle.coral).frame(width: 12, height: 12)
+                    Capsule().fill(CapsuleStyle.amber).frame(width: 12, height: 12)
+                    Capsule().fill(CapsuleStyle.mint).frame(width: 12, height: 12)
+                }
+                .padding(8)
+                .background(Capsule().fill(CapsuleStyle.surfaceTint.opacity(0.94)))
+                .overlay(Capsule().stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 0.8))
+                .offset(y: -plateSize * 0.52)
+                .opacity(accentOpacity)
+            }
+            .frame(width: plateSize * 1.55, height: plateSize * 1.2)
+            .scaleEffect(plateScale)
+            .opacity(plateOpacity)
+            .offset(y: plateOffset)
+
+            capsuleTitleBlock
+        }
+    }
+
     private var defaultTitleBlock: some View {
         VStack(spacing: 12) {
             Text("Monologue")
@@ -391,6 +451,35 @@ struct WelcomeView: View {
         }
     }
 
+    private var capsuleTitleBlock: some View {
+        VStack(spacing: 12) {
+            Text("Monologue")
+                .font(CapsuleStyle.titleFont(DeviceLayout.isPad ? 39 : 32, weight: .bold))
+                .foregroundStyle(CapsuleStyle.ink)
+                .opacity(titleOpacity)
+                .offset(y: titleOffset)
+
+            Text(LocalizedStringKey("welcome_slogan"))
+                .font(CapsuleStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .semibold))
+                .foregroundStyle(CapsuleStyle.inkSoft)
+                .tracking(0.8)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .opacity(subtitleOpacity)
+                .offset(y: subtitleOffset)
+
+            HStack(spacing: 7) {
+                Capsule().fill(CapsuleStyle.accent).frame(width: 30, height: 7)
+                Capsule().fill(CapsuleStyle.cyan.opacity(0.75)).frame(width: 16, height: 7)
+                Capsule().fill(CapsuleStyle.violet.opacity(0.68)).frame(width: 10, height: 7)
+            }
+            .scaleEffect(x: accentScaleX, y: 1)
+            .opacity(accentOpacity)
+            .padding(.top, 2)
+        }
+    }
+
     private func welcomeLogoImage(size: CGFloat) -> some View {
         let appearance = welcomeLogoAppearance
         let glowColor = Color(hex: settings.appBrandStyle.logoGlowColor(for: appearance))
@@ -427,6 +516,7 @@ struct WelcomeView: View {
     private var logoShadowColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.42 : 0.22) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.darkShadow(colorScheme, intensity: colorScheme == .dark ? 0.64 : 0.4) }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.32 : 0.2) }
         if MujiStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.26 : 0.09) }
         return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.16)
     }
@@ -434,6 +524,7 @@ struct WelcomeView: View {
     private var footerFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(10, weight: .black) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(10, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .regular) }
         return .system(size: 10, weight: .medium, design: .monospaced)
     }
@@ -441,6 +532,7 @@ struct WelcomeView: View {
     private var footerColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted.opacity(0.78) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted.opacity(0.72) }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkMuted.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.inkMuted.opacity(0.72) }
         return .monologueTextSecondary.opacity(0.62)
     }
@@ -452,8 +544,8 @@ struct WelcomeView: View {
         backgroundOpacity = 0
         backgroundScale = reduceMotion ? 1 : 1.018
         plateOpacity = 0
-        plateScale = MangaStyle.isActive ? 0.78 : (NeumorphicStyle.isActive ? 0.84 : 0.82)
-        plateOffset = MujiStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 22 : 28)
+        plateScale = MangaStyle.isActive ? 0.78 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82))
+        plateOffset = MujiStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28))
         titleOpacity = 0
         titleOffset = 18
         subtitleOpacity = 0
@@ -547,7 +639,7 @@ struct WelcomeView: View {
             sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
             sceneScale = reduceMotion ? 1 : 1.015
             backgroundScale = 1.03
-            plateScale = MangaStyle.isActive ? 0.98 : (NeumorphicStyle.isActive ? 0.99 : 1.02)
+            plateScale = MangaStyle.isActive ? 0.98 : (NeumorphicStyle.isActive ? 0.99 : (CapsuleStyle.isActive ? 1.0 : 1.02))
             plateOffset = -18
             titleOffset = -14
             subtitleOffset = -12
@@ -854,6 +946,120 @@ private struct NeumorphicWelcomeFloor: View {
                 var hi = path
                 hi = hi.offsetBy(dx: 0, dy: -2)
                 context.stroke(hi, with: .color(highlight.opacity(0.26)), lineWidth: 0.7)
+            }
+        }
+    }
+}
+
+private struct CapsuleWelcomeBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            CapsuleRootBackdrop()
+
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color.white.opacity(0.04), .clear, Color.black.opacity(0.12)]
+                    : [Color.white.opacity(0.58), .clear, Color(hex: "DCE7FF").opacity(0.18)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack {
+                Spacer()
+
+                CapsuleWelcomeFloor()
+                    .frame(height: DeviceLayout.isPad ? 250 : 206)
+                    .opacity(colorScheme == .dark ? 0.34 : 0.48)
+            }
+            .ignoresSafeArea()
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct CapsuleWelcomeDecor: View {
+    var body: some View {
+        ZStack {
+            CapsuleWelcomePill(width: DeviceLayout.isPad ? 132 : 104, height: 18, tint: CapsuleStyle.cyan)
+                .rotationEffect(.degrees(-14))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.leading, DeviceLayout.isPad ? 92 : 28)
+                .padding(.top, DeviceLayout.isPad ? 152 : 118)
+
+            CapsuleWelcomePill(width: DeviceLayout.isPad ? 108 : 82, height: 16, tint: CapsuleStyle.violet)
+                .rotationEffect(.degrees(15))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.trailing, DeviceLayout.isPad ? 112 : 38)
+                .padding(.top, DeviceLayout.isPad ? 206 : 158)
+
+            CapsuleWelcomePill(width: DeviceLayout.isPad ? 120 : 94, height: 17, tint: CapsuleStyle.mint)
+                .rotationEffect(.degrees(11))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(.trailing, DeviceLayout.isPad ? 116 : 40)
+                .padding(.bottom, DeviceLayout.isPad ? 184 : 138)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct CapsuleWelcomePill: View {
+    let width: CGFloat
+    let height: CGFloat
+    let tint: Color
+
+    var body: some View {
+        Capsule()
+            .fill(tint.opacity(0.2))
+            .frame(width: width, height: height)
+            .overlay(Capsule().stroke(tint.opacity(0.22), lineWidth: 1))
+            .shadow(color: tint.opacity(0.12), radius: 14, x: 0, y: 8)
+    }
+}
+
+private struct CapsuleWelcomeSignalStack: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let height = proxy.size.height
+
+            ZStack {
+                Capsule()
+                    .fill(CapsuleStyle.accent.opacity(0.13))
+                    .frame(width: width * 0.92, height: height * 0.14)
+                    .offset(y: height * 0.08)
+
+                Capsule()
+                    .fill(CapsuleStyle.cyan.opacity(0.15))
+                    .frame(width: width * 0.68, height: height * 0.11)
+                    .offset(x: -width * 0.1, y: -height * 0.14)
+
+                Capsule()
+                    .fill(CapsuleStyle.violet.opacity(0.13))
+                    .frame(width: width * 0.58, height: height * 0.1)
+                    .offset(x: width * 0.16, y: height * 0.28)
+            }
+        }
+    }
+}
+
+private struct CapsuleWelcomeFloor: View {
+    var body: some View {
+        Canvas(rendersAsynchronously: true) { context, size in
+            for index in 0..<5 {
+                let y = size.height * (0.18 + CGFloat(index) * 0.16)
+                let height = max(6, size.height * 0.025)
+                let rect = CGRect(
+                    x: size.width * CGFloat(index % 2 == 0 ? -0.08 : 0.12),
+                    y: y,
+                    width: size.width * CGFloat(index % 2 == 0 ? 0.78 : 0.64),
+                    height: height
+                )
+                let path = Path(roundedRect: rect, cornerRadius: height / 2)
+                let tint = [CapsuleStyle.accent, CapsuleStyle.cyan, CapsuleStyle.violet, CapsuleStyle.mint, CapsuleStyle.coral][index]
+                context.fill(path, with: .color(tint.opacity(0.08)))
             }
         }
     }

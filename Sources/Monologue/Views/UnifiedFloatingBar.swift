@@ -7,11 +7,10 @@ struct MiniPlayerSection: View {
     let isPlaying: Bool
     let togglePlayPause: () -> Void
     @State private var showPlaylist = false
-    @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -113,13 +112,17 @@ struct MiniPlayerSection: View {
                     )
                     .frame(height: 16)
 
-                    Text(subtitleText)
-                        .font(subtitleFont)
-                        .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: subtitleFont,
+                        color: secondaryTextColor,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 // 控制按钮
                 HStack(spacing: 10) {
@@ -221,21 +224,13 @@ struct ProgressBarView: View {
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                // 轨道
-                Capsule()
-                    .fill(trackColor)
-                    .frame(height: 2.5)
-
-                // 进度
-                let progress = timePublisher.progress
-                Capsule()
-                    .fill(progressFill)
-                    .frame(width: max(geometry.size.width * CGFloat(progress), 0), height: 2.5)
-                    .animation(.linear(duration: 0.1), value: progress)
-            }
-        }
+        GlobalPlaybackProgressBar(
+            progress: CGFloat(timePublisher.progress),
+            height: 3,
+            minFillWidth: 5,
+            trackColor: trackColor,
+            fillColors: progressFillColors
+        )
     }
 
     private var trackColor: Color {
@@ -251,34 +246,30 @@ struct ProgressBarView: View {
             return LiquidGlassStyle.separator.opacity(0.72)
         } else if SignalStyle.isActive {
             return SignalStyle.separator.opacity(0.52)
+        } else if CapsuleStyle.isActive {
+            return CapsuleStyle.separator.opacity(0.58)
         }
         return Color.monologueTextPrimary.opacity(0.06)
     }
 
-    private var progressFill: some ShapeStyle {
+    private var progressFillColors: [Color] {
         if MangaStyle.isActive {
-            return AnyShapeStyle(LinearGradient(colors: [MangaStyle.accentPink, MangaStyle.labelYellow], startPoint: .leading, endPoint: .trailing))
+            return [MangaStyle.accentPink, MangaStyle.labelYellow]
         } else if MujiStyle.isActive {
-            return AnyShapeStyle(MujiStyle.accentGradient)
+            return [MujiStyle.clay, MujiStyle.indigo.opacity(0.86)]
         } else if NeumorphicStyle.isActive {
-            return AnyShapeStyle(LinearGradient(colors: [NeumorphicStyle.accent, NeumorphicStyle.sage], startPoint: .leading, endPoint: .trailing))
+            return [NeumorphicStyle.accent, NeumorphicStyle.sage]
         } else if SequoiaStyle.isActive {
-            return AnyShapeStyle(LinearGradient(colors: [SequoiaStyle.accent, SequoiaStyle.aqua], startPoint: .leading, endPoint: .trailing))
+            return [SequoiaStyle.accent, SequoiaStyle.aqua]
         } else if LiquidGlassStyle.isActive {
-            return AnyShapeStyle(LinearGradient(colors: [LiquidGlassStyle.accent, LiquidGlassStyle.cyan, LiquidGlassStyle.violet], startPoint: .leading, endPoint: .trailing))
+            return [LiquidGlassStyle.accent, LiquidGlassStyle.cyan, LiquidGlassStyle.violet]
         } else if SignalStyle.isActive {
-            return AnyShapeStyle(LinearGradient(colors: [SignalStyle.accent, SignalStyle.mint], startPoint: .leading, endPoint: .trailing))
+            return [SignalStyle.accent, SignalStyle.mint]
+        } else if CapsuleStyle.isActive {
+            return CapsuleStyle.accentGradient
         }
-        return AnyShapeStyle(LinearGradient(colors: [Color.monologueAccent.opacity(0.5), Color.monologueAccent.opacity(0.5)], startPoint: .leading, endPoint: .trailing))
+        return [Color.monologueAccent.opacity(0.62), Color.monologueAccent.opacity(0.92)]
     }
-}
-
-// MARK: - Tab Icon Animation Values
-
-private struct TabIconAnimValues {
-    var scale: CGFloat = 1.0
-    var rotation: Double = 0.0
-    var offsetY: CGFloat = 0.0
 }
 
 // MARK: - Monologue TabBar
@@ -287,7 +278,6 @@ struct MonologueTabBar: View {
     @Binding var selectedIndex: Int
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Namespace private var tabNS
-    @State private var animTrigger: Int = -1
 
     private let itemHeight: CGFloat = 48
     private let padding: CGFloat = 5
@@ -334,38 +324,19 @@ struct MonologueTabBar: View {
 
         Button {
             HapticManager.shared.light()
-            animTrigger = index
             withAnimation(MonologueAnimation.tabSwitch) {
                 selectedIndex = index
             }
         } label: {
             VStack(spacing: 2) {
-                KeyframeAnimator(initialValue: TabIconAnimValues(), trigger: animTrigger == index ? animTrigger : -1) { values in
-                    MonologueIcon(
-                        icon: isSelected ? icons.filled : icons.outline,
-                        size: 19,
-                        color: isSelected ? selectedColor : idleColor
-                    )
-                    .contentTransition(.interpolate)
-                    .scaleEffect(values.scale)
-                    .rotationEffect(.degrees(values.rotation))
-                    .offset(y: values.offsetY)
-                } keyframes: { _ in
-                    KeyframeTrack(\.scale) {
-                        SpringKeyframe(1.14, duration: 0.1, spring: .smooth)
-                        SpringKeyframe(0.97, duration: 0.08, spring: .smooth)
-                        SpringKeyframe(1.0, duration: 0.12, spring: .smooth)
-                    }
-                    KeyframeTrack(\.rotation) {
-                        SpringKeyframe(-4, duration: 0.08, spring: .smooth)
-                        SpringKeyframe(2, duration: 0.08, spring: .smooth)
-                        SpringKeyframe(0, duration: 0.1, spring: .smooth)
-                    }
-                    KeyframeTrack(\.offsetY) {
-                        SpringKeyframe(-2, duration: 0.1, spring: .smooth)
-                        SpringKeyframe(0, duration: 0.12, spring: .smooth)
-                    }
-                }
+                MonologueIcon(
+                    icon: isSelected ? icons.filled : icons.outline,
+                    size: 19,
+                    color: isSelected ? selectedColor : idleColor
+                )
+                .contentTransition(.interpolate)
+                .scaleEffect(isSelected ? 1.06 : 1.0)
+                .offset(y: isSelected ? -1 : 0)
                 .animation(MonologueAnimation.tabSwitch, value: isSelected)
 
                 Text(label)
@@ -420,7 +391,7 @@ struct MonologueTabBar: View {
 
 struct UnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject var player = PlayerManager.shared
+    @ObservedObject var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var glassNS
@@ -437,12 +408,55 @@ struct UnifiedFloatingBar: View {
             MujiUnifiedFloatingBar(currentTab: $currentTab)
         case .neumorphic:
             NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
+        case .capsule:
+            CapsuleUnifiedFloatingBar(currentTab: $currentTab)
         case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             defaultFloatingBar
         }
     }
 
+    @ViewBuilder
     private var defaultFloatingBar: some View {
+        if settings.globalThemeId == .default && !settings.defaultThemeUsesLiquidGlassTabBar {
+            frostedFloatingBar
+        } else {
+            glassFloatingBar
+        }
+    }
+
+    private var frostedFloatingBar: some View {
+        VStack(spacing: 0) {
+            if let song = player.currentSong {
+                MiniPlayerSection(
+                    song: song,
+                    isPlaying: player.isPlaying,
+                    togglePlayPause: { player.togglePlayPause() }
+                )
+                .swipeToSkip()
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)),
+                    removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
+                ))
+            }
+
+            MonologueTabBar(selectedIndex: Binding(
+                get: { Tab.allCases.firstIndex(of: currentTab) ?? 0 },
+                set: { currentTab = Tab.allCases[$0] }
+            ))
+            .contentShape(Rectangle())
+            .simultaneousGesture(tabSwipeGesture)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .background(frostedBarBackground)
+        .overlay(barStroke)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.30 : 0.14), radius: 17, x: 0, y: 8)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+
+    private var glassFloatingBar: some View {
         MonologueGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
                 if let song = player.currentSong {
@@ -487,6 +501,34 @@ struct UnifiedFloatingBar: View {
     }
 
     @ViewBuilder
+    private var frostedBarBackground: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.regularMaterial)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        colorScheme == .dark
+                        ? Color(hex: "1C1C1E").opacity(0.48)
+                        : Color.white.opacity(0.5)
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.045 : 0.24),
+                                Color.white.opacity(colorScheme == .dark ? 0.015 : 0.08),
+                                Color.monologueAccent.opacity(colorScheme == .dark ? 0.035 : 0.03),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+    }
+
+    @ViewBuilder
     private var barStroke: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .stroke(
@@ -524,7 +566,7 @@ struct UnifiedFloatingBar: View {
 
 private struct SequoiaUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -615,7 +657,7 @@ private struct SequoiaUnifiedFloatingBar: View {
 
 private struct LiquidGlassUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -704,7 +746,7 @@ private struct LiquidGlassUnifiedFloatingBar: View {
 
 private struct ClayUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     var body: some View {
         VStack(spacing: 8) {
@@ -767,11 +809,10 @@ private struct ClayUnifiedFloatingBar: View {
 private struct ClayMiniPlayerStrip: View {
     let song: Song
     @State private var showPlaylist = false
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -797,13 +838,17 @@ private struct ClayMiniPlayerStrip: View {
                     )
                     .frame(height: 16)
 
-                    Text(subtitleText)
-                        .font(ClayStyle.labelFont(11, weight: .medium))
-                        .foregroundStyle(ClayStyle.inkSoft)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: ClayStyle.labelFont(11, weight: .medium),
+                        color: ClayStyle.inkSoft,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 HStack(spacing: 6) {
                     clayControl(icon: player.isPlaying ? .pause : .play, tint: ClayStyle.accent) {
@@ -932,7 +977,7 @@ private struct ClayDedicatedTabBar: View {
 
 private struct SignalUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     var body: some View {
         VStack(spacing: 8) {
@@ -999,11 +1044,10 @@ private struct SignalUnifiedFloatingBar: View {
 private struct SignalMiniPlayerStrip: View {
     let song: Song
     @State private var showPlaylist = false
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -1033,13 +1077,17 @@ private struct SignalMiniPlayerStrip: View {
                     )
                     .frame(height: 16)
 
-                    Text(subtitleText)
-                        .font(SignalStyle.labelFont(11, weight: .medium))
-                        .foregroundStyle(SignalStyle.inkSoft)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: SignalStyle.labelFont(11, weight: .medium),
+                        color: SignalStyle.inkSoft,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 HStack(spacing: 6) {
                     signalControl(icon: player.isPlaying ? .pause : .play, tint: SignalStyle.accent) {
@@ -1195,7 +1243,7 @@ private struct SignalDedicatedTabBar: View {
 
 private struct MujiUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -1260,7 +1308,7 @@ private struct MujiUnifiedFloatingBar: View {
 
 private struct NeumorphicUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -1332,11 +1380,10 @@ private struct NeumorphicUnifiedFloatingBar: View {
 private struct NeumorphicMiniPlayerStrip: View {
     let song: Song
     @State private var showPlaylist = false
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -1371,13 +1418,17 @@ private struct NeumorphicMiniPlayerStrip: View {
                     )
                     .frame(height: 16)
 
-                    Text(subtitleText)
-                        .font(NeumorphicStyle.labelFont(11, weight: .regular))
-                        .foregroundStyle(NeumorphicStyle.inkSoft)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: NeumorphicStyle.labelFont(11, weight: .regular),
+                        color: NeumorphicStyle.inkSoft,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 HStack(spacing: 7) {
                     neumorphicControl(icon: player.isPlaying ? .pause : .play, tint: NeumorphicStyle.accent) {
@@ -1532,11 +1583,10 @@ private struct NeumorphicDedicatedTabBar: View {
 private struct MujiMiniPlayerStrip: View {
     let song: Song
     @State private var showPlaylist = false
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -1580,13 +1630,17 @@ private struct MujiMiniPlayerStrip: View {
                     )
                     .frame(height: 16)
 
-                    Text(subtitleText)
-                        .font(MujiStyle.labelFont(11, weight: .regular))
-                        .foregroundStyle(MujiStyle.inkSoft)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: MujiStyle.labelFont(11, weight: .regular),
+                        color: MujiStyle.inkSoft,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 HStack(spacing: 8) {
                     Button(action: { player.togglePlayPause() }) {
@@ -1784,7 +1838,7 @@ private struct MujiDedicatedTabBar: View {
 
 private struct MangaUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -1892,11 +1946,10 @@ private struct MangaUnifiedFloatingBar: View {
 private struct MangaMiniPlayerStrip: View {
     let song: Song
     @State private var showPlaylist = false
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if !player.isPlayingPodcast, lyricVM.hasLyrics, let text = lyricVM.currentLineText {
+        if let text = player.lyricLineText {
             return text
         }
         return song.artistName
@@ -1945,13 +1998,17 @@ private struct MangaMiniPlayerStrip: View {
                     )
                     .frame(height: 15)
 
-                    Text(subtitleText)
-                        .font(MangaStyle.bodyFont(10, weight: .medium))
-                        .foregroundStyle(MangaStyle.inkSub)
-                        .lineLimit(1)
-                        .animation(.easeInOut(duration: 0.25), value: lyricVM.currentLineIndex)
+                    MarqueeText(
+                        text: subtitleText,
+                        font: MangaStyle.bodyFont(10, weight: .medium),
+                        color: MangaStyle.inkSub,
+                        speed: 22
+                    )
+                    .frame(height: 13)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
 
                 HStack(spacing: 6) {
                     Button(action: { player.togglePlayPause() }) {

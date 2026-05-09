@@ -3,8 +3,7 @@ import SwiftUI
 /// 悬浮球样式 - 黑胶唱片悬浮球 + 弹出式控制面板
 struct FloatingBallView: View {
     @Binding var currentTab: Tab
-    @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    @ObservedObject var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
@@ -16,7 +15,8 @@ struct FloatingBallView: View {
     @State private var lastTickDate: Date? = nil
 
     private var ballSize: CGFloat {
-        SequoiaStyle.isActive ? 60 : 56
+        if CapsuleStyle.isActive { return 60 }
+        return SequoiaStyle.isActive ? 60 : 56
     }
 
     var body: some View {
@@ -73,21 +73,15 @@ struct FloatingBallView: View {
 
     private var floatingBall: some View {
         ZStack {
-            // 进度环 - 轨道更柔和
-            Circle()
-                .stroke(progressTrackColor, lineWidth: progressLineWidth)
-                .frame(width: ballSize, height: ballSize)
-
-            let progress = timePublisher.duration > 0 ? min(max(timePublisher.currentTime / timePublisher.duration, 0), 1) : 0
-            Circle()
-                .trim(from: 0, to: CGFloat(progress))
-                .stroke(progressFill, style: StrokeStyle(lineWidth: progressLineWidth, lineCap: .round))
-                .frame(width: ballSize, height: ballSize)
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.1), value: progress)
+            FloatingBallProgressRing(
+                size: ballSize,
+                lineWidth: progressLineWidth,
+                trackColor: progressTrackColor,
+                fill: progressFill
+            )
 
             // 黑胶唱片
-            TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
+            TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !player.isPlaying)) { timeline in
                 vinylDisc
                     .frame(width: ballSize - 8, height: ballSize - 8)
                     .rotationEffect(.degrees(rotationAngle))
@@ -104,12 +98,11 @@ struct FloatingBallView: View {
                     }
             }
         }
-        .background(
-            Circle()
-                .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill)
+        .background {
+            floatingBallChromeBackground
                 .frame(width: ballSize + 4, height: ballSize + 4)
-        )
-        .monologueGlassCircle()
+        }
+        .monologueFloatingChromeGlassCircle()
         .overlay {
             if MangaStyle.isActive {
                 Circle()
@@ -154,6 +147,24 @@ struct FloatingBallView: View {
                             .offset(x: 1, y: -1)
                     }
                     .shadow(color: BentoStyle.ink.opacity(0.18), radius: 10, x: 0, y: 5)
+            } else if CapsuleStyle.isActive {
+                Circle()
+                    .stroke(CapsuleStyle.hairline.opacity(0.88), lineWidth: 0.9)
+                    .frame(width: ballSize + 5, height: ballSize + 5)
+                    .overlay(alignment: .topTrailing) {
+                        Circle()
+                            .fill(CapsuleStyle.cyan)
+                            .frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(CapsuleStyle.surfaceRaised, lineWidth: 1.4))
+                            .offset(x: -1, y: 2)
+                    }
+                    .overlay(alignment: .bottomLeading) {
+                        Capsule()
+                            .fill(CapsuleStyle.violet.opacity(0.86))
+                            .frame(width: 20, height: 5)
+                            .offset(x: 6, y: -5)
+                    }
+                    .shadow(color: CapsuleStyle.accent.opacity(0.18), radius: 15, x: 0, y: 8)
             }
         }
         .contentShape(Circle())
@@ -176,6 +187,47 @@ struct FloatingBallView: View {
     }
 
     // MARK: - 黑胶唱片
+
+    @ViewBuilder
+    private var floatingBallChromeBackground: some View {
+        if CapsuleStyle.isActive {
+            CapsuleFloatingGlassCircle(
+                tint: CapsuleStyle.surface,
+                lightOpacity: 0.42,
+                darkOpacity: 0.58,
+                elevated: true
+            )
+        } else if !ThemedPageStyle.isActive && settings.defaultThemeUsesLiquidGlassTabBar {
+            Circle()
+                .fill(Color.monologueFloatingBarFill)
+                .monologueGlassCircle()
+        } else {
+            Circle()
+                .fill(ThemedPageStyle.isActive ? AnyShapeStyle(Color.clear) : AnyShapeStyle(.regularMaterial))
+                .overlay {
+                        if !ThemedPageStyle.isActive {
+                            Circle()
+                            .fill(colorScheme == .dark ? Color(hex: "1C1C1E").opacity(0.48) : Color.white.opacity(0.5))
+                        }
+                    }
+                .overlay {
+                    if !ThemedPageStyle.isActive {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(colorScheme == .dark ? 0.045 : 0.24),
+                                        Color.white.opacity(colorScheme == .dark ? 0.015 : 0.08),
+                                        Color.monologueAccent.opacity(colorScheme == .dark ? 0.035 : 0.03),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                }
+        }
+    }
 
     private var vinylDisc: some View {
         ZStack {
@@ -277,6 +329,20 @@ struct FloatingBallView: View {
                         .clipShape(Capsule())
                         .offset(y: 6)
                     }
+            } else if CapsuleStyle.isActive {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(CapsuleStyle.hairline.opacity(0.84), lineWidth: 0.9)
+                    .overlay(alignment: .topLeading) {
+                        HStack(spacing: 5) {
+                            Capsule()
+                                .fill(LinearGradient(colors: CapsuleStyle.accentGradient, startPoint: .leading, endPoint: .trailing))
+                                .frame(width: 44, height: 4)
+                            Circle()
+                                .fill(CapsuleStyle.cyan)
+                                .frame(width: 5, height: 5)
+                        }
+                        .offset(x: 18, y: 7)
+                    }
             }
         }
         .padding(.trailing, 8)
@@ -290,9 +356,45 @@ struct FloatingBallView: View {
             RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                 .fill(BentoStyle.surface)
                 .shadow(color: BentoStyle.ink.opacity(0.08), radius: 14, x: 0, y: 6)
+        } else if CapsuleStyle.isActive {
+            CapsuleFloatingGlassSurface(
+                cornerRadius: panelCornerRadius,
+                tint: CapsuleStyle.surface,
+                lightOpacity: 0.46,
+                darkOpacity: 0.62,
+                elevated: true
+            )
         } else {
-            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
-                .fill(ThemedPageStyle.isActive ? Color.clear : Color.monologueFloatingBarFill.opacity(0.06))
+            if !ThemedPageStyle.isActive && settings.defaultThemeUsesLiquidGlassTabBar {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .fill(Color.monologueFloatingBarFill)
+                    .monologueGlass(cornerRadius: panelCornerRadius)
+            } else {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .fill(ThemedPageStyle.isActive ? AnyShapeStyle(Color.clear) : AnyShapeStyle(.regularMaterial))
+                    .overlay {
+                        if !ThemedPageStyle.isActive {
+                            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                                .fill(colorScheme == .dark ? Color(hex: "1C1C1E").opacity(0.48) : Color.white.opacity(0.5))
+                        }
+                    }
+                    .overlay {
+                        if !ThemedPageStyle.isActive {
+                            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(colorScheme == .dark ? 0.045 : 0.24),
+                                            Color.white.opacity(colorScheme == .dark ? 0.015 : 0.08),
+                                            Color.monologueAccent.opacity(colorScheme == .dark ? 0.035 : 0.03),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                    }
+            }
         }
     }
 
@@ -379,32 +481,36 @@ struct FloatingBallView: View {
     }
 
     private var panelCornerRadius: CGFloat {
-        MangaStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 24 : (SequoiaStyle.isActive ? 24 : 20))
+        if CapsuleStyle.isActive { return 26 }
+        return MangaStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 24 : (SequoiaStyle.isActive ? 24 : 20))
     }
 
     private var panelScrimColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink.opacity(0.18) }
         if SequoiaStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.2 : 0.12) }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink.opacity(colorScheme == .dark ? 0.24 : 0.14) }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.16) }
         if BentoStyle.isActive { return BentoStyle.ink.opacity(0.18) }
         return Color.black.opacity(0.3)
     }
 
     private var progressLineWidth: CGFloat {
-        MangaStyle.isActive ? 3 : (NeumorphicStyle.isActive ? 3 : (SequoiaStyle.isActive ? 2.8 : 2.5))
+        if CapsuleStyle.isActive { return 3 }
+        return MangaStyle.isActive ? 3 : (NeumorphicStyle.isActive ? 3 : (SequoiaStyle.isActive ? 2.8 : 2.5))
     }
 
     private var progressTrackColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.62) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
+        if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.62) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
         if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.6) }
         return Color.monologueTextPrimary.opacity(0.08)
     }
 
-    private var progressFill: some ShapeStyle {
+    private var progressFill: AnyShapeStyle {
         if MangaStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [MangaStyle.accentPink, MangaStyle.labelYellow], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
@@ -420,6 +526,9 @@ struct FloatingBallView: View {
         if SequoiaStyle.isActive {
             return AnyShapeStyle(SequoiaStyle.accentGradient)
         }
+        if CapsuleStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: CapsuleStyle.accentGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
         return AnyShapeStyle(Color.monologueAccent.opacity(0.6))
     }
 
@@ -427,6 +536,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.95) }
+        if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
         if MujiStyle.isActive { return MujiStyle.ink.opacity(0.82) }
         if BentoStyle.isActive { return BentoStyle.ink.opacity(0.85) }
         return Color(hex: "1A1A1A")
@@ -436,6 +546,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.42) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent.opacity(0.18) }
         if SequoiaStyle.isActive { return SequoiaStyle.luminousSeparator.opacity(0.28) }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.22) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.2) }
         if BentoStyle.isActive { return BentoStyle.surface.opacity(0.2) }
         return Color.white.opacity(0.06)
@@ -445,6 +556,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+        if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.paperWarm }
         if BentoStyle.isActive { return BentoStyle.surface }
         return Color.gray.opacity(0.3)
@@ -454,6 +566,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if BentoStyle.isActive { return BentoStyle.inkSoft }
         return Color.white.opacity(0.5)
@@ -463,6 +576,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.28) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.58) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
+        if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.58) }
         if MujiStyle.isActive { return MujiStyle.separator.opacity(0.72) }
         if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.5) }
         return Color.monologueSeparator.opacity(0.3)
@@ -472,6 +586,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
         if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueIconBackground
@@ -481,6 +596,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.ink }
         if BentoStyle.isActive { return BentoStyle.onAccent }
         return .monologueIconForeground
@@ -496,6 +612,8 @@ struct FloatingBallView: View {
             Circle().stroke(NeumorphicStyle.separator.opacity(0.52), lineWidth: 0.8)
         } else if SequoiaStyle.isActive {
             Circle().stroke(SequoiaStyle.accent.opacity(0.22), lineWidth: 0.65)
+        } else if CapsuleStyle.isActive {
+            Circle().stroke(CapsuleStyle.hairline.opacity(0.82), lineWidth: 0.75)
         } else if BentoStyle.isActive {
             Circle().stroke(BentoStyle.tomato.opacity(0.0), lineWidth: 0)
         }
@@ -506,6 +624,7 @@ struct FloatingBallView: View {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+            if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             if BentoStyle.isActive { return BentoStyle.inkMuted }
             return .monologueTextSecondary
@@ -514,6 +633,7 @@ struct FloatingBallView: View {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
+        if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: capsuleTabTint(tab)) }
         if MujiStyle.isActive { return mujiTabTint(tab) }
         if BentoStyle.isActive { return bentoTabTint(tab) }
         return .monologueAccent
@@ -532,6 +652,11 @@ struct FloatingBallView: View {
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(bentoTabTint(tab))
+        } else if CapsuleStyle.isActive {
+            Circle()
+                .fill(capsuleTabTint(tab))
+                .overlay(Circle().stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 0.75))
+                .shadow(color: capsuleTabTint(tab).opacity(0.14), radius: 8, x: 0, y: 4)
         } else if NeumorphicStyle.isActive {
             Circle()
                 .fill(neumorphicTabTint(tab).opacity(0.16))
@@ -582,6 +707,15 @@ struct FloatingBallView: View {
         }
     }
 
+    private func capsuleTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return CapsuleStyle.accent
+        case .podcast: return CapsuleStyle.mint
+        case .library: return CapsuleStyle.amber
+        case .profile: return CapsuleStyle.violet
+        }
+    }
+
     private func neumorphicTabTint(_ tab: Tab) -> Color {
         switch tab {
         case .home: return NeumorphicStyle.accent
@@ -598,5 +732,33 @@ struct FloatingBallView: View {
         case .library: return SequoiaStyle.aqua
         case .profile: return SequoiaStyle.green
         }
+    }
+}
+
+private struct FloatingBallProgressRing: View {
+    let size: CGFloat
+    let lineWidth: CGFloat
+    let trackColor: Color
+    let fill: AnyShapeStyle
+
+    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+
+    private var progress: CGFloat {
+        guard timePublisher.duration > 0 else { return 0 }
+        return CGFloat(min(max(timePublisher.currentTime / timePublisher.duration, 0), 1))
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(trackColor, lineWidth: lineWidth)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(fill, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 0.1), value: progress)
+        }
+        .frame(width: size, height: size)
     }
 }

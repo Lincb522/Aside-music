@@ -15,7 +15,9 @@ enum MujiStyle {
     static let ink = Color(light: Color(hex: "302B26"), dark: Color(hex: "F5EDE1"))
     static let inkSoft = Color(light: Color(hex: "6F665C"), dark: Color(hex: "D8CBBB"))
     static let inkMuted = Color(light: Color(hex: "9A8F83"), dark: Color(hex: "B1A493"))
-    static let onTint = Color(light: Color(hex: "FFF8EF"), dark: Color(hex: "211A15"))
+    static var onTint: Color {
+        ThemeColorCustomization.readableForegroundColor(on: clay, light: Color(hex: "211A15"), dark: Color(hex: "FFF8EF"))
+    }
     static let onImage = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "FFF7EA"))
     static var clay: Color {
         ThemeColorCustomization.accentColor(for: .muji, fallback: Color(light: Color(hex: "B56B4B"), dark: Color(hex: "C98261")), fallbackHex: "B56B4B")

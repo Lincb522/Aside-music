@@ -46,6 +46,8 @@ struct ArtistDetailView: View {
                 SequoiaRootBackdrop()
             } else if BentoStyle.isActive {
                 BentoRootBackdrop()
+            } else if CapsuleStyle.isActive {
+                CapsuleRootBackdrop()
             } else {
                 (colorScheme == .dark ? Color(hex: "0A0A0A") : Color(hex: "F5F5F7"))
                     .ignoresSafeArea()
@@ -54,6 +56,9 @@ struct ArtistDetailView: View {
             ScrollView {
                 if NeumorphicStyle.isActive {
                     neumorphicArtistDetailBody
+                        .iPadContentWidth(900)
+                } else if CapsuleStyle.isActive {
+                    capsuleArtistDetailBody
                         .iPadContentWidth(900)
                 } else {
                     VStack(spacing: 0) {
@@ -1113,6 +1118,104 @@ extension ArtistDetailView {
 }
 
 
+// MARK: - 胶囊系统歌手详情
+
+extension ArtistDetailView {
+    private var capsuleArtistDetailBody: some View {
+        VStack(spacing: 14) {
+            capsuleArtistHeader
+            capsuleArtistTabDock
+            tabContent
+                .padding(.top, 2)
+        }
+        .padding(.top, DeviceLayout.headerTopPadding + 18)
+        .padding(.bottom, 120)
+    }
+
+    private var capsuleArtistHeader: some View {
+        let artist = viewModel.artist
+        let songCount = artist?.musicSize ?? (viewModel.songs.isEmpty ? nil : viewModel.songs.count)
+        let chips = [
+            songCount.map { "\($0) \(String(localized: "songs_unit"))" },
+            artist?.albumSize.map { String(format: NSLocalizedString("artist_album_count", comment: ""), $0) },
+            viewModel.fansCount > 0 ? formatFansCount(viewModel.fansCount) : nil
+        ].compactMap { $0 }
+
+        return CapsuleDetailHeader(
+            eyebrow: artist?.isQQMusic == true ? "QCM ARTIST" : "NCM ARTIST",
+            title: artist?.name ?? String(localized: "歌手"),
+            subtitle: artist?.alias?.joined(separator: " / ") ?? "",
+            coverURL: artist?.coverUrl?.sized(700),
+            fallbackIcon: .personCircle,
+            tint: artist?.isQQMusic == true ? CapsuleStyle.mint : CapsuleStyle.coral,
+            chips: chips
+        ) {
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                }) {
+                    CapsuleDetailActionPill(
+                        title: String(localized: "artist_play_all"),
+                        icon: .play,
+                        tint: artist?.isQQMusic == true ? CapsuleStyle.mint : CapsuleStyle.coral
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if artist?.briefDesc?.isEmpty == false {
+                    Button(action: { showFullDescription = true }) {
+                        CapsuleDetailIconButton(icon: .info, tint: CapsuleStyle.cyan)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                }
+            }
+        }
+    }
+
+    private var capsuleArtistTabDock: some View {
+        HStack(spacing: 7) {
+            capsuleArtistTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0, tint: CapsuleStyle.accent)
+            capsuleArtistTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1, tint: CapsuleStyle.mint)
+            capsuleArtistTabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2, tint: CapsuleStyle.violet)
+            capsuleArtistTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3, tint: CapsuleStyle.amber)
+        }
+        .padding(5)
+        .background(CapsuleSurfaceBackground(cornerRadius: 20, elevated: false, tint: CapsuleStyle.surface.opacity(0.9)))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+    }
+
+    private func capsuleArtistTabItem(_ title: String, index: Int, tint: Color) -> some View {
+        let isSelected = selectedTab == index
+
+        return Button(action: {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) { selectedTab = index }
+        }) {
+            Text(title)
+                .font(CapsuleStyle.labelFont(12, weight: isSelected ? .bold : .semibold))
+                .foregroundStyle(isSelected ? CapsuleStyle.readableLabel(on: tint) : CapsuleStyle.inkSoft)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? tint : CapsuleStyle.surfaceRaised.opacity(0.68))
+                        .overlay(
+                            Capsule()
+                                .stroke(isSelected ? Color.white.opacity(0.32) : CapsuleStyle.separator.opacity(0.38), lineWidth: 0.75)
+                        )
+                )
+                .shadow(color: isSelected ? tint.opacity(0.13) : .clear, radius: 10, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+
 // MARK: - Tab 栏
 
 extension ArtistDetailView {
@@ -1398,54 +1501,77 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.songs.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_songs", comment: ""))
-            } else {
-                VStack(spacing: 0) {
-                    PlaylistSearchBar(
-                        searchText: $artistSongSearch,
-                        isSearching: $isArtistSongSearching,
-                        isSelectMode: $isArtistSelectMode,
-                        selectedIds: $artistSelectedSongIds,
-                        songs: artistSongFiltered,
-                        onBatchQueue: {
-                            let selected = artistSongFiltered.filter { artistSelectedSongIds.contains($0.id) }
-                            SongBatchActionHelper.addToQueue(selected) {
-                                isArtistSelectMode = false
-                                artistSelectedSongIds.removeAll()
-                            }
-                        },
-                        onBatchDownload: { artistBatchDownload() },
-                        onBatchCollect: { showArtistBatchPlaylist = true }
-                    )
+            } else if CapsuleStyle.isActive {
+                CapsuleDetailSection(
+                    title: "SONGS",
+                    subtitle: String(format: NSLocalizedString("songs_count_format", comment: ""), artistSongFiltered.count),
+                    icon: .musicNoteList,
+                    tint: CapsuleStyle.accent
+                ) {
+                    artistSongSearchBar
+                        .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
 
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(artistSongFiltered.enumerated()), id: \.element.id) { index, song in
-                            SongListRow(song: song, index: index, isSelecting: isArtistSelectMode, isSelected: artistSelectedSongIds.contains(song.id), onArtistTap: { artistId in
-                                selectedArtistId = artistId
-                                showArtistDetail = true
-                            }, onDetailTap: { detailSong in
-                                selectedSongForDetail = detailSong
-                                showSongDetail = true
-                            }, onAlbumTap: { albumId in
-                                selectedAlbumId = albumId
-                                showAlbumDetail = true
-                            }, onTap: {
-                                if isArtistSelectMode {
-                                    if artistSelectedSongIds.contains(song.id) {
-                                        artistSelectedSongIds.remove(song.id)
-                                    } else {
-                                        artistSelectedSongIds.insert(song.id)
-                                    }
-                                } else {
-                                    PlayerManager.shared.play(song: song, in: artistSongFiltered)
-                                }
-                            })
-                        }
-                    }
+                    artistSongRows
                 }
                 .padding(.vertical, 10)
-                .monologueSheet(isPresented: $showArtistBatchPlaylist, preset: .standard){
+                .monologueSheet(isPresented: $showArtistBatchPlaylist, preset: .standard) {
                     BatchAddToPlaylistSheet(songs: artistSongFiltered.filter { artistSelectedSongIds.contains($0.id) })
                 }
+            } else {
+                VStack(spacing: 0) {
+                    artistSongSearchBar
+                    artistSongRows
+                }
+                .padding(.vertical, 10)
+                .monologueSheet(isPresented: $showArtistBatchPlaylist, preset: .standard) {
+                    BatchAddToPlaylistSheet(songs: artistSongFiltered.filter { artistSelectedSongIds.contains($0.id) })
+                }
+            }
+        }
+    }
+
+    private var artistSongSearchBar: some View {
+        PlaylistSearchBar(
+            searchText: $artistSongSearch,
+            isSearching: $isArtistSongSearching,
+            isSelectMode: $isArtistSelectMode,
+            selectedIds: $artistSelectedSongIds,
+            songs: artistSongFiltered,
+            onBatchQueue: {
+                let selected = artistSongFiltered.filter { artistSelectedSongIds.contains($0.id) }
+                SongBatchActionHelper.addToQueue(selected) {
+                    isArtistSelectMode = false
+                    artistSelectedSongIds.removeAll()
+                }
+            },
+            onBatchDownload: { artistBatchDownload() },
+            onBatchCollect: { showArtistBatchPlaylist = true }
+        )
+    }
+
+    private var artistSongRows: some View {
+        LazyVStack(spacing: CapsuleStyle.isActive ? 4 : 0) {
+            ForEach(Array(artistSongFiltered.enumerated()), id: \.element.id) { index, song in
+                SongListRow(song: song, index: index, isSelecting: isArtistSelectMode, isSelected: artistSelectedSongIds.contains(song.id), onArtistTap: { artistId in
+                    selectedArtistId = artistId
+                    showArtistDetail = true
+                }, onDetailTap: { detailSong in
+                    selectedSongForDetail = detailSong
+                    showSongDetail = true
+                }, onAlbumTap: { albumId in
+                    selectedAlbumId = albumId
+                    showAlbumDetail = true
+                }, onTap: {
+                    if isArtistSelectMode {
+                        if artistSelectedSongIds.contains(song.id) {
+                            artistSelectedSongIds.remove(song.id)
+                        } else {
+                            artistSelectedSongIds.insert(song.id)
+                        }
+                    } else {
+                        PlayerManager.shared.play(song: song, in: artistSongFiltered)
+                    }
+                })
             }
         }
     }
@@ -1471,6 +1597,20 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.albums.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_albums", comment: ""))
+            } else if CapsuleStyle.isActive {
+                CapsuleDetailSection(
+                    title: "ALBUMS",
+                    subtitle: "\(viewModel.albums.count)",
+                    icon: .album,
+                    tint: CapsuleStyle.violet
+                ) {
+                    LazyVStack(spacing: 10) {
+                        ForEach(viewModel.albums) { album in
+                            albumRow(album)
+                        }
+                    }
+                }
+                .padding(.top, 8)
             } else {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.albums) { album in
@@ -1484,7 +1624,7 @@ extension ArtistDetailView {
     }
 
     private func albumRow(_ album: AlbumInfo) -> some View {
-        let coverRadius: CGFloat = MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (BentoStyle.isActive ? 16 : (SignalStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 18 : (SequoiaStyle.isActive ? 18 : 10)))))
+        let coverRadius: CGFloat = MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (BentoStyle.isActive ? 16 : (SignalStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 18 : (CapsuleStyle.isActive ? 24 : (SequoiaStyle.isActive ? 18 : 10))))))
         return Button(action: {
             selectedAlbumId = album.id
             showAlbumDetail = true
@@ -1494,7 +1634,7 @@ extension ArtistDetailView {
                 if let coverUrl = album.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
                         RoundedRectangle(cornerRadius: coverRadius)
-                            .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint))))))
+                            .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))))))
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 72, height: 72)
@@ -1515,6 +1655,9 @@ extension ArtistDetailView {
                         } else if SignalStyle.isActive {
                             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                                 .stroke(SignalStyle.separator.opacity(0.68), lineWidth: 0.8)
+                        } else if CapsuleStyle.isActive {
+                            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                                .stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 0.8)
                         } else if SequoiaStyle.isActive {
                             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                                 .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
@@ -1522,34 +1665,34 @@ extension ArtistDetailView {
                     }
                 } else {
                     RoundedRectangle(cornerRadius: coverRadius)
-                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint))))))
+                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))))))
                         .frame(width: 72, height: 72)
-                        .overlay(MonologueIcon(icon: .album, size: 24, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))))))
+                        .overlay(MonologueIcon(icon: .album, size: 24, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.violet : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3)))))))))
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(album.name)
-                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(16, weight: .regular) : (BentoStyle.isActive ? BentoStyle.bodyFont(15, weight: .heavy) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium)))))))
-                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (BentoStyle.isActive ? BentoStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))))
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(16, weight: .regular) : (BentoStyle.isActive ? BentoStyle.bodyFont(15, weight: .heavy) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.bodyFont(15, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))))))
+                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (BentoStyle.isActive ? BentoStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))))))
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if !album.publishDateText.isEmpty {
                             Text(album.publishDateText)
-                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))))))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))))
+                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(12, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12))))))))
+                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))))))
                         }
                         if let size = album.size, size > 0 {
                             Text("\(size) Tracks")
-                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))))))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))))
+                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(12, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12))))))))
+                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))))))
                         }
                     }
                 }
 
                 Spacer(minLength: 0)
 
-                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.4)))))))
+                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.4))))))))
             }
             .padding(12)
             .background {
@@ -1568,6 +1711,8 @@ extension ArtistDetailView {
                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
                 } else if SignalStyle.isActive {
                     SignalSurfaceBackground(cornerRadius: 22, elevated: false, fill: SignalStyle.paper)
+                } else if CapsuleStyle.isActive {
+                    CapsuleSurfaceBackground(cornerRadius: 26, elevated: false, tint: CapsuleStyle.surface.opacity(0.86))
                 } else if SequoiaStyle.isActive {
                     SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: SequoiaStyle.materialList, role: .list)
                 } else {
@@ -1589,6 +1734,26 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.mvs.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_videos", comment: ""))
+            } else if CapsuleStyle.isActive {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                CapsuleDetailSection(
+                    title: "VIDEOS",
+                    subtitle: "\(viewModel.mvs.count)",
+                    icon: .playCircle,
+                    tint: CapsuleStyle.coral
+                ) {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(viewModel.mvs) { mv in
+                            MVGridCard(mv: mv) {
+                                selectedMV = MVIdItem(id: mv.id)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 8)
             } else {
                 let columns = [
                     GridItem(.flexible(), spacing: 14),
@@ -1615,6 +1780,25 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.simiArtists.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_similar", comment: ""))
+            } else if CapsuleStyle.isActive {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                CapsuleDetailSection(
+                    title: "SIMILAR",
+                    subtitle: "\(viewModel.simiArtists.count)",
+                    icon: .personCircle,
+                    tint: CapsuleStyle.mint
+                ) {
+                    LazyVGrid(columns: columns, spacing: 18) {
+                        ForEach(viewModel.simiArtists) { artist in
+                            capsuleSimilarArtistCard(artist)
+                        }
+                    }
+                }
+                .padding(.top, 8)
             } else {
                 let columns = [
                     GridItem(.flexible(), spacing: 14),
@@ -1690,6 +1874,44 @@ extension ArtistDetailView {
         }
     }
 
+    private func capsuleSimilarArtistCard(_ artist: ArtistInfo) -> some View {
+        Button(action: {
+            selectedArtistId = artist.id
+            showArtistDetail = true
+        }) {
+            VStack(spacing: 9) {
+                CachedAsyncImage(url: artist.coverUrl?.sized(300), width: 78, height: 78) {
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(CapsuleStyle.surfaceTint)
+                        .overlay(MonologueIcon(icon: .personCircle, size: 28, color: CapsuleStyle.mint, lineWidth: 1.7))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 78, height: 78)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(CapsuleStyle.hairline.opacity(0.68), lineWidth: 0.8)
+                )
+
+                Text(artist.name)
+                    .font(CapsuleStyle.labelFont(12, weight: .bold))
+                    .foregroundStyle(CapsuleStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                CapsuleSurfaceBackground(
+                    cornerRadius: 24,
+                    elevated: false,
+                    tint: CapsuleStyle.surface.opacity(0.82)
+                )
+            )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+    }
+
     // MARK: 占位视图
 
     private var loadingPlaceholder: some View {
@@ -1705,6 +1927,10 @@ extension ArtistDetailView {
                 Text("LOADING")
                     .font(NeumorphicStyle.labelFont(11, weight: .semibold))
                     .foregroundStyle(NeumorphicStyle.inkMuted)
+            } else if CapsuleStyle.isActive {
+                Text("LOADING")
+                    .font(CapsuleStyle.labelFont(11, weight: .bold))
+                    .foregroundStyle(CapsuleStyle.inkMuted)
             } else if SequoiaStyle.isActive {
                 SequoiaMeter(tint: SequoiaStyle.accent, count: 8)
             }
@@ -1712,11 +1938,13 @@ extension ArtistDetailView {
         }
         .frame(maxWidth: .infinity)
         .background {
-            if SequoiaStyle.isActive {
+            if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 26, elevated: false, tint: CapsuleStyle.surface.opacity(0.82))
+            } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
             }
         }
-        .padding(.horizontal, SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.horizontal, (CapsuleStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
     }
 
     private func emptyPlaceholder(_ text: String) -> some View {
@@ -1726,12 +1954,14 @@ extension ArtistDetailView {
                 NeumorphicIconBadge(icon: .sparkle, tint: NeumorphicStyle.sage, size: 52)
             } else if SignalStyle.isActive {
                 SignalIconBadge(icon: .sparkle, tint: SignalStyle.olive, size: 52)
+            } else if CapsuleStyle.isActive {
+                CapsuleIconBadge(icon: .sparkle, tint: CapsuleStyle.cyan, size: 52)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .sparkle, tint: SequoiaStyle.aqua, size: 52)
             }
             Text(text)
-                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(14, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))))
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
             Spacer().frame(height: 48)
         }
         .frame(maxWidth: .infinity)
@@ -1740,6 +1970,8 @@ extension ArtistDetailView {
                 NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
             } else if SignalStyle.isActive {
                 SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
+            } else if CapsuleStyle.isActive {
+                CapsuleSurfaceBackground(cornerRadius: 26, elevated: false, tint: CapsuleStyle.surface.opacity(0.82))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
             }
