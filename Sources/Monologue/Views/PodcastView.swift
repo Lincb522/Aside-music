@@ -147,25 +147,8 @@ struct PodcastView: View {
                 }
             }
             .navigationDestination(for: PodcastDestination.self) { destination in
-                switch destination {
-                case let .category(cat):
-                    CategoryRadioView(category: cat)
-
-                case let .radioDetail(radioId):
-                    RadioDetailView(radioId: radioId)
-
-                case .search:
-                    PodcastSearchView()
-
-                case let .topList(title, listType):
-                    TopRadioListView(title: title, listType: listType)
-
-                case .categoryBrowse:
-                    RadioCategoryBrowseView()
-
-                case .broadcastList:
-                    BroadcastListView()
-                }
+                podcastDestinationView(for: destination)
+                    .petWhiteNestedPage()
             }
         }
         .onAppear {
@@ -197,6 +180,24 @@ struct PodcastView: View {
         showRadioPlayer = true
     }
 
+    @ViewBuilder
+    private func podcastDestinationView(for destination: PodcastDestination) -> some View {
+        switch destination {
+        case let .category(cat):
+            CategoryRadioView(category: cat)
+        case let .radioDetail(radioId):
+            RadioDetailView(radioId: radioId)
+        case .search:
+            PodcastSearchView()
+        case let .topList(title, listType):
+            TopRadioListView(title: title, listType: listType)
+        case .categoryBrowse:
+            RadioCategoryBrowseView()
+        case .broadcastList:
+            BroadcastListView()
+        }
+    }
+
     // MARK: - DJ Banner 轮播
 
     private var mangaPodcastHeader: some View {
@@ -216,7 +217,7 @@ struct PodcastView: View {
         PetWhitePageHeader(
             eyebrow: "PODCAST",
             title: String(localized: "tabbar_podcast"),
-            subtitle: String(localized: "白绒电台")
+            subtitle: String(localized: "global_theme_pet_white_name")
         ) {
             NavigationLink(value: PodcastDestination.search) {
                 PetWhiteIconBadge(icon: .magnifyingGlass, tint: PetWhiteStyle.sky, size: 48)
@@ -435,6 +436,47 @@ struct PodcastView: View {
                 }
             }
             .padding(.horizontal, padH)
+        } else if PetWhiteStyle.isActive {
+            HStack(alignment: .center, spacing: 10) {
+                PetWhiteIconBadge(icon: .podcast, tint: PetWhiteStyle.mint, size: 34)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(PetWhiteStyle.titleFont(18, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        HStack(spacing: 4) {
+                            Text(String(localized: "view_all"))
+                                .font(PetWhiteStyle.labelFont(11, weight: .black))
+                            PetWhitePackIcon(icon: .chevronRight, size: 15, visualScale: 1.05)
+                        }
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(PetWhiteStyle.surfaceRaised)
+                                .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
         } else if MujiStyle.isActive {
             HStack(alignment: .bottom, spacing: 14) {
                 MujiSectionTitle(title: title, detail: detail)
@@ -634,6 +676,13 @@ struct PodcastView: View {
                         .background(Capsule().fill(MangaStyle.labelYellow))
                         .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
                         .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                    } else if PetWhiteStyle.isActive {
+                        petWhiteCategoryPill(
+                            title: String(localized: "podcast_all"),
+                            icon: .gridSquare,
+                            tint: PetWhiteStyle.dogOrange,
+                            selected: true
+                        )
                     } else if MujiStyle.isActive {
                         MujiActionPill(
                             title: String(localized: "podcast_all"),
@@ -689,6 +738,12 @@ struct PodcastView: View {
                             .padding(.vertical, 10)
                             .background(Capsule().fill(MangaStyle.bubbleWhite))
                             .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                        } else if PetWhiteStyle.isActive {
+                            petWhiteCategoryPill(
+                                title: cat.name,
+                                icon: cat.monologueIconType,
+                                tint: PetWhiteStyle.mint
+                            )
                         } else if MujiStyle.isActive {
                             MujiActionPill(
                                 title: cat.name,
@@ -739,6 +794,32 @@ struct PodcastView: View {
         .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
         .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+    }
+
+    private func petWhiteCategoryPill(
+        title: String,
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        selected: Bool = false
+    ) -> some View {
+        HStack(spacing: 7) {
+            PetWhitePackIcon(icon: icon, size: selected ? 17 : 16, visualScale: 1.04)
+
+            Text(title)
+                .font(PetWhiteStyle.labelFont(12, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(
+            Capsule(style: .continuous)
+                .fill(selected ? tint : PetWhiteStyle.surfaceRaised)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(selected ? PetWhiteStyle.stroke : PetWhiteStyle.separator, lineWidth: selected ? 1.4 : 1)
+                )
+        )
     }
 
     // MARK: - 布局常量
@@ -819,7 +900,11 @@ struct PodcastView: View {
         }
     }
 
-    private func todayPickCard(radio: RadioStation) -> some View {
+    private func todayPickCard(radio: RadioStation) -> AnyView {
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhiteTodayPickCard(radio: radio))
+        }
+
         let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
         let cardHeight: CGFloat = DeviceLayout.isPad ? 110 : 96
         let cr: CGFloat = MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 10 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16)))
@@ -859,7 +944,7 @@ struct PodcastView: View {
         let playBackground: Color = SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
         let cardFill: Color = SequoiaStyle.isActive ? .clear : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monologueGlassTint)
 
-        return HStack(spacing: 0) {
+        return AnyView(HStack(spacing: 0) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: 0)
                     .fill(placeholderFill)
@@ -903,7 +988,49 @@ struct PodcastView: View {
         .frame(width: cardWidth, height: cardHeight)
         .background(cardFill)
         .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
-        .themedPageSurface(cornerRadius: cr, elevated: false)
+        .themedPageSurface(cornerRadius: cr, elevated: false))
+    }
+
+    private func petWhiteTodayPickCard(radio: RadioStation) -> some View {
+        HStack(spacing: 12) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                PetWhiteMascotMark(kind: .dog, size: 52)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(PetWhiteStyle.surfacePressed)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: DeviceLayout.isPad ? 92 : 82, height: DeviceLayout.isPad ? 92 : 82)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+            )
+
+            VStack(alignment: .leading, spacing: 6) {
+                PetWhitePill(text: "PICK", tint: PetWhiteStyle.butter)
+
+                Text(radio.name)
+                    .font(PetWhiteStyle.titleFont(16, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Text(radio.dj?.nickname ?? radio.category ?? " ")
+                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+
+            PetWhitePackIcon(icon: .play, size: 18, visualScale: 1.08)
+                .frame(width: 34, height: 34)
+                .background(PetWhiteStyle.dogOrange, in: Circle())
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+        }
+        .padding(12)
+        .frame(width: DeviceLayout.isPad ? 348 : 292, height: DeviceLayout.isPad ? 116 : 106)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
     }
 
     // MARK: - 精选电台（列表）
@@ -1006,7 +1133,11 @@ struct PodcastView: View {
         }
     }
 
-    private func creativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> some View {
+    private func creativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> AnyView {
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhiteCreativeCompactCard(creative: creative, rank: rank))
+        }
+
         let s = compactCardSize
         let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
 
@@ -1056,7 +1187,7 @@ struct PodcastView: View {
             ? (isRankTop ? SequoiaStyle.accent : SequoiaStyle.materialList)
             : (isRankTop ? Color.monologueIconBackground : Color.monologueGlassTint)
 
-        return VStack(alignment: .leading, spacing: 8) {
+        return AnyView(VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: coverUrl) {
                     RoundedRectangle(cornerRadius: cr)
@@ -1103,7 +1234,66 @@ struct PodcastView: View {
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
             }
+        })
+    }
+
+    private func petWhiteCreativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> some View {
+        let s = compactCardSize
+        let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "Paw Pick"
+        let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
+        let coverUrl: URL? = {
+            if let urlStr = creative.uiElement?.image?.imageUrl {
+                return URL(string: urlStr)
+            }
+            if let urlStr = creative.creativeExtInfoVO?.djProgram?.coverUrl {
+                return URL(string: urlStr)
+            }
+            if let urlStr = creative.creativeExtInfoVO?.djProgram?.mainSong?.coverUrl?.absoluteString {
+                return URL(string: urlStr)
+            }
+            return nil
+        }()
+
+        return VStack(alignment: .leading, spacing: 8) {
+            CachedAsyncImage(url: coverUrl) {
+                PetWhiteMascotMark(kind: rank.map { $0.isMultiple(of: 2) ? .cat : .dog } ?? .pair, size: 50)
+                    .frame(width: s, height: s)
+                    .background(PetWhiteStyle.surfacePressed)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: s, height: s)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+            )
+            .overlay(alignment: .topTrailing) {
+                if let rank {
+                    Text("\(rank)")
+                        .font(PetWhiteStyle.labelFont(11, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .frame(width: 24, height: 24)
+                        .background(PetWhiteStyle.butter, in: Circle())
+                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
+                        .padding(8)
+                }
+            }
+
+            Text(title)
+                .font(PetWhiteStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .lineLimit(2)
+                .frame(width: s, height: 34, alignment: .topLeading)
+
+            Text(subTitle)
+                .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                .foregroundStyle(PetWhiteStyle.inkSoft)
+                .lineLimit(1)
+                .frame(width: s, alignment: .leading)
         }
+        .frame(width: s)
+        .padding(9)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: rank.map { $0 <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky } ?? PetWhiteStyle.mint))
     }
 
     // MARK: - 新人电台榜
@@ -1142,7 +1332,11 @@ struct PodcastView: View {
         }
     }
 
-    private func rankedCompactCard(radio: RadioStation, rank: Int) -> some View {
+    private func rankedCompactCard(radio: RadioStation, rank: Int) -> AnyView {
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhiteRankedCompactCard(radio: radio, rank: rank))
+        }
+
         let s = compactCardSize
         let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
         let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
@@ -1156,7 +1350,7 @@ struct PodcastView: View {
         let subtitleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
         let rankForeground: Color = SequoiaStyle.isActive ? (rank <= 3 ? SequoiaStyle.onAccent : SequoiaStyle.ink) : (rank <= 3 ? .monologueIconForeground : .monologueTextPrimary)
         let rankBackground: Color = SequoiaStyle.isActive ? (rank <= 3 ? SequoiaStyle.accent : SequoiaStyle.materialList) : (rank <= 3 ? Color.monologueIconBackground : Color.monologueGlassTint)
-        return VStack(alignment: .leading, spacing: 8) {
+        return AnyView(VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: radio.coverUrl) {
                     RoundedRectangle(cornerRadius: cr)
@@ -1207,7 +1401,51 @@ struct PodcastView: View {
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
             }
+        })
+    }
+
+    private func petWhiteRankedCompactCard(radio: RadioStation, rank: Int) -> some View {
+        let size = compactCardSize
+
+        return VStack(alignment: .leading, spacing: 9) {
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: radio.coverUrl) {
+                    PetWhiteMascotMark(kind: rank.isMultiple(of: 2) ? .cat : .dog, size: 54)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(PetWhiteStyle.surfacePressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: 23, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 23, style: .continuous)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                )
+
+                Text("\(rank)")
+                    .font(PetWhiteStyle.labelFont(12, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .frame(width: 28, height: 28)
+                    .background(rank <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.surfaceRaised, in: Circle())
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
+                    .padding(8)
+            }
+
+            Text(radio.name)
+                .font(PetWhiteStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .lineLimit(2)
+                .frame(width: size, height: 36, alignment: .topLeading)
+
+            Text(radio.dj?.nickname ?? radio.category ?? " ")
+                .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                .foregroundStyle(PetWhiteStyle.inkSoft)
+                .lineLimit(1)
+                .frame(width: size, alignment: .leading)
         }
+        .frame(width: size)
+        .padding(9)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: rank <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky))
     }
 
     // MARK: - 节目榜
@@ -1246,7 +1484,9 @@ struct PodcastView: View {
 
     @ViewBuilder
     private func radioGridCard(radio: RadioStation) -> some View {
-        if SequoiaStyle.isActive {
+        if PetWhiteStyle.isActive {
+            petWhiteRadioGridCard(radio: radio)
+        } else if SequoiaStyle.isActive {
             sequoiaRadioGridCard(radio: radio)
         } else if NeumorphicStyle.isActive {
             neumorphicRadioGridCard(radio: radio)
@@ -1309,6 +1549,50 @@ struct PodcastView: View {
                 }
             }
         }
+    }
+
+    private func petWhiteRadioGridCard(radio: RadioStation) -> some View {
+        let coverRadius: CGFloat = DeviceLayout.isPad ? 24 : 22
+        let metadata = radio.dj?.nickname ?? radio.category ?? " "
+
+        return VStack(alignment: .leading, spacing: 9) {
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: radio.coverUrl) {
+                    PetWhiteMascotMark(kind: .cat, size: 58)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(PetWhiteStyle.surfacePressed)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+                )
+
+                PetWhitePackIcon(icon: .play, size: 15, visualScale: 1.08)
+                    .frame(width: 34, height: 34)
+                    .background(PetWhiteStyle.butter, in: Circle())
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+                    .padding(8)
+            }
+            .aspectRatio(1, contentMode: .fit)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(radio.name)
+                    .font(PetWhiteStyle.bodyFont(DeviceLayout.isPad ? 15 : 14, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(2, reservesSpace: true)
+                    .minimumScaleFactor(0.82)
+
+                Text(metadata)
+                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+            }
+        }
+        .padding(10)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
     }
 
     private func sequoiaRadioGridCard(radio: RadioStation) -> some View {
@@ -1473,7 +1757,11 @@ struct PodcastView: View {
 
     // MARK: - 列表行
 
-    private func radioListRow(radio: RadioStation) -> some View {
+    private func radioListRow(radio: RadioStation) -> AnyView {
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhiteRadioListRow(radio: radio))
+        }
+
         let rowImg: CGFloat = DeviceLayout.isPad ? 72 : 60
         let themedInset = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
         let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 16)
@@ -1494,7 +1782,7 @@ struct PodcastView: View {
         let playForeground: Color = SequoiaStyle.isActive ? SequoiaStyle.onAccent : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)
         let playBackground: Color = SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
 
-        return HStack(spacing: 14) {
+        return AnyView(HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: cr)
                     .fill(placeholderFill)
@@ -1543,12 +1831,65 @@ struct PodcastView: View {
         }
         .padding(.horizontal, themedInset ? padH : 0)
         .padding(.vertical, themedInset ? 5 : 0)
-        .contentShape(Rectangle())
+        .contentShape(Rectangle()))
+    }
+
+    private func petWhiteRadioListRow(radio: RadioStation) -> some View {
+        HStack(spacing: 12) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                PetWhiteMascotMark(kind: .dog, size: 46)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(PetWhiteStyle.surfacePressed)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: DeviceLayout.isPad ? 66 : 58, height: DeviceLayout.isPad ? 66 : 58)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+            )
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(radio.name)
+                    .font(PetWhiteStyle.bodyFont(15, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(radio.dj?.nickname ?? radio.category ?? " ")
+                        .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .lineLimit(1)
+
+                    if let count = radio.programCount, count > 0 {
+                        Text(String(format: String(localized: "podcast_episode_count"), count))
+                            .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            PetWhitePackIcon(icon: .play, size: 16, visualScale: 1.08)
+                .frame(width: 32, height: 32)
+                .background(PetWhiteStyle.mint, in: Circle())
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .padding(.horizontal, padH)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
     }
 
     // MARK: - 节目榜行
 
-    private func programListRow(program: RadioProgram, rank: Int) -> some View {
+    private func programListRow(program: RadioProgram, rank: Int) -> AnyView {
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhiteProgramListRow(program: program, rank: rank))
+        }
+
         let isTop3 = rank <= 3
         let coverSize: CGFloat = DeviceLayout.isPad ? 60 : 50
         let themedInset = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
@@ -1572,7 +1913,7 @@ struct PodcastView: View {
         let secondaryColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
         let rankColor: Color = isTop3 ? (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground)) : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary))
 
-        return HStack(spacing: 14) {
+        return AnyView(HStack(spacing: 14) {
             Text("\(rank)")
                 .font(rankFont)
                 .foregroundColor(rankColor)
@@ -1623,7 +1964,58 @@ struct PodcastView: View {
         }
         .padding(.horizontal, themedInset ? padH : 0)
         .padding(.vertical, themedInset ? 5 : 0)
-        .contentShape(Rectangle())
+        .contentShape(Rectangle()))
+    }
+
+    private func petWhiteProgramListRow(program: RadioProgram, rank: Int) -> some View {
+        let isTop3 = rank <= 3
+
+        return HStack(spacing: 12) {
+            Text("\(rank)")
+                .font(PetWhiteStyle.titleFont(isTop3 ? 20 : 16, weight: .black))
+                .foregroundStyle(isTop3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.inkMuted)
+                .frame(width: 30)
+
+            CachedAsyncImage(url: program.programCoverUrl) {
+                PetWhiteMascotMark(kind: isTop3 ? .dog : .cat, size: 42)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(PetWhiteStyle.surfacePressed)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 54, height: 54)
+            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.2)
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(program.name ?? "")
+                    .font(PetWhiteStyle.bodyFont(14, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(1)
+
+                Text(program.radio?.name ?? " ")
+                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            if let count = program.listenerCount, count > 0 {
+                HStack(spacing: 4) {
+                    PetWhitePackIcon(icon: .headphones, size: 13, visualScale: 1.04)
+                    Text(formatCount(count))
+                        .font(PetWhiteStyle.labelFont(11, weight: .black))
+                }
+                .foregroundStyle(PetWhiteStyle.inkSoft)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .padding(.horizontal, padH)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: isTop3, tint: PetWhiteStyle.surfaceRaised, accent: isTop3 ? PetWhiteStyle.butter : PetWhiteStyle.sky))
     }
 
     // MARK: - 广播电台

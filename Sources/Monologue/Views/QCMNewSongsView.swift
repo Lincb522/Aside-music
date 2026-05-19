@@ -13,11 +13,13 @@ struct QCMNewSongsView: View {
     }
 
     private var qcmAccent: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.sky }
         if CapsuleStyle.isActive { return CapsuleStyle.mint }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : MusicSource.qqmusic.themedBadgeColor
     }
 
     private var qcmAccentForeground: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if CapsuleStyle.isActive {
             return CapsuleStyle.readableLabel(on: CapsuleStyle.mint)
         }
@@ -32,11 +34,13 @@ struct QCMNewSongsView: View {
     }
 
     private var qcmPrimaryText: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
     private var qcmSecondaryText: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
     }
@@ -45,8 +49,12 @@ struct QCMNewSongsView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            ThemedPageBackground()
-                .ignoresSafeArea()
+            if PetWhiteStyle.isActive {
+                PetWhiteRootBackdrop()
+            } else {
+                ThemedPageBackground()
+                    .ignoresSafeArea()
+            }
 
             ScrollView {
                 LazyVStack(spacing: ThemedPageStyle.isActive ? 10 : 0) {
@@ -58,6 +66,8 @@ struct QCMNewSongsView: View {
                         emptyState
                     } else if CapsuleStyle.isActive {
                         capsuleSongList
+                    } else if PetWhiteStyle.isActive {
+                        songRows
                     } else {
                         toolbar
 
@@ -115,6 +125,16 @@ struct QCMNewSongsView: View {
                 CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.mint, size: 48)
             }
             .padding(.bottom, 2)
+        } else if PetWhiteStyle.isActive {
+            PetWhitePageHeader(
+                eyebrow: "QCM NEW",
+                title: "QCM 新歌",
+                subtitle: "\(songs.count) \(String(localized: "首"))",
+                icon: .musicNote
+            ) {
+                PetWhiteIconBadge(icon: .musicNote, tint: PetWhiteStyle.sky, size: 50)
+            }
+            .padding(.bottom, 2)
         } else if ThemedPageStyle.isActive {
             ThemedPageHeader(
                 eyebrow: "QCM NEW",
@@ -167,6 +187,29 @@ struct QCMNewSongsView: View {
     }
 
     private var songRows: some View {
+        Group {
+            if PetWhiteStyle.isActive {
+                VStack(alignment: .leading, spacing: 12) {
+                    PetWhiteSectionTitle(
+                        title: "QCM NEW",
+                        detail: "\(songs.count) \(String(localized: "首"))",
+                        icon: .musicNote,
+                        tint: PetWhiteStyle.sky
+                    )
+                    toolbar
+                        .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+                    songRowsContent
+                }
+                .padding(14)
+                .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else {
+                songRowsContent
+            }
+        }
+    }
+
+    private var songRowsContent: some View {
         ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
             SongListRow(
                 song: song,

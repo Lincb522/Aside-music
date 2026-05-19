@@ -17,24 +17,53 @@ struct PlayingVisualizerView: View {
         TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isAnimating)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             
-            HStack(alignment: .center, spacing: barSpacing) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    let offset = index < phases.count ? phases[index] : Double(index)
-                    let h = isAnimating
-                        ? barHeight(index: index, time: time, phaseOffset: offset)
-                        : minHeight
-                    
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(color)
-                        .frame(width: barWidth, height: h)
-                }
+            if PetWhiteStyle.isActive {
+                petWhiteVisualizer(time: time)
+            } else {
+                standardVisualizer(time: time)
             }
-            .frame(
-                width: CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * barSpacing,
-                height: maxHeight
-            )
         }
         .onAppear { generatePhases() }
+    }
+
+    private func standardVisualizer(time: Double) -> some View {
+        HStack(alignment: .center, spacing: barSpacing) {
+            ForEach(0..<barCount, id: \.self) { index in
+                let offset = index < phases.count ? phases[index] : Double(index)
+                let h = isAnimating
+                    ? barHeight(index: index, time: time, phaseOffset: offset)
+                    : minHeight
+
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(color)
+                    .frame(width: barWidth, height: h)
+            }
+        }
+        .frame(
+            width: CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * barSpacing,
+            height: maxHeight
+        )
+    }
+
+    private func petWhiteVisualizer(time: Double) -> some View {
+        HStack(alignment: .center, spacing: 2.2) {
+            ForEach(0..<barCount, id: \.self) { index in
+                let offset = index < phases.count ? phases[index] : Double(index)
+                let h = isAnimating
+                    ? barHeight(index: index, time: time, phaseOffset: offset)
+                    : minHeight + CGFloat(index % 2)
+
+                Capsule()
+                    .fill(index.isMultiple(of: 2) ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint)
+                    .frame(width: 2.6, height: h)
+                    .overlay(Capsule().stroke(PetWhiteStyle.stroke.opacity(0.24), lineWidth: 0.5))
+            }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 4)
+        .background(PetWhiteStyle.catWhite.opacity(0.88), in: Capsule())
+        .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
+        .frame(height: maxHeight + 8)
     }
     
     private func barHeight(index: Int, time: Double, phaseOffset: Double) -> CGFloat {

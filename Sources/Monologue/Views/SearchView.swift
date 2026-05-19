@@ -439,7 +439,7 @@ struct SearchView: View {
     private var searchBackButtonLabel: some View {
         let radius = searchBackButtonRadius
 
-        return MonologueIcon(icon: .back, size: 18, color: searchBackButtonIconColor, lineWidth: 1.8)
+        return MonologueIcon(icon: PetWhiteStyle.isActive ? .chevronLeft : .back, size: 18, color: searchBackButtonIconColor, lineWidth: 1.8)
             .frame(width: 42, height: 42)
             .background(
                 Group {
@@ -2778,6 +2778,7 @@ struct SearchView: View {
 
     private var themedSearchResultRowsActive: Bool {
         return MangaStyle.isActive
+            || PetWhiteStyle.isActive
             || MujiStyle.isActive
             || NeumorphicStyle.isActive
             || SignalStyle.isActive
@@ -2808,6 +2809,7 @@ struct SearchView: View {
 
     private var searchResultCoverCornerRadius: CGFloat {
         if MangaStyle.isActive { return 14 }
+        if PetWhiteStyle.isActive { return 16 }
         if MujiStyle.isActive { return 10 }
         if CapsuleStyle.isActive { return 17 }
         if NeumorphicStyle.isActive || SignalStyle.isActive || SequoiaStyle.isActive { return 15 }
@@ -2816,6 +2818,7 @@ struct SearchView: View {
 
     private var searchResultPlaceholderFill: Color {
         if MangaStyle.isActive { return MangaStyle.surface }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SignalStyle.isActive { return SignalStyle.controlPressed }
@@ -2826,6 +2829,7 @@ struct SearchView: View {
 
     private var searchResultImageStrokeColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.14) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.62) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.55) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.42) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.62) }
@@ -2840,6 +2844,7 @@ struct SearchView: View {
 
     private var searchResultTitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.comicFont(15.5, weight: .black) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(16, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(16, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.bodyFont(16, weight: .semibold) }
@@ -2850,6 +2855,7 @@ struct SearchView: View {
 
     private var searchResultTitleColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
@@ -2860,6 +2866,7 @@ struct SearchView: View {
 
     private var searchResultMetaFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .bold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(12, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: .medium) }
@@ -2870,6 +2877,7 @@ struct SearchView: View {
 
     private var searchResultMetaColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
@@ -2880,6 +2888,7 @@ struct SearchView: View {
 
     private var searchResultChevronColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkMuted }
@@ -2892,6 +2901,13 @@ struct SearchView: View {
     private var searchResultRowBackground: some View {
         if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: 16, elevated: true)
+        } else if PetWhiteStyle.isActive {
+            PetWhiteSurfaceBackground(
+                cornerRadius: 22,
+                elevated: false,
+                tint: PetWhiteStyle.surfaceRaised.opacity(0.88),
+                accent: PetWhiteStyle.sky
+            )
         } else if MujiStyle.isActive {
             MujiPaperCardBackground(cornerRadius: 10)
         } else if NeumorphicStyle.isActive {

@@ -229,6 +229,15 @@ struct AppearanceSettingsView: View {
 
     // MARK: - 全局主题
 
+    private var globalThemePreviewColumns: [GridItem] {
+        [
+            GridItem(
+                .adaptive(minimum: DeviceLayout.isPad ? 178 : 150, maximum: DeviceLayout.isPad ? 230 : 190),
+                spacing: 10
+            )
+        ]
+    }
+
     private var globalThemeSection: some View {
         SettingsSection(title: String(localized: "settings_appearance_global_theme_section")) {
             VStack(spacing: 0) {
@@ -259,22 +268,19 @@ struct AppearanceSettingsView: View {
                 .padding(.vertical, 12)
 
                 SettingsDisclosureReveal(isExpanded: isGlobalThemeExpanded) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 10) {
-                            ForEach(GlobalThemeId.allCases) { themeId in
-                                Button {
-                                    applyGlobalTheme(themeId)
-                                } label: {
-                                    GlobalThemeOptionCard(
-                                        themeId: themeId,
-                                        isSelected: settings.globalThemeId == themeId
-                                    )
-                                }
-                                .buttonStyle(.plain)
+                    LazyVGrid(columns: globalThemePreviewColumns, spacing: 10) {
+                        ForEach(GlobalThemeId.allCases) { themeId in
+                            Button {
+                                applyGlobalTheme(themeId)
+                            } label: {
+                                GlobalThemeOptionCard(
+                                    themeId: themeId,
+                                    isSelected: settings.globalThemeId == themeId
+                                )
                             }
+                            .buttonStyle(.plain)
                         }
                     }
-                    .themeRenderScrollLayer()
                     .padding(.horizontal, 14)
                     .padding(.bottom, 12)
                 }
@@ -294,9 +300,11 @@ struct AppearanceSettingsView: View {
         switch themeId {
         case .neumorphic:
             return .neumorphic
+        case .petWhite:
+            return .classic
         case .capsule, .sequoia, .liquidGlass:
             return .classic
-        case .default, .muji, .manga, .petWhite, .pureWhite, .bento, .clay, .signal, .material3Expressive:
+        case .default, .muji, .manga, .pureWhite, .bento, .clay, .signal, .material3Expressive:
             return nil
         }
     }
@@ -1877,6 +1885,10 @@ private struct SettingsAppBrandRow: View {
     let onSelect: (AppBrandStyle) -> Void
     let onSelectAppearance: (AppBrandAppearance) -> Void
 
+    private var brandPreviewColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 104, maximum: 148), spacing: 10)]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
@@ -1907,25 +1919,20 @@ private struct SettingsAppBrandRow: View {
 
             SettingsDisclosureReveal(isExpanded: isExpanded) {
                 VStack(alignment: .leading, spacing: 12) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(AppBrandStyle.allCases) { style in
-                                Button {
-                                    onSelect(style)
-                                } label: {
-                                    AppBrandOptionCard(
-                                        style: style,
-                                        appearance: appearance,
-                                        isSelected: selection == style
-                                    )
-                                    .frame(width: 104)
-                                }
-                                .buttonStyle(.plain)
+                    LazyVGrid(columns: brandPreviewColumns, spacing: 10) {
+                        ForEach(AppBrandStyle.allCases) { style in
+                            Button {
+                                onSelect(style)
+                            } label: {
+                                AppBrandOptionCard(
+                                    style: style,
+                                    appearance: appearance,
+                                    isSelected: selection == style
+                                )
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.vertical, 1)
                     }
-                    .themeRenderScrollLayer()
 
                     HStack(spacing: 8) {
                         ForEach(AppBrandAppearance.allCases) { item in
@@ -1964,6 +1971,10 @@ private struct SettingsInterfaceIconSetRow: View {
     @State private var isExpanded = false
     @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
     @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
+
+    private var iconSetPreviewColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 118, maximum: 168), spacing: 8)]
+    }
 
     private var zappiconStyle: ZappiconIconStyle {
         ZappiconIconStyle(rawValue: zappiconStyleRaw) ?? .light
@@ -2014,23 +2025,20 @@ private struct SettingsInterfaceIconSetRow: View {
 
             SettingsDisclosureReveal(isExpanded: isExpanded) {
                 VStack(spacing: 10) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(AppInterfaceIconSet.allCases) { iconSet in
-                                Button {
-                                    selection = iconSet
-                                } label: {
-                                    InterfaceIconSetOptionCard(
-                                        iconSet: iconSet,
-                                        isSelected: selection == iconSet
-                                    )
-                                    .frame(width: 105)
-                                }
-                                .buttonStyle(.plain)
+                    LazyVGrid(columns: iconSetPreviewColumns, spacing: 8) {
+                        ForEach(AppInterfaceIconSet.allCases) { iconSet in
+                            Button {
+                                selection = iconSet
+                            } label: {
+                                InterfaceIconSetOptionCard(
+                                    iconSet: iconSet,
+                                    isSelected: selection == iconSet
+                                )
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 14)
                     }
+                    .padding(.horizontal, 14)
 
                     // Zappicon 风格选择
                     if selection == .zappicon {
@@ -2079,6 +2087,10 @@ private struct IconStylePicker<Item: Identifiable & CaseIterable>: View where It
 
     @Environment(\.colorScheme) private var colorScheme
 
+    private var styleColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 66, maximum: 118), spacing: 6)]
+    }
+
     init(label: String, items: Item.AllCases, selected: Item, onSelect: @escaping (Item) -> Void) where Item: RawRepresentable, Item.RawValue == String {
         self.label = label
         self.items = items
@@ -2099,27 +2111,28 @@ private struct IconStylePicker<Item: Identifiable & CaseIterable>: View where It
                 .foregroundStyle(.tertiary)
                 .padding(.leading, 2)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(Array(items), id: \.self) { item in
-                        Button {
-                            onSelect(item)
-                        } label: {
-                            Text(displayName(item))
-                                .font(appearanceSettingsFont(11, weight: selected == item ? .bold : .medium))
-                                .foregroundColor(selected == item ? .monologueTextPrimary : .monologueTextSecondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background {
-                                    if selected == item {
-                                        Capsule().fill(Color.monologueTextPrimary.opacity(colorScheme == .dark ? 0.15 : 0.1))
-                                    } else {
-                                        Capsule().stroke(Color.monologueTextSecondary.opacity(0.3), lineWidth: 0.6)
-                                    }
+            LazyVGrid(columns: styleColumns, spacing: 6) {
+                ForEach(Array(items), id: \.self) { item in
+                    Button {
+                        onSelect(item)
+                    } label: {
+                        Text(displayName(item))
+                            .font(appearanceSettingsFont(11, weight: selected == item ? .bold : .medium))
+                            .foregroundColor(selected == item ? .monologueTextPrimary : .monologueTextSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background {
+                                if selected == item {
+                                    Capsule().fill(Color.monologueTextPrimary.opacity(colorScheme == .dark ? 0.15 : 0.1))
+                                } else {
+                                    Capsule().stroke(Color.monologueTextSecondary.opacity(0.3), lineWidth: 0.6)
                                 }
-                        }
-                        .buttonStyle(.plain)
+                            }
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }

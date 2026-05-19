@@ -97,4 +97,3 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         }
     }
 }
-

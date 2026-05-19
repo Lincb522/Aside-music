@@ -177,7 +177,9 @@ private struct PlayerThemeStaticPreview: View {
     private var previewBackground: some View {
         switch theme {
         case .classic:
-            if NeumorphicStyle.isActive {
+            if PetWhiteStyle.isActive {
+                pawcelainPreviewBackground
+            } else if NeumorphicStyle.isActive {
                 LinearGradient(
                     colors: isDark ? [Color(hex: "252A30"), Color(hex: "1A1F24")] : [Color(hex: "EEF2F4"), Color(hex: "DDE5E9")],
                     startPoint: .topLeading,
@@ -224,7 +226,12 @@ private struct PlayerThemeStaticPreview: View {
     @ViewBuilder
     private func previewContent(size: CGSize) -> some View {
         switch theme {
-        case .classic: classicPreview(size: size)
+        case .classic:
+            if PetWhiteStyle.isActive {
+                pawcelainPreview(size: size)
+            } else {
+                classicPreview(size: size)
+            }
         case .vinyl: vinylPreview(size: size)
         case .lyricFocus: lyricFocusPreview(size: size)
         case .card: cardPreview(size: size)
@@ -245,6 +252,23 @@ private struct PlayerThemeStaticPreview: View {
     }
 
     @ViewBuilder
+    private var pawcelainPreviewBackground: some View {
+        ZStack {
+            PetWhiteRootBackdrop()
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.58),
+                    PetWhiteStyle.mint.opacity(isDark ? 0.12 : 0.18),
+                    PetWhiteStyle.butter.opacity(isDark ? 0.08 : 0.16)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    @ViewBuilder
     private func classicPreview(size: CGSize) -> some View {
         if NeumorphicStyle.isActive {
             neumorphicClassicPreview(size: size)
@@ -259,6 +283,59 @@ private struct PlayerThemeStaticPreview: View {
                 progressBar(width: 80, progress: 0.58, tint: ink, track: muted.opacity(0.22))
                 controlsRow(tint: ink, muted: muted)
             }
+        }
+    }
+
+    private func pawcelainPreview(size: CGSize) -> some View {
+        ZStack {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    PetWhiteIconBadge(icon: .musicNoteList, tint: PetWhiteStyle.butter, size: 34)
+                    VStack(alignment: .leading, spacing: 4) {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(PetWhiteStyle.ink)
+                            .frame(width: max(34, size.width * 0.28), height: 8)
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(PetWhiteStyle.inkSoft.opacity(0.6))
+                            .frame(width: max(24, size.width * 0.2), height: 7)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 10)
+
+                HStack(spacing: 8) {
+                    PetWhiteMascotMark(kind: .cat, size: 34)
+                        .frame(width: 40, height: 40)
+                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    PetWhiteMascotMark(kind: .dog, size: 34)
+                        .frame(width: 40, height: 40)
+                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 10)
+
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(PetWhiteStyle.surfaceRaised)
+                        .frame(width: 52, height: 12)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(PetWhiteStyle.mint)
+                        .frame(width: 26, height: 26)
+                        .overlay(PetWhitePackIcon(icon: .play, size: 12, visualScale: 1.06))
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 10)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.white.opacity(isDark ? 0.07 : 0.82))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(PetWhiteStyle.stroke.opacity(0.8), lineWidth: 1.2)
+                    )
+            )
+            .padding(10)
         }
     }
 

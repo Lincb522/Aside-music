@@ -26,6 +26,8 @@ struct DailyRecommendView: View {
         ZStack(alignment: .top) {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
+            } else if PetWhiteStyle.isActive {
+                PetWhiteRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
@@ -113,6 +115,8 @@ struct DailyRecommendView: View {
     private var headerSection: some View {
         if MangaStyle.isActive {
             mangaHeaderSection
+        } else if PetWhiteStyle.isActive {
+            petWhiteHeaderSection
         } else if NeumorphicStyle.isActive {
             neumorphicHeaderSection
         } else if SignalStyle.isActive {
@@ -128,6 +132,88 @@ struct DailyRecommendView: View {
         } else {
             defaultHeaderSection
         }
+    }
+
+    private var petWhiteHeaderSection: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack {
+                        PetWhiteSurfaceBackground(cornerRadius: 24, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter)
+                        VStack(spacing: 0) {
+                            Text(dayString)
+                                .font(PetWhiteStyle.titleFont(36, weight: .black))
+                                .foregroundStyle(PetWhiteStyle.ink)
+                            Text("/ \(monthString)")
+                                .font(PetWhiteStyle.labelFont(12, weight: .black))
+                                .foregroundStyle(PetWhiteStyle.inkSoft)
+                        }
+                    }
+                    .frame(width: 84, height: 84)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            PetWhitePill(text: String(localized: "daily_recommend"), tint: PetWhiteStyle.mint)
+                            if !viewModel.songs.isEmpty {
+                                PetWhitePill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                            }
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(PetWhiteStyle.titleFont(24, weight: .black))
+                            .foregroundStyle(PetWhiteStyle.ink)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 8) {
+                            Button(action: toggleStyleMenu) {
+                                petWhiteDailyChip(text: dailyStyleChipTitle, icon: .sparkle, tint: PetWhiteStyle.sky)
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                            Button(action: { viewModel.loadHistoryDates() }) {
+                                petWhiteDailyChip(text: NSLocalizedString("daily_history", comment: ""), icon: .history, tint: PetWhiteStyle.mint)
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+                }
+
+                if !viewModel.songs.isEmpty {
+                    Button(action: {
+                        if let first = viewModel.songs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        }
+                    }) {
+                        petWhiteDailyChip(text: String(localized: "artist_play_all"), icon: .play, tint: PetWhiteStyle.dogOrange, filled: true)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                }
+            }
+            .padding(16)
+            .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, viewModel.showStyleMenu ? 8 : 10)
+
+            attachedStylePanel
+        }
+    }
+
+    private func petWhiteDailyChip(text: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool = false) -> some View {
+        HStack(spacing: 6) {
+            PetWhitePackIcon(icon: icon, size: 13, visualScale: 1.06, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+            Text(text)
+                .font(PetWhiteStyle.labelFont(12, weight: .black))
+                .lineLimit(1)
+        }
+        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(filled ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
+        .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.fineStrokeWidth))
     }
 
     private var bentoHeaderSection: some View {
@@ -916,6 +1002,8 @@ struct DailyRecommendView: View {
         Group {
             if CapsuleStyle.isActive {
                 capsuleSongList
+            } else if PetWhiteStyle.isActive {
+                petWhiteSongList
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
@@ -937,6 +1025,37 @@ struct DailyRecommendView: View {
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.id) })
         }
+    }
+
+    private var petWhiteSongList: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                headerSection
+
+                VStack(alignment: .leading, spacing: 12) {
+                    PetWhiteSectionTitle(
+                        title: "TODAY",
+                        detail: String(format: NSLocalizedString("songs_count_format", comment: ""), dailyFilteredSongs.count),
+                        icon: .sparkle,
+                        tint: PetWhiteStyle.butter
+                    )
+
+                    if !viewModel.showStyleMenu {
+                        dailySearchBar
+                            .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+                    }
+
+                    dailyRows
+                }
+                .padding(14)
+                .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+            .padding(.bottom, 120)
+            .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
     }
 
     private var capsuleSongList: some View {

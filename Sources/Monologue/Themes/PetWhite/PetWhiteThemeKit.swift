@@ -101,8 +101,11 @@ struct PetWhiteRootBackdrop: View {
         ZStack {
             PetWhiteStyle.paper
 
+            PetWhiteBackdropWash()
+                .opacity(colorScheme == .dark ? 0.34 : 1)
+
             PetWhitePawPattern()
-                .opacity(colorScheme == .dark ? 0.22 : 0.64)
+                .opacity(colorScheme == .dark ? 0.30 : 0.78)
 
             VStack {
                 PetWhiteBackdropRibbon()
@@ -114,6 +117,41 @@ struct PetWhiteRootBackdrop: View {
             .accessibilityHidden(true)
         }
         .ignoresSafeArea()
+    }
+}
+
+private struct PetWhiteBackdropWash: View {
+    var body: some View {
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 0, style: .continuous)
+                    .fill(PetWhiteStyle.sky.opacity(0.52))
+                    .frame(height: max(150, proxy.size.height * 0.24))
+                    .overlay(alignment: .bottomLeading) {
+                        Capsule()
+                            .fill(PetWhiteStyle.mint.opacity(0.64))
+                            .frame(width: min(proxy.size.width * 0.70, 340), height: 18)
+                            .padding(.leading, 22)
+                            .padding(.bottom, 20)
+                    }
+
+                Spacer(minLength: 0)
+
+                RoundedRectangle(cornerRadius: 0, style: .continuous)
+                    .fill(PetWhiteStyle.butter.opacity(0.30))
+                    .frame(height: max(96, proxy.size.height * 0.14))
+                    .overlay(alignment: .topTrailing) {
+                        Capsule()
+                            .fill(PetWhiteStyle.dogOrange.opacity(0.24))
+                            .frame(width: min(proxy.size.width * 0.48, 240), height: 14)
+                            .padding(.top, 18)
+                            .padding(.trailing, 24)
+                    }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -764,5 +802,19 @@ struct PetWhiteDockSelectionBackground: View {
                         .padding(6)
                 }
             }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func petWhiteNestedPage() -> some View {
+        if PetWhiteStyle.isActive {
+            self
+                .background(PetWhiteRootBackdrop())
+                .tint(PetWhiteStyle.accent)
+                .toolbarBackground(.hidden, for: .navigationBar)
+        } else {
+            self
+        }
     }
 }

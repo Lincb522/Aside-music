@@ -1,0 +1,30 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.xcuserstate
+*.moved-aside
+*.hmap
+*.ipa
+
+# Swift Package Manager
+.build/
+.swiftpm/xcode/
+Package.resolved
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Build artifacts
+build-output/
+build-ffmpeg/
+
+# Tests (local only, not pushed to remote)
+Tests/
+
+# FFmpeg source (users build locally)
+# xcframework 通过 GitHub Release 分发，本地不再跟踪
+Frameworks/

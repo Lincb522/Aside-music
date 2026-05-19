@@ -226,30 +226,281 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var petWhiteProfileDashboard: some View {
-        PetWhitePageHeader(
-            eyebrow: "PROFILE",
-            title: String(localized: "我的"),
-            subtitle: String(localized: "global_theme_pet_white_name"),
-            icon: .profileFilled
-        ) {
-            NavigationLink(destination: SettingsView()) {
-                PetWhiteIconBadge(icon: .settings, tint: PetWhiteStyle.mint, size: 48)
-            }
-            .buttonStyle(.plain)
-        }
-
-        statsBar
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-
-        profileHeroCard
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        petWhiteProfileIdentityDeck
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
 
         ProfileRecentPlaysHost(variant: .standard)
 
-        menuList
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        petWhiteProfileQuickActions
+            .padding(.horizontal, 14)
 
-        logoutButton
+        petWhiteProfileAccountPanel
+            .padding(.horizontal, 14)
+
+        petWhiteLogoutButton
+    }
+
+    private var petWhiteProfileIdentityDeck: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+        let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 8) {
+                        PetWhitePill(text: "PAWCELAIN", tint: PetWhiteStyle.mint)
+                        if let userLevel {
+                            PetWhitePill(text: "LV.\(userLevel)", tint: PetWhiteStyle.butter)
+                        }
+                    }
+
+                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                        .font(PetWhiteStyle.titleFont(30, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Text(signature.isEmpty ? String(localized: "profile_login_hint") : signature)
+                        .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 8)
+
+                NavigationLink(destination: SettingsView()) {
+                    PetWhiteIconBadge(icon: .settings, tint: PetWhiteStyle.sky, size: 48)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            }
+
+            HStack(alignment: .center, spacing: 14) {
+                petWhiteProfileAvatar(profile: profile, size: 96)
+
+                VStack(spacing: 9) {
+                    HStack(spacing: 9) {
+                        PetWhiteProfileMetricPill(
+                            value: formatNumber(listenSongs ?? 0),
+                            label: String(localized: "profile_total_songs"),
+                            icon: .headphones,
+                            tint: PetWhiteStyle.dogOrange
+                        )
+
+                        PetWhiteProfileMetricPill(
+                            value: "\(localPlaylistCount)",
+                            label: String(localized: "profile_local_playlists"),
+                            icon: .musicNoteList,
+                            tint: PetWhiteStyle.mint
+                        )
+                    }
+
+                    HStack(spacing: 9) {
+                        PetWhiteProfileMetricPill(
+                            value: "\(downloadedSongCount)",
+                            label: String(localized: "profile_downloads"),
+                            icon: .download,
+                            tint: PetWhiteStyle.sky
+                        )
+
+                        PetWhiteProfileMetricPill(
+                            value: "\(playerManager.history.count)",
+                            label: String(localized: "profile_recently_played"),
+                            icon: .history,
+                            tint: PetWhiteStyle.butter
+                        )
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 54, height: 6)
+                Capsule().fill(PetWhiteStyle.mint).frame(width: 34, height: 6)
+                Capsule().fill(PetWhiteStyle.sky).frame(width: 20, height: 6)
+                Spacer(minLength: 0)
+                PetWhiteProfileHeadIcon(filled: true, size: 26)
+            }
+        }
+        .padding(18)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 30,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: PetWhiteStyle.dogOrange
+            )
+        )
+    }
+
+    @ViewBuilder
+    private func petWhiteProfileAvatar(profile: UserProfile?, size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(PetWhiteStyle.surfacePressed)
+                .frame(width: size, height: size)
+
+            if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
+                CachedAsyncImage(url: url, width: size - 12, height: size - 12) {
+                    PetWhiteMascotMark(kind: .pair, size: size - 28)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size - 12, height: size - 12)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+            } else {
+                PetWhitePetPetIcon(size: size * 0.82)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .stroke(PetWhiteStyle.stroke, lineWidth: 2)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(PetWhiteStyle.stroke.opacity(0.12))
+                .offset(y: 4)
+        )
+    }
+
+    private var petWhiteProfileQuickActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PetWhiteSectionTitle(
+                title: String(localized: "快捷操作"),
+                detail: String(localized: "常用入口"),
+                icon: .sparkle,
+                tint: PetWhiteStyle.butter
+            )
+
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10),
+            ], spacing: 10) {
+                NavigationLink(destination: DownloadManageView()) {
+                    PetWhiteProfileActionTile(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
+                        tint: PetWhiteStyle.sky
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                NavigationLink(destination: ListeningStatsView()) {
+                    PetWhiteProfileActionTile(
+                        icon: .headphones,
+                        title: String(localized: "听歌统计"),
+                        value: formatNumber(listenSongs ?? 0),
+                        tint: PetWhiteStyle.dogOrange
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                NavigationLink(destination: StorageManageView()) {
+                    PetWhiteProfileActionTile(
+                        icon: .storage,
+                        title: String(localized: "profile_cache_manage"),
+                        value: String(localized: "缓存"),
+                        tint: PetWhiteStyle.mint
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                NavigationLink(destination: CloudDiskView()) {
+                    PetWhiteProfileActionTile(
+                        icon: .cloud,
+                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                        value: "Cloud",
+                        tint: PetWhiteStyle.lilac
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+            }
+        }
+    }
+
+    private var petWhiteProfileAccountPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PetWhiteSectionTitle(
+                title: String(localized: "账号与偏好"),
+                detail: String(localized: "登录、同步和外观"),
+                icon: .profileFilled,
+                tint: PetWhiteStyle.mint
+            )
+
+            VStack(spacing: 10) {
+                Button(action: { showQQAccount = true }) {
+                    ProfileMenuRow(
+                        icon: .musicNote,
+                        title: String(localized: "settings_qq_account"),
+                        trailingText: QQUserSession.shared.isLoggedIn
+                            ? String(localized: "settings_qq_logged_in")
+                            : String(localized: "settings_qq_not_logged_in")
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                .monologueSheet(isPresented: $showQQAccount, preset: .large) {
+                    NavigationStack {
+                        QQAccountView()
+                    }
+                }
+
+                NavigationLink(destination: SettingsView()) {
+                    ProfileMenuRow(
+                        icon: .settings,
+                        title: NSLocalizedString("profile_settings", comment: "")
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            }
+        }
+    }
+
+    private var petWhiteLogoutButton: some View {
+        Button(action: {
+            AlertManager.shared.show(
+                title: NSLocalizedString("alert_logout_title", comment: ""),
+                message: NSLocalizedString("alert_logout_message", comment: ""),
+                primaryButtonTitle: NSLocalizedString("alert_logout_confirm", comment: ""),
+                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
+            ) {
+                Task { @MainActor in
+                    do {
+                        _ = try await APIService.shared.logout().async()
+                    } catch {
+                        APIService.shared.currentCookie = nil
+                        OptimizedCacheManager.shared.clearAll()
+                    }
+                    isAppLoggedIn = false
+                    cachedProfile = nil
+                    hasAppeared = false
+                    userLevel = nil
+                    listenSongs = nil
+                    playerManager.clearPlaybackHistory()
+                    AlertManager.shared.dismiss()
+                }
+            }
+        }) {
+            HStack(spacing: 8) {
+                PetWhitePackIcon(icon: .close, size: 15, visualScale: 1.05)
+                Text(LocalizedStringKey("action_logout"))
+                    .font(PetWhiteStyle.labelFont(13, weight: .black))
+            }
+            .foregroundStyle(PetWhiteStyle.inkSoft)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 18,
+                    elevated: false,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: PetWhiteStyle.blush
+                )
+            )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+        .padding(.horizontal, 14)
+        .padding(.top, 2)
     }
 
     @ViewBuilder
@@ -2556,10 +2807,10 @@ struct ProfileView: View {
                 MujiSectionTitle(title: String(localized: "profile_settings"))
             } else if PetWhiteStyle.isActive {
                 PetWhiteSectionTitle(
-                    title: String(localized: "profile_settings"),
-                    detail: String(localized: "settings_appearance_layout_section"),
-                    icon: .settings,
-                    tint: PetWhiteStyle.mint
+                    title: String(localized: "快捷操作"),
+                    detail: String(localized: "常用入口"),
+                    icon: .sparkle,
+                    tint: PetWhiteStyle.butter
                 )
             } else if NeumorphicStyle.isActive {
                 NeumorphicSectionTitle(title: String(localized: "profile_settings"), detail: nil)
@@ -2701,6 +2952,8 @@ struct ProfileView: View {
     private var notLoggedInContent: some View {
         if MangaStyle.isActive {
             mangaNotLoggedInContent
+        } else if PetWhiteStyle.isActive {
+            petWhiteNotLoggedInContent
         } else if MujiStyle.isActive {
             mujiNotLoggedInContent
         } else if NeumorphicStyle.isActive {
@@ -2881,6 +3134,109 @@ struct ProfileView: View {
                 .toolbarBackground(.hidden, for: .navigationBar)
             }
         }
+    }
+
+    private var petWhiteNotLoggedInContent: some View {
+        NavigationStack {
+            ZStack {
+                ThemedProfileBackground()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        petWhiteGuestIdentityDeck
+                            .padding(.horizontal, 14)
+                            .padding(.top, 8)
+
+                        petWhiteProfileQuickActions
+                            .padding(.horizontal, 14)
+
+                        petWhiteProfileAccountPanel
+                            .padding(.horizontal, 14)
+
+                        FloatingBarBottomSpacer()
+                    }
+                    .iPadContentWidth(700)
+                }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var petWhiteGuestIdentityDeck: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 8) {
+                    PetWhitePill(text: "PAWCELAIN", tint: PetWhiteStyle.mint)
+
+                    Text(LocalizedStringKey("profile_not_logged_in"))
+                        .font(PetWhiteStyle.titleFont(29, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    Text(LocalizedStringKey("profile_login_hint"))
+                        .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 8)
+
+                NavigationLink(destination: SettingsView()) {
+                    PetWhiteIconBadge(icon: .settings, tint: PetWhiteStyle.sky, size: 48)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            }
+
+            HStack(alignment: .center, spacing: 16) {
+                PetWhitePetPetIcon(size: 96)
+                    .frame(width: 96, height: 96)
+                    .background(PetWhiteStyle.surfacePressed, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(PetWhiteStyle.stroke, lineWidth: 2)
+                    )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Button(action: { showLoginView = true }) {
+                        HStack(spacing: 8) {
+                            PetWhitePackIcon(icon: .profileFilled, size: 16, visualScale: 1.06)
+                            Text(LocalizedStringKey("profile_login_button"))
+                                .font(PetWhiteStyle.labelFont(15, weight: .black))
+                        }
+                        .foregroundStyle(PetWhiteStyle.stroke)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(PetWhiteStyle.mint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle())
+
+                    HStack(spacing: 8) {
+                        PetWhitePill(text: "NCM", tint: PetWhiteStyle.butter)
+                        PetWhitePill(text: "QCM", tint: PetWhiteStyle.sky)
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 30,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: PetWhiteStyle.dogOrange
+            )
+        )
     }
 
     private var capsuleNotLoggedInContent: some View {
@@ -3159,6 +3515,9 @@ private struct ProfileRecentPlaysHost: View {
     var body: some View {
         Group {
             if !history.isEmpty {
+                if PetWhiteStyle.isActive {
+                    petWhiteRecentPlays(history: history)
+                } else {
                 switch variant {
                 case .standard:
                     standardRecentPlays(history: history)
@@ -3173,6 +3532,7 @@ private struct ProfileRecentPlaysHost: View {
                 case .sequoia:
                     sequoiaRecentPlays(history: history)
                 }
+                }
             }
         }
         .onReceive(PlayerManager.shared.$history.removeDuplicates()) { history in
@@ -3183,6 +3543,96 @@ private struct ProfileRecentPlaysHost: View {
         }
         .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
             self.isPlaying = isPlaying
+        }
+    }
+
+    private func petWhiteRecentPlays(history: [Song]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
+                PetWhiteIconBadge(icon: .history, tint: PetWhiteStyle.sky, size: 32)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "profile_recently_played"))
+                        .font(PetWhiteStyle.titleFont(18, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(1)
+
+                    Text(String(format: String(localized: "profile_recent_count"), history.count))
+                        .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                NavigationLink(destination: RecentPlayHistoryView()) {
+                    PetWhitePill(
+                        text: String(localized: "view_all"),
+                        tint: PetWhiteStyle.butter
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 12) {
+                    ForEach(Array(history.prefix(12).enumerated()), id: \.element.id) { index, song in
+                        Button {
+                            PlayerManager.shared.play(song: song, in: history)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedAsyncImage(url: song.coverUrl) {
+                                    PetWhiteMascotMark(kind: index.isMultiple(of: 2) ? .cat : .dog, size: 44)
+                                        .frame(width: 112, height: 112)
+                                        .background(PetWhiteStyle.surfacePressed)
+                                }
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 112, height: 112)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                                )
+                                .overlay(alignment: .bottomTrailing) {
+                                    PetWhitePackIcon(icon: .play, size: 14, visualScale: 1.06)
+                                        .frame(width: 30, height: 30)
+                                        .background(PetWhiteStyle.mint, in: Circle())
+                                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
+                                        .padding(8)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(song.name)
+                                        .font(PetWhiteStyle.bodyFont(13, weight: .black))
+                                        .foregroundStyle(PetWhiteStyle.ink)
+                                        .lineLimit(1)
+
+                                    Text(song.artistName)
+                                        .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 112, alignment: .leading)
+                            }
+                            .padding(10)
+                            .background(
+                                PetWhiteSurfaceBackground(
+                                    cornerRadius: 22,
+                                    elevated: true,
+                                    tint: PetWhiteStyle.surfaceRaised,
+                                    accent: PetWhiteStyle.sky
+                                )
+                            )
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 2)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
     }
 
@@ -3862,6 +4312,94 @@ private struct NeumorphicProfileShortcutTile: View {
     }
 }
 
+private struct PetWhiteProfileMetricPill: View {
+    let value: String
+    let label: String
+    let icon: MonologueIcon.IconType
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            PetWhiteIconBadge(icon: icon, tint: tint, size: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(PetWhiteStyle.titleFont(15, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+
+                Text(label)
+                    .font(PetWhiteStyle.labelFont(9.5, weight: .bold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 18,
+                elevated: false,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: tint
+            )
+        )
+    }
+}
+
+private struct PetWhiteProfileActionTile: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                PetWhiteIconBadge(icon: icon, tint: tint, size: 40)
+
+                Spacer(minLength: 8)
+
+                PetWhitePackIcon(icon: .chevronRight, size: 15, visualScale: 1.04)
+                    .frame(width: 32, height: 32)
+                    .background(PetWhiteStyle.surfacePressed, in: Circle())
+                    .overlay(Circle().stroke(PetWhiteStyle.separator, lineWidth: 1))
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(PetWhiteStyle.bodyFont(14, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+
+                Text(value)
+                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+        .padding(14)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 24,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: tint
+            )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+}
+
 // MARK: - Menu Row
 
 struct ProfileMenuRow: View {
@@ -3875,21 +4413,33 @@ struct ProfileMenuRow: View {
 
             Text(title)
                 .font(MangaStyle.isActive ? MangaStyle.comicFont(15, weight: .bold) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(15, weight: .bold) : (SignalStyle.isActive ? SignalStyle.labelFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))))))
-                .foregroundColor(CapsuleStyle.isActive ? CapsuleStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary))
+                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary)))
 
             Spacer()
 
             if let text = trailingText {
                 Text(text)
                     .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(13, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .regular, design: .rounded))))))
-                    .foregroundColor(CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary))
+                    .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary)))
             }
-            MonologueIcon(icon: .chevronRight, size: 13, color: CapsuleStyle.isActive ? CapsuleStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : .monologueTextSecondary.opacity(0.4)))
+            if PetWhiteStyle.isActive {
+                PetWhitePackIcon(icon: .chevronRight, size: 13, visualScale: 1.04)
+                    .foregroundStyle(PetWhiteStyle.inkMuted)
+            } else {
+                MonologueIcon(icon: .chevronRight, size: 13, color: CapsuleStyle.isActive ? CapsuleStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : .monologueTextSecondary.opacity(0.4)))
+            }
         }
-        .padding(.horizontal, CapsuleStyle.isActive ? 14 : 18)
+        .padding(.horizontal, PetWhiteStyle.isActive ? 14 : (CapsuleStyle.isActive ? 14 : 18))
         .padding(.vertical, CapsuleStyle.isActive ? 12 : 14)
         .background {
-            if CapsuleStyle.isActive {
+            if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 18,
+                    elevated: false,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: PetWhiteStyle.mint
+                )
+            } else if CapsuleStyle.isActive {
                 CapsuleSurfaceBackground(cornerRadius: 22, elevated: false, tint: CapsuleStyle.surfaceRaised.opacity(0.78))
             }
         }
@@ -3904,6 +4454,8 @@ struct ProfileMenuRow: View {
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.labelYellow))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 1.8, y: 1.8))
+        } else if PetWhiteStyle.isActive {
+            PetWhiteIconBadge(icon: icon, tint: icon == .settings ? PetWhiteStyle.mint : PetWhiteStyle.sky, size: 32)
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(MujiStyle.clay.opacity(0.1))

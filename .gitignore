@@ -61,17 +61,18 @@ Secrets_*.xcconfig
 *.tar.gz
 *.zip
 
-# Unnecessary Local Directories (Local Libraries kept out of main repo)
+# Unnecessary Local Directories
 LiquidGlassEffect-main/
 LiquidGlass-main/
 api-enhanced-main*/
-ffmpeg-swift/
-NeteaseCloudMusicAPI-Swift/
-QQMusicKit/
-ZappiconIcons/
+
+# Vendored local package build output
+.swiftpm/
+build-output/
+ffmpeg-swift/build-ffmpeg/
+ffmpeg-swift/ffbuild/
 
 # Project-specific Trash/Tests
-HiconIcons/
 build_ipa.sh
 build_gui.html
 build_server.py

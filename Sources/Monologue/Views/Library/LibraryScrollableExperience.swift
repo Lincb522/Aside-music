@@ -75,6 +75,10 @@ struct ScrollableLibraryExperience: View {
         }
     }
 
+    private var contentHorizontalPadding: CGFloat {
+        PetWhiteStyle.isActive ? 12 : DeviceLayout.libraryHorizontalPadding
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
         ZStack {
@@ -225,42 +229,62 @@ struct ScrollableLibraryExperience: View {
 
     private var petWhiteHeaderDeck: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                PetWhitePetPetIcon(size: 76)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 12) {
+                    PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 52)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: 8) {
-                        PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
-                        PetWhitePackIcon(icon: icon(for: selectedTab), size: 18, visualScale: 1.1)
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 8) {
+                            PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
+                            PetWhitePill(text: activeTabShortLabel, tint: PetWhiteStyle.butter)
+                        }
+
+                        Text(String(localized: "tabbar_library"))
+                            .font(PetWhiteStyle.titleFont(30, weight: .black))
+                            .foregroundStyle(PetWhiteStyle.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
                     }
+                    .layoutPriority(1)
 
-                    Text(String(localized: "tabbar_library"))
-                        .font(PetWhiteStyle.titleFont(29, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                    Spacer(minLength: 8)
+
+                    PetWhitePetPetIcon(size: 68)
                 }
 
-                Spacer(minLength: 8)
-
-                Text(activeTabShortLabel)
-                    .font(PetWhiteStyle.labelFont(10, weight: .black))
-                    .foregroundStyle(PetWhiteStyle.stroke)
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .frame(height: 30)
-                    .background(
-                        Capsule()
-                            .fill(activeTabTint.opacity(0.86))
-                            .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                HStack(spacing: 8) {
+                    PetWhiteLibraryStatusPill(
+                        title: String(localized: "lib_local_playlists"),
+                        value: "\(localManager.playlists.count)",
+                        tint: PetWhiteStyle.mint
                     )
+
+                    PetWhiteLibraryStatusPill(
+                        title: String(localized: "lib_netease_playlists"),
+                        value: "\(viewModel.userPlaylists.count)",
+                        tint: MusicSource.netease.themedBadgeColor
+                    )
+
+                    PetWhiteLibraryStatusPill(
+                        title: "QCM",
+                        value: qqSession.isLoggedIn ? "\(qqUserPlaylists.count)" : "--",
+                        tint: MusicSource.qqmusic.themedBadgeColor
+                    )
+                }
             }
             .padding(16)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: activeTabTint))
+            .background(
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 30,
+                    elevated: true,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: activeTabTint
+                )
+            )
 
             tabStrip
         }
-        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.horizontal, contentHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
     }
 
@@ -805,7 +829,9 @@ struct ScrollableLibraryExperience: View {
 
     @ViewBuilder
     private var myLibraryControlPanel: some View {
-        if CapsuleStyle.isActive {
+        if PetWhiteStyle.isActive {
+            petWhiteLibraryControlPanel
+        } else if CapsuleStyle.isActive {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -965,6 +991,44 @@ struct ScrollableLibraryExperience: View {
         }
     }
 
+    private var petWhiteLibraryControlPanel: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .center, spacing: 10) {
+                PetWhiteSectionTitle(
+                    title: String(localized: "音乐库分区"),
+                    detail: selectedMyLibraryColumn.title,
+                    icon: selectedMyLibraryColumn.icon,
+                    tint: tint(for: selectedMyLibraryColumn)
+                )
+
+                Spacer(minLength: 0)
+            }
+
+            columnStrip
+
+            actionStrip
+                .padding(10)
+                .background(
+                    PetWhiteSurfaceBackground(
+                        cornerRadius: 22,
+                        elevated: false,
+                        tint: PetWhiteStyle.surfacePressed,
+                        accent: tint(for: selectedMyLibraryColumn)
+                    )
+                )
+        }
+        .padding(14)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 28,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: tint(for: selectedMyLibraryColumn)
+            )
+        )
+        .padding(.horizontal, contentHorizontalPadding)
+    }
+
     private var columnStrip: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
@@ -979,7 +1043,17 @@ struct ScrollableLibraryExperience: View {
                         }
                     } label: {
                         HStack(spacing: 7) {
-                            MonologueIcon(icon: column.icon, size: 14, color: selected ? selectedChipText : secondaryText, lineWidth: selected ? 2 : 1.6)
+                            if PetWhiteStyle.isActive {
+                                PetWhitePackIcon(
+                                    icon: column.icon,
+                                    size: 15,
+                                    visualScale: selected ? 1.08 : 1,
+                                    fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
+                                    lineWidth: selected ? 1.9 : 1.55
+                                )
+                            } else {
+                                MonologueIcon(icon: column.icon, size: 14, color: selected ? selectedChipText : secondaryText, lineWidth: selected ? 2 : 1.6)
+                            }
                             Text(column.title)
                                 .font(chipFont(selected: selected))
                                 .foregroundColor(selected ? selectedChipText : secondaryText)
@@ -1038,7 +1112,7 @@ struct ScrollableLibraryExperience: View {
 
             if localManager.playlists.isEmpty {
                 ThemedLibraryEmptyState(icon: .musicNoteList, title: String(localized: "lib_no_local_playlists"), tint: defaultAccent)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(localManager.playlists, id: \.id) { playlist in
@@ -1048,7 +1122,7 @@ struct ScrollableLibraryExperience: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.horizontal, contentHorizontalPadding)
             }
         }
     }
@@ -1059,7 +1133,7 @@ struct ScrollableLibraryExperience: View {
 
             if viewModel.userPlaylists.isEmpty {
                 ThemedLibraryEmptyState(icon: .list, title: String(localized: "empty_no_playlists"), tint: MusicSource.netease.themedBadgeColor)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(viewModel.userPlaylists) { playlist in
@@ -1069,7 +1143,7 @@ struct ScrollableLibraryExperience: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.horizontal, contentHorizontalPadding)
             }
         }
     }
@@ -1082,10 +1156,10 @@ struct ScrollableLibraryExperience: View {
                 LibraryLoadingStateView()
             } else if !qqSession.isLoggedIn {
                 ThemedLibraryEmptyState(icon: .musicNoteList, title: String(localized: "请先登录 QCM"), tint: MusicSource.qqmusic.themedBadgeColor)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else if qqUserPlaylists.isEmpty {
                 ThemedLibraryEmptyState(icon: .list, title: String(localized: "暂无 QCM 歌单"), tint: MusicSource.qqmusic.themedBadgeColor)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(qqUserPlaylists) { playlist in
@@ -1095,7 +1169,7 @@ struct ScrollableLibraryExperience: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.horizontal, contentHorizontalPadding)
             }
         }
     }
@@ -1106,7 +1180,7 @@ struct ScrollableLibraryExperience: View {
 
             if subManager.localSubscribedRadios.isEmpty {
                 ThemedLibraryEmptyState(icon: .radio, title: String(localized: "暂无本地收藏"), tint: tertiaryAccent)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(subManager.localSubscribedRadios) { radio in
@@ -1116,7 +1190,7 @@ struct ScrollableLibraryExperience: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.horizontal, contentHorizontalPadding)
             }
         }
     }
@@ -1129,7 +1203,7 @@ struct ScrollableLibraryExperience: View {
                 LibraryLoadingStateView()
             } else if subManager.subscribedRadios.isEmpty {
                 ThemedLibraryEmptyState(icon: .radio, title: String(localized: "lib_no_podcasts"), tint: secondaryAccent)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(subManager.subscribedRadios) { radio in
@@ -1139,7 +1213,7 @@ struct ScrollableLibraryExperience: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.horizontal, contentHorizontalPadding)
             }
         }
     }
@@ -1382,7 +1456,7 @@ struct ScrollableLibraryExperience: View {
                 LibraryLoadingStateView()
             } else if playlists.isEmpty {
                 ThemedLibraryEmptyState(icon: .list, title: emptyTitle, tint: defaultAccent)
-                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.horizontal, contentHorizontalPadding)
             } else {
                 LazyVGrid(columns: twoColumns, spacing: 14) {
                     ForEach(playlists) { playlist in
@@ -1397,6 +1471,11 @@ struct ScrollableLibraryExperience: View {
                                     playlist: playlist,
                                     tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
                                 )
+                            } else if PetWhiteStyle.isActive {
+                                PetWhiteLibraryPlaylistCard(
+                                    playlist: playlist,
+                                    tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : PetWhiteStyle.mint
+                                )
                             } else {
                                 CinematicCard(playlist: playlist, height: 168)
                             }
@@ -1404,7 +1483,7 @@ struct ScrollableLibraryExperience: View {
                         .buttonStyle(CinematicPressStyle())
                     }
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.horizontal, contentHorizontalPadding)
             }
         }
     }
@@ -1512,6 +1591,14 @@ struct ScrollableLibraryExperience: View {
                         .tint(tint)
                         .scaleEffect(0.68)
                         .frame(width: 14, height: 14)
+                } else if PetWhiteStyle.isActive {
+                    PetWhitePackIcon(
+                        icon: icon,
+                        size: 15,
+                        visualScale: 1.06,
+                        fallbackColor: tint,
+                        lineWidth: 1.7
+                    )
                 } else {
                     MonologueIcon(icon: icon, size: 14, color: tint, lineWidth: 1.7)
                 }
@@ -2133,6 +2220,110 @@ struct ScrollableLibraryExperience: View {
                 Color.clear.monologueGlass(cornerRadius: cornerRadius)
             }
         }
+    }
+}
+
+private struct PetWhiteLibraryStatusPill: View {
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(PetWhiteStyle.titleFont(15, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Text(title)
+                .font(PetWhiteStyle.labelFont(9.5, weight: .bold))
+                .foregroundStyle(PetWhiteStyle.inkSoft)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+        }
+        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 17,
+                elevated: false,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: tint
+            )
+        )
+    }
+}
+
+private struct PetWhiteLibraryPlaylistCard: View {
+    let playlist: Playlist
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(600)) {
+                    PetWhiteStyle.surfacePressed
+                        .overlay(
+                            PetWhitePetPetIcon(size: 54)
+                                .opacity(0.88)
+                        )
+                }
+                .aspectRatio(1, contentMode: .fill)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                )
+
+                PetWhitePackIcon(icon: .play, size: 15, visualScale: 1.08)
+                    .frame(width: 34, height: 34)
+                    .background(tint, in: Circle())
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+                    .padding(8)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(playlist.name)
+                    .font(PetWhiteStyle.bodyFont(13, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(2)
+                    .frame(minHeight: 36, alignment: .topLeading)
+
+                HStack(spacing: 6) {
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: 22, height: 5)
+                    Text(metaText)
+                        .font(PetWhiteStyle.labelFont(10, weight: .bold))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 24,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: tint
+            )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    private var metaText: String {
+        if let playCount = playlist.playCount, playCount > 0 {
+            return cinematicFormatCount(playCount)
+        }
+        if let trackCount = playlist.trackCount, trackCount > 0 {
+            return String(format: String(localized: "songs_count_format"), trackCount)
+        }
+        return playlist.source == .qqmusic ? "QCM" : "NCM"
     }
 }
 

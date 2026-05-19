@@ -2,12 +2,14 @@ import SwiftUI
 
 private enum QueuePopupPalette {
     static var accent: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         return .monologueAccent
     }
 
     static var accentForeground: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if NeumorphicStyle.isActive {
             return ThemeColorCustomization.readableForegroundColor(
                 on: NeumorphicStyle.accent,
@@ -22,30 +24,35 @@ private enum QueuePopupPalette {
     }
 
     static var primaryText: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return .monologueTextPrimary
     }
 
     static var secondaryText: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     static var mutedText: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
         return .monologueTextSecondary
     }
 
     static var separator: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.separator }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
         if CapsuleStyle.isActive { return CapsuleStyle.separator }
         return .monologueSeparator
     }
 
     static var pressedSurface: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
         return .monologueSeparator
@@ -154,7 +161,11 @@ struct PlaylistPopupView: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                        .fill(PetWhiteStyle.isActive ? PetWhiteStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator))
+                        .overlay(
+                            Capsule()
+                                .stroke(PetWhiteStyle.isActive ? PetWhiteStyle.stroke : Color.clear, lineWidth: PetWhiteStyle.isActive ? PetWhiteStyle.fineStrokeWidth : 0)
+                        )
                 )
             }
         }
@@ -170,7 +181,7 @@ struct PlaylistPopupView: View {
 
                 if selectedTab == tabIndex {
                     Capsule()
-                        .fill(NeumorphicStyle.isActive ? QueuePopupPalette.accent : Color.monologueIconBackground)
+                        .fill(PetWhiteStyle.isActive ? PetWhiteStyle.dogOrange : (NeumorphicStyle.isActive ? QueuePopupPalette.accent : Color.monologueIconBackground))
                         .frame(width: 20, height: 4)
                         .matchedGeometryEffect(id: "tabIndicator", in: namespace)
                 } else {
@@ -556,6 +567,8 @@ private struct QueueLinearRow: View {
 
         if CapsuleStyle.isActive {
             capsuleQueueRow
+        } else if PetWhiteStyle.isActive {
+            petWhiteQueueRow
         } else {
             defaultQueueRow
         }
@@ -620,6 +633,63 @@ private struct QueueLinearRow: View {
                     .monologueGlassConditional(isActive: isCurrent, cornerRadius: 14)
             }
         }
+        .opacity(isPlayed ? 0.78 : 1)
+    }
+
+    private var petWhiteQueueRow: some View {
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    leadingIndicator
+
+                    CachedAsyncImage(url: song.coverUrl) {
+                        PetWhiteStyle.mint.opacity(0.22)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 50, height: 50)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(PetWhiteStyle.stroke.opacity(0.62), lineWidth: 1.2)
+                    )
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(song.name)
+                            .font(PetWhiteStyle.bodyFont(15, weight: isCurrent ? .black : .bold))
+                            .foregroundStyle(PetWhiteStyle.ink.opacity(isPlayed ? 0.72 : 1))
+                            .lineLimit(1)
+
+                        Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkSoft.opacity(isPlayed ? 0.68 : 1))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
+            if let removeAction, !isCurrent {
+                Button(action: removeAction) {
+                    PetWhitePackIcon(icon: .xmark, size: 12, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+                        .frame(width: 34, height: 34)
+                        .background(PetWhiteSurfaceBackground(cornerRadius: 14, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 22,
+                elevated: isCurrent,
+                tint: isCurrent ? PetWhiteStyle.butter.opacity(0.48) : PetWhiteStyle.surfaceRaised.opacity(0.88),
+                accent: PetWhiteStyle.butter
+            )
+        )
         .opacity(isPlayed ? 0.78 : 1)
     }
 

@@ -51,6 +51,8 @@ struct PlaylistDetailView: View {
         ZStack {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
+            } else if PetWhiteStyle.isActive {
+                PetWhiteRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
@@ -166,6 +168,8 @@ struct PlaylistDetailView: View {
     private var playlistHeaderContent: some View {
         if let bannerCoverURL {
             bannerPlaylistHeaderContent(bannerCoverURL)
+        } else if PetWhiteStyle.isActive {
+            petWhitePlaylistHeaderContent
         } else if MangaStyle.isActive {
             mangaPlaylistHeaderContent
         } else if NeumorphicStyle.isActive {
@@ -281,6 +285,123 @@ struct PlaylistDetailView: View {
         .padding(.bottom, DeviceLayout.isPad ? 32 : 24)
         .iPadContentWidth(900)
         }
+    }
+
+    private var petWhitePlaylistHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
+                    PetWhiteStyle.mint.opacity(0.30)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 168 : 124, height: DeviceLayout.isPad ? 168 : 124)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.strokeWidth)
+                )
+                .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 7) {
+                        PetWhitePill(text: playlist.isQQMusic ? "QCM" : "NCM", tint: playlist.isQQMusic ? PetWhiteStyle.sky : PetWhiteStyle.mint)
+                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                            PetWhitePill(text: "\(count) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                        }
+                    }
+
+                    Text(viewModel.playlistDetail?.name ?? playlist.name)
+                        .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
+                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllRemainingToQueue()
+                    }
+                }) {
+                    petWhiteHeaderAction(title: String(localized: "play_now"), icon: .play, tint: PetWhiteStyle.dogOrange, filled: true)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: {
+                            if playlist.isQQMusic {
+                                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                                let name = viewModel.playlistDetail?.name ?? playlist.name
+                                Task {
+                                    let allSongs = await viewModel.loadAllRemainingAsync()
+                                    LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isCollectedLocally = true
+                                    }
+                                }
+                            } else {
+                                showCollectOptions = true
+                            }
+                        }
+                    )
+                    .disabled((playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty)))
+                    .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+                        Button(String(localized: "收藏到本地")) {
+                            guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                            let name = viewModel.playlistDetail?.name ?? playlist.name
+                            Task {
+                                let allSongs = await viewModel.loadAllRemainingAsync()
+                                LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isCollectedLocally = true
+                                }
+                            }
+                        }
+                        .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+                        Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                            subManager.togglePlaylistSubscription(id: playlist.id)
+                        }
+
+                        Button(String(localized: "取消"), role: .cancel) {}
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 10)
+        .padding(.bottom, 14)
+        .iPadContentWidth(900)
+    }
+
+    private func petWhiteHeaderAction(title: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool) -> some View {
+        HStack(spacing: 7) {
+            PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.05, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+            Text(title)
+                .font(PetWhiteStyle.labelFont(12, weight: .black))
+        }
+        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+        .padding(.horizontal, 14)
+        .frame(height: 38)
+        .background(filled ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
+        .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.fineStrokeWidth))
     }
 
     private var sequoiaPlaylistHeaderContent: some View {
@@ -1475,6 +1596,8 @@ struct PlaylistDetailView: View {
         Group {
             if CapsuleStyle.isActive {
                 capsuleSongListSection
+            } else if PetWhiteStyle.isActive {
+                petWhiteSongListSection
             } else {
                 defaultSongListSection
             }
@@ -1511,6 +1634,59 @@ struct PlaylistDetailView: View {
                 FloatingBarBottomSpacer()
             }
         }
+    }
+
+    private var petWhiteSongListSection: some View {
+        LazyVStack(spacing: 14) {
+            if viewModel.isLoading {
+                petWhiteTrackSection(title: "TRACKS", detail: nil) {
+                    MonologueLoadingView(text: "LOADING TRACKS")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 30)
+                }
+            } else if filteredSongs.isEmpty {
+                petWhiteTrackSection(title: "TRACKS", detail: nil) {
+                    playlistEmptyState
+                        .padding(.top, 0)
+                }
+            } else {
+                petWhiteTrackSection(
+                    title: "TRACKS",
+                    detail: String(format: NSLocalizedString("songs_count_format", comment: ""), filteredSongs.count)
+                ) {
+                    playlistSongRows
+                    playlistPagination
+                }
+
+                if !isSearching && !viewModel.relatedPlaylists.isEmpty && !viewModel.isLoading {
+                    relatedPlaylistsSection
+                }
+
+                FloatingBarBottomSpacer()
+            }
+        }
+    }
+
+    private func petWhiteTrackSection<Content: View>(
+        title: String,
+        detail: String?,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PetWhiteSectionTitle(
+                title: title,
+                detail: detail,
+                icon: .musicNoteList,
+                tint: PetWhiteStyle.butter
+            )
+
+            LazyVStack(spacing: 0) {
+                content()
+            }
+        }
+        .padding(14)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
 
     private var defaultSongListSection: some View {

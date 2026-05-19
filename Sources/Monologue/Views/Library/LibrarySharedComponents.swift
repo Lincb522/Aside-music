@@ -7,7 +7,15 @@ struct ThemedLibrarySectionHeader: View {
     let title: String
 
     var body: some View {
-        if NeumorphicStyle.isActive {
+        if PetWhiteStyle.isActive {
+            PetWhiteSectionTitle(
+                title: title,
+                detail: nil,
+                icon: .musicNoteList,
+                tint: PetWhiteStyle.mint
+            )
+            .padding(.horizontal, 12)
+        } else if NeumorphicStyle.isActive {
             HStack(spacing: 9) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(NeumorphicStyle.accent.opacity(0.78))
@@ -89,7 +97,25 @@ struct LibraryLoadingStateView: View {
         let resolvedMinHeight = minHeight ?? (DeviceLayout.isPad ? 420 : 320)
         let resolvedPadding = horizontalPadding ?? DeviceLayout.libraryHorizontalPadding
 
-        if SequoiaStyle.isActive {
+        if PetWhiteStyle.isActive {
+            VStack(spacing: 12) {
+                PetWhitePetPetIcon(size: 58)
+                ProgressView()
+                    .tint(PetWhiteStyle.dogOrange)
+                    .scaleEffect(0.82)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: resolvedMinHeight, alignment: .center)
+            .background(
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 26,
+                    elevated: true,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: PetWhiteStyle.mint
+                )
+            )
+            .padding(.horizontal, PetWhiteStyle.isActive ? 12 : resolvedPadding)
+        } else if SequoiaStyle.isActive {
             VStack(spacing: 12) {
                 SequoiaIconBadge(icon: .library, tint: SequoiaStyle.accent, size: 50)
                 ProgressView()
@@ -137,7 +163,9 @@ struct ThemedLibraryEmptyState: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            if SequoiaStyle.isActive {
+            if PetWhiteStyle.isActive {
+                PetWhiteIconBadge(icon: icon, tint: tint, size: 52)
+            } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: icon, tint: tint, size: 50)
             } else if CapsuleStyle.isActive {
                 CapsuleIconBadge(icon: icon, tint: tint, size: 50)
@@ -145,13 +173,20 @@ struct ThemedLibraryEmptyState: View {
                 MonologueIcon(icon: icon, size: 28, color: tint.opacity(0.72), lineWidth: 1.8)
             }
             Text(title)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded)))))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : .monologueTextSecondary))))
+                .font(PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(13, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded))))))
+                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : .monologueTextSecondary)))))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
         .background {
-            if NeumorphicStyle.isActive {
+            if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 24,
+                    elevated: true,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: tint
+                )
+            } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -175,13 +210,16 @@ struct ThemedLibraryPodcastRow: View {
     var body: some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
-                Color.gray.opacity(0.1)
+                PetWhiteStyle.isActive ? PetWhiteStyle.surfacePressed : Color.gray.opacity(0.1)
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: DeviceLayout.listRowCoverStandard, height: DeviceLayout.listRowCoverStandard)
-            .clipShape(RoundedRectangle(cornerRadius: SequoiaStyle.isActive ? 14 : 12, style: .continuous))
+            .frame(width: PetWhiteStyle.isActive ? 62 : DeviceLayout.listRowCoverStandard, height: PetWhiteStyle.isActive ? 62 : DeviceLayout.listRowCoverStandard)
+            .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 18 : (SequoiaStyle.isActive ? 14 : 12), style: .continuous))
             .overlay {
-                if SequoiaStyle.isActive {
+                if PetWhiteStyle.isActive {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+                } else if SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
                 }
@@ -189,23 +227,30 @@ struct ThemedLibraryPodcastRow: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(radio.name)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded)))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                    .font(PetWhiteStyle.isActive ? PetWhiteStyle.bodyFont(15, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .semibold, design: .rounded))))
+                    .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))
                     .lineLimit(1)
 
                 Text(radio.dj?.nickname ?? radio.category ?? "Podcast")
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded)))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                    .font(PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(12, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded))))
+                    .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                     .lineLimit(1)
             }
 
             Spacer()
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: tint.opacity(0.72), lineWidth: 1.8)
+            if PetWhiteStyle.isActive {
+                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+            } else {
+                MonologueIcon(icon: .chevronRight, size: 12, color: tint.opacity(0.72), lineWidth: 1.8)
+            }
         }
-        .padding(14)
+        .padding(PetWhiteStyle.isActive ? 12 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            if NeumorphicStyle.isActive {
+            if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: tint)
+            } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, tint: tint.opacity(0.08), lightweight: true)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -229,22 +274,24 @@ struct ThemedLibraryArtistCard: View {
     var body: some View {
         VStack(spacing: 10) {
             CachedAsyncImage(url: artist.coverUrl?.sized(400)) {
-                NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.1)
+                PetWhiteStyle.isActive ? PetWhiteStyle.surfacePressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.gray.opacity(0.1))
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: DeviceLayout.artistAvatarSize - (NeumorphicStyle.isActive ? 12 : 0), height: DeviceLayout.artistAvatarSize - (NeumorphicStyle.isActive ? 12 : 0))
-            .clipShape(Circle())
+            .clipShape(PetWhiteStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: 22, style: .continuous)) : AnyShape(Circle()))
             .shadow(color: tint.opacity(0.14), radius: 7, y: 3)
 
             Text(artist.name)
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .bold) : .system(size: 13, weight: .semibold, design: .rounded)))))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : .monologueTextPrimary))))
+                .font(PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(13, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .bold) : .system(size: 13, weight: .semibold, design: .rounded))))))
+                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : .monologueTextPrimary)))))
                 .lineLimit(1)
         }
-        .padding(NeumorphicStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive ? 12 : 0)
+        .padding(PetWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive ? 12 : 0)
         .frame(maxWidth: .infinity)
         .background {
-            if NeumorphicStyle.isActive {
+            if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: tint)
+            } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, tint: tint.opacity(0.06), lightweight: true)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)

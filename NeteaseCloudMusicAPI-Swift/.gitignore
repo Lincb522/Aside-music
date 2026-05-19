@@ -1,0 +1,35 @@
+# Xcode
+*.xcworkspace
+xcuserdata/
+# 保留 Example/NCMDemo.xcodeproj，排除其用户数据
+Example/NCMDemo.xcodeproj/xcuserdata/
+Example/NCMDemo.xcodeproj/project.xcworkspace/xcuserdata/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+Packages/
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE
+*.swp
+*~
+.vscode/
+.idea/
+
+# 测试文件（不上传到远程仓库）
+Tests/
+AsideMusic-2026-02-16-225511.ips
+AsideMusic-2026-02-17-003353.ips

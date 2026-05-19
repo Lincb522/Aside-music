@@ -23,7 +23,11 @@ struct FullScreenPlayerView: View {
             Group {
                 switch themeManager.currentTheme {
                 case .classic:
-                    ClassicPlayerLayout()
+                    if PetWhiteStyle.isActive {
+                        PawcelainPlayerLayout()
+                    } else {
+                        ClassicPlayerLayout()
+                    }
                 case .vinyl:
                     VinylPlayerLayout()
                 case .lyricFocus:

@@ -180,8 +180,8 @@
 "settings_appearance" = "Appearance & Interaction";
 "settings_appearance_global_theme_section" = "Global Theme";
 "settings_appearance_theme_style" = "Theme Style";
-"global_theme_pet_white_name" = "Furry Paws";
-"global_theme_pet_white_description" = "A clean white interface with bold outlines and playful cat-and-dog details.";
+"global_theme_pet_white_name" = "Pawcelain";
+"global_theme_pet_white_description" = "A clean white flat interface shaped around the cat-and-dog icon pack.";
 "settings_appearance_app_icon_section" = "App Icon";
 "settings_appearance_layout_section" = "Interface Layout";
 "settings_appearance_content_feedback_section" = "Content & Feedback";

@@ -26,6 +26,17 @@ class PlayerManager: ObservableObject {
         case sequence
         case loopSingle
         case shuffle
+
+        var displayName: String {
+            switch self {
+            case .sequence:
+                return NSLocalizedString("mode_sequence", comment: "")
+            case .loopSingle:
+                return NSLocalizedString("mode_loop_one", comment: "")
+            case .shuffle:
+                return NSLocalizedString("mode_shuffle", comment: "")
+            }
+        }
         
         var icon: String {
             switch self {

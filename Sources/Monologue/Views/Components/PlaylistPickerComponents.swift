@@ -14,6 +14,8 @@ struct PlaylistPickerContainerCard<Content: View>: View {
             .background {
                 if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                } else if PetWhiteStyle.isActive {
+                    PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint)
                 } else if SequoiaStyle.isActive {
                     SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
                 } else {
@@ -22,7 +24,7 @@ struct PlaylistPickerContainerCard<Content: View>: View {
             }
             .clipShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : (SequoiaStyle.isActive ? 20 : 18), style: .continuous))
             .overlay {
-                if !NeumorphicStyle.isActive && !SequoiaStyle.isActive {
+                if !NeumorphicStyle.isActive && !PetWhiteStyle.isActive && !SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
                 }
@@ -69,24 +71,28 @@ struct PlaylistPickerSection<Content: View>: View {
 
     private var sectionTitleFont: Font {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(13, weight: .black) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
 
     private var sectionSubtitleFont: Font {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .regular) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(12, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
         return .system(size: 12, design: .rounded)
     }
 
     private var sectionTitleColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var sectionSubtitleColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         return .monologueTextSecondary.opacity(0.75)
     }
@@ -140,6 +146,8 @@ struct PlaylistPickerActionCard: View {
                             .background {
                                 if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, tint: tint.opacity(0.16), lightweight: true)
+                                } else if PetWhiteStyle.isActive {
+                                    PetWhiteSurfaceBackground(cornerRadius: 15, elevated: false, tint: tint.opacity(0.16), accent: tint)
                                 } else if SequoiaStyle.isActive {
                                     SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, fill: tint.opacity(0.10), role: .selected)
                                 } else {
@@ -191,23 +199,27 @@ struct PlaylistPickerActionCard: View {
 
     private var actionTitleFont: Font {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .semibold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15, weight: .black) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .semibold) }
         return .system(size: 15, weight: .semibold, design: .rounded)
     }
 
     private var secondaryTextFont: Font {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(12, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
         return .system(size: 12, design: .rounded)
     }
 
     private var primaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }

@@ -62,7 +62,7 @@ struct GlobalThemeOptionCard: View {
             }
             .padding(.horizontal, 2)
         }
-        .frame(width: 172)
+        .frame(maxWidth: .infinity, minHeight: 166, alignment: .leading)
         .padding(9)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)

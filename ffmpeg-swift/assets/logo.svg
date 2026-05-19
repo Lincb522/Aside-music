@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 主渐变：深紫到亮紫 -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1A2E"/>
+      <stop offset="100%" stop-color="#2D2D44"/>
+    </linearGradient>
+    <!-- 强调色渐变 -->
+    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#BB86FC"/>
+      <stop offset="100%" stop-color="#7C4DFF"/>
+    </linearGradient>
+    <!-- 波形渐变 -->
+    <linearGradient id="wave" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#BB86FC" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#BB86FC" stop-opacity="1"/>
+    </linearGradient>
+    <!-- 光晕 -->
+    <radialGradient id="glow" cx="50%" cy="45%" r="40%">
+      <stop offset="0%" stop-color="#BB86FC" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#BB86FC" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 圆角背景 -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+
+  <!-- 背景光晕 -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#glow)"/>
+
+  <!-- 频谱柱状图（底部装饰） -->
+  <g opacity="0.5">
+    <rect x="80"  y="340" width="16" rx="4" height="60"  fill="url(#wave)"/>
+    <rect x="108" y="310" width="16" rx="4" height="90"  fill="url(#wave)"/>
+    <rect x="136" y="280" width="16" rx="4" height="120" fill="url(#wave)"/>
+    <rect x="164" y="300" width="16" rx="4" height="100" fill="url(#wave)"/>
+    <rect x="192" y="260" width="16" rx="4" height="140" fill="url(#wave)"/>
+    <rect x="220" y="240" width="16" rx="4" height="160" fill="url(#wave)"/>
+    <rect x="248" y="220" width="16" rx="4" height="180" fill="url(#wave)"/>
+    <rect x="276" y="240" width="16" rx="4" height="160" fill="url(#wave)"/>
+    <rect x="304" y="260" width="16" rx="4" height="140" fill="url(#wave)"/>
+    <rect x="332" y="290" width="16" rx="4" height="110" fill="url(#wave)"/>
+    <rect x="360" y="310" width="16" rx="4" height="90"  fill="url(#wave)"/>
+    <rect x="388" y="330" width="16" rx="4" height="70"  fill="url(#wave)"/>
+    <rect x="416" y="350" width="16" rx="4" height="50"  fill="url(#wave)"/>
+  </g>
+
+  <!-- 播放三角形（中心偏上） -->
+  <g transform="translate(256, 200)">
+    <!-- 外圈 -->
+    <circle cx="0" cy="0" r="72" fill="none" stroke="url(#accent)" stroke-width="3" opacity="0.3"/>
+    <!-- 内圈填充 -->
+    <circle cx="0" cy="0" r="60" fill="url(#accent)" opacity="0.15"/>
+    <!-- 播放箭头 -->
+    <polygon points="-20,-30 -20,30 30,0" fill="url(#accent)"/>
+  </g>
+
+  <!-- "ff" 文字标识 -->
+  <text x="256" y="460" text-anchor="middle"
+        font-family="-apple-system, SF Pro Rounded, Helvetica Neue, sans-serif"
+        font-size="42" font-weight="700" letter-spacing="3"
+        fill="#BB86FC" opacity="0.8">
+    FFmpeg Swift
+  </text>
+</svg>

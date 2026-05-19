@@ -13,7 +13,11 @@ final class PlayerThemeManager {
     
     private init() {
         let saved = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playerTheme) ?? ""
-        self.currentTheme = PlayerTheme(rawValue: saved) ?? .classic
+        if let theme = PlayerTheme(rawValue: saved) {
+            self.currentTheme = theme
+        } else {
+            self.currentTheme = .classic
+        }
     }
     
     func setTheme(_ theme: PlayerTheme) {

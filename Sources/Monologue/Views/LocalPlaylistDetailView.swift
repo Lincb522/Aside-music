@@ -43,6 +43,8 @@ struct LocalPlaylistDetailView: View {
         ZStack {
             if MangaStyle.isActive {
                 MangaRootBackdrop()
+            } else if PetWhiteStyle.isActive {
+                PetWhiteRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
         } else if NeumorphicStyle.isActive {
@@ -185,6 +187,8 @@ struct LocalPlaylistDetailView: View {
     private var headerView: some View {
         if MangaStyle.isActive {
             mangaHeaderView
+        } else if PetWhiteStyle.isActive {
+            petWhiteHeaderView
         } else if MujiStyle.isActive {
             mujiHeaderView
         } else if NeumorphicStyle.isActive {
@@ -443,6 +447,135 @@ struct LocalPlaylistDetailView: View {
         .padding(.top, DeviceLayout.isPad ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
+    }
+
+    private var petWhiteHeaderView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let p = playlist {
+                HStack(alignment: .top, spacing: 16) {
+                    Group {
+                        if let url = p.displayCoverUrl {
+                            CachedAsyncImage(url: url.sized(400)) {
+                                PetWhiteStyle.mint.opacity(0.28)
+                            }
+                            .aspectRatio(contentMode: .fill)
+                        } else {
+                            PetWhiteIconBadge(icon: .musicNoteList, tint: PetWhiteStyle.mint, size: DeviceLayout.isPad ? 168 : 124)
+                        }
+                    }
+                    .frame(width: DeviceLayout.isPad ? 168 : 124, height: DeviceLayout.isPad ? 168 : 124)
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.strokeWidth)
+                    )
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        HStack(spacing: 7) {
+                            PetWhitePill(text: String(localized: "local_playlist_label"), tint: PetWhiteStyle.mint)
+                            PetWhitePill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                        }
+
+                        Text(p.name)
+                            .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .black))
+                            .foregroundStyle(PetWhiteStyle.ink)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if let desc = p.desc, !desc.isEmpty {
+                            Text(desc)
+                                .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                                .foregroundStyle(PetWhiteStyle.inkSoft)
+                                .lineLimit(2)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(spacing: 10) {
+                    Button(action: {
+                        let songs = p.songs
+                        if let first = songs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: songs)
+                        }
+                    }) {
+                        petWhiteLocalAction(title: String(localized: "play_now"), icon: .play, tint: PetWhiteStyle.dogOrange, filled: true)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    .disabled(p.songs.isEmpty)
+                    .opacity(p.songs.isEmpty ? 0.55 : 1)
+
+                    if !p.isSystem {
+                        Button(action: {
+                            AlertManager.shared.showInput(
+                                title: NSLocalizedString("local_playlist_rename", comment: ""),
+                                message: "",
+                                placeholder: NSLocalizedString("local_playlist_name", comment: ""),
+                                primaryButtonTitle: NSLocalizedString("confirm", comment: ""),
+                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                onConfirm: { name in
+                                    if !name.isEmpty {
+                                        manager.renamePlaylist(p, name: name)
+                                    }
+                                }
+                            )
+                            AlertManager.shared.inputText = p.name
+                        }) {
+                            petWhiteLocalIconAction(icon: .settings, tint: PetWhiteStyle.sky)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+
+                    Button(action: { exportPlaylist(p) }) {
+                        petWhiteLocalIconAction(icon: .download, tint: PetWhiteStyle.mint)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+
+                    if !p.isSystem {
+                        Button(action: {
+                            AlertManager.shared.show(
+                                title: NSLocalizedString("local_playlist_delete", comment: ""),
+                                message: String(format: NSLocalizedString("local_playlist_delete_confirm", comment: ""), p.name),
+                                primaryButtonTitle: NSLocalizedString("lib_delete", comment: ""),
+                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                primaryAction: {
+                                    manager.deletePlaylist(p)
+                                    dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
+                                }
+                            )
+                        }) {
+                            petWhiteLocalIconAction(icon: .trash, tint: PetWhiteStyle.blush)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 10)
+        .padding(.bottom, 14)
+        .iPadContentWidth(900)
+    }
+
+    private func petWhiteLocalAction(title: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool) -> some View {
+        HStack(spacing: 7) {
+            PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.05, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+            Text(title)
+                .font(PetWhiteStyle.labelFont(12, weight: .black))
+        }
+        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+        .padding(.horizontal, 14)
+        .frame(height: 38)
+        .background(filled ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
+        .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.fineStrokeWidth))
+    }
+
+    private func petWhiteLocalIconAction(icon: MonologueIcon.IconType, tint: Color) -> some View {
+        PetWhitePackIcon(icon: icon, size: 15, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+            .frame(width: 38, height: 38)
+            .background(PetWhiteSurfaceBackground(cornerRadius: 15, elevated: false, tint: tint.opacity(0.20), accent: tint))
     }
 
     private var mangaHeaderView: some View {
@@ -1110,6 +1243,8 @@ struct LocalPlaylistDetailView: View {
         Group {
             if CapsuleStyle.isActive {
                 capsuleLocalSongListSection
+            } else if PetWhiteStyle.isActive {
+                petWhiteLocalSongListSection
             } else {
                 defaultLocalSongListSection
             }
@@ -1117,6 +1252,35 @@ struct LocalPlaylistDetailView: View {
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
             let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }
             BatchAddToPlaylistSheet(songs: selected)
+        }
+    }
+
+    private var petWhiteLocalSongListSection: some View {
+        LazyVStack(spacing: 14) {
+            if let currentPlaylist = playlist {
+                let songs = currentPlaylist.songs
+                let displaySongs = songs.filtered(by: searchText)
+                VStack(alignment: .leading, spacing: 12) {
+                    PetWhiteSectionTitle(
+                        title: "LOCAL",
+                        detail: String(format: NSLocalizedString("songs_count_format", comment: ""), displaySongs.count),
+                        icon: .musicNoteList,
+                        tint: PetWhiteStyle.mint
+                    )
+
+                    if songs.isEmpty {
+                        localEmptyState
+                            .padding(.top, 0)
+                    } else {
+                        localSongRows(playlist: currentPlaylist, songs: displaySongs)
+                    }
+                }
+                .padding(14)
+                .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+
+            FloatingBarBottomSpacer()
         }
     }
 

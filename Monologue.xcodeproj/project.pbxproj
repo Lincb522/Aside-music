@@ -262,7 +262,7 @@
 				F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
 				F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */,
 				F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */,
-				F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "../HiconIcons" */,
+				F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "HiconIcons" */,
 				1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "ZappiconIcons" */,
 				96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "LucideIcons" */,
 				D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "SolarIcons" */,
@@ -333,7 +333,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 34;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -368,7 +368,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 34;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -547,7 +547,7 @@
 				CODE_SIGN_ENTITLEMENTS = MonologueDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 34;
+				CURRENT_PROJECT_VERSION = 36;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				ENABLE_PREVIEWS = YES;
@@ -590,7 +590,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 34;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -686,9 +686,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = SolarIcons;
 		};
-		F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "../HiconIcons" */ = {
+		F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "HiconIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../HiconIcons;
+			relativePath = HiconIcons;
 		};
 		F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */ = {
 			isa = XCLocalSwiftPackageReference;

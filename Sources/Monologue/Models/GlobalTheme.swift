@@ -10,7 +10,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
     case capsule       // Capsule OS — 胶囊模块化系统界面
-    case petWhite      // 白绒爪印 — 纯白扁平、粗黑描边、猫狗图标包语言
+    case petWhite      // Pawcelain — 纯白扁平、猫狗图标包语言
     case pureWhite     // 已移除：仅用于迁移旧存档
     case material3Expressive // 已移除：仅用于迁移旧存档
     case bento         // 已移除：仅用于迁移旧存档

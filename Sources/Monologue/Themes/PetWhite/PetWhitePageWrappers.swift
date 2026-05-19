@@ -148,47 +148,50 @@ private struct PetWhiteCornerTag: View {
 struct PetWhiteHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: PetWhiteWebDestination?
     @State private var appeared = false
-    @State private var contentRevision = 0
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        NavigationStack(path: $navigationPath) {
-            ZStack {
-                ThemedPageBackground(useRenderLayer: true)
-                    .ignoresSafeArea()
+        PetWhiteThemeRoot(page: .home) {
+            NavigationStack(path: $navigationPath) {
+                ZStack {
+                    PetWhiteRootBackdrop()
+                        .ignoresSafeArea()
 
-                scrollBody
-            }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .onAppear {
-                hydratePetWhiteHome(reason: "pet white home appear")
-                revealHomeContent()
-            }
-            .onChange(of: settings.globalThemeRevision) { _, _ in
-                appeared = false
-                hydratePetWhiteHome(reason: "pet white theme revision")
-                revealHomeContent()
-            }
-            .onReceive(viewModel.objectWillChange.receive(on: DispatchQueue.main)) { _ in
-                contentRevision &+= 1
-                revealHomeContent()
-            }
-            .navigationDestination(for: HomeView.HomeDestination.self, destination: destinationView)
-            .fullScreenCover(isPresented: $showPersonalFM) {
-                PersonalFMView()
-            }
-            .fullScreenCover(item: $bannerWebURL) { url in
-                MonologueWebView(url: url.url, title: nil)
+                    scrollBody
+                        .zIndex(1)
+                }
+                .navigationTitle("")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .onAppear {
+                    hydratePetWhiteHome(reason: "pet white home appear")
+                    revealHomeContent()
+                }
+                .onChange(of: settings.globalThemeRevision) { _, _ in
+                    appeared = false
+                    hydratePetWhiteHome(reason: "pet white theme revision")
+                    revealHomeContent()
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    hydratePetWhiteHome(reason: "pet white foreground")
+                    revealHomeContent()
+                }
+                .navigationDestination(for: HomeView.HomeDestination.self, destination: destinationView)
+                .fullScreenCover(isPresented: $showPersonalFM) {
+                    PersonalFMView()
+                }
+                .fullScreenCover(item: $bannerWebURL) { url in
+                    MonologueWebView(url: url.url, title: nil)
+                }
             }
         }
-        .themeRenderSceneLayer()
     }
 
     private var isInitialHomeLoading: Bool {
@@ -214,10 +217,6 @@ struct PetWhiteHomeView: View {
 
     private func hydratePetWhiteHome(reason: String) {
         viewModel.ensureHomeDataLoaded(reason: reason)
-
-        if shouldHydrateHomeData {
-            viewModel.fetchData(forceDaily: viewModel.dailySongs.isEmpty)
-        }
     }
 
     private func revealHomeContent() {
@@ -251,6 +250,12 @@ struct PetWhiteHomeView: View {
                     PetWhiteLoadingView()
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                         .petWhiteAppear(appeared, order: 3)
+                } else if isHomeDataEmpty {
+                    PetWhiteHomeEmptyState {
+                        hydratePetWhiteHome(reason: "pet white empty retry")
+                    }
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .petWhiteAppear(appeared, order: 3)
                 }
 
                 if !viewModel.dailySongs.isEmpty {
@@ -298,11 +303,13 @@ struct PetWhiteHomeView: View {
             }
             .padding(.top, DeviceLayout.headerTopPadding + 14)
             .frame(maxWidth: .infinity, alignment: .top)
-            .id(contentRevision)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
-        .refreshable { viewModel.fetchData() }
+        .refreshable {
+            viewModel.fetchData(forceDaily: true)
+            viewModel.refreshHitokoto(force: true)
+        }
     }
 
     private var heroPanel: some View {
@@ -654,13 +661,18 @@ private struct PetWhiteBannerCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
+            PetWhiteSurfaceBackground(cornerRadius: 28, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.sky)
+
             CachedAsyncImage(url: banner.imageUrl) {
-                PetWhiteSurfaceBackground(cornerRadius: 28, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.sky)
+                PetWhitePetPetIcon(size: 64)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .aspectRatio(contentMode: .fill)
+            .aspectRatio(contentMode: .fit)
             .frame(maxWidth: .infinity)
             .frame(height: DeviceLayout.isPad ? 176 : 146)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
 
             LinearGradient(
                 colors: [.clear, PetWhiteStyle.stroke.opacity(0.34)],
@@ -693,6 +705,7 @@ private struct PetWhiteBannerCard: View {
                 .stroke(PetWhiteStyle.stroke, lineWidth: 1.6)
         )
         .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 }
 
@@ -919,6 +932,45 @@ private struct PetWhiteLoadingView: View {
                 Capsule().fill(PetWhiteStyle.blush).frame(width: 18, height: 8)
             }
         }
+    }
+}
+
+private struct PetWhiteHomeEmptyState: View {
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            PetWhiteMascotMark(kind: .pair, size: 72)
+
+            VStack(spacing: 5) {
+                Text(String(localized: "首页内容正在路上"))
+                    .font(PetWhiteStyle.titleFont(18, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.ink)
+
+                Text(String(localized: "网络或缓存暂时没有返回推荐内容，点一下让小爪子再找找。"))
+                    .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: onRetry) {
+                HStack(spacing: 7) {
+                    PetWhitePackIcon(icon: .refresh, size: 16, visualScale: 1.08, fallbackColor: PetWhiteStyle.onAccent)
+                    Text(String(localized: "重新加载"))
+                        .font(PetWhiteStyle.labelFont(12, weight: .black))
+                }
+                .foregroundStyle(PetWhiteStyle.onAccent)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(PetWhiteStyle.accent, in: Capsule())
+                .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 24, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
     }
 }
 

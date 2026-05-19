@@ -1,0 +1,35 @@
+name: FFmpegDemo
+options:
+  bundleIdPrefix: com.ffmpegswiftsdk
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+packages:
+  FFmpegSwiftSDK:
+    path: ..
+
+targets:
+  FFmpegDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: FFmpegDemo/Sources
+    resources:
+      - path: FFmpegDemo/Resources
+    settings:
+      base:
+        INFOPLIST_FILE: FFmpegDemo/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.ffmpegswiftsdk.demo
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: false
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+    dependencies:
+      - package: FFmpegSwiftSDK
