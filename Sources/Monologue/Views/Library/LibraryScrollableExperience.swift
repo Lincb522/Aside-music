@@ -137,6 +137,8 @@ struct ScrollableLibraryExperience: View {
     private var header: some View {
         if LiquidGlassStyle.isActive {
             liquidGlassHeaderDeck
+        } else if PetWhiteStyle.isActive {
+            petWhiteHeaderDeck
         } else if NeumorphicStyle.isActive {
             neumorphicHeaderDeck
         } else if SignalStyle.isActive {
@@ -221,6 +223,47 @@ struct ScrollableLibraryExperience: View {
         .padding(.top, DeviceLayout.headerTopPadding + 10)
     }
 
+    private var petWhiteHeaderDeck: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                PetWhitePetPetIcon(size: 76)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
+                        PetWhitePackIcon(icon: icon(for: selectedTab), size: 18, visualScale: 1.1)
+                    }
+
+                    Text(String(localized: "tabbar_library"))
+                        .font(PetWhiteStyle.titleFont(29, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(activeTabShortLabel)
+                    .font(PetWhiteStyle.labelFont(10, weight: .black))
+                    .foregroundStyle(PetWhiteStyle.stroke)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .background(
+                        Capsule()
+                            .fill(activeTabTint.opacity(0.86))
+                            .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                    )
+            }
+            .padding(16)
+            .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: activeTabTint))
+
+            tabStrip
+        }
+        .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
     private var signalHeaderDeck: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 12) {
@@ -300,6 +343,8 @@ struct ScrollableLibraryExperience: View {
     private var tabStrip: some View {
         if LiquidGlassStyle.isActive {
             liquidGlassTabDeck
+        } else if PetWhiteStyle.isActive {
+            petWhiteTabDeck
         } else if NeumorphicStyle.isActive {
             neumorphicTabDeck
         } else if SignalStyle.isActive {
@@ -517,6 +562,46 @@ struct ScrollableLibraryExperience: View {
         .padding(5)
         .background(LiquidGlassSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome))
         .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
+    }
+
+    private var petWhiteTabDeck: some View {
+        HStack(spacing: 7) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                petWhiteTabButton(tab: tab, index: index)
+            }
+        }
+        .padding(5)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfacePressed, accent: activeTabTint))
+        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
+    }
+
+    private func petWhiteTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
+        let selected = tabIndex == index
+        let tint = tint(for: tab)
+
+        return Button {
+            selectTab(tab, index: index)
+        } label: {
+            VStack(spacing: 5) {
+                PetWhitePackIcon(
+                    icon: icon(for: tab),
+                    size: 19,
+                    visualScale: selected ? 1.08 : 0.98,
+                    fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
+                    lineWidth: selected ? 1.9 : 1.55
+                )
+
+                Text(tab.localizedKey)
+                    .font(PetWhiteStyle.labelFont(10.5, weight: selected ? .black : .bold))
+                    .foregroundStyle(selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(PetWhiteDockSelectionBackground(tint: tint, isSelected: selected, cornerRadius: 16))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
     }
 
     private func liquidGlassTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
@@ -1834,7 +1919,7 @@ struct ScrollableLibraryExperience: View {
 
     private func icon(for tab: LibraryViewModel.LibraryTab) -> MonologueIcon.IconType {
         switch tab {
-        case .my: return .libraryFilled
+        case .my: return PetWhiteStyle.isActive ? .library : .libraryFilled
         case .square: return .gridSquare
         case .artists: return .personCircle
         case .charts: return .chart
@@ -1862,6 +1947,7 @@ struct ScrollableLibraryExperience: View {
 
     private var primaryText: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
@@ -1872,6 +1958,7 @@ struct ScrollableLibraryExperience: View {
 
     private var secondaryText: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
@@ -1882,6 +1969,7 @@ struct ScrollableLibraryExperience: View {
 
     private var defaultAccent: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.accent }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
         if MujiStyle.isActive { return MujiStyle.tea }
@@ -1892,6 +1980,7 @@ struct ScrollableLibraryExperience: View {
 
     private var secondaryAccent: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.cyan }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.mint }
         if NeumorphicStyle.isActive { return NeumorphicStyle.sage }
         if SignalStyle.isActive { return SignalStyle.olive }
         if MujiStyle.isActive { return MujiStyle.clay }
@@ -1902,6 +1991,7 @@ struct ScrollableLibraryExperience: View {
 
     private var tertiaryAccent: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.mint }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.sky }
         if NeumorphicStyle.isActive { return NeumorphicStyle.warm }
         if SignalStyle.isActive { return SignalStyle.rust }
         if MujiStyle.isActive { return MujiStyle.indigo }
@@ -1912,6 +2002,7 @@ struct ScrollableLibraryExperience: View {
 
     private var quaternaryAccent: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.violet }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.butter }
         if NeumorphicStyle.isActive { return NeumorphicStyle.red }
         if SignalStyle.isActive { return SignalStyle.red }
         if MujiStyle.isActive { return MujiStyle.red }
@@ -1922,17 +2013,20 @@ struct ScrollableLibraryExperience: View {
 
     private var selectedChipText: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         return MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueIconForeground)))
     }
 
     private var tabCornerRadius: CGFloat {
         if LiquidGlassStyle.isActive { return 17 }
+        if PetWhiteStyle.isActive { return 16 }
         return NeumorphicStyle.isActive ? 15 : (SignalStyle.isActive ? 16 : (MujiStyle.isActive ? 8 : (SequoiaStyle.isActive ? 14 : 14)))
     }
 
     private func tabFont(selected: Bool) -> Font {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(12, weight: selected ? .black : .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
@@ -1943,6 +2037,7 @@ struct ScrollableLibraryExperience: View {
 
     private func chipFont(selected: Bool) -> Font {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(12, weight: selected ? .semibold : .medium) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(12, weight: selected ? .black : .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: selected ? .bold : .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: selected ? .semibold : .regular) }
@@ -1959,6 +2054,8 @@ struct ScrollableLibraryExperience: View {
         Group {
             if LiquidGlassStyle.isActive {
                 LiquidGlassSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.16) : nil, role: selected ? .selected : .list)
+            } else if PetWhiteStyle.isActive {
+                PetWhiteDockSelectionBackground(tint: tint, isSelected: selected, cornerRadius: tabCornerRadius)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, tint: selected ? tint.opacity(0.15) : NeumorphicStyle.surface, lightweight: true)
             } else if SignalStyle.isActive {
@@ -1980,6 +2077,8 @@ struct ScrollableLibraryExperience: View {
         Group {
             if LiquidGlassStyle.isActive {
                 LiquidGlassSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.15) : nil, role: selected ? .selected : .list)
+            } else if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, tint: selected ? tint.opacity(0.86) : PetWhiteStyle.surfaceRaised, accent: tint)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, pressed: !selected, tint: selected ? tint.opacity(0.16) : NeumorphicStyle.surface, lightweight: true)
             } else if SignalStyle.isActive {
@@ -2012,6 +2111,8 @@ struct ScrollableLibraryExperience: View {
         Group {
             if LiquidGlassStyle.isActive {
                 LiquidGlassSurfaceBackground(cornerRadius: min(cornerRadius, 24), elevated: true, role: .chrome)
+            } else if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 24), elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: activeTabTint)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true, lightweight: true)
             } else if SignalStyle.isActive {

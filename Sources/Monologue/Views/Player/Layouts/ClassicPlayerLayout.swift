@@ -975,6 +975,13 @@ struct ClassicPlayerLayout: View {
         .opacity(isDownloaded ? 0.62 : 1)
     }
 
+    // MARK: - Capsule OS 播放器（重设计：单焦点、胶囊系统）
+    // 设计语言:
+    //   · 顶部单一胶囊条(返回 / 歌名 / 更多)
+    //   · 大封面,纯净,无装饰色条、无旋转、无浮层按钮
+    //   · 进度条平铺于封面下方,不放进额外玻璃卡
+    //   · 5 枚等距小胶囊控件(质量/收藏/歌词/评论/下载)
+    //   · 底部单一 Control Capsule(循环 / 上一首 / 大播放键 / 下一首 / 队列)
     private func capsulePlayerContent(geometry: GeometryProxy) -> some View {
         let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
 
@@ -982,43 +989,62 @@ struct ClassicPlayerLayout: View {
             capsulePlayerTopBar
                 .padding(.top, DeviceLayout.headerTopPadding)
                 .padding(.horizontal, horizontalPadding)
-                .padding(.bottom, 12)
+                .padding(.bottom, 14)
 
             Group {
                 if showLyrics {
                     capsuleLyricsStage(geometry: geometry)
                 } else {
-                    capsulePlaybackStack(geometry: geometry)
+                    capsulePlaybackStage(geometry: geometry)
                 }
             }
             .frame(maxHeight: .infinity, alignment: .center)
             .animation(.spring(response: 0.44, dampingFraction: 0.88), value: showLyrics)
 
-            capsuleControlCapsule
+            capsuleControlDeck
                 .padding(.horizontal, horizontalPadding)
                 .padding(.bottom, DeviceLayout.playerBottomSafePadding)
         }
         .themeRenderSceneLayer()
     }
 
+    // MARK: - 顶部胶囊(单一条)
+
     private var capsulePlayerTopBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             capsuleTopButton(icon: .chevronLeft) {
                 dismiss()
             }
 
-            MarqueeText(
-                text: player.currentSong?.name ?? String(localized: "未在播放"),
-                font: CapsuleStyle.bodyFont(13, weight: .bold),
-                color: CapsuleStyle.ink,
-                speed: 30,
-                delayBeforeScroll: 1.8,
-                alignment: .center
-            )
+            HStack(spacing: 8) {
+                MonologueIcon(
+                    icon: player.isPlaying ? .musicNote : .play,
+                    size: 13,
+                    color: CapsuleStyle.accent,
+                    lineWidth: 1.7
+                )
+
+                MarqueeText(
+                    text: capsuleTopBarText,
+                    font: CapsuleStyle.labelFont(12, weight: .semibold),
+                    color: CapsuleStyle.ink,
+                    speed: 28,
+                    delayBeforeScroll: 1.8,
+                    alignment: .center
+                )
+                .frame(height: 22)
+            }
             .padding(.horizontal, 14)
-            .frame(height: 44)
             .frame(maxWidth: .infinity)
-            .background(capsuleGlassPanel(cornerRadius: 22, tint: CapsuleStyle.surface.opacity(0.74)))
+            .frame(height: 44)
+            .background(
+                Capsule()
+                    .fill(CapsuleStyle.surface.opacity(0.74))
+                    .background(.ultraThinMaterial, in: Capsule())
+            )
+            .overlay(
+                Capsule().stroke(CapsuleStyle.hairline.opacity(0.68), lineWidth: 1)
+            )
 
             capsuleTopButton(icon: .more) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
@@ -1028,67 +1054,78 @@ struct ClassicPlayerLayout: View {
         }
     }
 
+    private var capsuleTopBarText: String {
+        guard let song = player.currentSong else {
+            return String(localized: "未在播放")
+        }
+        let artist = song.artistName.isEmpty ? "" : " · \(song.artistName)"
+        return "\(song.name)\(artist)"
+    }
+
     private func capsuleTopButton(icon: MonologueIcon.IconType, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            MonologueIcon(icon: icon, size: 20, color: CapsuleStyle.ink, lineWidth: 1.7)
+            MonologueIcon(icon: icon, size: 18, color: CapsuleStyle.ink, lineWidth: 1.75)
                 .frame(width: 44, height: 44)
-                .background(capsuleGlassPanel(cornerRadius: 18, tint: CapsuleStyle.surfaceRaised.opacity(0.72)))
+                .background(
+                    Capsule()
+                        .fill(CapsuleStyle.surface.opacity(0.74))
+                        .background(.ultraThinMaterial, in: Capsule())
+                )
+                .overlay(Capsule().stroke(CapsuleStyle.hairline.opacity(0.68), lineWidth: 1))
         }
         .buttonStyle(CapsulePressStyle())
     }
 
-    private func capsulePlaybackStack(geometry: GeometryProxy) -> some View {
+    // MARK: - 播放阶段(封面 + 歌曲信息 + 快捷操作)
+
+    private func capsulePlaybackStage(geometry: GeometryProxy) -> some View {
         let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
         let availableWidth = geometry.size.width - horizontalPadding * 2
-        let artSize = min(DeviceLayout.isPad ? 278 : 218, max(174, availableWidth * 0.58))
-        let maxWidth = min(availableWidth, DeviceLayout.isPad ? 620 : 460)
+        // 单焦点:封面占据主要视觉重量
+        let artSize = min(DeviceLayout.isPad ? 340 : 300, max(220, availableWidth * 0.78))
 
-        return VStack(spacing: 16) {
-            capsuleArtworkStage(size: artSize)
-            capsuleNowPlayingStrip
-        }
-        .padding(.horizontal, horizontalPadding)
-        .frame(maxWidth: maxWidth)
-        .frame(maxWidth: .infinity)
-    }
-
-    private func capsuleArtworkStage(size: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 44, style: .continuous)
-                .fill(CapsuleStyle.surface.opacity(0.5))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 44, style: .continuous))
-                .frame(width: size + 74, height: size + 64)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 44, style: .continuous)
-                        .stroke(CapsuleStyle.hairline.opacity(0.82), lineWidth: 1)
-                )
-                .shadow(color: CapsuleStyle.accent.opacity(0.1), radius: 22, x: 0, y: 13)
-                .rotationEffect(.degrees(-1.4))
-
-            capsuleRawArtwork(size: size)
-                .rotationEffect(.degrees(1.2))
+        return VStack(spacing: 22) {
+            capsuleCleanArtwork(size: artSize)
                 .onTapWithHaptic {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.84)) {
                         showLyrics.toggle()
                     }
                 }
 
-            capsulePlayPulse
-                .offset(x: size * 0.34, y: size * 0.34)
+            VStack(spacing: 6) {
+                Text(player.currentSong?.name ?? "Unknown Song")
+                    .font(CapsuleStyle.titleFont(24, weight: .bold))
+                    .foregroundStyle(CapsuleStyle.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.78)
 
-            HStack(spacing: 6) {
-                Capsule().fill(CapsuleStyle.accent).frame(width: 36, height: 7)
-                Capsule().fill(CapsuleStyle.cyan.opacity(0.72)).frame(width: 20, height: 7)
-                Capsule().fill(CapsuleStyle.violet.opacity(0.58)).frame(width: 12, height: 7)
+                Button { showArtistDetail = true } label: {
+                    Text(player.currentSong?.artistName ?? "Unknown Artist")
+                        .font(CapsuleStyle.bodyFont(14, weight: .semibold))
+                        .foregroundStyle(CapsuleStyle.inkSoft)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+
+                // 音质元数据
+                if let info = player.streamInfo {
+                    Text(streamInfoText(info))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(CapsuleStyle.inkMuted.opacity(0.72))
+                        .lineLimit(1)
+                }
             }
-            .offset(y: -(size * 0.5 + 22))
+
+            capsuleQuickActionRow
+                .padding(.top, 2)
         }
-        .frame(height: size + 86)
+        .padding(.horizontal, horizontalPadding)
     }
 
     @ViewBuilder
-    private func capsuleRawArtwork(size: CGFloat) -> some View {
-        let cornerRadius: CGFloat = 36
+    private func capsuleCleanArtwork(size: CGFloat) -> some View {
+        let cornerRadius: CGFloat = 32
 
         ZStack {
             if let song = player.currentSong {
@@ -1114,86 +1151,40 @@ struct ClassicPlayerLayout: View {
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(CapsuleStyle.hairline.opacity(0.92), lineWidth: 1)
+                .stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 10)
+        .shadow(color: Color.black.opacity(0.16), radius: 34, x: 0, y: 20)
+        .shadow(color: CapsuleStyle.accent.opacity(0.08), radius: 20, x: 0, y: 12)
+        .scaleEffect(player.isPlaying ? 1 : 0.97)
+        .animation(.spring(response: 0.42, dampingFraction: 0.88), value: player.isPlaying)
     }
 
-    private var capsuleNowPlayingStrip: some View {
-        VStack(spacing: 13) {
-            VStack(spacing: 6) {
-                Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(CapsuleStyle.titleFont(24, weight: .bold))
-                    .foregroundStyle(CapsuleStyle.ink)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.78)
+    // MARK: - 快捷操作栏(5 枚等距小胶囊)
 
-                Button { showArtistDetail = true } label: {
-                    Text(player.currentSong?.artistName ?? "Unknown Artist")
-                        .font(CapsuleStyle.bodyFont(14, weight: .semibold))
-                        .foregroundStyle(CapsuleStyle.inkSoft)
-                        .lineLimit(1)
-                }
-                .buttonStyle(.plain)
-            }
-
-            HStack(spacing: 10) {
-                capsuleQualityChip
-                capsuleLikeControl
-                capsuleLyricsToggle
-            }
+    private var capsuleQuickActionRow: some View {
+        HStack(spacing: 10) {
+            capsuleQualityChip
+            capsuleLikeControl
+            capsuleLyricsToggle
+            capsuleCommentQuick
+            capsuleDownloadQuick
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 15)
-        .background(capsuleGlassPanel(cornerRadius: 28, tint: CapsuleStyle.surface.opacity(0.76)))
-    }
-
-    private func capsuleGlassPanel(cornerRadius: CGFloat, tint: Color) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(tint)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 1)
-            )
-            .shadow(color: CapsuleStyle.accent.opacity(0.06), radius: 18, x: 0, y: 10)
-            .shadow(color: Color.black.opacity(0.045), radius: 10, x: 0, y: 7)
     }
 
     private var capsuleQualityChip: some View {
         Button(action: { showQualitySheet = true }) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 MonologueIcon(icon: .soundQuality, size: 13, color: CapsuleStyle.accent, lineWidth: 1.7)
                 Text(player.qualityButtonText)
                     .font(CapsuleStyle.labelFont(11, weight: .bold))
                     .foregroundStyle(CapsuleStyle.ink)
                     .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.horizontal, 12)
-            .frame(height: 32)
-            .background(Capsule().fill(CapsuleStyle.surfaceRaised.opacity(0.72)))
+            .frame(height: 36)
+            .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
             .overlay(Capsule().stroke(CapsuleStyle.accent.opacity(0.22), lineWidth: 0.9))
-        }
-        .buttonStyle(CapsulePressStyle())
-    }
-
-    private var capsulePlayPulse: some View {
-        Button(action: { player.togglePlayPause() }) {
-            ZStack {
-                Capsule()
-                    .fill(CapsuleStyle.accent)
-                    .frame(width: 64, height: 48)
-                    .overlay(Capsule().stroke(Color.white.opacity(0.32), lineWidth: 1))
-                    .shadow(color: CapsuleStyle.accent.opacity(0.26), radius: 12, x: 0, y: 7)
-
-                if player.isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: CapsuleStyle.onAccent))
-                } else {
-                    MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 23, color: CapsuleStyle.onAccent, lineWidth: 1.8)
-                }
-            }
         }
         .buttonStyle(CapsulePressStyle())
     }
@@ -1205,16 +1196,16 @@ struct ClassicPlayerLayout: View {
                 songId: song.id,
                 isQQMusic: song.isQQMusic,
                 song: song,
-                size: 22,
+                size: 18,
                 activeColor: CapsuleStyle.coral,
                 inactiveColor: CapsuleStyle.inkSoft
             )
-            .frame(width: 40, height: 40)
-            .background(capsuleGlassPanel(cornerRadius: 16, tint: CapsuleStyle.surfaceRaised.opacity(0.72)))
+            .frame(width: 36, height: 36)
+            .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
         } else {
-            MonologueIcon(icon: .like, size: 21, color: CapsuleStyle.inkSoft, lineWidth: 1.6)
-                .frame(width: 40, height: 40)
-                .background(capsuleGlassPanel(cornerRadius: 16, tint: CapsuleStyle.surfaceRaised.opacity(0.72)))
+            MonologueIcon(icon: .like, size: 17, color: CapsuleStyle.inkSoft, lineWidth: 1.6)
+                .frame(width: 36, height: 36)
+                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
         }
     }
 
@@ -1226,17 +1217,63 @@ struct ClassicPlayerLayout: View {
         }) {
             MonologueIcon(
                 icon: .karaoke,
-                size: 17,
+                size: 15,
                 color: showLyrics ? CapsuleStyle.onAccent : CapsuleStyle.accent,
                 lineWidth: 1.6
             )
-            .frame(width: 40, height: 40)
+            .frame(width: 36, height: 36)
             .background(
-                capsuleGlassPanel(cornerRadius: 16, tint: showLyrics ? CapsuleStyle.accent : CapsuleStyle.surfaceRaised.opacity(0.72))
+                capsulePillBackground(
+                    tint: showLyrics ? CapsuleStyle.accent : CapsuleStyle.surfaceRaised.opacity(0.78)
+                )
             )
         }
         .buttonStyle(CapsulePressStyle())
     }
+
+    @ViewBuilder
+    private var capsuleCommentQuick: some View {
+        Button { showComments = true } label: {
+            MonologueIcon(icon: .comment, size: 16, color: CapsuleStyle.violet, lineWidth: 1.6)
+                .frame(width: 36, height: 36)
+                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
+        }
+        .buttonStyle(CapsulePressStyle())
+        .disabled(player.currentSong == nil)
+        .opacity(player.currentSong == nil ? 0.4 : 1)
+    }
+
+    @ViewBuilder
+    private var capsuleDownloadQuick: some View {
+        if let song = player.currentSong {
+            let isDownloaded = downloadManager.isDownloaded(songId: song.id)
+
+            Button {
+                if !isDownloaded {
+                    showDownloadSheet = true
+                }
+            } label: {
+                MonologueIcon(
+                    icon: .playerDownload,
+                    size: 16,
+                    color: isDownloaded ? CapsuleStyle.inkMuted.opacity(0.6) : CapsuleStyle.mint,
+                    lineWidth: 1.6
+                )
+                .frame(width: 36, height: 36)
+                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(isDownloaded ? 0.46 : 0.78)))
+            }
+            .buttonStyle(CapsulePressStyle())
+            .disabled(isDownloaded)
+            .opacity(isDownloaded ? 0.62 : 1)
+        } else {
+            MonologueIcon(icon: .playerDownload, size: 16, color: CapsuleStyle.inkSoft, lineWidth: 1.6)
+                .frame(width: 36, height: 36)
+                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.5)))
+                .opacity(0.4)
+        }
+    }
+
+    // MARK: - 歌词阶段
 
     private func capsuleLyricsStage(geometry: GeometryProxy) -> some View {
         let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
@@ -1245,12 +1282,22 @@ struct ClassicPlayerLayout: View {
         return VStack(spacing: 12) {
             HStack(spacing: 8) {
                 capsuleLyricsToggle
-                capsuleToggleButton(icon: .translate, isActive: showTranslation, tint: CapsuleStyle.cyan) {
+                capsuleToggleButton(
+                    icon: .translate,
+                    isActive: showTranslation,
+                    tint: CapsuleStyle.cyan,
+                    selectedPetWhiteAssetName: "translateSelected"
+                ) {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
                         showTranslation.toggle()
                     }
                 }
-                capsuleToggleButton(icon: .karaoke, isActive: enableKaraoke, tint: CapsuleStyle.violet) {
+                capsuleToggleButton(
+                    icon: .karaoke,
+                    isActive: enableKaraoke,
+                    tint: CapsuleStyle.violet,
+                    selectedPetWhiteAssetName: "karaokeSelected"
+                ) {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
                         enableKaraoke.toggle()
                     }
@@ -1259,9 +1306,16 @@ struct ClassicPlayerLayout: View {
                 Spacer(minLength: 0)
 
                 if let song = player.currentSong {
-                    LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 22, activeColor: CapsuleStyle.coral, inactiveColor: CapsuleStyle.inkSoft)
-                        .frame(width: 40, height: 40)
-                        .background(capsuleGlassPanel(cornerRadius: 16, tint: CapsuleStyle.surfaceRaised.opacity(0.72)))
+                    LikeButton(
+                        songId: song.id,
+                        isQQMusic: song.isQQMusic,
+                        song: song,
+                        size: 20,
+                        activeColor: CapsuleStyle.coral,
+                        inactiveColor: CapsuleStyle.inkSoft
+                    )
+                    .frame(width: 36, height: 36)
+                    .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
                 }
             }
 
@@ -1284,38 +1338,104 @@ struct ClassicPlayerLayout: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func capsuleToggleButton(icon: MonologueIcon.IconType, isActive: Bool, tint: Color, action: @escaping () -> Void) -> some View {
+    private func capsuleToggleButton(
+        icon: MonologueIcon.IconType,
+        isActive: Bool,
+        tint: Color,
+        selectedPetWhiteAssetName: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            MonologueIcon(
-                icon: icon,
-                size: 18,
-                color: isActive ? ThemeColorCustomization.readableForegroundColor(on: tint, light: Color(hex: "111821"), dark: .white) : tint,
-                lineWidth: 1.6
+            let usesPetWhiteAssetState = PetWhiteStyle.isActive && selectedPetWhiteAssetName != nil
+
+            ZStack {
+                lyricModeToggleIcon(
+                    icon: icon,
+                    isActive: isActive,
+                    activeColor: ThemeColorCustomization.readableForegroundColor(on: tint, light: Color(hex: "111821"), dark: .white),
+                    inactiveColor: tint,
+                    selectedPetWhiteAssetName: selectedPetWhiteAssetName,
+                    size: 16,
+                    lineWidth: 1.6
+                )
+            }
+            .frame(width: 36, height: 36)
+            .background(
+                capsulePillBackground(
+                    tint: usesPetWhiteAssetState
+                        ? CapsuleStyle.surfaceRaised.opacity(0.78)
+                        : (isActive ? tint : CapsuleStyle.surfaceRaised.opacity(0.78))
+                )
             )
-                .frame(width: 40, height: 40)
-                .background(capsuleGlassPanel(cornerRadius: 16, tint: isActive ? tint : CapsuleStyle.surfaceRaised.opacity(0.72)))
+            .overlay(alignment: .topTrailing) {
+                if !usesPetWhiteAssetState {
+                    Circle()
+                        .fill(isActive ? tint : CapsuleStyle.separator.opacity(0.34))
+                        .frame(width: 6, height: 6)
+                        .padding(5)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !usesPetWhiteAssetState {
+                    Capsule()
+                        .fill(isActive ? tint.opacity(0.96) : CapsuleStyle.separator.opacity(0.34))
+                        .frame(width: isActive ? 16 : 10, height: 2.5)
+                        .padding(.bottom, 4)
+                }
+            }
         }
         .buttonStyle(CapsulePressStyle())
     }
 
-    private var capsuleControlCapsule: some View {
-        VStack(spacing: 12) {
-            if showLyrics {
-                lyricsModeSongInfo
-                    .padding(.horizontal, 8)
-            }
-
-            capsuleProgressRail
-            capsuleTransportControls
+    @ViewBuilder
+    private func lyricModeToggleIcon(
+        icon: MonologueIcon.IconType,
+        isActive: Bool,
+        activeColor: Color,
+        inactiveColor: Color,
+        selectedPetWhiteAssetName: String? = nil,
+        size: CGFloat,
+        lineWidth: CGFloat
+    ) -> some View {
+        if PetWhiteStyle.isActive, let selectedPetWhiteAssetName {
+            let assetName = isActive ? selectedPetWhiteAssetName : String(describing: icon)
+            PetWhiteSelectedLyricToggleIcon(
+                assetName: assetName,
+                size: max(size + 6, 22)
+            )
+            .scaleEffect(isActive ? 1.08 : 1)
+            .offset(y: isActive ? -0.5 : 0)
+        } else {
+            MonologueIcon(
+                icon: icon,
+                size: size,
+                color: isActive ? activeColor : inactiveColor,
+                lineWidth: lineWidth
+            )
+            .scaleEffect(isActive ? 1.08 : 1)
+            .offset(y: isActive ? -0.5 : 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 12)
-        .padding(.bottom, 13)
-        .background(capsuleGlassPanel(cornerRadius: 32, tint: CapsuleStyle.surface.opacity(0.82)))
     }
 
-    private var capsuleProgressRail: some View {
-        VStack(spacing: 4) {
+    // MARK: - 底部控件舱(单一 Capsule Deck)
+
+    private var capsuleControlDeck: some View {
+        VStack(spacing: 14) {
+            if showLyrics {
+                lyricsModeSongInfo
+                    .padding(.horizontal, 6)
+            }
+
+            // 进度条(平铺,无玻璃外壳)
+            capsuleProgressStrip
+
+            // 主控胶囊:循环 / 上一 / 大播放 / 下一 / 队列
+            capsuleTransportBar
+        }
+    }
+
+    private var capsuleProgressStrip: some View {
+        VStack(spacing: 6) {
             FullScreenPlayerView.WaveformProgressBar(
                 currentTime: Binding(
                     get: { isDraggingSlider ? dragTimeValue : timePublisher.currentTime },
@@ -1334,179 +1454,123 @@ struct ClassicPlayerLayout: View {
                     player.seek(to: time)
                 }
             )
-            .frame(height: 28)
-            .frame(maxWidth: .infinity)
+            .frame(height: 26)
 
             HStack {
                 capsuleTimeChip(formatTime(isDraggingSlider ? dragTimeValue : timePublisher.currentTime), alignment: .leading)
                 Spacer(minLength: 12)
                 capsuleTimeChip(formatTime(timePublisher.duration), alignment: .trailing)
             }
+            .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(CapsuleStyle.surfaceTint.opacity(0.72)))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(CapsuleStyle.separator.opacity(0.32), lineWidth: 0.8))
     }
 
     private func capsuleTimeChip(_ text: String, alignment: Alignment = .center) -> some View {
         Text(text)
-            .font(CapsuleStyle.labelFont(10, weight: .bold))
+            .font(CapsuleStyle.labelFont(11, weight: .semibold))
             .foregroundStyle(CapsuleStyle.inkMuted)
             .monospacedDigit()
             .lineLimit(1)
-            .frame(minWidth: 42, alignment: alignment)
+            .frame(minWidth: 44, alignment: alignment)
     }
 
-    private var capsuleTransportControls: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                capsuleIconButton(icon: player.mode.monologueIcon, diameter: 38, iconSize: 18, tint: CapsuleStyle.inkSoft) {
-                    player.switchMode()
-                }
-
-                Spacer(minLength: 6)
-
-                capsuleTransportHub
-                    .layoutPriority(1)
-
-                Spacer(minLength: 6)
-
-                capsuleIconButton(icon: .list, diameter: 38, iconSize: 18, tint: CapsuleStyle.inkSoft) {
-                    showPlaylist = true
-                }
+    private var capsuleTransportBar: some View {
+        HStack(spacing: 10) {
+            capsuleTransportSideButton(icon: player.mode.monologueIcon, tint: CapsuleStyle.inkSoft) {
+                player.switchMode()
             }
-            .frame(maxWidth: .infinity)
 
-            if let song = player.currentSong {
-                HStack(spacing: 10) {
-                    capsuleUtilityButton(icon: .comment, tint: CapsuleStyle.violet) {
-                        showComments = true
-                    }
-
-                    capsuleDownloadButton(song: song)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(CapsuleStyle.surfaceTint.opacity(0.54)))
-                .overlay(Capsule().stroke(CapsuleStyle.separator.opacity(0.26), lineWidth: 0.8))
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var capsuleTransportHub: some View {
-        HStack(spacing: 8) {
-            capsuleIconButton(icon: .previous, diameter: 40, iconSize: 22, tint: CapsuleStyle.ink) {
+            capsuleTransportSideButton(icon: .previous, tint: CapsuleStyle.ink, iconSize: 20) {
                 player.previous()
             }
 
             capsuleMainPlayButton
 
-            capsuleIconButton(icon: .next, diameter: 40, iconSize: 22, tint: CapsuleStyle.ink) {
+            capsuleTransportSideButton(icon: .next, tint: CapsuleStyle.ink, iconSize: 20) {
                 player.next()
             }
+
+            capsuleTransportSideButton(icon: .list, tint: CapsuleStyle.inkSoft) {
+                showPlaylist = true
+            }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(CapsuleStyle.surfaceTint.opacity(0.66)))
-        .overlay(Capsule().stroke(CapsuleStyle.separator.opacity(0.32), lineWidth: 0.8))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            Capsule()
+                .fill(CapsuleStyle.surface.opacity(0.82))
+                .background(.ultraThinMaterial, in: Capsule())
+        )
+        .overlay(Capsule().stroke(CapsuleStyle.hairline.opacity(0.64), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.08), radius: 22, x: 0, y: 12)
+        .shadow(color: CapsuleStyle.accent.opacity(0.06), radius: 14, x: 0, y: 8)
+    }
+
+    private func capsuleTransportSideButton(
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        iconSize: CGFloat = 18,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: iconSize, color: tint, lineWidth: 1.65)
+                .frame(width: 44, height: 44)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(CapsulePressStyle())
     }
 
     private var capsuleMainPlayButton: some View {
         Button(action: { player.togglePlayPause() }) {
             ZStack {
                 Capsule()
-                    .fill(CapsuleStyle.accent)
-                    .frame(width: 68, height: 52)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                CapsuleStyle.accent,
+                                CapsuleStyle.accent.opacity(0.88),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 72, height: 52)
                     .overlay(Capsule().stroke(Color.white.opacity(0.38), lineWidth: 1))
-                    .shadow(color: CapsuleStyle.accent.opacity(0.22), radius: 11, x: 0, y: 7)
+                    .shadow(color: CapsuleStyle.accent.opacity(0.32), radius: 12, x: 0, y: 7)
 
                 if player.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: CapsuleStyle.onAccent))
                         .scaleEffect(1.05)
                 } else {
-                    MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 30, color: CapsuleStyle.onAccent, lineWidth: 1.8)
+                    MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 28, color: CapsuleStyle.onAccent, lineWidth: 1.8)
                 }
             }
         }
         .buttonStyle(CapsulePressStyle())
-        .scaleEffect(player.isPlaying ? 1 : 0.98)
+        .scaleEffect(player.isPlaying ? 1 : 0.97)
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: player.isPlaying)
     }
 
-    private func capsuleIconButton(
-        icon: MonologueIcon.IconType,
-        diameter: CGFloat,
-        iconSize: CGFloat,
-        tint: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            MonologueIcon(icon: icon, size: iconSize, color: tint, lineWidth: 1.6)
-                .frame(width: diameter, height: diameter)
-                .background(
-                    RoundedRectangle(cornerRadius: diameter * 0.4, style: .continuous)
-                        .fill(CapsuleStyle.surfaceRaised.opacity(0.72))
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: diameter * 0.4, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: diameter * 0.4, style: .continuous)
-                                .stroke(CapsuleStyle.separator.opacity(0.34), lineWidth: 0.8)
-                        )
-                )
-        }
-        .buttonStyle(CapsulePressStyle())
-    }
+    // MARK: - 通用面板/胶囊背景
 
-    private func capsuleUtilityRail(song: Song) -> some View {
-        HStack(spacing: 12) {
-            capsuleUtilityButton(icon: .comment, tint: CapsuleStyle.violet) {
-                showComments = true
-            }
-
-            capsuleDownloadButton(song: song)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .background(Capsule().fill(CapsuleStyle.surfaceTint.opacity(0.82)))
-        .overlay(Capsule().stroke(CapsuleStyle.separator.opacity(0.34), lineWidth: 0.8))
-    }
-
-    private func capsuleUtilityButton(
-        icon: MonologueIcon.IconType,
-        tint: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            MonologueIcon(icon: icon, size: 21, color: tint, lineWidth: 1.55)
-                .frame(width: 38, height: 38)
-                .background(capsuleGlassPanel(cornerRadius: 15, tint: CapsuleStyle.surfaceRaised.opacity(0.72)))
-        }
-        .buttonStyle(CapsulePressStyle())
-    }
-
-    private func capsuleDownloadButton(song: Song) -> some View {
-        let isDownloaded = downloadManager.isDownloaded(songId: song.id)
-
-        return Button {
-            if !isDownloaded {
-                showDownloadSheet = true
-            }
-        } label: {
-            MonologueIcon(
-                icon: .playerDownload,
-                size: 21,
-                color: isDownloaded ? CapsuleStyle.inkMuted.opacity(0.58) : CapsuleStyle.mint,
-                lineWidth: 1.55
+    private func capsuleGlassPanel(cornerRadius: CGFloat, tint: Color) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(tint)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(CapsuleStyle.hairline.opacity(0.68), lineWidth: 1)
             )
-            .frame(width: 38, height: 38)
-            .background(capsuleGlassPanel(cornerRadius: 15, tint: CapsuleStyle.surfaceRaised.opacity(isDownloaded ? 0.44 : 0.72)))
-        }
-        .buttonStyle(CapsulePressStyle())
-        .disabled(isDownloaded)
-        .opacity(isDownloaded ? 0.62 : 1)
+            .shadow(color: CapsuleStyle.accent.opacity(0.06), radius: 18, x: 0, y: 10)
+            .shadow(color: Color.black.opacity(0.045), radius: 10, x: 0, y: 7)
+    }
+
+    private func capsulePillBackground(tint: Color) -> some View {
+        Capsule()
+            .fill(tint)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(CapsuleStyle.hairline.opacity(0.6), lineWidth: 0.8))
     }
 
     private func clayPlayerContent(geometry: GeometryProxy) -> some View {
@@ -1977,18 +2041,80 @@ struct ClassicPlayerLayout: View {
 
             Spacer()
 
+            let usesPetWhiteLyricAssets = PetWhiteStyle.isActive
+
             Button(action: { withAnimation { enableKaraoke.toggle() } }) {
-                MonologueIcon(icon: .karaoke, size: 20, color: enableKaraoke ? contentColor : secondaryContentColor.opacity(0.3))
-                    .padding(8)
-                    .background(contentColor.opacity(0.05))
-                    .clipShape(Circle())
+                ZStack {
+                    Circle()
+                        .fill(
+                            usesPetWhiteLyricAssets
+                                ? contentColor.opacity(0.05)
+                                : (enableKaraoke ? contentColor.opacity(0.11) : contentColor.opacity(0.05))
+                        )
+                    lyricModeToggleIcon(
+                        icon: .karaoke,
+                        isActive: enableKaraoke,
+                        activeColor: contentColor,
+                        inactiveColor: secondaryContentColor.opacity(0.3),
+                        selectedPetWhiteAssetName: "karaokeSelected",
+                        size: 20,
+                        lineWidth: 1.6
+                    )
+                }
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Circle().stroke(
+                        usesPetWhiteLyricAssets
+                            ? contentColor.opacity(0.12)
+                            : (enableKaraoke ? contentColor.opacity(0.28) : contentColor.opacity(0.12)),
+                        lineWidth: usesPetWhiteLyricAssets ? 0.8 : (enableKaraoke ? 1.2 : 0.8)
+                    )
+                )
+                .overlay(alignment: .topTrailing) {
+                    if !usesPetWhiteLyricAssets {
+                        Circle()
+                            .fill(enableKaraoke ? CapsuleStyle.violet : secondaryContentColor.opacity(0.25))
+                            .frame(width: 6, height: 6)
+                            .padding(4)
+                    }
+                }
             }
 
             Button(action: { withAnimation { showTranslation.toggle() } }) {
-                MonologueIcon(icon: .translate, size: 20, color: showTranslation ? contentColor : secondaryContentColor.opacity(0.3))
-                    .padding(8)
-                    .background(contentColor.opacity(0.05))
-                    .clipShape(Circle())
+                ZStack {
+                    Circle()
+                        .fill(
+                            usesPetWhiteLyricAssets
+                                ? contentColor.opacity(0.05)
+                                : (showTranslation ? contentColor.opacity(0.11) : contentColor.opacity(0.05))
+                        )
+                    lyricModeToggleIcon(
+                        icon: .translate,
+                        isActive: showTranslation,
+                        activeColor: contentColor,
+                        inactiveColor: secondaryContentColor.opacity(0.3),
+                        selectedPetWhiteAssetName: "translateSelected",
+                        size: 20,
+                        lineWidth: 1.6
+                    )
+                }
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Circle().stroke(
+                        usesPetWhiteLyricAssets
+                            ? contentColor.opacity(0.12)
+                            : (showTranslation ? contentColor.opacity(0.28) : contentColor.opacity(0.12)),
+                        lineWidth: usesPetWhiteLyricAssets ? 0.8 : (showTranslation ? 1.2 : 0.8)
+                    )
+                )
+                .overlay(alignment: .topTrailing) {
+                    if !usesPetWhiteLyricAssets {
+                        Circle()
+                            .fill(showTranslation ? CapsuleStyle.cyan : secondaryContentColor.opacity(0.25))
+                            .frame(width: 6, height: 6)
+                            .padding(4)
+                    }
+                }
             }
 
             if let song = player.currentSong {

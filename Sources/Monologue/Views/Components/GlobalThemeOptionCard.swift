@@ -95,11 +95,15 @@ struct GlobalThemeOptionCard: View {
             neumorphicPreview
         case .capsule:
             capsulePreview
+        case .petWhite:
+            petWhitePreview
+        case .pureWhite:
+            pureWhitePreview
         case .sequoia:
             sequoiaPreview
         case .liquidGlass:
             liquidGlassPreview
-        case .bento, .clay, .signal:
+        case .bento, .clay, .signal, .material3Expressive:
             defaultPreview
         }
     }
@@ -111,9 +115,11 @@ struct GlobalThemeOptionCard: View {
         case .manga:     return Color(hex: "FF8FAB")
         case .neumorphic: return Color(hex: "4F8E86")
         case .capsule: return Color(hex: "3867FF")
+        case .petWhite: return Color(hex: "F6A93B")
+        case .pureWhite: return Color(hex: "2563EB")
         case .sequoia:   return Color(hex: "0A84FF")
         case .liquidGlass: return Color(hex: "18A7FF")
-        case .bento, .clay, .signal: return .monologueAccent
+        case .bento, .clay, .signal, .material3Expressive: return .monologueAccent
         }
     }
 
@@ -485,6 +491,141 @@ struct GlobalThemeOptionCard: View {
             )
     }
 
+    private var pureWhitePreview: some View {
+        ZStack {
+            PureWhiteRootBackdrop()
+                .opacity(colorScheme == .dark ? 0.92 : 1)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 7) {
+                    PureWhiteIconBadge(icon: .sparkle, tint: PureWhiteStyle.accent, size: 30)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Capsule().fill(PureWhiteStyle.strokeInk.opacity(0.24)).frame(width: 50, height: 5)
+                        Capsule().fill(PureWhiteStyle.strokeInk.opacity(0.12)).frame(width: 32, height: 3)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Capsule(style: .continuous)
+                        .fill(PureWhiteStyle.paperBlue.opacity(0.58))
+                        .frame(width: 26, height: 8)
+                        .overlay(Capsule(style: .continuous).stroke(PureWhiteStyle.strokeInk.opacity(0.22), lineWidth: 0.8))
+                }
+
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(PureWhiteStyle.surfaceRaised)
+                        .frame(width: 50, height: 52)
+                        .overlay(alignment: .topLeading) {
+                            Capsule(style: .continuous)
+                                .fill(PureWhiteStyle.accent.opacity(0.82))
+                                .frame(width: 22, height: 4)
+                                .padding(7)
+                        }
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(PureWhiteStyle.strokeInk.opacity(0.52), lineWidth: 1)
+                        )
+                        .overlay(
+                            MonologueIcon(icon: .musicNote, size: 20, color: PureWhiteStyle.ink, lineWidth: 2)
+                        )
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Capsule().fill(PureWhiteStyle.strokeInk.opacity(0.22)).frame(width: 56, height: 5)
+                        Capsule().fill(PureWhiteStyle.strokeInk.opacity(0.12)).frame(width: 38, height: 4)
+                        HStack(spacing: 5) {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(PureWhiteStyle.paperBlue.opacity(0.36))
+                                .frame(width: 24, height: 14)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(PureWhiteStyle.separator.opacity(0.72))
+                                .frame(width: 24, height: 14)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(PureWhiteStyle.surfaceTint.opacity(0.94))
+                                .frame(width: 24, height: 14)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                HStack(spacing: 6) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(PureWhiteStyle.paperBlue.opacity(0.48))
+                        .frame(height: 18)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(PureWhiteStyle.surfaceTint.opacity(0.94))
+                        .frame(height: 18)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(PureWhiteStyle.separator.opacity(0.54))
+                        .frame(height: 18)
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(PureWhiteStyle.strokeInk.opacity(0.28), lineWidth: 0.8)
+                )
+            }
+            .padding(10)
+        }
+    }
+
+    private var petWhitePreview: some View {
+        ZStack {
+            PetWhiteRootBackdrop()
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    PetWhiteMascotMark(kind: .pair, size: 34)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.24)).frame(width: 48, height: 5)
+                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.12)).frame(width: 30, height: 3)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    PetWhitePill(text: "PET", tint: PetWhiteStyle.mint)
+                }
+
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(PetWhiteStyle.surfaceRaised)
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+                        )
+                        .overlay(alignment: .topLeading) {
+                            Capsule(style: .continuous)
+                                .fill(PetWhiteStyle.dogOrange)
+                                .frame(width: 20, height: 4)
+                                .padding(7)
+                        }
+                        .overlay(
+                            PetWhiteMascotMark(kind: .dog, size: 26)
+                        )
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.24)).frame(width: 56, height: 5)
+                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.12)).frame(width: 38, height: 4)
+                        HStack(spacing: 5) {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(PetWhiteStyle.mint.opacity(0.72))
+                                .frame(width: 24, height: 14)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(PetWhiteStyle.butter.opacity(0.76))
+                                .frame(width: 24, height: 14)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(10)
+        }
+    }
+
     // MARK: - Sequoia 预览
 
     private var sequoiaPreview: some View {
@@ -671,5 +812,6 @@ struct GlobalThemeOptionCard: View {
             .padding(8)
         }
     }
+
 
 }

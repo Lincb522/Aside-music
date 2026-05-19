@@ -100,10 +100,14 @@ struct SearchView: View {
                 suggestionsOverlay
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if PetWhiteStyle.isActive {
+            petWhiteInitialSearchRoot
         } else {
             VStack(spacing: 0) {
                 if MangaStyle.isActive {
                     mangaSearchHeader
+                } else if PetWhiteStyle.isActive {
+                    petWhiteSearchHeader
                 } else if NeumorphicStyle.isActive {
                     neumorphicSearchHeader
                 } else if SignalStyle.isActive {
@@ -127,6 +131,29 @@ struct SearchView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+    }
+
+    private var petWhiteInitialSearchRoot: some View {
+        ZStack {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    petWhiteSearchHeader
+                    searchBarSection
+
+                    if viewModel.query.isEmpty {
+                        petWhiteEmptySearchView
+                    }
+
+                    FloatingBarBottomSpacer()
+                }
+                .padding(.bottom, 8)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+
+            suggestionsOverlay
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - 搜索栏
@@ -261,6 +288,10 @@ struct SearchView: View {
         .padding(.bottom, 12)
     }
 
+    private var petWhiteSearchHeader: some View {
+        PetWhiteSearchHeader()
+    }
+
     private var searchBarSection: some View {
         let showFullSearch = isSearchBarExpanded
         let searchRadius = searchBarCornerRadius(showFullSearch: showFullSearch)
@@ -361,6 +392,8 @@ struct SearchView: View {
                         SignalSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SignalStyle.device)
                     } else if SequoiaStyle.isActive {
                         SequoiaSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SequoiaStyle.materialChrome)
+                    } else if PetWhiteStyle.isActive {
+                        PetWhiteSurfaceBackground(cornerRadius: searchRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky)
                     } else if CapsuleStyle.isActive {
                         CapsuleSurfaceBackground(cornerRadius: searchRadius, elevated: true, tint: CapsuleStyle.surfaceRaised)
                     }
@@ -393,6 +426,7 @@ struct SearchView: View {
 
     private func searchBarCornerRadius(showFullSearch: Bool) -> CGFloat {
         if MangaStyle.isActive { return MangaStyle.cardRadius }
+        if PetWhiteStyle.isActive { return showFullSearch ? 20 : 22 }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return showFullSearch ? 18 : 20 }
         if SignalStyle.isActive { return showFullSearch ? 20 : 22 }
@@ -438,6 +472,7 @@ struct SearchView: View {
 
     private var searchBackButtonFill: Color {
         if MangaStyle.isActive { return MangaStyle.surface }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surface }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SignalStyle.isActive { return SignalStyle.control }
@@ -449,6 +484,7 @@ struct SearchView: View {
 
     private var searchBackButtonStroke: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.4) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.72) }
@@ -460,11 +496,13 @@ struct SearchView: View {
 
     private var searchBackButtonStrokeWidth: CGFloat {
         if MangaStyle.isActive { return MangaStyle.strokeWidth }
+        if PetWhiteStyle.isActive { return 1.5 }
         if CapsuleStyle.isActive { return 0.8 }
         return 0.5
     }
 
     private var searchBackButtonIconColor: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if SignalStyle.isActive { return SignalStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -475,6 +513,7 @@ struct SearchView: View {
 
     private var searchIconColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
@@ -486,6 +525,7 @@ struct SearchView: View {
 
     private var searchPlaceholderColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkMuted }
@@ -497,6 +537,7 @@ struct SearchView: View {
 
     private var searchTextColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
@@ -508,6 +549,7 @@ struct SearchView: View {
 
     private func searchFieldFont(weight: Font.Weight) -> Font {
         if MangaStyle.isActive { return MangaStyle.comicFont(15, weight: weight == .bold ? .bold : .medium) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(15, weight: .semibold) }
@@ -523,6 +565,8 @@ struct SearchView: View {
     private var searchTabBar: some View {
         if MangaStyle.isActive {
             mangaSearchTabBar
+        } else if PetWhiteStyle.isActive {
+            petWhiteSearchTabBar
         } else if NeumorphicStyle.isActive {
             neumorphicSearchTabBar
         } else if SignalStyle.isActive {
@@ -785,6 +829,15 @@ struct SearchView: View {
         }
         .frame(height: 52)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var petWhiteSearchTabBar: some View {
+        PetWhiteSearchTabBar(
+            currentTab: viewModel.currentTab,
+            hasSearched: viewModel.hasSearched,
+            iconProvider: searchTabIcon,
+            onSelect: viewModel.switchTab
+        )
     }
 
     private var liquidGlassSearchTabBar: some View {
@@ -1833,6 +1886,13 @@ struct SearchView: View {
                         }
                     }
 
+                    neumorphicToolbarButton(icon: .like, tint: NeumorphicStyle.red) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
+                        }
+                    }
+
                     neumorphicToolbarButton(icon: .checkmark, tint: NeumorphicStyle.sage) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchSelectMode = true
@@ -1912,6 +1972,13 @@ struct SearchView: View {
                     signalToolbarButton(icon: .search, tint: SignalStyle.accent) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchFiltering = true
+                        }
+                    }
+
+                    signalToolbarButton(icon: .like, tint: SignalStyle.red) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
                         }
                     }
 
@@ -2006,6 +2073,13 @@ struct SearchView: View {
                     capsuleToolbarControl(icon: .search, tint: currentSource.themedBadgeColor) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
                             isSearchFiltering = true
+                        }
+                    }
+
+                    capsuleToolbarControl(icon: .like, tint: CapsuleStyle.coral) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
                         }
                     }
 
@@ -2128,6 +2202,18 @@ struct SearchView: View {
                                 .clipShape(Circle())
                         }
 
+
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isSearchSelectMode = true
+                                searchSelectedIds.removeAll()
+                            }
+                        } label: {
+                            MonologueIcon(icon: .like, size: 15, color: .monologueAccentRed)
+                                .frame(width: 30, height: 30)
+                                .background(Color.monologueTextPrimary.opacity(0.06))
+                                .clipShape(Circle())
+                        }
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 isSearchSelectMode = true
@@ -2192,6 +2278,13 @@ struct SearchView: View {
                     themedToolbarIconButton(icon: .search, tint: currentSource.themedBadgeColor) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isSearchFiltering = true
+                        }
+                    }
+
+                    themedToolbarIconButton(icon: .like, tint: MujiStyle.isActive ? MujiStyle.clay : .monologueAccentRed) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isSearchSelectMode = true
+                            searchSelectedIds.removeAll()
                         }
                     }
 
@@ -2723,7 +2816,7 @@ struct SearchView: View {
 
     private var searchResultPlaceholderFill: Color {
         if MangaStyle.isActive { return MangaStyle.surface }
-        if MujiStyle.isActive { return MujiStyle.paperWarm }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SignalStyle.isActive { return SignalStyle.controlPressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
@@ -2981,6 +3074,18 @@ struct SearchView: View {
                             }
                         } label: {
                             MonologueIcon(icon: .search, size: 15, color: .monologueTextSecondary)
+                                .frame(width: 30, height: 30)
+                                .background(Color.monologueTextPrimary.opacity(0.06))
+                                .clipShape(Circle())
+                        }
+
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isSearchSelectMode = true
+                                searchSelectedIds.removeAll()
+                            }
+                        } label: {
+                            MonologueIcon(icon: .like, size: 15, color: .monologueAccentRed)
                                 .frame(width: 30, height: 30)
                                 .background(Color.monologueTextPrimary.opacity(0.06))
                                 .clipShape(Circle())
@@ -3792,6 +3897,8 @@ struct SearchView: View {
     private var emptySearchView: some View {
         if MangaStyle.isActive {
             mangaEmptySearchView
+        } else if PetWhiteStyle.isActive {
+            petWhiteEmptySearchView
         } else if NeumorphicStyle.isActive {
             neumorphicEmptySearchView
         } else if MujiStyle.isActive {
@@ -3886,6 +3993,24 @@ struct SearchView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
+    }
+
+    private var petWhiteEmptySearchView: some View {
+        PetWhiteSearchEmptyPanel(
+            defaultKeyword: viewModel.defaultKeyword,
+            searchHistory: Array(viewModel.searchHistory.prefix(6)),
+            hotSearchItems: Array(viewModel.hotSearchItems.prefix(20)),
+            onSearch: { keyword in
+                viewModel.performSearch(keyword: keyword)
+                isFocused = false
+            },
+            onDeleteHistory: { keyword in
+                viewModel.deleteHistoryItem(keyword: keyword)
+            },
+            onClearHistory: {
+                viewModel.clearAllHistory()
+            }
+        )
     }
 
     private var sequoiaEmptySearchView: some View {

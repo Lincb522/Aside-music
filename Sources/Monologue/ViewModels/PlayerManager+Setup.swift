@@ -164,6 +164,16 @@ extension PlayerManager {
                 case .end:
                     AppLogger.info("其他主媒体 App 停止播放，重新评估 options")
                     self.reapplyAudioSessionOptions(reason: "secondary hint end")
+                    // 其他 App 停止后，等 1s 确认真的停了再尝试恢复
+                    if self.wasPlayingBeforeInterruption, self.currentSong != nil, !self.isPlaying {
+                        Task { @MainActor [weak self] in
+                            try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            guard let self, self.wasPlayingBeforeInterruption, !self.isPlaying else { return }
+                            guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else { return }
+                            AppLogger.info("secondary hint end: 确认无其他音频，恢复播放")
+                            let _ = self.resumeAfterInterruption(reason: "secondary hint end")
+                        }
+                    }
                 @unknown default:
                     break
                 }
@@ -188,8 +198,10 @@ extension PlayerManager {
                     AppLogger.info("音频中断开始，暂停播放")
                     // 标记中断进行中，阻止路由变化触发的自动恢复
                     self.isUnderInterruption = true
+                    self.interruptionStartedAt = Date()
                     self.routeChangeResumeWorkItem?.cancel()
                     self.routeChangeResumeWorkItem = nil
+                    self.cancelInterruptionResumeRetry()
                     let wasActivePlayback = self.isPlaying || self.streamPlayer.state == .playing
                     if wasActivePlayback, self.currentSong != nil {
                         self.wasPlayingBeforeInterruption = true
@@ -199,11 +211,14 @@ extension PlayerManager {
                         self.refreshPlaybackSurfaceState()
                         self.saveStateImmediately()
                     }
+                    // 启动 watchdog：60s 后若仍在中断态，强制清除并尝试一次恢复
+                    self.armInterruptionWatchdog()
                 case .ended:
                     AppLogger.info("音频中断结束")
                     self.isUnderInterruption = false
+                    self.cancelInterruptionWatchdog()
                     guard self.wasPlayingBeforeInterruption else { break }
-                    // 检查系统是否建议恢复（微信录音等场景下系统会明确告知）
+                    // 检查系统是否建议恢复
                     let shouldResume: Bool
                     if let opts = optionsValue {
                         shouldResume = AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume)
@@ -211,12 +226,22 @@ extension PlayerManager {
                         // 没有 options 时默认尝试恢复（电话结束等场景）
                         shouldResume = true
                     }
-                    guard shouldResume else {
-                        AppLogger.info("系统未建议立即恢复，延迟检查是否可恢复")
-                        self.scheduleResumeAfterRouteChangeIfNeeded()
-                        break
+                    if shouldResume {
+                        // 系统明确建议恢复 — 直接恢复，不走重试链
+                        // 延迟 0.3s 让系统音频路由稳定
+                        Task { @MainActor [weak self] in
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            guard let self, self.wasPlayingBeforeInterruption, !self.isPlaying else { return }
+                            if !self.resumeAfterInterruption(reason: "interruption ended (shouldResume)") {
+                                // 极少数情况下 setActive 失败，启动兜底重试
+                                self.scheduleInterruptionResumeRetry(reason: "interruption ended fallback")
+                            }
+                        }
+                    } else {
+                        // 系统未建议恢复 — 启动保守重试（1.5s → 3s → 6s）
+                        AppLogger.info("系统未建议立即恢复，启动保守重试")
+                        self.scheduleInterruptionResumeRetry(reason: "interruption ended (no shouldResume)")
                     }
-                    self.resumeAfterInterruption(reason: "interruption ended")
                 @unknown default:
                     break
                 }
@@ -230,16 +255,17 @@ extension PlayerManager {
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                AppLogger.debug("didBecomeActive: wasPlaying=\(self.wasPlayingBeforeInterruption), isPlaying=\(self.isPlaying), hasSong=\(self.currentSong != nil)")
-                guard self.wasPlayingBeforeInterruption else { return }
+                guard self.wasPlayingBeforeInterruption, !self.isPlaying, self.currentSong != nil else { return }
+                // App 回前台 — 等 0.5s 让系统状态稳定，然后检查是否可以恢复
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                guard !Task.isCancelled, self.wasPlayingBeforeInterruption else { return }
-                let otherPlaying = AVAudioSession.sharedInstance().isOtherAudioPlaying
-                AppLogger.debug("didBecomeActive 延迟后: otherPlaying=\(otherPlaying)")
-                if !otherPlaying {
-                    AppLogger.info("App 激活且无其他音频，恢复播放")
-                    self.resumeAfterInterruption(reason: "didBecomeActive")
+                guard !Task.isCancelled, self.wasPlayingBeforeInterruption, !self.isPlaying else { return }
+                // 只在没有其他音频播放时才自动恢复
+                guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else {
+                    AppLogger.debug("didBecomeActive: 其他音频仍在播放，不自动恢复")
+                    return
                 }
+                AppLogger.info("App 激活且无其他音频，恢复播放")
+                let _ = self.resumeAfterInterruption(reason: "didBecomeActive")
             }
         }
 
@@ -254,13 +280,23 @@ extension PlayerManager {
                 guard let self else { return }
                 switch reason {
                 case .newDeviceAvailable:
-                    // 蓝牙耳机/外接设备连接：检查采样率兼容性，必要时重建音频引擎
+                    // 蓝牙耳机/外接设备连接：检查采样率兼容性
                     AppLogger.info("新音频设备连接，检查采样率兼容性")
                     self.streamPlayer.handleAudioRouteChange()
                 case .oldDeviceUnavailable:
-                    // 蓝牙耳机/外接设备断开：检查采样率兼容性，必要时重建音频引擎
-                    AppLogger.info("音频设备断开，检查采样率兼容性")
+                    // 蓝牙耳机/外接设备断开：暂停播放（标准行为，不自动恢复）
+                    AppLogger.info("音频设备断开，暂停播放")
                     self.streamPlayer.handleAudioRouteChange()
+                    if self.isPlaying {
+                        self.streamPlayer.pause()
+                        self.isPlaying = false
+                        self.isLoading = false
+                        self.refreshPlaybackSurfaceState()
+                        self.saveStateImmediately()
+                    }
+                    // 清除中断恢复标志 — 设备断开不应触发自动恢复
+                    self.wasPlayingBeforeInterruption = false
+                    self.cancelInterruptionResumeRetry()
                 case .categoryChange, .override, .routeConfigurationChange:
                     self.scheduleResumeAfterRouteChangeIfNeeded()
                 default:
@@ -278,6 +314,9 @@ extension PlayerManager {
                 guard let self else { return }
                 // 重置缓存，强制重写 options（而非跳过）
                 self.lastAppliedAudioSessionOptions = nil
+                // 清理可能正在跑的重试任务，避免和重建竞态
+                self.cancelInterruptionResumeRetry()
+                self.cancelInterruptionWatchdog()
                 self.reapplyAudioSessionOptions(reason: "media services reset")
                 // 如果正在播放，重新触发当前歌曲播放（让库重新走 AudioRenderer.start 流程）
                 if let song = self.currentSong, self.isPlaying {
@@ -397,39 +436,55 @@ extension PlayerManager {
 
     /// 其他 App 释放音频路由后，`isOtherAudioPlaying` 可能稍后变为 false，在此再尝试恢复。
     func scheduleResumeAfterRouteChangeIfNeeded() {
-        // 中断进行中（如微信录音）时，路由变化不触发自动恢复
         guard !isUnderInterruption else {
             AppLogger.debug("中断进行中，忽略路由变化触发的恢复")
             return
         }
         guard wasPlayingBeforeInterruption, currentSong != nil, !isPlaying else { return }
+        // 延迟 1s 检查，避免路由切换瞬间的误判
         routeChangeResumeWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             guard self.wasPlayingBeforeInterruption, !self.isPlaying, self.currentSong != nil else { return }
-            guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else { return }
-            AppLogger.info("路由变化后检测到可恢复，继续播放")
-            self.resumeAfterInterruption(reason: "route change")
+            guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else {
+                AppLogger.debug("路由变化后仍有其他音频，不恢复")
+                return
+            }
+            AppLogger.info("路由变化后确认无其他音频，恢复播放")
+            let _ = self.resumeAfterInterruption(reason: "route change")
         }
         routeChangeResumeWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
     }
     
     /// 中断恢复：先尝试 resume，如果播放器状态异常则从当前位置重新加载
-    func resumeAfterInterruption(reason: String = "interruption resume") {
-        guard currentSong != nil else { return }
+    ///
+    /// ⚠️ 调用约定：
+    /// - 优先使用 `attemptInterruptionResume(reason:)`：内部已包含失败重试和状态保护。
+    /// - 直接调本方法的场景仅限「确定 session 可激活、要立刻恢复」时（如用户主动点播放）。
+    /// - **失败时不会清空 `wasPlayingBeforeInterruption`**，方便上层重试。
+    @discardableResult
+    func resumeAfterInterruption(reason: String = "interruption resume") -> Bool {
+        guard currentSong != nil else { return false }
         AppLogger.info("恢复播放 (state=\(streamPlayer.state), reason=\(reason))")
-
-        routeChangeResumeWorkItem?.cancel()
-        routeChangeResumeWorkItem = nil
-        isUnderInterruption = false
-        wasPlayingBeforeInterruption = false
 
         // 强制重写 options（绕过缓存），中断恢复时确保 session 处于 active。
         // 这里使用 activateAudioSessionForPlayback，而不是只依赖 reapply，
         // 避免 options 未变化但 session 已被系统打断的场景。
         lastAppliedAudioSessionOptions = nil
-        activateAudioSessionForPlayback(reason: reason)
+        let activated = activateAudioSessionForPlaybackChecked(reason: reason)
+        guard activated else {
+            AppLogger.warning("中断恢复时音频会话激活失败 reason=\(reason)，保留中断标志等待重试")
+            return false
+        }
+
+        // 激活成功才清状态，让重试链不会被打断
+        routeChangeResumeWorkItem?.cancel()
+        routeChangeResumeWorkItem = nil
+        cancelInterruptionResumeRetry()
+        cancelInterruptionWatchdog()
+        isUnderInterruption = false
+        wasPlayingBeforeInterruption = false
 
         if streamPlayer.state == .paused {
             streamPlayer.resume()
@@ -449,6 +504,109 @@ extension PlayerManager {
             let time = currentTime
             AppLogger.info("播放器状态非 paused，从 \(String(format: "%.1f", time))s 重新加载")
             loadAndPlay(song: song, startTime: time)
+        }
+        return true
+    }
+
+    // MARK: - 中断恢复（阶梯重试 + watchdog）
+
+    /// 阶梯重试时间表（秒）。只在系统不发 .ended 或 setActive 失败时才用。
+    /// 正常路径（系统发了 .ended + shouldResume）直接恢复，不走重试。
+    nonisolated static let interruptionResumeBackoff: [TimeInterval] = [1.5, 3.0, 6.0]
+
+    /// 立即尝试一次中断恢复；失败则启动阶梯重试。
+    /// 推荐外部调用此方法而非直接调 `resumeAfterInterruption`。
+    func attemptInterruptionResume(reason: String) {
+        guard currentSong != nil else { return }
+        guard wasPlayingBeforeInterruption else { return }
+        guard !isPlaying else { return }
+        if resumeAfterInterruption(reason: reason) {
+            return
+        }
+        scheduleInterruptionResumeRetry(reason: reason)
+    }
+
+    /// 启动（或重启）阶梯重试任务。每一档都会尝试一次 `resumeAfterInterruption`，
+    /// 任何一档成功即整条链路结束。
+    func scheduleInterruptionResumeRetry(reason: String) {
+        cancelInterruptionResumeRetry()
+        let schedule = Self.interruptionResumeBackoff
+        interruptionResumeTask = Task { @MainActor [weak self] in
+            for (index, delay) in schedule.enumerated() {
+                let nanos = UInt64(delay * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanos)
+                guard !Task.isCancelled else { return }
+                guard let self else { return }
+                guard self.wasPlayingBeforeInterruption,
+                      self.currentSong != nil,
+                      !self.isPlaying else {
+                    return
+                }
+                // 检查是否还有其他音频在播 — 如果有，不要抢占
+                if AVAudioSession.sharedInstance().isOtherAudioPlaying {
+                    AppLogger.info("中断恢复重试 [\(index+1)/\(schedule.count)]: 其他音频仍在播放，跳过")
+                    continue
+                }
+                let attempt = index + 1
+                let total = schedule.count
+                AppLogger.info("中断恢复阶梯重试 [\(attempt)/\(total)] (delay=\(delay)s, reason=\(reason))")
+                if self.resumeAfterInterruption(reason: "\(reason) retry#\(attempt)") {
+                    return
+                }
+            }
+            if let self, self.wasPlayingBeforeInterruption, !self.isPlaying {
+                AppLogger.warning("中断恢复阶梯重试全部失败 reason=\(reason)，等待用户手动恢复")
+            }
+        }
+    }
+
+    /// 取消正在进行中的阶梯重试。`pausePlayback` / 用户主动停止 / 恢复成功时调用。
+    func cancelInterruptionResumeRetry() {
+        interruptionResumeTask?.cancel()
+        interruptionResumeTask = nil
+    }
+
+    /// 中断 watchdog：60s 后若仍处于中断态，强制清除 `isUnderInterruption` 并启动恢复重试。
+    /// 处理「微信、抖音等不发 interruption.ended」的场景。
+    func armInterruptionWatchdog() {
+        cancelInterruptionWatchdog()
+        interruptionWatchdogTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
+            guard !Task.isCancelled else { return }
+            guard let self, self.isUnderInterruption else { return }
+            AppLogger.warning("中断 watchdog 触发：60s 仍未收到 interruption.ended，强制清除并尝试恢复")
+            self.isUnderInterruption = false
+            if self.wasPlayingBeforeInterruption, self.currentSong != nil, !self.isPlaying {
+                self.attemptInterruptionResume(reason: "interruption watchdog")
+            }
+        }
+    }
+
+    func cancelInterruptionWatchdog() {
+        interruptionWatchdogTask?.cancel()
+        interruptionWatchdogTask = nil
+    }
+
+    /// 安全版的 `activateAudioSessionForPlayback`：返回 `Bool` 而非吞掉错误。
+    /// 用于中断恢复路径，让上层根据结果决定是否重试。
+    @discardableResult
+    func activateAudioSessionForPlaybackChecked(reason: String) -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
+
+        do {
+            if desired != lastAppliedAudioSessionOptions {
+                try session.setCategory(.playback, mode: .default, options: desired)
+                lastAppliedAudioSessionOptions = desired
+            }
+            try session.setActive(true)
+            AppLogger.info("音频会话已激活（开播前） options=\(desired)  原因: \(reason)")
+            return true
+        } catch {
+            AppLogger.error("开播前激活音频会话失败 reason=\(reason): \(error)")
+            // 激活失败时清缓存，下次重试一定会重写 category
+            lastAppliedAudioSessionOptions = nil
+            return false
         }
     }
 }

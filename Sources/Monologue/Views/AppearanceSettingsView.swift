@@ -250,9 +250,7 @@ struct AppearanceSettingsView: View {
 
                         Spacer()
 
-                        MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
-                            .rotationEffect(.degrees(isGlobalThemeExpanded ? -90 : 90))
-                            .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isGlobalThemeExpanded)
+                        PetWhiteDisclosureChevron(isExpanded: isGlobalThemeExpanded)
                     }
                     .contentShape(Rectangle())
                 }
@@ -294,9 +292,11 @@ struct AppearanceSettingsView: View {
 
     private func suggestedPlayerTheme(for themeId: GlobalThemeId) -> PlayerTheme? {
         switch themeId {
-        case .neumorphic, .capsule, .sequoia, .liquidGlass:
+        case .neumorphic:
+            return .neumorphic
+        case .capsule, .sequoia, .liquidGlass:
             return .classic
-        case .default, .muji, .manga, .bento, .clay, .signal:
+        case .default, .muji, .manga, .petWhite, .pureWhite, .bento, .clay, .signal, .material3Expressive:
             return nil
         }
     }
@@ -454,9 +454,7 @@ private struct ThemeColorCustomizationSection: View {
 
                         Spacer()
 
-                        MonologueIcon(icon: .chevronRight, size: 11, color: Color.monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
-                            .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                            .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
+                        PetWhiteDisclosureChevron(isExpanded: isExpanded)
                     }
                     .contentShape(Rectangle())
                 }
@@ -962,6 +960,14 @@ private struct ThemeColorCustomizationSection: View {
         case (.capsule, .accent, _): return "3867FF"
         case (.capsule, .background, "end"): return "EAF1FF"
         case (.capsule, .background, _): return "F6F8FF"
+        case (.pureWhite, .accent, "end"): return "2563EB"
+        case (.pureWhite, .accent, _): return "2563EB"
+        case (.pureWhite, .background, "end"): return "F8FAFC"
+        case (.pureWhite, .background, _): return "FFFFFF"
+        case (.petWhite, .accent, "end"): return "8FDCD5"
+        case (.petWhite, .accent, _): return "F6A93B"
+        case (.petWhite, .background, "end"): return "F6FAFA"
+        case (.petWhite, .background, _): return "FFFFFF"
         case (.sequoia, .accent, "end"): return "26AFCF"
         case (.sequoia, .accent, _): return "0A84FF"
         case (.sequoia, .background, "end"): return "E3EBF2"
@@ -990,6 +996,10 @@ private struct ThemeColorCustomizationSection: View {
         case (.default, .accent, _): return "4D6F95"
         case (.default, .background, "end"): return "E6EDF6"
         case (.default, .background, _): return "F8FAFC"
+        case (.material3Expressive, .accent, "end"): return "4D6F95"
+        case (.material3Expressive, .accent, _): return "4D6F95"
+        case (.material3Expressive, .background, "end"): return "E6EDF6"
+        case (.material3Expressive, .background, _): return "F8FAFC"
         }
     }
 
@@ -1561,6 +1571,10 @@ private struct ThemeColorPickerSheet: View {
             return ["E97871", "F5A5C5", "A7DEC6", "A8C9F5", "FFE39B", "CDB4F6", "F6E8DD", "F1F5E9", "F3ECE5", "E8F0FA", "F8E8EA", "EFEAF7"]
         }
 
+        if theme == .pureWhite {
+            return ["2563EB", "0F172A", "475569", "64748B", "94A3B8", "CBD5E1", "FFFFFF", "F8FAFC", "EEF2F7", "E2E8F0", "DBEAFE", "EFF6FF"]
+        }
+
         if theme == .default {
             return ["4D6F95", "B66E57", "4D8196", "6A8368", "6E72A7", "9F7559", "F8FAFC", "E6EDF6", "FFF6EB", "EAF0FA", "EEF6FA", "E9F2EC"]
         }
@@ -1586,6 +1600,8 @@ private struct ThemeColorPickerSheet: View {
             }
         } else if theme == .default {
             Color.monologueSheetSurfaceBottom
+        } else if theme == .pureWhite {
+            PureWhiteRootBackdrop()
         } else if theme == .sequoia {
             SequoiaRootBackdrop()
         } else if theme == .liquidGlass {
@@ -1881,9 +1897,7 @@ private struct SettingsAppBrandRow: View {
 
                     Spacer()
 
-                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
-                        .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
+                    PetWhiteDisclosureChevron(isExpanded: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -1948,6 +1962,27 @@ private struct SettingsInterfaceIconSetRow: View {
     let title: String
     @Binding var selection: AppInterfaceIconSet
     @State private var isExpanded = false
+    @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
+    @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
+
+    private var zappiconStyle: ZappiconIconStyle {
+        ZappiconIconStyle(rawValue: zappiconStyleRaw) ?? .light
+    }
+
+    private var solarStyle: SolarIconStyle {
+        SolarIconStyle(rawValue: solarStyleRaw) ?? .line
+    }
+
+    private var subtitle: String {
+        switch selection {
+        case .zappicon:
+            return "\(selection.displayName) · \(zappiconStyle.displayName)"
+        case .solar:
+            return "\(selection.displayName) · \(solarStyle.displayName)"
+        default:
+            return selection.displayName
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1962,16 +1997,14 @@ private struct SettingsInterfaceIconSetRow: View {
                             .font(appearanceSettingsFont(15, weight: .medium))
                             .foregroundColor(.monologueTextPrimary)
 
-                        Text(selection.displayName)
+                        Text(subtitle)
                             .font(appearanceSettingsFont(11, weight: .regular))
                             .foregroundStyle(.tertiary)
                     }
 
                     Spacer()
 
-                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
-                        .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
+                    PetWhiteDisclosureChevron(isExpanded: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -1980,21 +2013,114 @@ private struct SettingsInterfaceIconSetRow: View {
             .padding(.vertical, 12)
 
             SettingsDisclosureReveal(isExpanded: isExpanded) {
-                HStack(spacing: 10) {
-                    ForEach(AppInterfaceIconSet.allCases) { iconSet in
+                VStack(spacing: 10) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(AppInterfaceIconSet.allCases) { iconSet in
+                                Button {
+                                    selection = iconSet
+                                } label: {
+                                    InterfaceIconSetOptionCard(
+                                        iconSet: iconSet,
+                                        isSelected: selection == iconSet
+                                    )
+                                    .frame(width: 105)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                    }
+
+                    // Zappicon 风格选择
+                    if selection == .zappicon {
+                        IconStylePicker(
+                            label: "风格",
+                            items: ZappiconIconStyle.allCases,
+                            selected: zappiconStyle,
+                            onSelect: { style in
+                                zappiconStyleRaw = style.rawValue
+                                AppInterfaceIconSet.setZappiconStyle(style)
+                            }
+                        )
+                        .padding(.horizontal, 14)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    // Solar 风格选择
+                    if selection == .solar {
+                        IconStylePicker(
+                            label: "风格",
+                            items: SolarIconStyle.allCases,
+                            selected: solarStyle,
+                            onSelect: { style in
+                                solarStyleRaw = style.rawValue
+                                AppInterfaceIconSet.setSolarStyle(style)
+                            }
+                        )
+                        .padding(.horizontal, 14)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.bottom, 12)
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selection)
+            }
+        }
+    }
+}
+
+/// 通用图标风格选择器（Zappicon / Solar 共用）
+private struct IconStylePicker<Item: Identifiable & CaseIterable>: View where Item: Hashable, Item.AllCases: RandomAccessCollection {
+    let label: String
+    let items: Item.AllCases
+    let selected: Item
+    let onSelect: (Item) -> Void
+    let displayName: (Item) -> String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(label: String, items: Item.AllCases, selected: Item, onSelect: @escaping (Item) -> Void) where Item: RawRepresentable, Item.RawValue == String {
+        self.label = label
+        self.items = items
+        self.selected = selected
+        self.onSelect = onSelect
+        // 通过协议获取 displayName
+        self.displayName = { item in
+            if let z = item as? ZappiconIconStyle { return z.displayName }
+            if let s = item as? SolarIconStyle { return s.displayName }
+            return "\(item)"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(appearanceSettingsFont(11, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .padding(.leading, 2)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(items), id: \.self) { item in
                         Button {
-                            selection = iconSet
+                            onSelect(item)
                         } label: {
-                            InterfaceIconSetOptionCard(
-                                iconSet: iconSet,
-                                isSelected: selection == iconSet
-                            )
+                            Text(displayName(item))
+                                .font(appearanceSettingsFont(11, weight: selected == item ? .bold : .medium))
+                                .foregroundColor(selected == item ? .monologueTextPrimary : .monologueTextSecondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background {
+                                    if selected == item {
+                                        Capsule().fill(Color.monologueTextPrimary.opacity(colorScheme == .dark ? 0.15 : 0.1))
+                                    } else {
+                                        Capsule().stroke(Color.monologueTextSecondary.opacity(0.3), lineWidth: 0.6)
+                                    }
+                                }
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 12)
             }
         }
     }
@@ -2006,23 +2132,15 @@ private struct InterfaceIconSetOptionCard: View {
 
     private let samples: [MonologueIcon.IconType] = [
         .homeFilled,
-        .search,
         .play,
         .profileFilled,
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
                 ForEach(samples.indices, id: \.self) { index in
-                    Image(uiImage: iconSet.image(for: samples[index]))
-                        .renderingMode(.template)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 18, height: 18)
-                        .foregroundStyle(previewIconColor)
-                        .frame(width: 30, height: 30)
-                        .background(previewIconBackground, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    previewIcon(samples[index])
                 }
             }
 
@@ -2047,6 +2165,58 @@ private struct InterfaceIconSetOptionCard: View {
         .overlay {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .stroke(cardStroke, lineWidth: isSelected ? 1.4 : 0.8)
+        }
+    }
+
+    @ViewBuilder
+    private func previewIcon(_ icon: MonologueIcon.IconType) -> some View {
+        if iconSet.usesOriginalArtwork {
+            Image(uiImage: iconSet.image(for: icon))
+                .renderingMode(.original)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: previewIconSize, height: previewIconSize)
+                .scaleEffect(originalArtworkScale(for: icon))
+                .frame(width: 26, height: 26)
+                .background(previewIconBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        } else {
+            Image(uiImage: iconSet.image(for: icon))
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: previewIconSize, height: previewIconSize)
+                .foregroundStyle(previewIconColor)
+                .frame(width: 26, height: 26)
+                .background(previewIconBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+    }
+
+    private var previewIconSize: CGFloat {
+        switch iconSet {
+        case .iconExport, .doodlePop, .pawPrint:
+            return 18
+        case .blobIcons:
+            return 17
+        case .hicon, .zappicon, .lucide, .solar:
+            return 15
+        }
+    }
+
+    private func originalArtworkScale(for icon: MonologueIcon.IconType) -> CGFloat {
+        switch iconSet {
+        case .doodlePop, .pawPrint:
+            switch icon {
+            case .karaoke:
+                return 1.18
+            case .translate:
+                return 1.12
+            default:
+                return 1.08
+            }
+        case .iconExport:
+            return 1.08
+        case .hicon, .zappicon, .lucide, .solar, .blobIcons:
+            return 1
         }
     }
 
@@ -2092,7 +2262,7 @@ private struct InterfaceIconSetOptionCard: View {
 
     private var backgroundFill: Color {
         if MangaStyle.isActive { return isSelected ? MangaStyle.bubbleBlue.opacity(0.38) : MangaStyle.bubbleWhite.opacity(0.72) }
-        if MujiStyle.isActive { return isSelected ? MujiStyle.paperWarm.opacity(0.82) : MujiStyle.surface.opacity(0.5) }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.surfaceRaised.opacity(0.82) : MujiStyle.surface.opacity(0.5) }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.surfaceRaised.opacity(0.92) : NeumorphicStyle.surface.opacity(0.6) }
         return isSelected ? Color.monologueIconBackground.opacity(0.12) : Color.monologueSeparator.opacity(0.28)
     }

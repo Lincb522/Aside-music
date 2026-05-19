@@ -110,3 +110,7 @@ test_animator.swift
 test_layout.swift
 /tmp
 /.codex-site-work
+# Local backups (bugfix: main-tabs-theme-frame-drop §5.7)
+.local-backups/
+/Tests
+/.prompto

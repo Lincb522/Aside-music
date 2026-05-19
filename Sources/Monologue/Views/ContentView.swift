@@ -129,7 +129,7 @@ public struct ContentView: View {
 
     private var tabViewCore: some View {
         let _ = settings.globalThemeRevision
-        let tabTint = themeManager.colors.accent
+        let tabTint = themeManager.provider(for: settings.globalThemeId).colorPalette.accent
 
         return TabView(selection: $currentTab) {
             tabRootView(for: .home)
@@ -174,38 +174,61 @@ public struct ContentView: View {
                 .tag(Tab.profile)
         }
         .tint(tabTint)
+        .id(tabViewIdentity)
     }
 
     @ViewBuilder
     private func tabRootView(for tab: Tab) -> some View {
         let _ = themeManager.tokenRevision
-        let theme = themeManager.current
-        switch tab {
-        case .home:
-            if onlineAccess.canUseOnlineFeatures {
-                theme.makeHomeView()
-            } else {
-                theme.makeLocalHomeView()
-            }
-        case .podcast:
-            if onlineAccess.canUseOnlineFeatures {
-                theme.makePodcastView()
-            } else {
-                theme.makeLocalMusicView()
-            }
-        case .library:
-            if onlineAccess.canUseOnlineFeatures {
-                theme.makeLibraryView()
-            } else {
-                theme.makeLocalLibraryView()
-            }
-        case .profile:
-            if onlineAccess.canUseOnlineFeatures {
-                theme.makeProfileView()
-            } else {
-                theme.makeLocalProfileView()
+        let theme = themeManager.provider(for: settings.globalThemeId)
+
+        Group {
+            switch tab {
+            case .home:
+                if onlineAccess.canUseOnlineFeatures {
+                    theme.makeHomeView()
+                } else {
+                    theme.makeLocalHomeView()
+                }
+            case .podcast:
+                if onlineAccess.canUseOnlineFeatures {
+                    theme.makePodcastView()
+                } else {
+                    theme.makeLocalMusicView()
+                }
+            case .library:
+                if onlineAccess.canUseOnlineFeatures {
+                    theme.makeLibraryView()
+                } else {
+                    theme.makeLocalLibraryView()
+                }
+            case .profile:
+                if onlineAccess.canUseOnlineFeatures {
+                    theme.makeProfileView()
+                } else {
+                    theme.makeLocalProfileView()
+                }
             }
         }
+        .id(tabRootIdentity(for: tab))
+    }
+
+    private func tabRootIdentity(for tab: Tab) -> String {
+        [
+            settings.globalThemeId.rawValue,
+            "\(settings.globalThemeRevision)",
+            "\(tab.rawValue)",
+            onlineAccess.canUseOnlineFeatures ? "online" : "local",
+        ].joined(separator: "-")
+    }
+
+    private var tabViewIdentity: String {
+        [
+            settings.globalThemeId.rawValue,
+            "\(settings.globalThemeRevision)",
+            onlineAccess.canUseOnlineFeatures ? "online" : "local",
+            settings.useSystemTabBar ? "system" : "custom",
+        ].joined(separator: "-")
     }
 
     private func tabLabelKey(for tab: Tab) -> String {
@@ -498,6 +521,7 @@ private struct TabViewBottomMiniPlayer: View {
 @available(iOS 26.0, *)
 private struct TabBottomAccessoryPlaceholder: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
 
     private var primaryTextColor: Color {
@@ -565,7 +589,8 @@ private struct TabBottomAccessoryPlaceholder: View {
         if reduceMotion {
             idleIconContent
         } else {
-            TimelineView(.animation) { context in
+            // 非活跃态暂停呼吸动画，避免后台/锁屏下无意义的主线程推进
+            TimelineView(AppFrameRate.animationTimeline(paused: scenePhase != .active)) { context in
                 idleIconContent
                     .scaleEffect(breathingScale(at: context.date.timeIntervalSinceReferenceDate))
             }

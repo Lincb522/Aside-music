@@ -22,6 +22,20 @@ let package = Package(
         .package(path: "QQMusicKit"),
         // HiconIcons - Hicon 图标库（本地包，从 Figma 导出）
         .package(path: "HiconIcons"),
+        // ZappiconIcons - Zappicon (H173) 图标库（本地包，Light 风格）
+        .package(path: "ZappiconIcons"),
+        // LucideIcons - Lucide 图标库（本地包）
+        .package(path: "LucideIcons"),
+        // SolarIcons - Solar 图标库（本地包）
+        .package(path: "SolarIcons"),
+        // IconExportIcons - 新导入的 PNG 图标包
+        .package(path: "IconExportIcons"),
+        // BlobIcons - Blob 风格 PNG 图标包
+        .package(path: "BlobIcons"),
+        // doodlePop - 配套 PNG 图标包
+        .package(path: "doodlePop"),
+        // PawPrintIcons - 猫狗扁平 PNG 图标包
+        .package(path: "PawPrintIcons"),
     ],
     targets: [
         .target(
@@ -31,6 +45,13 @@ let package = Package(
                 .product(name: "FFmpegSwiftSDK", package: "ffmpeg-swift"),
                 "QQMusicKit",
                 "HiconIcons",
+                "ZappiconIcons",
+                "LucideIcons",
+                "SolarIcons",
+                "IconExportIcons",
+                "BlobIcons",
+                "doodlePop",
+                "PawPrintIcons",
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi.ttf"),
@@ -43,6 +64,19 @@ let package = Package(
                 .process("Resources/en.lproj"),
                 .process("Resources/zh-Hans.lproj"),
             ]
+        ),
+        // MARK: - 测试 Target(material3-expressive-theme Task 15)
+        // 单元测试 + Property-Based Testing(PBT)Target
+        .testTarget(
+            name: "MonologueTests",
+            dependencies: ["Monologue"],
+            path: "Tests/MonologueTests"
+        ),
+        // UI / Snapshot 集成测试 Target
+        .testTarget(
+            name: "MonologueUITests",
+            dependencies: ["Monologue"],
+            path: "Tests/MonologueUITests"
         ),
     ]
 )

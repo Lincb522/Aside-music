@@ -1,5 +1,12 @@
 import SwiftUI
 import HiconIcons
+import ZappiconIcons
+import LucideIcons
+import SolarIcons
+import IconExportIcons
+import BlobIcons
+import doodlePop
+import PawPrintIcons
 
 // MARK: - Monologue Icon System (Hicon Icons)
 
@@ -40,6 +47,8 @@ struct MonologueIcon: View {
         case cloud
         case chevronRight
         case chevronLeft
+        case chevronDown
+        case chevronUp
         case magnifyingGlass
         case xmark
         case fullscreen
@@ -155,16 +164,15 @@ struct MonologueIcon: View {
     var color: Color = .primary
     var lineWidth: CGFloat? = nil
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
+    @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
+    @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
     
     var body: some View {
         Group {
             if icon == .liked {
                 likedIcon
             } else {
-                Image(uiImage: iconSet.image(for: icon))
-                    .renderingMode(.template)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                iconImage
             }
         }
         .frame(width: size, height: size)
@@ -172,21 +180,94 @@ struct MonologueIcon: View {
     }
 
     private var iconSet: AppInterfaceIconSet {
-        AppInterfaceIconSet(rawValue: iconSetRaw) ?? .hicon
+        _ = iconSetRaw
+        return AppInterfaceIconSet.selectedFromDefaults
+    }
+
+    /// 当前图标的 UIImage — 根据图标集和风格动态选择
+    private var currentImage: UIImage {
+        switch iconSet {
+        case .hicon:
+            return icon.hiconImage
+        case .zappicon:
+            let style = ZappiconIconStyle(rawValue: zappiconStyleRaw) ?? .light
+            return icon.zappiconImage(style: style)
+        case .lucide:
+            return icon.lucideImage
+        case .solar:
+            let style = SolarIconStyle(rawValue: solarStyleRaw) ?? .line
+            return icon.solarImage(style: style)
+        case .iconExport:
+            return icon.iconExportImage
+        case .blobIcons:
+            return icon.blobIconImage
+        case .doodlePop:
+            return icon.doodlePopImage
+        case .pawPrint:
+            return icon.pawPrintImage
+        }
+    }
+
+    private var usesOriginalArtwork: Bool {
+        iconSet.usesOriginalArtwork
+    }
+
+    private var usesBitmapVisualScale: Bool {
+        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint
+    }
+
+    private var bitmapIconVisualScale: CGFloat {
+        switch iconSet {
+        case .doodlePop, .pawPrint:
+            switch icon {
+            case .karaoke:
+                return 1.58
+            case .translate:
+                return 1.48
+            default:
+                return 1.45
+            }
+        case .iconExport:
+            return 1.36
+        case .blobIcons:
+            return 1.36
+        default:
+            return 1
+        }
+    }
+
+    private var iconImage: some View {
+        rawIconImage(currentImage)
+    }
+
+    private func rawIconImage(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .interpolation(.high)
+            .antialiased(true)
+            .renderingMode(usesOriginalArtwork ? .original : .template)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .scaleEffect(usesBitmapVisualScale ? bitmapIconVisualScale : 1)
     }
     
+    @ViewBuilder
     private var likedIcon: some View {
-        ZStack {
-            Image(uiImage: iconSet.image(for: .like))
-                .renderingMode(.template)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .foregroundColor(color.opacity(0.25))
-            Image(uiImage: iconSet.image(for: .liked))
-                .renderingMode(.template)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .foregroundColor(color)
+        if usesOriginalArtwork {
+            rawIconImage(iconSet.image(for: .liked))
+        } else {
+            ZStack {
+                Image(uiImage: iconSet.image(for: .like))
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundColor(color.opacity(0.25))
+                Image(uiImage: iconSet.image(for: .liked))
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundColor(color)
+            }
+            .scaleEffect(usesBitmapVisualScale ? bitmapIconVisualScale : 1)
         }
     }
 }
@@ -215,11 +296,81 @@ struct MonologueSymbolIcon: View {
                 .font(.system(size: size * 1.25, weight: .bold, design: .rounded))
                 .foregroundColor(color)
                 .frame(width: size, height: size)
+        } else if AppInterfaceIconSet.selectedFromDefaults == .pawPrint, name == "chevron.down" {
+            MonologuePawPrintChevronIcon(direction: .down, size: size, fallbackColor: color)
+        } else if AppInterfaceIconSet.selectedFromDefaults == .pawPrint, name == "chevron.up" {
+            MonologuePawPrintChevronIcon(direction: .up, size: size, fallbackColor: color)
         } else {
             let mapping = MonologueIcon.IconType.fromSystemName(name)
             MonologueIcon(icon: mapping.icon, size: size, color: color, lineWidth: lineWidth)
                 .rotationEffect(mapping.rotation)
         }
+    }
+}
+
+private struct MonologuePawPrintChevronIcon: View {
+    enum Direction {
+        case up
+        case down
+
+        var assetName: String {
+            switch self {
+            case .up: return "chevronUp"
+            case .down: return "chevronDown"
+            }
+        }
+
+        var fallbackSystemName: String {
+            switch self {
+            case .up: return "chevron.up"
+            case .down: return "chevron.down"
+            }
+        }
+    }
+
+    let direction: Direction
+    var size: CGFloat
+    var fallbackColor: Color
+
+    var body: some View {
+        platformImage
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var platformImage: some View {
+        #if canImport(UIKit)
+        if let image = UIImage(pawPrintIconId: direction.assetName) {
+            Image(uiImage: image)
+                .renderingMode(.original)
+                .interpolation(.high)
+                .antialiased(true)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            fallbackIcon
+        }
+        #elseif canImport(AppKit)
+        if let image = NSImage.pawPrintIcon(id: direction.assetName) {
+            Image(nsImage: image)
+                .renderingMode(.original)
+                .interpolation(.high)
+                .antialiased(true)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            fallbackIcon
+        }
+        #else
+        fallbackIcon
+        #endif
+    }
+
+    private var fallbackIcon: some View {
+        let mapping = MonologueIcon.IconType.fromSystemName(direction.fallbackSystemName)
+        return MonologueIcon(icon: mapping.icon, size: size, color: fallbackColor)
+            .rotationEffect(mapping.rotation)
     }
 }
 
@@ -340,6 +491,8 @@ extension MonologueIcon.IconType {
         case .cloud:            return Hicon.upload
         case .chevronRight:     return Hicon.right2
         case .chevronLeft:      return Hicon.left2
+        case .chevronDown:      return Hicon.down2
+        case .chevronUp:        return Hicon.up2
         case .magnifyingGlass:  return Hicon.search1
         case .xmark:            return Hicon.close
         case .fullscreen:       return Hicon.zoomIn
@@ -468,7 +621,41 @@ extension AppInterfaceIconSet {
         switch self {
         case .hicon:
             return icon.hiconImage
+        case .zappicon:
+            return icon.zappiconImage(style: AppInterfaceIconSet.selectedZappiconStyle)
+        case .lucide:
+            return icon.lucideImage
+        case .solar:
+            return icon.solarImage(style: AppInterfaceIconSet.selectedSolarStyle)
+        case .iconExport:
+            return icon.iconExportImage
+        case .blobIcons:
+            return icon.blobIconImage
+        case .doodlePop:
+            return icon.doodlePopImage
+        case .pawPrint:
+            return icon.pawPrintImage
         }
+    }
+}
+
+// MARK: - IconType → Icon Export Mapping
+
+extension MonologueIcon.IconType {
+    var iconExportImage: UIImage {
+        UIImage(iconExportId: String(describing: self)) ?? hiconImage
+    }
+
+    var blobIconImage: UIImage {
+        UIImage(blobIconId: String(describing: self)) ?? hiconImage
+    }
+
+    var doodlePopImage: UIImage {
+        UIImage(doodlePopIconId: String(describing: self)) ?? hiconImage
+    }
+
+    var pawPrintImage: UIImage {
+        UIImage(pawPrintIconId: String(describing: self)) ?? hiconImage
     }
 }
 
@@ -476,7 +663,498 @@ extension AppInterfaceIconSet {
 extension UIImage {
     static func monologueSymbol(named name: String) -> UIImage {
         let icon = MonologueIcon.IconType.fromSystemName(name).icon
-        return AppInterfaceIconSet.selectedFromDefaults.image(for: icon).withRenderingMode(.alwaysTemplate)
+        let iconSet = AppInterfaceIconSet.selectedFromDefaults
+        let renderingMode: UIImage.RenderingMode = iconSet.usesOriginalArtwork ? .alwaysOriginal : .alwaysTemplate
+        return iconSet.image(for: icon).withRenderingMode(renderingMode)
     }
 }
 #endif
+
+// MARK: - IconType → Zappicon Mapping
+
+extension MonologueIcon.IconType {
+    /// Zappicon (H173) 图标映射 — 根据用户选择的风格动态加载
+    func zappiconImage(style: ZappiconIconStyle) -> UIImage {
+        let name: String
+        switch self {
+        // Tab Bar / Navigation
+        case .home:             name = "house"
+        case .homeFilled:       name = "house-simple"
+        case .podcast:          name = "microphone-stand"
+        case .podcastFilled:    name = "microphone-stand"
+        case .library:          name = "headphones"
+        case .libraryFilled:    name = "headphones"
+        case .search:           name = "search"
+        case .profile:          name = "user"
+        case .profileFilled:    name = "user-circle"
+
+        // Playback Controls
+        case .play:             name = "play"
+        case .pause:            name = "pause"
+        case .next:             name = "forward-step"
+        case .previous:         name = "backward-step"
+        case .stop:             name = "stop"
+        case .repeatMode:       name = "repeat"
+        case .repeatOne:        name = "repeat-1"
+        case .shuffle:          name = "shuffle"
+        case .refresh:          name = "arrows-rotate"
+
+        // Actions
+        case .like:             name = "heart"
+        case .liked:            name = "heart"
+        case .list:             name = "playlist"
+        case .back:             name = "angle-left"
+        case .more:             name = "menu-bars"
+        case .close:            name = "xmark"
+        case .trash:            name = "trash"
+        case .fm:               name = "radio"
+        case .bell:             name = "bell"
+
+        // Settings & Utility
+        case .settings:         name = "gear"
+        case .download:         name = "download-arrow-down"
+        case .cloud:            name = "cloud-upload"
+        case .chevronRight:     name = "angle-right"
+        case .chevronLeft:      name = "angle-left"
+        case .chevronDown:      name = "angle-down"
+        case .chevronUp:        name = "angle-up"
+        case .magnifyingGlass:  name = "search"
+        case .xmark:            name = "xmark"
+        case .fullscreen:       name = "arrows-expand"
+        case .sparkle:          name = "star"
+        case .soundQuality:     name = "waveform-lines"
+        case .storage:          name = "folder"
+        case .haptic:           name = "waveform"
+        case .info:             name = "info-circle"
+
+        // Media Info
+        case .clock:            name = "clock"
+        case .musicNoteList:    name = "music-list"
+        case .chart:            name = "music-list-wave"
+        case .translate:        name = "newspaper"
+        case .karaoke:          name = "microphone"
+        case .lock:             name = "lock"
+        case .unlock:           name = "unlock"
+        case .qr:               name = "qr-code"
+        case .phone:            name = "phone"
+        case .send:             name = "send"
+        case .musicNote:        name = "music-note"
+        case .save:             name = "bookmark"
+
+        // Player
+        case .playerDownload:   name = "download-arrow-down"
+        case .comment:          name = "comment-smile"
+
+        // Library
+        case .history:          name = "time-history"
+        case .playCircle:       name = "play-circle"
+        case .warning:          name = "exclamation-triangle"
+        case .personEmpty:      name = "user"
+        case .playNext:         name = "playlist-plus"
+        case .add:              name = "plus"
+        case .addToQueue:       name = "playlist-plus"
+
+        // Podcast
+        case .radio:            name = "radio"
+        case .micSlash:         name = "microphone-slash"
+        case .waveform:         name = "waveform"
+        case .skipBack:         name = "backward"
+        case .skipForward:      name = "forward"
+        case .rewind15:         name = "time-past-15"
+        case .forward15:        name = "time-next-15"
+        case .xmarkCircle:      name = "xmark-circle"
+        case .playCircleFill:   name = "play-circle"
+        case .gridSquare:       name = "grid-square"
+
+        // Symbols
+        case .checkmark:        name = "check"
+        case .shrinkScreen:     name = "arrows-compress"
+        case .expandScreen:     name = "arrows-expand"
+        case .headphones:       name = "headphones"
+        case .heartSlash:       name = "heart-slash"
+        case .personCircle:     name = "user-circle"
+        case .album:            name = "music-note-circle"
+        case .infoCircle:       name = "info-circle"
+        case .arrowDownCircle:  name = "arrow-down-circle"
+        case .sun:              name = "sun"
+        case .moon:             name = "moon"
+        case .halfCircle:       name = "sun"
+
+        // Settings Icons
+        case .equalizer:        name = "gear"
+        case .immersive:        name = "arrows-expand"
+        case .playerTheme:      name = "palette"
+
+        // Podcast Categories
+        case .catMusic:         name = "music"
+        case .catLife:          name = "compass"
+        case .catEmotion:       name = "heart"
+        case .catCreate:        name = "pen"
+        case .catAcg:           name = "game-controller"
+        case .catEntertain:     name = "tv"
+        case .catTalkshow:      name = "microphone"
+        case .catBook:          name = "book"
+        case .catKnowledge:     name = "diploma"
+        case .catBusiness:      name = "briefcase"
+        case .catHistory:       name = "clock"
+        case .catNews:          name = "newspaper"
+        case .catParenting:     name = "comment-smile"
+        case .catTravel:        name = "location-arrow"
+        case .catCrosstalk:     name = "microphone"
+        case .catFood:          name = "mug-saucer"
+        case .catTech:          name = "display"
+        case .catDefault:       name = "folder"
+        case .catPodcast:       name = "radio"
+        case .catElectronic:    name = "waveform"
+        case .catStar:          name = "star"
+        case .catDrama:         name = "video"
+        case .catStory:         name = "book"
+        case .catOther:         name = "grid-circle"
+        case .catPublish:       name = "send"
+
+        // Emoji & Debug
+        case .emoji:            name = "comment-smile"
+        case .share:            name = "share"
+        case .logInfo:          name = "info-circle"
+        case .logDebug:         name = "search"
+        case .logError:         name = "exclamation-triangle"
+        case .logNetwork:       name = "wifi"
+        case .logSuccess:       name = "check-circle"
+        case .arrowDownToLine:  name = "download-arrow-down"
+
+        // Filters & Misc
+        case .filter:           name = "filter"
+        case .microphone:       name = "microphone"
+        case .fmMode:           name = "radio"
+        case .audioWave:        name = "waveform-lines"
+        case .mv:               name = "tv"
+        case .hitokoto:         name = "chat-dots"
+
+        // Bar Styles
+        case .layers:           name = "grid-square"
+        case .tabBar:           name = "menu-bars"
+        case .minimalBar:       name = "minus"
+        case .floatingBall:     name = "record-audio"
+        }
+
+        // 拼接风格前缀加载：如 "light-play", "filled-heart"
+        let assetName = "\(style.rawValue)-\(name)"
+        return UIImage(zappiconId: assetName) ?? UIImage()
+    }
+}
+
+// MARK: - IconType → Lucide Mapping
+
+extension MonologueIcon.IconType {
+    /// Lucide 图标映射
+    var lucideImage: UIImage {
+        let name: String
+        switch self {
+        // Tab Bar / Navigation
+        case .home:             name = "house"
+        case .homeFilled:       name = "house"
+        case .podcast:          name = "mic"
+        case .podcastFilled:    name = "mic"
+        case .library:          name = "headphones"
+        case .libraryFilled:    name = "headphones"
+        case .search:           name = "search"
+        case .profile:          name = "user"
+        case .profileFilled:    name = "circle-user"
+
+        // Playback Controls
+        case .play:             name = "play"
+        case .pause:            name = "pause"
+        case .next:             name = "skip-forward"
+        case .previous:         name = "skip-back"
+        case .stop:             name = "circle-stop"
+        case .repeatMode:       name = "repeat"
+        case .repeatOne:        name = "repeat-1"
+        case .shuffle:          name = "shuffle"
+        case .refresh:          name = "refresh-cw"
+
+        // Actions
+        case .like:             name = "heart"
+        case .liked:            name = "heart"
+        case .list:             name = "list-music"
+        case .back:             name = "chevron-left"
+        case .more:             name = "menu"
+        case .close:            name = "x-line-top"
+        case .trash:            name = "trash-2"
+        case .fm:               name = "radio"
+        case .bell:             name = "bell"
+
+        // Settings & Utility
+        case .settings:         name = "settings"
+        case .download:         name = "download"
+        case .cloud:            name = "cloud-upload"
+        case .chevronRight:     name = "chevron-right"
+        case .chevronLeft:      name = "chevron-left"
+        case .chevronDown:      name = "chevron-down"
+        case .chevronUp:        name = "chevron-up"
+        case .magnifyingGlass:  name = "search"
+        case .xmark:            name = "x-line-top"
+        case .fullscreen:       name = "maximize-2"
+        case .sparkle:          name = "star"
+        case .soundQuality:     name = "music"
+        case .storage:          name = "hard-drive-download"
+        case .haptic:           name = "activity"
+        case .info:             name = "info"
+
+        // Media Info
+        case .clock:            name = "clock"
+        case .musicNoteList:    name = "list-music"
+        case .chart:            name = "music-2"
+        case .translate:        name = "book-open-text"
+        case .karaoke:          name = "mic-vocal"
+        case .lock:             name = "lock"
+        case .unlock:           name = "lock-open"
+        case .qr:               name = "scan-search"
+        case .phone:            name = "phone"
+        case .send:             name = "send"
+        case .musicNote:        name = "music"
+        case .save:             name = "bookmark"
+
+        // Player
+        case .playerDownload:   name = "download"
+        case .comment:          name = "message-circle"
+
+        // Library
+        case .history:          name = "clock"
+        case .playCircle:       name = "circle-play"
+        case .warning:          name = "circle-alert"
+        case .personEmpty:      name = "user"
+        case .playNext:         name = "list-plus"
+        case .add:              name = "plus"
+        case .addToQueue:       name = "list-plus"
+
+        // Podcast
+        case .radio:            name = "radio"
+        case .micSlash:         name = "mic-off"
+        case .waveform:         name = "activity"
+        case .skipBack:         name = "skip-back"
+        case .skipForward:      name = "skip-forward"
+        case .rewind15:         name = "skip-back"
+        case .forward15:        name = "skip-forward"
+        case .xmarkCircle:      name = "circle-x"
+        case .playCircleFill:   name = "circle-play"
+        case .gridSquare:       name = "grid-2x2"
+
+        // Symbols
+        case .checkmark:        name = "check"
+        case .shrinkScreen:     name = "minimize-2"
+        case .expandScreen:     name = "maximize-2"
+        case .headphones:       name = "headphones"
+        case .heartSlash:       name = "heart-off"
+        case .personCircle:     name = "circle-user"
+        case .album:            name = "disc-3"
+        case .infoCircle:       name = "info"
+        case .arrowDownCircle:  name = "circle-arrow-down"
+        case .sun:              name = "sun"
+        case .moon:             name = "moon"
+        case .halfCircle:       name = "sun-moon"
+
+        // Settings Icons
+        case .equalizer:        name = "settings-2"
+        case .immersive:        name = "maximize-2"
+        case .playerTheme:      name = "palette"
+
+        // Podcast Categories
+        case .catMusic:         name = "music"
+        case .catLife:          name = "heart-pulse"
+        case .catEmotion:       name = "heart"
+        case .catCreate:        name = "pen"
+        case .catAcg:           name = "disc-2"
+        case .catEntertain:     name = "tv"
+        case .catTalkshow:      name = "mic"
+        case .catBook:          name = "book-open"
+        case .catKnowledge:     name = "book-check"
+        case .catBusiness:      name = "briefcase"
+        case .catHistory:       name = "clock"
+        case .catNews:          name = "megaphone"
+        case .catParenting:     name = "smile-plus"
+        case .catTravel:        name = "map-pin-check"
+        case .catCrosstalk:     name = "mic-vocal"
+        case .catFood:          name = "concierge-bell"
+        case .catTech:          name = "monitor-smartphone"
+        case .catDefault:       name = "folder"
+        case .catPodcast:       name = "radio"
+        case .catElectronic:    name = "activity"
+        case .catStar:          name = "star"
+        case .catDrama:         name = "tv"
+        case .catStory:         name = "book-open"
+        case .catOther:         name = "circle-ellipsis"
+        case .catPublish:       name = "send"
+
+        // Emoji & Debug
+        case .emoji:            name = "smile-plus"
+        case .share:            name = "share-2"
+        case .logInfo:          name = "info"
+        case .logDebug:         name = "search"
+        case .logError:         name = "circle-alert"
+        case .logNetwork:       name = "wifi-pen"
+        case .logSuccess:       name = "circle-check"
+        case .arrowDownToLine:  name = "arrow-down-to-line"
+
+        // Filters & Misc
+        case .filter:           name = "list-filter"
+        case .microphone:       name = "mic"
+        case .fmMode:           name = "radio"
+        case .audioWave:        name = "music-3"
+        case .mv:               name = "tv"
+        case .hitokoto:         name = "message-circle"
+
+        // Bar Styles
+        case .layers:           name = "grid-2x2"
+        case .tabBar:           name = "menu"
+        case .minimalBar:       name = "minus"
+        case .floatingBall:     name = "circle"
+        }
+
+        return UIImage(lucideId: name) ?? UIImage()
+    }
+}
+
+// MARK: - IconType → Solar Mapping
+
+extension MonologueIcon.IconType {
+    /// Solar Icons 图标映射 — 根据用户选择的风格动态加载
+    func solarImage(style: SolarIconStyle) -> UIImage {
+        let name: String
+        switch self {
+        case .home:             name = "home"
+        case .homeFilled:       name = "home-2"
+        case .podcast:          name = "microphone"
+        case .podcastFilled:    name = "microphone"
+        case .library:          name = "headphone"
+        case .libraryFilled:    name = "headphone"
+        case .search:           name = "search"
+        case .profile:          name = "user"
+        case .profileFilled:    name = "user-circle"
+        case .play:             name = "play"
+        case .pause:            name = "pause"
+        case .next:             name = "fast-forward"
+        case .previous:         name = "fast-backward"
+        case .stop:             name = "pause-circle"
+        case .repeatMode:       name = "sync"
+        case .repeatOne:        name = "arrow-rotate-right"
+        case .shuffle:          name = "shuffle"
+        case .refresh:          name = "arrow-rotate-right"
+        case .like:             name = "heart"
+        case .liked:            name = "heart"
+        case .list:             name = "list-ui"
+        case .back:             name = "angle-left"
+        case .more:             name = "3-dots-horizontal"
+        case .close:            name = "cancel"
+        case .trash:            name = "trash"
+        case .fm:               name = "radio"
+        case .bell:             name = "bell"
+        case .settings:         name = "gear"
+        case .download:         name = "download"
+        case .cloud:            name = "cloud"
+        case .chevronRight:     name = "angle-right"
+        case .chevronLeft:      name = "angle-left"
+        case .chevronDown:      name = "angle-down"
+        case .chevronUp:        name = "angle-up"
+        case .magnifyingGlass:  name = "search"
+        case .xmark:            name = "cancel"
+        case .fullscreen:       name = "expand"
+        case .sparkle:          name = "star"
+        case .soundQuality:     name = "music-2"
+        case .storage:          name = "folder"
+        case .haptic:           name = "activity"
+        case .info:             name = "info-circle"
+        case .clock:            name = "clock"
+        case .musicNoteList:    name = "music"
+        case .chart:            name = "music-2"
+        case .translate:        name = "book-open"
+        case .karaoke:          name = "microphone"
+        case .lock:             name = "lock"
+        case .unlock:           name = "lock-open"
+        case .qr:               name = "grid-square"
+        case .phone:            name = "phone"
+        case .send:             name = "send"
+        case .musicNote:        name = "music"
+        case .save:             name = "bookmark"
+        case .playerDownload:   name = "download"
+        case .comment:          name = "comment-dots"
+        case .history:          name = "clock"
+        case .playCircle:       name = "play-circle"
+        case .warning:          name = "info-circle"
+        case .personEmpty:      name = "user"
+        case .playNext:         name = "forward-circle"
+        case .add:              name = "plus"
+        case .addToQueue:       name = "forward-circle"
+        case .radio:            name = "radio"
+        case .micSlash:         name = "microphone"
+        case .waveform:         name = "activity"
+        case .skipBack:         name = "fast-backward"
+        case .skipForward:      name = "fast-forward"
+        case .rewind15:         name = "fast-backward"
+        case .forward15:        name = "fast-forward"
+        case .xmarkCircle:      name = "cancel-circle"
+        case .playCircleFill:   name = "play-circle"
+        case .gridSquare:       name = "grid-square"
+        case .checkmark:        name = "check"
+        case .shrinkScreen:     name = "compress"
+        case .expandScreen:     name = "expand"
+        case .headphones:       name = "headphone"
+        case .heartSlash:       name = "heart"
+        case .personCircle:     name = "user-circle"
+        case .album:            name = "music-2"
+        case .infoCircle:       name = "info-circle"
+        case .arrowDownCircle:  name = "arrow-down-circle"
+        case .sun:              name = "moon"
+        case .moon:             name = "moon"
+        case .halfCircle:       name = "moon"
+        case .equalizer:        name = "gear"
+        case .immersive:        name = "expand"
+        case .playerTheme:      name = "color-palette"
+        case .catMusic:         name = "music"
+        case .catLife:          name = "compass"
+        case .catEmotion:       name = "heart"
+        case .catCreate:        name = "pen"
+        case .catAcg:           name = "gamepad"
+        case .catEntertain:     name = "tv"
+        case .catTalkshow:      name = "microphone"
+        case .catBook:          name = "book"
+        case .catKnowledge:     name = "book-open"
+        case .catBusiness:      name = "gear"
+        case .catHistory:       name = "clock"
+        case .catNews:          name = "megaphone"
+        case .catParenting:     name = "heart"
+        case .catTravel:        name = "location-pin"
+        case .catCrosstalk:     name = "microphone"
+        case .catFood:          name = "coffee-cup"
+        case .catTech:          name = "tv"
+        case .catDefault:       name = "folder"
+        case .catPodcast:       name = "radio"
+        case .catElectronic:    name = "activity"
+        case .catStar:          name = "star"
+        case .catDrama:         name = "tv"
+        case .catStory:         name = "book"
+        case .catOther:         name = "grid-circle"
+        case .catPublish:       name = "send"
+        case .emoji:            name = "heart"
+        case .share:            name = "share-ios"
+        case .logInfo:          name = "info-circle"
+        case .logDebug:         name = "search"
+        case .logError:         name = "cancel-circle"
+        case .logNetwork:       name = "wifi"
+        case .logSuccess:       name = "check-circle"
+        case .arrowDownToLine:  name = "download"
+        case .filter:           name = "filter"
+        case .microphone:       name = "microphone"
+        case .fmMode:           name = "radio"
+        case .audioWave:        name = "activity"
+        case .mv:               name = "tv"
+        case .hitokoto:         name = "comment-dots"
+        case .layers:           name = "grid-square"
+        case .tabBar:           name = "list-ui"
+        case .minimalBar:       name = "minus"
+        case .floatingBall:     name = "play-circle"
+        }
+
+        let assetName = "\(style.rawValue)-\(name)"
+        return UIImage(solarId: assetName) ?? UIImage()
+    }
+}

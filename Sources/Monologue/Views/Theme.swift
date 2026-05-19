@@ -36,6 +36,8 @@ enum MonologueTimeGreeting {
 extension Color {
     static var monologueBackground: Color {
         if MangaStyle.isActive { return MangaStyle.paper }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.paper }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.paper }
         if MujiStyle.isActive { return MujiStyle.paper }
         if CapsuleStyle.isActive { return CapsuleStyle.base }
         if SequoiaStyle.isActive { return SequoiaStyle.base }
@@ -47,6 +49,8 @@ extension Color {
         
     static var monologueTextPrimary: Color {
         if MangaStyle.isActive { return MangaStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -58,6 +62,8 @@ extension Color {
 
     static var monologueTextSecondary: Color {
         if MangaStyle.isActive { return MangaStyle.inkSub }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
@@ -97,6 +103,8 @@ extension Color {
     /// 主强调色（与 monologueIconBackground 一致，用于 EQ 等交互组件）
     static var monologueAccent: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -109,6 +117,8 @@ extension Color {
     /// 强调色上的可读前景色，用于勾选标记、强调按钮和浅色自定义强调色的图标。
     static var monologueAccentForeground: Color {
         if MangaStyle.isActive { return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.accentPink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         if SequoiaStyle.isActive { return ThemeColorCustomization.accentForegroundColor(for: .sequoia) }
@@ -121,6 +131,8 @@ extension Color {
     /// 设置页系统 Toggle 激活色
     static var monologueToggleTint: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -137,6 +149,8 @@ extension Color {
     
     static var monologueMilk: Color {
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.88) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surface.opacity(0.9) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.9) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.84) }
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.82) }
@@ -149,6 +163,8 @@ extension Color {
     /// Liquid Glass 专用染色 — 兼顾玻璃效果与无 glassEffect 时的可见兜底
     static var monologueGlassTint: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.95) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised.opacity(0.95) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised.opacity(0.95) }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.92) }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised.opacity(0.92) }
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.92) }
@@ -161,6 +177,8 @@ extension Color {
     /// 悬浮栏专用填充色 — 更通透的玻璃质感
     static var monologueFloatingBarFill: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.96) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised.opacity(0.96) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.96) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.64) }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised.opacity(0.88) }
@@ -173,6 +191,7 @@ extension Color {
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueCardBackground: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.96) }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised }
@@ -186,6 +205,7 @@ extension Color {
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueGlassOverlay: Color {
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.78) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.82) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.74) }
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.72) }
@@ -199,6 +219,7 @@ extension Color {
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueSheetOverlay: Color {
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.95) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.96) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.96) }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised.opacity(0.96) }
@@ -211,6 +232,7 @@ extension Color {
     /// 新通用 Sheet 面板主表面（顶部）
     static var monologueSheetSurfaceTop: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surface }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised }
@@ -223,7 +245,8 @@ extension Color {
     /// 新通用 Sheet 面板主表面（底部）
     static var monologueSheetSurfaceBottom: Color {
         if MangaStyle.isActive { return MangaStyle.paperWarm }
-        if MujiStyle.isActive { return MujiStyle.paperWarm }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceTint }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
         if SequoiaStyle.isActive { return SequoiaStyle.glassPressed }
         if ClayStyle.isActive { return ClayStyle.creamPressed }
@@ -235,6 +258,7 @@ extension Color {
     /// 新通用 Sheet 面板顶部高光
     static var monologueSheetHighlight: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow.opacity(0.15) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.paperBlue.opacity(0.34) }
         if MujiStyle.isActive { return MujiStyle.straw.opacity(0.18) }
         if CapsuleStyle.isActive { return Color.white.opacity(0.36) }
         if SequoiaStyle.isActive { return Color.white.opacity(0.42) }
@@ -247,6 +271,7 @@ extension Color {
     /// 新通用 Sheet 面板内侧柔光
     static var monologueSheetInnerGlow: Color {
         if MangaStyle.isActive { return MangaStyle.accentPink.opacity(0.08) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.accent.opacity(0.08) }
         if MujiStyle.isActive { return MujiStyle.tea.opacity(0.12) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.1) }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.12) }
@@ -259,6 +284,7 @@ extension Color {
     /// 新通用 Sheet 面板描边
     static var monologueSheetStroke: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.74) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.76) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.9) }
@@ -271,6 +297,7 @@ extension Color {
     /// 新通用 Sheet 阴影色
     static var monologueSheetShadow: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.16) }
         if MujiStyle.isActive { return Color.black.opacity(0.08) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.16) }
         if SequoiaStyle.isActive { return Color.black.opacity(0.16) }
@@ -283,6 +310,7 @@ extension Color {
     /// 新通用 Sheet 顶部拖拽把手
     static var monologueSheetHandle: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.46) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.44) }
         if MujiStyle.isActive { return MujiStyle.hairline }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted.opacity(0.48) }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.5) }
@@ -294,6 +322,7 @@ extension Color {
     
     static var monologueSeparator: Color {
         if MangaStyle.isActive { return MangaStyle.separator }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.separator }
         if MujiStyle.isActive { return MujiStyle.separator }
         if CapsuleStyle.isActive { return CapsuleStyle.separator }
         if SequoiaStyle.isActive { return SequoiaStyle.separator }
@@ -305,6 +334,8 @@ extension Color {
     
     static var monologueIconBackground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.mint }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.16) }
@@ -316,6 +347,8 @@ extension Color {
     
     static var monologueIconForeground: Color {
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -396,6 +429,8 @@ struct MonologueGlassCardBackground: View {
     var body: some View {
         if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
+        } else if PureWhiteStyle.isActive {
+            PureWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 26), elevated: true)
         } else if MujiStyle.isActive {
             MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true)
         } else if CapsuleStyle.isActive {
@@ -427,10 +462,10 @@ extension View {
         self.background(
             MonologueGlassCardBackground(cornerRadius: cornerRadius)
                 .shadow(
-                    color: MangaStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : (CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.12) : (SequoiaStyle.isActive ? Color.black.opacity(0.12) : (ClayStyle.isActive ? Color.black.opacity(0.08) : .black.opacity(0.04))))),
-                    radius: MangaStyle.isActive ? 0 : (MujiStyle.isActive ? 10 : 8),
+                    color: MangaStyle.isActive || PureWhiteStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : (CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.12) : (SequoiaStyle.isActive ? Color.black.opacity(0.12) : (ClayStyle.isActive ? Color.black.opacity(0.08) : .black.opacity(0.04))))),
+                    radius: MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 10 : 8),
                     x: 0,
-                    y: MangaStyle.isActive ? 0 : (MujiStyle.isActive ? 4 : 2)
+                    y: MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 4 : 2)
                 )
         )
     }

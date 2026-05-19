@@ -15,6 +15,7 @@ struct FloatingBallView: View {
     @State private var lastTickDate: Date? = nil
 
     private var ballSize: CGFloat {
+        if PetWhiteStyle.isActive { return 58 }
         if CapsuleStyle.isActive { return 60 }
         return SequoiaStyle.isActive ? 60 : 56
     }
@@ -80,22 +81,29 @@ struct FloatingBallView: View {
                 fill: progressFill
             )
 
-            // 黑胶唱片
-            TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !player.isPlaying)) { timeline in
-                vinylDisc
+            if PetWhiteStyle.isActive {
+                petWhiteBallFace
                     .frame(width: ballSize - 8, height: ballSize - 8)
-                    .rotationEffect(.degrees(rotationAngle))
-                    .onChange(of: timeline.date) { _, newDate in
-                        guard player.isPlaying else {
-                            lastTickDate = nil
-                            return
+                    .scaleEffect(player.isPlaying ? 1.03 : 1)
+                    .animation(MonologueAnimation.micro, value: player.isPlaying)
+            } else {
+                // 黑胶唱片
+                TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !player.isPlaying)) { timeline in
+                    vinylDisc
+                        .frame(width: ballSize - 8, height: ballSize - 8)
+                        .rotationEffect(.degrees(rotationAngle))
+                        .onChange(of: timeline.date) { _, newDate in
+                            guard player.isPlaying else {
+                                lastTickDate = nil
+                                return
+                            }
+                            if let last = lastTickDate {
+                                let dt = newDate.timeIntervalSince(last)
+                                rotationAngle += dt * 45.0
+                            }
+                            lastTickDate = newDate
                         }
-                        if let last = lastTickDate {
-                            let dt = newDate.timeIntervalSince(last)
-                            rotationAngle += dt * 45.0
-                        }
-                        lastTickDate = newDate
-                    }
+                }
             }
         }
         .background {
@@ -113,6 +121,18 @@ struct FloatingBallView: View {
                             .offset(x: 1, y: -3)
                     }
                     .shadow(color: MangaStyle.strokeInk.opacity(0.4), radius: 0, x: 3, y: 3)
+            } else if PetWhiteStyle.isActive {
+                Circle()
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.8)
+                    .frame(width: ballSize + 4, height: ballSize + 4)
+                    .overlay(alignment: .topTrailing) {
+                        Circle()
+                            .fill(player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint)
+                            .frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
+                            .offset(x: -2, y: 2)
+                    }
+                    .shadow(color: PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.22 : 0.14), radius: 8, x: 0, y: 4)
             } else if SequoiaStyle.isActive {
                 Circle()
                     .stroke(
@@ -190,7 +210,11 @@ struct FloatingBallView: View {
 
     @ViewBuilder
     private var floatingBallChromeBackground: some View {
-        if CapsuleStyle.isActive {
+        if PetWhiteStyle.isActive {
+            Circle()
+                .fill(PetWhiteStyle.surfaceRaised)
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.6))
+        } else if CapsuleStyle.isActive {
             CapsuleFloatingGlassCircle(
                 tint: CapsuleStyle.surface,
                 lightOpacity: 0.42,
@@ -267,9 +291,28 @@ struct FloatingBallView: View {
         }
     }
 
+    private var petWhiteBallFace: some View {
+        ZStack {
+            Circle()
+                .fill(player.isPlaying ? PetWhiteStyle.butter : PetWhiteStyle.surfaceRaised)
+                .overlay(Circle().stroke(PetWhiteStyle.separator, lineWidth: 1))
+
+            PetWhiteMascotMark(kind: player.isPlaying ? .dog : .cat, size: ballSize * 0.52)
+        }
+    }
+
     // MARK: - 控制面板
 
+    @ViewBuilder
     private var controlPanel: some View {
+        if PetWhiteStyle.isActive {
+            petWhiteLeashPanel
+        } else {
+            defaultControlPanel
+        }
+    }
+
+    private var defaultControlPanel: some View {
         HStack(spacing: 0) {
             // Tab 切换
             tabSection
@@ -317,6 +360,13 @@ struct FloatingBallView: View {
                             .frame(width: 42, height: 3)
                             .offset(x: 18, y: 7)
                     }
+            } else if PetWhiteStyle.isActive {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+                    .overlay(alignment: .topLeading) {
+                        PetWhiteFloatingSignature(compact: true, tint: PetWhiteStyle.mint)
+                            .offset(x: 14, y: -9)
+                    }
             } else if BentoStyle.isActive {
                 RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                     .stroke(BentoStyle.ink.opacity(0.08), lineWidth: 1)
@@ -348,10 +398,72 @@ struct FloatingBallView: View {
         .padding(.trailing, 8)
     }
 
+    private var petWhiteLeashPanel: some View {
+        HStack(spacing: 10) {
+            tabSection
+                .padding(5)
+                .background {
+                    Capsule(style: .continuous)
+                        .fill(PetWhiteStyle.surfaceRaised)
+                        .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1))
+                }
+
+            Capsule(style: .continuous)
+                .fill(PetWhiteStyle.stroke)
+                .frame(width: 18, height: 3)
+
+            playbackSection
+                .padding(4)
+                .background {
+                    Circle()
+                        .fill(PetWhiteStyle.butter)
+                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.3))
+                }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background {
+            UnevenRoundedRectangle(
+                cornerRadii: .init(
+                    topLeading: 28,
+                    bottomLeading: 22,
+                    bottomTrailing: 28,
+                    topTrailing: 16
+                ),
+                style: .continuous
+            )
+            .fill(PetWhiteStyle.paper)
+            .overlay(
+                UnevenRoundedRectangle(
+                    cornerRadii: .init(
+                        topLeading: 28,
+                        bottomLeading: 22,
+                        bottomTrailing: 28,
+                        topTrailing: 16
+                    ),
+                    style: .continuous
+                )
+                .stroke(PetWhiteStyle.stroke, lineWidth: 1.7)
+            )
+            .overlay(alignment: .topLeading) {
+                PetWhiteFloatingBowTie()
+                    .offset(x: 18, y: -8)
+            }
+        }
+        .padding(.trailing, 8)
+    }
+
     @ViewBuilder
     private var panelBackground: some View {
         if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: panelCornerRadius, elevated: true, role: .floating)
+        } else if PetWhiteStyle.isActive {
+            PetWhiteSurfaceBackground(
+                cornerRadius: panelCornerRadius,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: PetWhiteStyle.mint
+            )
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                 .fill(BentoStyle.surface)
@@ -401,11 +513,11 @@ struct FloatingBallView: View {
     // MARK: - Tab 切换区域
 
     private var tabSection: some View {
-        let items: [(tab: Tab, icon: MonologueIcon.IconType)] = [
-            (.home, .home),
-            (.podcast, .podcast),
-            (.library, .library),
-            (.profile, .profile),
+        let items: [(tab: Tab, outline: MonologueIcon.IconType, filled: MonologueIcon.IconType)] = [
+            (.home, .home, .homeFilled),
+            (.podcast, .podcast, .podcastFilled),
+            (.library, .library, .libraryFilled),
+            (.profile, .profile, .profileFilled),
         ]
 
         return HStack(spacing: 6) {
@@ -420,10 +532,12 @@ struct FloatingBallView: View {
                         isPanelOpen = false
                     }
                 } label: {
-                    MonologueIcon(
-                        icon: item.icon,
+                    let isSelected = currentTab == item.tab
+                    floatingBallIcon(
+                        icon: isSelected ? item.filled : item.outline,
                         size: 18,
-                        color: tabForeground(item.tab, isSelected: currentTab == item.tab)
+                        color: tabForeground(item.tab, isSelected: isSelected),
+                        lineWidth: 1.7
                     )
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
@@ -456,10 +570,11 @@ struct FloatingBallView: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: playControlForeground))
                         .scaleEffect(0.6)
                 } else {
-                    MonologueIcon(
+                    floatingBallIcon(
                         icon: player.isPlaying ? .pause : .play,
                         size: 16,
-                        color: playControlForeground
+                        color: playControlForeground,
+                        lineWidth: 1.8
                     )
                 }
             }
@@ -482,11 +597,22 @@ struct FloatingBallView: View {
 
     private var panelCornerRadius: CGFloat {
         if CapsuleStyle.isActive { return 26 }
+        if PetWhiteStyle.isActive { return 24 }
         return MangaStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 24 : (SequoiaStyle.isActive ? 24 : 20))
+    }
+
+    @ViewBuilder
+    private func floatingBallIcon(icon: MonologueIcon.IconType, size: CGFloat, color: Color, lineWidth: CGFloat) -> some View {
+        if PetWhiteStyle.isActive {
+            PetWhitePackIcon(icon: icon, size: max(size + 6, 20), visualScale: 1.04, fallbackColor: color, lineWidth: lineWidth)
+        } else {
+            MonologueIcon(icon: icon, size: size, color: color, lineWidth: lineWidth)
+        }
     }
 
     private var panelScrimColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.18 : 0.10) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink.opacity(0.18) }
         if SequoiaStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.2 : 0.12) }
         if CapsuleStyle.isActive { return CapsuleStyle.ink.opacity(colorScheme == .dark ? 0.24 : 0.14) }
@@ -502,6 +628,7 @@ struct FloatingBallView: View {
 
     private var progressTrackColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.separator.opacity(0.75) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.62) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.62) }
@@ -513,6 +640,9 @@ struct FloatingBallView: View {
     private var progressFill: AnyShapeStyle {
         if MangaStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [MangaStyle.accentPink, MangaStyle.labelYellow], startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
+        if PetWhiteStyle.isActive {
+            return AnyShapeStyle(LinearGradient(colors: [PetWhiteStyle.dogOrange, PetWhiteStyle.mint], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         if MujiStyle.isActive {
             return AnyShapeStyle(MujiStyle.accentGradient)
@@ -554,16 +684,18 @@ struct FloatingBallView: View {
 
     private var emptyCoverFill: Color {
         if MangaStyle.isActive { return MangaStyle.labelYellow }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
-        if MujiStyle.isActive { return MujiStyle.paperWarm }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if BentoStyle.isActive { return BentoStyle.surface }
         return Color.gray.opacity(0.3)
     }
 
     private var emptyCoverIconColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
@@ -587,7 +719,7 @@ struct FloatingBallView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        if MujiStyle.isActive { return MujiStyle.paperWarm.opacity(0.76) }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.76) }
         if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueIconBackground
     }
@@ -606,6 +738,8 @@ struct FloatingBallView: View {
     private var playControlStroke: some View {
         if MangaStyle.isActive {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.6)
+        } else if PetWhiteStyle.isActive {
+            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
@@ -622,6 +756,7 @@ struct FloatingBallView: View {
     private func tabForeground(_ tab: Tab, isSelected: Bool) -> Color {
         guard isSelected else {
             if MangaStyle.isActive { return MangaStyle.inkMuted }
+            if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
             if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
@@ -631,6 +766,7 @@ struct FloatingBallView: View {
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: capsuleTabTint(tab)) }
@@ -645,6 +781,10 @@ struct FloatingBallView: View {
             Circle()
                 .fill(mangaTabTint(tab).opacity(0.88))
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
+        } else if PetWhiteStyle.isActive {
+            Circle()
+                .fill(petWhiteTabTint(tab))
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
         } else if MujiStyle.isActive {
             Circle()
                 .fill(MujiStyle.surface.opacity(0.78))
@@ -686,6 +826,15 @@ struct FloatingBallView: View {
         case .podcast: return MangaStyle.bubbleBlue
         case .library: return MangaStyle.mint
         case .profile: return MangaStyle.bubblePink
+        }
+    }
+
+    private func petWhiteTabTint(_ tab: Tab) -> Color {
+        switch tab {
+        case .home: return PetWhiteStyle.dogOrange
+        case .podcast: return PetWhiteStyle.mint
+        case .library: return PetWhiteStyle.butter
+        case .profile: return PetWhiteStyle.blush.opacity(0.84)
         }
     }
 

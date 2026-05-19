@@ -122,6 +122,7 @@ struct ProfileView: View {
 
     private var themedProfileSpacing: CGFloat {
         if MangaStyle.isActive { return 14 }
+        if PetWhiteStyle.isActive { return 16 }
         if NeumorphicStyle.isActive { return 18 }
         if CapsuleStyle.isActive { return 16 }
         if SignalStyle.isActive { return 17 }
@@ -135,6 +136,8 @@ struct ProfileView: View {
     private var loggedInDashboardContent: some View {
         if MangaStyle.isActive {
             mangaProfileDashboard
+        } else if PetWhiteStyle.isActive {
+            petWhiteProfileDashboard
         } else if NeumorphicStyle.isActive {
             neumorphicProfileDashboard
         } else if CapsuleStyle.isActive {
@@ -216,6 +219,34 @@ struct ProfileView: View {
         ProfileRecentPlaysHost(variant: .manga)
 
         mangaProfileActionGrid
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        logoutButton
+    }
+
+    @ViewBuilder
+    private var petWhiteProfileDashboard: some View {
+        PetWhitePageHeader(
+            eyebrow: "PROFILE",
+            title: String(localized: "我的"),
+            subtitle: String(localized: "global_theme_pet_white_name"),
+            icon: .profileFilled
+        ) {
+            NavigationLink(destination: SettingsView()) {
+                PetWhiteIconBadge(icon: .settings, tint: PetWhiteStyle.mint, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+
+        statsBar
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        profileHeroCard
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        ProfileRecentPlaysHost(variant: .standard)
+
+        menuList
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
         logoutButton
@@ -457,6 +488,16 @@ struct ProfileView: View {
                     title: NSLocalizedString("profile_downloads", comment: ""),
                     value: "\(downloadedSongCount)",
                     tint: CapsuleStyle.amber
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+
+            NavigationLink(destination: ListeningStatsView()) {
+                CapsuleProfilePortalTile(
+                    icon: .sparkle,
+                    title: String(localized: "听歌统计"),
+                    value: "STATS",
+                    tint: CapsuleStyle.violet
                 )
             }
             .buttonStyle(CapsulePressStyle())
@@ -855,6 +896,16 @@ struct ProfileView: View {
                     title: NSLocalizedString("profile_downloads", comment: ""),
                     value: "\(downloadedSongCount)",
                     tint: LiquidGlassStyle.amber
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(destination: ListeningStatsView()) {
+                liquidGlassProfilePortalTile(
+                    icon: .sparkle,
+                    title: String(localized: "听歌统计"),
+                    value: "STATS",
+                    tint: LiquidGlassStyle.violet
                 )
             }
             .buttonStyle(.plain)
@@ -1324,6 +1375,26 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
+                NavigationLink(destination: ListeningStatsView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS",
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
+
+                NavigationLink(destination: ListeningStatsView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS",
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 NavigationLink(destination: StorageManageView()) {
                     NeumorphicProfileShortcutTile(
                         icon: .storage,
@@ -1467,6 +1538,18 @@ struct ProfileView: View {
 
                 MangaProfileActionDivider()
 
+
+                MangaProfileActionDivider()
+
+                NavigationLink(destination: ListeningStatsView()) {
+                    MangaProfileActionRow(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS",
+                        tint: MangaStyle.decoBlue
+                    )
+                }
+                .buttonStyle(.plain)
                 NavigationLink(destination: StorageManageView()) {
                     MangaProfileActionRow(
                         icon: .storage,
@@ -1594,6 +1677,17 @@ struct ProfileView: View {
                         icon: .download,
                         title: NSLocalizedString("profile_downloads", comment: ""),
                         value: "\(downloadedSongCount)"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MujiProfileDivider()
+
+                NavigationLink(destination: ListeningStatsView()) {
+                    MujiProfileLedgerRow(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS"
                     )
                 }
                 .buttonStyle(.plain)
@@ -1754,6 +1848,16 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
+                NavigationLink(destination: ListeningStatsView()) {
+                    NeumorphicProfileShortcutTile(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS",
+                        tint: NeumorphicStyle.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+
                 NavigationLink(destination: StorageManageView()) {
                     NeumorphicProfileShortcutTile(
                         icon: .storage,
@@ -1908,6 +2012,18 @@ struct ProfileView: View {
 
                 MangaProfileActionDivider()
 
+                NavigationLink(destination: ListeningStatsView()) {
+                    MangaProfileActionRow(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS",
+                        tint: MangaStyle.decoBlue
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MangaProfileActionDivider()
+
                 NavigationLink(destination: StorageManageView()) {
                     MangaProfileActionRow(
                         icon: .storage,
@@ -2051,6 +2167,17 @@ struct ProfileView: View {
 
                 MujiProfileDivider()
 
+                NavigationLink(destination: ListeningStatsView()) {
+                    MujiProfileLedgerRow(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计"),
+                        value: "STATS"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MujiProfileDivider()
+
                 NavigationLink(destination: StorageManageView()) {
                     MujiProfileLedgerRow(
                         icon: .storage,
@@ -2133,6 +2260,20 @@ struct ProfileView: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.profileAvatarSize, height: DeviceLayout.profileAvatarSize)
                 .clipShape(Circle())
+                .overlay(Circle().stroke(PetWhiteStyle.isActive ? PetWhiteStyle.stroke : Color.clear, lineWidth: 2))
+            } else if PetWhiteStyle.isActive {
+                PetWhiteMascotMark(kind: .pair, size: DeviceLayout.profileAvatarSize)
+                    .frame(width: DeviceLayout.profileAvatarSize, height: DeviceLayout.profileAvatarSize)
+                    .background(
+                        PetWhiteSurfaceBackground(
+                            cornerRadius: DeviceLayout.profileAvatarSize * 0.5,
+                            elevated: true,
+                            tint: PetWhiteStyle.surfaceRaised,
+                            accent: PetWhiteStyle.mint
+                        )
+                    )
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 2))
             } else {
                 Circle()
                     .fill(Color.monologueSeparator)
@@ -2145,25 +2286,25 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(MangaStyle.isActive ? MangaStyle.comicFont(22, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(21, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))))
-                        .foregroundColor(.monologueTextPrimary)
+                        .font(MangaStyle.isActive ? MangaStyle.comicFont(22, weight: .bold) : (PetWhiteStyle.isActive ? PetWhiteStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(21, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded)))))))
+                        .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
                     if let level = userLevel {
                         Text("Lv.\(level)")
-                            .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded))))))
-                            .foregroundColor(.monologueIconForeground)
+                            .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(10, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded)))))))
+                            .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.stroke : .monologueIconForeground)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(Color.monologueIconBackground)
+                            .background(PetWhiteStyle.isActive ? PetWhiteStyle.mint : Color.monologueIconBackground)
                             .clipShape(Capsule())
                     }
                 }
 
                 if let signature = profile?.signature, !signature.isEmpty {
                     Text(signature)
-                        .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))))))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(MangaStyle.isActive ? MangaStyle.comicFont(12, weight: .medium) : (PetWhiteStyle.isActive ? PetWhiteStyle.bodyFont(12, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded)))))))
+                        .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : .monologueTextSecondary)
                         .lineLimit(1)
                 }
             }
@@ -2171,7 +2312,7 @@ struct ProfileView: View {
             Spacer(minLength: 0)
         }
         .padding(ThemedPageStyle.isActive ? 16 : 18)
-        .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 24 : (SignalStyle.isActive ? 16 : (SequoiaStyle.isActive ? 18 : 22)))), mangaTint: MangaStyle.paperWarm)
+        .themedProfileSurface(cornerRadius: PetWhiteStyle.isActive ? PetWhiteStyle.cardRadius : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 24 : (SignalStyle.isActive ? 16 : (SequoiaStyle.isActive ? 18 : 22))))), mangaTint: MangaStyle.paperWarm)
     }
 
     // MARK: - Stats Bar
@@ -2198,6 +2339,25 @@ struct ProfileView: View {
             }
             .padding(14)
             .background(MangaCardBackground(cornerRadius: 12, elevated: true))
+        } else if PetWhiteStyle.isActive {
+            HStack(spacing: 0) {
+                StatCell(
+                    value: formatNumber(listenSongs ?? 0),
+                    label: String(localized: "profile_total_songs")
+                )
+                statDivider
+                StatCell(
+                    value: "\(localPlaylistCount)",
+                    label: String(localized: "profile_local_playlists")
+                )
+                statDivider
+                StatCell(
+                    value: "\(downloadedSongCount)",
+                    label: String(localized: "profile_downloads")
+                )
+            }
+            .padding(.vertical, 14)
+            .background(PetWhiteSurfaceBackground(cornerRadius: 20, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         } else if MujiStyle.isActive {
             HStack(spacing: 10) {
                 MujiMetricTile(
@@ -2318,7 +2478,7 @@ struct ProfileView: View {
 
     private var statDivider: some View {
         Rectangle()
-            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.68) : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.7) : (SequoiaStyle.isActive ? SequoiaStyle.separator.opacity(0.9) : (LiquidGlassStyle.isActive ? LiquidGlassStyle.separator.opacity(0.82) : Color.monologueSeparator))))
+            .fill(PetWhiteStyle.isActive ? PetWhiteStyle.separator : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.68) : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.7) : (SequoiaStyle.isActive ? SequoiaStyle.separator.opacity(0.9) : (LiquidGlassStyle.isActive ? LiquidGlassStyle.separator.opacity(0.82) : Color.monologueSeparator)))))
             .frame(width: 0.5, height: 28)
     }
 
@@ -2394,6 +2554,13 @@ struct ProfileView: View {
                 MangaSectionTitle(title: String(localized: "profile_settings"))
             } else if MujiStyle.isActive {
                 MujiSectionTitle(title: String(localized: "profile_settings"))
+            } else if PetWhiteStyle.isActive {
+                PetWhiteSectionTitle(
+                    title: String(localized: "profile_settings"),
+                    detail: String(localized: "settings_appearance_layout_section"),
+                    icon: .settings,
+                    tint: PetWhiteStyle.mint
+                )
             } else if NeumorphicStyle.isActive {
                 NeumorphicSectionTitle(title: String(localized: "profile_settings"), detail: nil)
             } else if SignalStyle.isActive {
@@ -2453,6 +2620,18 @@ struct ProfileView: View {
                 Divider().padding(.leading, 56)
 
                 NavigationLink(
+                    destination: ListeningStatsView()
+                ) {
+                    ProfileMenuRow(
+                        icon: .sparkle,
+                        title: String(localized: "听歌统计")
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+                Divider().padding(.leading, 56)
+
+                NavigationLink(
                     destination: StorageManageView()
                 ) {
                     ProfileMenuRow(
@@ -2474,7 +2653,7 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
-            .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 20 : (SequoiaStyle.isActive ? 18 : 20)))), mangaTint: MangaStyle.bubbleWhite)
+            .themedProfileSurface(cornerRadius: PetWhiteStyle.isActive ? PetWhiteStyle.cardRadius : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 20 : (SequoiaStyle.isActive ? 18 : 20))))), mangaTint: MangaStyle.bubbleWhite)
         }
     }
 
@@ -2506,8 +2685,8 @@ struct ProfileView: View {
             }
         }) {
             Text(LocalizedStringKey("action_logout"))
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))))
-                .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                .font(MangaStyle.isActive ? MangaStyle.comicFont(13, weight: .bold) : (PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(13, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded)))))
+                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : .monologueTextSecondary.opacity(0.6))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
         }
@@ -2659,6 +2838,18 @@ struct ProfileView: View {
                             Divider().padding(.leading, 56)
 
                             NavigationLink(
+                                destination: ListeningStatsView()
+                            ) {
+                                ProfileMenuRow(
+                                    icon: .sparkle,
+                                    title: String(localized: "听歌统计")
+                                )
+                            }
+                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+                            Divider().padding(.leading, 56)
+
+                            NavigationLink(
                                 destination: StorageManageView()
                             ) {
                                 ProfileMenuRow(
@@ -2759,6 +2950,14 @@ struct ProfileView: View {
                                         icon: .download,
                                         title: NSLocalizedString("profile_downloads", comment: ""),
                                         trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                                    )
+                                }
+                                .buttonStyle(CapsulePressStyle())
+
+                                NavigationLink(destination: ListeningStatsView()) {
+                                    ProfileMenuRow(
+                                        icon: .sparkle,
+                                        title: String(localized: "听歌统计")
                                     )
                                 }
                                 .buttonStyle(CapsulePressStyle())
@@ -2890,15 +3089,37 @@ struct StatCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(17, weight: .bold) : (LiquidGlassStyle.isActive ? LiquidGlassStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (LiquidGlassStyle.isActive ? LiquidGlassStyle.ink : .monologueTextPrimary))
+                .font(valueFont)
+                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (LiquidGlassStyle.isActive ? LiquidGlassStyle.ink : .monologueTextPrimary)))
 
             Text(label)
-                .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : (LiquidGlassStyle.isActive ? LiquidGlassStyle.labelFont(10, weight: .medium) : .system(size: 10, weight: .medium, design: .rounded))))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (LiquidGlassStyle.isActive ? LiquidGlassStyle.inkSoft : .monologueTextSecondary))
+                .font(labelFont)
+                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (LiquidGlassStyle.isActive ? LiquidGlassStyle.inkSoft : .monologueTextSecondary)))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var valueFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .bold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.titleFont(18, weight: .black) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.titleFont(18, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(18, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.titleFont(17, weight: .bold) }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.titleFont(18, weight: .semibold) }
+        return .system(size: 18, weight: .bold, design: .rounded)
+    }
+
+    private var labelFont: Font {
+        if MangaStyle.isActive { return MangaStyle.comicFont(10, weight: .bold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(10, weight: .bold) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.labelFont(10, weight: .bold) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .regular) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(10, weight: .medium) }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(10, weight: .medium) }
+        return .system(size: 10, weight: .medium, design: .rounded)
     }
 }
 
@@ -3900,6 +4121,15 @@ private extension View {
     func themedProfileSurface(cornerRadius: CGFloat, mangaTint: Color = MangaStyle.bubbleWhite) -> some View {
         if MangaStyle.isActive {
             background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: mangaTint))
+        } else if PetWhiteStyle.isActive {
+            background(
+                PetWhiteSurfaceBackground(
+                    cornerRadius: cornerRadius,
+                    elevated: true,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: PetWhiteStyle.mint
+                )
+            )
         } else if MujiStyle.isActive {
             background(MujiPaperCardBackground(cornerRadius: cornerRadius, elevated: true))
         } else if NeumorphicStyle.isActive {

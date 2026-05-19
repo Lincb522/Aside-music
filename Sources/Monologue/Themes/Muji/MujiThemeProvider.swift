@@ -30,12 +30,12 @@ struct MujiThemeProvider: GlobalThemeProvider {
 
     var typography: GlobalTypography {
         GlobalTypography(
-            titleFont: { size in .system(size: size, weight: .semibold, design: .serif) },
+            titleFont: { size in .system(size: size, weight: .regular, design: .serif) },
             bodyFont: { size in .system(size: size, weight: .regular, design: .serif) },
             captionFont: { size in .system(size: size, weight: .medium, design: .rounded) },
             monoFont: { size in .system(size: size, weight: .regular, design: .monospaced) },
             fontDesign: .serif,
-            letterSpacing: 0.2
+            letterSpacing: 0.3
         )
     }
 

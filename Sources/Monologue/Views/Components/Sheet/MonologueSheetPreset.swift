@@ -89,6 +89,9 @@ enum MonologueSheetPreset: Equatable {
         if MangaStyle.isActive {
             return min(cornerRadius, 22)
         }
+        if PetWhiteStyle.isActive {
+            return min(max(cornerRadius, 26), 34)
+        }
         if MujiStyle.isActive {
             return min(cornerRadius, 20)
         }

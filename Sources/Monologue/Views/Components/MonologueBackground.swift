@@ -22,16 +22,25 @@ struct MonologueBackButton: View {
         Button(action: {
             dismiss()
         }) {
+            backIcon
+                .frame(width: 40, height: 40)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var backIcon: some View {
+        if PetWhiteStyle.isActive, style == .dismiss {
+            PetWhiteChevronIcon(direction: .down, size: 20, fallbackColor: iconColor)
+        } else {
             MonologueIcon(
                 icon: style == .back ? .back : .chevronRight,
                 size: 20,
                 color: iconColor
             )
             .rotationEffect(style == .dismiss ? .degrees(90) : .zero)
-            .frame(width: 40, height: 40)
-            .contentShape(Circle())
         }
-        .buttonStyle(.plain)
     }
 }
 
@@ -96,11 +105,15 @@ struct MonologueBackground: View {
             mujiBackground
         case .manga:
             mangaBackground
+        case .petWhite:
+            petWhiteBackground
+        case .pureWhite:
+            PureWhiteRootBackdrop()
         case .neumorphic:
             neumorphicBackground
         case .capsule:
             CapsuleRootBackdrop()
-        case .bento:
+        case .material3Expressive, .bento:
             defaultBackground
         case .sequoia:
             SequoiaRootBackdrop()
@@ -145,6 +158,31 @@ struct MonologueBackground: View {
         }
     }
 
+    // MARK: - 白绒爪印背景
+
+    private var petWhiteBackground: some View {
+        ZStack {
+            PetWhiteRootBackdrop()
+
+            Canvas { context, size in
+                let w = size.width
+                let h = size.height
+                if colorScheme == .dark {
+                    fillGlow(context, center: CGPoint(x: w * 0.16, y: h * 0.10), radius: w * 0.40, color: PetWhiteStyle.mint, opacity: 0.08)
+                    fillGlow(context, center: CGPoint(x: w * 0.82, y: h * 0.34), radius: w * 0.42, color: PetWhiteStyle.dogOrange, opacity: 0.08)
+                } else {
+                    fillGlow(context, center: CGPoint(x: w * 0.16, y: h * 0.07), radius: w * 0.44, color: PetWhiteStyle.mint, opacity: 0.16)
+                    fillGlow(context, center: CGPoint(x: w * 0.82, y: h * 0.34), radius: w * 0.40, color: PetWhiteStyle.dogOrange, opacity: 0.12)
+                    fillGlow(context, center: CGPoint(x: w * 0.46, y: h * 0.84), radius: w * 0.48, color: PetWhiteStyle.sky, opacity: 0.08)
+                }
+            }
+            .padding(-90)
+            .blur(radius: 56)
+            .ignoresSafeArea()
+            .drawingGroup()
+        }
+    }
+
     // MARK: - 漫画风背景
 
     private var mangaBackground: some View {
@@ -184,61 +222,14 @@ struct MonologueBackground: View {
     }
 
     private var defaultSystemBackground: some View {
-        ZStack {
-            (colorScheme == .dark ? Color(hex: "050507") : Color(hex: "F8F9FB"))
-                .ignoresSafeArea()
-
-            Canvas { context, size in
-                let w = size.width
-                let h = size.height
-
-                if colorScheme == .dark {
-                    fillGlow(context, center: CGPoint(x: w * 0.15, y: h * 0.1), radius: w * 0.7,
-                             color: Color(hex: "1A2D4A"), opacity: 0.8)
-                    fillGlow(context, center: CGPoint(x: w * 0.82, y: h * 0.08), radius: w * 0.6,
-                             color: Color(hex: "0F2B33"), opacity: 0.7)
-                    fillGlow(context, center: CGPoint(x: w * 0.35, y: h * 0.45), radius: w * 0.5,
-                             color: Color(hex: "2A1F10"), opacity: 0.5)
-                    fillGlow(context, center: CGPoint(x: w * 0.7, y: h * 0.6), radius: w * 0.45,
-                             color: Color(hex: "1A0F2E"), opacity: 0.4)
-                } else {
-                    fillGlow(context, center: CGPoint(x: w * 0.1, y: h * 0.06), radius: w * 0.55,
-                             color: Color(hex: "C4D2E8"), opacity: 0.45)
-                    fillGlow(context, center: CGPoint(x: w * 0.85, y: h * 0.05), radius: w * 0.5,
-                             color: Color(hex: "CEDAEA"), opacity: 0.35)
-                    fillGlow(context, center: CGPoint(x: w * 0.35, y: h * 0.35), radius: w * 0.4,
-                             color: Color(hex: "D6D0E6"), opacity: 0.3)
-                    fillGlow(context, center: CGPoint(x: w * 0.65, y: h * 0.65), radius: w * 0.5,
-                             color: Color(hex: "D8E0EC"), opacity: 0.25)
-                }
-            }
-            .padding(-80)
-            .blur(radius: 60)
-            .ignoresSafeArea()
-            .drawingGroup()
-
-            VStack {
-                ParallaxMountainHeader(height: 300)
-                    .mask(
-                        LinearGradient(
-                            stops: [
-                                .init(color: .white, location: 0),
-                                .init(color: .white, location: 0.25),
-                                .init(color: .white.opacity(0.5), location: 0.5),
-                                .init(color: .white.opacity(0.15), location: 0.75),
-                                .init(color: .clear, location: 1.0),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .opacity(colorScheme == .dark ? 0.85 : 0.35)
-                    .blendMode(.normal)
-                Spacer()
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+        GeometryReader { proxy in
+            Image("default_theme_bg")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
         }
+        .ignoresSafeArea()
     }
 
     private func fillGlow(_ ctx: GraphicsContext, center: CGPoint, radius: CGFloat, color: Color, opacity: Double) {
@@ -329,6 +320,9 @@ struct MonologueLiquidGlassCard<Content: View>: View {
         if MangaStyle.isActive {
             content
                 .background(MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true))
+        } else if PureWhiteStyle.isActive {
+            content
+                .background(PureWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 26), elevated: true))
         } else if MujiStyle.isActive {
             content
                 .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true))
@@ -369,6 +363,8 @@ struct SwiftUIGlassBackground: View {
         ZStack {
             if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true)
+            } else if PureWhiteStyle.isActive {
+                PureWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 26), elevated: true)
             } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
             } else if SequoiaStyle.isActive {

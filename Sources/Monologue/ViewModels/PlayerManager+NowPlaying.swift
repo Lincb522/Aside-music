@@ -19,6 +19,9 @@ extension PlayerManager {
     private static let widgetPlayModeKey = "widget_play_mode"
     private static let widgetQueueIndexKey = "widget_queue_index"
     private static let widgetQueueCountKey = "widget_queue_count"
+    private static let widgetCurrentTimeKey = "widget_current_time"
+    private static let widgetDurationKey = "widget_duration"
+    private static let widgetProgressReferenceDateKey = "widget_progress_reference_date"
     
     // MARK: - Now Playing Info
 
@@ -91,11 +94,8 @@ extension PlayerManager {
             }
         }
         
-        if CarPlaySceneDelegate.isConnected {
-            info[MPMediaItemPropertyAlbumTitle] = ""
-        }
-        
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        syncWidgetState()
     }
     
     func updateNowPlayingArtwork(for song: Song?) {
@@ -192,6 +192,9 @@ extension PlayerManager {
         let queueCount = currentSong == nil ? 0 : max(currentContextList.count, 1)
         let queueIndex = currentSong == nil ? 0 : min(max(currentIndexInContext + 1, 1), queueCount)
         let playbackState = playbackSurfaceState
+        let progressReferenceDate = Date()
+        let safeCurrentTime = currentSong == nil ? 0 : max(currentTime, 0)
+        let safeDuration = currentSong == nil ? 0 : max(duration, currentSong?.dt.map { Double($0) / 1000.0 } ?? 0)
         defaults.set(songName, forKey: "widget_songName")
         defaults.set(artistName, forKey: "widget_artistName")
         defaults.set(playbackState.rawValue, forKey: "widget_playbackState")
@@ -202,6 +205,9 @@ extension PlayerManager {
         defaults.set(playModeText, forKey: Self.widgetPlayModeKey)
         defaults.set(queueIndex, forKey: Self.widgetQueueIndexKey)
         defaults.set(queueCount, forKey: Self.widgetQueueCountKey)
+        defaults.set(safeCurrentTime, forKey: Self.widgetCurrentTimeKey)
+        defaults.set(safeDuration, forKey: Self.widgetDurationKey)
+        defaults.set(progressReferenceDate, forKey: Self.widgetProgressReferenceDateKey)
         let lyricVM = LyricViewModel.shared
         let lyricText: String = {
             guard let song = currentSong,
@@ -222,14 +228,32 @@ extension PlayerManager {
             "\(queueIndex)",
             "\(queueCount)"
         ].joined(separator: "|")
+        let expectedWidgetProgressTime: TimeInterval = {
+            guard let anchorDate = lastWidgetProgressAnchorDate else {
+                return lastWidgetProgressAnchorTime
+            }
+            let elapsed = lastWidgetPlaybackState.isPlaying ? max(0, progressReferenceDate.timeIntervalSince(anchorDate)) : 0
+            guard lastWidgetProgressDuration > 0 else {
+                return lastWidgetProgressAnchorTime + elapsed
+            }
+            return min(lastWidgetProgressAnchorTime + elapsed, lastWidgetProgressDuration)
+        }()
+        let progressNeedsReload =
+            currentSong != nil &&
+            (abs(safeCurrentTime - expectedWidgetProgressTime) > 2.5 ||
+             abs(safeDuration - lastWidgetProgressDuration) > 0.5)
         if songName != lastWidgetSongName
             || playbackState != lastWidgetPlaybackState
             || metadataSignature != lastWidgetMetadataSignature
-            || lyricText != lastWidgetLyricText {
+            || lyricText != lastWidgetLyricText
+            || progressNeedsReload {
             lastWidgetSongName = songName
             lastWidgetPlaybackState = playbackState
             lastWidgetMetadataSignature = metadataSignature
             lastWidgetLyricText = lyricText
+            lastWidgetProgressAnchorTime = safeCurrentTime
+            lastWidgetProgressAnchorDate = progressReferenceDate
+            lastWidgetProgressDuration = safeDuration
             WidgetCenter.shared.reloadAllTimelines()
         }
     }

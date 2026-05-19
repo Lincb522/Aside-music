@@ -32,9 +32,18 @@ extension PlayerManager {
             return true
         }
 
+        // 用户主动触发（小组件、控制中心、播放器按钮）：取消所有自动重试，
+        // 并保留 `wasPlayingBeforeInterruption` 标志直到 resume 真正成功，
+        // 避免用户多次点击都失败时丢失中断上下文。
         if currentSong != nil, wasPlayingBeforeInterruption || isUnderInterruption {
             AppLogger.info("用户/外部控制触发中断后恢复播放")
-            resumeAfterInterruption(reason: "manual playback command")
+            cancelInterruptionResumeRetry()
+            cancelInterruptionWatchdog()
+            isUnderInterruption = false
+            // 立即尝试一次；若失败则启动阶梯重试，确保用户连点不会卡死
+            if !resumeAfterInterruption(reason: "manual playback command") {
+                scheduleInterruptionResumeRetry(reason: "manual playback command")
+            }
             return true
         }
 
@@ -85,6 +94,8 @@ extension PlayerManager {
         isUnderInterruption = false
         routeChangeResumeWorkItem?.cancel()
         routeChangeResumeWorkItem = nil
+        cancelInterruptionResumeRetry()
+        cancelInterruptionWatchdog()
 
         guard isPlaying else { return currentSong != nil }
         guard case .playing = streamPlayer.state else { return false }
@@ -144,6 +155,13 @@ extension PlayerManager {
         nextQualityPrefetchTask?.cancel()
         qualitySwitchTimeoutTask?.cancel()
         qualitySwitchTimeoutTask = nil
+        // 清理中断恢复链路
+        cancelInterruptionResumeRetry()
+        cancelInterruptionWatchdog()
+        wasPlayingBeforeInterruption = false
+        isUnderInterruption = false
+        routeChangeResumeWorkItem?.cancel()
+        routeChangeResumeWorkItem = nil
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
         // 释放音频会话并通知其他 App 恢复播放（如 Apple Music、播客等）
@@ -195,6 +213,13 @@ extension PlayerManager {
         nextQualityPrefetchTask?.cancel()
         qualitySwitchTimeoutTask?.cancel()
         qualitySwitchTimeoutTask = nil
+        // 清理中断恢复链路
+        cancelInterruptionResumeRetry()
+        cancelInterruptionWatchdog()
+        wasPlayingBeforeInterruption = false
+        isUnderInterruption = false
+        routeChangeResumeWorkItem?.cancel()
+        routeChangeResumeWorkItem = nil
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
         do {

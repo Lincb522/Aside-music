@@ -162,15 +162,16 @@ private struct MonologueSheetLiquidSurfaceModifier: ViewModifier {
 
 enum MonologueSheetThemeStyle {
     static var usesCustomThemeSurface: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var shadowColor: Color {
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.22) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.18) }
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
         if NeumorphicStyle.isActive { return Color.black.opacity(0.16) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.16) }
@@ -185,6 +186,7 @@ enum MonologueSheetThemeStyle {
     static func shadowRadius(colorScheme: ColorScheme, isInteractiveMotionActive: Bool) -> CGFloat {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 8 : 10 }
         if MangaStyle.isActive { return 0 }
+        if PetWhiteStyle.isActive { return colorScheme == .dark ? 24 : 18 }
         if MujiStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return colorScheme == .dark ? 24 : 22 }
         if CapsuleStyle.isActive { return colorScheme == .dark ? 24 : 20 }
@@ -199,6 +201,7 @@ enum MonologueSheetThemeStyle {
     static func shadowYOffset(isInteractiveMotionActive: Bool) -> CGFloat {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 3 : 4 }
         if MangaStyle.isActive { return 5 }
+        if PetWhiteStyle.isActive { return 8 }
         if MujiStyle.isActive { return 9 }
         if NeumorphicStyle.isActive { return 10 }
         if CapsuleStyle.isActive { return 9 }
@@ -261,6 +264,22 @@ struct MonologueSheetHandleView: View {
                     Capsule()
                         .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
                 )
+        } else if PetWhiteStyle.isActive {
+            HStack(spacing: 5) {
+                Capsule()
+                    .fill(PetWhiteStyle.dogOrange)
+                    .frame(width: 26, height: 6)
+                Capsule()
+                    .fill(PetWhiteStyle.mint)
+                    .frame(width: 12, height: 6)
+                Capsule()
+                    .fill(PetWhiteStyle.sky)
+                    .frame(width: 12, height: 6)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(PetWhiteStyle.surfaceRaised, in: Capsule())
+            .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             Capsule()
                 .fill(MujiStyle.hairline.opacity(0.78))
@@ -418,13 +437,32 @@ struct MonologueSheetSurfaceBackground: View {
 
                 MangaDotsTexture(opacity: colorScheme == .dark ? 0.032 : 0.024, gap: 14)
                     .clipShape(shape)
+            } else if PetWhiteStyle.isActive {
+                shape
+                    .fill(PetWhiteStyle.surfaceRaised)
+
+                LinearGradient(
+                    colors: [
+                        PetWhiteStyle.mint.opacity(colorScheme == .dark ? 0.16 : 0.34),
+                        PetWhiteStyle.surfaceRaised.opacity(0.98),
+                        PetWhiteStyle.sky.opacity(colorScheme == .dark ? 0.16 : 0.30),
+                        PetWhiteStyle.butter.opacity(colorScheme == .dark ? 0.12 : 0.22)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+
+                PetWhitePawPattern()
+                    .opacity(colorScheme == .dark ? 0.18 : 0.28)
+                    .clipShape(shape)
             } else if MujiStyle.isActive {
                 shape
                     .fill(MujiStyle.surface)
 
                 LinearGradient(
                     colors: [
-                        MujiStyle.paperWarm.opacity(colorScheme == .dark ? 0.28 : 0.48),
+                        MujiStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.28 : 0.48),
                         MujiStyle.surface.opacity(0.96),
                         MujiStyle.tea.opacity(colorScheme == .dark ? 0.07 : 0.05)
                     ],
@@ -670,6 +708,29 @@ struct MonologueSheetSurfaceOverlay: View {
                         .strokeBorder(MangaStyle.labelYellow.opacity(colorScheme == .dark ? 0.34 : 0.46), lineWidth: 0.8)
                         .padding(4)
                         .clipShape(shape)
+                }
+            } else if PetWhiteStyle.isActive {
+                shape
+                    .strokeBorder(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.strokeWidth)
+
+                if !isInteractiveMotionActive {
+                    LinearGradient(
+                        colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.32), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 116)
+                    .clipShape(shape)
+
+                    HStack(spacing: 0) {
+                        PetWhiteStyle.dogOrange.frame(width: 64, height: 5)
+                        PetWhiteStyle.mint.frame(width: 42, height: 5)
+                        PetWhiteStyle.sky.frame(width: 38, height: 5)
+                        Spacer()
+                        PetWhiteStyle.blush.opacity(0.72).frame(width: 46, height: 5)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .clipShape(shape)
                 }
             } else if MujiStyle.isActive {
                 shape

@@ -532,7 +532,8 @@ struct MangaNowPlayingIndicator: View {
     var isAnimating: Bool = true
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        // 不播放时暂停 timeline 推进，避免进入非激活 tab 后仍然占用主线程
+        TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(0 ..< 4, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 1.5, style: .continuous)

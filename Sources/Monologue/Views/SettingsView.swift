@@ -19,6 +19,9 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
     if MangaStyle.isActive {
         return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
     }
+    if PetWhiteStyle.isActive {
+        return PetWhiteStyle.labelFont(size, weight: weight == .bold ? .black : weight)
+    }
     if NeumorphicStyle.isActive {
         return NeumorphicStyle.labelFont(size, weight: weight)
     }
@@ -42,6 +45,7 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
 
 private func themedSettingsPrimaryColor() -> Color {
     if MangaStyle.isActive { return MangaStyle.ink }
+    if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
     if MujiStyle.isActive { return MujiStyle.ink }
     if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
     if CapsuleStyle.isActive { return CapsuleStyle.ink }
@@ -53,6 +57,7 @@ private func themedSettingsPrimaryColor() -> Color {
 
 private func themedSettingsSecondaryColor() -> Color {
     if MangaStyle.isActive { return MangaStyle.inkSub }
+    if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
     if MujiStyle.isActive { return MujiStyle.inkSoft }
     if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
     if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
@@ -107,6 +112,7 @@ struct SettingsView: View {
 
     private var themedSettingsSpacing: CGFloat {
         if MangaStyle.isActive { return 16 }
+        if PetWhiteStyle.isActive { return 16 }
         if NeumorphicStyle.isActive { return 18 }
         if SignalStyle.isActive { return 17 }
         if CapsuleStyle.isActive { return 16 }
@@ -123,6 +129,8 @@ struct SettingsView: View {
     private var settingsContent: some View {
         if MangaStyle.isActive {
             mangaSettingsContent
+        } else if PetWhiteStyle.isActive {
+            petWhiteSettingsContent
         } else if NeumorphicStyle.isActive {
             neumorphicSettingsContent
         } else if SignalStyle.isActive {
@@ -163,6 +171,20 @@ struct SettingsView: View {
 
         mangaSettingsModePanel
         mangaSettingsPortalGrid
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    @ViewBuilder
+    private var petWhiteSettingsContent: some View {
+        settingsMainPageHeader
+            .padding(.horizontal, -settingsOuterHorizontalPadding)
+
+        petWhiteSettingsModeBoard
+        petWhiteSettingsPortalGrid
+        settingsHeaderCard
 
         if qqDevMode {
             otherSection
@@ -266,6 +288,110 @@ struct SettingsView: View {
 
         if qqDevMode {
             otherSection
+        }
+    }
+
+    private var petWhiteSettingsModeBoard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PetWhiteSectionTitle(
+                title: String(localized: "settings_theme_mode_section_title"),
+                detail: String(localized: "settings_appearance_global_theme_section"),
+                icon: .sparkle,
+                tint: PetWhiteStyle.mint
+            )
+
+            SettingsThemeRow(
+                icon: .sparkle,
+                title: String(localized: "settings_theme_mode"),
+                selection: $settings.themeMode
+            )
+            .background(
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 20,
+                    elevated: false,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: PetWhiteStyle.mint
+                )
+            )
+        }
+    }
+
+    private var petWhiteSettingsPortalGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PetWhiteSectionTitle(
+                title: String(localized: "profile_settings"),
+                detail: String(localized: "settings_appearance_layout_section"),
+                icon: .settings,
+                tint: PetWhiteStyle.butter
+            )
+
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12),
+                ],
+                spacing: 12
+            ) {
+                NavigationLink(destination: AppearanceSettingsView()) {
+                    PetWhiteSettingsPortalCard(
+                        icon: .sparkle,
+                        title: settingsText("settings_navigation_appearance_title"),
+                        badge: "STYLE",
+                        tint: PetWhiteStyle.dogOrange
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: PlaybackSettingsView()) {
+                    PetWhiteSettingsPortalCard(
+                        icon: .soundQuality,
+                        title: settingsText("settings_navigation_playback_title"),
+                        badge: "PLAY",
+                        tint: PetWhiteStyle.mint
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: CloudSyncSettingsView()) {
+                    PetWhiteSettingsPortalCard(
+                        icon: .cloud,
+                        title: settingsText("settings_navigation_cloud_sync_title"),
+                        badge: hasToken ? "SYNC" : "OFF",
+                        tint: PetWhiteStyle.sky
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: StorageManageView()) {
+                    PetWhiteSettingsPortalCard(
+                        icon: .storage,
+                        title: String(localized: "settings_storage_manage"),
+                        badge: cacheSize,
+                        tint: PetWhiteStyle.butter
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: DownloadManageView()) {
+                    PetWhiteSettingsPortalCard(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        badge: "DL",
+                        tint: PetWhiteStyle.blush
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: AboutView()) {
+                    PetWhiteSettingsPortalCard(
+                        icon: .infoCircle,
+                        title: String(localized: "settings_about"),
+                        badge: appVersion,
+                        tint: PetWhiteStyle.mint
+                    )
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -1093,9 +1219,13 @@ struct SettingsView: View {
                                 .font(themedSettingsFont(11, weight: .semibold))
                                 .minimumScaleFactor(0.84)
 
-                            MonologueIcon(icon: .chevronRight, size: 10, color: tokenStatusColor, lineWidth: 1.8)
-                                .rotationEffect(.degrees(isHeaderCardExpanded ? -90 : 90))
-                                .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isHeaderCardExpanded)
+                            PetWhiteDisclosureChevron(
+                                isExpanded: isHeaderCardExpanded,
+                                size: 10,
+                                petWhiteSize: 14,
+                                color: tokenStatusColor,
+                                lineWidth: 1.8
+                            )
                         }
                         .foregroundColor(tokenStatusColor)
                         .lineLimit(1)
@@ -1416,6 +1546,44 @@ struct SettingsView: View {
 
 // MARK: - Themed Settings Navigation
 
+private struct PetWhiteSettingsPortalCard: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let badge: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                PetWhiteIconBadge(icon: icon, tint: tint, size: 38)
+
+                Spacer(minLength: 8)
+
+                PetWhitePill(text: badge, tint: tint)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+
+            Text(title)
+                .font(PetWhiteStyle.titleFont(15, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: 116, alignment: .topLeading)
+        .padding(14)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: 16,
+                elevated: true,
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: tint
+            )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
 private struct MangaSettingsPortalCard: View {
     let icon: MonologueIcon.IconType
     let title: String
@@ -1572,9 +1740,17 @@ struct SettingsIconBadge: View {
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.monologueIconBackground)
+                    .fill(Color.monologueAccent.opacity(0.14))
                     .frame(width: 30, height: 30)
-                MonologueIcon(icon: icon, size: 14, color: .monologueIconForeground)
+                MonologueIcon(
+                    icon: icon,
+                    size: 14,
+                    color: ThemeColorCustomization.visibleTintColor(
+                        Color.monologueAccent,
+                        darkFallback: Color.monologueTextPrimary
+                    ),
+                    lineWidth: 1.6
+                )
             }
         }
     }
@@ -1650,7 +1826,7 @@ struct SettingsSection<Content: View>: View {
 private extension View {
     @ViewBuilder
     func monologueGlassConditionalForSettings(cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive || BentoStyle.isActive {
+        if MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive || BentoStyle.isActive {
             self
         } else {
             monologueGlass(cornerRadius: cornerRadius)
@@ -1662,6 +1838,15 @@ private extension View {
     func themedSettingsStandaloneCard(cornerRadius: CGFloat, tint: Color = MangaStyle.bubbleWhite) -> some View {
         if MangaStyle.isActive {
             background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint))
+        } else if PetWhiteStyle.isActive {
+            background(
+                PetWhiteSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, 16), 28),
+                    elevated: true,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: tint
+                )
+            )
         } else if MujiStyle.isActive {
             background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true))
         } else if NeumorphicStyle.isActive {
@@ -2150,14 +2335,12 @@ struct SettingsFloatingBarRow: View {
                         .background(selectionPillBackground)
                         .foregroundColor(selectionPillForeground)
 
-                    MonologueIcon(
-                        icon: .chevronRight,
+                    PetWhiteDisclosureChevron(
+                        isExpanded: isExpanded,
                         size: 11,
                         color: MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.8))))))),
                         lineWidth: 1.7
                     )
-                    .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                    .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
                 }
             }
             .buttonStyle(.plain)
@@ -2333,7 +2516,7 @@ private struct SettingsFloatingBarOptionCard: View {
                 .frame(width: 31, height: 31)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(isSelected ? MujiStyle.onTint.opacity(0.16) : MujiStyle.paperWarm.opacity(0.78))
+                        .fill(isSelected ? MujiStyle.onTint.opacity(0.16) : MujiStyle.surfaceRaised.opacity(0.78))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -2641,9 +2824,12 @@ struct SettingsHitokotoTypeRow: View {
                         .font(themedSettingsFont(14, weight: .medium))
                         .foregroundStyle(activeSummaryColor)
 
-                    MonologueIcon(icon: .chevronRight, size: 11, color: themedSettingsSecondaryColor(), lineWidth: 1.7)
-                        .rotationEffect(.degrees(isExpanded ? -90 : 90))
-                        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04), value: isExpanded)
+                    PetWhiteDisclosureChevron(
+                        isExpanded: isExpanded,
+                        size: 11,
+                        color: themedSettingsSecondaryColor(),
+                        lineWidth: 1.7
+                    )
                 }
             }
             .buttonStyle(.plain)

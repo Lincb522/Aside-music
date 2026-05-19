@@ -167,7 +167,7 @@ enum ThemeColorCustomization {
     }
 
     static func supports(_ theme: GlobalThemeId) -> Bool {
-        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .capsule || theme == .sequoia || theme == .liquidGlass
+        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .capsule || theme == .petWhite || theme == .sequoia || theme == .liquidGlass
     }
 
     static func key(_ theme: GlobalThemeId, _ role: ThemeCustomColorRole, _ suffix: String) -> String {
@@ -315,13 +315,15 @@ enum ThemeColorCustomization {
         case .muji: return "B56B4B"
         case .neumorphic: return "4F8E86"
         case .capsule: return "3867FF"
+        case .petWhite: return "F6A93B"
+        case .pureWhite: return "2563EB"
         case .bento: return "E54B3B"
         case .sequoia: return "0A84FF"
         case .liquidGlass: return "18A7FF"
         case .clay: return "35BFE6"
         case .signal: return "2F80ED"
         case .manga: return "FF4F84"
-        case .default: return "4D6F95"
+        case .material3Expressive, .default: return "4D6F95"
         }
     }
 
@@ -330,13 +332,15 @@ enum ThemeColorCustomization {
         case .muji: return "F7F1E8"
         case .neumorphic: return "E9EDF0"
         case .capsule: return "F6F8FF"
+        case .petWhite: return "FFFFFF"
+        case .pureWhite: return "FFFFFF"
         case .bento: return "F5F1EA"
         case .sequoia: return "F4F7FB"
         case .liquidGlass: return "F2F8FF"
         case .clay: return "F7EAD8"
         case .signal: return "EEF5F8"
         case .manga: return "FFF3D7"
-        case .default: return "F8FAFC"
+        case .material3Expressive, .default: return "F8FAFC"
         }
     }
 
@@ -345,13 +349,15 @@ enum ThemeColorCustomization {
         case .muji: return "F7F1E8"
         case .neumorphic: return "F2EEE8"
         case .capsule: return "EAF1FF"
+        case .petWhite: return "FFFFFF"
+        case .pureWhite: return "F8FAFC"
         case .bento: return "F5F1EA"
         case .sequoia: return "E3EBF2"
         case .liquidGlass: return "F4F1FF"
         case .clay: return "DDF3FA"
         case .signal: return "F7F2EA"
         case .manga: return "E8F1FF"
-        case .default: return "E6EDF6"
+        case .material3Expressive, .default: return "E6EDF6"
         }
     }
 
@@ -366,26 +372,30 @@ enum ThemeColorCustomization {
             case .muji: return "F4EBDD"
             case .neumorphic: return "E4ECE7"
             case .capsule: return "F8F2FF"
+            case .petWhite: return "FFF7DE"
+            case .pureWhite: return "F4F7FB"
             case .bento: return "EFE9DD"
             case .sequoia: return "F8F2FA"
             case .liquidGlass: return "E8FBFF"
             case .clay: return "FFEAD8"
             case .signal: return "EAF4F8"
             case .manga: return "FFEAF4"
-            case .default: return "EEF4EE"
+            case .material3Expressive, .default: return "EEF4EE"
             }
         case "stop4":
             switch theme {
             case .muji: return "FAF4E8"
             case .neumorphic: return "EEF0F5"
             case .capsule: return "EDF9FF"
+            case .petWhite: return "EFFAF5"
+            case .pureWhite: return "EEF2F7"
             case .bento: return "EFE9DD"
             case .sequoia: return "EEF7FA"
             case .liquidGlass: return "EFFAF3"
             case .clay: return "F4E9FF"
             case .signal: return "F8F1E6"
             case .manga: return "F8F6DE"
-            case .default: return "F6F1EA"
+            case .material3Expressive, .default: return "F6F1EA"
             }
         default:
             return defaultBackgroundEndHex(for: theme)
@@ -424,7 +434,11 @@ enum ThemeColorCustomization {
             return readableForegroundColor(on: accent, light: Color(hex: "172026"), dark: .white)
         case .capsule:
             return readableForegroundColor(on: accent, light: Color(hex: "101A2A"), dark: .white)
-        case .default:
+        case .petWhite:
+            return readableForegroundColor(on: accent, light: Color(hex: "111111"), dark: .white)
+        case .pureWhite:
+            return readableForegroundColor(on: accent, light: Color(hex: "0F172A"), dark: .white)
+        case .default, .material3Expressive:
             return readableForegroundColor(on: accent, light: Color(hex: "111821"), dark: .white)
         case .bento:
             return readableForegroundColor(on: accent, light: Color(hex: "241916"), dark: .white)
@@ -568,6 +582,23 @@ enum ThemeColorCustomization {
                 ThemeColorPreset(id: "capsule-rose", name: "Rose Link", accentStartHex: "D75B8A", accentEndHex: "D75B8A", backgroundStartHex: "FFF3F8", backgroundEndHex: "EDF4FF", backgroundHexes: ["FFF3F8", "EDF4FF", "FFF0E6", "EFFAF5"], gradientStyle: .diffuse),
                 ThemeColorPreset(id: "capsule-sage", name: "Sage Grid", accentStartHex: "5C8B73", accentEndHex: "5C8B73", backgroundStartHex: "F4FAF4", backgroundEndHex: "EAF2FF", backgroundHexes: ["F4FAF4", "EAF2FF", "F6F1E8", "EDF7F1"], gradientStyle: .radial),
             ]
+        case .petWhite:
+            return [
+                ThemeColorPreset(id: "petwhite-puppy", name: "Puppy", accentStartHex: "F6A93B", accentEndHex: "F6A93B", backgroundStartHex: "FFFFFF", backgroundEndHex: "F7F8FA", backgroundHexes: ["FFFFFF", "F7F8FA", "FFF5E1", "DDF5EE"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "petwhite-cat", name: "Cat", accentStartHex: "111111", accentEndHex: "111111", backgroundStartHex: "FFFFFF", backgroundEndHex: "F4F6F8", backgroundHexes: ["FFFFFF", "F4F6F8", "F0ECFF", "EEF4FF"], gradientStyle: .linear),
+                ThemeColorPreset(id: "petwhite-mint", name: "Mint", accentStartHex: "30A98B", accentEndHex: "30A98B", backgroundStartHex: "FFFFFF", backgroundEndHex: "F5FAF8", backgroundHexes: ["FFFFFF", "F5FAF8", "F7F0FF", "FFF0E6"], gradientStyle: .radial),
+                ThemeColorPreset(id: "petwhite-butter", name: "Butter", accentStartHex: "E39F23", accentEndHex: "E39F23", backgroundStartHex: "FFFFFF", backgroundEndHex: "FFF9EA", backgroundHexes: ["FFFFFF", "FFF9EA", "F7F5EE", "DDF5EE"], gradientStyle: .conic),
+                ThemeColorPreset(id: "petwhite-sky", name: "Sky", accentStartHex: "3B82F6", accentEndHex: "3B82F6", backgroundStartHex: "FFFFFF", backgroundEndHex: "EEF4FF", backgroundHexes: ["FFFFFF", "EEF4FF", "F6F8FA", "F0ECFF"], gradientStyle: .mesh),
+            ]
+        case .pureWhite:
+            return [
+                ThemeColorPreset(id: "purewhite-studio", name: "Studio White", accentStartHex: "2563EB", accentEndHex: "2563EB", backgroundStartHex: "FFFFFF", backgroundEndHex: "F8FAFC", backgroundHexes: ["FFFFFF", "F8FAFC", "F4F7FB", "EEF2F7"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "purewhite-graphite", name: "Graphite", accentStartHex: "111827", accentEndHex: "111827", backgroundStartHex: "FCFCFD", backgroundEndHex: "F3F4F6", backgroundHexes: ["FCFCFD", "F3F4F6", "EEF2F7", "E5E7EB"], gradientStyle: .linear),
+                ThemeColorPreset(id: "purewhite-paper", name: "Paper", accentStartHex: "64748B", accentEndHex: "64748B", backgroundStartHex: "FFFFFF", backgroundEndHex: "F7FAFC", backgroundHexes: ["FFFFFF", "F7FAFC", "EEF2F7", "E2E8F0"], gradientStyle: .radial),
+                ThemeColorPreset(id: "purewhite-sky", name: "Skyline", accentStartHex: "3B82F6", accentEndHex: "3B82F6", backgroundStartHex: "FFFFFF", backgroundEndHex: "EEF4FF", backgroundHexes: ["FFFFFF", "EEF4FF", "F4F7FB", "E5EEF9"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "purewhite-ink", name: "Ink Line", accentStartHex: "0F172A", accentEndHex: "0F172A", backgroundStartHex: "FFFFFF", backgroundEndHex: "F8FAFC", backgroundHexes: ["FFFFFF", "F8FAFC", "F1F5F9", "E2E8F0"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "purewhite-cloud", name: "Cloud", accentStartHex: "0EA5E9", accentEndHex: "0EA5E9", backgroundStartHex: "FFFFFF", backgroundEndHex: "F3F7FB", backgroundHexes: ["FFFFFF", "F3F7FB", "EEF4FA", "E5EAF0"], gradientStyle: .conic),
+            ]
         case .sequoia:
             return [
                 ThemeColorPreset(id: "sequoia-aqua", name: "Aqua", accentStartHex: "0A84FF", accentEndHex: "26AFCF", backgroundStartHex: "F4F7FB", backgroundEndHex: "E3EBF2", backgroundHexes: ["F4F7FB", "E3EBF2", "F8F2FA", "EEF7FA"], gradientStyle: .mesh),
@@ -623,7 +654,7 @@ enum ThemeColorCustomization {
                 ThemeColorPreset(id: "manga-melon", name: "Melon", accentStartHex: "55B77B", accentEndHex: "55B77B", backgroundStartHex: "F1F9DD", backgroundEndHex: "EAF7F0", backgroundHexes: ["F1F9DD", "EAF7F0", "FFF0D3", "EAF4FF"], gradientStyle: .diffuse, mangaBlockAHex: "C7EB65", mangaBlockBHex: "82D8B2", mangaBlockCHex: "FFBD79", mangaStrokeHex: "3D5845", mangaSettingsIconHex: "1F3327"),
                 ThemeColorPreset(id: "manga-bubblegum", name: "Bubble", accentStartHex: "FF6FAF", accentEndHex: "FF6FAF", backgroundStartHex: "FFF0FB", backgroundEndHex: "F0F6FF", backgroundHexes: ["FFF0FB", "F0F6FF", "FFEADB", "EFFFF8"], gradientStyle: .conic, mangaBlockAHex: "FFA6D6", mangaBlockBHex: "9DE7FF", mangaBlockCHex: "FFE46E", mangaStrokeHex: "62435E", mangaSettingsIconHex: "302033"),
             ]
-        case .default:
+        case .default, .material3Expressive:
             return [
                 ThemeColorPreset(id: "default-mist", name: "Mist", accentStartHex: "4D6F95", accentEndHex: "4D6F95", backgroundStartHex: "F8FAFC", backgroundEndHex: "E6EDF6", backgroundHexes: ["F8FAFC", "E6EDF6", "EEF4EE", "F6F1EA"], gradientStyle: .diffuse),
                 ThemeColorPreset(id: defaultCatPawPresetId, name: "Cat Paw", accentStartHex: "FF9B83", accentEndHex: "FF9B83", backgroundStartHex: "FFF7EC", backgroundEndHex: "FFE7D8", backgroundHexes: ["FFF7EC", "FFE7D8", "F2F8EF", "EAF4FF"], gradientStyle: .diffuse),

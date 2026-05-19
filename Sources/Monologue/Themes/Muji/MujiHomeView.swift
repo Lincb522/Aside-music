@@ -11,6 +11,7 @@ struct MujiHomeView: View {
     @State private var bannerWebURL: URL?
     @State private var appeared = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var textPrimary: Color {
         MujiStyle.ink
@@ -48,7 +49,11 @@ struct MujiHomeView: View {
                     viewModel.refreshHitokoto()
                 }
                 if !appeared {
-                    withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
+                    if reduceMotion {
+                        appeared = true
+                    } else {
+                        withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
+                    }
                 }
             }
             .navigationTitle("")
@@ -130,23 +135,23 @@ struct MujiHomeView: View {
                 mujiGreeting
                     .padding(.horizontal, 28)
                     .padding(.bottom, 14)
-                    .mujiStagger(appeared, order: 0)
+                    .mujiStagger(appeared, order: 0, reduceMotion: reduceMotion)
 
                 mujiIntroCard
                     .padding(.horizontal, 28)
-                    .padding(.bottom, 30)
-                    .mujiStagger(appeared, order: 1)
+                    .padding(.bottom, 34)
+                    .mujiStagger(appeared, order: 1, reduceMotion: reduceMotion)
 
                 if !viewModel.banners.isEmpty {
                     mujiBannerSection
                         .padding(.horizontal, 12)
                         .padding(.bottom, 34)
-                        .mujiStagger(appeared, order: 2)
+                        .mujiStagger(appeared, order: 2, reduceMotion: reduceMotion)
                 }
 
                 if !viewModel.dailySongs.isEmpty {
                     mujiDailySection
-                        .mujiStagger(appeared, order: 3)
+                        .mujiStagger(appeared, order: 3, reduceMotion: reduceMotion)
                         .padding(.bottom, 36)
                 }
 
@@ -156,13 +161,13 @@ struct MujiHomeView: View {
                         playlists: viewModel.recommendPlaylists,
                         action: openLibrarySquare
                     )
-                    .mujiStagger(appeared, order: 4)
+                    .mujiStagger(appeared, order: 4, reduceMotion: reduceMotion)
                     .padding(.bottom, 36)
                 }
 
                 if !viewModel.qqNewSongs.isEmpty {
                     mujiNewSongsSection
-                        .mujiStagger(appeared, order: 5)
+                        .mujiStagger(appeared, order: 5, reduceMotion: reduceMotion)
                         .padding(.bottom, 34)
                 }
 
@@ -172,13 +177,13 @@ struct MujiHomeView: View {
                         playlists: viewModel.qqRecommendPlaylists,
                         action: openLibrarySquare
                     )
-                    .mujiStagger(appeared, order: 6)
+                    .mujiStagger(appeared, order: 6, reduceMotion: reduceMotion)
                     .padding(.bottom, 36)
                 }
 
                 mujiEntryCards
                     .padding(.horizontal, 28)
-                    .mujiStagger(appeared, order: 7)
+                    .mujiStagger(appeared, order: 7, reduceMotion: reduceMotion)
                     .padding(.bottom, 36)
 
                 FloatingBarBottomSpacer()
@@ -311,10 +316,10 @@ struct MujiHomeView: View {
                             mujiSongCard(song)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
-                        .scrollTransition(.animated(.easeInOut(duration: 0.24))) { content, phase in
+                        .scrollTransition(.animated(reduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24))) { content, phase in
                             content
-                                .scaleEffect(phase.isIdentity ? 1 : 0.95)
-                                .opacity(phase.isIdentity ? 1 : 0.7)
+                                .scaleEffect(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.95))
+                                .opacity(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.7))
                         }
                     }
                 }
@@ -389,10 +394,10 @@ struct MujiHomeView: View {
                             mujiNewSongCard(song, rank: index + 1)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
-                        .scrollTransition(.animated(.easeInOut(duration: 0.24))) { content, phase in
+                        .scrollTransition(.animated(reduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24))) { content, phase in
                             content
-                                .scaleEffect(phase.isIdentity ? 1 : 0.96)
-                                .opacity(phase.isIdentity ? 1 : 0.72)
+                                .scaleEffect(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.96))
+                                .opacity(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.72))
                         }
                     }
                 }
@@ -599,7 +604,8 @@ private struct MujiHomeBannerSection: View {
     let onTap: (Banner) -> Void
 
     @State private var index = 0
-    private let timer = Timer.publish(every: 5.8, on: .main, in: .common).autoconnect()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let timer = Timer.publish(every: 5.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 10) {
@@ -618,8 +624,12 @@ private struct MujiHomeBannerSection: View {
             .frame(height: DeviceLayout.isPad ? 222 : 166)
             .onReceive(timer) { _ in
                 guard banners.count > 1 else { return }
-                withAnimation(.easeInOut(duration: 0.36)) {
+                if reduceMotion {
                     index = (index + 1) % banners.count
+                } else {
+                    withAnimation(.easeInOut(duration: 0.36)) {
+                        index = (index + 1) % banners.count
+                    }
                 }
             }
 
@@ -629,7 +639,7 @@ private struct MujiHomeBannerSection: View {
                         Capsule()
                             .fill(dot == index ? MujiStyle.clay : MujiStyle.hairline.opacity(0.5))
                             .frame(width: dot == index ? 18 : 6, height: 4)
-                            .animation(.easeInOut(duration: 0.24), value: index)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: index)
                     }
                 }
             }
@@ -768,11 +778,13 @@ private struct MujiHomeEntryCard: View {
 // MARK: - Muji Stagger
 
 private extension View {
-    func mujiStagger(_ appeared: Bool, order: Int) -> some View {
+    func mujiStagger(_ appeared: Bool, order: Int, reduceMotion: Bool = false) -> some View {
         opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 10)
+            .offset(y: appeared ? 0 : (reduceMotion ? 0 : 10))
             .animation(
-                .easeOut(duration: 0.42).delay(Double(order) * 0.06),
+                reduceMotion
+                    ? .easeOut(duration: 0.05)
+                    : .easeOut(duration: 0.42).delay(Double(order) * 0.06),
                 value: appeared
             )
     }

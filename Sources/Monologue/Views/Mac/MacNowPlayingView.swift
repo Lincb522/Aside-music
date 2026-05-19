@@ -90,11 +90,17 @@ struct MacNowPlayingView: View {
     private var headerBar: some View {
         HStack {
             Button(action: { dismiss() }) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(Color.primary.opacity(0.06)))
+                Group {
+                    if PetWhiteStyle.isActive {
+                        PetWhiteChevronIcon(direction: .down, size: 13, fallbackColor: .secondary)
+                    } else {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.primary.opacity(0.06)))
             }
             .buttonStyle(.plain)
 

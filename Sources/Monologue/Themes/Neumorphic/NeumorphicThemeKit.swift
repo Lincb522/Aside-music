@@ -24,6 +24,7 @@ enum NeumorphicStyle {
     static let warm = Color(light: Color(hex: "C59A66"), dark: Color(hex: "D2AC78"))
     static let red = Color(light: Color(hex: "C65A58"), dark: Color(hex: "E07A78"))
     static let separator = Color(light: Color(hex: "C9D0D4"), dark: Color(hex: "3A4149"))
+    static let steel = Color(light: Color(hex: "4F8E86"), dark: Color(hex: "7AB9B0"))
 
     static let cardRadius: CGFloat = 24
     static let compactRadius: CGFloat = 18
@@ -481,5 +482,38 @@ extension View {
             .offset(y: appeared ? 0 : 16)
             .scaleEffect(appeared ? 1 : 0.985)
             .animation(.spring(response: 0.5, dampingFraction: 0.86).delay(Double(order) * 0.055), value: appeared)
+    }
+}
+
+/// 玻璃质感新拟物背景（用于悬浮栏等需要半透明效果的场景）
+struct NeumorphicGlassSurfaceBackground: View {
+    var cornerRadius: CGFloat = NeumorphicStyle.cardRadius
+    var elevated: Bool = true
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        shape
+            .fill(NeumorphicStyle.surface.opacity(colorScheme == .dark ? 0.92 : 0.94))
+            .overlay(
+                shape.stroke(
+                    LinearGradient(
+                        colors: [
+                            NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.5 : 0.7),
+                            NeumorphicStyle.darkShadow(colorScheme, intensity: 0.18),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+            )
+            .shadow(
+                color: NeumorphicStyle.darkShadow(colorScheme, intensity: elevated ? 0.38 : 0.18),
+                radius: elevated ? 12 : 5,
+                x: elevated ? 4 : 2,
+                y: elevated ? 4 : 2
+            )
     }
 }

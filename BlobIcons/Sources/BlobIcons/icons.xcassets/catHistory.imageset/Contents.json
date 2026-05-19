@@ -1,0 +1,26 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "catHistory@1x.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "catHistory@2x.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "catHistory@3x.png"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "template-rendering-intent": "template"
+  }
+}

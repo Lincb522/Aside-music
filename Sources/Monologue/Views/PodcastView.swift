@@ -55,6 +55,9 @@ struct PodcastView: View {
                         LazyVStack(alignment: .leading, spacing: 28) {
                             if MangaStyle.isActive {
                                 mangaPodcastHeader
+                            } else if PetWhiteStyle.isActive {
+                                petWhitePodcastHeader
+                                petWhitePodcastSummary
                             } else if MujiStyle.isActive {
                                 mujiPodcastHeader
                                 mujiPodcastSummary
@@ -207,6 +210,50 @@ struct PodcastView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var petWhitePodcastHeader: some View {
+        PetWhitePageHeader(
+            eyebrow: "PODCAST",
+            title: String(localized: "tabbar_podcast"),
+            subtitle: String(localized: "白绒电台")
+        ) {
+            NavigationLink(value: PodcastDestination.search) {
+                PetWhiteIconBadge(icon: .magnifyingGlass, tint: PetWhiteStyle.sky, size: 48)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var petWhitePodcastSummary: some View {
+        HStack(spacing: 10) {
+            petWhitePodcastMetric(value: "\(viewModel.personalizedRadios.count)", label: String(localized: "podcast_for_you"), tint: PetWhiteStyle.dogOrange, icon: .podcast)
+            petWhitePodcastMetric(value: "\(viewModel.categories.count)", label: String(localized: "podcast_all"), tint: PetWhiteStyle.mint, icon: .gridSquare)
+            petWhitePodcastMetric(value: "\(viewModel.broadcastChannels.count)", label: String(localized: "podcast_broadcast"), tint: PetWhiteStyle.sky, icon: .radio)
+        }
+        .padding(12)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 24, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .padding(.horizontal, padH)
+    }
+
+    private func petWhitePodcastMetric(value: String, label: String, tint: Color, icon: MonologueIcon.IconType) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            PetWhiteIconBadge(icon: icon, tint: tint, size: 34)
+
+            Text(value)
+                .font(PetWhiteStyle.titleFont(18, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .lineLimit(1)
+
+            Text(label)
+                .font(PetWhiteStyle.labelFont(10, weight: .black))
+                .foregroundStyle(PetWhiteStyle.inkSoft)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 18, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: tint))
     }
 
     private var mujiPodcastHeader: some View {
@@ -573,7 +620,7 @@ struct PodcastView: View {
 
     private var categoriesSection: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 10) {
+            LazyHStack(spacing: 10) {
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
                     if MangaStyle.isActive {
                         HStack(spacing: 6) {
@@ -746,7 +793,7 @@ struct PodcastView: View {
             )
 
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(viewModel.todayPerfered) { radio in
                         Button {
                             HapticStyle.light.trigger()
@@ -896,7 +943,7 @@ struct PodcastView: View {
             podcastSectionHeader(title: String(localized: "上新佳作"))
 
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(Array(viewModel.newestPrograms.enumerated()), id: \.offset) { _, program in
                         Button {
                             HapticStyle.light.trigger()
@@ -931,7 +978,7 @@ struct PodcastView: View {
             podcastSectionHeader(title: String(localized: "音乐播客榜"))
 
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(Array(viewModel.chartPrograms.enumerated()), id: \.offset) { index, program in
                         Button {
                             HapticStyle.light.trigger()
@@ -1069,7 +1116,7 @@ struct PodcastView: View {
             )
 
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(Array(viewModel.newcomerRadios.enumerated()), id: \.element.id) { index, radio in
                         Button {
                             HapticStyle.light.trigger()
@@ -1589,7 +1636,7 @@ struct PodcastView: View {
             )
 
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(viewModel.broadcastChannels) { channel in
                         Button {
                             HapticStyle.light.trigger()

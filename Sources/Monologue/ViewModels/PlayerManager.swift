@@ -57,6 +57,9 @@ class PlayerManager: ObservableObject {
     var lastWidgetPlaybackState: PlaybackSurfaceState = .idle
     var lastWidgetMetadataSignature: String = ""
     var lastWidgetLyricText: String = ""
+    var lastWidgetProgressAnchorTime: TimeInterval = 0
+    var lastWidgetProgressAnchorDate: Date?
+    var lastWidgetProgressDuration: TimeInterval = 0
     var lastWidgetTempoSongID: Int?
     var widgetTempoSyncTask: Task<Void, Never>?
     
@@ -434,6 +437,16 @@ class PlayerManager: ObservableObject {
     var routeChangeResumeWorkItem: DispatchWorkItem?
     /// 最近一次实际应用到 AVAudioSession 的 options，避免重复 setActive
     var lastAppliedAudioSessionOptions: AVAudioSession.CategoryOptions?
+
+    // MARK: - 中断恢复（统一管理）
+    /// 中断/路由恢复阶梯重试任务（0.4s → 1s → 2.5s → 5s）。
+    /// 由 `scheduleInterruptionResumeRetry` 创建，失败时自动按下一档重试。
+    var interruptionResumeTask: Task<Void, Never>?
+    /// 中断超时看门狗。微信、抖音等部分 App 中断结束时不发 `.ended` 通知，
+    /// 这里给 `isUnderInterruption` 加 60s 兜底，超时后强制清除并尝试恢复。
+    var interruptionWatchdogTask: Task<Void, Never>?
+    /// 中断开始时间戳，仅用于日志
+    var interruptionStartedAt: Date?
     
     /// 持久化时的最大 context 大小（防止序列化过大）
     let maxPersistContextSize = 200

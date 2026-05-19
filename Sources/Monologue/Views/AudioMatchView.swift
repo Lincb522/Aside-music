@@ -127,8 +127,10 @@ final class AudioMatchViewModel: ObservableObject {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: PlayerManager.playbackAudioSessionOptions)
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // 让 PlayerManager 按用户当前的 backgroundAudioPolicy 重新决议 options，
+        // 避免写死成 [] 把用户的 alwaysMix / 游戏模式 ducking 设置静默覆盖。
+        PlayerManager.shared.lastAppliedAudioSessionOptions = nil
+        PlayerManager.shared.reapplyAudioSessionOptions(reason: "Shazam 录音结束")
     }
 
     fileprivate func handleMatch(_ match: SHMatch) {

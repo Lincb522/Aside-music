@@ -1,11 +1,10 @@
 import SwiftUI
 import SwiftData
-import CarPlay
 import HiconIcons
 import UserNotifications
 import WidgetKit
 
-// MARK: - AppDelegate（控制设备方向 + CarPlay 场景配置）
+// MARK: - AppDelegate（控制设备方向 + 场景配置）
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
@@ -15,12 +14,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        if connectingSceneSession.role == .carTemplateApplication {
-            let config = UISceneConfiguration(name: "CarPlayConfiguration",
-                                              sessionRole: connectingSceneSession.role)
-            config.delegateClass = CarPlaySceneDelegate.self
-            return config
-        }
         let config = UISceneConfiguration(name: "Default Configuration",
                                           sessionRole: connectingSceneSession.role)
         // 指派自定义 scene delegate 以接收 Quick Actions / shortcutItem 回调

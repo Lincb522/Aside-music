@@ -1,0 +1,26 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "musicNote@1x.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "musicNote@2x.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "musicNote@3x.png"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "template-rendering-intent": "template"
+  }
+}

@@ -376,7 +376,8 @@ struct BentoPlayingIndicator: View {
     var isAnimating: Bool = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        // 不播放时暂停 timeline 推进
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isAnimating)) { timeline in
             HStack(alignment: .bottom, spacing: 2.5) {
                 ForEach(0 ..< 3, id: \.self) { index in
                     Capsule()

@@ -10,6 +10,9 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
     case capsule       // Capsule OS — 胶囊模块化系统界面
+    case petWhite      // 白绒爪印 — 纯白扁平、粗黑描边、猫狗图标包语言
+    case pureWhite     // 已移除：仅用于迁移旧存档
+    case material3Expressive // 已移除：仅用于迁移旧存档
     case bento         // 已移除：仅用于迁移旧存档
     case sequoia       // 已移除：仅用于迁移旧存档
     case liquidGlass   // 已移除：仅用于迁移旧存档
@@ -19,7 +22,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     static var allCases: [GlobalThemeId] {
-        [.default, .muji, .manga, .neumorphic, .capsule]
+        [.default, .muji, .manga, .neumorphic, .capsule, .petWhite]
     }
 
     var displayName: String {
@@ -34,7 +37,9 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return String(localized: "新拟物")
         case .capsule:
             return "Capsule OS"
-        case .bento, .sequoia, .liquidGlass, .clay, .signal:
+        case .petWhite:
+            return String(localized: "global_theme_pet_white_name")
+        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
             return String(localized: "默认")
         }
     }
@@ -51,7 +56,9 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return String(localized: "柔软凸起与凹陷控件，安静的实体触感")
         case .capsule:
             return String(localized: "胶囊模块化音乐系统")
-        case .bento, .sequoia, .liquidGlass, .clay, .signal:
+        case .petWhite:
+            return String(localized: "global_theme_pet_white_description")
+        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
             return String(localized: "Monologue 原始设计风格")
         }
     }
@@ -68,7 +75,9 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return .layers
         case .capsule:
             return .layers
-        case .bento, .sequoia, .liquidGlass, .clay, .signal:
+        case .petWhite:
+            return .catLife
+        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
             return .playerTheme
         }
     }

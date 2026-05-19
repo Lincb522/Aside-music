@@ -104,6 +104,34 @@ struct PlaylistSearchBar: View {
         HStack(spacing: 6) {
             Spacer()
             
+            // 批量喜欢快捷入口:点击直接进入多选模式
+            if isSelectMode != nil && onBatchCollect != nil {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isSelectMode?.wrappedValue = true
+                        selectedIds?.wrappedValue.removeAll()
+                    }
+                } label: {
+                    if SequoiaStyle.isActive {
+                        SequoiaControlButton(icon: .like, tint: SequoiaStyle.red, size: 34)
+                    } else if CapsuleStyle.isActive {
+                        CapsuleDetailIconButton(icon: .like, tint: CapsuleStyle.coral)
+                            .frame(width: 34, height: 34)
+                    } else {
+                        MonologueIcon(icon: .like, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.red : .monologueTextSecondary))
+                            .frame(width: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28, height: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28)
+                            .background {
+                                if MangaStyle.isActive {
+                                    MangaCardBackground(cornerRadius: 10, tint: MangaStyle.bubblePink)
+                                } else if NeumorphicStyle.isActive {
+                                    NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
+                                }
+                            }
+                    }
+                }
+                .transition(.opacity)
+            }
+
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isSearching = true

@@ -18,6 +18,10 @@ struct ThemedPageBackground: View {
                 } else {
                     if MangaStyle.isActive {
                         MangaRootBackdrop()
+                    } else if PetWhiteStyle.isActive {
+                        PetWhiteRootBackdrop()
+                    } else if PureWhiteStyle.isActive {
+                        PureWhiteRootBackdrop()
                     } else if MujiStyle.isActive {
                         MujiRootBackdrop()
                     } else if NeumorphicStyle.isActive {
@@ -95,6 +99,28 @@ struct ThemedPageHeader<Accessory: View>: View {
                 HStack(spacing: 10) {
                     accessory
                     MangaIconBadge(icon: icon, size: 46, tint: MangaStyle.labelYellow)
+                }
+            }
+        } else if PetWhiteStyle.isActive {
+            PetWhitePageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    PetWhiteIconBadge(icon: icon, tint: PetWhiteStyle.mint, size: 48)
+                }
+            }
+        } else if PureWhiteStyle.isActive {
+            PureWhitePageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                HStack(spacing: 10) {
+                    accessory
+                    PureWhiteIconBadge(icon: icon, tint: PureWhiteStyle.accent, size: 46)
                 }
             }
         } else if MujiStyle.isActive {
@@ -280,11 +306,11 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     @Environment(\.monologueSheetContext) private var monologueSheetContext
 
     private var isThemed: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     private var shouldRenderInlineHeader: Bool {
-        isThemed && monologueSheetContext == nil
+        isThemed && !PetWhiteStyle.isActive && monologueSheetContext == nil
     }
 
     func body(content: Content) -> some View {
@@ -314,6 +340,27 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
             content
                 .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: elevated, tint: mangaTint))
                 .themeRenderSurfaceLayer()
+        } else if PetWhiteStyle.isActive {
+            content
+                .background(
+                    PetWhiteSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 16), 28),
+                        elevated: elevated,
+                        tint: elevated ? PetWhiteStyle.surfaceRaised : PetWhiteStyle.surfacePressed,
+                        accent: elevated ? PetWhiteStyle.mint : PetWhiteStyle.butter
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if PureWhiteStyle.isActive {
+            content
+                .background(
+                    PureWhiteSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 16), 28),
+                        elevated: elevated,
+                        tint: elevated ? PureWhiteStyle.surfaceRaised.opacity(0.96) : PureWhiteStyle.surface.opacity(0.9)
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
         } else if MujiStyle.isActive {
             content
                 .background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16), elevated: elevated))
@@ -403,11 +450,13 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var listSpacing: CGFloat {
         if MangaStyle.isActive { return 10 }
+        if PetWhiteStyle.isActive { return 10 }
+        if PureWhiteStyle.isActive { return 10 }
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 10 }
         if CapsuleStyle.isActive { return 9 }
@@ -421,6 +470,8 @@ enum ThemedPageStyle {
 
     static var looseListSpacing: CGFloat {
         if MangaStyle.isActive { return 14 }
+        if PetWhiteStyle.isActive { return 14 }
+        if PureWhiteStyle.isActive { return 14 }
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 14 }
         if CapsuleStyle.isActive { return 13 }
@@ -442,6 +493,8 @@ enum ThemedPageStyle {
 
     static var surfaceCornerRadius: CGFloat {
         if MangaStyle.isActive { return 18 }
+        if PetWhiteStyle.isActive { return 22 }
+        if PureWhiteStyle.isActive { return 22 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
         if CapsuleStyle.isActive { return 24 }
@@ -455,6 +508,8 @@ enum ThemedPageStyle {
 
     static var compactSurfaceCornerRadius: CGFloat {
         if MangaStyle.isActive { return 14 }
+        if PetWhiteStyle.isActive { return 16 }
+        if PureWhiteStyle.isActive { return 16 }
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 18 }
         if CapsuleStyle.isActive { return 18 }

@@ -29,6 +29,10 @@ final class GlobalThemeManager {
         return provider
     }
 
+    func provider(for id: GlobalThemeId) -> GlobalThemeProvider {
+        Self.makeProvider(for: Self.resolveRemovedTheme(id))
+    }
+
     // MARK: - Token 快捷访问
 
     var colors: GlobalColorPalette {
@@ -64,10 +68,10 @@ final class GlobalThemeManager {
 
     private init() {
         let raw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.default.rawValue
-        let restored = GlobalThemeId(rawValue: raw) ?? .default
+        let restored = Self.resolveStoredTheme(raw)
         currentThemeId = Self.resolveRemovedTheme(restored)
-        if currentThemeId != restored {
-            UserDefaults.standard.set(GlobalThemeId.default.rawValue, forKey: "globalThemeId")
+        if currentThemeId.rawValue != raw {
+            UserDefaults.standard.set(currentThemeId.rawValue, forKey: "globalThemeId")
         }
     }
 
@@ -80,6 +84,9 @@ final class GlobalThemeManager {
         case .manga: return MangaThemeProvider()
         case .neumorphic: return NeumorphicThemeProvider()
         case .capsule: return CapsuleThemeProvider()
+        case .petWhite: return PetWhiteThemeProvider()
+        case .pureWhite: return DefaultThemeProvider()
+        case .material3Expressive: return DefaultThemeProvider()
         case .bento: return DefaultThemeProvider()
         case .sequoia: return DefaultThemeProvider()
         case .liquidGlass: return DefaultThemeProvider()
@@ -103,10 +110,15 @@ final class GlobalThemeManager {
 
     private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
         switch id {
-        case .bento, .clay, .signal, .liquidGlass, .sequoia:
+        case .pureWhite, .bento, .clay, .signal, .liquidGlass, .sequoia, .material3Expressive:
             return .default
         default:
             return id
         }
+    }
+
+    private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
+        if raw == "doodlePop" { return .default }
+        return GlobalThemeId(rawValue: raw) ?? .default
     }
 }

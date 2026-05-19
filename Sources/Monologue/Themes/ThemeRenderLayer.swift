@@ -35,19 +35,19 @@ struct ThemeRenderContext: Equatable {
     }
 
     var isolatesExpensiveSurfaces: Bool {
-        isHosted && theme == .manga
+        isHosted && (theme == .manga || theme == .pureWhite || theme == .petWhite)
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .pureWhite || theme == .petWhite)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .pureWhite || theme == .petWhite)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule)
+        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .pureWhite || theme == .petWhite)
     }
 }
 
@@ -143,13 +143,17 @@ struct ThemeRenderUnderlay: View {
         switch theme {
         case .manga:
             MangaStyle.paper
+        case .pureWhite:
+            PureWhiteStyle.paper
+        case .petWhite:
+            PetWhiteStyle.paper
         case .muji:
             MujiStyle.paper
         case .neumorphic:
             NeumorphicStyle.base
         case .capsule:
             CapsuleStyle.base
-        case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
+        case .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             Color.monologueBackground
         }
     }
@@ -167,13 +171,17 @@ struct ThemeRenderBackdrop: View {
         switch theme {
         case .manga:
             MangaRootBackdrop()
+        case .pureWhite:
+            PureWhiteRootBackdrop()
+        case .petWhite:
+            PetWhiteRootBackdrop()
         case .muji:
             MujiRootBackdrop()
         case .neumorphic:
             NeumorphicRenderBackdrop()
         case .capsule:
             CapsuleRootBackdrop()
-        case .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
+        case .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
             MonologueBackground()
                 .ignoresSafeArea()
         }

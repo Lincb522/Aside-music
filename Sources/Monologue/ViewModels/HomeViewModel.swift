@@ -182,6 +182,7 @@ class HomeViewModel: ObservableObject {
                 self.apiService.currentUserId = profile.userId
                 return self.apiService.fetchUserDetail(uid: profile.userId)
             }
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completionResult in
                 if case .failure(let error) = completionResult {
                     AppLogger.error("用户资料获取失败: \(error)")
@@ -219,6 +220,7 @@ class HomeViewModel: ObservableObject {
         }
             
         apiService.fetchPopularSongs()
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
                 self?.popularSongs = songs
                 Task { @MainActor in
@@ -230,6 +232,7 @@ class HomeViewModel: ObservableObject {
             
         if forceDaily || recommendPlaylists.isEmpty || apiService.currentUserId != nil {
             apiService.fetchRecommendPlaylists()
+                .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { completion in
                     if case .failure(let error) = completion {
                         AppLogger.error("推荐歌单获取失败: \(error)")
@@ -246,6 +249,7 @@ class HomeViewModel: ObservableObject {
         
         // Banner
         apiService.fetchBanners()
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in
                 bannersLoaded = true
                 checkAndMarkReady()
@@ -260,6 +264,7 @@ class HomeViewModel: ObservableObject {
         
         // qcm推荐歌单
         apiService.fetchQQRecommendPlaylists()
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
                 if case .failure(let error) = completion {
                     AppLogger.error("QQ推荐歌单获取失败: \(error)")
@@ -274,6 +279,7 @@ class HomeViewModel: ObservableObject {
         
         // qcm推荐新歌
         apiService.fetchQQRecommendNewSongs()
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
                 if case .failure(let error) = completion {
                     AppLogger.error("QQ推荐新歌获取失败: \(error)")
@@ -289,6 +295,7 @@ class HomeViewModel: ObservableObject {
         
         // 热搜
         apiService.fetchHotSearch()
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] items in
                 if let first = items.first {
                     self?.hotSearch = first.searchWord
@@ -299,6 +306,7 @@ class HomeViewModel: ObservableObject {
         // 需要登录的数据
         if let uid = apiService.currentUserId {
             apiService.fetchRecentSongs()
+                .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
                     self?.recentSongs = songs
                     Task { @MainActor in
@@ -310,6 +318,7 @@ class HomeViewModel: ObservableObject {
             
             // 先尝试直接用 uid 获取用户详情
             apiService.fetchUserDetail(uid: uid)
+                .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completionResult in
                     if case .failure(let error) = completionResult {
                         AppLogger.warning("fetchUserDetail 失败: \(error)，尝试通过 loginStatus 获取")
@@ -347,6 +356,7 @@ class HomeViewModel: ObservableObject {
         if let style = styleManager.currentStyle {
             AppLogger.debug("HomeViewModel: 获取风格歌曲: \(style.finalName)")
             apiService.fetchStyleSongs(tagId: style.finalId)
+                .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { result in
                     if case .failure(let error) = result {
                         AppLogger.error("风格歌曲获取失败: \(error)")
@@ -363,6 +373,7 @@ class HomeViewModel: ObservableObject {
         } else {
             AppLogger.debug("HomeViewModel: 获取标准每日推荐")
             apiService.fetchDailySongs()
+                .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { result in
                     if case .failure(let error) = result {
                         AppLogger.error("每日推荐获取失败: \(error)")

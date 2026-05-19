@@ -73,20 +73,102 @@ class APIService: @unchecked Sendable {
     }
 
     var currentCookie: String? {
-        get { KeychainHelper.loadString(key: cookieKey) }
+        get {
+            guard let raw = KeychainHelper.loadString(key: cookieKey), !raw.isEmpty else {
+                return nil
+            }
+            // 兼容旧存档:早期把原始 Set-Cookie 串直接存进 Keychain,读出来时统一清洗
+            let normalized = Self.normalizeCookieHeader(raw)
+            return normalized.isEmpty ? nil : normalized
+        }
         set {
-            if let value = newValue {
+            // 登录接口返回的是原始 Set-Cookie 拼接串,
+            // 直接塞给 "Cookie" 请求头会让后端把 Max-Age / Expires / Path 等属性当作 cookie,
+            // 导致真实的 MUSIC_U 被污染,网易云判定为未登录(code 301)。
+            // 在存储前先清洗成 "k=v; k=v" 的标准请求头格式。
+            let normalized = newValue.map { Self.normalizeCookieHeader($0) }
+
+            if let value = normalized, !value.isEmpty {
                 KeychainHelper.save(key: cookieKey, value: value)
             } else {
                 KeychainHelper.delete(key: cookieKey)
             }
-            if let cookie = newValue {
+            if let cookie = normalized, !cookie.isEmpty {
+                // 先清空 NCMClient 内部可能被污染的 session cookie,再注入清洗后的新值
+                ncm.clearCookies()
                 ncm.setCookie(cookie)
             }
-            if newValue == nil && currentUserId != nil {
+            if (normalized == nil || normalized?.isEmpty == true) && currentUserId != nil {
                 currentUserId = nil
             }
         }
+    }
+
+    /// 将登录接口返回的原始 Set-Cookie 拼接串(含 Max-Age / Expires / Path / Domain 等属性)
+    /// 清洗为可直接用于 "Cookie" 请求头的 "k=v; k=v" 格式。
+    ///
+    /// - 去掉 cookie 属性(Max-Age / Expires / Path / Domain / Secure / HttpOnly / SameSite)
+    /// - 跳过 Max-Age=0 或已过期的 cookie(Set-Cookie 里用于清除登录态的占位,如 MUSIC_SNS=)
+    /// - 保留最后一次出现的 key(Set-Cookie 串里后写的覆盖先写的)
+    /// - 去掉空 key / 无 "=" 的段
+    static func normalizeCookieHeader(_ raw: String) -> String {
+        // 已经是清洗后的标准格式(没有 Max-Age / Expires / Path 等属性),原样返回
+        let hasSetCookieAttributes = raw.range(
+            of: #"\b(?:Max-Age|Expires|Path|Domain|Secure|HttpOnly|SameSite)\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+        guard hasSetCookieAttributes else {
+            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let reservedAttributes: Set<String> = [
+            "max-age", "expires", "path", "domain",
+            "secure", "httponly", "samesite", "version", "comment", "priority"
+        ]
+
+        var pairs: [(String, String)] = []
+        var indexByKey: [String: Int] = [:]
+        var skipCurrent = false
+
+        for rawSegment in raw.split(separator: ";", omittingEmptySubsequences: true) {
+            let segment = rawSegment.trimmingCharacters(in: .whitespaces)
+            if segment.isEmpty { continue }
+
+            let parts = segment.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let key = parts.first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+            let value = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
+
+            let lowered = key.lowercased()
+
+            if reservedAttributes.contains(lowered) {
+                // 碰到 Max-Age=0 / Expires=过去时间 → 当前 cookie 是"清除"指令,跳过紧邻的 pair
+                if lowered == "max-age", let age = Int(value), age <= 0 {
+                    if let last = pairs.last {
+                        indexByKey.removeValue(forKey: last.0.lowercased())
+                        pairs.removeLast()
+                    }
+                    skipCurrent = true
+                }
+                continue
+            }
+
+            if skipCurrent {
+                skipCurrent = false
+                continue
+            }
+
+            if key.isEmpty { continue }
+
+            // 同名 key 取后面出现的那一个
+            if let existingIndex = indexByKey[lowered] {
+                pairs[existingIndex] = (key, value)
+            } else {
+                indexByKey[lowered] = pairs.count
+                pairs.append((key, value))
+            }
+        }
+
+        return pairs.map { "\($0.0)=\($0.1)" }.joined(separator: "; ")
     }
 
     var isLoggedIn: Bool {
@@ -99,7 +181,20 @@ class APIService: @unchecked Sendable {
         // 从 UserDefaults 迁移到 Keychain（一次性迁移）
         Self.migrateToKeychainIfNeeded()
 
-        let savedCookie = KeychainHelper.loadString(key: cookieKey)
+        let rawSavedCookie = KeychainHelper.loadString(key: cookieKey)
+        // 兼容旧存档:早期把原始 Set-Cookie 串存进 Keychain,启动时先清洗
+        let savedCookie: String? = {
+            guard let raw = rawSavedCookie, !raw.isEmpty else { return nil }
+            let cleaned = Self.normalizeCookieHeader(raw)
+            return cleaned.isEmpty ? nil : cleaned
+        }()
+        // 如果清洗后跟存档不一致,回写 Keychain,避免下次启动再清洗
+        if let cleaned = savedCookie, cleaned != rawSavedCookie {
+            KeychainHelper.save(key: cookieKey, value: cleaned)
+            #if DEBUG
+            print("[APIService] init - cookie 已从旧 Set-Cookie 串格式迁移到标准请求头格式")
+            #endif
+        }
         let savedUid = KeychainHelper.loadInt(key: userIdKey)
         
         #if DEBUG
@@ -557,7 +652,13 @@ class APIService: @unchecked Sendable {
                 let cookieHeader: String? = {
                     let cookies = ncm.currentCookies
                     if !cookies.isEmpty {
-                        return cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+                        let header = cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+                        // NCMClient 内部可能把 Set-Cookie 里的 Max-Age / Expires / Path 等属性
+                        // 也当作 cookie,需要清洗
+                        let normalized = Self.normalizeCookieHeader(header)
+                        if !normalized.isEmpty {
+                            return normalized
+                        }
                     }
                     return APIService.shared.currentCookie
                 }()
@@ -1259,7 +1360,13 @@ class APIService: @unchecked Sendable {
     private func cookieHeader(for client: NCMClient) -> String? {
         let cookies = client.currentCookies
         if !cookies.isEmpty {
-            return cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+            let header = cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+            // NCMClient sessionManager 可能把 Set-Cookie 里的 Max-Age / Expires / Path 等属性
+            // 也当作 cookie,发出去会导致网易云判定未登录
+            let normalized = Self.normalizeCookieHeader(header)
+            if !normalized.isEmpty {
+                return normalized
+            }
         }
 
         if client === ncm {

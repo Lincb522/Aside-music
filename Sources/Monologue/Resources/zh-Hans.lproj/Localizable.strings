@@ -180,6 +180,8 @@
 "settings_appearance" = "外观与交互";
 "settings_appearance_global_theme_section" = "全局主题";
 "settings_appearance_theme_style" = "主题风格";
+"global_theme_pet_white_name" = "Furry Paws";
+"global_theme_pet_white_description" = "纯白扁平界面，粗黑描边，软萌爪印陪伴感";
 "settings_appearance_app_icon_section" = "应用图标";
 "settings_appearance_layout_section" = "界面布局";
 "settings_appearance_content_feedback_section" = "内容与反馈";

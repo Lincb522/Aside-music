@@ -11,17 +11,15 @@ final class SettingsManager: ObservableObject {
     /// 全局主题 ID
     @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.default.rawValue {
         didSet {
-            if let id = GlobalThemeId(rawValue: globalThemeIdRaw) {
-                let resolvedId = Self.resolveRemovedTheme(id)
-                if resolvedId.rawValue != globalThemeIdRaw {
-                    globalThemeIdRaw = resolvedId.rawValue
-                    return
-                }
+            let resolvedId = Self.resolveRemovedTheme(Self.resolveStoredTheme(globalThemeIdRaw))
 
-                GlobalThemeManager.shared.switchTheme(to: resolvedId)
-                enforceCoverBackgroundPolicyForCurrentTheme()
-                globalThemeRevision &+= 1
+            if resolvedId.rawValue != globalThemeIdRaw {
+                globalThemeIdRaw = resolvedId.rawValue
             }
+
+            GlobalThemeManager.shared.switchTheme(to: resolvedId)
+            enforceCoverBackgroundPolicyForCurrentTheme()
+            globalThemeRevision &+= 1
         }
     }
 
@@ -29,7 +27,7 @@ final class SettingsManager: ObservableObject {
 
     var globalThemeId: GlobalThemeId {
         get {
-            let id = GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default
+            let id = Self.resolveStoredTheme(globalThemeIdRaw)
             return Self.resolveRemovedTheme(id)
         }
         set {
@@ -39,11 +37,16 @@ final class SettingsManager: ObservableObject {
 
     private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
         switch id {
-        case .bento, .sequoia, .liquidGlass, .clay, .signal:
+        case .pureWhite, .bento, .sequoia, .liquidGlass, .clay, .signal, .material3Expressive:
             return .default
         default:
             return id
         }
+    }
+
+    private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
+        if raw == "doodlePop" { return .default }
+        return GlobalThemeId(rawValue: raw) ?? .default
     }
 
     /// 悬浮栏样式
@@ -212,7 +215,7 @@ final class SettingsManager: ObservableObject {
     var interfaceIconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
 
     var interfaceIconSet: AppInterfaceIconSet {
-        get { AppInterfaceIconSet(rawValue: interfaceIconSetRaw) ?? .hicon }
+        get { AppInterfaceIconSet.selectedFromDefaults }
         set {
             guard interfaceIconSet != newValue else { return }
             objectWillChange.send()
@@ -325,9 +328,9 @@ final class SettingsManager: ObservableObject {
     @AppStorage("lyricGradientEndHex") var lyricGradientEndHex: String = "4ECDC4"
 
     private init() {
-        let restored = GlobalThemeId(rawValue: globalThemeIdRaw) ?? .default
+        let restored = Self.resolveStoredTheme(globalThemeIdRaw)
         let resolved = Self.resolveRemovedTheme(restored)
-        if resolved != restored {
+        if resolved.rawValue != globalThemeIdRaw {
             UserDefaults.standard.set(resolved.rawValue, forKey: "globalThemeId")
             globalThemeIdRaw = resolved.rawValue
         }

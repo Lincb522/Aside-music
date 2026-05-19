@@ -734,11 +734,6 @@ private struct QueueLinearRow: View {
                     endPoint: .trailing
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-
-                Capsule()
-                    .fill(LinearGradient(colors: CapsuleStyle.accentGradient, startPoint: .top, endPoint: .bottom))
-                    .frame(width: 4, height: 28)
-                    .padding(.leading, 7)
             }
         }
     }

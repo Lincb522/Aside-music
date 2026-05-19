@@ -101,6 +101,7 @@ struct WelcomeView: View {
 
     private var welcomeBaseColor: Color {
         if MangaStyle.isActive { return MangaStyle.paper }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.paper }
         if NeumorphicStyle.isActive { return NeumorphicStyle.base }
         if CapsuleStyle.isActive { return CapsuleStyle.base }
         if MujiStyle.isActive { return MujiStyle.paper }
@@ -111,6 +112,8 @@ struct WelcomeView: View {
     private var welcomeBackdrop: some View {
         if MangaStyle.isActive {
             MangaWelcomeBackdrop()
+        } else if PureWhiteStyle.isActive {
+            PureWhiteRootBackdrop()
         } else if NeumorphicStyle.isActive {
             NeumorphicWelcomeBackdrop()
         } else if CapsuleStyle.isActive {
@@ -127,6 +130,8 @@ struct WelcomeView: View {
         if MangaStyle.isActive {
             MangaWelcomeDecor()
                 .scaleEffect(plateScale)
+        } else if PureWhiteStyle.isActive {
+            EmptyView()
         } else if NeumorphicStyle.isActive {
             NeumorphicWelcomeDecor()
                 .opacity(accentOpacity)
@@ -147,6 +152,8 @@ struct WelcomeView: View {
     private var heroSection: some View {
         if MangaStyle.isActive {
             mangaHeroSection
+        } else if PureWhiteStyle.isActive {
+            pureWhiteHeroSection
         } else if NeumorphicStyle.isActive {
             neumorphicHeroSection
         } else if CapsuleStyle.isActive {
@@ -160,6 +167,7 @@ struct WelcomeView: View {
 
     private var defaultHeroSection: some View {
         VStack(spacing: DeviceLayout.isPad ? 34 : 28) {
+            // Logo 区域 — 缩放 + 模糊渐清 + 弹簧回弹
             ZStack {
                 DefaultWelcomeLogoStage(
                     accent: defaultAccent,
@@ -173,11 +181,41 @@ struct WelcomeView: View {
                     .offset(y: -plateSize * 0.12)
             }
             .frame(width: plateSize * 2.12, height: plateSize * 1.58)
-            .scaleEffect(plateScale)
+            .scaleEffect(plateOpacity > 0.5 ? 1.0 : 0.85)
+            .blur(radius: plateOpacity > 0.5 ? 0 : 16)
             .opacity(plateOpacity)
             .offset(y: plateOffset)
 
-            defaultTitleBlock
+            // 标题区域 — 错峰入场(标题先于副标题)
+            VStack(spacing: 12) {
+                Text("Monologue")
+                    .font(.system(size: DeviceLayout.isPad ? 40 : 32, weight: .semibold, design: .rounded))
+                    .foregroundStyle(defaultTitleStyle)
+                    .tracking(0.4)
+                    .scaleEffect(titleOpacity > 0.5 ? 1.0 : 0.88)
+                    .blur(radius: titleOpacity > 0.5 ? 0 : 10)
+                    .opacity(titleOpacity)
+                    .offset(y: titleOffset)
+
+                Text(LocalizedStringKey("welcome_slogan"))
+                    .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.monologueTextSecondary)
+                    .tracking(DeviceLayout.isPad ? 1.8 : 1.35)
+                    .multilineTextAlignment(.center)
+                    .scaleEffect(subtitleOpacity > 0.5 ? 1.0 : 0.92)
+                    .blur(radius: subtitleOpacity > 0.5 ? 0 : 8)
+                    .opacity(subtitleOpacity)
+                    .offset(y: subtitleOffset)
+
+                DefaultWelcomeConstellationDivider(
+                    accent: defaultAccent,
+                    isAnimating: !isDismissing && !reduceMotion
+                )
+                .frame(width: DeviceLayout.isPad ? 132 : 112, height: 22)
+                .scaleEffect(x: accentScaleX, y: 1, anchor: .center)
+                .opacity(accentOpacity)
+                .padding(.top, 2)
+            }
         }
     }
 
@@ -277,6 +315,67 @@ struct WelcomeView: View {
             .offset(y: plateOffset)
 
             neumorphicTitleBlock
+        }
+    }
+
+    private var pureWhiteHeroSection: some View {
+        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+            ZStack {
+                PureWhiteSurfaceBackground(cornerRadius: plateSize * 0.24, elevated: true, tint: PureWhiteStyle.surfaceRaised)
+                    .frame(width: plateSize * 1.02, height: plateSize * 0.9)
+
+                RoundedRectangle(cornerRadius: plateSize * 0.18, style: .continuous)
+                    .fill(PureWhiteStyle.surfaceTint.opacity(0.88))
+                    .frame(width: plateSize * 0.74, height: plateSize * 0.58)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: plateSize * 0.18, style: .continuous)
+                            .stroke(PureWhiteStyle.separator, lineWidth: 1)
+                    )
+                    .overlay(alignment: .topLeading) {
+                        HStack(spacing: 6) {
+                            Circle().fill(PureWhiteStyle.accent).frame(width: 6, height: 6)
+                            Capsule().fill(PureWhiteStyle.separator).frame(width: 34, height: 4)
+                            Capsule().fill(PureWhiteStyle.separator.opacity(0.72)).frame(width: 20, height: 4)
+                        }
+                        .padding(.top, 14)
+                        .padding(.leading, 16)
+                    }
+                    .overlay(alignment: .bottom) {
+                        HStack(spacing: 6) {
+                            Capsule().fill(PureWhiteStyle.accent.opacity(0.82)).frame(width: 46, height: 4)
+                            Capsule().fill(PureWhiteStyle.separator).frame(width: 28, height: 4)
+                            Capsule().fill(PureWhiteStyle.paperBlue.opacity(0.75)).frame(width: 36, height: 4)
+                        }
+                        .padding(.bottom, 16)
+                    }
+
+                welcomeLogoImage(size: logoSize * 0.78)
+                    .background(
+                        RoundedRectangle(cornerRadius: plateSize * 0.12, style: .continuous)
+                            .fill(PureWhiteStyle.surfaceRaised)
+                            .frame(width: logoSize * 1.08, height: logoSize * 1.08)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: plateSize * 0.12, style: .continuous)
+                                    .stroke(PureWhiteStyle.separator, lineWidth: 1)
+                            )
+                    )
+
+                PureWhiteIconBadge(icon: .musicNote, tint: PureWhiteStyle.accent, size: 38)
+                    .offset(x: plateSize * 0.39, y: -plateSize * 0.28)
+                    .scaleEffect(accentScaleX)
+                    .opacity(accentOpacity)
+
+                PureWhiteIconBadge(icon: .library, tint: PureWhiteStyle.paperBlue, size: 34)
+                    .offset(x: -plateSize * 0.39, y: plateSize * 0.26)
+                    .scaleEffect(accentScaleX)
+                    .opacity(accentOpacity)
+            }
+            .frame(width: plateSize * 1.2, height: plateSize * 1.12)
+            .scaleEffect(plateScale)
+            .opacity(plateOpacity)
+            .offset(y: plateOffset)
+
+            pureWhiteTitleBlock
         }
     }
 
@@ -421,6 +520,34 @@ struct WelcomeView: View {
         }
     }
 
+    private var pureWhiteTitleBlock: some View {
+        VStack(spacing: 11) {
+            Text("MONOLOGUE")
+                .font(PureWhiteStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .black))
+                .foregroundStyle(PureWhiteStyle.ink)
+                .opacity(titleOpacity)
+                .offset(y: titleOffset)
+
+            Text(LocalizedStringKey("welcome_slogan"))
+                .font(PureWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold))
+                .foregroundStyle(PureWhiteStyle.inkSoft)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .opacity(subtitleOpacity)
+                .offset(y: subtitleOffset)
+
+            HStack(spacing: 6) {
+                Capsule().fill(PureWhiteStyle.accent).frame(width: 30, height: 7)
+                Capsule().fill(PureWhiteStyle.separator).frame(width: 18, height: 7)
+                Capsule().fill(PureWhiteStyle.paperBlue.opacity(0.88)).frame(width: 12, height: 7)
+            }
+            .scaleEffect(x: accentScaleX, y: 1)
+            .opacity(accentOpacity)
+            .padding(.top, 2)
+        }
+    }
+
     private var neumorphicTitleBlock: some View {
         VStack(spacing: 12) {
             Text("Monologue")
@@ -515,6 +642,7 @@ struct WelcomeView: View {
 
     private var logoShadowColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.42 : 0.22) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.34 : 0.18) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.darkShadow(colorScheme, intensity: colorScheme == .dark ? 0.64 : 0.4) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.32 : 0.2) }
         if MujiStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.26 : 0.09) }
@@ -523,6 +651,7 @@ struct WelcomeView: View {
 
     private var footerFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(10, weight: .black) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.labelFont(10, weight: .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .medium) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(10, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .regular) }
@@ -531,6 +660,7 @@ struct WelcomeView: View {
 
     private var footerColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted.opacity(0.78) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.inkMuted.opacity(0.78) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.inkMuted.opacity(0.72) }
@@ -544,8 +674,8 @@ struct WelcomeView: View {
         backgroundOpacity = 0
         backgroundScale = reduceMotion ? 1 : 1.018
         plateOpacity = 0
-        plateScale = MangaStyle.isActive ? 0.78 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82))
-        plateOffset = MujiStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28))
+        plateScale = MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82)))
+        plateOffset = MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28)))
         titleOpacity = 0
         titleOffset = 18
         subtitleOpacity = 0
@@ -639,7 +769,7 @@ struct WelcomeView: View {
             sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
             sceneScale = reduceMotion ? 1 : 1.015
             backgroundScale = 1.03
-            plateScale = MangaStyle.isActive ? 0.98 : (NeumorphicStyle.isActive ? 0.99 : (CapsuleStyle.isActive ? 1.0 : 1.02))
+            plateScale = MangaStyle.isActive ? 0.98 : (PureWhiteStyle.isActive ? 1.0 : (NeumorphicStyle.isActive ? 0.99 : (CapsuleStyle.isActive ? 1.0 : 1.02)))
             plateOffset = -18
             titleOffset = -14
             subtitleOffset = -12
@@ -658,75 +788,34 @@ private struct DefaultWelcomeBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        GeometryReader { proxy in
-            let mountainHeight = max(proxy.size.height * 0.68, DeviceLayout.isPad ? 600 : 520)
+        ZStack {
+            // 底层:背景图
+            GeometryReader { proxy in
+                Image("default_theme_bg")
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+            }
+            .ignoresSafeArea()
 
-            ZStack(alignment: .bottom) {
-                defaultSky
-
-                ParallaxMountainHeader(height: mountainHeight)
-                    .frame(height: mountainHeight)
-                    .scaleEffect(x: 1.24, y: 1.16, anchor: .bottom)
-                    .offset(y: DeviceLayout.isPad ? 58 : 48)
-                    .opacity(colorScheme == .dark ? 0.96 : 0.84)
-                    .mask(
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0),
-                                .init(color: .clear, location: 0.34),
-                                .init(color: .white.opacity(0.76), location: 0.48),
-                                .init(color: .white, location: 0.62),
-                                .init(color: .white, location: 1),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .allowsHitTesting(false)
-
-                LinearGradient(
-                    colors: colorScheme == .dark
-                        ? [Color.clear, Color(hex: "03050D").opacity(0.06), Color(hex: "03050D").opacity(0.34)]
-                        : [Color.clear, Color(hex: "F7FAFA").opacity(0.1), Color(hex: "F7FAFA").opacity(0.46)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+            // 中层:半透明毛玻璃
+            Rectangle()
+                .fill(.ultraThinMaterial)
                 .ignoresSafeArea()
 
-                RadialGradient(
-                    colors: [
-                        Color.white.opacity(colorScheme == .dark ? 0.025 : 0.24),
-                        Color.clear,
-                    ],
-                    center: .center,
-                    startRadius: 20,
-                    endRadius: max(proxy.size.width, proxy.size.height) * 0.68
-                )
-                .blendMode(colorScheme == .dark ? .plusLighter : .normal)
-            }
-        }
-        .ignoresSafeArea()
-    }
-
-    private var defaultSky: some View {
-        LinearGradient(
-            stops: colorScheme == .dark
-                ? [
-                    .init(color: Color(hex: "03050D"), location: 0),
-                    .init(color: Color(hex: "08102A"), location: 0.42),
-                    .init(color: Color(hex: "111836"), location: 0.74),
-                    .init(color: Color(hex: "05070D"), location: 1),
-                ]
-                : [
-                    .init(color: Color(hex: "B9CAD6"), location: 0),
-                    .init(color: Color(hex: "D7E1E8"), location: 0.42),
-                    .init(color: Color(hex: "EDF2F4"), location: 0.78),
-                    .init(color: Color(hex: "F7FAFA"), location: 1),
+            // 顶层:柔和径向渐变(让中心 Logo 区域更聚焦)
+            RadialGradient(
+                colors: [
+                    Color.clear,
+                    (colorScheme == .dark ? Color.black : Color.white).opacity(0.18),
                 ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
+                center: .center,
+                startRadius: 80,
+                endRadius: 500
+            )
+            .ignoresSafeArea()
+        }
     }
 }
 
