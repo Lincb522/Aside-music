@@ -64,9 +64,11 @@ class APIService: @unchecked Sendable {
             } else {
                 KeychainHelper.delete(key: userIdKey)
             }
-            if currentUserId != nil {
+            let isAuthenticated = currentCookie != nil && currentUserId != nil
+            UserDefaults.standard.set(isAuthenticated, forKey: AppConfig.StorageKeys.isLoggedIn)
+            if oldValue == nil, currentUserId != nil, isAuthenticated {
                 NotificationCenter.default.post(name: .didLogin, object: nil)
-            } else {
+            } else if oldValue != nil, currentUserId == nil {
                 NotificationCenter.default.post(name: .didLogout, object: nil)
             }
         }
@@ -629,9 +631,36 @@ class APIService: @unchecked Sendable {
     }
 
     func fetchRecommendPlaylists() -> AnyPublisher<[Playlist], Error> {
-        ncm.fetch([Playlist].self, keyPath: "recommend") { [ncm] in
-            try await ncm.recommendResource()
+        ncm.publisher { [ncm] in
+            do {
+                let response = try await ncm.recommendResource()
+                if let playlists = try Self.decodePlaylistArray(from: response.body, keyPath: ["recommend"]),
+                   !playlists.isEmpty {
+                    return playlists
+                }
+                AppLogger.warning("推荐歌单为空，切换到公开个性化歌单")
+            } catch {
+                AppLogger.warning("推荐歌单获取失败，切换到公开个性化歌单: \(error)")
+            }
+
+            let fallbackResponse = try await ncm.personalized(limit: 18)
+            if let playlists = try Self.decodePlaylistArray(from: fallbackResponse.body, keyPath: ["result"]),
+               !playlists.isEmpty {
+                return playlists
+            }
+            if let playlists = try Self.decodePlaylistArray(from: fallbackResponse.body, keyPath: ["playlists"]),
+               !playlists.isEmpty {
+                return playlists
+            }
+            return []
         }
+    }
+
+    private static func decodePlaylistArray(from body: [String: Any], keyPath: [String]) throws -> [Playlist]? {
+        guard let rawValue = value(in: body, at: keyPath) else { return nil }
+        guard let array = rawValue as? [[String: Any]] else { return nil }
+        let data = try JSONSerialization.data(withJSONObject: array)
+        return try JSONDecoder().decode([Playlist].self, from: data)
     }
 
     func fetchUserPlaylists(uid: Int) -> AnyPublisher<[Playlist], Error> {

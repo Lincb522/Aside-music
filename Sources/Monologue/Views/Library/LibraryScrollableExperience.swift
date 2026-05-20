@@ -76,7 +76,7 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var contentHorizontalPadding: CGFloat {
-        PetWhiteStyle.isActive ? 12 : DeviceLayout.libraryHorizontalPadding
+        PetWhiteStyle.isActive ? (DeviceLayout.isPad ? 16 : 10) : DeviceLayout.libraryHorizontalPadding
     }
 
     var body: some View {
@@ -228,54 +228,33 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteHeaderDeck: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center, spacing: 12) {
-                    PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 52)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 42)
 
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 8) {
-                            PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
-                            PetWhitePill(text: activeTabShortLabel, tint: PetWhiteStyle.butter)
-                        }
-
-                        Text(String(localized: "tabbar_library"))
-                            .font(PetWhiteStyle.titleFont(30, weight: .black))
-                            .foregroundStyle(PetWhiteStyle.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 7) {
+                        PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
+                        PetWhitePill(text: activeTabShortLabel, tint: PetWhiteStyle.butter)
                     }
-                    .layoutPriority(1)
 
-                    Spacer(minLength: 8)
-
-                    PetWhitePetPetIcon(size: 68)
+                    Text(String(localized: "tabbar_library"))
+                        .font(PetWhiteStyle.titleFont(26, weight: .black))
+                        .foregroundStyle(PetWhiteStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
                 }
+                .layoutPriority(1)
 
-                HStack(spacing: 8) {
-                    PetWhiteLibraryStatusPill(
-                        title: String(localized: "lib_local_playlists"),
-                        value: "\(localManager.playlists.count)",
-                        tint: PetWhiteStyle.mint
-                    )
+                Spacer(minLength: 8)
 
-                    PetWhiteLibraryStatusPill(
-                        title: String(localized: "lib_netease_playlists"),
-                        value: "\(viewModel.userPlaylists.count)",
-                        tint: MusicSource.netease.themedBadgeColor
-                    )
-
-                    PetWhiteLibraryStatusPill(
-                        title: "QCM",
-                        value: qqSession.isLoggedIn ? "\(qqUserPlaylists.count)" : "--",
-                        tint: MusicSource.qqmusic.themedBadgeColor
-                    )
-                }
+                PetWhitePetPetIcon(size: 42)
             }
-            .padding(16)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 12)
             .background(
                 PetWhiteSurfaceBackground(
-                    cornerRadius: 30,
+                    cornerRadius: 24,
                     elevated: true,
                     tint: PetWhiteStyle.surfaceRaised,
                     accent: activeTabTint
@@ -285,7 +264,7 @@ struct ScrollableLibraryExperience: View {
             tabStrip
         }
         .padding(.horizontal, contentHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .padding(.top, DeviceLayout.headerTopPadding + 4)
     }
 
     private var signalHeaderDeck: some View {
@@ -992,7 +971,7 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteLibraryControlPanel: some View {
-        VStack(alignment: .leading, spacing: 13) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
                 PetWhiteSectionTitle(
                     title: String(localized: "音乐库分区"),
@@ -1002,25 +981,57 @@ struct ScrollableLibraryExperience: View {
                 )
 
                 Spacer(minLength: 0)
+
+                Button {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        isLibraryActionsExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        PetWhitePackIcon(
+                            icon: isLibraryActionsExpanded ? .close : .more,
+                            size: 14,
+                            visualScale: 1.05,
+                            fallbackColor: PetWhiteStyle.stroke,
+                            lineWidth: 1.75
+                        )
+                        Text(String(localized: "工具"))
+                            .font(PetWhiteStyle.labelFont(11, weight: .black))
+                            .foregroundStyle(PetWhiteStyle.stroke)
+                    }
+                    .padding(.horizontal, 11)
+                    .frame(height: 34)
+                    .background(
+                        PetWhiteSurfaceBackground(
+                            cornerRadius: 14,
+                            elevated: isLibraryActionsExpanded,
+                            tint: isLibraryActionsExpanded ? tint(for: selectedMyLibraryColumn).opacity(0.22) : PetWhiteStyle.surfacePressed,
+                            accent: tint(for: selectedMyLibraryColumn)
+                        )
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
             }
 
             columnStrip
 
-            actionStrip
-                .padding(10)
-                .background(
-                    PetWhiteSurfaceBackground(
-                        cornerRadius: 22,
-                        elevated: false,
-                        tint: PetWhiteStyle.surfacePressed,
-                        accent: tint(for: selectedMyLibraryColumn)
+            LibraryDisclosureReveal(isExpanded: isLibraryActionsExpanded) {
+                actionStrip
+                    .padding(10)
+                    .background(
+                        PetWhiteSurfaceBackground(
+                            cornerRadius: 22,
+                            elevated: false,
+                            tint: PetWhiteStyle.surfacePressed,
+                            accent: tint(for: selectedMyLibraryColumn)
+                        )
                     )
-                )
+            }
         }
-        .padding(14)
+        .padding(12)
         .background(
             PetWhiteSurfaceBackground(
-                cornerRadius: 28,
+                cornerRadius: 24,
                 elevated: true,
                 tint: PetWhiteStyle.surfaceRaised,
                 accent: tint(for: selectedMyLibraryColumn)

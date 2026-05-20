@@ -81,6 +81,7 @@ class GlobalRefreshManager: ObservableObject {
     
     /// App 启动时调用
     func triggerAppLaunchRefresh() {
+        _ = APIService.shared
         let isLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
         
         guard isLoggedIn, OnlineAccessManager.shared.hasStoredToken else {
@@ -89,6 +90,9 @@ class GlobalRefreshManager: ObservableObject {
         }
         
         AppLogger.debug("App 启动，开始数据加载...")
+
+        // PassthroughSubject 不缓存事件；先创建首页 VM，避免启动刷新在首页订阅前丢失。
+        _ = HomeViewModel.shared
         
         Task { @MainActor in
             isPreloading = true

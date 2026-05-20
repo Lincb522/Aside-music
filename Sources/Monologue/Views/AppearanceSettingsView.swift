@@ -223,6 +223,19 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlayer,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
+
+                if settings.globalThemeId == .petWhite {
+                    Divider()
+                        .opacity(0.4)
+                        .padding(.leading, 62)
+
+                    SettingsToggleRow(
+                        icon: .sparkle,
+                        title: String(localized: "Paw 插画"),
+                        subtitle: String(localized: "切换为柔和插画风格"),
+                        isOn: $settings.petWhiteUsesIllustratedBackground
+                    )
+                }
             }
         }
     }
@@ -232,8 +245,8 @@ struct AppearanceSettingsView: View {
     private var globalThemePreviewColumns: [GridItem] {
         [
             GridItem(
-                .adaptive(minimum: DeviceLayout.isPad ? 178 : 150, maximum: DeviceLayout.isPad ? 230 : 190),
-                spacing: 10
+                .adaptive(minimum: DeviceLayout.isPad ? 176 : 148, maximum: DeviceLayout.isPad ? 218 : 186),
+                spacing: 12
             )
         ]
     }
@@ -268,7 +281,7 @@ struct AppearanceSettingsView: View {
                 .padding(.vertical, 12)
 
                 SettingsDisclosureReveal(isExpanded: isGlobalThemeExpanded) {
-                    LazyVGrid(columns: globalThemePreviewColumns, spacing: 10) {
+                    LazyVGrid(columns: globalThemePreviewColumns, spacing: 12) {
                         ForEach(GlobalThemeId.allCases) { themeId in
                             Button {
                                 applyGlobalTheme(themeId)

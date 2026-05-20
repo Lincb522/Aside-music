@@ -45,6 +45,10 @@ struct PlaylistDetailView: View {
         static let softShadow = Color.clear
     }
 
+    private var petWhiteDetailHorizontalPadding: CGFloat {
+        DeviceLayout.isPad ? 8 : 4
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -385,10 +389,10 @@ struct PlaylistDetailView: View {
         }
         .padding(16)
         .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, petWhiteDetailHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 10)
         .padding(.bottom, 14)
-        .iPadContentWidth(900)
+        .iPadContentWidth(1280)
     }
 
     private func petWhiteHeaderAction(title: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool) -> some View {
@@ -1683,10 +1687,13 @@ struct PlaylistDetailView: View {
             LazyVStack(spacing: 0) {
                 content()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, petWhiteDetailHorizontalPadding)
     }
 
     private var defaultSongListSection: some View {
@@ -1769,7 +1776,8 @@ struct PlaylistDetailView: View {
                     } else {
                         PlayerManager.shared.play(song: song, in: filteredSongs)
                     }
-                }
+                },
+                horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil
             )
         }
     }

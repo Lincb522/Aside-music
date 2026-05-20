@@ -28,9 +28,13 @@ class HomeViewModel: ObservableObject {
     private var lastHitokotoSuccess: Date?
     private var lastHomeHydrationAttempt: Date?
     private var lastLoginRefreshAttempt: Date?
+    private var homeLoadingStartedAt: Date?
+    private var pendingLoginRefresh = false
     private let apiService = APIService.shared
     private let styleManager = StyleManager.shared
     private let homeHydrationCooldown: TimeInterval = 20
+    private let emptyHomeHydrationCooldown: TimeInterval = 3
+    private let homeLoadingStaleTimeout: TimeInterval = 18
     private let loginRefreshCooldown: TimeInterval = 3
     
     private init() {
@@ -75,8 +79,8 @@ class HomeViewModel: ObservableObject {
         
         let styleMismatch = (styleManager.currentStyle != nil)
         
-        if dailySongs.isEmpty && popularSongs.isEmpty && recommendPlaylists.isEmpty {
-            isLoading = true
+        if isHomeDataEmpty && popularSongs.isEmpty {
+            startHomeLoading()
         }
         
         errorMessage = nil
@@ -88,24 +92,38 @@ class HomeViewModel: ObservableObject {
 
     func ensureHomeDataLoaded(reason: String = "home appear") {
         loadCache()
+        refreshHitokotoIfNeeded()
 
         guard needsHomeHydration else {
+            finishHomeLoading()
             return
         }
 
+        let clearedStaleLoading = clearStaleHomeLoadingIfNeeded(reason: reason)
         if isLoading {
             return
         }
 
         let now = Date()
+        let cooldown = isHomeDataEmpty ? emptyHomeHydrationCooldown : homeHydrationCooldown
         if let lastHomeHydrationAttempt,
-           now.timeIntervalSince(lastHomeHydrationAttempt) < homeHydrationCooldown {
+           !clearedStaleLoading,
+           now.timeIntervalSince(lastHomeHydrationAttempt) < cooldown {
             return
         }
 
         lastHomeHydrationAttempt = now
         AppLogger.debug("HomeViewModel: 补齐首页数据 - \(reason)")
         fetchData(forceDaily: dailySongs.isEmpty)
+    }
+
+    func retryHomeDataLoad(reason: String = "home retry") {
+        lastHomeHydrationAttempt = nil
+        homeLoadingStartedAt = nil
+        pendingLoginRefresh = false
+        isLoading = false
+        AppLogger.debug("HomeViewModel: 手动重试首页数据 - \(reason)")
+        fetchData(forceDaily: true)
     }
 
     private var needsHomeHydration: Bool {
@@ -115,6 +133,14 @@ class HomeViewModel: ObservableObject {
             || qqRecommendPlaylists.isEmpty
             || qqNewSongs.isEmpty
             || shouldLoadUserProfile && userProfile == nil
+    }
+
+    private var isHomeDataEmpty: Bool {
+        dailySongs.isEmpty
+            && banners.isEmpty
+            && recommendPlaylists.isEmpty
+            && qqRecommendPlaylists.isEmpty
+            && qqNewSongs.isEmpty
     }
 
     private var shouldLoadUserProfile: Bool {
@@ -133,7 +159,8 @@ class HomeViewModel: ObservableObject {
         lastHomeHydrationAttempt = nil
 
         if isLoading {
-            AppLogger.debug("HomeViewModel: 登录后首页数据正在加载，跳过重复触发")
+            pendingLoginRefresh = true
+            AppLogger.debug("HomeViewModel: 登录后首页数据正在加载，完成后补刷")
             return
         }
 
@@ -172,6 +199,40 @@ class HomeViewModel: ObservableObject {
             self.userProfile = cachedProfile
         }
     }
+
+    private func startHomeLoading() {
+        let startedAt = Date()
+        let timeout = homeLoadingStaleTimeout
+        isLoading = true
+        homeLoadingStartedAt = startedAt
+
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            await MainActor.run {
+                guard self?.homeLoadingStartedAt == startedAt else { return }
+                AppLogger.warning("HomeViewModel: 首页加载超过 \(Int(timeout)) 秒，解除 loading")
+                self?.finishHomeLoading()
+            }
+        }
+    }
+
+    private func finishHomeLoading() {
+        isLoading = false
+        homeLoadingStartedAt = nil
+        if pendingLoginRefresh {
+            pendingLoginRefresh = false
+            fetchData(forceDaily: true)
+        }
+    }
+
+    private func clearStaleHomeLoadingIfNeeded(reason: String) -> Bool {
+        guard isLoading, let homeLoadingStartedAt else { return false }
+        guard Date().timeIntervalSince(homeLoadingStartedAt) > homeLoadingStaleTimeout else { return false }
+
+        AppLogger.warning("HomeViewModel: 首页加载超时，允许重新请求 - \(reason)")
+        finishHomeLoading()
+        return true
+    }
     
     private func fetchUserProfile(completion: @escaping () -> Void) {
         apiService.fetchLoginStatus()
@@ -182,12 +243,13 @@ class HomeViewModel: ObservableObject {
                 self.apiService.currentUserId = profile.userId
                 return self.apiService.fetchUserDetail(uid: profile.userId)
             }
+            .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completionResult in
                 if case .failure(let error) = completionResult {
                     AppLogger.error("用户资料获取失败: \(error)")
                 }
-                self?.isLoading = false
+                self?.finishHomeLoading()
                 completion()
             }, receiveValue: { [weak self] detailResponse in
                 self?.userProfile = detailResponse.profile
@@ -208,7 +270,7 @@ class HomeViewModel: ObservableObject {
         
         let checkAndMarkReady = { [weak self] in
             if dailySongsLoaded && bannersLoaded && userProfileLoaded {
-                self?.isLoading = false
+                self?.finishHomeLoading()
                 GlobalRefreshManager.shared.markHomeDataReady()
             }
         }
@@ -249,8 +311,12 @@ class HomeViewModel: ObservableObject {
         
         // Banner
         apiService.fetchBanners()
+            .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in
+            .sink(receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    AppLogger.error("Banner 获取失败: \(error)")
+                }
                 bannersLoaded = true
                 checkAndMarkReady()
             }, receiveValue: { [weak self] banners in
@@ -318,6 +384,7 @@ class HomeViewModel: ObservableObject {
             
             // 先尝试直接用 uid 获取用户详情
             apiService.fetchUserDetail(uid: uid)
+                .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completionResult in
                     if case .failure(let error) = completionResult {
@@ -355,14 +422,25 @@ class HomeViewModel: ObservableObject {
         
         if let style = styleManager.currentStyle {
             AppLogger.debug("HomeViewModel: 获取风格歌曲: \(style.finalName)")
+            var didReceiveSongs = false
             apiService.fetchStyleSongs(tagId: style.finalId)
+                .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
                 .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { result in
+                .sink(receiveCompletion: { [weak self] result in
                     if case .failure(let error) = result {
                         AppLogger.error("风格歌曲获取失败: \(error)")
+                        self?.fetchFallbackDailySongs(completion: completion)
+                        return
                     }
+
+                    if !didReceiveSongs {
+                        self?.fetchFallbackDailySongs(completion: completion)
+                        return
+                    }
+
                     completion()
                 }, receiveValue: { [weak self] songs in
+                    didReceiveSongs = !songs.isEmpty
                     self?.dailySongs = songs
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
@@ -372,14 +450,25 @@ class HomeViewModel: ObservableObject {
                 .store(in: &cancellables)
         } else {
             AppLogger.debug("HomeViewModel: 获取标准每日推荐")
+            var didReceiveSongs = false
             apiService.fetchDailySongs()
+                .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
                 .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { result in
+                .sink(receiveCompletion: { [weak self] result in
                     if case .failure(let error) = result {
                         AppLogger.error("每日推荐获取失败: \(error)")
+                        self?.fetchFallbackDailySongs(completion: completion)
+                        return
                     }
+
+                    if !didReceiveSongs {
+                        self?.fetchFallbackDailySongs(completion: completion)
+                        return
+                    }
+
                     completion()
                 }, receiveValue: { [weak self] songs in
+                    didReceiveSongs = !songs.isEmpty
                     self?.dailySongs = songs
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
@@ -394,10 +483,41 @@ class HomeViewModel: ObservableObject {
         }
     }
 
+    private func fetchFallbackDailySongs(completion: @escaping () -> Void) {
+        AppLogger.debug("HomeViewModel: 使用公开新歌兜底首页歌曲")
+        apiService.fetchPopularSongs()
+            .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { result in
+                if case .failure(let error) = result {
+                    AppLogger.error("首页歌曲兜底获取失败: \(error)")
+                }
+                completion()
+            }, receiveValue: { [weak self] songs in
+                guard !songs.isEmpty else { return }
+                self?.dailySongs = songs
+                Task { @MainActor in
+                    OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
+                    OptimizedCacheManager.shared.cacheSongs(songs)
+                }
+            })
+            .store(in: &cancellables)
+    }
+
     // MARK: - Hitokoto 一言
 
     func refreshHitokoto(force: Bool = false, ignoresSetting: Bool = false) {
         fetchHitokoto(force: force, ignoresSetting: ignoresSetting)
+    }
+
+    private func refreshHitokotoIfNeeded() {
+        guard SettingsManager.shared.hitokotoEnabled else {
+            hitokoto = nil
+            return
+        }
+
+        guard !hasUsableHitokoto else { return }
+        refreshHitokoto()
     }
 
     private static let hitokotoMinimumRequestInterval: TimeInterval = 8

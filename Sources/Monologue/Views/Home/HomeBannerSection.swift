@@ -8,9 +8,12 @@ struct HomeBannerSection: View {
     @State private var bannerIndex: Int = 0
     private let timer = Timer.publish(every: 5.0, on: .main, in: .common).autoconnect()
     private var bannerRadius: CGFloat {
-        if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 26 : 22 }
-        if MujiStyle.isActive { return DeviceLayout.isPad ? 22 : 16 }
-        return DeviceLayout.isPad ? 22 : 16
+        if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 30 : 26 }
+        if MujiStyle.isActive { return DeviceLayout.isPad ? 26 : 20 }
+        return DeviceLayout.isPad ? 28 : 22
+    }
+    private var sideInset: CGFloat {
+        DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8)
     }
 
     var body: some View {
@@ -18,12 +21,22 @@ struct HomeBannerSection: View {
             TabView(selection: $bannerIndex) {
                 ForEach(Array(banners.enumerated()), id: \.element.id) { index, banner in
                     Button(action: { onTap(banner) }) {
-                        CachedAsyncImage(url: banner.imageUrl) {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
-                        }
-                        .aspectRatio(contentMode: .fill)
+                        CachedAsyncImage(
+                            url: banner.imageUrl,
+                            width: nil,
+                            height: DeviceLayout.bannerHeight,
+                            placeholder: {
+                                RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                            },
+                            contentMode: .fit
+                        )
+                        .frame(maxWidth: .infinity)
                         .frame(height: DeviceLayout.bannerHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                        )
                         .compositingGroup()
                         .clipShape(RoundedRectangle(cornerRadius: bannerRadius, style: .continuous))
                         .overlay {
@@ -33,6 +46,11 @@ struct HomeBannerSection: View {
                             } else if MujiStyle.isActive {
                                 RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
                                     .stroke(MujiStyle.hairline.opacity(0.56), lineWidth: 0.7)
+                            } else {
+                                RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.38), lineWidth: 1.2)
+                                RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                    .stroke(Color.black.opacity(0.08), lineWidth: 0.8)
                             }
                         }
                         .shadow(
@@ -42,14 +60,15 @@ struct HomeBannerSection: View {
                             y: NeumorphicStyle.isActive ? 9 : 0
                         )
                         .themeRenderSurfaceLayer(isEnabled: NeumorphicStyle.isActive)
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                        .padding(.horizontal, sideInset)
+                        .padding(.vertical, 6)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                     .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: DeviceLayout.bannerHeight + 20)
+            .frame(height: DeviceLayout.bannerHeight + 32)
             .onReceive(timer) { _ in
                 guard !banners.isEmpty else { return }
                 withAnimation {

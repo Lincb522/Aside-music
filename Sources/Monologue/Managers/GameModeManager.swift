@@ -192,6 +192,7 @@ final class GameModeManager: ObservableObject {
         isActive = true
         applyEnter(persist: true)
         syncToAppGroup(active: true)
+        PlayerManager.shared.handleGameModeDuckingChanged()
         AppLogger.info("游戏模式已开启")
     }
 
@@ -202,6 +203,7 @@ final class GameModeManager: ObservableObject {
         isActive = false
         applyExit(persist: true)
         syncToAppGroup(active: false)
+        PlayerManager.shared.handleGameModeDuckingChanged()
         AppLogger.info("游戏模式已关闭")
     }
 

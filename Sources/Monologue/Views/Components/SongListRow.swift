@@ -6,6 +6,7 @@ struct SongListRow: View {
     @ObservedObject private var rowDownloads = SongRowDownloadModel.shared
     @ObservedObject var unavailableSongs = UnavailableSongsManager.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var likeManager = LikeManager.shared
     let song: Song
     let index: Int
     var isSelecting: Bool = false
@@ -14,6 +15,7 @@ struct SongListRow: View {
     var onDetailTap: ((Song) -> Void)? = nil
     var onAlbumTap: ((Int) -> Void)? = nil
     var onTap: (() -> Void)? = nil
+    var horizontalPadding: CGFloat? = nil
     
     @State private var showAddToPlaylist = false
     @State private var activeQuickAction: QuickAction?
@@ -60,11 +62,14 @@ struct SongListRow: View {
     }
 
     private enum QuickAction: Hashable {
+        case like
         case addToQueue
         case download
 
         var badgeIcon: MonologueIcon.IconType {
             switch self {
+            case .like:
+                return .liked
             case .addToQueue:
                 return .musicNoteList
             case .download:
@@ -74,6 +79,8 @@ struct SongListRow: View {
 
         var badgeTitle: String {
             switch self {
+            case .like:
+                return String(localized: "喜欢")
             case .addToQueue:
                 return String(localized: "queue_added_short")
             case .download:
@@ -93,6 +100,10 @@ struct SongListRow: View {
 
     private var isDownloaded: Bool {
         rowDownloads.isDownloaded(song: song)
+    }
+
+    private var isLiked: Bool {
+        likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
     }
 
     private var isLocalSong: Bool {
@@ -117,7 +128,7 @@ struct SongListRow: View {
 
     private var quickActionButtonSize: CGFloat {
         if MangaStyle.isActive { return 32 }
-        if PetWhiteStyle.isActive { return 34 }
+        if PetWhiteStyle.isActive { return 26 }
         if MujiStyle.isActive { return 31 }
         if NeumorphicStyle.isActive { return 32 }
         if CapsuleStyle.isActive { return 31 }
@@ -127,7 +138,7 @@ struct SongListRow: View {
 
     private var quickActionButtonCornerRadius: CGFloat {
         if MangaStyle.isActive { return 11 }
-        if PetWhiteStyle.isActive { return 13 }
+        if PetWhiteStyle.isActive { return 11 }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 13 }
         if CapsuleStyle.isActive { return 13 }
@@ -137,6 +148,14 @@ struct SongListRow: View {
 
     private func quickActionTint(for kind: QuickAction) -> Color {
         switch kind {
+        case .like:
+            if MangaStyle.isActive { return MangaStyle.accentPink }
+            if PetWhiteStyle.isActive { return PetWhiteStyle.blush }
+            if MujiStyle.isActive { return Color.red.opacity(0.86) }
+            if NeumorphicStyle.isActive { return Color.red.opacity(0.88) }
+            if CapsuleStyle.isActive { return Color.red.opacity(0.86) }
+            if SequoiaStyle.isActive { return Color.red.opacity(0.88) }
+            return .red
         case .addToQueue:
             if MangaStyle.isActive { return MangaStyle.labelYellow }
             if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
@@ -157,6 +176,18 @@ struct SongListRow: View {
     }
 
     private func quickActionIconColor(kind: QuickAction, isDisabled: Bool) -> Color {
+        if kind == .like {
+            if isLiked {
+                return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 1)
+            }
+            if MangaStyle.isActive {
+                return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 0.72)
+            }
+            if PetWhiteStyle.isActive {
+                return PetWhiteStyle.stroke.opacity(isDisabled ? 0.34 : 0.72)
+            }
+            return Theme.secondaryText.opacity(isDisabled ? 0.34 : 0.62)
+        }
         if MangaStyle.isActive {
             return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 1)
         }
@@ -190,7 +221,7 @@ struct SongListRow: View {
 
     private var coverCornerRadius: CGFloat {
         if MangaStyle.isActive { return 2 }
-        if PetWhiteStyle.isActive { return 16 }
+        if PetWhiteStyle.isActive { return 14 }
         if MujiStyle.isActive { return 6 }
         if NeumorphicStyle.isActive { return 14 }
         if CapsuleStyle.isActive { return 14 }
@@ -200,7 +231,7 @@ struct SongListRow: View {
 
     private var rowCoverSize: CGFloat {
         if MangaStyle.isActive { return 47 }
-        if PetWhiteStyle.isActive { return 52 }
+        if PetWhiteStyle.isActive { return 44 }
         if MujiStyle.isActive { return 46 }
         if NeumorphicStyle.isActive { return 47 }
         if CapsuleStyle.isActive { return 46 }
@@ -209,13 +240,14 @@ struct SongListRow: View {
 
     private var rowContentSpacing: CGFloat {
         if MangaStyle.isActive { return 9 }
-        if PetWhiteStyle.isActive { return 12 }
+        if PetWhiteStyle.isActive { return 7 }
         if MujiStyle.isActive { return 9 }
         if CapsuleStyle.isActive { return 9 }
         return 10
     }
 
     private var rowHorizontalPadding: CGFloat {
+        if let horizontalPadding = horizontalPadding { return horizontalPadding }
         if MangaStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
         if PetWhiteStyle.isActive { return DeviceLayout.viewHorizontalPadding }
         if MujiStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
@@ -226,7 +258,7 @@ struct SongListRow: View {
 
     private var rowIndexWidth: CGFloat {
         if MangaStyle.isActive { return 15 }
-        if PetWhiteStyle.isActive { return 34 }
+        if PetWhiteStyle.isActive { return 18 }
         if MujiStyle.isActive { return 14 }
         if CapsuleStyle.isActive { return 14 }
         return 16
@@ -306,24 +338,7 @@ struct SongListRow: View {
             .disabled(onTap == nil)
 
             if !isSelecting {
-                HStack(spacing: 6) {
-                    quickActionButton(icon: .add, kind: .addToQueue, isDisabled: false) {
-                        playback.addToQueue(song: song)
-                    }
-
-                    if !isLocalSong {
-                        quickActionButton(icon: .download, kind: .download, isDisabled: isDownloaded) {
-                            downloadSong()
-                        }
-                    }
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                .overlay(alignment: .topTrailing) {
-                    if let feedbackAction {
-                        quickActionFeedbackBadge(for: feedbackAction)
-                            .allowsHitTesting(false)
-                    }
-                }
+                quickActionCluster(spacing: 6)
             }
         }
         .padding(.leading, 10)
@@ -364,7 +379,7 @@ struct SongListRow: View {
             if CapsuleStyle.isActive {
                 capsuleSongResultRow(coverSize: coverSize)
             } else {
-                HStack(spacing: 12) {
+                HStack(spacing: PetWhiteStyle.isActive ? 6 : 12) {
                     Button {
                         onTap?()
                     } label: {
@@ -451,29 +466,14 @@ struct SongListRow: View {
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98, opacity: 0.8))
                     .disabled(onTap == nil)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(PetWhiteStyle.isActive ? 3 : 0)
 
                     if !isSelecting {
-                        HStack(spacing: 8) {
-                            quickActionButton(icon: .add, kind: .addToQueue, isDisabled: false) {
-                                playback.addToQueue(song: song)
-                            }
-
-                            if !isLocalSong {
-                                quickActionButton(icon: .download, kind: .download, isDisabled: isDownloaded) {
-                                    downloadSong()
-                                }
-                            }
-                        }
-                        .fixedSize(horizontal: true, vertical: false)
-                        .overlay(alignment: .topTrailing) {
-                            if let feedbackAction {
-                                quickActionFeedbackBadge(for: feedbackAction)
-                                    .allowsHitTesting(false)
-                            }
-                        }
+                        quickActionCluster(spacing: PetWhiteStyle.isActive ? 5 : 8)
                     }
                 }
-                .padding(.horizontal, PetWhiteStyle.isActive ? 12 : rowHorizontalPadding)
+                .padding(.horizontal, PetWhiteStyle.isActive ? 6 : rowHorizontalPadding)
                 .padding(.vertical, PetWhiteStyle.isActive ? 10 : 8)
                 .background {
                     if PetWhiteStyle.isActive {
@@ -487,6 +487,7 @@ struct SongListRow: View {
                 .contentShape(Rectangle())
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contextMenu {
             Button {
                 playback.playNext(song: song)
@@ -609,6 +610,11 @@ struct SongListRow: View {
         .themeRenderRowLayer()
         .monologueSheet(isPresented: $showAddToPlaylist, preset: .standard){
             AddToPlaylistSheet(song: song)
+        }
+        .monologueSheet(isPresented: likePlaylistPickerBinding, preset: .standard) {
+            if let pendingSong = likeManager.pendingLikeSong {
+                AddToPlaylistSheet(song: pendingSong)
+            }
         }
         // qcm歌手详情页（使用 sheet 避免 lazy 容器中 navigationDestination 警告）
         .monologueSheet(isPresented: $showQQArtistDetail, preset: .detail){
@@ -1089,6 +1095,60 @@ struct SongListRow: View {
         .buttonStyle(QuickActionButtonStyle())
         .disabled(isDisabled)
         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: isActive)
+    }
+
+    private func quickActionCluster(spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
+            likeQuickActionButton
+
+            quickActionButton(icon: .add, kind: .addToQueue, isDisabled: false) {
+                playback.addToQueue(song: song)
+            }
+
+            if !isLocalSong {
+                quickActionButton(icon: .download, kind: .download, isDisabled: isDownloaded) {
+                    downloadSong()
+                }
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .overlay(alignment: .topTrailing) {
+            if let feedbackAction {
+                quickActionFeedbackBadge(for: feedbackAction)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private var likeQuickActionButton: some View {
+        Button {
+            likeManager.toggleLike(songId: song.id, isQQMusic: song.isQQMusic, song: song)
+        } label: {
+            quickActionButtonChrome(
+                icon: isLiked ? .liked : .like,
+                kind: .like,
+                isDisabled: false,
+                isActive: isLiked
+            )
+        }
+        .buttonStyle(QuickActionButtonStyle())
+        .animation(.spring(response: 0.22, dampingFraction: 0.62), value: isLiked)
+    }
+
+    private var likePlaylistPickerBinding: Binding<Bool> {
+        Binding(
+            get: {
+                likeManager.showPlaylistPicker
+                    && likeManager.pendingLikeSong?.id == song.id
+                    && likeManager.pendingLikeSong?.isQQMusic == song.isQQMusic
+            },
+            set: { isPresented in
+                if !isPresented {
+                    likeManager.showPlaylistPicker = false
+                    likeManager.pendingLikeSong = nil
+                }
+            }
+        )
     }
 
     @ViewBuilder

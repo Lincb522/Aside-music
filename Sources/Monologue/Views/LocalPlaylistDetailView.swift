@@ -37,6 +37,10 @@ struct LocalPlaylistDetailView: View {
 
     typealias Theme = PlaylistDetailView.Theme
 
+    private var petWhiteDetailHorizontalPadding: CGFloat {
+        DeviceLayout.isPad ? 8 : 4
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -553,10 +557,10 @@ struct LocalPlaylistDetailView: View {
         }
         .padding(16)
         .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, petWhiteDetailHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 10)
         .padding(.bottom, 14)
-        .iPadContentWidth(900)
+        .iPadContentWidth(1280)
     }
 
     private func petWhiteLocalAction(title: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool) -> some View {
@@ -1275,9 +1279,11 @@ struct LocalPlaylistDetailView: View {
                         localSongRows(playlist: currentPlaylist, songs: displaySongs)
                     }
                 }
-                .padding(14)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.horizontal, petWhiteDetailHorizontalPadding)
             }
 
             FloatingBarBottomSpacer()
@@ -1385,7 +1391,8 @@ struct LocalPlaylistDetailView: View {
                     } else {
                         PlayerManager.shared.play(song: song, in: displaySongs)
                     }
-                }
+                },
+                horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil
             )
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {

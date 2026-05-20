@@ -68,9 +68,7 @@ struct CapsuleHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
-                if viewModel.dailySongs.isEmpty {
-                    viewModel.fetchData()
-                }
+                viewModel.ensureHomeDataLoaded(reason: "capsule home appear")
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
                 {
@@ -328,10 +326,11 @@ struct CapsuleHomeView: View {
                         handleBannerTap(banner)
                     }
                     .tag(index)
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8))
+                    .padding(.vertical, 5)
                 }
             }
-            .frame(height: 148)
+            .frame(height: 138)
             .tabViewStyle(.page(indexDisplayMode: .never))
             .onReceive(bannerTimer) { _ in
                 let count = min(viewModel.banners.count, 8)
@@ -541,14 +540,19 @@ private struct CapsuleBannerCard: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(url: banner.imageUrl, width: nil, height: 142) {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .fill(CapsuleStyle.surfaceTint)
-                        .overlay(MonologueIcon(icon: .musicNote, size: 24, color: CapsuleStyle.inkMuted.opacity(0.55), lineWidth: 1.7))
-                }
-                .aspectRatio(contentMode: .fill)
+                CachedAsyncImage(
+                    url: banner.imageUrl,
+                    width: nil,
+                    height: 122,
+                    placeholder: {
+                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                            .fill(CapsuleStyle.surfaceTint)
+                            .overlay(MonologueIcon(icon: .musicNote, size: 24, color: CapsuleStyle.inkMuted.opacity(0.55), lineWidth: 1.7))
+                    },
+                    contentMode: .fit
+                )
                 .frame(maxWidth: .infinity)
-                .frame(height: 142)
+                .frame(height: 122)
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
 
                 LinearGradient(
@@ -572,6 +576,11 @@ private struct CapsuleBannerCard: View {
                 .padding(12)
             }
             .background(CapsuleSurfaceBackground(cornerRadius: 32, elevated: true, tint: CapsuleStyle.surface.opacity(0.3)))
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.38), lineWidth: 1.2)
+            )
         }
         .buttonStyle(CapsulePressStyle())
     }

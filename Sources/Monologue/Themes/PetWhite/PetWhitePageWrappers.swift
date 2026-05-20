@@ -71,10 +71,14 @@ private struct PetWhiteThemeRoot<Content: View>: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        content
-            .tint(PetWhiteStyle.accent)
-            .themeRenderSceneLayer()
-        .background(PetWhiteRootBackdrop())
+        ZStack {
+            PetWhiteRootBackdrop()
+                .ignoresSafeArea()
+
+            content
+                .tint(PetWhiteStyle.accent)
+                .themeRenderSceneLayer()
+        }
     }
 }
 
@@ -252,7 +256,7 @@ struct PetWhiteHomeView: View {
                         .petWhiteAppear(appeared, order: 3)
                 } else if isHomeDataEmpty {
                     PetWhiteHomeEmptyState {
-                        hydratePetWhiteHome(reason: "pet white empty retry")
+                        viewModel.retryHomeDataLoad(reason: "pet white empty retry")
                     }
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .petWhiteAppear(appeared, order: 3)
@@ -284,6 +288,7 @@ struct PetWhiteHomeView: View {
                         playlists: viewModel.qqRecommendPlaylists,
                         tint: PetWhiteStyle.sky,
                         icon: .podcast,
+                        assetName: "qqMusic",
                         onViewAll: openLibrarySquare,
                         onTap: { playlist in navigationPath.append(HomeView.HomeDestination.playlist(playlist)) }
                     )
@@ -307,7 +312,7 @@ struct PetWhiteHomeView: View {
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
         .refreshable {
-            viewModel.fetchData(forceDaily: true)
+            viewModel.retryHomeDataLoad(reason: "pet white pull refresh")
             viewModel.refreshHitokoto(force: true)
         }
     }
@@ -379,7 +384,7 @@ struct PetWhiteHomeView: View {
             }
         }
         .padding(18)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: settings.petWhiteUsesIllustratedBackground ? PetWhiteStyle.surfaceRaised.opacity(0.78) : PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
     }
 
     @ViewBuilder
@@ -630,11 +635,13 @@ private struct PetWhiteBannerCarousel: View {
                         PetWhiteBannerCard(banner: banner)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                    .padding(.horizontal, DeviceLayout.isPad ? 12 : 8)
+                    .padding(.vertical, 5)
                     .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: DeviceLayout.isPad ? 196 : 166)
+            .frame(height: DeviceLayout.isPad ? 206 : 176)
             .onReceive(timer) { _ in
                 guard banners.count > 1 else { return }
                 withAnimation(MonologueAnimation.tabSwitch) {
@@ -661,7 +668,7 @@ private struct PetWhiteBannerCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            PetWhiteSurfaceBackground(cornerRadius: 28, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.sky)
+            PetWhiteSurfaceBackground(cornerRadius: 32, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.sky)
 
             CachedAsyncImage(url: banner.imageUrl) {
                 PetWhitePetPetIcon(size: 64)
@@ -670,7 +677,7 @@ private struct PetWhiteBannerCard: View {
             .aspectRatio(contentMode: .fit)
             .frame(maxWidth: .infinity)
             .frame(height: DeviceLayout.isPad ? 176 : 146)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
 
@@ -679,7 +686,7 @@ private struct PetWhiteBannerCard: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
 
             HStack(spacing: 8) {
                 PetWhiteIconBadge(icon: .sparkle, tint: PetWhiteStyle.butter, size: 36)
@@ -700,12 +707,13 @@ private struct PetWhiteBannerCard: View {
             }
             .padding(12)
         }
+        .compositingGroup()
+        .background(PetWhiteSurfaceBackground(cornerRadius: 32, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(PetWhiteStyle.stroke, lineWidth: 1.6)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .strokeBorder(PetWhiteStyle.stroke, lineWidth: 2.2)
         )
-        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 }
 
@@ -715,6 +723,7 @@ private struct PetWhitePlaylistShelf: View {
     let playlists: [Playlist]
     let tint: Color
     let icon: MonologueIcon.IconType
+    var assetName: String?
     let onViewAll: () -> Void
     let onTap: (Playlist) -> Void
 
@@ -724,6 +733,7 @@ private struct PetWhitePlaylistShelf: View {
                 title: title,
                 detail: detail,
                 icon: icon,
+                assetName: assetName,
                 tint: tint,
                 action: onViewAll
             )
@@ -820,6 +830,7 @@ private struct PetWhiteNewSongsBoard: View {
                 title: String(localized: "qq_new_songs"),
                 detail: String(localized: "qq_new_songs_desc"),
                 icon: .musicNote,
+                assetName: "qqMusic",
                 tint: PetWhiteStyle.mint,
                 action: onViewAll
             )

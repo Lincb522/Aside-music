@@ -1047,9 +1047,11 @@ struct DailyRecommendView: View {
 
                     dailyRows
                 }
-                .padding(14)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
             }
             .padding(.bottom, 120)
             .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
@@ -1125,7 +1127,7 @@ struct DailyRecommendView: View {
                     } else {
                         PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
                     }
-                })
+                }, horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil)
             }
         }
     }

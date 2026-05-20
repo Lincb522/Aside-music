@@ -101,6 +101,7 @@ struct WelcomeView: View {
 
     private var welcomeBaseColor: Color {
         if MangaStyle.isActive { return MangaStyle.paper }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.paper }
         if PureWhiteStyle.isActive { return PureWhiteStyle.paper }
         if NeumorphicStyle.isActive { return NeumorphicStyle.base }
         if CapsuleStyle.isActive { return CapsuleStyle.base }
@@ -112,6 +113,8 @@ struct WelcomeView: View {
     private var welcomeBackdrop: some View {
         if MangaStyle.isActive {
             MangaWelcomeBackdrop()
+        } else if PetWhiteStyle.isActive {
+            PetWhiteRootBackdrop()
         } else if PureWhiteStyle.isActive {
             PureWhiteRootBackdrop()
         } else if NeumorphicStyle.isActive {
@@ -129,6 +132,10 @@ struct WelcomeView: View {
     private var welcomeDecor: some View {
         if MangaStyle.isActive {
             MangaWelcomeDecor()
+                .scaleEffect(plateScale)
+        } else if PetWhiteStyle.isActive {
+            PetWhiteWelcomeDecor()
+                .opacity(accentOpacity)
                 .scaleEffect(plateScale)
         } else if PureWhiteStyle.isActive {
             EmptyView()
@@ -152,6 +159,8 @@ struct WelcomeView: View {
     private var heroSection: some View {
         if MangaStyle.isActive {
             mangaHeroSection
+        } else if PetWhiteStyle.isActive {
+            petWhiteHeroSection
         } else if PureWhiteStyle.isActive {
             pureWhiteHeroSection
         } else if NeumorphicStyle.isActive {
@@ -290,6 +299,55 @@ struct WelcomeView: View {
             .offset(y: plateOffset)
 
             mangaTitleBlock
+        }
+    }
+
+    private var petWhiteHeroSection: some View {
+        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
+            ZStack {
+                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                    .fill(PetWhiteStyle.surfaceRaised.opacity(settings.petWhiteUsesIllustratedBackground ? 0.76 : 0.94))
+                    .frame(width: plateSize * 1.38, height: plateSize * 0.92)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                            .stroke(PetWhiteStyle.stroke.opacity(0.88), lineWidth: 1.5)
+                    )
+                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 18, x: 0, y: 12)
+
+                HStack(spacing: 12) {
+                    PetWhiteMascotMark(kind: .cat, size: logoSize * 0.78)
+                        .offset(y: 8)
+
+                    PetWhiteMascotMark(kind: .dog, size: logoSize * 0.86)
+                        .offset(y: -8)
+                }
+                .scaleEffect(plateScale > 0.96 ? 1 : 0.92)
+
+                PetWhiteFloatingBowTie()
+                    .offset(x: -plateSize * 0.44, y: -plateSize * 0.34)
+                    .scaleEffect(accentScaleX)
+                    .opacity(accentOpacity)
+
+                PetWhiteFloatingMascotDot(filled: true, tint: PetWhiteStyle.butter, size: 30)
+                    .offset(x: plateSize * 0.47, y: plateSize * 0.28)
+                    .scaleEffect(accentScaleX)
+                    .opacity(accentOpacity)
+
+                HStack(spacing: 6) {
+                    Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 28, height: 6)
+                    Capsule().fill(PetWhiteStyle.mint).frame(width: 18, height: 6)
+                    Capsule().fill(PetWhiteStyle.blush.opacity(0.78)).frame(width: 12, height: 6)
+                }
+                .offset(y: plateSize * 0.52)
+                .scaleEffect(x: accentScaleX, y: 1)
+                .opacity(accentOpacity)
+            }
+            .frame(width: plateSize * 1.55, height: plateSize * 1.22)
+            .scaleEffect(plateScale)
+            .opacity(plateOpacity)
+            .offset(y: plateOffset)
+
+            petWhiteTitleBlock
         }
     }
 
@@ -520,6 +578,48 @@ struct WelcomeView: View {
         }
     }
 
+    private var petWhiteTitleBlock: some View {
+        VStack(spacing: 11) {
+            Text("MONOLOGUE")
+                .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .black))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .opacity(titleOpacity)
+                .offset(y: titleOffset)
+
+            Text(LocalizedStringKey("welcome_slogan"))
+                .font(PetWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .black))
+                .foregroundStyle(PetWhiteStyle.inkSoft)
+                .tracking(0.9)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .opacity(subtitleOpacity)
+                .offset(y: subtitleOffset)
+
+            HStack(spacing: 8) {
+                PetWhiteMascotMark(kind: .cat, size: 18)
+                Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 36, height: 6)
+                Capsule().fill(PetWhiteStyle.mint).frame(width: 22, height: 6)
+                PetWhiteMascotMark(kind: .dog, size: 18)
+            }
+            .scaleEffect(x: accentScaleX, y: 1)
+            .opacity(accentOpacity)
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, settings.petWhiteUsesIllustratedBackground ? 14 : 0)
+        .background {
+            if settings.petWhiteUsesIllustratedBackground {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(PetWhiteStyle.surfaceRaised.opacity(0.70))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(PetWhiteStyle.stroke.opacity(0.72), lineWidth: 1.2)
+                    )
+            }
+        }
+    }
+
     private var pureWhiteTitleBlock: some View {
         VStack(spacing: 11) {
             Text("MONOLOGUE")
@@ -651,6 +751,7 @@ struct WelcomeView: View {
 
     private var footerFont: Font {
         if MangaStyle.isActive { return MangaStyle.labelFont(10, weight: .black) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(10, weight: .black) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.labelFont(10, weight: .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .medium) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(10, weight: .semibold) }
@@ -660,6 +761,7 @@ struct WelcomeView: View {
 
     private var footerColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted.opacity(0.78) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted.opacity(0.74) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.inkMuted.opacity(0.78) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted.opacity(0.72) }
@@ -781,6 +883,29 @@ struct WelcomeView: View {
     private func sleep(seconds: TimeInterval) async throws {
         let nanoseconds = UInt64(seconds * 1_000_000_000)
         try await Task.sleep(nanoseconds: nanoseconds)
+    }
+}
+
+private struct PetWhiteWelcomeDecor: View {
+    var body: some View {
+        ZStack {
+            PetWhiteFloatingMascotDot(filled: true, tint: PetWhiteStyle.butter.opacity(0.92), size: DeviceLayout.isPad ? 42 : 34)
+                .offset(x: -DeviceLayout.screenWidth * 0.34, y: -ScreenInfo.mainScreenSize.height * 0.24)
+                .rotationEffect(.degrees(-8))
+
+            PetWhiteFloatingMascotDot(filled: false, tint: PetWhiteStyle.mint.opacity(0.92), size: DeviceLayout.isPad ? 38 : 30)
+                .offset(x: DeviceLayout.screenWidth * 0.34, y: -ScreenInfo.mainScreenSize.height * 0.14)
+                .rotationEffect(.degrees(10))
+
+            PetWhiteFloatingBowTie()
+                .offset(x: DeviceLayout.screenWidth * 0.31, y: ScreenInfo.mainScreenSize.height * 0.23)
+                .rotationEffect(.degrees(12))
+
+            PetWhitePawPrint(size: DeviceLayout.isPad ? 40 : 32, tint: PetWhiteStyle.stroke.opacity(0.10))
+                .offset(x: -DeviceLayout.screenWidth * 0.31, y: ScreenInfo.mainScreenSize.height * 0.18)
+                .rotationEffect(.degrees(-16))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

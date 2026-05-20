@@ -435,7 +435,8 @@ struct ProfileView: View {
                         title: String(localized: "settings_qq_account"),
                         trailingText: QQUserSession.shared.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
-                            : String(localized: "settings_qq_not_logged_in")
+                            : String(localized: "settings_qq_not_logged_in"),
+                        petWhiteAssetName: "qqAccount"
                     )
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
@@ -4406,6 +4407,7 @@ struct ProfileMenuRow: View {
     let icon: MonologueIcon.IconType
     let title: String
     var trailingText: String? = nil
+    var petWhiteAssetName: String? = nil
 
     var body: some View {
         HStack(spacing: 14) {
@@ -4455,7 +4457,11 @@ struct ProfileMenuRow: View {
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 1.8, y: 1.8))
         } else if PetWhiteStyle.isActive {
-            PetWhiteIconBadge(icon: icon, tint: icon == .settings ? PetWhiteStyle.mint : PetWhiteStyle.sky, size: 32)
+            if let petWhiteAssetName {
+                petWhiteAssetBadge(assetName: petWhiteAssetName, tint: PetWhiteStyle.sky, size: 32)
+            } else {
+                PetWhiteIconBadge(icon: icon, tint: icon == .settings ? PetWhiteStyle.mint : PetWhiteStyle.sky, size: 32)
+            }
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(MujiStyle.clay.opacity(0.1))
@@ -4472,6 +4478,23 @@ struct ProfileMenuRow: View {
             MonologueIcon(icon: icon, size: 18, color: .monologueTextPrimary)
                 .frame(width: 28, height: 28)
         }
+    }
+
+    private func petWhiteAssetBadge(assetName: String, tint: Color, size: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
+            .fill(tint)
+            .frame(width: size, height: size)
+            .overlay(
+                PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: size * 0.72)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: max(1.5, size * 0.04))
+            )
+            .overlay(alignment: .topTrailing) {
+                PetWhiteProfileHeadIcon(filled: true, size: max(14, size * 0.30))
+                    .offset(x: size * 0.10, y: -size * 0.10)
+            }
     }
 }
 

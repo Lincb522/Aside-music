@@ -15,7 +15,9 @@ struct GlobalThemeOptionCard: View {
             ZStack(alignment: .topTrailing) {
                 previewArea
                     .frame(height: 116)
+                    .compositingGroup()
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipped()
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(
@@ -78,6 +80,7 @@ struct GlobalThemeOptionCard: View {
                     lineWidth: 1.2
                 )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     // MARK: - 预览区
@@ -333,60 +336,62 @@ struct GlobalThemeOptionCard: View {
             NeumorphicDiffuseGradient()
                 .opacity(0.58)
 
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 7) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        previewNeumorphicLine(width: 46, opacity: 0.26)
-                        previewNeumorphicLine(width: 28, opacity: 0.14)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(NeumorphicStyle.accent.opacity(0.82))
+                        .frame(width: 14, height: 14)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Capsule()
+                            .fill((colorScheme == .dark ? Color.white : Color.black).opacity(0.26))
+                            .frame(width: 42, height: 4)
+                        Capsule()
+                            .fill((colorScheme == .dark ? Color.white : Color.black).opacity(0.12))
+                            .frame(width: 28, height: 3)
                     }
 
                     Spacer()
-
-                    HStack(spacing: 5) {
-                        previewNeumorphicCircle(size: 18, tint: NeumorphicStyle.warm)
-                        previewNeumorphicCircle(size: 18, tint: NeumorphicStyle.accent)
-                    }
                 }
 
                 HStack(spacing: 8) {
-                    ZStack {
-                        previewNeumorphicTile(width: 50, height: 50, radius: 18, tint: NeumorphicStyle.surfaceRaised, elevated: true)
-
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [NeumorphicStyle.accent.opacity(0.74), NeumorphicStyle.sage.opacity(0.36)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [NeumorphicStyle.accent.opacity(0.86), NeumorphicStyle.sage.opacity(0.34)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
-                            .frame(width: 36, height: 36)
-                            .overlay(
-                                MonologueIcon(icon: .musicNote, size: 14, color: colorScheme == .dark ? .black.opacity(0.62) : .white.opacity(0.9), lineWidth: 1.5)
-                            )
-                    }
+                        )
+                        .frame(width: 52, height: 52)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke((colorScheme == .dark ? Color.white : Color.black).opacity(0.08), lineWidth: 0.8)
+                        )
 
                     VStack(alignment: .leading, spacing: 6) {
-                        previewNeumorphicLine(width: 62, opacity: 0.28)
-                        previewNeumorphicLine(width: 44, opacity: 0.16)
-                        previewNeumorphicProgress
+                        ForEach(0..<3, id: \.self) { index in
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill((colorScheme == .dark ? Color.white : Color.black).opacity(index == 0 ? 0.24 : 0.12))
+                                .frame(width: index == 2 ? 42 : 58, height: 5)
+                        }
+
+                        HStack(spacing: 4) {
+                            Circle().fill(NeumorphicStyle.accent.opacity(0.78)).frame(width: 10, height: 10)
+                            Capsule().fill(NeumorphicStyle.accent.opacity(0.24)).frame(width: 44, height: 5)
+                        }
                     }
                 }
 
-                HStack(spacing: 9) {
-                    previewNeumorphicCircle(size: 20, tint: NeumorphicStyle.inkMuted.opacity(0.24))
-                    previewNeumorphicCircle(size: 28, tint: NeumorphicStyle.accent)
-                    previewNeumorphicCircle(size: 20, tint: NeumorphicStyle.inkMuted.opacity(0.24))
-
-                    Spacer(minLength: 0)
-
-                    previewNeumorphicTile(width: 42, height: 20, radius: 10, tint: NeumorphicStyle.surfacePressed, elevated: false)
+                HStack(spacing: 5) {
+                    ForEach(0..<3, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(NeumorphicStyle.surfacePressed.opacity(index == 1 ? 0.82 : 0.54))
+                            .frame(height: 18)
+                    }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true))
             }
-            .padding(10)
+            .padding(12)
         }
     }
 
@@ -572,57 +577,80 @@ struct GlobalThemeOptionCard: View {
 
     private var petWhitePreview: some View {
         ZStack {
-            PetWhiteRootBackdrop()
+            PetWhiteStyle.paper
 
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    PetWhiteMascotMark(kind: .pair, size: 34)
+            LinearGradient(
+                colors: [
+                    PetWhiteStyle.sky.opacity(0.45),
+                    PetWhiteStyle.paper,
+                    PetWhiteStyle.butter.opacity(0.32)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.24)).frame(width: 48, height: 5)
-                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.12)).frame(width: 30, height: 3)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(PetWhiteStyle.dogOrange.opacity(0.86))
+                        .frame(width: 14, height: 14)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Capsule()
+                            .fill(PetWhiteStyle.stroke.opacity(0.28))
+                            .frame(width: 42, height: 4)
+                        Capsule()
+                            .fill(PetWhiteStyle.stroke.opacity(0.12))
+                            .frame(width: 28, height: 3)
                     }
 
-                    Spacer(minLength: 0)
-
-                    PetWhitePill(text: "PET", tint: PetWhiteStyle.mint)
+                    Spacer()
                 }
 
                 HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(PetWhiteStyle.surfaceRaised)
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+                        .fill(
+                            LinearGradient(
+                                colors: [PetWhiteStyle.dogOrange.opacity(0.9), PetWhiteStyle.mint.opacity(0.34)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
+                        .frame(width: 52, height: 52)
                         .overlay(alignment: .topLeading) {
                             Capsule(style: .continuous)
-                                .fill(PetWhiteStyle.dogOrange)
-                                .frame(width: 20, height: 4)
-                                .padding(7)
+                                .fill(PetWhiteStyle.paper.opacity(0.78))
+                                .frame(width: 18, height: 4)
+                                .padding(8)
                         }
                         .overlay(
-                            PetWhiteMascotMark(kind: .dog, size: 26)
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(PetWhiteStyle.stroke.opacity(0.34), lineWidth: 0.9)
                         )
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.24)).frame(width: 56, height: 5)
-                        Capsule().fill(PetWhiteStyle.stroke.opacity(0.12)).frame(width: 38, height: 4)
-                        HStack(spacing: 5) {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(PetWhiteStyle.mint.opacity(0.72))
-                                .frame(width: 24, height: 14)
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(PetWhiteStyle.butter.opacity(0.76))
-                                .frame(width: 24, height: 14)
+                        ForEach(0..<3, id: \.self) { index in
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(PetWhiteStyle.stroke.opacity(index == 0 ? 0.24 : 0.12))
+                                .frame(width: index == 2 ? 42 : 58, height: 5)
+                        }
+
+                        HStack(spacing: 4) {
+                            Circle().fill(PetWhiteStyle.dogOrange.opacity(0.8)).frame(width: 10, height: 10)
+                            Capsule().fill(PetWhiteStyle.dogOrange.opacity(0.25)).frame(width: 44, height: 5)
                         }
                     }
+                }
 
-                    Spacer(minLength: 0)
+                HStack(spacing: 5) {
+                    ForEach(0..<3, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill((index == 1 ? PetWhiteStyle.mint : PetWhiteStyle.butter).opacity(index == 1 ? 0.72 : 0.42))
+                            .frame(height: 18)
+                    }
                 }
             }
-            .padding(10)
+            .padding(12)
         }
     }
 

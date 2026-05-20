@@ -132,7 +132,7 @@ struct QCMNewSongsView: View {
                 subtitle: "\(songs.count) \(String(localized: "首"))",
                 icon: .musicNote
             ) {
-                PetWhiteIconBadge(icon: .musicNote, tint: PetWhiteStyle.sky, size: 50)
+                PetWhiteAssetIconBadge(assetName: "qqMusic", tint: PetWhiteStyle.sky, size: 50)
             }
             .padding(.bottom, 2)
         } else if ThemedPageStyle.isActive {
@@ -194,15 +194,18 @@ struct QCMNewSongsView: View {
                         title: "QCM NEW",
                         detail: "\(songs.count) \(String(localized: "首"))",
                         icon: .musicNote,
+                        assetName: "qqMusic",
                         tint: PetWhiteStyle.sky
                     )
                     toolbar
                         .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
                     songRowsContent
                 }
-                .padding(14)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
             } else {
                 songRowsContent
             }
@@ -222,7 +225,8 @@ struct QCMNewSongsView: View {
                     } else {
                         playerManager.play(song: song, in: songs)
                     }
-                }
+                },
+                horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil
             )
         }
     }
@@ -316,6 +320,8 @@ struct QCMNewSongsView: View {
                 NeumorphicIconBadge(icon: .musicNote, tint: qcmAccent, size: 54)
             } else if CapsuleStyle.isActive {
                 CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.mint, size: 54)
+            } else if PetWhiteStyle.isActive {
+                PetWhiteAssetIconBadge(assetName: "qqMusic", tint: PetWhiteStyle.sky, size: 54)
             } else {
                 MonologueIcon(icon: .musicNote, size: 38, color: MusicSource.qqmusic.themedBadgeColor.opacity(0.65), lineWidth: 1.7)
             }

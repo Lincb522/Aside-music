@@ -101,22 +101,67 @@ struct PetWhiteRootBackdrop: View {
         ZStack {
             PetWhiteStyle.paper
 
-            PetWhiteBackdropWash()
-                .opacity(colorScheme == .dark ? 0.34 : 1)
+            if settings.petWhiteUsesIllustratedBackground {
+                PetWhiteIllustratedBackdrop()
+                    .opacity(colorScheme == .dark ? 0.72 : 1)
 
-            PetWhitePawPattern()
-                .opacity(colorScheme == .dark ? 0.30 : 0.78)
+                Color.white
+                    .opacity(colorScheme == .dark ? 0.06 : 0.10)
+            } else {
+                PetWhiteBackdropWash()
+                    .opacity(colorScheme == .dark ? 0.34 : 1)
 
-            VStack {
-                PetWhiteBackdropRibbon()
-                    .padding(.top, 58)
-                Spacer()
+                PetWhitePawPattern()
+                    .opacity(colorScheme == .dark ? 0.30 : 0.78)
+
+                VStack {
+                    PetWhiteBackdropRibbon()
+                        .padding(.top, 58)
+                    Spacer()
+                }
+                .padding(.horizontal, 22)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
-            .padding(.horizontal, 22)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
         }
         .ignoresSafeArea()
+    }
+}
+
+private struct PetWhiteIllustratedBackdrop: View {
+    var body: some View {
+        GeometryReader { proxy in
+            illustratedImage
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var illustratedImage: some View {
+        #if canImport(UIKit)
+        if let image = UIImage(pawPrintIconId: "pawThemeBackground") {
+            Image(uiImage: image)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFill()
+        } else {
+            PetWhiteBackdropWash()
+        }
+        #elseif canImport(AppKit)
+        if let image = NSImage.pawPrintIcon(id: "pawThemeBackground") {
+            Image(nsImage: image)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFill()
+        } else {
+            PetWhiteBackdropWash()
+        }
+        #else
+        PetWhiteBackdropWash()
+        #endif
     }
 }
 
@@ -219,10 +264,13 @@ struct PetWhiteSurfaceBackground: View {
     var tint: Color = PetWhiteStyle.surfaceRaised
     var accent: Color = PetWhiteStyle.mint
 
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let _ = settings.globalThemeRevision
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let fillOpacity = settings.petWhiteUsesIllustratedBackground ? (elevated ? 0.82 : 0.76) : 1
 
         ZStack {
             if elevated {
@@ -232,7 +280,7 @@ struct PetWhiteSurfaceBackground: View {
             }
 
             shape
-                .fill(tint)
+                .fill(tint.opacity(fillOpacity))
                 .overlay(shape.stroke(PetWhiteStyle.stroke, lineWidth: elevated ? PetWhiteStyle.strokeWidth : PetWhiteStyle.fineStrokeWidth))
         }
     }
@@ -599,6 +647,30 @@ struct PetWhiteIconBadge: View {
     }
 }
 
+struct PetWhiteAssetIconBadge: View {
+    let assetName: String
+    var tint: Color = PetWhiteStyle.mint
+    var size: CGFloat = 48
+    var assetScale: CGFloat = 0.72
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
+            .fill(tint)
+            .frame(width: size, height: size)
+            .overlay(
+                PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: size * assetScale)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: max(1.5, size * 0.04))
+            )
+            .overlay(alignment: .topTrailing) {
+                PetWhiteProfileHeadIcon(filled: true, size: max(14, size * 0.30))
+                    .offset(x: size * 0.10, y: -size * 0.10)
+            }
+    }
+}
+
 struct PetWhitePill: View {
     let text: String
     var tint: Color = PetWhiteStyle.mint
@@ -623,12 +695,17 @@ struct PetWhiteSectionTitle: View {
     let title: String
     var detail: String?
     var icon: MonologueIcon.IconType = .catLife
+    var assetName: String?
     var tint: Color = PetWhiteStyle.mint
     var action: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
-            PetWhiteIconBadge(icon: icon, tint: tint, size: 34)
+            if let assetName {
+                PetWhiteAssetIconBadge(assetName: assetName, tint: tint, size: 34)
+            } else {
+                PetWhiteIconBadge(icon: icon, tint: tint, size: 34)
+            }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)

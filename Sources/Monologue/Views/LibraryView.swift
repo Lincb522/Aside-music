@@ -28,6 +28,8 @@ struct LibraryView: View {
                     MangaLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicLibraryWorkspace(viewModel: viewModel, tabIndex: $tabIndex)
+                } else if PetWhiteStyle.isActive {
+                    ScrollableLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
                 } else if ThemedPageStyle.isActive {
                     ScrollableLibraryExperience(viewModel: viewModel, tabIndex: $tabIndex)
                 } else {

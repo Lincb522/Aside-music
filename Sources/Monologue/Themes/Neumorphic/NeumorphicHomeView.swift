@@ -64,7 +64,7 @@ struct NeumorphicHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
-                if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
+                viewModel.ensureHomeDataLoaded(reason: "neumorphic home appear")
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
                 {

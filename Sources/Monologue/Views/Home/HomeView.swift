@@ -56,7 +56,7 @@ struct HomeView: View {
                 }
             }
             .onAppear {
-                if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
+                viewModel.ensureHomeDataLoaded(reason: "home appear")
                 if !appeared {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) {
                         appeared = true
@@ -292,7 +292,7 @@ struct HomeView: View {
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
-        .refreshable { viewModel.fetchData() }
+        .refreshable { viewModel.retryHomeDataLoad(reason: "home pull refresh") }
     }
 
     // MARK: - Banner Tap

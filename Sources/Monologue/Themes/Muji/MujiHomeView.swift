@@ -43,7 +43,7 @@ struct MujiHomeView: View {
                 }
             }
             .onAppear {
-                if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
+                viewModel.ensureHomeDataLoaded(reason: "muji home appear")
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
                     viewModel.refreshHitokoto()

@@ -22,7 +22,7 @@ struct MacHomeView: View {
                 }
             }
             .onAppear {
-                if viewModel.dailySongs.isEmpty { viewModel.fetchData() }
+                viewModel.ensureHomeDataLoaded(reason: "mac home appear")
                 if !appeared {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) {
                         appeared = true
