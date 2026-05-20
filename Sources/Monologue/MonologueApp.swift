@@ -125,6 +125,7 @@ struct MonologueApp: App {
                     RiskControlManager.shared.performRiskCheck()
                     
                     if hasStoredToken {
+                        OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: false)
                         GlobalRefreshManager.shared.triggerAppLaunchRefresh()
                         PushService.shared.setup()
                     } else {

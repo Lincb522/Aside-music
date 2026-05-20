@@ -20,6 +20,7 @@ class HomeViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var hitokoto: String?
+    @Published private(set) var homeContentRevision = 0
     
     private var cancellables = Set<AnyCancellable>()
     private var hitokotoFetchTask: Task<Void, Never>?
@@ -30,12 +31,18 @@ class HomeViewModel: ObservableObject {
     private var lastLoginRefreshAttempt: Date?
     private var homeLoadingStartedAt: Date?
     private var pendingLoginRefresh = false
+    private var isRestoringLoginState = false
+    private var emptyHomeRetryTask: Task<Void, Never>?
+    private var emptyHomeAutomaticRetryCount = 0
+    private var lastHomeContentFingerprint = ""
     private let apiService = APIService.shared
     private let styleManager = StyleManager.shared
     private let homeHydrationCooldown: TimeInterval = 20
     private let emptyHomeHydrationCooldown: TimeInterval = 3
     private let homeLoadingStaleTimeout: TimeInterval = 18
     private let loginRefreshCooldown: TimeInterval = 3
+    private let maxEmptyHomeAutomaticRetryCount = 6
+    private let emptyHomeBaseRetryDelay: TimeInterval = 1.6
     
     private init() {
         // 只订阅 GlobalRefreshManager，它会统一管理所有刷新逻辑
@@ -53,6 +60,45 @@ class HomeViewModel: ObservableObject {
             .sink { [weak self] style in
                 AppLogger.debug("HomeViewModel - 风格切换为: \(style?.finalName ?? "Default")")
                 self?.fetchDailySongsOrStyle(force: true, completion: {})
+            }
+            .store(in: &cancellables)
+
+        OnlineAccessManager.shared.$lastTokenStatus
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard OnlineAccessManager.shared.canUseOnlineFeatures else { return }
+                self?.lastHomeHydrationAttempt = nil
+                self?.ensureHomeDataLoaded(reason: "online access refreshed")
+            }
+            .store(in: &cancellables)
+
+        OptimizedCacheManager.shared.$preloadStage
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] stage in
+                guard stage == .complete else { return }
+                self?.reloadHomeCacheIfUseful(reason: "cache preload completed")
+            }
+            .store(in: &cancellables)
+
+        OptimizedCacheManager.shared.$isDailySongsReady
+            .combineLatest(OptimizedCacheManager.shared.$isPlaylistsReady)
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isDailySongsReady, isPlaylistsReady in
+                guard isDailySongsReady || isPlaylistsReady else { return }
+                self?.reloadHomeCacheIfUseful(reason: "cache ready flags updated")
+            }
+            .store(in: &cancellables)
+
+        GlobalRefreshManager.shared.$isHomeDataReady
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isReady in
+                guard isReady else { return }
+                self?.reloadHomeCacheIfUseful(reason: "global home data ready")
+                self?.publishHomeContentChange(reason: "global home data ready")
             }
             .store(in: &cancellables)
 
@@ -76,10 +122,11 @@ class HomeViewModel: ObservableObject {
     
     func fetchData(forceDaily: Bool = false) {
         loadCache()
+        restoreLoginStateIfNeeded(reason: "home fetch")
         
         let styleMismatch = (styleManager.currentStyle != nil)
         
-        if isHomeDataEmpty && popularSongs.isEmpty {
+        if isHomeDataEmpty {
             startHomeLoading()
         }
         
@@ -93,6 +140,7 @@ class HomeViewModel: ObservableObject {
     func ensureHomeDataLoaded(reason: String = "home appear") {
         loadCache()
         refreshHitokotoIfNeeded()
+        restoreLoginStateIfNeeded(reason: reason)
 
         guard needsHomeHydration else {
             finishHomeLoading()
@@ -109,6 +157,7 @@ class HomeViewModel: ObservableObject {
         if let lastHomeHydrationAttempt,
            !clearedStaleLoading,
            now.timeIntervalSince(lastHomeHydrationAttempt) < cooldown {
+            scheduleEmptyHomeRetryIfNeeded(reason: "\(reason) cooldown")
             return
         }
 
@@ -117,13 +166,37 @@ class HomeViewModel: ObservableObject {
         fetchData(forceDaily: dailySongs.isEmpty)
     }
 
-    func retryHomeDataLoad(reason: String = "home retry") {
+    func retryHomeDataLoad(reason: String = "home retry", resetsEmptyRecovery: Bool = true) {
+        emptyHomeRetryTask?.cancel()
+        emptyHomeRetryTask = nil
+        if resetsEmptyRecovery {
+            emptyHomeAutomaticRetryCount = 0
+        }
         lastHomeHydrationAttempt = nil
         homeLoadingStartedAt = nil
         pendingLoginRefresh = false
         isLoading = false
+        loadCache()
+        refreshHitokotoIfNeeded()
+        restoreLoginStateIfNeeded(reason: reason)
         AppLogger.debug("HomeViewModel: 手动重试首页数据 - \(reason)")
         fetchData(forceDaily: true)
+    }
+
+    func reloadHomeCacheIfUseful(reason: String) {
+        let before = homeContentFingerprint
+        loadCache()
+        refreshHitokotoIfNeeded()
+
+        if before != homeContentFingerprint {
+            AppLogger.debug("HomeViewModel: 从缓存同步首页内容 - \(reason)")
+        }
+
+        if isHomeDataEmpty {
+            scheduleEmptyHomeRetryIfNeeded(reason: "\(reason) empty after cache sync")
+        } else {
+            finishHomeLoading()
+        }
     }
 
     private var needsHomeHydration: Bool {
@@ -135,8 +208,13 @@ class HomeViewModel: ObservableObject {
             || shouldLoadUserProfile && userProfile == nil
     }
 
+    var hasDisplayableHomeContent: Bool {
+        !isHomeDataEmpty
+    }
+
     private var isHomeDataEmpty: Bool {
         dailySongs.isEmpty
+            && popularSongs.isEmpty
             && banners.isEmpty
             && recommendPlaylists.isEmpty
             && qqRecommendPlaylists.isEmpty
@@ -144,7 +222,9 @@ class HomeViewModel: ObservableObject {
     }
 
     private var shouldLoadUserProfile: Bool {
-        UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+        (UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+            || apiService.currentCookie != nil
+            || apiService.currentUserId != nil)
             && OnlineAccessManager.shared.hasStoredToken
     }
 
@@ -166,6 +246,36 @@ class HomeViewModel: ObservableObject {
 
         AppLogger.debug("HomeViewModel: 登录成功，自动加载首页数据")
         fetchData(forceDaily: true)
+    }
+
+    private func restoreLoginStateIfNeeded(reason: String) {
+        guard OnlineAccessManager.shared.hasStoredToken else { return }
+        guard apiService.currentCookie != nil else { return }
+        guard apiService.currentUserId == nil || userProfile == nil else { return }
+        guard !isRestoringLoginState else { return }
+
+        isRestoringLoginState = true
+        AppLogger.debug("HomeViewModel: 尝试恢复登录态 - \(reason)")
+
+        apiService.fetchLoginStatus()
+            .timeout(.seconds(12), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] result in
+                self?.isRestoringLoginState = false
+                if case .failure(let error) = result {
+                    AppLogger.warning("HomeViewModel: 登录态恢复失败: \(error)")
+                }
+            }, receiveValue: { [weak self] response in
+                guard let self else { return }
+                guard let profile = response.data.profile else { return }
+
+                self.apiService.currentUserId = profile.userId
+                self.userProfile = profile
+                UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
+                self.lastHomeHydrationAttempt = nil
+                self.fetchData(forceDaily: true)
+            })
+            .store(in: &cancellables)
     }
     
     private func loadCache() {
@@ -198,6 +308,9 @@ class HomeViewModel: ObservableObject {
         if let cachedProfile = cache.getObject(forKey: "user_profile_detail", type: UserProfile.self) {
             self.userProfile = cachedProfile
         }
+        if !isHomeDataEmpty {
+            markHomeDataArrived(reason: "cache load")
+        }
     }
 
     private func startHomeLoading() {
@@ -222,6 +335,70 @@ class HomeViewModel: ObservableObject {
         if pendingLoginRefresh {
             pendingLoginRefresh = false
             fetchData(forceDaily: true)
+            return
+        }
+
+        if isHomeDataEmpty {
+            scheduleEmptyHomeRetryIfNeeded(reason: "home loading finished empty")
+        } else {
+            markHomeDataArrived(reason: "home loading finished")
+        }
+    }
+
+    private func markHomeDataArrived(reason: String = "home data arrived") {
+        emptyHomeAutomaticRetryCount = 0
+        emptyHomeRetryTask?.cancel()
+        emptyHomeRetryTask = nil
+        publishHomeContentChange(reason: reason)
+    }
+
+    private func publishHomeContentChange(reason: String) {
+        let fingerprint = homeContentFingerprint
+        guard fingerprint != lastHomeContentFingerprint else { return }
+        lastHomeContentFingerprint = fingerprint
+        homeContentRevision += 1
+        AppLogger.debug("HomeViewModel: 首页内容版本 \(homeContentRevision) - \(reason) - \(fingerprint)")
+    }
+
+    private var homeContentFingerprint: String {
+        [
+            homeContentPart("daily", count: dailySongs.count, first: dailySongs.first?.id, last: dailySongs.last?.id),
+            homeContentPart("popular", count: popularSongs.count, first: popularSongs.first?.id, last: popularSongs.last?.id),
+            homeContentPart("banner", count: banners.count, first: banners.first?.id, last: banners.last?.id),
+            homeContentPart("ncm-playlist", count: recommendPlaylists.count, first: recommendPlaylists.first?.id, last: recommendPlaylists.last?.id),
+            homeContentPart("qq-playlist", count: qqRecommendPlaylists.count, first: qqRecommendPlaylists.first?.id, last: qqRecommendPlaylists.last?.id),
+            homeContentPart("qq-song", count: qqNewSongs.count, first: qqNewSongs.first?.id, last: qqNewSongs.last?.id),
+        ].joined(separator: "|")
+    }
+
+    private func homeContentPart<ID>(_ name: String, count: Int, first: ID?, last: ID?) -> String {
+        let firstValue = first.map { String(describing: $0) } ?? "nil"
+        let lastValue = last.map { String(describing: $0) } ?? "nil"
+        return "\(name)-\(count)-\(firstValue)-\(lastValue)"
+    }
+
+    private func scheduleEmptyHomeRetryIfNeeded(reason: String) {
+        guard isHomeDataEmpty, !isLoading else { return }
+        guard emptyHomeAutomaticRetryCount < maxEmptyHomeAutomaticRetryCount else { return }
+        guard emptyHomeRetryTask == nil else { return }
+
+        let nextAttempt = emptyHomeAutomaticRetryCount + 1
+        let delay = min(10, emptyHomeBaseRetryDelay * Double(nextAttempt))
+        emptyHomeRetryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                guard let self else { return }
+                self.emptyHomeRetryTask = nil
+                guard self.isHomeDataEmpty, !self.isLoading else { return }
+                self.emptyHomeAutomaticRetryCount = nextAttempt
+                AppLogger.warning("HomeViewModel: 首页空数据自动恢复第 \(nextAttempt) 次 - \(reason)")
+                self.retryHomeDataLoad(
+                    reason: "\(reason) auto recovery \(nextAttempt)",
+                    resetsEmptyRecovery: false
+                )
+            }
         }
     }
 
@@ -285,6 +462,9 @@ class HomeViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
                 self?.popularSongs = songs
+                if !songs.isEmpty {
+                    self?.markHomeDataArrived(reason: "popular songs")
+                }
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(songs, forKey: "popular_songs")
                     OptimizedCacheManager.shared.cacheSongs(songs)
@@ -301,6 +481,9 @@ class HomeViewModel: ObservableObject {
                     }
                 }, receiveValue: { [weak self] playlists in
                     self?.recommendPlaylists = playlists
+                    if !playlists.isEmpty {
+                        self?.markHomeDataArrived()
+                    }
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(playlists, forKey: "recommend_playlists")
                         OptimizedCacheManager.shared.cachePlaylists(playlists)
@@ -322,6 +505,7 @@ class HomeViewModel: ObservableObject {
             }, receiveValue: { [weak self] banners in
                 guard !banners.isEmpty else { return }
                 self?.banners = banners
+                self?.markHomeDataArrived()
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(banners, forKey: "banners")
                 }
@@ -337,6 +521,9 @@ class HomeViewModel: ObservableObject {
                 }
             }, receiveValue: { [weak self] playlists in
                 self?.qqRecommendPlaylists = playlists
+                if !playlists.isEmpty {
+                    self?.markHomeDataArrived()
+                }
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(playlists, forKey: "qq_recommend_playlists")
                 }
@@ -352,6 +539,9 @@ class HomeViewModel: ObservableObject {
                 }
             }, receiveValue: { [weak self] songs in
                 self?.qqNewSongs = songs
+                if !songs.isEmpty {
+                    self?.markHomeDataArrived()
+                }
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(songs, forKey: "qq_new_songs")
                     OptimizedCacheManager.shared.cacheSongs(songs)
@@ -442,6 +632,9 @@ class HomeViewModel: ObservableObject {
                 }, receiveValue: { [weak self] songs in
                     didReceiveSongs = !songs.isEmpty
                     self?.dailySongs = songs
+                    if !songs.isEmpty {
+                        self?.markHomeDataArrived()
+                    }
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
                         OptimizedCacheManager.shared.cacheSongs(songs)
@@ -470,6 +663,9 @@ class HomeViewModel: ObservableObject {
                 }, receiveValue: { [weak self] songs in
                     didReceiveSongs = !songs.isEmpty
                     self?.dailySongs = songs
+                    if !songs.isEmpty {
+                        self?.markHomeDataArrived()
+                    }
                     Task { @MainActor in
                         OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
                         OptimizedCacheManager.shared.cacheSongs(songs)
@@ -496,6 +692,7 @@ class HomeViewModel: ObservableObject {
             }, receiveValue: { [weak self] songs in
                 guard !songs.isEmpty else { return }
                 self?.dailySongs = songs
+                self?.markHomeDataArrived()
                 Task { @MainActor in
                     OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
                     OptimizedCacheManager.shared.cacheSongs(songs)
@@ -516,13 +713,21 @@ class HomeViewModel: ObservableObject {
             return
         }
 
-        guard !hasUsableHitokoto else { return }
+        let restoredFromCache = restoreCachedHitokotoForCurrentSettings()
+        if hasUsableHitokoto {
+            if restoredFromCache {
+                refreshHitokoto()
+            }
+            return
+        }
+
         refreshHitokoto()
     }
 
     private static let hitokotoMinimumRequestInterval: TimeInterval = 8
-    private static let hitokotoFailureCooldown: TimeInterval = 10 * 60
+    private static let hitokotoFailureCooldown: TimeInterval = 30
     private static let hitokotoSuccessRefreshInterval: TimeInterval = 30 * 60
+    private static let hitokotoCachePrefix = "monologue_hitokoto_cache"
 
     private static let hitokotoHosts = [
         "https://v1.hitokoto.cn/"
@@ -537,6 +742,10 @@ class HomeViewModel: ObservableObject {
         guard ignoresSetting || settings.hitokotoEnabled else {
             hitokoto = nil
             return
+        }
+
+        if !force {
+            _ = restoreCachedHitokotoForCurrentSettings()
         }
 
         let now = Date()
@@ -687,6 +896,38 @@ class HomeViewModel: ObservableObject {
         hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
+    @discardableResult
+    private func restoreCachedHitokotoForCurrentSettings() -> Bool {
+        let type = SettingsManager.shared.hitokotoType
+        if restoreCachedHitokoto(type: type) {
+            return true
+        }
+
+        guard !type.isEmpty else { return false }
+        return restoreCachedHitokoto(type: "")
+    }
+
+    @discardableResult
+    private func restoreCachedHitokoto(type: String) -> Bool {
+        guard !hasUsableHitokoto else { return false }
+
+        let key = Self.hitokotoCacheKey(type: type)
+        guard let cached = UserDefaults.standard.string(forKey: key)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !cached.isEmpty else {
+            return false
+        }
+
+        hitokoto = cached
+        AppLogger.debug("HomeViewModel: 使用缓存每日一言")
+        return true
+    }
+
+    private static func hitokotoCacheKey(type: String) -> String {
+        let suffix = type.isEmpty ? "all" : type
+        return "\(hitokotoCachePrefix)_\(suffix)"
+    }
+
     private func storeHitokoto(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -695,6 +936,7 @@ class HomeViewModel: ObservableObject {
         }
 
         hitokoto = trimmed
+        UserDefaults.standard.set(trimmed, forKey: Self.hitokotoCacheKey(type: SettingsManager.shared.hitokotoType))
         let successDate = Date()
         lastHitokotoSuccess = successDate
         lastHitokotoFailure = nil
@@ -704,6 +946,10 @@ class HomeViewModel: ObservableObject {
     private func handleHitokotoFailure(_ failures: [String]) {
         lastHitokotoFailure = Date()
         hitokotoFetchTask = nil
+        if !hasUsableHitokoto {
+            _ = restoreCachedHitokotoForCurrentSettings()
+        }
+
         if !hasUsableHitokoto {
             hitokoto = nil
         }
@@ -717,6 +963,9 @@ class HomeViewModel: ObservableObject {
     /// 退出登录时清除用户相关数据
     private func handleLogout() {
         AppLogger.info("HomeViewModel: 收到退出登录通知，清除数据")
+        emptyHomeRetryTask?.cancel()
+        emptyHomeRetryTask = nil
+        emptyHomeAutomaticRetryCount = 0
         userProfile = nil
         hitokoto = nil
         recentSongs = []

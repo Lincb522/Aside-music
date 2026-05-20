@@ -4458,9 +4458,9 @@ struct ProfileMenuRow: View {
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 1.8, y: 1.8))
         } else if PetWhiteStyle.isActive {
             if let petWhiteAssetName {
-                petWhiteAssetBadge(assetName: petWhiteAssetName, tint: PetWhiteStyle.sky, size: 32)
+                petWhiteAssetBadge(assetName: petWhiteAssetName, tint: PetWhiteStyle.sky, size: 36)
             } else {
-                PetWhiteIconBadge(icon: icon, tint: icon == .settings ? PetWhiteStyle.mint : PetWhiteStyle.sky, size: 32)
+                PetWhiteIconBadge(icon: icon, tint: icon == .settings ? PetWhiteStyle.mint : PetWhiteStyle.sky, size: 36)
             }
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 7, style: .continuous)

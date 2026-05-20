@@ -15,52 +15,61 @@ struct PersonalFMView: View {
     private struct Theme {
         static var background: Color { .clear }
         static var text: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
             if SequoiaStyle.isActive { return SequoiaStyle.ink }
             if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
             return Color.monologueTextPrimary
         }
 
         static var secondaryText: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
             if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
             return Color.monologueTextSecondary
         }
 
         static var accent: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
             if SequoiaStyle.isActive { return SequoiaStyle.accent }
             if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
             return Color.monologueTextPrimary
         }
 
         static var accentForeground: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
             if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
             if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
             return Color.monologueIconForeground
         }
 
         static var cardBackground: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised }
             if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
             if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
             return Color.monologueGlassTint.opacity(0.8)
         }
 
         static var pressedBackground: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
             if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
             if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
             return Color.monologueGlassTint
         }
 
         static var iconWash: Color {
+            if PetWhiteStyle.isActive { return PetWhiteStyle.butter.opacity(0.74) }
             if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
             return pressedBackground
         }
 
         static var titleFont: Font {
-            SequoiaStyle.isActive ? SequoiaStyle.titleFont(24, weight: .semibold) : .rounded(size: 24, weight: .bold)
+            if PetWhiteStyle.isActive { return PetWhiteStyle.titleFont(24, weight: .black) }
+            return SequoiaStyle.isActive ? SequoiaStyle.titleFont(24, weight: .semibold) : .rounded(size: 24, weight: .bold)
         }
 
         static var artistFont: Font {
-            SequoiaStyle.isActive ? SequoiaStyle.bodyFont(17, weight: .medium) : .rounded(size: 17, weight: .medium)
+            if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(17, weight: .semibold) }
+            return SequoiaStyle.isActive ? SequoiaStyle.bodyFont(17, weight: .medium) : .rounded(size: 17, weight: .medium)
         }
     }
 
@@ -176,24 +185,7 @@ struct PersonalFMView: View {
                             }
                             .padding(.bottom, 40)
 
-                        WaveformProgressBar(
-                            currentTime: isDraggingSlider ? dragTimeValue : (isOwnFMContent ? timePub.currentTime : 0),
-                            duration: isOwnFMContent ? timePub.duration : 0,
-                            isPlaying: isFMPlaying,
-                            color: Theme.accent,
-                            onSeek: { time in
-                                isDraggingSlider = true
-                                dragTimeValue = time
-                            },
-                            onCommit: { time in
-                                isDraggingSlider = false
-                                // 只有 FM 播放源时才执行 seek
-                                if isOwnFMContent {
-                                    player.seek(to: time)
-                                }
-                            }
-                        )
-                        .frame(width: DeviceLayout.isPad ? 300 : 246, height: 30)
+                        fmProgressBar
                         .padding(.bottom, 12)
                         .opacity(dragOffset == .zero ? 1 : 0)
                         .animation(.easeInOut(duration: 0.2), value: dragOffset == .zero)
@@ -306,55 +298,8 @@ struct PersonalFMView: View {
 
                 Spacer()
 
-                HStack(spacing: 40) {
-                    if let song = currentFMSong {
-                        LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 24, activeColor: .red, inactiveColor: Theme.accent)
-                            .frame(width: 50, height: 50)
-                            .background(Circle().fill(Theme.pressedBackground))
-                            .monologueGlassCircle()
-                    } else {
-                        Button(action: {}) {
-                            MonologueIcon(icon: .like, size: 24, color: Theme.accent)
-                                .frame(width: 50, height: 50)
-                                .background(Circle().fill(Theme.pressedBackground))
-                                .monologueGlassCircle()
-                        }
-                    }
-
-                    Button(action: {
-                        UISelectionFeedbackGenerator().selectionChanged()
-                        // 如果 FM 没有在实际播放中（包括 prepareFM 预设状态），用 playFM 开始播放
-                        if !isFMPlaying, let song = currentFMSong {
-                            PlayerManager.shared.playFM(song: song, in: fmSongs, autoPlay: true)
-                        } else {
-                            PlayerManager.shared.togglePlayPause()
-                        }
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Color.monologueGlassTint)
-                                .frame(width: 72, height: 72)
-                                .monologueGlassCircle()
-                                .shadow(color: Color.black.opacity(SequoiaStyle.isActive ? 0.08 : 0.15), radius: SequoiaStyle.isActive ? 14 : 10, x: 0, y: 5)
-
-                            MonologueIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accentForeground : Theme.accent)
-                                .offset(x: isFMPlaying ? 0 : 2)
-                        }
-                    }
-                    .scaleEffect(isFMPlaying ? 1.0 : 0.95)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFMPlaying)
-
-                    Button(action: {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        nextSong()
-                    }) {
-                        MonologueIcon(icon: .next, size: 24, color: Theme.accent)
-                            .frame(width: 50, height: 50)
-                            .background(Circle().fill(Theme.pressedBackground))
-                            .monologueGlassCircle()
-                    }
-                }
-                .padding(.bottom, 50)
+                fmControlsBar
+                    .padding(.bottom, 50)
             }
             .frame(maxWidth: .infinity)
             .iPadContentWidth()
@@ -362,22 +307,63 @@ struct PersonalFMView: View {
         .overlay(
             VStack {
                 HStack(alignment: .center) {
-                    MonologueBackButton(style: .dismiss, isDarkBackground: false)
+                    if PetWhiteStyle.isActive {
+                        Button(action: { dismiss() }) {
+                            PetWhiteChevronIcon(
+                                direction: .down,
+                                size: 20,
+                                fallbackColor: PetWhiteStyle.stroke
+                            )
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(PetWhiteStyle.surfaceRaised)
+                                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 5, x: 0, y: 3)
+                            )
+                            .contentShape(Circle())
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                    } else {
+                        MonologueBackButton(style: .dismiss, isDarkBackground: false)
+                    }
 
                     Spacer()
 
                     Text(LocalizedStringKey("player_private_fm"))
-                        .font(.rounded(size: 16, weight: .black))
+                        .font(PetWhiteStyle.isActive
+                              ? PetWhiteStyle.labelFont(15, weight: .black)
+                              : .rounded(size: 16, weight: .black))
                         .foregroundColor(Theme.text)
-                        .tracking(1.5)
+                        .tracking(PetWhiteStyle.isActive ? 1.1 : 1.5)
                         .textCase(.uppercase)
 
                     Spacer()
 
                     // FM 模式切换按钮
-                    Button(action: { showFMModePicker = true }) {
-                        MonologueIcon(icon: .fmMode, size: 20, color: Theme.accent)
+                    if PetWhiteStyle.isActive {
+                        Button(action: { showFMModePicker = true }) {
+                            PetWhitePackIcon(
+                                icon: .fmMode,
+                                size: 18,
+                                visualScale: 1.04,
+                                fallbackColor: PetWhiteStyle.stroke,
+                                lineWidth: 1.9
+                            )
                             .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(PetWhiteStyle.surfaceRaised)
+                                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 5, x: 0, y: 3)
+                            )
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                    } else {
+                        Button(action: { showFMModePicker = true }) {
+                            MonologueIcon(icon: .fmMode, size: 20, color: Theme.accent)
+                                .frame(width: 44, height: 44)
+                        }
                     }
                 }
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -408,17 +394,224 @@ struct PersonalFMView: View {
         }
     }
 
+    // MARK: - Progress Bar
+
+    /// FM 卡片下方的进度条；paw 主题下复用全局播放器的 PawPlaybackProgressBar，
+    /// 其他主题维持现有的 WaveformProgressBar，避免视觉错配。
+    @ViewBuilder
+    private var fmProgressBar: some View {
+        if PetWhiteStyle.isActive {
+            PawPlaybackProgressBar(
+                isDragging: $isDraggingSlider,
+                dragValue: $dragTimeValue,
+                showsTimeLabels: false,
+                railHeight: 32,
+                hasContainer: false,
+                onSeek: { time in
+                    // 只有 FM 播放源时才执行 seek，保持与原 WaveformProgressBar 一致语义
+                    if isOwnFMContent {
+                        player.seek(to: time)
+                    }
+                }
+            )
+            .frame(width: DeviceLayout.isPad ? 320 : 260)
+            .opacity(isOwnFMContent ? 1 : 0.45)
+        } else {
+            WaveformProgressBar(
+                currentTime: isDraggingSlider ? dragTimeValue : (isOwnFMContent ? timePub.currentTime : 0),
+                duration: isOwnFMContent ? timePub.duration : 0,
+                isPlaying: isFMPlaying,
+                color: Theme.accent,
+                onSeek: { time in
+                    isDraggingSlider = true
+                    dragTimeValue = time
+                },
+                onCommit: { time in
+                    isDraggingSlider = false
+                    if isOwnFMContent {
+                        player.seek(to: time)
+                    }
+                }
+            )
+            .frame(width: DeviceLayout.isPad ? 300 : 246, height: 30)
+        }
+    }
+
+    // MARK: - Controls Bar
+
+    /// 卡片下方的播放控件条；paw 主题下完整切换到 paw 圆形按钮 + 掌印/狗头吉祥物，
+    /// 其他主题保持原毛玻璃圆形按钮。
+    @ViewBuilder
+    private var fmControlsBar: some View {
+        if PetWhiteStyle.isActive {
+            pawFMControlsBar
+        } else {
+            defaultFMControlsBar
+        }
+    }
+
+    private var pawFMControlsBar: some View {
+        HStack(spacing: 28) {
+            pawFMSideButton {
+                Group {
+                    if let song = currentFMSong {
+                        LikeButton(
+                            songId: song.id,
+                            isQQMusic: song.isQQMusic,
+                            song: song,
+                            size: 22,
+                            activeColor: PetWhiteStyle.blush,
+                            inactiveColor: PetWhiteStyle.stroke
+                        )
+                    } else {
+                        PetWhitePackIcon(
+                            icon: .like,
+                            size: 22,
+                            visualScale: 1.04,
+                            fallbackColor: PetWhiteStyle.stroke,
+                            lineWidth: 2.0
+                        )
+                    }
+                }
+            }
+
+            Button(action: {
+                UISelectionFeedbackGenerator().selectionChanged()
+                if !isFMPlaying, let song = currentFMSong {
+                    PlayerManager.shared.playFM(song: song, in: fmSongs, autoPlay: true)
+                } else {
+                    PlayerManager.shared.togglePlayPause()
+                }
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(PetWhiteStyle.dogOrange)
+                        .frame(width: 78, height: 78)
+                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.8))
+                        .shadow(color: PetWhiteStyle.stroke.opacity(0.18), radius: 10, x: 0, y: 5)
+
+                    PetWhitePackIcon(
+                        icon: isFMPlaying ? .pause : .play,
+                        size: 30,
+                        visualScale: 1.04,
+                        fallbackColor: PetWhiteStyle.onAccent,
+                        lineWidth: 2.4
+                    )
+                    .offset(x: isFMPlaying ? 0 : 2)
+                }
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            .scaleEffect(isFMPlaying ? 1.0 : 0.96)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFMPlaying)
+
+            pawFMSideButton {
+                PetWhitePackIcon(
+                    icon: .next,
+                    size: 22,
+                    visualScale: 1.04,
+                    fallbackColor: PetWhiteStyle.stroke,
+                    lineWidth: 2.0
+                )
+            } action: {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                nextSong()
+            }
+        }
+    }
+
+    private var defaultFMControlsBar: some View {
+        HStack(spacing: 40) {
+            if let song = currentFMSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 24, activeColor: .red, inactiveColor: Theme.accent)
+                    .frame(width: 50, height: 50)
+                    .background(Circle().fill(Theme.pressedBackground))
+                    .monologueGlassCircle()
+            } else {
+                Button(action: {}) {
+                    MonologueIcon(icon: .like, size: 24, color: Theme.accent)
+                        .frame(width: 50, height: 50)
+                        .background(Circle().fill(Theme.pressedBackground))
+                        .monologueGlassCircle()
+                }
+            }
+
+            Button(action: {
+                UISelectionFeedbackGenerator().selectionChanged()
+                if !isFMPlaying, let song = currentFMSong {
+                    PlayerManager.shared.playFM(song: song, in: fmSongs, autoPlay: true)
+                } else {
+                    PlayerManager.shared.togglePlayPause()
+                }
+            }) {
+                ZStack {
+                    Circle()
+                        .fill((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Color.monologueGlassTint)
+                        .frame(width: 72, height: 72)
+                        .monologueGlassCircle()
+                        .shadow(color: Color.black.opacity(SequoiaStyle.isActive ? 0.08 : 0.15), radius: SequoiaStyle.isActive ? 14 : 10, x: 0, y: 5)
+
+                    MonologueIcon(icon: isFMPlaying ? .pause : .play, size: 26, color: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accentForeground : Theme.accent)
+                        .offset(x: isFMPlaying ? 0 : 2)
+                }
+            }
+            .scaleEffect(isFMPlaying ? 1.0 : 0.95)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFMPlaying)
+
+            Button(action: {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                nextSong()
+            }) {
+                MonologueIcon(icon: .next, size: 24, color: Theme.accent)
+                    .frame(width: 50, height: 50)
+                    .background(Circle().fill(Theme.pressedBackground))
+                    .monologueGlassCircle()
+            }
+        }
+    }
+
+    private func pawFMSideButton<Label: View>(
+        @ViewBuilder label: () -> Label,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        let content = label()
+            .frame(width: 56, height: 56)
+            .background(
+                Circle()
+                    .fill(PetWhiteStyle.surfaceRaised)
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 6, x: 0, y: 3)
+            )
+
+        return Group {
+            if let action {
+                Button(action: action) { content }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            } else {
+                content
+            }
+        }
+    }
+
     // MARK: - Lyrics Back View
     
     private func fmLyricsBackView(song: Song) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Theme.cardBackground)
-                .overlay {
-                    if SequoiaStyle.isActive {
-                        SequoiaSurfaceBackground(cornerRadius: 28, elevated: true, role: .content)
+            if PetWhiteStyle.isActive {
+                PetWhiteSurfaceBackground(
+                    cornerRadius: 28,
+                    elevated: true,
+                    tint: PetWhiteStyle.surfaceRaised,
+                    accent: PetWhiteStyle.sky
+                )
+            } else {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Theme.cardBackground)
+                    .overlay {
+                        if SequoiaStyle.isActive {
+                            SequoiaSurfaceBackground(cornerRadius: 28, elevated: true, role: .content)
+                        }
                     }
-                }
+            }
             
             // 只有当播放源是 FM 且歌词对应当前 FM 歌曲时才显示歌词
             if isOwnFMContent && lyricVM.currentSongId == song.id && lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
@@ -575,7 +768,55 @@ struct PersonalFMView: View {
         nextSong()
     }
 
+    @ViewBuilder
     private func emptyStateView() -> some View {
+        if PetWhiteStyle.isActive {
+            pawEmptyStateView
+        } else {
+            defaultEmptyStateView
+        }
+    }
+
+    private var pawEmptyStateView: some View {
+        VStack(spacing: 22) {
+            ZStack {
+                Circle()
+                    .fill(PetWhiteStyle.butter.opacity(0.74))
+                    .frame(width: 96, height: 96)
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke.opacity(0.55), lineWidth: 1.4))
+                PetWhitePackIcon(icon: .fm, size: 38, visualScale: 1.04, fallbackColor: PetWhiteStyle.stroke, lineWidth: 2.4)
+            }
+
+            VStack(spacing: 6) {
+                Text(LocalizedStringKey("fm_offline"))
+                    .font(PetWhiteStyle.titleFont(20, weight: .black))
+                    .foregroundColor(PetWhiteStyle.ink)
+
+                Text(LocalizedStringKey("fm_offline_desc"))
+                    .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
+                    .foregroundColor(PetWhiteStyle.inkSoft)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 24)
+
+            Button(action: { loadFMData() }) {
+                HStack(spacing: 7) {
+                    PetWhitePackIcon(icon: .refresh, size: 14, visualScale: 1.04, fallbackColor: PetWhiteStyle.onAccent, lineWidth: 2.0)
+                    Text(LocalizedStringKey("action_retry"))
+                        .font(PetWhiteStyle.labelFont(12, weight: .black))
+                }
+                .foregroundStyle(PetWhiteStyle.onAccent)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 11)
+                .background(PetWhiteStyle.accent, in: Capsule())
+                .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        }
+    }
+
+    private var defaultEmptyStateView: some View {
         VStack(spacing: 24) {
             MonologueIcon(icon: .fm, size: 40, color: Theme.accent.opacity(0.18))
 

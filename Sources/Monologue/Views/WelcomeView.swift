@@ -24,6 +24,7 @@ struct WelcomeView: View {
     @State private var sceneScale: CGFloat = 1
     @State private var isDismissing = false
     @State private var animationTask: Task<Void, Never>?
+    @State private var preloadTask: Task<Void, Never>?
 
     private enum Timing {
         static let preloadStartDelay: TimeInterval = 0.08
@@ -31,6 +32,8 @@ struct WelcomeView: View {
         static let subtitleDelay: TimeInterval = 0.26
         static let footerDelay: TimeInterval = 0.42
         static let dismissDelay: TimeInterval = 2.05
+        static let initialContentPollInterval: TimeInterval = 0.12
+        static let initialContentRetryInterval: TimeInterval = 2.0
     }
 
     private var plateSize: CGFloat {
@@ -96,6 +99,7 @@ struct WelcomeView: View {
         }
         .onDisappear {
             animationTask?.cancel()
+            preloadTask?.cancel()
         }
     }
 
@@ -800,7 +804,7 @@ struct WelcomeView: View {
         }
 
         let isLoggedIn = isAppLoggedIn
-        Task(priority: .utility) {
+        preloadTask = Task(priority: .utility) {
             try? await sleep(seconds: Timing.preloadStartDelay)
             await loadDataInBackground(isLoggedIn: isLoggedIn)
         }
@@ -833,6 +837,7 @@ struct WelcomeView: View {
                 }
 
                 try await sleep(seconds: Timing.dismissDelay - Timing.footerDelay)
+                await waitForInitialHomeContentIfNeeded()
                 await MainActor.run {
                     dismissWelcome()
                 }
@@ -843,23 +848,64 @@ struct WelcomeView: View {
     }
 
     private func loadDataInBackground(isLoggedIn: Bool) async {
+        await MainActor.run {
+            _ = HomeViewModel.shared
+        }
+
         await OptimizedCacheManager.shared.quickPreload()
+        await MainActor.run {
+            HomeViewModel.shared.reloadHomeCacheIfUseful(reason: "welcome quick preload")
+        }
 
-        guard isLoggedIn, OnlineAccessManager.shared.hasStoredToken else { return }
+        guard OnlineAccessManager.shared.hasStoredToken else { return }
 
-        do {
-            _ = try await APIService.shared.fetchLoginStatus().async()
-        } catch {
-            AppLogger.warning("登录状态检查失败: \(error)")
+        if isLoggedIn {
+            do {
+                _ = try await APIService.shared.fetchLoginStatus().async()
+            } catch {
+                AppLogger.warning("登录状态检查失败: \(error)")
+            }
         }
 
         let needsRefresh = await MainActor.run {
             GlobalRefreshManager.shared.checkDailyRefreshNeeded()
         }
         await MainActor.run {
+            HomeViewModel.shared.fetchData(forceDaily: needsRefresh || !HomeViewModel.shared.hasDisplayableHomeContent)
             GlobalRefreshManager.shared.refreshHomePublisher.send(needsRefresh)
             GlobalRefreshManager.shared.refreshLibraryPublisher.send(false)
             GlobalRefreshManager.shared.refreshProfilePublisher.send(false)
+        }
+    }
+
+    private func waitForInitialHomeContentIfNeeded() async {
+        let shouldWait = await MainActor.run {
+            OnlineAccessManager.shared.hasStoredToken
+        }
+        guard shouldWait else { return }
+
+        var lastRetry = Date.distantPast
+        while true {
+            if Task.isCancelled { return }
+
+            let isReady = await MainActor.run {
+                HomeViewModel.shared.reloadHomeCacheIfUseful(reason: "welcome before dismiss")
+                return HomeViewModel.shared.hasDisplayableHomeContent
+            }
+            if isReady { return }
+
+            if Date().timeIntervalSince(lastRetry) >= Timing.initialContentRetryInterval {
+                lastRetry = Date()
+                await MainActor.run {
+                    if HomeViewModel.shared.isLoading {
+                        HomeViewModel.shared.ensureHomeDataLoaded(reason: "welcome waiting for initial content")
+                    } else {
+                        HomeViewModel.shared.fetchData(forceDaily: true)
+                    }
+                }
+            }
+
+            try? await sleep(seconds: Timing.initialContentPollInterval)
         }
     }
 

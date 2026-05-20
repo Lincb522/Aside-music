@@ -37,100 +37,102 @@ struct NewSongExpressView: View {
             }
 
             VStack(spacing: 0) {
-                if MangaStyle.isActive {
-                    MangaPageHeader(
-                        eyebrow: "NEW SONGS",
-                        title: String(localized: "new_song_express"),
-                        subtitle: ""
-                    ) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(MangaStyle.labelYellow)
-                            MonologueIcon(icon: .musicNote, size: 23, color: MangaStyle.strokeInk, lineWidth: 2)
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if MangaStyle.isActive {
+                            MangaPageHeader(
+                                eyebrow: "NEW SONGS",
+                                title: String(localized: "new_song_express"),
+                                subtitle: ""
+                            ) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(MangaStyle.labelYellow)
+                                    MonologueIcon(icon: .musicNote, size: 23, color: MangaStyle.strokeInk, lineWidth: 2)
+                                }
+                                .frame(width: 48, height: 48)
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
+                            }
+                        } else if NeumorphicStyle.isActive {
+                            NeumorphicPageHeader(
+                                eyebrow: "NEW SONGS",
+                                title: String(localized: "new_song_express"),
+                                subtitle: ""
+                            ) {
+                                NeumorphicIconBadge(icon: .musicNote, tint: NeumorphicStyle.warm, size: 48)
+                            }
+                        } else if MujiStyle.isActive {
+                            MujiPageHeader(
+                                eyebrow: String(localized: "new_song_express"),
+                                title: String(localized: "new_song_express"),
+                                subtitle: ""
+                            ) {
+                                MujiIconBadge(icon: .musicNote, tint: MujiStyle.clay, size: 48)
+                            }
+                        } else if SignalStyle.isActive {
+                            SignalPageHeader(
+                                eyebrow: "NEW SONGS",
+                                title: String(localized: "new_song_express"),
+                                subtitle: ""
+                            ) {
+                                SignalIconBadge(icon: .musicNote, tint: SignalStyle.olive, size: 48)
+                            }
+                        } else if CapsuleStyle.isActive {
+                            CapsulePageHeader(
+                                eyebrow: "NEW SONGS",
+                                title: String(localized: "new_song_express"),
+                                subtitle: "\(viewModel.songs.count) \(String(localized: "songs_unit"))"
+                            ) {
+                                CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.amber, size: 48)
+                            }
+                        } else if SequoiaStyle.isActive {
+                            SequoiaPageHeader(
+                                eyebrow: "NEW SONGS",
+                                title: String(localized: "new_song_express"),
+                                subtitle: ""
+                            ) {
+                                SequoiaIconBadge(icon: .musicNote, tint: SequoiaStyle.green, size: 48)
+                            }
+                        } else if PetWhiteStyle.isActive {
+                            PetWhitePageHeader(
+                                eyebrow: "NEW SONGS",
+                                title: String(localized: "new_song_express"),
+                                subtitle: "\(viewModel.songs.count) \(String(localized: "songs_unit"))",
+                                icon: .musicNote
+                            ) {
+                                PetWhiteIconBadge(icon: .musicNote, tint: PetWhiteStyle.butter, size: 50)
+                            }
                         }
-                        .frame(width: 48, height: 48)
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
-                    }
-                } else if NeumorphicStyle.isActive {
-                    NeumorphicPageHeader(
-                        eyebrow: "NEW SONGS",
-                        title: String(localized: "new_song_express"),
-                        subtitle: ""
-                    ) {
-                        NeumorphicIconBadge(icon: .musicNote, tint: NeumorphicStyle.warm, size: 48)
-                    }
-                } else if MujiStyle.isActive {
-                    MujiPageHeader(
-                        eyebrow: String(localized: "new_song_express"),
-                        title: String(localized: "new_song_express"),
-                        subtitle: ""
-                    ) {
-                        MujiIconBadge(icon: .musicNote, tint: MujiStyle.clay, size: 48)
-                    }
-                } else if SignalStyle.isActive {
-                    SignalPageHeader(
-                        eyebrow: "NEW SONGS",
-                        title: String(localized: "new_song_express"),
-                        subtitle: ""
-                    ) {
-                        SignalIconBadge(icon: .musicNote, tint: SignalStyle.olive, size: 48)
-                    }
-                } else if CapsuleStyle.isActive {
-                    CapsulePageHeader(
-                        eyebrow: "NEW SONGS",
-                        title: String(localized: "new_song_express"),
-                        subtitle: "\(viewModel.songs.count) \(String(localized: "songs_unit"))"
-                    ) {
-                        CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.amber, size: 48)
-                    }
-                } else if SequoiaStyle.isActive {
-                    SequoiaPageHeader(
-                        eyebrow: "NEW SONGS",
-                        title: String(localized: "new_song_express"),
-                        subtitle: ""
-                    ) {
-                        SequoiaIconBadge(icon: .musicNote, tint: SequoiaStyle.green, size: 48)
-                    }
-                } else if PetWhiteStyle.isActive {
-                    PetWhitePageHeader(
-                        eyebrow: "NEW SONGS",
-                        title: String(localized: "new_song_express"),
-                        subtitle: "\(viewModel.songs.count) \(String(localized: "songs_unit"))",
-                        icon: .musicNote
-                    ) {
-                        PetWhiteIconBadge(icon: .musicNote, tint: PetWhiteStyle.butter, size: 50)
+
+                        typeSelector
+                            .padding(.top, ThemedPageStyle.isActive ? 0 : 8)
+
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .tint(loadingTint)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 120)
+                        } else if viewModel.songs.isEmpty {
+                            emptyState
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 120)
+                        } else {
+                            VStack(spacing: 24) {
+                                // 完整列表
+                                fullListSection
+                            }
+                            .padding(.bottom, 120)
+                        }
                     }
                 }
-
-                typeSelector
-                    .padding(.top, ThemedPageStyle.isActive ? 0 : 8)
-
-                if viewModel.isLoading {
-                    Spacer()
-                    ProgressView()
-                        .tint(loadingTint)
-                    Spacer()
-                } else if viewModel.songs.isEmpty {
-                    Spacer()
-                    emptyState
-                    Spacer()
-                } else {
-                    ScrollView {
-                        VStack(spacing: 24) {
-                            // 完整列表
-                            fullListSection
-                        }
-                        .padding(.bottom, 120)
-                    }
-                    .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-                }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
             }
         }
         .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "new_song_express"))
         .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -448,7 +450,8 @@ struct NewSongExpressView: View {
                         } else {
                             playerManager.play(song: song, in: newSongFiltered)
                         }
-                    }
+                    },
+                    horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil
                 )
             }
 

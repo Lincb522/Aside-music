@@ -134,6 +134,7 @@ class CacheManager: @unchecked Sendable {
     
     func clearAll() {
         memoryCache.removeAllObjects()
+        clearExpirationMetadata()
         let url = diskCacheURL
         try? FileManager.default.removeItem(at: url)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -182,29 +183,38 @@ class CacheManager: @unchecked Sendable {
     // MARK: - 磁盘操作
     
     private func saveToDisk(data: Data, key: String, ttl: TimeInterval?) {
-        let fileURL = diskCacheURL.appendingPathComponent(key.cacheFileName)
+        let cacheFileName = key.cacheFileName
+        let fileURL = diskCacheURL.appendingPathComponent(cacheFileName)
         do {
             try data.write(to: fileURL)
             
             let expirationDate = Date().addingTimeInterval(ttl ?? defaultExpiration)
             let attributes: [FileAttributeKey: Any] = [
-                .modificationDate: Date(),
-                .creationDate: expirationDate
+                .modificationDate: Date()
             ]
             try FileManager.default.setAttributes(attributes, ofItemAtPath: fileURL.path)
+            UserDefaults.standard.set(expirationDate, forKey: expirationStorageKey(forCacheFileName: cacheFileName))
         } catch {
             AppLogger.error("磁盘缓存写入失败: \(error)")
         }
     }
     
     private func loadFromDisk(key: String) -> Data? {
-        let fileURL = diskCacheURL.appendingPathComponent(key.cacheFileName)
+        let cacheFileName = key.cacheFileName
+        let fileURL = diskCacheURL.appendingPathComponent(cacheFileName)
         
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         
         if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path) {
-            if let expirationDate = attributes[.creationDate] as? Date {
+            let expirationKey = expirationStorageKey(forCacheFileName: cacheFileName)
+            if let expirationDate = UserDefaults.standard.object(forKey: expirationKey) as? Date {
                 if Date() > expirationDate {
+                    try? FileManager.default.removeItem(at: fileURL)
+                    UserDefaults.standard.removeObject(forKey: expirationKey)
+                    return nil
+                }
+            } else if let modificationDate = attributes[.modificationDate] as? Date {
+                if Date().timeIntervalSince(modificationDate) > defaultExpiration {
                     try? FileManager.default.removeItem(at: fileURL)
                     return nil
                 }
@@ -219,26 +229,30 @@ class CacheManager: @unchecked Sendable {
     }
     
     private func removeFromDisk(key: String) {
-        let fileURL = diskCacheURL.appendingPathComponent(key.cacheFileName)
+        let cacheFileName = key.cacheFileName
+        let fileURL = diskCacheURL.appendingPathComponent(cacheFileName)
         try? FileManager.default.removeItem(at: fileURL)
+        UserDefaults.standard.removeObject(forKey: expirationStorageKey(forCacheFileName: cacheFileName))
     }
     
     private func cleanExpiredDiskCache() {
         diskQueue.async {
-            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: self.diskCacheURL, includingPropertiesForKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey, .creationDateKey], options: .skipsHiddenFiles) else { return }
+            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: self.diskCacheURL, includingPropertiesForKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else { return }
             
             var files = [(url: URL, date: Date, size: Int)]()
             var totalSize = 0
             var removedCount = 0
             
             for url in fileURLs {
-                if let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey, .creationDateKey]),
+                if let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey]),
                    let date = resourceValues.contentModificationDate,
                    let size = resourceValues.totalFileAllocatedSize {
-                    
-                    if let expirationDate = resourceValues.creationDate {
+
+                    let expirationKey = self.expirationStorageKey(forCacheFileName: url.lastPathComponent)
+                    if let expirationDate = UserDefaults.standard.object(forKey: expirationKey) as? Date {
                         if Date() > expirationDate {
                             try? FileManager.default.removeItem(at: url)
+                            UserDefaults.standard.removeObject(forKey: expirationKey)
                             removedCount += 1
                             continue
                         }
@@ -268,6 +282,17 @@ class CacheManager: @unchecked Sendable {
             if removedCount > 0 {
                 AppLogger.debug("磁盘缓存清理完成：删除 \(removedCount) 个文件")
             }
+        }
+    }
+
+    private func expirationStorageKey(forCacheFileName fileName: String) -> String {
+        "monologue_cache_expiration_\(fileName)"
+    }
+
+    private func clearExpirationMetadata() {
+        let prefix = "monologue_cache_expiration_"
+        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            UserDefaults.standard.removeObject(forKey: key)
         }
     }
 }

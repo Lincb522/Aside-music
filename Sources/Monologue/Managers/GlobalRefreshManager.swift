@@ -58,7 +58,10 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 应用进入前台时检查是否需要刷新
     private func handleAppWillEnterForeground() {
+        let apiService = APIService.shared
         let isLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+            || apiService.isLoggedIn
+            || apiService.currentCookie != nil
         guard isLoggedIn, OnlineAccessManager.shared.hasStoredToken else { return }
         
         // 检查是否需要刷新每日数据
@@ -81,8 +84,10 @@ class GlobalRefreshManager: ObservableObject {
     
     /// App 启动时调用
     func triggerAppLaunchRefresh() {
-        _ = APIService.shared
+        let apiService = APIService.shared
         let isLoggedIn = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+            || apiService.isLoggedIn
+            || apiService.currentCookie != nil
         
         guard isLoggedIn, OnlineAccessManager.shared.hasStoredToken else {
             AppLogger.debug("未登录或未配置 Token，跳过启动刷新")

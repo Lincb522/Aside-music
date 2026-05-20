@@ -71,14 +71,10 @@ private struct PetWhiteThemeRoot<Content: View>: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        ZStack {
-            PetWhiteRootBackdrop()
-                .ignoresSafeArea()
-
-            content
-                .tint(PetWhiteStyle.accent)
-                .themeRenderSceneLayer()
-        }
+        content
+            .tint(PetWhiteStyle.accent)
+            .themeRenderSceneLayer()
+            .background(PetWhiteRootBackdrop())
     }
 }
 
@@ -152,11 +148,17 @@ private struct PetWhiteCornerTag: View {
 struct PetWhiteHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var cacheManager = OptimizedCacheManager.shared
+    @ObservedObject private var refreshManager = GlobalRefreshManager.shared
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: PetWhiteWebDestination?
     @State private var appeared = false
+    @State private var emptyHomeRecoveryAttempts = 0
+    @State private var homeRenderRevision = 0
+    private let maxEmptyHomeRecoveryAttempts = 8
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -174,18 +176,122 @@ struct PetWhiteHomeView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .onAppear {
+                    syncRenderedHomeData(reason: "pet white home appear")
+                    viewModel.reloadHomeCacheIfUseful(reason: "pet white home appear cache sync")
+                    refreshPetWhiteHitokotoIfNeeded(reason: "pet white home appear")
                     hydratePetWhiteHome(reason: "pet white home appear")
+                    scheduleEmptyStateReveal(reason: "pet white home appear")
+                    invalidateHomeRender()
                     revealHomeContent()
+                }
+                .task {
+                    syncRenderedHomeData(reason: "pet white home task")
+                    refreshPetWhiteHitokotoIfNeeded(reason: "pet white home task")
+                    hydratePetWhiteHome(reason: "pet white home task")
+                    recoverEmptyHomeIfNeeded(reason: "pet white empty task")
+                    await runInitialRenderedHomeDataSync()
                 }
                 .onChange(of: settings.globalThemeRevision) { _, _ in
                     appeared = false
+                    emptyHomeRecoveryAttempts = 0
+                    syncRenderedHomeData(reason: "pet white theme revision")
                     hydratePetWhiteHome(reason: "pet white theme revision")
+                    recoverEmptyHomeIfNeeded(reason: "pet white theme empty recovery")
+                    scheduleEmptyStateReveal(reason: "pet white theme revision")
+                    invalidateHomeRender()
                     revealHomeContent()
                 }
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active else { return }
+                    emptyHomeRecoveryAttempts = 0
+                    syncRenderedHomeData(reason: "pet white foreground")
+                    refreshPetWhiteHitokotoIfNeeded(reason: "pet white foreground")
                     hydratePetWhiteHome(reason: "pet white foreground")
+                    recoverEmptyHomeIfNeeded(reason: "pet white foreground empty recovery")
+                    scheduleEmptyStateReveal(reason: "pet white foreground")
+                    invalidateHomeRender()
                     revealHomeContent()
+                }
+                .onChange(of: isHomeDataEmpty) { _, isEmpty in
+                    if isEmpty {
+                        scheduleEmptyStateReveal(reason: "pet white empty appeared")
+                        recoverEmptyHomeIfNeeded(reason: "pet white empty appeared")
+                    } else {
+                        emptyHomeRecoveryAttempts = 0
+                        hideEmptyState()
+                    }
+                }
+                .onChange(of: viewModel.isLoading) { _, isLoading in
+                    guard !isLoading else { return }
+                    syncRenderedHomeData(reason: "pet white loading completed")
+                    if isHomeDataEmpty {
+                        scheduleEmptyStateReveal(reason: "pet white loading completed empty")
+                        recoverEmptyHomeIfNeeded(reason: "pet white loading completed empty")
+                    } else {
+                        emptyHomeRecoveryAttempts = 0
+                        hideEmptyState()
+                    }
+                    invalidateHomeRender()
+                }
+                .onReceive(viewModel.$homeContentRevision) { _ in
+                    syncRenderedHomeData(reason: "pet white content revision")
+                    if !isHomeDataEmpty {
+                        emptyHomeRecoveryAttempts = 0
+                        hideEmptyState()
+                    }
+                    invalidateHomeRender()
+                }
+                .onReceive(viewModel.$hitokoto.dropFirst()) { _ in
+                    invalidateHomeRender()
+                }
+                .onChange(of: viewModel.popularSongs.count) { _, _ in
+                    syncRenderedHomeData(reason: "pet white popular songs updated")
+                    if !isHomeDataEmpty {
+                        hideEmptyState()
+                    }
+                    invalidateHomeRender()
+                }
+                .onChange(of: cacheManager.isPreloading) { _, isPreloading in
+                    guard !isPreloading else { return }
+                    syncRenderedHomeData(reason: "pet white cache preload completed")
+                    if isHomeDataEmpty {
+                        emptyHomeRecoveryAttempts = 0
+                        viewModel.reloadHomeCacheIfUseful(reason: "pet white cache preload completed")
+                        hydratePetWhiteHome(reason: "pet white cache preload completed")
+                        recoverEmptyHomeIfNeeded(reason: "pet white cache preload empty recovery")
+                        scheduleEmptyStateReveal(reason: "pet white cache preload completed")
+                    }
+                    invalidateHomeRender()
+                }
+                .onChange(of: refreshManager.isPreloading) { _, isPreloading in
+                    guard !isPreloading else { return }
+                    syncRenderedHomeData(reason: "pet white launch preload completed")
+                    if isHomeDataEmpty {
+                        emptyHomeRecoveryAttempts = 0
+                        viewModel.reloadHomeCacheIfUseful(reason: "pet white launch preload completed")
+                        hydratePetWhiteHome(reason: "pet white launch preload completed")
+                        recoverEmptyHomeIfNeeded(reason: "pet white launch preload empty recovery")
+                        scheduleEmptyStateReveal(reason: "pet white launch preload completed")
+                    }
+                    invalidateHomeRender()
+                }
+                .onChange(of: onlineAccess.lastTokenStatus) { _, _ in
+                    guard onlineAccess.canUseOnlineFeatures else { return }
+                    emptyHomeRecoveryAttempts = 0
+                    syncRenderedHomeData(reason: "pet white online access refreshed")
+                    hydratePetWhiteHome(reason: "pet white online access refreshed")
+                    recoverEmptyHomeIfNeeded(reason: "pet white online access empty recovery")
+                    scheduleEmptyStateReveal(reason: "pet white online access refreshed")
+                    invalidateHomeRender()
+                }
+                .onChange(of: onlineAccess.isVerifying) { _, isVerifying in
+                    guard !isVerifying, onlineAccess.canUseOnlineFeatures else { return }
+                    emptyHomeRecoveryAttempts = 0
+                    syncRenderedHomeData(reason: "pet white online verification completed")
+                    hydratePetWhiteHome(reason: "pet white online verification completed")
+                    recoverEmptyHomeIfNeeded(reason: "pet white online verification empty recovery")
+                    scheduleEmptyStateReveal(reason: "pet white online verification completed")
+                    invalidateHomeRender()
                 }
                 .navigationDestination(for: HomeView.HomeDestination.self, destination: destinationView)
                 .fullScreenCover(isPresented: $showPersonalFM) {
@@ -199,29 +305,119 @@ struct PetWhiteHomeView: View {
     }
 
     private var isInitialHomeLoading: Bool {
-        viewModel.isLoading
-            && isHomeDataEmpty
+        isHomeDataEmpty
+            && (viewModel.isLoading || cacheManager.isPreloading || refreshManager.isPreloading)
     }
 
     private var isHomeDataEmpty: Bool {
-        viewModel.dailySongs.isEmpty
-            && viewModel.banners.isEmpty
-            && viewModel.recommendPlaylists.isEmpty
-            && viewModel.qqRecommendPlaylists.isEmpty
-            && viewModel.qqNewSongs.isEmpty
+        displayHomeData.isEmpty
     }
 
-    private var shouldHydrateHomeData: Bool {
-        viewModel.dailySongs.isEmpty
-            || viewModel.banners.isEmpty
-            || viewModel.recommendPlaylists.isEmpty
-            || viewModel.qqRecommendPlaylists.isEmpty
-            || viewModel.qqNewSongs.isEmpty
+    private var homeDataIdentity: String {
+        [
+            displayHomeData.fingerprint,
+            "loading-\(viewModel.isLoading)",
+            "content-\(viewModel.homeContentRevision)",
+            "hitokoto-\(viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "empty")",
+        ].joined(separator: "|")
+    }
+
+    private var homeRenderIdentity: String {
+        "\(homeDataIdentity)|render-\(homeRenderRevision)"
     }
 
     private func hydratePetWhiteHome(reason: String) {
         viewModel.ensureHomeDataLoaded(reason: reason)
+        syncRenderedHomeData(reason: "\(reason) sync")
+        if !isHomeDataEmpty {
+            emptyHomeRecoveryAttempts = 0
+            hideEmptyState()
+        }
     }
+
+    private func recoverEmptyHomeIfNeeded(reason: String) {
+        guard isHomeDataEmpty, !viewModel.isLoading, emptyHomeRecoveryAttempts < maxEmptyHomeRecoveryAttempts else { return }
+        emptyHomeRecoveryAttempts += 1
+        invalidateHomeRender()
+        viewModel.retryHomeDataLoad(reason: reason, resetsEmptyRecovery: false)
+    }
+
+    private func retryPetWhiteHome(reason: String) {
+        emptyHomeRecoveryAttempts = 0
+        hideEmptyState()
+        scheduleEmptyStateReveal(reason: reason)
+        invalidateHomeRender()
+        viewModel.retryHomeDataLoad(reason: reason)
+    }
+
+    private func refreshPetWhiteHitokotoIfNeeded(reason: String) {
+        guard settings.hitokotoEnabled else { return }
+
+        let current = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        viewModel.refreshHitokoto(force: current.isEmpty)
+        AppLogger.debug("PetWhiteHomeView: 检查每日一言 - \(reason)")
+    }
+
+    private func invalidateHomeRender() {
+        homeRenderRevision += 1
+    }
+
+    private func syncRenderedHomeData(reason: String) {
+        let snapshot = displayHomeData
+        if !snapshot.isEmpty {
+            emptyHomeRecoveryAttempts = 0
+            hideEmptyState()
+        }
+        invalidateHomeRender()
+        AppLogger.debug("PetWhiteHomeView: 首页实时数据刷新 - \(reason) - \(snapshot.fingerprint)")
+    }
+
+    private var displayHomeData: PetWhiteHomeDataSnapshot {
+        PetWhiteHomeDataSnapshot(
+            dailySongs: firstNonEmpty(
+                nonEmpty(viewModel.dailySongs, cacheKey: "daily_songs", type: [Song].self),
+                nonEmpty(viewModel.popularSongs, cacheKey: "popular_songs", type: [Song].self)
+            ),
+            banners: nonEmpty(viewModel.banners, cacheKey: "banners", type: [Banner].self),
+            recommendPlaylists: nonEmpty(viewModel.recommendPlaylists, cacheKey: "recommend_playlists", type: [Playlist].self),
+            qqRecommendPlaylists: nonEmpty(viewModel.qqRecommendPlaylists, cacheKey: "qq_recommend_playlists", type: [Playlist].self),
+            qqNewSongs: nonEmpty(viewModel.qqNewSongs, cacheKey: "qq_new_songs", type: [Song].self)
+        )
+    }
+
+    private func nonEmpty<T: Codable>(_ source: [T], cacheKey: String, type: [T].Type) -> [T] {
+        if !source.isEmpty {
+            return source
+        }
+        return OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: type) ?? []
+    }
+
+    private func firstNonEmpty<T>(_ candidates: [T]...) -> [T] {
+        candidates.first { !$0.isEmpty } ?? []
+    }
+
+    private func runInitialRenderedHomeDataSync() async {
+        for attempt in 0..<28 {
+            if Task.isCancelled { return }
+
+            await MainActor.run {
+                syncRenderedHomeData(reason: "pet white startup sync \(attempt)")
+            }
+
+            let hasContent = await MainActor.run {
+                !displayHomeData.isEmpty
+            }
+            if hasContent { return }
+
+            try? await Task.sleep(nanoseconds: 220_000_000)
+        }
+    }
+
+    private func scheduleEmptyStateReveal(reason: String) {
+        hideEmptyState()
+    }
+
+    private func hideEmptyState() {}
 
     private func revealHomeContent() {
         guard !appeared else { return }
@@ -231,7 +427,9 @@ struct PetWhiteHomeView: View {
     }
 
     private var scrollBody: some View {
-        ScrollView {
+        let homeData = displayHomeData
+
+        return ScrollView {
             VStack(spacing: 18) {
                 heroPanel
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -241,9 +439,9 @@ struct PetWhiteHomeView: View {
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .petWhiteAppear(appeared, order: 1)
 
-                if !viewModel.banners.isEmpty {
+                if !homeData.banners.isEmpty {
                     PetWhiteBannerCarousel(
-                        banners: viewModel.banners,
+                        banners: homeData.banners,
                         onTap: handleBannerTap
                     )
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -255,24 +453,22 @@ struct PetWhiteHomeView: View {
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                         .petWhiteAppear(appeared, order: 3)
                 } else if isHomeDataEmpty {
-                    PetWhiteHomeEmptyState {
-                        viewModel.retryHomeDataLoad(reason: "pet white empty retry")
-                    }
+                    PetWhiteLoadingView()
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .petWhiteAppear(appeared, order: 3)
                 }
 
-                if !viewModel.dailySongs.isEmpty {
+                if !homeData.dailySongs.isEmpty {
                     dailyTreats
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .petWhiteAppear(appeared, order: 4)
                 }
 
-                if !viewModel.recommendPlaylists.isEmpty {
+                if !homeData.recommendPlaylists.isEmpty {
                     PetWhitePlaylistShelf(
                         title: String(localized: "推荐歌单"),
                         detail: String(localized: "based_on_taste"),
-                        playlists: viewModel.recommendPlaylists,
+                        playlists: homeData.recommendPlaylists,
                         tint: PetWhiteStyle.butter,
                         icon: .library,
                         onViewAll: openLibrarySquare,
@@ -281,11 +477,11 @@ struct PetWhiteHomeView: View {
                     .petWhiteAppear(appeared, order: 5)
                 }
 
-                if !viewModel.qqRecommendPlaylists.isEmpty {
+                if !homeData.qqRecommendPlaylists.isEmpty {
                     PetWhitePlaylistShelf(
                         title: "QCM",
                         detail: String(localized: "更多发现"),
-                        playlists: viewModel.qqRecommendPlaylists,
+                        playlists: homeData.qqRecommendPlaylists,
                         tint: PetWhiteStyle.sky,
                         icon: .podcast,
                         assetName: "qqMusic",
@@ -295,11 +491,11 @@ struct PetWhiteHomeView: View {
                     .petWhiteAppear(appeared, order: 6)
                 }
 
-                if !viewModel.qqNewSongs.isEmpty {
+                if !homeData.qqNewSongs.isEmpty {
                     PetWhiteNewSongsBoard(
-                        songs: viewModel.qqNewSongs,
+                        songs: homeData.qqNewSongs,
                         onViewAll: { navigationPath.append(HomeView.HomeDestination.qcmNewSongs) },
-                        onPlay: { song in PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs) }
+                        onPlay: { song in PlayerManager.shared.play(song: song, in: homeData.qqNewSongs) }
                     )
                     .petWhiteAppear(appeared, order: 7)
                 }
@@ -311,8 +507,9 @@ struct PetWhiteHomeView: View {
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
+        .id(homeRenderIdentity)
         .refreshable {
-            viewModel.retryHomeDataLoad(reason: "pet white pull refresh")
+            retryPetWhiteHome(reason: "pet white pull refresh")
             viewModel.refreshHitokoto(force: true)
         }
     }
@@ -427,7 +624,9 @@ struct PetWhiteHomeView: View {
     }
 
     private var dailyTreats: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let songs = displayHomeData.dailySongs
+
+        return VStack(alignment: .leading, spacing: 12) {
             PetWhiteSectionTitle(
                 title: String(localized: "每日推荐"),
                 detail: String(localized: "今天的第一口音乐"),
@@ -437,9 +636,9 @@ struct PetWhiteHomeView: View {
             )
 
             VStack(spacing: 9) {
-                ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(songs.prefix(4).enumerated()), id: \.element.id) { index, song in
                     Button {
-                        PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
+                        PlayerManager.shared.play(song: song, in: songs)
                     } label: {
                         PetWhiteSongTreatRow(index: index + 1, song: song)
                     }
@@ -525,6 +724,38 @@ private struct PetWhiteWebDestination: Identifiable {
     let url: URL
 
     var id: URL { url }
+}
+
+private struct PetWhiteHomeDataSnapshot {
+    var dailySongs: [Song] = []
+    var banners: [Banner] = []
+    var recommendPlaylists: [Playlist] = []
+    var qqRecommendPlaylists: [Playlist] = []
+    var qqNewSongs: [Song] = []
+
+    var isEmpty: Bool {
+        dailySongs.isEmpty
+            && banners.isEmpty
+            && recommendPlaylists.isEmpty
+            && qqRecommendPlaylists.isEmpty
+            && qqNewSongs.isEmpty
+    }
+
+    var fingerprint: String {
+        [
+            part("daily", count: dailySongs.count, first: dailySongs.first?.id, last: dailySongs.last?.id),
+            part("banner", count: banners.count, first: banners.first?.id, last: banners.last?.id),
+            part("ncm-playlist", count: recommendPlaylists.count, first: recommendPlaylists.first?.id, last: recommendPlaylists.last?.id),
+            part("qq-playlist", count: qqRecommendPlaylists.count, first: qqRecommendPlaylists.first?.id, last: qqRecommendPlaylists.last?.id),
+            part("qq-song", count: qqNewSongs.count, first: qqNewSongs.first?.id, last: qqNewSongs.last?.id),
+        ].joined(separator: "|")
+    }
+
+    private func part<ID>(_ name: String, count: Int, first: ID?, last: ID?) -> String {
+        let firstValue = first.map { String(describing: $0) } ?? "nil"
+        let lastValue = last.map { String(describing: $0) } ?? "nil"
+        return "\(name)-\(count)-\(firstValue)-\(lastValue)"
+    }
 }
 
 private struct PetWhiteQuickAction: View {
@@ -1003,9 +1234,8 @@ struct PetWhiteSearchView: View {
 
 struct PetWhiteLibraryView: View {
     var body: some View {
-        PetWhiteThemeRoot(page: .library) {
-            LibraryView()
-        }
+        LibraryView()
+            .tint(PetWhiteStyle.accent)
     }
 }
 

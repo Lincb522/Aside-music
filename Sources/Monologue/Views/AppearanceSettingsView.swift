@@ -224,18 +224,6 @@ struct AppearanceSettingsView: View {
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
 
-                if settings.globalThemeId == .petWhite {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    SettingsToggleRow(
-                        icon: .sparkle,
-                        title: String(localized: "Paw 插画"),
-                        subtitle: String(localized: "切换为柔和插画风格"),
-                        isOn: $settings.petWhiteUsesIllustratedBackground
-                    )
-                }
             }
         }
     }
@@ -482,6 +470,19 @@ private struct ThemeColorCustomizationSection: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+
+                if theme == .petWhite {
+                    Divider()
+                        .opacity(0.4)
+                        .padding(.leading, 62)
+
+                    SettingsToggleRow(
+                        icon: .sparkle,
+                        title: String(localized: "Paw 插画"),
+                        subtitle: String(localized: "切换为柔和插画风格"),
+                        isOn: $settings.petWhiteUsesIllustratedBackground
+                    )
+                }
 
                 SettingsDisclosureReveal(isExpanded: isExpanded) {
                     VStack(alignment: .leading, spacing: 14) {

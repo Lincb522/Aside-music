@@ -1708,6 +1708,8 @@ struct SettingsIconBadge: View {
             SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 32)
         } else if CapsuleStyle.isActive {
             CapsuleIconBadge(icon: icon, tint: CapsuleStyle.accent, size: 32)
+        } else if PetWhiteStyle.isActive {
+            PetWhiteIconBadge(icon: icon, tint: petWhiteSettingsIconTint, size: 36)
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(BentoStyle.tomato.opacity(0.14))
@@ -1752,6 +1754,19 @@ struct SettingsIconBadge: View {
                     lineWidth: 1.6
                 )
             }
+        }
+    }
+
+    private var petWhiteSettingsIconTint: Color {
+        switch icon {
+        case .settings, .sparkle:
+            return PetWhiteStyle.mint
+        case .playerTheme, .tabBar, .gridSquare:
+            return PetWhiteStyle.butter
+        case .download, .storage, .cloud:
+            return PetWhiteStyle.sky
+        default:
+            return PetWhiteStyle.sky
         }
     }
 }
@@ -2172,73 +2187,124 @@ struct SettingsThemeRow: View {
     let icon: MonologueIcon.IconType
     let title: String
     @Binding var selection: String
-
-    @Environment(\.colorScheme) private var systemColorScheme
-
-    private var isDark: Bool {
-        switch selection {
-        case "dark": return true
-        case "light": return false
-        default: return systemColorScheme == .dark
-        }
-    }
-
-    private var isAuto: Bool {
-        selection == "system"
-    }
+    @State private var isExpanded = false
 
     var body: some View {
         VStack(spacing: 0) {
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: 14) {
+                    SettingsIconBadge(icon: summaryIcon)
+
+                    Text(title)
+                        .font(themedSettingsFont(16, weight: .medium))
+                        .foregroundColor(themedSettingsPrimaryColor())
+
+                    Spacer(minLength: 12)
+
+                    Text(summaryText)
+                        .font(themedSettingsFont(14, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.84)
+                        .foregroundColor(themedSettingsSecondaryColor())
+
+                    PetWhiteDisclosureChevron(
+                        isExpanded: isExpanded,
+                        size: 11,
+                        color: themedSettingsSecondaryColor(),
+                        lineWidth: 1.7
+                    )
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+
+            SettingsHeaderReveal(isExpanded: isExpanded) {
+                VStack(spacing: 0) {
+                    Divider()
+                        .opacity(0.4)
+                        .padding(.leading, 62)
+
+                    themeModeOptionRow(
+                        value: "system",
+                        icon: .sparkle,
+                        title: String(localized: "settings_theme_auto")
+                    )
+
+                    Divider()
+                        .opacity(0.28)
+                        .padding(.leading, 62)
+
+                    themeModeOptionRow(
+                        value: "light",
+                        icon: .sun,
+                        title: String(localized: "settings_theme_light")
+                    )
+
+                    Divider()
+                        .opacity(0.28)
+                        .padding(.leading, 62)
+
+                    themeModeOptionRow(
+                        value: "dark",
+                        icon: .moon,
+                        title: String(localized: "settings_theme_dark")
+                    )
+                }
+            }
+        }
+    }
+
+    private var summaryText: String {
+        switch selection {
+        case "light":
+            return String(localized: "settings_theme_light")
+        case "dark":
+            return String(localized: "settings_theme_dark")
+        default:
+            return String(localized: "settings_theme_auto")
+        }
+    }
+
+    private var summaryIcon: MonologueIcon.IconType {
+        switch selection {
+        case "light":
+            return .sun
+        case "dark":
+            return .moon
+        default:
+            return icon
+        }
+    }
+
+    private func themeModeOptionRow(value: String, icon: MonologueIcon.IconType, title: String) -> some View {
+        let isSelected = selection == value
+
+        return Button {
+            selection = value
+            isExpanded = false
+        } label: {
             HStack(spacing: 14) {
                 SettingsIconBadge(icon: icon)
 
-                Text(String(localized: "settings_theme_auto"))
-                    .font(themedSettingsFont(16, weight: .medium))
+                Text(title)
+                    .font(themedSettingsFont(15, weight: .medium))
                     .foregroundColor(themedSettingsPrimaryColor())
 
                 Spacer()
 
-                Toggle("", isOn: Binding(
-                    get: { isAuto },
-                    set: { newValue in
-                        selection = newValue ? "system" : (systemColorScheme == .dark ? "dark" : "light")
-                    }
-                ))
-                .labelsHidden()
-                .toggleStyle(SettingsSwitchToggleStyle())
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
-
-            SettingsHeaderReveal(isExpanded: !isAuto) {
-                VStack(spacing: 0) {
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                HStack(spacing: 14) {
-                    SettingsIconBadge(icon: isDark ? .moon : .sun)
-
-                    Text(isDark ? String(localized: "settings_theme_dark") : String(localized: "settings_theme_light"))
-                        .font(themedSettingsFont(16, weight: .medium))
-                        .foregroundColor(themedSettingsPrimaryColor())
-
-                    Spacer()
-
-                    Toggle("", isOn: Binding(
-                        get: { isDark },
-                        set: { newValue in
-                            selection = newValue ? "dark" : "light"
-                        }
-                    ))
-                    .labelsHidden()
-                    .toggleStyle(SettingsSwitchToggleStyle())
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 13)
+                if isSelected {
+                    MonologueIcon(icon: .checkmark, size: 16, color: themedSettingsPrimaryColor(), lineWidth: 1.8)
                 }
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 

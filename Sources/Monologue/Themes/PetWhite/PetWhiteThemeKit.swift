@@ -103,10 +103,9 @@ struct PetWhiteRootBackdrop: View {
 
             if settings.petWhiteUsesIllustratedBackground {
                 PetWhiteIllustratedBackdrop()
-                    .opacity(colorScheme == .dark ? 0.72 : 1)
 
                 Color.white
-                    .opacity(colorScheme == .dark ? 0.06 : 0.10)
+                    .opacity(colorScheme == .dark ? 0.02 : 0.10)
             } else {
                 PetWhiteBackdropWash()
                     .opacity(colorScheme == .dark ? 0.34 : 1)
@@ -129,6 +128,8 @@ struct PetWhiteRootBackdrop: View {
 }
 
 private struct PetWhiteIllustratedBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         GeometryReader { proxy in
             illustratedImage
@@ -141,8 +142,10 @@ private struct PetWhiteIllustratedBackdrop: View {
 
     @ViewBuilder
     private var illustratedImage: some View {
+        let assetName = colorScheme == .dark ? "pawThemeBackgroundDark" : "pawThemeBackground"
+
         #if canImport(UIKit)
-        if let image = UIImage(pawPrintIconId: "pawThemeBackground") {
+        if let image = UIImage(pawPrintIconId: assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
                 .resizable()
@@ -151,7 +154,7 @@ private struct PetWhiteIllustratedBackdrop: View {
             PetWhiteBackdropWash()
         }
         #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: "pawThemeBackground") {
+        if let image = NSImage.pawPrintIcon(id: assetName) {
             Image(nsImage: image)
                 .renderingMode(.original)
                 .resizable()
