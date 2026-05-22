@@ -3,6 +3,7 @@ import SwiftUI
 /// 关于页面 — 精致的 Liquid Glass 风格
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
     @State private var logoVisible = false
     @State private var cardsVisible = false
@@ -69,9 +70,7 @@ struct AboutView: View {
                             .scaleEffect(logoVisible ? 1 : 0.85)
 
                         // 一句话介绍
-                        Text("你的私人音乐宇宙")
-                            .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))
-                            .foregroundColor(aboutSecondaryText)
+                        aboutTaglineBlock
                             .opacity(logoVisible ? 1 : 0)
 
                         // 功能特性
@@ -207,15 +206,7 @@ struct AboutView: View {
             }
 
             // App 名称
-            Text("Monologue")
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: SequoiaStyle.isActive ? [SequoiaStyle.ink, SequoiaStyle.accent] : (NeumorphicStyle.isActive ? [NeumorphicStyle.ink, NeumorphicStyle.accent] : [.monologueTextPrimary, .monologueTextPrimary.opacity(0.7)]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+            MonoWordmarkImage(height: 34, preferredColorScheme: colorScheme)
 
             // 版本号（彩蛋入口）
             Text("Version \(appVersion)")
@@ -231,6 +222,25 @@ struct AboutView: View {
                         showDevModePrompt()
                     }
                 }
+        }
+    }
+
+    private var aboutTaglineBlock: some View {
+        VStack(spacing: 6) {
+            Text(LocalizedStringKey("welcome_slogan"))
+                .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))
+                .foregroundColor(aboutSecondaryText)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.86)
+
+            Text(LocalizedStringKey("welcome_slogan_short"))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundColor(aboutMutedText)
+                .tracking(1.45)
+                .multilineTextAlignment(.center)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
         }
     }
 
@@ -331,7 +341,7 @@ struct AboutView: View {
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(aboutMutedText.opacity(0.86))
 
-            Text("© 2024-2026 Monologue. All Rights Reserved.")
+            Text("© 2024-2026 mono. All Rights Reserved.")
                 .font(.system(size: 11, weight: .regular, design: .rounded))
                 .foregroundColor(aboutMutedText)
 

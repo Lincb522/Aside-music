@@ -622,6 +622,49 @@ struct PetWhitePetPetIcon: View {
     }
 }
 
+struct PetWhitePetPetHeroIcon: View {
+    var width: CGFloat = 132
+
+    private var height: CGFloat {
+        width * 2 / 3
+    }
+
+    var body: some View {
+        petPetHeroImage
+            .frame(width: width, height: height)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var petPetHeroImage: some View {
+        #if canImport(UIKit)
+        if let image = UIImage(pawPrintIconId: "petPetHero") {
+            Image(uiImage: image)
+                .renderingMode(.original)
+                .interpolation(.high)
+                .antialiased(true)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            PetWhitePetPetIcon(size: min(width, height))
+        }
+        #elseif canImport(AppKit)
+        if let image = NSImage.pawPrintIcon(id: "petPetHero") {
+            Image(nsImage: image)
+                .renderingMode(.original)
+                .interpolation(.high)
+                .antialiased(true)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            PetWhitePetPetIcon(size: min(width, height))
+        }
+        #else
+        PetWhitePetPetIcon(size: min(width, height))
+        #endif
+    }
+}
+
 struct PetWhiteIconBadge: View {
     let icon: MonologueIcon.IconType
     var tint: Color = PetWhiteStyle.mint

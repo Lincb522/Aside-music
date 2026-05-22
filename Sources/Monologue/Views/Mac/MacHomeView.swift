@@ -109,12 +109,16 @@ struct MacHomeView: View {
     private var macGreetingHeader: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
-                if SettingsManager.shared.hitokotoEnabled,
-                   let hitokoto = viewModel.hitokoto, !hitokoto.isEmpty {
-                    Text(hitokoto)
+                let hitokotoText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+                if SettingsManager.shared.hitokotoEnabled, !hitokotoText.isEmpty {
+                    Text(hitokotoText)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary.opacity(0.7))
                         .lineLimit(1)
+                } else if SettingsManager.shared.hitokotoEnabled {
+                    MonoWordmarkImage(height: 13)
+                        .frame(maxWidth: 54, alignment: .leading)
                 } else {
                     Text(greetingText)
                         .font(.system(size: 12, weight: .medium, design: .rounded))

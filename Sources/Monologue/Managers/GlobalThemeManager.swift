@@ -55,10 +55,10 @@ final class GlobalThemeManager {
         current.animationStyle
     }
 
-    // MARK: - 是否为默认主题
+    // MARK: - 是否为当前新安装默认主题
 
     var isDefault: Bool {
-        currentThemeId == .default
+        currentThemeId == GlobalThemeId.appDefault
     }
 
     // MARK: - 初始化
@@ -67,7 +67,7 @@ final class GlobalThemeManager {
     private var _cachedProvider: GlobalThemeProvider?
 
     private init() {
-        let raw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.default.rawValue
+        let raw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.appDefault.rawValue
         let restored = Self.resolveStoredTheme(raw)
         currentThemeId = Self.resolveRemovedTheme(restored)
         if currentThemeId.rawValue != raw {
@@ -119,6 +119,6 @@ final class GlobalThemeManager {
 
     private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
         if raw == "doodlePop" { return .default }
-        return GlobalThemeId(rawValue: raw) ?? .default
+        return GlobalThemeId(rawValue: raw) ?? .appDefault
     }
 }

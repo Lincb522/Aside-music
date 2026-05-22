@@ -5,12 +5,12 @@ import SwiftUI
 /// 全局主题枚举 — 控制整个 App 的视觉风格与布局结构
 /// 与 PlayerTheme（播放器内部 17 种布局）完全独立，互不影响
 enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
-    case `default`     // 默认 — 当前 App 的原始样貌
+    case `default`     // 经典 Aside — 原本的默认主题，保留 rawValue/文件名用于兼容
     case muji          // 无印良品 — 极简暖色纸质感、大量留白
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
     case capsule       // Capsule OS — 胶囊模块化系统界面
-    case petWhite      // Pawcelain — 纯白扁平、猫狗图标包语言
+    case petWhite      // Pawcelain — 当前新安装默认主题，纯白扁平、猫狗图标包语言
     case pureWhite     // 已移除：仅用于迁移旧存档
     case material3Expressive // 已移除：仅用于迁移旧存档
     case bento         // 已移除：仅用于迁移旧存档
@@ -21,14 +21,17 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    /// 当前新安装默认主题是 Paw；`.default` 仍表示历史经典主题。
+    static let appDefault: GlobalThemeId = .petWhite
+
     static var allCases: [GlobalThemeId] {
-        [.default, .muji, .manga, .neumorphic, .capsule, .petWhite]
+        [.petWhite, .default, .muji, .manga, .neumorphic, .capsule]
     }
 
     var displayName: String {
         switch self {
         case .default:
-            return String(localized: "默认")
+            return String(localized: "global_theme_classic_name")
         case .muji:
             return String(localized: "无印良品")
         case .manga:
@@ -40,14 +43,14 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .petWhite:
             return String(localized: "global_theme_pet_white_name")
         case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return String(localized: "默认")
+            return String(localized: "global_theme_classic_name")
         }
     }
 
     var description: String {
         switch self {
         case .default:
-            return String(localized: "Monologue 原始设计风格")
+            return String(localized: "global_theme_classic_description")
         case .muji:
             return String(localized: "极简纸质感，温暖呼吸感")
         case .manga:
@@ -59,7 +62,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
         case .petWhite:
             return String(localized: "global_theme_pet_white_description")
         case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return String(localized: "Monologue 原始设计风格")
+            return String(localized: "global_theme_classic_description")
         }
     }
 

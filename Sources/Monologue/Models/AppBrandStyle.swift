@@ -4,9 +4,15 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
     case monologue
     case aurora
     case musicCat
+    case paw
+    case pawMono
     case musicCatColor
 
     var id: String { rawValue }
+
+    static var allCases: [AppBrandStyle] {
+        [.paw, .aurora, .musicCat, .monologue, .pawMono, .musicCatColor]
+    }
 
     var displayName: String {
         switch self {
@@ -18,6 +24,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return String(localized: "settings_app_brand_music_cat")
         case .musicCatColor:
             return ""
+        case .paw:
+            return String(localized: "settings_app_brand_paw")
+        case .pawMono:
+            return String(localized: "settings_app_brand_paw_mono")
         }
     }
 
@@ -31,6 +41,10 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return String(localized: "settings_app_brand_music_cat_desc")
         case .musicCatColor:
             return ""
+        case .paw:
+            return String(localized: "settings_app_brand_paw_desc")
+        case .pawMono:
+            return String(localized: "settings_app_brand_paw_mono_desc")
         }
     }
 
@@ -52,6 +66,14 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "MusicCatColorLogoLight"
         case (.musicCatColor, .dark):
             return "MusicCatColorLogoDark"
+        case (.paw, .light):
+            return "PawLogoLight"
+        case (.paw, .dark):
+            return "PawLogoDark"
+        case (.pawMono, .light):
+            return "PawMonoLogoLight"
+        case (.pawMono, .dark):
+            return "PawMonoLogoDark"
         }
     }
 
@@ -73,13 +95,21 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "MusicCatColorPreviewLight"
         case (.musicCatColor, .dark):
             return "MusicCatColorPreviewDark"
+        case (.paw, .light):
+            return "PawPreviewLight"
+        case (.paw, .dark):
+            return "PawPreviewDark"
+        case (.pawMono, .light):
+            return "PawMonoPreviewLight"
+        case (.pawMono, .dark):
+            return "PawMonoPreviewDark"
         }
     }
 
     func alternateIconName(for appearance: AppBrandAppearance) -> String? {
         switch (self, appearance) {
         case (.monologue, .light):
-            return nil
+            return "AppIcon"
         case (.monologue, .dark):
             return "MonologueDarkAppIcon"
         case (.aurora, .light):
@@ -94,6 +124,14 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "MusicCatColorAppIcon"
         case (.musicCatColor, .dark):
             return "MusicCatColorDarkAppIcon"
+        case (.paw, .light):
+            return nil
+        case (.paw, .dark):
+            return "PawDarkAppIcon"
+        case (.pawMono, .light):
+            return "PawMonoAppIcon"
+        case (.pawMono, .dark):
+            return "PawMonoDarkAppIcon"
         }
     }
 
@@ -115,6 +153,14 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "F7E7C6"
         case (.musicCatColor, .dark):
             return "071425"
+        case (.paw, .light):
+            return "F8B70F"
+        case (.paw, .dark):
+            return "081225"
+        case (.pawMono, .light):
+            return "F8F8F6"
+        case (.pawMono, .dark):
+            return "030303"
         }
     }
 
@@ -136,6 +182,14 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return ["FFF5D9", "E4F7FA"]
         case (.musicCatColor, .dark):
             return ["0C2435", "030815"]
+        case (.paw, .light):
+            return ["FFE07A", "F6A70A"]
+        case (.paw, .dark):
+            return ["14213B", "030A19"]
+        case (.pawMono, .light):
+            return ["FFFFFF", "EEF2F8"]
+        case (.pawMono, .dark):
+            return ["171717", "020202"]
         }
     }
 
@@ -166,6 +220,14 @@ enum AppBrandStyle: String, CaseIterable, Identifiable {
             return "A9E8F0"
         case (.musicCatColor, .dark):
             return "4FC0D0"
+        case (.paw, .light):
+            return "FFCC4A"
+        case (.paw, .dark):
+            return "F8F6F1"
+        case (.pawMono, .light):
+            return "FFFFFF"
+        case (.pawMono, .dark):
+            return "FFFFFF"
         }
     }
 }

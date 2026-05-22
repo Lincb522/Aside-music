@@ -224,19 +224,24 @@ struct CapsuleHomeView: View {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 12) {
                     CapsulePillLabel(
-                        title: hitokotoEnabled ? String(localized: "每日一言") : "MONOLOGUE",
+                        title: String(localized: "settings_hitokoto"),
                         icon: .sparkle,
                         tint: CapsuleStyle.accent,
                         selected: true
                     )
 
-                    Text(hitokotoText)
-                        .font(CapsuleStyle.bodyFont(18, weight: .semibold))
-                        .foregroundStyle(CapsuleStyle.ink)
-                        .lineSpacing(4)
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.82)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if usesHitokotoFallback {
+                        MonoWordmarkImage(height: 28)
+                            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                    } else {
+                        Text(hitokotoText)
+                            .font(CapsuleStyle.bodyFont(18, weight: .semibold))
+                            .foregroundStyle(CapsuleStyle.ink)
+                            .lineSpacing(4)
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.82)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
 
                 VStack(spacing: 6) {
@@ -433,9 +438,11 @@ struct CapsuleHomeView: View {
     }
 
     private var hitokotoText: String {
-        guard hitokotoEnabled else { return "Monologue" }
-        let text = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return text.isEmpty ? "Monologue" : text
+        viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private var usesHitokotoFallback: Bool {
+        !hitokotoEnabled || hitokotoText.isEmpty
     }
 
     private var todayDay: String {

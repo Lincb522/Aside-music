@@ -7,7 +7,7 @@
 "search_placeholder" = "Search songs, artists...";
 "cancel" = "Cancel";
 "play_now" = "Play All";
-"login_title" = "Login to Monologue";
+"login_title" = "Login to mono";
 "scan_qr" = "Scan QR Code";
 "phone_login" = "Phone Login";
 "scan_instruction" = "Please use NCM App to scan";
@@ -39,7 +39,7 @@
 "good_dusk" = "Good Dusk";
 "good_evening" = "Good Evening";
 "good_late_night" = "Good Late Night";
-"default_nickname" = "Monologue";
+"default_nickname" = "mono";
 "search_bar_placeholder" = "Search songs, artists, playlists...";
 "new_releases" = "New Releases";
 "quick_daily" = "Daily";
@@ -180,7 +180,9 @@
 "settings_appearance" = "Appearance & Interaction";
 "settings_appearance_global_theme_section" = "Global Theme";
 "settings_appearance_theme_style" = "Theme Style";
-"global_theme_pet_white_name" = "Pawcelain";
+"global_theme_classic_name" = "Classic Aside";
+"global_theme_classic_description" = "The original Aside visual style.";
+"global_theme_pet_white_name" = "Default";
 "global_theme_pet_white_description" = "A clean white flat interface shaped around the cat-and-dog icon pack.";
 "settings_appearance_app_icon_section" = "App Icon";
 "settings_appearance_layout_section" = "Interface Layout";
@@ -367,7 +369,7 @@
 "local_library_custom_subtitle" = "%d playlists ready to edit and play";
 "local_library_import_no_local_match" = "The playlist file was parsed, but none of its songs exist in the local library yet. Import the music first and try again.";
 "local_library_import_success" = "Imported \"%@\" and matched %d local tracks.";
-"local_profile_hero_title" = "Monologue";
+"local_profile_hero_title" = "mono";
 "local_profile_hero_subtitle" = "%d local tracks are ready, along with your library, downloads, and device settings.";
 "local_profile_shortcuts_title" = "Shortcuts";
 "local_profile_shortcuts_subtitle" = "Jump back into favorites, recent playback, and offline collections.";
@@ -381,7 +383,7 @@
 "settings_default_liquid_glass_tabbar" = "Liquid Glass TabBar";
 "settings_background_audio_policy" = "Background Playback Mode";
 "settings_background_audio_policy_exclusive" = "Exclusive";
-"settings_background_audio_policy_exclusive_desc" = "Prefer Monologue as the primary player and may interrupt other audio";
+"settings_background_audio_policy_exclusive_desc" = "Prefer mono as the primary player and may interrupt other audio";
 "settings_background_audio_policy_automatic" = "Automatic";
 "settings_background_audio_policy_automatic_desc" = "Mix with other audio only when another app is already playing";
 "settings_background_audio_policy_always_mix" = "Always Mix";
@@ -435,12 +437,16 @@
 "settings_app_brand_title" = "App Icon";
 "settings_app_brand_desc" = "Switch the Home Screen icon and the in-app logo together";
 "settings_app_brand_device_hint" = "Home Screen icon switching may require a real device; the in-app logo updates immediately.";
-"settings_app_brand_monologue" = "Monologue";
+"settings_app_brand_monologue" = "mono";
 "settings_app_brand_monologue_desc" = "Classic ghost mark";
 "settings_app_brand_aurora" = "Aside";
 "settings_app_brand_aurora_desc" = "Headphone waveform mark";
 "settings_app_brand_music_cat" = "Music Cat";
 "settings_app_brand_music_cat_desc" = "Cat note mark";
+"settings_app_brand_paw" = "Default";
+"settings_app_brand_paw_desc" = "Default Paw cat and dog icon";
+"settings_app_brand_paw_mono" = "Paw Mono";
+"settings_app_brand_paw_mono_desc" = "Paw icon with mono wordmark";
 "settings_app_brand_appearance_title" = "Icon Appearance";
 "settings_app_brand_appearance_desc" = "Choose light or dark manually instead of following the system";
 "settings_app_brand_appearance_light" = "Light";
@@ -469,7 +475,7 @@
 "settings_like_choose_playlist_subtitle" = "Show a playlist picker when liking a new song";
 "settings_header_footer_authorized" = "Thanks for your support. Contact the developer if you have feedback.";
 "settings_header_footer_unauthorized" = "Not authorized. Tap the status button on the right to enter a token.";
-"settings_developer_status" = "Monologue Development & Maintenance";
+"settings_developer_status" = "mono Development & Maintenance";
 "settings_open_wechat" = "Open WeChat";
 "settings_contact_copied" = "Copied";
 "settings_token_authorized_format" = "Authorized: %@";
@@ -562,7 +568,8 @@
 "login_privacy_policy" = "Privacy Policy";
 
 /* Welcome - New */
-"welcome_slogan" = "Beyond the music, a soliloquy of the heart";
+"welcome_slogan" = "The world is loud. Keep a sound for yourself.";
+"welcome_slogan_short" = "LOUD WORLD · QUIET SOUND";
 "welcome_back" = "Welcome back, %@";
 "welcome_user" = "User";
 
@@ -661,7 +668,7 @@
 "debug_level_error" = "Error";
 "debug_level_network" = "Network";
 "debug_level_success" = "Success";
-"debug_export_title" = "Monologue Debug Log";
+"debug_export_title" = "mono Debug Log";
 "debug_export_time" = "Export Time";
 "debug_export_count" = "Log Count";
 

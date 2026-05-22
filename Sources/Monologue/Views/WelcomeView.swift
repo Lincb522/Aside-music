@@ -44,6 +44,10 @@ struct WelcomeView: View {
         DeviceLayout.isPad ? 122 : 100
     }
 
+    private var titleWordmarkHeight: CGFloat {
+        DeviceLayout.isPad ? 46 : 38
+    }
+
     private var heroSpring: Animation {
         .spring(response: reduceMotion ? 0.24 : 0.54, dampingFraction: 0.82)
     }
@@ -201,20 +205,17 @@ struct WelcomeView: View {
 
             // 标题区域 — 错峰入场(标题先于副标题)
             VStack(spacing: 12) {
-                Text("Monologue")
-                    .font(.system(size: DeviceLayout.isPad ? 40 : 32, weight: .semibold, design: .rounded))
-                    .foregroundStyle(defaultTitleStyle)
-                    .tracking(0.4)
+                MonoWordmarkImage(height: titleWordmarkHeight)
                     .scaleEffect(titleOpacity > 0.5 ? 1.0 : 0.88)
                     .blur(radius: titleOpacity > 0.5 ? 0 : 10)
                     .opacity(titleOpacity)
                     .offset(y: titleOffset)
 
-                Text(LocalizedStringKey("welcome_slogan"))
-                    .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
-                    .tracking(DeviceLayout.isPad ? 1.8 : 1.35)
-                    .multilineTextAlignment(.center)
+                welcomeSloganBlock(
+                    font: .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded),
+                    color: .monologueTextSecondary,
+                    tracking: DeviceLayout.isPad ? 1.8 : 1.35
+                )
                     .scaleEffect(subtitleOpacity > 0.5 ? 1.0 : 0.92)
                     .blur(radius: subtitleOpacity > 0.5 ? 0 : 8)
                     .opacity(subtitleOpacity)
@@ -318,14 +319,8 @@ struct WelcomeView: View {
                     )
                     .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 18, x: 0, y: 12)
 
-                HStack(spacing: 12) {
-                    PetWhiteMascotMark(kind: .cat, size: logoSize * 0.78)
-                        .offset(y: 8)
-
-                    PetWhiteMascotMark(kind: .dog, size: logoSize * 0.86)
-                        .offset(y: -8)
-                }
-                .scaleEffect(plateScale > 0.96 ? 1 : 0.92)
+                PetWhitePetPetHeroIcon(width: logoSize * 1.55)
+                    .scaleEffect(plateScale > 0.96 ? 1 : 0.92)
 
                 PetWhiteFloatingBowTie()
                     .offset(x: -plateSize * 0.44, y: -plateSize * 0.34)
@@ -494,18 +489,15 @@ struct WelcomeView: View {
 
     private var defaultTitleBlock: some View {
         VStack(spacing: 12) {
-            Text("Monologue")
-                .font(.system(size: DeviceLayout.isPad ? 40 : 32, weight: .semibold, design: .rounded))
-                .foregroundStyle(defaultTitleStyle)
-                .tracking(0.4)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(.system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
-                .tracking(DeviceLayout.isPad ? 1.8 : 1.35)
-                .multilineTextAlignment(.center)
+            welcomeSloganBlock(
+                font: .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded),
+                color: .monologueTextSecondary,
+                tracking: DeviceLayout.isPad ? 1.8 : 1.35
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -522,18 +514,15 @@ struct WelcomeView: View {
 
     private var mujiTitleBlock: some View {
         VStack(spacing: 11) {
-            Text("Monologue")
-                .font(MujiStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .regular))
-                .foregroundStyle(MujiStyle.ink)
-                .tracking(0.7)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(MujiStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .regular))
-                .foregroundStyle(MujiStyle.inkSoft)
-                .tracking(1.2)
-                .multilineTextAlignment(.center)
+            welcomeSloganBlock(
+                font: MujiStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .regular),
+                color: MujiStyle.inkSoft,
+                tracking: 1.2
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -556,18 +545,16 @@ struct WelcomeView: View {
 
     private var mangaTitleBlock: some View {
         VStack(spacing: 11) {
-            Text("MONOLOGUE")
-                .font(MangaStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .black))
-                .foregroundStyle(MangaStyle.ink)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(MangaStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold))
-                .foregroundStyle(MangaStyle.inkSub)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+            welcomeSloganBlock(
+                font: MangaStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold),
+                color: MangaStyle.inkSub,
+                minimumScaleFactor: 0.8,
+                shortColor: MangaStyle.accentPink.opacity(0.82)
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -584,19 +571,16 @@ struct WelcomeView: View {
 
     private var petWhiteTitleBlock: some View {
         VStack(spacing: 11) {
-            Text("MONOLOGUE")
-                .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .black))
-                .foregroundStyle(PetWhiteStyle.ink)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(PetWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .black))
-                .foregroundStyle(PetWhiteStyle.inkSoft)
-                .tracking(0.9)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
+            welcomeSloganBlock(
+                font: PetWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .black),
+                color: PetWhiteStyle.inkSoft,
+                tracking: 0.9,
+                shortColor: PetWhiteStyle.dogOrange.opacity(0.82)
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -626,18 +610,15 @@ struct WelcomeView: View {
 
     private var pureWhiteTitleBlock: some View {
         VStack(spacing: 11) {
-            Text("MONOLOGUE")
-                .font(PureWhiteStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .black))
-                .foregroundStyle(PureWhiteStyle.ink)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(PureWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold))
-                .foregroundStyle(PureWhiteStyle.inkSoft)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
+            welcomeSloganBlock(
+                font: PureWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold),
+                color: PureWhiteStyle.inkSoft,
+                shortColor: PureWhiteStyle.accent.opacity(0.8)
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -654,17 +635,16 @@ struct WelcomeView: View {
 
     private var neumorphicTitleBlock: some View {
         VStack(spacing: 12) {
-            Text("Monologue")
-                .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 38 : 31, weight: .semibold))
-                .foregroundStyle(NeumorphicStyle.ink)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(NeumorphicStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .medium))
-                .foregroundStyle(NeumorphicStyle.inkSoft)
-                .tracking(1.0)
-                .multilineTextAlignment(.center)
+            welcomeSloganBlock(
+                font: NeumorphicStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .medium),
+                color: NeumorphicStyle.inkSoft,
+                tracking: 1.0,
+                shortColor: NeumorphicStyle.accent.opacity(0.78)
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -684,19 +664,16 @@ struct WelcomeView: View {
 
     private var capsuleTitleBlock: some View {
         VStack(spacing: 12) {
-            Text("Monologue")
-                .font(CapsuleStyle.titleFont(DeviceLayout.isPad ? 39 : 32, weight: .bold))
-                .foregroundStyle(CapsuleStyle.ink)
+            MonoWordmarkImage(height: titleWordmarkHeight)
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
 
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(CapsuleStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .semibold))
-                .foregroundStyle(CapsuleStyle.inkSoft)
-                .tracking(0.8)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
+            welcomeSloganBlock(
+                font: CapsuleStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .semibold),
+                color: CapsuleStyle.inkSoft,
+                tracking: 0.8,
+                shortColor: CapsuleStyle.accent.opacity(0.78)
+            )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
@@ -708,6 +685,34 @@ struct WelcomeView: View {
             .scaleEffect(x: accentScaleX, y: 1)
             .opacity(accentOpacity)
             .padding(.top, 2)
+        }
+    }
+
+    private func welcomeSloganBlock(
+        font: Font,
+        color: Color,
+        tracking: CGFloat = 0,
+        lineLimit: Int = 2,
+        minimumScaleFactor: CGFloat = 0.82,
+        shortColor: Color? = nil,
+        shortTracking: CGFloat = 1.4
+    ) -> some View {
+        VStack(spacing: DeviceLayout.isPad ? 7 : 5) {
+            Text(LocalizedStringKey("welcome_slogan"))
+                .font(font)
+                .foregroundColor(color)
+                .tracking(tracking)
+                .multilineTextAlignment(.center)
+                .lineLimit(lineLimit)
+                .minimumScaleFactor(minimumScaleFactor)
+
+            Text(LocalizedStringKey("welcome_slogan_short"))
+                .font(.system(size: DeviceLayout.isPad ? 10 : 9, weight: .semibold, design: .rounded))
+                .foregroundColor((shortColor ?? color).opacity(0.72))
+                .tracking(shortTracking)
+                .multilineTextAlignment(.center)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
         }
     }
 

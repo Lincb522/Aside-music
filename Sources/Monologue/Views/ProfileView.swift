@@ -1330,7 +1330,7 @@ struct ProfileView: View {
                         }
                     }
 
-                    Text(signature.isEmpty ? String(localized: "Monologue") : signature)
+                    Text(signature.isEmpty ? String(localized: "mono") : signature)
                         .font(SequoiaStyle.labelFont(12, weight: .regular))
                         .foregroundStyle(SequoiaStyle.inkSoft)
                         .lineLimit(2)

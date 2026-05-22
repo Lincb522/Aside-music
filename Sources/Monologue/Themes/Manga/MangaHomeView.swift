@@ -200,13 +200,19 @@ struct MangaHomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 MangaLabel(text: hitokotoLabel, tint: MangaStyle.accentPink, small: true)
 
-                Text(mangaHeaderLine)
-                    .font(MangaStyle.titleFont(24, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 58, alignment: .leading)
-                    .layoutPriority(1)
+                if usesHitokotoFallback {
+                    MonoWordmarkImage(height: 30)
+                        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                        .layoutPriority(1)
+                } else {
+                    Text(mangaHeaderLine)
+                        .font(MangaStyle.titleFont(24, weight: .black))
+                        .foregroundStyle(MangaStyle.ink)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 58, alignment: .leading)
+                        .layoutPriority(1)
+                }
 
                 HStack(spacing: 8) {
                     mangaDateBadge
@@ -673,18 +679,15 @@ struct MangaHomeView: View {
     }
 
     private var mangaHeaderLine: String {
-        guard hitokotoEnabled else { return "Monologue" }
+        viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
 
-        if let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !hitokoto.isEmpty {
-            return hitokoto
-        }
-
-        return "Monologue"
+    private var usesHitokotoFallback: Bool {
+        !hitokotoEnabled || mangaHeaderLine.isEmpty
     }
 
     private var hitokotoLabel: String {
-        hitokotoEnabled ? String(localized: "settings_hitokoto") : "Monologue"
+        String(localized: "settings_hitokoto")
     }
 
     private var mangaGreetingText: String {

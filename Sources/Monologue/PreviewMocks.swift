@@ -36,7 +36,7 @@ struct PreviewMocks {
         subscribedCount: 100,
         shareCount: 50,
         commentCount: 20,
-        creator: PlaylistCreator(userId: 1, nickname: "Monologue", avatarUrl: ""),
+        creator: PlaylistCreator(userId: 1, nickname: "mono", avatarUrl: ""),
         description: "素胚勾勒出青花笔锋浓转淡",
         tags: ["国风", "古风"]
     )

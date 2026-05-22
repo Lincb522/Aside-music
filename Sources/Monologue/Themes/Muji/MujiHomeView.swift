@@ -219,14 +219,20 @@ struct MujiHomeView: View {
                 MonologueSymbolIcon(name: "quote.opening", size: 16, color: MujiStyle.clay.opacity(0.72))
                     .padding(.top, 2)
 
-                Text(mujiHeaderQuote)
-                    .font(MujiStyle.bodyFont(18, weight: .regular))
-                    .foregroundStyle(textPrimary)
-                    .lineSpacing(5)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 58, alignment: .leading)
-                    .layoutPriority(1)
-                    .textSelection(.disabled)
+                if usesHitokotoFallback {
+                    MonoWordmarkImage(height: 28)
+                        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                        .layoutPriority(1)
+                } else {
+                    Text(mujiHeaderQuote)
+                        .font(MujiStyle.bodyFont(18, weight: .regular))
+                        .foregroundStyle(textPrimary)
+                        .lineSpacing(5)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 58, alignment: .leading)
+                        .layoutPriority(1)
+                        .textSelection(.disabled)
+                }
             }
 
             HStack(spacing: 10) {
@@ -248,23 +254,19 @@ struct MujiHomeView: View {
     }
 
     private var mujiHeaderQuote: String {
-        guard hitokotoEnabled else { return "Monologue" }
+        viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
 
-        if let hitokoto = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !hitokoto.isEmpty
-        {
-            return hitokoto
-        }
-
-        return "Monologue"
+    private var usesHitokotoFallback: Bool {
+        !hitokotoEnabled || mujiHeaderQuote.isEmpty
     }
 
     private var hitokotoLabel: String {
-        hitokotoEnabled ? String(localized: "settings_hitokoto") : "Monologue"
+        String(localized: "settings_hitokoto")
     }
 
     private var hitokotoFootnote: String {
-        hitokotoEnabled ? "HITOKOTO" : "MONOLOGUE"
+        "HITOKOTO"
     }
 
     // MARK: - 问候

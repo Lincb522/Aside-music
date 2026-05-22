@@ -174,7 +174,6 @@ public struct ContentView: View {
                 .tag(Tab.profile)
         }
         .tint(tabTint)
-        .id(tabViewIdentity)
     }
 
     @ViewBuilder
@@ -210,25 +209,6 @@ public struct ContentView: View {
                 }
             }
         }
-        .id(tabRootIdentity(for: tab))
-    }
-
-    private func tabRootIdentity(for tab: Tab) -> String {
-        [
-            settings.globalThemeId.rawValue,
-            "\(settings.globalThemeRevision)",
-            "\(tab.rawValue)",
-            onlineAccess.canUseOnlineFeatures ? "online" : "local",
-        ].joined(separator: "-")
-    }
-
-    private var tabViewIdentity: String {
-        [
-            settings.globalThemeId.rawValue,
-            "\(settings.globalThemeRevision)",
-            onlineAccess.canUseOnlineFeatures ? "online" : "local",
-            settings.useSystemTabBar ? "system" : "custom",
-        ].joined(separator: "-")
     }
 
     private func tabLabelKey(for tab: Tab) -> String {
@@ -241,6 +221,37 @@ public struct ContentView: View {
 
     @ViewBuilder
     private func tabIcon(for tab: Tab) -> some View {
+        let tabIconSize: CGFloat = 23
+
+        if AppInterfaceIconSet.selectedFromDefaults == .pawPrint {
+            MonologueIcon(
+                icon: pawPrintTabIcon(for: tab),
+                size: tabIconSize
+            )
+        } else {
+            defaultTabIcon(for: tab)
+        }
+    }
+
+    private func pawPrintTabIcon(for tab: Tab) -> MonologueIcon.IconType {
+        switch tab {
+        case .home:
+            return currentTab == .home ? .homeFilled : .home
+        case .podcast:
+            if onlineAccess.canUseOnlineFeatures {
+                return currentTab == .podcast ? .podcastFilled : .podcast
+            } else {
+                return currentTab == .podcast ? .musicNoteList : .musicNote
+            }
+        case .library:
+            return currentTab == .library ? .libraryFilled : .library
+        case .profile:
+            return currentTab == .profile ? .profileFilled : .profile
+        }
+    }
+
+    @ViewBuilder
+    private func defaultTabIcon(for tab: Tab) -> some View {
         switch tab {
         case .home:
             Image(uiImage: currentTab == .home ? Hicon.home2 : Hicon.home1)

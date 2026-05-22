@@ -11,19 +11,28 @@ struct HomeHeader: View {
     @State private var greetingVisible = false
 
     private var showHitokoto: Bool {
-        settings.hitokotoEnabled && hitokoto?.isEmpty == false
+        settings.hitokotoEnabled && hitokotoText.isEmpty == false
+    }
+
+    private var hitokotoText: String {
+        hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     var body: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 if showHitokoto {
-                    Text(hitokoto!)
+                    Text(hitokotoText)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(.monologueTextSecondary.opacity(0.8))
                         .textCase(.uppercase)
                         .lineLimit(1...2)
                         .minimumScaleFactor(0.85)
+                        .opacity(greetingVisible ? 1 : 0)
+                        .offset(y: greetingVisible ? 0 : 5)
+                } else if settings.hitokotoEnabled {
+                    MonoWordmarkImage(height: 14)
+                        .frame(maxWidth: 58, alignment: .leading)
                         .opacity(greetingVisible ? 1 : 0)
                         .offset(y: greetingVisible ? 0 : 5)
                 } else {

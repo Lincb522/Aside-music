@@ -295,7 +295,7 @@ struct DebugLogView: View {
     }
     
     private func exportLogsAsText() -> String {
-        var text = String(localized: "Monologue 调试日志\n")
+        var text = String(localized: "mono 调试日志\n")
         text += String(localized: "导出时间: \(Date())\n")
         text += String(localized: "日志数量: \(filteredLogs.count)\n")
         text += String(repeating: "=", count: 50) + "\n\n"

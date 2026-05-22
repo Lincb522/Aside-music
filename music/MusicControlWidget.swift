@@ -19,7 +19,7 @@ struct PlayPauseControlWidget: ControlWidget {
                 Label("播放/暂停", systemImage: "play.pause.fill")
             }
         }
-        .displayName("Monologue 播放/暂停")
+        .displayName("mono 播放/暂停")
     }
 }
 
@@ -31,7 +31,7 @@ struct NextTrackControlWidget: ControlWidget {
                 Label("下一首", systemImage: "forward.fill")
             }
         }
-        .displayName("Monologue 下一首")
+        .displayName("mono 下一首")
     }
 }
 
@@ -227,7 +227,7 @@ struct NowPlayingEntry: TimelineEntry {
             return NowPlayingEntry(
                 date: .now,
                 songName: "纸飞机",
-                artistName: "Monologue",
+                artistName: "mono",
                 albumName: "Polaroid Preview",
                 playbackState: .playing,
                 coverImageData: nil,
@@ -248,7 +248,7 @@ struct NowPlayingEntry: TimelineEntry {
             return NowPlayingEntry(
                 date: .now,
                 songName: "Midnight Drive",
-                artistName: "Monologue",
+                artistName: "mono",
                 albumName: "Vinyl Preview",
                 playbackState: .playing,
                 coverImageData: nil,
@@ -315,7 +315,7 @@ struct NowPlayingEntry: TimelineEntry {
             return NowPlayingEntry(
                 date: .now,
                 songName: "Midnight Drive",
-                artistName: "Monologue",
+                artistName: "mono",
                 albumName: "Preview",
                 playbackState: .playing,
                 coverImageData: nil,
@@ -2475,7 +2475,7 @@ struct PosterWidgetTheme: View {
     let family: WidgetFamily
 
     private var displaySong: String { entry.isEmpty ? "Not Playing" : entry.songName }
-    private var displayArtist: String { entry.isEmpty ? "Aside Music" : entry.artistName }
+    private var displayArtist: String { entry.isEmpty ? "mono" : entry.artistName }
     private var displayLyric: String { entry.lyricText.isEmpty ? "" : entry.lyricText }
 
     @ViewBuilder
@@ -6186,7 +6186,7 @@ struct SoundwaveTheme: View {
     var family: WidgetFamily
 
     private var song: String {
-        return entry.songName.isEmpty ? "Monologue" : entry.songName
+        return entry.songName.isEmpty ? "mono" : entry.songName
     }
     
     private var artist: String {

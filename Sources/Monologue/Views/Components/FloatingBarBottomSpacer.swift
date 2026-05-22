@@ -9,7 +9,7 @@ struct FloatingBarBottomSpacer: View {
 
     @AppStorage("useSystemTabBar") private var useSystemTabBar = false
     @AppStorage("floatingBarStyle") private var floatingBarStyleRaw = FloatingBarStyle.unified.rawValue
-    @AppStorage("globalThemeId") private var globalThemeIdRaw = GlobalThemeId.default.rawValue
+    @AppStorage("globalThemeId") private var globalThemeIdRaw = GlobalThemeId.appDefault.rawValue
     @State private var isTabBarHidden = PlayerManager.shared.isTabBarHidden
     @State private var hasCurrentSong = PlayerManager.shared.currentSong != nil
 

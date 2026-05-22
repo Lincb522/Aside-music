@@ -104,12 +104,16 @@ struct HomeView: View {
 
     private var homeToolbarGreeting: some View {
         VStack(alignment: .leading, spacing: 1) {
-            if SettingsManager.shared.hitokotoEnabled,
-               let hitokoto = viewModel.hitokoto, !hitokoto.isEmpty {
-                Text(hitokoto)
+            let hitokotoText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            if settings.hitokotoEnabled, !hitokotoText.isEmpty {
+                Text(hitokotoText)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(.monologueTextSecondary.opacity(0.7))
                     .lineLimit(1)
+            } else if settings.hitokotoEnabled {
+                MonoWordmarkImage(height: 12)
+                    .frame(maxWidth: 52, alignment: .leading)
             } else {
                 Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
                     .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -145,9 +149,13 @@ struct HomeView: View {
     private var homeGreetingSection: some View {
         VStack(spacing: 12) {
             greetingRow
-            if SettingsManager.shared.hitokotoEnabled,
-               let hitokoto = viewModel.hitokoto, !hitokoto.isEmpty {
-                hitokotoCard(hitokoto)
+            if settings.hitokotoEnabled {
+                let hitokotoText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if hitokotoText.isEmpty {
+                    hitokotoFallbackCard
+                } else {
+                    hitokotoCard(hitokotoText)
+                }
             }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -175,6 +183,35 @@ struct HomeView: View {
     }
 
     @State private var hitokotoRefreshing = false
+
+    private var hitokotoFallbackCard: some View {
+        HStack(alignment: .center, spacing: 12) {
+            MonologueSymbolIcon(name: "quote.opening", size: 17, color: .monologueTextPrimary.opacity(0.42))
+
+            MonoWordmarkImage(height: 26)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    hitokotoRefreshing = true
+                }
+                viewModel.refreshHitokoto(force: true)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    withAnimation { hitokotoRefreshing = false }
+                }
+            } label: {
+                MonologueIcon(icon: .refresh, size: 12, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.5)
+                    .rotationEffect(.degrees(hitokotoRefreshing ? 360 : 0))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.monologueTextPrimary.opacity(0.04))
+        )
+    }
 
     private func hitokotoCard(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {

@@ -109,7 +109,7 @@ struct MacContentView: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 78, height: 52)
 
-            Text("Monologue")
+            Text("mono")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary.opacity(0.6))
 

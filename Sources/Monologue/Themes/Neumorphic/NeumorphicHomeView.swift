@@ -211,12 +211,17 @@ struct NeumorphicHomeView: View {
                             .tracking(1.0)
                     }
 
-                    Text(hitokotoText)
-                        .font(NeumorphicStyle.bodyFont(18, weight: .medium))
-                        .foregroundStyle(NeumorphicStyle.ink)
-                        .lineSpacing(5)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if usesHitokotoFallback {
+                        MonoWordmarkImage(height: 28)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    } else {
+                        Text(hitokotoText)
+                            .font(NeumorphicStyle.bodyFont(18, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineSpacing(5)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     if hitokotoEnabled {
                         HStack(spacing: 9) {
@@ -622,14 +627,15 @@ struct NeumorphicHomeView: View {
     }
 
     private var hitokotoText: String {
-        guard hitokotoEnabled else { return "Monologue" }
+        viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
 
-        let trimmed = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? "Monologue" : trimmed
+    private var usesHitokotoFallback: Bool {
+        !hitokotoEnabled || hitokotoText.isEmpty
     }
 
     private var hitokotoLabel: String {
-        hitokotoEnabled ? String(localized: "每日一言") : "Monologue"
+        String(localized: "settings_hitokoto")
     }
 
     private var mergedPlaylists: [Playlist] {

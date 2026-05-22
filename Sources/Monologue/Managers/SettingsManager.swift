@@ -9,7 +9,7 @@ final class SettingsManager: ObservableObject {
     // MARK: - 外观设置
 
     /// 全局主题 ID
-    @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.default.rawValue {
+    @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.appDefault.rawValue {
         didSet {
             let resolvedId = Self.resolveRemovedTheme(Self.resolveStoredTheme(globalThemeIdRaw))
 
@@ -46,7 +46,7 @@ final class SettingsManager: ObservableObject {
 
     private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
         if raw == "doodlePop" { return .default }
-        return GlobalThemeId(rawValue: raw) ?? .default
+        return GlobalThemeId(rawValue: raw) ?? .appDefault
     }
 
     /// 悬浮栏样式
@@ -199,12 +199,12 @@ final class SettingsManager: ObservableObject {
         set { gameModePreferredQualityRaw = newValue?.rawValue ?? "" }
     }
 
-    /// 应用图标 / Logo 风格
+    /// 应用图标 / Logo 风格。Paw 是新安装默认图标；主 AppIcon 文件名保持不变。
     @AppStorage(AppConfig.StorageKeys.appBrandStyle)
-    var appBrandStyleRaw: String = AppBrandStyle.monologue.rawValue
+    var appBrandStyleRaw: String = AppBrandStyle.paw.rawValue
 
     var appBrandStyle: AppBrandStyle {
-        get { AppBrandStyle(rawValue: appBrandStyleRaw) ?? .monologue }
+        get { AppBrandStyle(rawValue: appBrandStyleRaw) ?? .paw }
         set { appBrandStyleRaw = newValue.rawValue }
     }
 

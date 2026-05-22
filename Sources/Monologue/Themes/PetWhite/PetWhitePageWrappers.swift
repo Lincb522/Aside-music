@@ -158,6 +158,8 @@ struct PetWhiteHomeView: View {
     @State private var appeared = false
     @State private var emptyHomeRecoveryAttempts = 0
     @State private var homeRenderRevision = 0
+    @State private var renderedHitokotoText = ""
+    @State private var hitokotoRenderRevision = 0
     private let maxEmptyHomeRecoveryAttempts = 8
 
     var body: some View {
@@ -176,6 +178,7 @@ struct PetWhiteHomeView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .onAppear {
+                    syncPetWhiteHitokoto(reason: "pet white home appear")
                     syncRenderedHomeData(reason: "pet white home appear")
                     viewModel.reloadHomeCacheIfUseful(reason: "pet white home appear cache sync")
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white home appear")
@@ -185,6 +188,7 @@ struct PetWhiteHomeView: View {
                     revealHomeContent()
                 }
                 .task {
+                    syncPetWhiteHitokoto(reason: "pet white home task")
                     syncRenderedHomeData(reason: "pet white home task")
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white home task")
                     hydratePetWhiteHome(reason: "pet white home task")
@@ -194,6 +198,7 @@ struct PetWhiteHomeView: View {
                 .onChange(of: settings.globalThemeRevision) { _, _ in
                     appeared = false
                     emptyHomeRecoveryAttempts = 0
+                    syncPetWhiteHitokoto(reason: "pet white theme revision")
                     syncRenderedHomeData(reason: "pet white theme revision")
                     hydratePetWhiteHome(reason: "pet white theme revision")
                     recoverEmptyHomeIfNeeded(reason: "pet white theme empty recovery")
@@ -204,6 +209,7 @@ struct PetWhiteHomeView: View {
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active else { return }
                     emptyHomeRecoveryAttempts = 0
+                    syncPetWhiteHitokoto(reason: "pet white foreground")
                     syncRenderedHomeData(reason: "pet white foreground")
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white foreground")
                     hydratePetWhiteHome(reason: "pet white foreground")
@@ -241,8 +247,12 @@ struct PetWhiteHomeView: View {
                     }
                     invalidateHomeRender()
                 }
-                .onReceive(viewModel.$hitokoto.dropFirst()) { _ in
-                    invalidateHomeRender()
+                .onReceive(viewModel.$hitokoto) { _ in
+                    syncPetWhiteHitokoto(reason: "pet white hitokoto updated")
+                }
+                .onChange(of: settings.hitokotoEnabled) { _, _ in
+                    syncPetWhiteHitokoto(reason: "pet white hitokoto setting changed")
+                    refreshPetWhiteHitokotoIfNeeded(reason: "pet white hitokoto setting changed")
                 }
                 .onChange(of: viewModel.popularSongs.count) { _, _ in
                     syncRenderedHomeData(reason: "pet white popular songs updated")
@@ -318,7 +328,7 @@ struct PetWhiteHomeView: View {
             displayHomeData.fingerprint,
             "loading-\(viewModel.isLoading)",
             "content-\(viewModel.homeContentRevision)",
-            "hitokoto-\(viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "empty")",
+            "hitokoto-\(hitokotoRenderRevision)-\(renderedHitokotoText.isEmpty ? "empty" : "ready")",
         ].joined(separator: "|")
     }
 
@@ -360,6 +370,22 @@ struct PetWhiteHomeView: View {
 
     private func invalidateHomeRender() {
         homeRenderRevision += 1
+    }
+
+    private func syncPetWhiteHitokoto(reason: String) {
+        let nextText: String
+        if settings.hitokotoEnabled {
+            nextText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        } else {
+            nextText = ""
+        }
+
+        guard nextText != renderedHitokotoText else { return }
+
+        renderedHitokotoText = nextText
+        hitokotoRenderRevision += 1
+        invalidateHomeRender()
+        AppLogger.debug("PetWhiteHomeView: 每日一言渲染刷新 - \(reason)")
     }
 
     private func syncRenderedHomeData(reason: String) {
@@ -517,7 +543,8 @@ struct PetWhiteHomeView: View {
     private var heroPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 14) {
-                PetWhitePetPetIcon(size: 88)
+                PetWhitePetPetHeroIcon(width: DeviceLayout.isPad ? 136 : 116)
+                    .padding(.top, 6)
 
                 VStack(alignment: .leading, spacing: 7) {
                     PetWhitePill(text: "PET RADIO", tint: PetWhiteStyle.mint)
@@ -544,17 +571,20 @@ struct PetWhiteHomeView: View {
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
             }
 
-            if SettingsManager.shared.hitokotoEnabled,
-               let hitokoto = viewModel.hitokoto,
-               !hitokoto.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if settings.hitokotoEnabled {
                 HStack(alignment: .top, spacing: 10) {
                     PetWhiteProfileHeadIcon(filled: false, size: 24)
 
-                    Text(hitokoto)
-                        .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
-                        .foregroundStyle(PetWhiteStyle.inkSoft)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if petWhiteHitokotoText.isEmpty {
+                        MonoWordmarkImage(height: 24)
+                            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                    } else {
+                        Text(petWhiteHitokotoText)
+                            .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkSoft)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     Spacer(minLength: 0)
 
@@ -578,10 +608,19 @@ struct PetWhiteHomeView: View {
                                 .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
                         )
                 )
+                .id(petWhiteHitokotoCardIdentity)
             }
         }
         .padding(18)
         .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: settings.petWhiteUsesIllustratedBackground ? PetWhiteStyle.surfaceRaised.opacity(0.78) : PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+    }
+
+    private var petWhiteHitokotoText: String {
+        renderedHitokotoText
+    }
+
+    private var petWhiteHitokotoCardIdentity: String {
+        "pet-white-hitokoto-\(hitokotoRenderRevision)-\(petWhiteHitokotoText.isEmpty ? "fallback" : "quote")"
     }
 
     @ViewBuilder
