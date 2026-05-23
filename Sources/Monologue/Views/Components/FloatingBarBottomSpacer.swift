@@ -35,18 +35,18 @@ struct FloatingBarBottomSpacer: View {
         switch floatingBarStyle {
         case .unified:
             if globalThemeIdRaw == GlobalThemeId.neumorphic.rawValue {
-                return hasCurrentSong ? 154 : 96
+                return hasCurrentSong ? 176 : 108
             }
             if !hasCurrentSong {
-                return isThemedPageActive ? 76 : 68
+                return isThemedPageActive ? 88 : 80
             }
-            return isThemedPageActive ? 124 : 114
+            return isThemedPageActive ? 152 : 142
 
         case .classic:
-            return hasCurrentSong ? 104 : 56
+            return hasCurrentSong ? 130 : 70
 
         case .minimal:
-            return hasCurrentSong ? 82 : 72
+            return hasCurrentSong ? 112 : 88
 
         case .floatingBall:
             return 88

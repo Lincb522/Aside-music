@@ -101,7 +101,7 @@ struct GlobalPlaybackProgressBar: View {
                 .frame(height: height)
 
             Capsule(style: .continuous)
-                .fill(resolvedFillColor)
+                .fill(LinearGradient(colors: resolvedFillColors, startPoint: .leading, endPoint: .trailing))
                 .frame(width: fillWidth, height: height)
 
             if showsThumb && clampedProgress > 0 {

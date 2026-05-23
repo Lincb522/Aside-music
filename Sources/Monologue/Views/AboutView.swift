@@ -73,6 +73,11 @@ struct AboutView: View {
                         aboutTaglineBlock
                             .opacity(logoVisible ? 1 : 0)
 
+                        // 快捷访问
+                        quickActionsSection
+                            .opacity(cardsVisible ? 1 : 0)
+                            .offset(y: cardsVisible ? 0 : 16)
+
                         // 功能特性
                         featuresSection
                             .opacity(cardsVisible ? 1 : 0)
@@ -242,6 +247,75 @@ struct AboutView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
         }
+    }
+
+    // MARK: - Quick Actions
+
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle(String(localized: "快捷访问"), icon: .sparkle)
+
+            VStack(spacing: 0) {
+                quickActionRow(
+                    icon: .infoCircle,
+                    title: String(localized: "官方网站"),
+                    subtitle: "mono.zijiu522.cn",
+                    urlString: "https://mono.zijiu522.cn"
+                )
+
+                Divider().padding(.leading, 56)
+
+                quickActionRow(
+                    icon: .history,
+                    title: String(localized: "更新日志"),
+                    subtitle: "mono.zijiu522.cn/updates",
+                    urlString: "http://mono.zijiu522.cn/updates"
+                )
+            }
+            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 20 : 20, elevated: false)
+        }
+    }
+
+    private func quickActionRow(
+        icon: MonologueIcon.IconType,
+        title: String,
+        subtitle: String,
+        urlString: String
+    ) -> some View {
+        Button {
+            guard let url = URL(string: urlString) else { return }
+            HapticManager.shared.light()
+            PlatformApplication.openURL(url)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill((SequoiaStyle.isActive || NeumorphicStyle.isActive) ? aboutAccent.opacity(0.16) : Color.monologueIconBackground)
+                        .frame(width: 32, height: 32)
+                    MonologueIcon(icon: icon, size: 16, color: SequoiaStyle.isActive ? aboutAccent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground))
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .semibold, design: .rounded)))
+                        .foregroundColor(aboutText)
+
+                    Text(subtitle)
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded)))
+                        .foregroundColor(aboutSecondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Spacer(minLength: 8)
+
+                MonologueIcon(icon: .chevronRight, size: 14, color: aboutMutedText, lineWidth: 1.7)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.9))
     }
 
     // MARK: - Features

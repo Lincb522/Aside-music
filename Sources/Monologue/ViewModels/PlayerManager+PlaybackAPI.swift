@@ -324,18 +324,26 @@ extension PlayerManager {
         saveState()
     }
     
-    func playPodcast(song: Song, in context: [Song], radioId: Int) {
+    func playPodcast(song: Song, in context: [Song], radioId: Int, restoreSavedContext: Bool = true) {
+        if !restoreSavedContext {
+            cancelSleepTimer()
+        }
+
         // 如果当前正在播放音乐（非播客），先保存音乐上下文
         if !isPlayingPodcast {
             saveMusicContext()
         }
         // 如果之前有保存的播客上下文且是同一个电台，尝试恢复
-        if savedPodcastRadioId == radioId, !savedPodcastContext.isEmpty,
+        if restoreSavedContext,
+           savedPodcastRadioId == radioId, !savedPodcastContext.isEmpty,
            savedPodcastContext.contains(where: { $0.id == song.id }) {
             self.context = savedPodcastContext
             self.contextIndex = savedPodcastContext.firstIndex(where: { $0.id == song.id }) ?? savedPodcastContextIndex
             clearSavedPodcastContext()
         } else {
+            if !restoreSavedContext, savedPodcastRadioId == radioId {
+                clearSavedPodcastContext()
+            }
             self.context = context
             if let index = context.firstIndex(where: { $0.id == song.id }) {
                 self.contextIndex = index
@@ -398,6 +406,38 @@ extension PlayerManager {
             }
             clearSavedMusicContext()
         }
+    }
+
+    func stopPodcastPlaybackRestoringMusicContext() {
+        cancelSleepTimer()
+
+        guard isPlayingPodcast else {
+            dismissMiniPlayerPreservingQueue()
+            return
+        }
+
+        dismissMiniPlayerPreservingQueue()
+        self.playSource = .normal
+        self.queueExhaustionBehavior = .loop
+
+        if !savedMusicContext.isEmpty {
+            self.context = savedMusicContext
+            self.contextIndex = savedMusicContextIndex
+            self.shuffledContext = savedMusicShuffledContext
+            self.mode = savedMusicMode
+        } else {
+            self.context = []
+            self.contextIndex = 0
+            self.shuffledContext = []
+        }
+
+        playbackBackStack.removeAll()
+        playbackForwardStack.removeAll()
+        clearSavedMusicContext()
+        clearSavedPodcastContext()
+        savedPodcastRadioId = nil
+        refreshPlaybackSurfaceState()
+        saveState()
     }
     
     private func clearSavedMusicContext() {

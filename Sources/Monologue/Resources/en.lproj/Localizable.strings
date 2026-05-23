@@ -227,6 +227,7 @@
 "settings_hitokoto" = "Daily Quote";
 "settings_hitokoto_desc" = "Show a random quote on home";
 "settings_hitokoto_type" = "Quote Type";
+"hitokoto_fallback_slogan" = "世界很吵，留一点声音给自己。";
 "settings_other" = "Other";
 "settings_haptic" = "Haptic Feedback";
 "settings_haptic_desc" = "Vibration feedback on interactions";
@@ -981,6 +982,42 @@
 "new_song_western" = "Western";
 "new_song_korean" = "Korean";
 "new_song_japanese" = "Japanese";
+
+/* Meditation Mode */
+"meditation_mode_title" = "Meditation Mode";
+"meditation_mode_subtitle" = "";
+"meditation_mode_eyebrow" = "CALM";
+"meditation_recommended_title" = "Recommended";
+"meditation_recommended_subtitle" = "";
+"meditation_loading" = "Loading";
+"meditation_empty" = "Empty";
+"meditation_load_failed" = "Load Failed";
+"meditation_topic_all" = "All";
+"meditation_topic_mindfulness" = "Mindfulness";
+"meditation_topic_focus" = "Focus Training";
+"meditation_topic_light_music" = "Light Music";
+"meditation_topic_sleep" = "Sleep";
+"meditation_topic_breathing" = "Breathing";
+"meditation_topic_ambient" = "White Noise";
+"meditation_topic_all_subtitle" = "";
+"meditation_topic_mindfulness_subtitle" = "";
+"meditation_topic_focus_subtitle" = "";
+"meditation_topic_light_music_subtitle" = "";
+"meditation_topic_sleep_subtitle" = "";
+"meditation_topic_breathing_subtitle" = "";
+"meditation_topic_ambient_subtitle" = "";
+"meditation_player_exit" = "Exit Meditation";
+"meditation_player_timer" = "Timer";
+"meditation_player_timer_title" = "Timer";
+"meditation_player_loading" = "Loading";
+"meditation_player_empty" = "Empty";
+"meditation_player_load_failed" = "Load Failed";
+"meditation_player_retry" = "Retry";
+"meditation_player_episode_progress" = "Episode %d / %d";
+"meditation_timer_minutes" = "%d min";
+"meditation_timer_pending" = "Track End";
+"meditation_timer_off" = "Off";
+"reload" = "Reload";
 
 /* Playlist Create */
 "create_netease_playlist" = "Create NCM Playlist";

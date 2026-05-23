@@ -8,6 +8,18 @@ import AppKit
 #endif
 
 enum PetWhiteStyle {
+    private static let fallbackBase = Color(light: .white, dark: Color(hex: "121315"))
+    private static let fallbackSurface = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "191B1F"))
+    private static let fallbackSurfaceRaised = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "202328"))
+    private static let fallbackSurfacePressed = Color(light: Color(hex: "F6F7F8"), dark: Color(hex: "272A30"))
+    private static let fallbackDogOrange = Color(light: Color(hex: "F6A93B"), dark: Color(hex: "F3B45B"))
+    private static let fallbackDogEar = Color(light: Color(hex: "E08A24"), dark: Color(hex: "C97821"))
+    private static let fallbackMint = Color(light: Color(hex: "DDF5EE"), dark: Color(hex: "20463E"))
+    private static let fallbackBlush = Color(light: Color(hex: "FF8D7E"), dark: Color(hex: "FFB0A6"))
+    private static let fallbackButter = Color(light: Color(hex: "FFF1BF"), dark: Color(hex: "4B4020"))
+    private static let fallbackSky = Color(light: Color(hex: "EAF3FF"), dark: Color(hex: "203349"))
+    private static let fallbackLilac = Color(light: Color(hex: "F0ECFF"), dark: Color(hex: "332B4F"))
+
     static var isActive: Bool {
         UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.petWhite.rawValue
     }
@@ -15,37 +27,39 @@ enum PetWhiteStyle {
     static var base: Color {
         ThemeColorCustomization.backgroundBase(
             for: .petWhite,
-            fallback: Color(light: .white, dark: Color(hex: "121315")),
+            fallback: fallbackBase,
             fallbackHex: "FFFFFF"
         )
     }
 
     static var paper: Color { base }
 
-    static let surface = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "191B1F"))
-    static let surfaceRaised = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "202328"))
-    static let surfacePressed = Color(light: Color(hex: "F6F7F8"), dark: Color(hex: "272A30"))
+    static var surface: Color { customBackgroundStop("start", fallback: fallbackSurface, fallbackHex: "FFFFFF") }
+    static var surfaceRaised: Color { customBackgroundStop("end", fallback: fallbackSurfaceRaised, fallbackHex: "F7F8FA") }
+    static var surfacePressed: Color { customBackgroundStop("stop3", fallback: fallbackSurfacePressed, fallbackHex: "F6F7F8") }
     static let ink = Color(light: Color(hex: "111111"), dark: Color(hex: "FAFAFA"))
     static let inkSoft = Color(light: Color(hex: "4B5563"), dark: Color(hex: "D1D5DB"))
     static let inkMuted = Color(light: Color(hex: "8B95A1"), dark: Color(hex: "9CA3AF"))
     static let stroke = Color(light: Color(hex: "111111"), dark: Color(hex: "F8FAFC"))
     static let separator = Color(light: Color(hex: "E7E9EC"), dark: Color(hex: "343942"))
     static let catWhite = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "F5F7FA"))
-    static let dogOrange = Color(light: Color(hex: "F6A93B"), dark: Color(hex: "F3B45B"))
-    static let dogEar = Color(light: Color(hex: "E08A24"), dark: Color(hex: "C97821"))
-    static let mint = Color(light: Color(hex: "DDF5EE"), dark: Color(hex: "20463E"))
-    static let blush = Color(light: Color(hex: "FF8D7E"), dark: Color(hex: "FFB0A6"))
-    static let butter = Color(light: Color(hex: "FFF1BF"), dark: Color(hex: "4B4020"))
-    static let sky = Color(light: Color(hex: "EAF3FF"), dark: Color(hex: "203349"))
-    static let lilac = Color(light: Color(hex: "F0ECFF"), dark: Color(hex: "332B4F"))
+    static var dogOrange: Color {
+        ThemeColorCustomization.accentColor(
+            for: .petWhite,
+            fallback: fallbackDogOrange,
+            fallbackHex: "F6A93B"
+        )
+    }
+    static var dogEar: Color { customAccentTone(fallback: fallbackDogEar, fallbackHex: "E08A24") }
+    static var mint: Color { customBackgroundStop("stop4", fallback: fallbackMint, fallbackHex: "DDF5EE") }
+    static var blush: Color { customAccentTone(fallback: fallbackBlush, fallbackHex: "FF8D7E") }
+    static var butter: Color { customBackgroundStop("stop3", fallback: fallbackButter, fallbackHex: "FFF1BF") }
+    static var sky: Color { customBackgroundStop("end", fallback: fallbackSky, fallbackHex: "EAF3FF") }
+    static var lilac: Color { customBackgroundStop("stop4", fallback: fallbackLilac, fallbackHex: "F0ECFF") }
     static let destructive = Color(light: Color(hex: "E94848"), dark: Color(hex: "FF7474"))
 
     static var accent: Color {
-        ThemeColorCustomization.accentColor(
-            for: .petWhite,
-            fallback: dogOrange,
-            fallbackHex: "F6A93B"
-        )
+        dogOrange
     }
 
     static var onAccent: Color {
@@ -59,7 +73,7 @@ enum PetWhiteStyle {
     static var accentGradient: [Color] {
         ThemeColorCustomization.accentGradientColors(
             for: .petWhite,
-            fallback: [dogOrange, mint, blush.opacity(0.78)],
+            fallback: [fallbackDogOrange, fallbackMint, fallbackBlush.opacity(0.78)],
             fallbackHexes: ["F6A93B", "DDF5EE", "FF8D7E"]
         )
     }
@@ -88,6 +102,20 @@ enum PetWhiteStyle {
         case 2: return sky
         default: return blush.opacity(0.86)
         }
+    }
+
+    private static func customBackgroundStop(_ suffix: String, fallback: Color, fallbackHex: String) -> Color {
+        guard ThemeColorCustomization.customColorsEnabled else { return fallback }
+        let resolvedSuffix = ThemeColorCustomization.mode(for: .petWhite, role: .background) == .solid ? "solid" : suffix
+        return Color(hex: ThemeColorCustomization.hex(.petWhite, .background, resolvedSuffix, fallback: fallbackHex))
+    }
+
+    private static func customAccentTone(fallback: Color, fallbackHex: String) -> Color {
+        guard ThemeColorCustomization.customColorsEnabled else { return fallback }
+        if ThemeColorCustomization.hasStoredAccent(for: .petWhite) {
+            return ThemeColorCustomization.accentColor(for: .petWhite, fallback: fallback, fallbackHex: fallbackHex)
+        }
+        return fallback
     }
 }
 
@@ -383,6 +411,87 @@ struct PetWhitePackIcon: View {
         )
         .scaleEffect(visualScale)
         .accessibilityHidden(true)
+    }
+}
+
+struct PetWhiteSpinningCoverDisc: View {
+    let coverURL: URL?
+    var size: CGFloat
+    var isPlaying: Bool
+    var strokeWidth: CGFloat = 1.4
+
+    @State private var rotationAngle: Double = 0
+    @State private var lastTickDate: Date?
+
+    var body: some View {
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isPlaying)) { timeline in
+            disc
+                .rotationEffect(.degrees(rotationAngle))
+                .onChange(of: timeline.date) { _, newDate in
+                    guard isPlaying else {
+                        lastTickDate = nil
+                        return
+                    }
+
+                    if let lastTickDate {
+                        rotationAngle += newDate.timeIntervalSince(lastTickDate) * 42
+                    }
+                    lastTickDate = newDate
+                }
+        }
+        .frame(width: size, height: size)
+        .onChange(of: isPlaying) { _, playing in
+            if !playing {
+                lastTickDate = nil
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var disc: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hex: "171615"))
+
+            Circle()
+                .stroke(PetWhiteStyle.surfaceRaised.opacity(0.24), lineWidth: max(0.5, size * 0.018))
+                .padding(size * 0.13)
+
+            Circle()
+                .stroke(PetWhiteStyle.butter.opacity(0.20), lineWidth: max(0.45, size * 0.014))
+                .padding(size * 0.24)
+
+            coverImage
+                .frame(width: size * 0.54, height: size * 0.54)
+                .clipShape(Circle())
+
+            Circle()
+                .fill(PetWhiteStyle.surfaceRaised)
+                .frame(width: size * 0.14, height: size * 0.14)
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: max(0.7, strokeWidth * 0.62)))
+        }
+        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: strokeWidth))
+        .clipShape(Circle())
+    }
+
+    @ViewBuilder
+    private var coverImage: some View {
+        if let coverURL {
+            CachedAsyncImage(url: coverURL, width: size * 0.54, height: size * 0.54) {
+                coverPlaceholder
+            }
+            .aspectRatio(contentMode: .fill)
+        } else {
+            coverPlaceholder
+        }
+    }
+
+    private var coverPlaceholder: some View {
+        Circle()
+            .fill(PetWhiteStyle.surfacePressed)
+            .overlay(
+                MonologueIcon(icon: .musicNote, size: size * 0.20, color: PetWhiteStyle.inkMuted, lineWidth: 1.6)
+            )
     }
 }
 

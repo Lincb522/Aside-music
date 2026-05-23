@@ -25,7 +25,7 @@ private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
     var icon: MonologueIcon.IconType {
         switch self {
         case .daily: return .sparkle
-        case .newSongs: return .musicNote
+        case .newSongs: return .musicNoteList
         case .playlists: return .musicNoteList
         case .discover: return .layers
         }
@@ -40,7 +40,7 @@ struct NeumorphicHomeView: View {
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
     @State private var appeared = false
-    @State private var hitokotoRefreshing = false
+    @State private var hitokotoRefreshRotation: Double = 0
     @State private var selectedModule: NeumorphicHomeModule = .playlists
     @State private var deckExpanded = false
     @State private var bannerIndex = 0
@@ -103,11 +103,11 @@ struct NeumorphicHomeView: View {
                         .neumorphicStagger(appeared, order: 2)
                 }
 
-                dailyRecommendationRail
+                neumorphicShortcutGrid
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .neumorphicStagger(appeared, order: 3)
 
-                ncmNewSongExpressShortcut
+                dailyRecommendationRail
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .neumorphicStagger(appeared, order: 4)
 
@@ -212,7 +212,11 @@ struct NeumorphicHomeView: View {
                     }
 
                     if usesHitokotoFallback {
-                        MonoWordmarkImage(height: 28)
+                        Text(HitokotoFallbackSlogan.text)
+                            .font(NeumorphicStyle.bodyFont(18, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineSpacing(5)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     } else {
                         Text(hitokotoText)
@@ -226,23 +230,15 @@ struct NeumorphicHomeView: View {
                     if hitokotoEnabled {
                         HStack(spacing: 9) {
                             Button {
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) {
-                                    hitokotoRefreshing = true
-                                }
-                                viewModel.refreshHitokoto(force: true)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
-                                        hitokotoRefreshing = false
-                                    }
-                                }
+                                refreshHitokotoWithFeedback()
                             } label: {
                                 NeumorphicPill(
                                     text: String(localized: "刷新"),
                                     tint: NeumorphicStyle.warm,
                                     icon: .refresh,
-                                    selected: false
+                                    selected: false,
+                                    iconRotation: hitokotoRefreshRotation
                                 )
-                                .rotationEffect(.degrees(hitokotoRefreshing ? 2 : 0))
                             }
                             .buttonStyle(.plain)
                         }
@@ -257,6 +253,55 @@ struct NeumorphicHomeView: View {
         }
         .padding(18)
         .background(NeumorphicSurfaceBackground(cornerRadius: 30, elevated: true))
+    }
+
+    private var neumorphicShortcutGrid: some View {
+        VStack(spacing: 12) {
+            ncmNewSongExpressShortcut
+            meditationModeShortcut
+        }
+    }
+
+    private func neumorphicShortcut(
+        icon: MonologueIcon.IconType,
+        title: String,
+        subtitle: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    NeumorphicIconBadge(icon: icon, tint: tint, size: 38)
+
+                    Spacer(minLength: 8)
+
+                    MonologueIcon(icon: .chevronRight, size: 12, color: tint, lineWidth: 1.7)
+                        .frame(width: 30, height: 30)
+                        .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true))
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(NeumorphicStyle.titleFont(16, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(NeumorphicStyle.inkMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+                    }
+                }
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: tint.opacity(0.08)))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
 
     private var signalBannerRail: some View {
@@ -435,7 +480,7 @@ struct NeumorphicHomeView: View {
             navigationPath.append(HomeView.HomeDestination.newSongExpress)
         } label: {
             HStack(spacing: 13) {
-                NeumorphicIconBadge(icon: .musicNote, tint: MusicSource.netease.themedBadgeColor, size: 40)
+                NeumorphicIconBadge(icon: .musicNoteList, tint: MusicSource.netease.themedBadgeColor, size: 40)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("NCM · \(String(localized: "新歌速递"))")
@@ -455,6 +500,35 @@ struct NeumorphicHomeView: View {
             }
             .padding(14)
             .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: MusicSource.netease.themedBadgeColor.opacity(0.08)))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+    }
+
+    private var meditationModeShortcut: some View {
+        Button {
+            navigationPath.append(HomeView.HomeDestination.meditationMode)
+        } label: {
+            HStack(spacing: 13) {
+                NeumorphicIconBadge(icon: .moon, tint: NeumorphicStyle.sage, size: 40)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "meditation_mode_title"))
+                        .font(NeumorphicStyle.titleFont(17, weight: .semibold))
+                        .foregroundStyle(NeumorphicStyle.ink)
+
+                    Text(String(localized: "meditation_mode_eyebrow"))
+                        .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(NeumorphicStyle.inkMuted)
+                }
+
+                Spacer(minLength: 8)
+
+                MonologueIcon(icon: .chevronRight, size: 13, color: NeumorphicStyle.sage, lineWidth: 1.7)
+                    .frame(width: 34, height: 34)
+                    .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
+            }
+            .padding(14)
+            .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: NeumorphicStyle.sage.opacity(0.08)))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
@@ -638,6 +712,13 @@ struct NeumorphicHomeView: View {
         String(localized: "settings_hitokoto")
     }
 
+    private func refreshHitokotoWithFeedback() {
+        withAnimation(.linear(duration: 0.58)) {
+            hitokotoRefreshRotation += 360
+        }
+        viewModel.refreshHitokoto(force: true)
+    }
+
     private var mergedPlaylists: [Playlist] {
         var seen = Set<String>()
         return (viewModel.recommendPlaylists + viewModel.qqRecommendPlaylists).filter { playlist in
@@ -727,6 +808,8 @@ struct NeumorphicHomeView: View {
             NewSongExpressView()
         case .qcmNewSongs:
             QCMNewSongsView()
+        case .meditationMode:
+            MeditationModeView()
         }
     }
 }
@@ -926,21 +1009,19 @@ private struct NeumorphicSignalBannerCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: banner.imageUrl, width: width, height: 142) {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+            HomeBannerArtwork(url: banner.imageUrl, cornerRadius: 28) {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(NeumorphicStyle.surfacePressed)
                     .overlay(MonologueIcon(icon: .radio, size: 28, color: NeumorphicStyle.inkMuted.opacity(0.45)))
             }
-            .aspectRatio(contentMode: .fill)
             .frame(width: width, height: 142)
-            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
 
             LinearGradient(
                 colors: [.black.opacity(0), .black.opacity(0.28)],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 
             HStack(spacing: 8) {
                 Text(banner.typeTitle ?? String(localized: "推荐"))

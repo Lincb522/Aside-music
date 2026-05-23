@@ -42,11 +42,10 @@ let package = Package(
         ),
 
         // Single merged XCFramework for iOS (device + simulator)
-        // 远程引用：从 GitHub Release 下载预编译的 xcframework
+        // 改为本地直接引用，彻底解决 DerivedData 无法下载/定位远程 artifacts 导致的 XCFramework 缺失错误
         .binaryTarget(
             name: "FFmpegLibs",
-            url: "https://github.com/Lincb522/FFmpegSwiftSDK/releases/download/0.5.0/FFmpegLibs.xcframework.zip",
-            checksum: "56f285131132dcb0b1debad49964b12bf167003102c1d694c289f87571cd1399"
+            path: "Frameworks/FFmpegLibs.xcframework"
         ),
 
         .target(

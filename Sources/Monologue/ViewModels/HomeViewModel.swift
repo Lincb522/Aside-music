@@ -43,8 +43,11 @@ class HomeViewModel: ObservableObject {
     private let loginRefreshCooldown: TimeInterval = 3
     private let maxEmptyHomeAutomaticRetryCount = 6
     private let emptyHomeBaseRetryDelay: TimeInterval = 1.6
+    private static let userProfileBackupKey = "monologue_user_profile_backup"
     
     private init() {
+        primeInitialHomeState()
+
         // 只订阅 GlobalRefreshManager，它会统一管理所有刷新逻辑
         // 避免多重订阅导致的重复请求
         GlobalRefreshManager.shared.refreshHomePublisher
@@ -118,6 +121,12 @@ class HomeViewModel: ObservableObject {
                 self?.handleLogout()
             }
             .store(in: &cancellables)
+    }
+
+    private func primeInitialHomeState() {
+        loadCache()
+        refreshHitokotoIfNeeded()
+        restoreLoginStateIfNeeded(reason: "home init")
     }
     
     func fetchData(forceDaily: Bool = false) {
@@ -269,8 +278,7 @@ class HomeViewModel: ObservableObject {
                 guard let self else { return }
                 guard let profile = response.data.profile else { return }
 
-                self.apiService.currentUserId = profile.userId
-                self.userProfile = profile
+                self.applyUserProfile(profile, reason: "login state restored")
                 UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
                 self.lastHomeHydrationAttempt = nil
                 self.fetchData(forceDaily: true)
@@ -305,12 +313,33 @@ class HomeViewModel: ObservableObject {
         if let cachedQQNewSongs = cache.getObject(forKey: "qq_new_songs", type: [Song].self) {
             self.qqNewSongs = cachedQQNewSongs
         }
-        if let cachedProfile = cache.getObject(forKey: "user_profile_detail", type: UserProfile.self) {
+        if let cachedProfile = cache.getObject(forKey: "user_profile_detail", type: UserProfile.self) ?? restoreUserProfileBackup() {
             self.userProfile = cachedProfile
+            storeUserProfileBackup(cachedProfile)
         }
         if !isHomeDataEmpty {
             markHomeDataArrived(reason: "cache load")
         }
+    }
+
+    private func applyUserProfile(_ profile: UserProfile, reason: String) {
+        if apiService.currentUserId != profile.userId {
+            apiService.currentUserId = profile.userId
+        }
+        userProfile = profile
+        OptimizedCacheManager.shared.setObject(profile, forKey: "user_profile_detail")
+        storeUserProfileBackup(profile)
+        AppLogger.debug("HomeViewModel: 用户资料已同步 - \(reason) - \(profile.nickname)")
+    }
+
+    private func restoreUserProfileBackup() -> UserProfile? {
+        guard let data = UserDefaults.standard.data(forKey: Self.userProfileBackupKey) else { return nil }
+        return try? JSONDecoder().decode(UserProfile.self, from: data)
+    }
+
+    private func storeUserProfileBackup(_ profile: UserProfile) {
+        guard let data = try? JSONEncoder().encode(profile) else { return }
+        UserDefaults.standard.set(data, forKey: Self.userProfileBackupKey)
     }
 
     private func startHomeLoading() {
@@ -413,26 +442,28 @@ class HomeViewModel: ObservableObject {
     
     private func fetchUserProfile(completion: @escaping () -> Void) {
         apiService.fetchLoginStatus()
+            .receive(on: DispatchQueue.main)
             .flatMap { [weak self] response -> AnyPublisher<APIService.UserDetailResponse, Error> in
                 guard let self = self, let profile = response.data.profile else {
                     return Fail(error: URLError(.userAuthenticationRequired)).eraseToAnyPublisher()
                 }
-                self.apiService.currentUserId = profile.userId
+                self.applyUserProfile(profile, reason: "login status fallback")
                 return self.apiService.fetchUserDetail(uid: profile.userId)
             }
             .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completionResult in
                 if case .failure(let error) = completionResult {
-                    AppLogger.error("用户资料获取失败: \(error)")
+                    if self?.userProfile == nil {
+                        AppLogger.error("用户资料获取失败: \(error)")
+                    } else {
+                        AppLogger.warning("用户详情获取失败，已使用 loginStatus 资料: \(error)")
+                    }
                 }
                 self?.finishHomeLoading()
                 completion()
             }, receiveValue: { [weak self] detailResponse in
-                self?.userProfile = detailResponse.profile
-                Task { @MainActor in
-                    OptimizedCacheManager.shared.setObject(detailResponse.profile, forKey: "user_profile_detail")
-                }
+                self?.applyUserProfile(detailResponse.profile, reason: "user detail")
             })
             .store(in: &cancellables)
     }
@@ -586,10 +617,7 @@ class HomeViewModel: ObservableObject {
                         }
                     }
                 }, receiveValue: { [weak self] response in
-                    self?.userProfile = response.profile
-                    Task { @MainActor in
-                        OptimizedCacheManager.shared.setObject(response.profile, forKey: "user_profile_detail")
-                    }
+                    self?.applyUserProfile(response.profile, reason: "current user detail")
                     userProfileLoaded = true
                     checkAndMarkReady()
                 })
@@ -713,20 +741,11 @@ class HomeViewModel: ObservableObject {
             return
         }
 
-        let restoredFromCache = restoreCachedHitokotoForCurrentSettings()
-        if hasUsableHitokoto {
-            if restoredFromCache {
-                refreshHitokoto()
-            }
-            return
-        }
-
         refreshHitokoto()
     }
 
     private static let hitokotoMinimumRequestInterval: TimeInterval = 8
     private static let hitokotoFailureCooldown: TimeInterval = 30
-    private static let hitokotoSuccessRefreshInterval: TimeInterval = 30 * 60
     private static let hitokotoCachePrefix = "monologue_hitokoto_cache"
 
     private static let hitokotoHosts = [
@@ -744,10 +763,6 @@ class HomeViewModel: ObservableObject {
             return
         }
 
-        if !force {
-            _ = restoreCachedHitokotoForCurrentSettings()
-        }
-
         let now = Date()
         if hitokotoFetchTask != nil {
             return
@@ -756,13 +771,9 @@ class HomeViewModel: ObservableObject {
         if !force,
            let lastHitokotoFailure,
            now.timeIntervalSince(lastHitokotoFailure) < Self.hitokotoFailureCooldown {
-            return
-        }
-
-        if let lastHitokotoSuccess,
-           !force,
-           now.timeIntervalSince(lastHitokotoSuccess) < Self.hitokotoSuccessRefreshInterval,
-           hasUsableHitokoto {
+            if !hasUsableHitokoto {
+                _ = restoreCachedHitokotoForCurrentSettings()
+            }
             return
         }
 
@@ -806,6 +817,7 @@ class HomeViewModel: ObservableObject {
             if !type.isEmpty {
                 queryItems.append(URLQueryItem(name: "c", value: type))
             }
+            queryItems.append(URLQueryItem(name: "_", value: String(Int(Date().timeIntervalSince1970 * 1000))))
             components.queryItems = queryItems
             return components.url
         }
@@ -968,6 +980,7 @@ class HomeViewModel: ObservableObject {
         emptyHomeAutomaticRetryCount = 0
         userProfile = nil
         hitokoto = nil
+        UserDefaults.standard.removeObject(forKey: Self.userProfileBackupKey)
         recentSongs = []
         dailySongs = []
         recommendPlaylists = []

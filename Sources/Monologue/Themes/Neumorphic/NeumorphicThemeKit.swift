@@ -285,6 +285,7 @@ struct NeumorphicPill: View {
     var icon: MonologueIcon.IconType?
     var selected: Bool = false
     var compact: Bool = false
+    var iconRotation: Double = 0
     @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
@@ -292,6 +293,7 @@ struct NeumorphicPill: View {
         HStack(spacing: icon == nil ? 0 : 7) {
             if let icon {
                 MonologueIcon(icon: icon, size: compact ? 11 : 13, color: foreground, lineWidth: 1.55)
+                    .rotationEffect(.degrees(iconRotation))
             }
 
             Text(text)

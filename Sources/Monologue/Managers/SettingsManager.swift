@@ -9,19 +9,7 @@ final class SettingsManager: ObservableObject {
     // MARK: - 外观设置
 
     /// 全局主题 ID
-    @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.appDefault.rawValue {
-        didSet {
-            let resolvedId = Self.resolveRemovedTheme(Self.resolveStoredTheme(globalThemeIdRaw))
-
-            if resolvedId.rawValue != globalThemeIdRaw {
-                globalThemeIdRaw = resolvedId.rawValue
-            }
-
-            GlobalThemeManager.shared.switchTheme(to: resolvedId)
-            enforceCoverBackgroundPolicyForCurrentTheme()
-            globalThemeRevision &+= 1
-        }
-    }
+    @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.appDefault.rawValue
 
     @Published private(set) var globalThemeRevision: Int = 0
 
@@ -31,8 +19,21 @@ final class SettingsManager: ObservableObject {
             return Self.resolveRemovedTheme(id)
         }
         set {
-            globalThemeIdRaw = Self.resolveRemovedTheme(newValue).rawValue
+            selectGlobalTheme(newValue)
         }
+    }
+
+    func selectGlobalTheme(_ themeId: GlobalThemeId) {
+        let resolvedId = Self.resolveRemovedTheme(themeId)
+        guard globalThemeId != resolvedId else {
+            if applyPreferredInterfaceIconSet(for: resolvedId) {
+                globalThemeRevision &+= 1
+            }
+            return
+        }
+
+        globalThemeIdRaw = resolvedId.rawValue
+        applyGlobalThemeSelection(resolvedId, bumpRevision: true)
     }
 
     private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
@@ -77,6 +78,7 @@ final class SettingsManager: ObservableObject {
     /// 实际生效的 ColorScheme，始终有明确值
     @Published var activeColorScheme: ColorScheme = .light {
         didSet {
+            guard activeColorScheme != oldValue else { return }
             UserDefaults.standard.set(activeColorScheme == .dark ? "dark" : "light", forKey: "themeResolvedColorScheme")
             GlobalThemeManager.shared.refreshCurrentThemeTokens()
             globalThemeRevision &+= 1
@@ -223,9 +225,7 @@ final class SettingsManager: ObservableObject {
     var interfaceIconSet: AppInterfaceIconSet {
         get { AppInterfaceIconSet.selectedFromDefaults }
         set {
-            guard interfaceIconSet != newValue else { return }
-            objectWillChange.send()
-            interfaceIconSetRaw = newValue.rawValue
+            setInterfaceIconSet(newValue, bumpRevision: true)
         }
     }
 
@@ -341,9 +341,39 @@ final class SettingsManager: ObservableObject {
             globalThemeIdRaw = resolved.rawValue
         }
 
+        applyGlobalThemeSelection(resolved, bumpRevision: false)
         enforceCoverBackgroundPolicyForCurrentTheme()
         // 启动时应用一次主题
         applyTheme()
+    }
+
+    private func applyGlobalThemeSelection(_ themeId: GlobalThemeId, bumpRevision: Bool) {
+        GlobalThemeManager.shared.switchTheme(to: themeId)
+        let iconSetChanged = applyPreferredInterfaceIconSet(for: themeId)
+        enforceCoverBackgroundPolicyForCurrentTheme()
+        if bumpRevision || iconSetChanged {
+            globalThemeRevision &+= 1
+        }
+    }
+
+    @discardableResult
+    private func applyPreferredInterfaceIconSet(for themeId: GlobalThemeId) -> Bool {
+        setInterfaceIconSet(themeId.preferredInterfaceIconSet, bumpRevision: false)
+    }
+
+    @discardableResult
+    private func setInterfaceIconSet(_ iconSet: AppInterfaceIconSet, bumpRevision: Bool) -> Bool {
+        let storedRaw = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.interfaceIconSet)
+        guard storedRaw != iconSet.rawValue else { return false }
+
+        objectWillChange.send()
+        interfaceIconSetRaw = iconSet.rawValue
+
+        if bumpRevision {
+            globalThemeRevision &+= 1
+        }
+
+        return true
     }
 
     func enforceCoverBackgroundPolicyForCurrentTheme() {

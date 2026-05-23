@@ -67,6 +67,47 @@ private func themedSettingsSecondaryColor() -> Color {
     return .monologueTextSecondary
 }
 
+private enum SettingsNavigationDestination: Hashable {
+    case appearance
+    case playback
+    case cloudSync
+    case storage
+    case download
+    case about
+    case debugLog
+
+    @ViewBuilder
+    var view: some View {
+        switch self {
+        case .appearance:
+            AppearanceSettingsView()
+        case .playback:
+            PlaybackSettingsView()
+        case .cloudSync:
+            CloudSyncSettingsView()
+        case .storage:
+            StorageManageView()
+        case .download:
+            DownloadManageView()
+        case .about:
+            AboutView()
+        case .debugLog:
+            DebugLogView()
+        }
+    }
+}
+
+private struct SettingsNavigationLink<Label: View>: View {
+    let destination: SettingsNavigationDestination
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        NavigationLink(value: destination) {
+            label()
+        }
+    }
+}
+
 struct ThemedSettingsBackground: View {
     var body: some View {
         ThemedPageBackground(useRenderLayer: true)
@@ -102,6 +143,9 @@ struct SettingsView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationDestination(for: SettingsNavigationDestination.self) { destination in
+            destination.view
+        }
         .onAppear {
             updateCacheSize()
             apiTokenInput = SecureConfig.apiToken ?? ""
@@ -332,7 +376,7 @@ struct SettingsView: View {
                 ],
                 spacing: 12
             ) {
-                NavigationLink(destination: AppearanceSettingsView()) {
+                SettingsNavigationLink(destination: .appearance) {
                     PetWhiteSettingsPortalCard(
                         icon: .sparkle,
                         title: settingsText("settings_navigation_appearance_title"),
@@ -342,7 +386,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: PlaybackSettingsView()) {
+                SettingsNavigationLink(destination: .playback) {
                     PetWhiteSettingsPortalCard(
                         icon: .soundQuality,
                         title: settingsText("settings_navigation_playback_title"),
@@ -352,7 +396,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: CloudSyncSettingsView()) {
+                SettingsNavigationLink(destination: .cloudSync) {
                     PetWhiteSettingsPortalCard(
                         icon: .cloud,
                         title: settingsText("settings_navigation_cloud_sync_title"),
@@ -362,7 +406,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: StorageManageView()) {
+                SettingsNavigationLink(destination: .storage) {
                     PetWhiteSettingsPortalCard(
                         icon: .storage,
                         title: String(localized: "settings_storage_manage"),
@@ -372,7 +416,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: DownloadManageView()) {
+                SettingsNavigationLink(destination: .download) {
                     PetWhiteSettingsPortalCard(
                         icon: .download,
                         title: String(localized: "settings_download_manage"),
@@ -382,7 +426,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: AboutView()) {
+                SettingsNavigationLink(destination: .about) {
                     PetWhiteSettingsPortalCard(
                         icon: .infoCircle,
                         title: String(localized: "settings_about"),
@@ -454,7 +498,7 @@ struct SettingsView: View {
             ],
             spacing: 12
         ) {
-            NavigationLink(destination: AppearanceSettingsView()) {
+            SettingsNavigationLink(destination: .appearance) {
                 CapsuleSettingsTile(
                     icon: .sparkle,
                     title: settingsText("settings_navigation_appearance_title"),
@@ -464,7 +508,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: PlaybackSettingsView()) {
+            SettingsNavigationLink(destination: .playback) {
                 CapsuleSettingsTile(
                     icon: .soundQuality,
                     title: settingsText("settings_navigation_playback_title"),
@@ -474,7 +518,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: CloudSyncSettingsView()) {
+            SettingsNavigationLink(destination: .cloudSync) {
                 CapsuleSettingsTile(
                     icon: .cloud,
                     title: settingsText("settings_navigation_cloud_sync_title"),
@@ -484,7 +528,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: StorageManageView()) {
+            SettingsNavigationLink(destination: .storage) {
                 CapsuleSettingsTile(
                     icon: .storage,
                     title: String(localized: "settings_storage_manage"),
@@ -494,7 +538,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: DownloadManageView()) {
+            SettingsNavigationLink(destination: .download) {
                 CapsuleSettingsTile(
                     icon: .download,
                     title: String(localized: "settings_download_manage"),
@@ -504,7 +548,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: AboutView()) {
+            SettingsNavigationLink(destination: .about) {
                 CapsuleSettingsTile(
                     icon: .infoCircle,
                     title: String(localized: "settings_about"),
@@ -577,7 +621,7 @@ struct SettingsView: View {
             ],
             spacing: 12
         ) {
-            NavigationLink(destination: AppearanceSettingsView()) {
+            SettingsNavigationLink(destination: .appearance) {
                 LiquidGlassSettingsTile(
                     icon: .sparkle,
                     title: settingsText("settings_navigation_appearance_title"),
@@ -587,7 +631,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: PlaybackSettingsView()) {
+            SettingsNavigationLink(destination: .playback) {
                 LiquidGlassSettingsTile(
                     icon: .soundQuality,
                     title: settingsText("settings_navigation_playback_title"),
@@ -597,7 +641,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: CloudSyncSettingsView()) {
+            SettingsNavigationLink(destination: .cloudSync) {
                 LiquidGlassSettingsTile(
                     icon: .cloud,
                     title: settingsText("settings_navigation_cloud_sync_title"),
@@ -607,7 +651,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: StorageManageView()) {
+            SettingsNavigationLink(destination: .storage) {
                 LiquidGlassSettingsTile(
                     icon: .storage,
                     title: String(localized: "settings_storage_manage"),
@@ -617,7 +661,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: DownloadManageView()) {
+            SettingsNavigationLink(destination: .download) {
                 LiquidGlassSettingsTile(
                     icon: .download,
                     title: String(localized: "settings_download_manage"),
@@ -627,7 +671,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: AboutView()) {
+            SettingsNavigationLink(destination: .about) {
                 LiquidGlassSettingsTile(
                     icon: .infoCircle,
                     title: String(localized: "settings_about"),
@@ -676,7 +720,7 @@ struct SettingsView: View {
             ],
             spacing: BentoStyle.blockSpacing
         ) {
-            NavigationLink(destination: AppearanceSettingsView()) {
+            SettingsNavigationLink(destination: .appearance) {
                 BentoSettingsTile(
                     icon: .sparkle,
                     title: settingsText("settings_navigation_appearance_title"),
@@ -686,7 +730,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: PlaybackSettingsView()) {
+            SettingsNavigationLink(destination: .playback) {
                 BentoSettingsTile(
                     icon: .soundQuality,
                     title: settingsText("settings_navigation_playback_title"),
@@ -696,7 +740,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: CloudSyncSettingsView()) {
+            SettingsNavigationLink(destination: .cloudSync) {
                 BentoSettingsTile(
                     icon: .cloud,
                     title: settingsText("settings_navigation_cloud_sync_title"),
@@ -706,7 +750,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: StorageManageView()) {
+            SettingsNavigationLink(destination: .storage) {
                 BentoSettingsTile(
                     icon: .storage,
                     title: String(localized: "settings_storage_manage"),
@@ -716,7 +760,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: DownloadManageView()) {
+            SettingsNavigationLink(destination: .download) {
                 BentoSettingsTile(
                     icon: .download,
                     title: String(localized: "settings_download_manage"),
@@ -726,7 +770,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: AboutView()) {
+            SettingsNavigationLink(destination: .about) {
                 BentoSettingsTile(
                     icon: .infoCircle,
                     title: String(localized: "settings_about"),
@@ -755,29 +799,29 @@ struct SettingsView: View {
 
     private var navigationCardsSection: some View {
         VStack(spacing: 14) {
-            SettingsLinkRow(
+            SettingsRouteLinkRow(
                 icon: .sparkle,
                 title: settingsText("settings_navigation_appearance_title"),
                 subtitle: settingsText("settings_navigation_appearance_subtitle"),
-                destination: AppearanceSettingsView(),
+                destination: .appearance,
                 verticalPadding: 16
             )
             .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.bubblePink)
 
-            SettingsLinkRow(
+            SettingsRouteLinkRow(
                 icon: .soundQuality,
                 title: settingsText("settings_navigation_playback_title"),
                 subtitle: settingsText("settings_navigation_playback_subtitle"),
-                destination: PlaybackSettingsView(),
+                destination: .playback,
                 verticalPadding: 16
             )
             .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.bubbleBlue)
 
-            SettingsLinkRow(
+            SettingsRouteLinkRow(
                 icon: .cloud,
                 title: settingsText("settings_navigation_cloud_sync_title"),
                 subtitle: hasToken ? playlistSyncStatusText : settingsText("settings_navigation_cloud_sync_disabled"),
-                destination: CloudSyncSettingsView(),
+                destination: .cloudSync,
                 verticalPadding: 16
             )
             .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.labelYellow)
@@ -808,7 +852,7 @@ struct SettingsView: View {
                 ],
                 spacing: 12
             ) {
-                NavigationLink(destination: AppearanceSettingsView()) {
+                SettingsNavigationLink(destination: .appearance) {
                     MangaSettingsPortalCard(
                         icon: .sparkle,
                         title: settingsText("settings_navigation_appearance_title"),
@@ -818,7 +862,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: PlaybackSettingsView()) {
+                SettingsNavigationLink(destination: .playback) {
                     MangaSettingsPortalCard(
                         icon: .soundQuality,
                         title: settingsText("settings_navigation_playback_title"),
@@ -828,7 +872,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: CloudSyncSettingsView()) {
+                SettingsNavigationLink(destination: .cloudSync) {
                     MangaSettingsPortalCard(
                         icon: .cloud,
                         title: settingsText("settings_navigation_cloud_sync_title"),
@@ -838,7 +882,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: StorageManageView()) {
+                SettingsNavigationLink(destination: .storage) {
                     MangaSettingsPortalCard(
                         icon: .storage,
                         title: String(localized: "settings_storage_manage"),
@@ -848,7 +892,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: DownloadManageView()) {
+                SettingsNavigationLink(destination: .download) {
                     MangaSettingsPortalCard(
                         icon: .download,
                         title: String(localized: "settings_download_manage"),
@@ -858,7 +902,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(destination: AboutView()) {
+                SettingsNavigationLink(destination: .about) {
                     MangaSettingsPortalCard(
                         icon: .infoCircle,
                         title: String(localized: "settings_about"),
@@ -888,7 +932,7 @@ struct SettingsView: View {
                     icon: .sparkle,
                     title: settingsText("settings_navigation_appearance_title"),
                     value: "STYLE",
-                    destination: AppearanceSettingsView()
+                    destination: .appearance
                 )
 
                 MujiSettingsDivider()
@@ -897,7 +941,7 @@ struct SettingsView: View {
                     icon: .soundQuality,
                     title: settingsText("settings_navigation_playback_title"),
                     value: "PLAY",
-                    destination: PlaybackSettingsView()
+                    destination: .playback
                 )
 
                 MujiSettingsDivider()
@@ -906,7 +950,7 @@ struct SettingsView: View {
                     icon: .cloud,
                     title: settingsText("settings_navigation_cloud_sync_title"),
                     value: hasToken ? "SYNC" : "OFF",
-                    destination: CloudSyncSettingsView()
+                    destination: .cloudSync
                 )
 
                 MujiSettingsDivider()
@@ -915,7 +959,7 @@ struct SettingsView: View {
                     icon: .storage,
                     title: String(localized: "settings_storage_manage"),
                     value: cacheSize,
-                    destination: StorageManageView()
+                    destination: .storage
                 )
 
                 MujiSettingsDivider()
@@ -924,7 +968,7 @@ struct SettingsView: View {
                     icon: .download,
                     title: String(localized: "settings_download_manage"),
                     value: "DOWNLOAD",
-                    destination: DownloadManageView()
+                    destination: .download
                 )
 
                 MujiSettingsDivider()
@@ -933,7 +977,7 @@ struct SettingsView: View {
                     icon: .infoCircle,
                     title: String(localized: "settings_about"),
                     value: appVersion,
-                    destination: AboutView()
+                    destination: .about
                 )
             }
             .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
@@ -944,12 +988,12 @@ struct SettingsView: View {
 
     private var cacheSection: some View {
         SettingsSection(title: String(localized: "settings_storage")) {
-            SettingsLinkRow(
+            SettingsRouteLinkRow(
                 icon: .storage,
                 title: String(localized: "settings_storage_manage"),
                 subtitle: String(localized: "settings_storage_manage_desc"),
                 value: cacheSize,
-                destination: StorageManageView()
+                destination: .storage
             )
         }
     }
@@ -958,10 +1002,10 @@ struct SettingsView: View {
 
     private var downloadSection: some View {
         SettingsSection(title: String(localized: "settings_download_manage")) {
-            SettingsLinkRow(
+            SettingsRouteLinkRow(
                 icon: .download,
                 title: String(localized: "settings_download_manage"),
-                destination: DownloadManageView()
+                destination: .download
             )
         }
     }
@@ -1185,9 +1229,7 @@ struct SettingsView: View {
                 Spacer(minLength: 8)
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    NavigationLink(
-                        destination: AboutView()
-                    ) {
+                    SettingsNavigationLink(destination: .about) {
                         Text(String(localized: "settings_about"))
                             .font(themedSettingsFont(11, weight: .semibold))
                             .foregroundColor(headerSecondaryTextColor)
@@ -1445,12 +1487,12 @@ struct SettingsView: View {
     private var otherSection: some View {
         SettingsSection(title: String(localized: "settings_other")) {
             VStack(spacing: 0) {
-                SettingsLinkRow(
+                SettingsRouteLinkRow(
                     icon: .logDebug,
                     title: String(localized: "settings_debug_log"),
                     subtitle: String(localized: "settings_debug_log_desc"),
                     value: "\(AppLogger.getAllLogs().count)",
-                    destination: DebugLogView()
+                    destination: .debugLog
                 )
             }
         }
@@ -1615,14 +1657,14 @@ private struct MangaSettingsPortalCard: View {
     }
 }
 
-private struct MujiSettingsLedgerLink<Destination: View>: View {
+private struct MujiSettingsLedgerLink: View {
     let icon: MonologueIcon.IconType
     let title: String
     let value: String
-    let destination: Destination
+    let destination: SettingsNavigationDestination
 
     var body: some View {
-        NavigationLink(destination: destination) {
+        NavigationLink(value: destination) {
             HStack(spacing: 12) {
                 MujiIconBadge(icon: icon, tint: ledgerTint, size: 34)
 
@@ -2083,6 +2125,49 @@ struct SettingsNavigationRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct SettingsRouteLinkRow: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    var subtitle: String? = nil
+    var value: String? = nil
+    let destination: SettingsNavigationDestination
+    /// 相对默认行略增高入口卡片（设置主页「外观/播放」等）
+    var verticalPadding: CGFloat = 13
+
+    var body: some View {
+        NavigationLink(value: destination) {
+            HStack(spacing: 12) {
+                SettingsIconBadge(icon: icon)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(themedSettingsFont(15, weight: .medium))
+                        .foregroundColor(themedSettingsPrimaryColor())
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(themedSettingsFont(11, weight: .regular))
+                            .foregroundColor(themedSettingsSecondaryColor())
+                    }
+                }
+
+                Spacer()
+
+                if let value {
+                    Text(value)
+                        .font(themedSettingsFont(13, weight: .medium))
+                        .foregroundColor(themedSettingsSecondaryColor())
+                }
+
+                MonologueIcon(icon: .chevronRight, size: 11, color: themedSettingsSecondaryColor())
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, verticalPadding)
         }
         .buttonStyle(.plain)
     }

@@ -26,6 +26,16 @@ struct WelcomeView: View {
     @State private var animationTask: Task<Void, Never>?
     @State private var preloadTask: Task<Void, Never>?
 
+    // Paw (PetWhite) specific animation states
+    @State private var pawPlateRotation: Double = 0.0
+    @State private var pawMascotOffset: CGFloat = 0.0
+    @State private var pawMascotScale: CGFloat = 1.0
+    @State private var pawBowTieRotation: Double = 0.0
+    @State private var pawBowTieScale: CGFloat = 1.0
+    @State private var pawDotScale: CGFloat = 1.0
+    @State private var pawDotOffset: CGFloat = 0.0
+    @State private var pawCapsuleScaleY: CGFloat = 1.0
+
     private enum Timing {
         static let preloadStartDelay: TimeInterval = 0.08
         static let titleDelay: TimeInterval = 0.14
@@ -318,17 +328,24 @@ struct WelcomeView: View {
                             .stroke(PetWhiteStyle.stroke.opacity(0.88), lineWidth: 1.5)
                     )
                     .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 18, x: 0, y: 12)
+                    .rotationEffect(.degrees(pawPlateRotation))
 
-                PetWhitePetPetHeroIcon(width: logoSize * 1.55)
+                PetWhitePetPetHeroIcon(width: logoSize * (DeviceLayout.isPad ? 2.0 : 1.92))
+                    .offset(y: pawMascotOffset)
+                    .scaleEffect(pawMascotScale)
                     .scaleEffect(plateScale > 0.96 ? 1 : 0.92)
 
                 PetWhiteFloatingBowTie()
                     .offset(x: -plateSize * 0.44, y: -plateSize * 0.34)
+                    .rotationEffect(.degrees(pawBowTieRotation))
+                    .scaleEffect(pawBowTieScale)
                     .scaleEffect(accentScaleX)
                     .opacity(accentOpacity)
 
                 PetWhiteFloatingMascotDot(filled: true, tint: PetWhiteStyle.butter, size: 30)
                     .offset(x: plateSize * 0.47, y: plateSize * 0.28)
+                    .offset(y: pawDotOffset)
+                    .scaleEffect(pawDotScale)
                     .scaleEffect(accentScaleX)
                     .opacity(accentOpacity)
 
@@ -338,7 +355,7 @@ struct WelcomeView: View {
                     Capsule().fill(PetWhiteStyle.blush.opacity(0.78)).frame(width: 12, height: 6)
                 }
                 .offset(y: plateSize * 0.52)
-                .scaleEffect(x: accentScaleX, y: 1)
+                .scaleEffect(x: accentScaleX, y: pawCapsuleScaleY)
                 .opacity(accentOpacity)
             }
             .frame(width: plateSize * 1.55, height: plateSize * 1.22)
@@ -783,7 +800,7 @@ struct WelcomeView: View {
         isDismissing = false
 
         backgroundOpacity = 0
-        backgroundScale = reduceMotion ? 1 : 1.018
+        backgroundScale = (reduceMotion || PetWhiteStyle.isActive) ? 1 : 1.018
         plateOpacity = 0
         plateScale = MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82)))
         plateOffset = MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28)))
@@ -797,15 +814,69 @@ struct WelcomeView: View {
         sceneOffset = 0
         sceneScale = 1
 
+        // Initialize Paw specific animation states
+        if PetWhiteStyle.isActive {
+            pawPlateRotation = -7.0
+            pawMascotOffset = 65.0
+            pawMascotScale = 0.75
+            pawBowTieRotation = -50.0
+            pawBowTieScale = 0.1
+            pawDotScale = 0.1
+            pawDotOffset = 20.0
+            pawCapsuleScaleY = 0.1
+        } else {
+            pawPlateRotation = 0
+            pawMascotOffset = 0
+            pawMascotScale = 1.0
+            pawBowTieRotation = 0
+            pawBowTieScale = 1.0
+            pawDotScale = 1.0
+            pawDotOffset = 0
+            pawCapsuleScaleY = 1.0
+        }
+
         withAnimation(fadeAnimation) {
             backgroundOpacity = 1
             backgroundScale = 1
         }
 
-        withAnimation(heroSpring) {
-            plateOpacity = 1
-            plateScale = 1
-            plateOffset = 0
+        if PetWhiteStyle.isActive {
+            // Playful bouncing entrance for the Paw background plate
+            withAnimation(.spring(response: 0.54, dampingFraction: 0.64)) {
+                plateOpacity = 1
+                plateScale = 1
+                plateOffset = 0
+                pawPlateRotation = 0
+            }
+
+            // Mascot jumps up with high-energy bouncing action
+            withAnimation(.spring(response: 0.58, dampingFraction: 0.56).delay(0.12)) {
+                pawMascotOffset = 0
+                pawMascotScale = 1.0
+            }
+
+            // Bowtie spins in playfully
+            withAnimation(.spring(response: 0.44, dampingFraction: 0.58).delay(0.24)) {
+                pawBowTieScale = 1.0
+                pawBowTieRotation = 0
+            }
+
+            // Dot pops in
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.58).delay(0.32)) {
+                pawDotScale = 1.0
+                pawDotOffset = 0
+            }
+
+            // Bottom colored capsules scale in
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.62).delay(0.40)) {
+                pawCapsuleScaleY = 1.0
+            }
+        } else {
+            withAnimation(heroSpring) {
+                plateOpacity = 1
+                plateScale = 1
+                plateOffset = 0
+            }
         }
 
         let isLoggedIn = isAppLoggedIn

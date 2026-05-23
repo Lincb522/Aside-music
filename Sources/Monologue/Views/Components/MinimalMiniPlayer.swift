@@ -464,7 +464,7 @@ struct MinimalMiniPlayer: View {
                     .fill(PetWhiteStyle.surfaceRaised)
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
 
-                PetWhiteMascotMark(kind: .pair, size: 18)
+                MonologueIcon(icon: .musicNote, size: 14, color: PetWhiteStyle.inkMuted, lineWidth: 1.6)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(MujiStyle.surfaceRaised)
@@ -549,21 +549,17 @@ struct MinimalMiniPlayer: View {
                         currentTab = tab
                     }
                 } label: {
+                    let selected = currentTab == tab
                     VStack(spacing: 3) {
-                        miniPlayerIcon(
-                            icon: currentTab == tab ? tab.icon : tab.monologueIcon,
-                            size: PetWhiteStyle.isActive ? 17 : (MangaStyle.isActive ? 16 : 18),
-                            color: tabForeground(tab, selected: currentTab == tab),
-                            lineWidth: 1.7
-                        )
+                        tabSelectorIcon(tab: tab, selected: selected)
                         Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
-                            .font(tabFont(selected: currentTab == tab))
-                            .foregroundColor(tabForeground(tab, selected: currentTab == tab))
+                            .font(tabFont(selected: selected))
+                            .foregroundColor(tabForeground(tab, selected: selected))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, PetWhiteStyle.isActive ? 4 : (MangaStyle.isActive ? 3 : 5))
                     .background {
-                        if ThemedPageStyle.isActive && currentTab == tab {
+                        if ThemedPageStyle.isActive && selected {
                             tabSelectionBackground(tab)
                         }
                     }
@@ -575,6 +571,29 @@ struct MinimalMiniPlayer: View {
     }
 
     // MARK: - 辅助方法
+
+    @ViewBuilder
+    private func tabSelectorIcon(tab: Tab, selected: Bool) -> some View {
+        let icon = selected ? tab.icon : tab.monologueIcon
+        let color = tabForeground(tab, selected: selected)
+
+        if PetWhiteStyle.isActive {
+            PetWhitePackIcon(
+                icon: icon,
+                size: selected ? 16 : 15,
+                visualScale: 1,
+                fallbackColor: color,
+                lineWidth: 1.45
+            )
+        } else {
+            miniPlayerIcon(
+                icon: icon,
+                size: MangaStyle.isActive ? 16 : 18,
+                color: color,
+                lineWidth: 1.7
+            )
+        }
+    }
 
     @ViewBuilder
     private func sourceIndicator(icon: MonologueIcon.IconType) -> some View {
@@ -965,11 +984,8 @@ private struct PetWhiteMinimalBowPlayer: View {
                     showTabs.toggle()
                 }
             } label: {
-                PetWhiteMascotMark(kind: showTabs ? .dog : .cat, size: 26)
-                    .frame(width: 42, height: 42)
-                    .background(showTabs ? PetWhiteStyle.mint : PetWhiteStyle.butter)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.5))
+                petWhiteCoverToggle
+                    .swipeToSkip()
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
@@ -981,6 +997,7 @@ private struct PetWhiteMinimalBowPlayer: View {
                     ))
             } else {
                 nowPlayingBowSegment
+                    .swipeToSkip()
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .leading)),
                         removal: .opacity.combined(with: .move(edge: .trailing))
@@ -1014,6 +1031,22 @@ private struct PetWhiteMinimalBowPlayer: View {
         }
     }
 
+    private var petWhiteCoverToggle: some View {
+        PetWhiteSpinningCoverDisc(
+            coverURL: player.currentSong?.coverUrl,
+            size: 42,
+            isPlaying: player.isPlaying,
+            strokeWidth: 1.5
+        )
+        .overlay(alignment: .bottomTrailing) {
+            Circle()
+                .fill(showTabs ? PetWhiteStyle.mint : PetWhiteStyle.butter)
+                .frame(width: 11, height: 11)
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
+                .offset(x: 1, y: 1)
+        }
+    }
+
     private var nowPlayingBowSegment: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
@@ -1036,9 +1069,6 @@ private struct PetWhiteMinimalBowPlayer: View {
             .frame(minWidth: 88, maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
             .onTapWithHaptic { openPlayer() }
-
-            ProgressBarView()
-                .frame(width: 42, height: 3)
 
             Button(action: { player.togglePlayPause() }) {
                 ZStack {
@@ -1065,6 +1095,12 @@ private struct PetWhiteMinimalBowPlayer: View {
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
         }
         .frame(maxWidth: DeviceLayout.isPad ? 440 : 320)
+        .overlay(alignment: .bottomLeading) {
+            ProgressBarView(height: 4, minFillWidth: 7)
+                .frame(height: 4)
+                .padding(.trailing, 76)
+                .offset(y: 5)
+        }
     }
 
     private var tabBowSegment: some View {
@@ -1080,10 +1116,10 @@ private struct PetWhiteMinimalBowPlayer: View {
                     VStack(spacing: 2) {
                         PetWhitePackIcon(
                             icon: selected ? tab.icon : tab.monologueIcon,
-                            size: selected ? 24 : 21,
-                            visualScale: 1.05,
+                            size: selected ? 18 : 16,
+                            visualScale: 1,
                             fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkMuted,
-                            lineWidth: 1.7
+                            lineWidth: 1.45
                         )
 
                         if selected {
@@ -1118,9 +1154,10 @@ private struct PetWhiteMinimalBowPlayer: View {
             .onEnded { value in
                 guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
                 guard player.currentSong != nil else { return }
+                guard showTabs else { return }
 
                 withAnimation(MonologueAnimation.panelToggle) {
-                    showTabs = value.translation.width < 0
+                    showTabs = value.translation.width <= 0
                 }
             }
     }

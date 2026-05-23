@@ -36,6 +36,7 @@ struct ScrollableLibraryExperience: View {
     @ObservedObject private var qqSession = QQUserSession.shared
     @State private var selectedMyLibraryColumn: MyLibraryColumn = .localPlaylists
     @State private var isLibraryActionsExpanded = false
+    @State private var isArtistFiltersExpanded = false
     @State private var showFileImporter = false
     @State private var showQQImport = false
     @State private var isImporting = false
@@ -228,18 +229,21 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteHeaderDeck: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 10) {
-                PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 42)
+        VStack(alignment: .leading, spacing: 12) {
+            // Elegant, frameless header with beautiful breathing room and playful elements
+            HStack(alignment: .center, spacing: 12) {
+                // Left badge - stands out beautifully on the paper backdrop
+                PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 46)
+                    .shadow(color: activeTabTint.opacity(0.12), radius: 6, y: 3)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 7) {
+                    HStack(spacing: 6) {
                         PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
                         PetWhitePill(text: activeTabShortLabel, tint: PetWhiteStyle.butter)
                     }
 
                     Text(String(localized: "tabbar_library"))
-                        .font(PetWhiteStyle.titleFont(26, weight: .black))
+                        .font(PetWhiteStyle.titleFont(28, weight: .black))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
@@ -248,23 +252,27 @@ struct ScrollableLibraryExperience: View {
 
                 Spacer(minLength: 8)
 
+                // The mascot paw floats beautifully in a playful circle container
                 PetWhitePetPetIcon(size: 42)
+                    .padding(6)
+                    .background(
+                        Circle()
+                            .fill(PetWhiteStyle.surfaceRaised)
+                            .shadow(color: PetWhiteStyle.ink.opacity(0.06), radius: 5, y: 3)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                    )
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 12)
-            .background(
-                PetWhiteSurfaceBackground(
-                    cornerRadius: 24,
-                    elevated: true,
-                    tint: PetWhiteStyle.surfaceRaised,
-                    accent: activeTabTint
-                )
-            )
+            .padding(.horizontal, 4)
+            .padding(.top, 4)
 
+            // The main interactive tab controller (keeps its solid, tactile dock-like appearance)
             tabStrip
         }
         .padding(.horizontal, contentHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 4)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
     }
 
     private var signalHeaderDeck: some View {
@@ -1078,8 +1086,12 @@ struct ScrollableLibraryExperience: View {
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                 }
             }
-            .padding(.vertical, 1)
+            .padding(.horizontal, 1) // Horizontal inset
+            .padding(.top, 2)
+            .padding(.bottom, 6) // Extra padding to accommodate stroke overflow + bottom shadow (y: 3)
         }
+        .padding(.top, -2)
+        .padding(.bottom, -6) // Offset layout spacing
         .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
     }
@@ -1257,20 +1269,98 @@ struct ScrollableLibraryExperience: View {
 
     private var artistsPage: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sourceStrip(selected: viewModel.artistSource) { source in
-                viewModel.artistSource = source
-                source == .qq ? viewModel.fetchQQArtistData(reset: true) : viewModel.fetchArtistData(reset: true)
+            HStack(spacing: 8) {
+                sourceStrip(selected: viewModel.artistSource) { source in
+                    viewModel.artistSource = source
+                    source == .qq ? viewModel.fetchQQArtistData(reset: true) : viewModel.fetchArtistData(reset: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        isArtistFiltersExpanded.toggle()
+                    }
+                } label: {
+                    if PetWhiteStyle.isActive {
+                        HStack(spacing: 6) {
+                            PetWhitePackIcon(
+                                icon: isArtistFiltersExpanded ? .close : .filter,
+                                size: 14,
+                                visualScale: 1.05,
+                                fallbackColor: PetWhiteStyle.stroke,
+                                lineWidth: 1.75
+                            )
+                            Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
+                                .font(PetWhiteStyle.labelFont(11, weight: .black))
+                                .foregroundStyle(PetWhiteStyle.stroke)
+                        }
+                        .padding(.horizontal, 11)
+                        .frame(height: 34)
+                        .background(
+                            PetWhiteSurfaceBackground(
+                                cornerRadius: 14,
+                                elevated: isArtistFiltersExpanded,
+                                tint: isArtistFiltersExpanded ? PetWhiteStyle.mint.opacity(0.22) : PetWhiteStyle.surfacePressed,
+                                accent: PetWhiteStyle.mint
+                            )
+                        )
+                    } else if NeumorphicStyle.isActive {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: isArtistFiltersExpanded ? .close : .filter, size: 14, color: isArtistFiltersExpanded ? defaultAccent : NeumorphicStyle.inkSoft, lineWidth: 1.7)
+                            Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
+                                .font(NeumorphicStyle.labelFont(11, weight: .semibold))
+                                .foregroundStyle(isArtistFiltersExpanded ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 38)
+                        .background(
+                            NeumorphicSurfaceBackground(
+                                cornerRadius: 15,
+                                elevated: isArtistFiltersExpanded,
+                                pressed: !isArtistFiltersExpanded,
+                                tint: isArtistFiltersExpanded ? defaultAccent.opacity(0.15) : NeumorphicStyle.surface,
+                                lightweight: true
+                            )
+                        )
+                    } else {
+                        HStack(spacing: 6) {
+                            MonologueIcon(icon: isArtistFiltersExpanded ? .close : .filter, size: 14, color: isArtistFiltersExpanded ? selectedChipText : secondaryText, lineWidth: 1.8)
+                            Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
+                                .font(chipFont(selected: isArtistFiltersExpanded))
+                                .foregroundColor(isArtistFiltersExpanded ? selectedChipText : secondaryText)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 38)
+                        .background(panelBackground(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isArtistFiltersExpanded ? defaultAccent.opacity(0.14) : .clear)
+                        )
+                    }
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
 
+            LibraryDisclosureReveal(isExpanded: isArtistFiltersExpanded) {
+                VStack(spacing: 10) {
+                    if viewModel.artistSource == .qq {
+                        qqArtistFilterBars
+                    } else {
+                        ncmArtistFilterBars
+                    }
+                }
+                .padding(.top, 4) // Prevents first row top outline clipping in LibraryDisclosureReveal
+                .padding(.bottom, 6) // Prevents last row bottom shadow clipping in LibraryDisclosureReveal
+            }
+
             if viewModel.artistSource == .qq {
-                qqArtistFilterBars
                 artistGrid(artists: viewModel.qqArtists, isLoading: viewModel.isLoadingQQArtists, tint: MusicSource.qqmusic.themedBadgeColor)
                 if viewModel.hasMoreQQArtists && !viewModel.qqArtists.isEmpty {
                     loadMoreButton { viewModel.loadMoreQQArtists() }
                 }
             } else {
-                ncmArtistFilterBars
                 artistGrid(artists: viewModel.topArtists, isLoading: viewModel.isLoadingArtists, tint: tertiaryAccent)
                 if viewModel.hasMoreArtists && !viewModel.topArtists.isEmpty {
                     loadMoreButton { viewModel.loadMoreArtists() }
@@ -1563,7 +1653,11 @@ struct ScrollableLibraryExperience: View {
                 content()
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            .padding(.top, 2)
+            .padding(.bottom, 6) // Extra padding to accommodate stroke overflow + bottom shadow (y: 3)
         }
+        .padding(.top, -2)
+        .padding(.bottom, -6) // Offset layout spacing
         .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
     }

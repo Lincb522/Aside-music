@@ -8,6 +8,21 @@ private struct ThemedProfileBackground: View {
     }
 }
 
+enum ProfileNavigationDestination: Hashable {
+    case settings
+}
+
+private extension View {
+    func profileNavigationDestinations() -> some View {
+        navigationDestination(for: ProfileNavigationDestination.self) { destination in
+            switch destination {
+            case .settings:
+                SettingsView()
+            }
+        }
+    }
+}
+
 struct ProfileView: View {
     @ObservedObject private var settings = SettingsManager.shared
 
@@ -25,6 +40,7 @@ struct ProfileView: View {
     @State private var showQQAccount = false
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
+    @State private var navigationPath = NavigationPath()
 
     @State private var userLevel: Int?
     @State private var listenSongs: Int?
@@ -89,7 +105,7 @@ struct ProfileView: View {
     // MARK: - Logged In
 
     private var loggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -109,14 +125,13 @@ struct ProfileView: View {
             .toolbar {
                 if !ThemedPageStyle.isActive {
                     ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(
-                            destination: SettingsView()
-                        ) {
+                        NavigationLink(value: ProfileNavigationDestination.settings) {
                             MonologueIcon(icon: .settings, size: 16)
                         }
                     }
                 }
             }
+            .profileNavigationDestinations()
         }
     }
 
@@ -174,7 +189,7 @@ struct ProfileView: View {
             title: String(localized: "我的"),
             subtitle: ""
         ) {
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 MangaIconBadge(icon: .settings, size: 48, tint: MangaStyle.decoBlue)
             }
             .buttonStyle(.plain)
@@ -187,7 +202,7 @@ struct ProfileView: View {
             title: String(localized: "我的"),
             subtitle: ""
         ) {
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 MujiIconBadge(icon: .settings, tint: MujiStyle.indigo, size: 48)
             }
             .buttonStyle(.plain)
@@ -200,7 +215,7 @@ struct ProfileView: View {
             title: String(localized: "我的"),
             subtitle: ""
         ) {
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 NeumorphicIconBadge(icon: .settings, tint: NeumorphicStyle.accent, size: 48)
             }
             .buttonStyle(.plain)
@@ -271,7 +286,7 @@ struct ProfileView: View {
 
                 Spacer(minLength: 8)
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     PetWhiteIconBadge(icon: .settings, tint: PetWhiteStyle.sky, size: 48)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
@@ -446,7 +461,7 @@ struct ProfileView: View {
                     }
                 }
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     ProfileMenuRow(
                         icon: .settings,
                         title: NSLocalizedString("profile_settings", comment: "")
@@ -538,7 +553,7 @@ struct ProfileView: View {
 
             Spacer(minLength: 8)
 
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 MonologueIcon(icon: .settings, size: 17, color: NeumorphicStyle.accent, lineWidth: 1.55)
                     .frame(width: 44, height: 44)
                     .background(NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, lightweight: true))
@@ -573,7 +588,7 @@ struct ProfileView: View {
             eyebrow: "PROFILE",
             title: String(localized: "我的")
         ) {
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 CapsuleIconBadge(icon: .settings, tint: CapsuleStyle.accent, size: 46)
             }
             .buttonStyle(.plain)
@@ -815,7 +830,7 @@ struct ProfileView: View {
 
             Spacer(minLength: 8)
 
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 MonologueIcon(icon: .settings, size: 17, color: SignalStyle.accent, lineWidth: 1.55)
                     .frame(width: 42, height: 42)
                     .background(SignalSurfaceBackground(cornerRadius: 11, elevated: true, fill: SignalStyle.control))
@@ -874,7 +889,7 @@ struct ProfileView: View {
                 .padding(.vertical, 9)
                 .background(SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, role: .list))
 
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 SequoiaControlButton(icon: .settings, tint: SequoiaStyle.accent, size: 40)
                     .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
@@ -925,7 +940,7 @@ struct ProfileView: View {
 
             Spacer(minLength: 10)
 
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 LiquidGlassIconBadge(icon: .settings, tint: LiquidGlassStyle.accent, size: 44)
                     .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -1238,7 +1253,7 @@ struct ProfileView: View {
 
             Spacer(minLength: 8)
 
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 LiquidGlassIconBadge(icon: .settings, tint: LiquidGlassStyle.accent, size: 44)
                     .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -1814,7 +1829,7 @@ struct ProfileView: View {
 
                 MangaProfileActionDivider()
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     MangaProfileActionRow(
                         icon: .settings,
                         title: NSLocalizedString("profile_settings", comment: ""),
@@ -1835,7 +1850,7 @@ struct ProfileView: View {
     }
 
     private var mangaNotLoggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -1857,6 +1872,7 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 
@@ -1957,7 +1973,7 @@ struct ProfileView: View {
 
                 MujiProfileDivider()
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     MujiProfileLedgerRow(
                         icon: .settings,
                         title: NSLocalizedString("profile_settings", comment: ""),
@@ -1976,7 +1992,7 @@ struct ProfileView: View {
     }
 
     private var mujiNotLoggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -1998,6 +2014,7 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 
@@ -2120,7 +2137,7 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     NeumorphicProfileShortcutTile(
                         icon: .settings,
                         title: NSLocalizedString("profile_settings", comment: ""),
@@ -2139,7 +2156,7 @@ struct ProfileView: View {
     }
 
     private var neumorphicNotLoggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -2162,6 +2179,7 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 
@@ -2214,7 +2232,7 @@ struct ProfileView: View {
 
             Spacer(minLength: 8)
 
-            NavigationLink(destination: SettingsView()) {
+            NavigationLink(value: ProfileNavigationDestination.settings) {
                 MonologueIcon(icon: .settings, size: 18, color: MangaStyle.strokeInk, lineWidth: 1.9)
                     .frame(width: 42, height: 42)
                     .background(
@@ -2964,7 +2982,7 @@ struct ProfileView: View {
         } else if LiquidGlassStyle.isActive {
             liquidGlassNotLoggedInContent
         } else {
-            NavigationStack {
+            NavigationStack(path: $navigationPath) {
                 ZStack {
                     ThemedProfileBackground()
 
@@ -3115,9 +3133,7 @@ struct ProfileView: View {
 
                             Divider().padding(.leading, 56)
 
-                            NavigationLink(
-                                destination: SettingsView()
-                            ) {
+                            NavigationLink(value: ProfileNavigationDestination.settings) {
                                 ProfileMenuRow(
                                     icon: .settings,
                                     title: NSLocalizedString("profile_settings", comment: "")
@@ -3133,12 +3149,13 @@ struct ProfileView: View {
                 .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "我的"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
+                .profileNavigationDestinations()
             }
         }
     }
 
     private var petWhiteNotLoggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -3164,6 +3181,7 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 
@@ -3189,7 +3207,7 @@ struct ProfileView: View {
 
                 Spacer(minLength: 8)
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     PetWhiteIconBadge(icon: .settings, tint: PetWhiteStyle.sky, size: 48)
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
@@ -3241,7 +3259,7 @@ struct ProfileView: View {
     }
 
     private var capsuleNotLoggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -3327,7 +3345,7 @@ struct ProfileView: View {
                                 }
                                 .buttonStyle(CapsulePressStyle())
 
-                                NavigationLink(destination: SettingsView()) {
+                                NavigationLink(value: ProfileNavigationDestination.settings) {
                                     ProfileMenuRow(
                                         icon: .settings,
                                         title: NSLocalizedString("profile_settings", comment: "")
@@ -3347,11 +3365,12 @@ struct ProfileView: View {
             }
             .navigationTitle("")
             .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 
     private var liquidGlassNotLoggedInContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
@@ -3405,6 +3424,7 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 

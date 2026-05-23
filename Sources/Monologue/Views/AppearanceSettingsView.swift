@@ -290,7 +290,7 @@ struct AppearanceSettingsView: View {
     }
 
     private func applyGlobalTheme(_ themeId: GlobalThemeId) {
-        settings.globalThemeId = themeId
+        settings.selectGlobalTheme(themeId)
 
         if let suggestedPlayerTheme = suggestedPlayerTheme(for: themeId) {
             PlayerThemeManager.shared.setTheme(suggestedPlayerTheme)
@@ -2220,7 +2220,7 @@ private struct InterfaceIconSetOptionCard: View {
 
     private var previewIconSize: CGFloat {
         switch iconSet {
-        case .iconExport, .doodlePop, .pawPrint:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake:
             return 18
         case .blobIcons:
             return 17
@@ -2231,7 +2231,7 @@ private struct InterfaceIconSetOptionCard: View {
 
     private func originalArtworkScale(for icon: MonologueIcon.IconType) -> CGFloat {
         switch iconSet {
-        case .doodlePop, .pawPrint:
+        case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:
                 return 1.18
@@ -2306,11 +2306,6 @@ private struct SettingsDisclosureReveal<Content: View>: View {
     let isExpanded: Bool
     let content: Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var measuredHeight: CGFloat = 0
-
-    private var targetHeight: CGFloat {
-        isExpanded ? measuredHeight : 0
-    }
 
     private var revealAnimation: Animation {
         if reduceMotion {
@@ -2319,56 +2314,30 @@ private struct SettingsDisclosureReveal<Content: View>: View {
         return .interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04)
     }
 
-    private var revealOffset: CGFloat {
-        isExpanded || reduceMotion ? 0 : -10
-    }
-
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
         self.isExpanded = isExpanded
         self.content = content()
     }
 
     var body: some View {
-        content
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .opacity(isExpanded ? 1 : 0)
-            .offset(y: revealOffset)
-            .background {
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: SettingsDisclosureHeightPreferenceKey.self,
-                        value: proxy.size.height
+        VStack(spacing: 0) {
+            if isExpanded {
+                content
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .opacity.combined(with: .move(edge: .top))
                     )
-                }
             }
-            .frame(height: targetHeight, alignment: .top)
-            .clipShape(Rectangle())
-            .clipped()
-            .onPreferenceChange(SettingsDisclosureHeightPreferenceKey.self) { height in
-                updateMeasuredHeight(height)
-            }
-            .contentShape(Rectangle())
-            .allowsHitTesting(isExpanded)
-            .accessibilityHidden(!isExpanded)
-            .animation(revealAnimation, value: isExpanded)
-    }
-
-    private func updateMeasuredHeight(_ height: CGFloat) {
-        guard height > 0, abs(measuredHeight - height) > 0.5 else { return }
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            measuredHeight = height
         }
-    }
-}
-
-private struct SettingsDisclosureHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .clipped()
+        .contentShape(Rectangle())
+        .allowsHitTesting(isExpanded)
+        .accessibilityHidden(!isExpanded)
+        .animation(revealAnimation, value: isExpanded)
     }
 }
 

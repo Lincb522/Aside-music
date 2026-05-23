@@ -105,6 +105,9 @@ public struct ContentView: View {
                 settings.activeColorScheme = newScheme
             }
         }
+        .onChange(of: settings.globalThemeRevision) { _, _ in
+            refreshHomeStateForThemeChange()
+        }
         .onChange(of: showWelcome) { _, isShowing in
             if !isShowing {
                 onlineAccess.refreshOnLaunch(showInvalidAlert: true)
@@ -133,6 +136,7 @@ public struct ContentView: View {
 
         return TabView(selection: $currentTab) {
             tabRootView(for: .home)
+                .id(tabRootIdentity(for: .home))
                 .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -143,6 +147,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.home)
             tabRootView(for: .podcast)
+                .id(tabRootIdentity(for: .podcast))
                 .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -153,6 +158,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.podcast)
             tabRootView(for: .library)
+                .id(tabRootIdentity(for: .library))
                 .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -163,6 +169,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.library)
             tabRootView(for: .profile)
+                .id(tabRootIdentity(for: .profile))
                 .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -203,12 +210,26 @@ public struct ContentView: View {
                 }
             case .profile:
                 if onlineAccess.canUseOnlineFeatures {
-                    theme.makeProfileView()
+                    ProfileView()
                 } else {
-                    theme.makeLocalProfileView()
+                    LocalModeProfileView()
                 }
             }
         }
+    }
+
+    private func tabRootIdentity(for tab: Tab) -> String {
+        let accessMode = onlineAccess.canUseOnlineFeatures ? "online" : "local"
+        if tab == .profile {
+            return "\(accessMode)-tab-\(tab.rawValue)"
+        }
+
+        return "\(settings.globalThemeId.rawValue)-\(accessMode)-tab-\(tab.rawValue)"
+    }
+
+    private func refreshHomeStateForThemeChange() {
+        HomeViewModel.shared.reloadHomeCacheIfUseful(reason: "global theme changed")
+        HomeViewModel.shared.ensureHomeDataLoaded(reason: "global theme changed")
     }
 
     private func tabLabelKey(for tab: Tab) -> String {
@@ -221,19 +242,69 @@ public struct ContentView: View {
 
     @ViewBuilder
     private func tabIcon(for tab: Tab) -> some View {
-        let tabIconSize: CGFloat = 23
+        let iconSet = AppInterfaceIconSet.selectedFromDefaults
 
-        if AppInterfaceIconSet.selectedFromDefaults == .pawPrint {
+        if iconSet == .pawPrint {
             MonologueIcon(
                 icon: pawPrintTabIcon(for: tab),
-                size: tabIconSize
+                size: pawPrintTabIconVisualSize(for: tab)
             )
-        } else {
+            .frame(width: tabIconFrameSize, height: tabIconFrameSize)
+        } else if iconSet == .hicon {
             defaultTabIcon(for: tab)
+        } else {
+            MonologueIcon(
+                icon: themedTabIcon(for: tab),
+                size: themedTabIconVisualSize(for: iconSet)
+            )
+            .frame(width: tabIconFrameSize, height: tabIconFrameSize)
+        }
+    }
+
+    private var tabIconFrameSize: CGFloat { 23 }
+
+    private func pawPrintTabIconVisualSize(for tab: Tab) -> CGFloat {
+        let isSelected = currentTab == tab
+
+        switch tab {
+        case .library:
+            return 23
+        case .home, .podcast, .profile:
+            return isSelected ? 17.5 : 18.5
         }
     }
 
     private func pawPrintTabIcon(for tab: Tab) -> MonologueIcon.IconType {
+        switch tab {
+        case .home:
+            return currentTab == .home ? .homeFilled : .home
+        case .podcast:
+            if onlineAccess.canUseOnlineFeatures {
+                return currentTab == .podcast ? .podcastFilled : .podcast
+            } else {
+                return currentTab == .podcast ? .musicNoteList : .musicNote
+            }
+        case .library:
+            return currentTab == .library ? .libraryFilled : .library
+        case .profile:
+            return currentTab == .profile ? .profileFilled : .profile
+        }
+    }
+
+    private func themedTabIconVisualSize(for iconSet: AppInterfaceIconSet) -> CGFloat {
+        switch iconSet {
+        case .doodlePop:
+            return 16.5
+        case .blobIcons, .iconExport:
+            return 17
+        case .pawPrint:
+            return 18
+        case .hicon, .zappicon, .lucide, .solar:
+            return 23
+        }
+    }
+
+    private func themedTabIcon(for tab: Tab) -> MonologueIcon.IconType {
         switch tab {
         case .home:
             return currentTab == .home ? .homeFilled : .home
@@ -410,6 +481,7 @@ private struct ContentViewFloatingBarContainer: View {
             FloatingBallView(currentTab: $currentTab)
         }
     }
+
 }
 
 // MARK: - 紧凑迷你播放器容器（隔离 PlayerManager + PlaybackTimePublisher 订阅）

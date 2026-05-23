@@ -267,14 +267,18 @@ struct MiniPlayerSection: View {
 }
 
 struct ProgressBarView: View {
+    var height: CGFloat = 3
+    var minFillWidth: CGFloat = 5
+
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
     var body: some View {
         GlobalPlaybackProgressBar(
             progress: CGFloat(timePublisher.progress),
-            height: 3,
-            minFillWidth: 5,
+            height: height,
+            minFillWidth: minFillWidth,
             trackColor: trackColor,
+            strokeColor: strokeColor,
             fillColors: progressFillColors
         )
     }
@@ -283,7 +287,7 @@ struct ProgressBarView: View {
         if MangaStyle.isActive {
             return MangaStyle.separator.opacity(0.6)
         } else if PetWhiteStyle.isActive {
-            return PetWhiteStyle.separator
+            return PetWhiteStyle.stroke.opacity(0.16)
         } else if PureWhiteStyle.isActive {
             return PureWhiteStyle.separator.opacity(0.7)
         } else if MujiStyle.isActive {
@@ -302,11 +306,18 @@ struct ProgressBarView: View {
         return Color.monologueTextPrimary.opacity(0.06)
     }
 
+    private var strokeColor: Color? {
+        if PetWhiteStyle.isActive {
+            return PetWhiteStyle.surfaceRaised.opacity(0.78)
+        }
+        return nil
+    }
+
     private var progressFillColors: [Color] {
         if MangaStyle.isActive {
             return [MangaStyle.accentPink, MangaStyle.labelYellow]
         } else if PetWhiteStyle.isActive {
-            return [PetWhiteStyle.dogOrange, PetWhiteStyle.mint, PetWhiteStyle.sky.opacity(0.72)]
+            return [PetWhiteStyle.dogOrange, PetWhiteStyle.dogEar, PetWhiteStyle.blush.opacity(0.94)]
         } else if PureWhiteStyle.isActive {
             return [PureWhiteStyle.accent, PureWhiteStyle.paperBlue, PureWhiteStyle.inkSoft.opacity(0.42)]
         } else if MujiStyle.isActive {
@@ -912,11 +923,11 @@ private struct PetWhiteUnifiedNowPlayingTicket: View {
                 .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
             )
             .overlay(alignment: .bottomLeading) {
-                ProgressBarView()
-                    .frame(height: 3)
+                ProgressBarView(height: 4, minFillWidth: 7)
+                    .frame(height: 4)
                     .padding(.leading, 58)
                     .padding(.trailing, 82)
-                    .offset(y: -4)
+                    .offset(y: -3)
             }
         }
         .contentShape(Rectangle())
@@ -961,10 +972,10 @@ private struct PetWhiteUnifiedTabPawDock: View {
                     VStack(spacing: 3) {
                         PetWhitePackIcon(
                             icon: selected ? tab.icon : tab.monologueIcon,
-                            size: selected ? 25 : 22,
-                            visualScale: 1.05,
+                            size: selected ? 18 : 16,
+                            visualScale: 1,
                             fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkMuted,
-                            lineWidth: 1.7
+                            lineWidth: 1.45
                         )
 
                         Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))

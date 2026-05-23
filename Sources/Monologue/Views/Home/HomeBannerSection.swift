@@ -21,15 +21,13 @@ struct HomeBannerSection: View {
             TabView(selection: $bannerIndex) {
                 ForEach(Array(banners.enumerated()), id: \.element.id) { index, banner in
                     Button(action: { onTap(banner) }) {
-                        CachedAsyncImage(
+                        HomeBannerArtwork(
                             url: banner.imageUrl,
-                            width: nil,
-                            height: DeviceLayout.bannerHeight,
+                            cornerRadius: bannerRadius,
                             placeholder: {
                                 RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
                                     .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
-                            },
-                            contentMode: .fit
+                            }
                         )
                         .frame(maxWidth: .infinity)
                         .frame(height: DeviceLayout.bannerHeight)
@@ -95,5 +93,39 @@ struct HomeBannerSection: View {
 
     private var activeDotColor: Color {
         NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary.opacity(0.8)
+    }
+}
+
+struct HomeBannerArtwork<Placeholder: View>: View {
+    let url: URL?
+    let cornerRadius: CGFloat
+    let placeholder: Placeholder
+
+    init(
+        url: URL?,
+        cornerRadius: CGFloat,
+        @ViewBuilder placeholder: () -> Placeholder
+    ) {
+        self.url = url
+        self.cornerRadius = cornerRadius
+        self.placeholder = placeholder()
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            CachedAsyncImage(
+                url: url,
+                width: proxy.size.width,
+                height: proxy.size.height,
+                placeholder: {
+                    placeholder
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                },
+                contentMode: .fill
+            )
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }

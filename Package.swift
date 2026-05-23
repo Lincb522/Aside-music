@@ -36,6 +36,8 @@ let package = Package(
         .package(path: "doodlePop"),
         // PawPrintIcons - 猫狗扁平 PNG 图标包
         .package(path: "PawPrintIcons"),
+        // DotDogSnakeIcons - 点狗蛇 PNG 图标包
+        .package(path: "DotDogSnakeIcons"),
     ],
     targets: [
         .target(
@@ -52,6 +54,7 @@ let package = Package(
                 "BlobIcons",
                 "doodlePop",
                 "PawPrintIcons",
+                "DotDogSnakeIcons",
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi.ttf"),

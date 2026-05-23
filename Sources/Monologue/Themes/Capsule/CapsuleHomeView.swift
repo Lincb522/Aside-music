@@ -5,6 +5,7 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
     case daily
     case qcmNew
     case ncmNew
+    case meditation
     case mv
 
     var id: Self { self }
@@ -14,6 +15,7 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
         case .daily: return String(localized: "每日推荐")
         case .qcmNew: return String(localized: "QCM 新歌")
         case .ncmNew: return String(localized: "新歌速递")
+        case .meditation: return String(localized: "meditation_mode_title")
         case .mv: return "MV"
         }
     }
@@ -21,9 +23,10 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
     var icon: MonologueIcon.IconType {
         switch self {
         case .daily: return .sparkle
-        case .qcmNew: return .musicNote
-        case .ncmNew: return .arrowDownToLine
-        case .mv: return .fullscreen
+        case .qcmNew: return .musicNoteList
+        case .ncmNew: return .musicNoteList
+        case .meditation: return .moon
+        case .mv: return .mv
         }
     }
 
@@ -32,6 +35,7 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
         case .daily: return CapsuleStyle.accent
         case .qcmNew: return CapsuleStyle.mint
         case .ncmNew: return CapsuleStyle.amber
+        case .meditation: return CapsuleStyle.cyan
         case .mv: return CapsuleStyle.violet
         }
     }
@@ -231,7 +235,12 @@ struct CapsuleHomeView: View {
                     )
 
                     if usesHitokotoFallback {
-                        MonoWordmarkImage(height: 28)
+                        Text(HitokotoFallbackSlogan.text)
+                            .font(CapsuleStyle.bodyFont(18, weight: .semibold))
+                            .foregroundStyle(CapsuleStyle.ink)
+                            .lineSpacing(4)
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.82)
                             .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
                     } else {
                         Text(hitokotoText)
@@ -279,7 +288,7 @@ struct CapsuleHomeView: View {
                 if index != quickModules.count - 1 {
                     Rectangle()
                         .fill(CapsuleStyle.separator.opacity(0.48))
-                        .frame(width: 1, height: 32)
+                        .frame(width: 1, height: 54)
                         .padding(.vertical, 10)
                 }
             }
@@ -296,31 +305,28 @@ struct CapsuleHomeView: View {
     }
 
     private func capsuleMediaEntry(_ module: CapsuleHomeModule) -> some View {
-        HStack(spacing: 10) {
+        VStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .fill(module.tint.opacity(0.14))
-                .frame(width: 34, height: 34)
-                .overlay(MonologueIcon(icon: module.icon, size: 15, color: module.tint, lineWidth: 1.8))
+                .frame(width: 38, height: 38)
+                .overlay(MonologueIcon(icon: module.icon, size: 16, color: module.tint, lineWidth: 1.8))
 
             Text(module.title)
-                .font(CapsuleStyle.labelFont(14, weight: .bold))
+                .font(CapsuleStyle.labelFont(12, weight: .bold))
                 .foregroundStyle(CapsuleStyle.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-
-            Spacer(minLength: 0)
-
-            Capsule()
-                .fill(module.tint)
-                .frame(width: 18, height: 5)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.74)
+                .frame(maxWidth: .infinity, minHeight: 30, alignment: .top)
         }
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, minHeight: 54)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 78)
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private var quickModules: [CapsuleHomeModule] {
-        [.ncmNew, .mv]
+        [.ncmNew, .meditation, .mv]
     }
 
     private var bannerRail: some View {
@@ -463,6 +469,8 @@ struct CapsuleHomeView: View {
             navigationPath.append(HomeView.HomeDestination.qcmNewSongs)
         case .ncmNew:
             navigationPath.append(HomeView.HomeDestination.newSongExpress)
+        case .meditation:
+            navigationPath.append(HomeView.HomeDestination.meditationMode)
         case .mv:
             navigationPath.append(HomeView.HomeDestination.mvDiscover)
         }
@@ -536,6 +544,8 @@ struct CapsuleHomeView: View {
             NewSongExpressView()
         case .qcmNewSongs:
             QCMNewSongsView()
+        case .meditationMode:
+            MeditationModeView()
         }
     }
 }
@@ -547,27 +557,24 @@ private struct CapsuleBannerCard: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(
+                HomeBannerArtwork(
                     url: banner.imageUrl,
-                    width: nil,
-                    height: 122,
+                    cornerRadius: 32,
                     placeholder: {
-                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        RoundedRectangle(cornerRadius: 32, style: .continuous)
                             .fill(CapsuleStyle.surfaceTint)
                             .overlay(MonologueIcon(icon: .musicNote, size: 24, color: CapsuleStyle.inkMuted.opacity(0.55), lineWidth: 1.7))
-                    },
-                    contentMode: .fit
+                    }
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 122)
-                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
 
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.38)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
 
                 HStack(spacing: 8) {
                     Text(banner.typeTitle ?? String(localized: "推荐"))

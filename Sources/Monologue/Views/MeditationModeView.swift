@@ -1,0 +1,487 @@
+import SwiftUI
+
+struct MeditationModeView: View {
+    @StateObject private var viewModel = MeditationModeViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
+    @State private var radioPlayerDestination: MeditationRadioPlayerDestination?
+
+    var body: some View {
+        let _ = settings.globalThemeRevision
+
+        ZStack {
+            pageBackground
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    scrollableHeader
+                    topicSelector
+                    contentSection
+                    FloatingBarBottomSpacer()
+                }
+                .padding(.top, PetWhiteStyle.isActive || ThemedPageStyle.isActive ? 0 : 12)
+                .padding(.bottom, 20)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+            .refreshable {
+                await viewModel.refresh()
+            }
+        }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .task {
+            await viewModel.loadIfNeeded()
+        }
+        .fullScreenCover(item: $radioPlayerDestination) { destination in
+            MeditationPlayerView(radio: destination.radio)
+        }
+    }
+
+    @ViewBuilder
+    private var pageBackground: some View {
+        if PetWhiteStyle.isActive {
+            PetWhiteRootBackdrop()
+        } else if MangaStyle.isActive {
+            MangaRootBackdrop()
+        } else if MujiStyle.isActive {
+            MujiRootBackdrop()
+        } else if SignalStyle.isActive {
+            ThemeRenderBackdrop(theme: .signal)
+        } else {
+            ThemedPageBackground()
+                .ignoresSafeArea()
+        }
+    }
+
+    private var petWhiteHeader: some View {
+        PetWhitePageHeader(
+            eyebrow: "MEDITATION",
+            title: String(localized: "meditation_mode_title"),
+            subtitle: "",
+            icon: .moon
+        ) {
+            PetWhiteIconBadge(icon: .moon, tint: PetWhiteStyle.mint, size: 50)
+        }
+    }
+
+    @ViewBuilder
+    private var scrollableHeader: some View {
+        if PetWhiteStyle.isActive {
+            petWhiteHeader
+        } else if ThemedPageStyle.isActive {
+            ThemedPageHeader(
+                eyebrow: "MEDITATION",
+                title: String(localized: "meditation_mode_title"),
+                subtitle: "",
+                icon: .moon
+            )
+        } else {
+            HStack(alignment: .center, spacing: 14) {
+                MonologueIcon(icon: .moon, size: 22, color: accentColor, lineWidth: 1.7)
+                    .frame(width: 48, height: 48)
+                    .background(accentColor.opacity(0.14), in: Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MEDITATION")
+                        .font(labelFont(size: 11, weight: .black))
+                        .foregroundStyle(secondaryTextColor)
+                        .tracking(1.2)
+
+                    Text(String(localized: "meditation_mode_title"))
+                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .foregroundStyle(primaryTextColor)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, horizontalPadding)
+        }
+    }
+
+    private var topicSelector: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 10) {
+                ForEach(MeditationTopic.allCases) { topic in
+                    topicChip(topic)
+                }
+            }
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, 2)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+    }
+
+    @ViewBuilder
+    private var contentSection: some View {
+        if viewModel.isLoading && viewModel.radios.isEmpty {
+            loadingView
+                .padding(.horizontal, horizontalPadding)
+        } else if viewModel.visibleRadios.isEmpty {
+            emptyView
+                .padding(.horizontal, horizontalPadding)
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionTitle
+
+                LazyVStack(spacing: ThemedPageStyle.listSpacing == 0 ? 10 : ThemedPageStyle.listSpacing) {
+                    ForEach(viewModel.visibleRadios) { radio in
+                        Button {
+                            radioPlayerDestination = MeditationRadioPlayerDestination(radio: radio)
+                        } label: {
+                            radioCard(radio)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    }
+                }
+            }
+            .padding(.horizontal, horizontalPadding)
+        }
+    }
+
+    private var sectionTitle: some View {
+        HStack(spacing: 10) {
+            MonologueIcon(icon: .headphones, size: 16, color: accentColor, lineWidth: 1.6)
+
+            Text(viewModel.selectedTopic == .all ? String(localized: "meditation_recommended_title") : viewModel.selectedTopic.title)
+                .font(labelFont(size: 17, weight: .black))
+                .foregroundStyle(primaryTextColor)
+
+            Spacer()
+
+            Text("\(viewModel.visibleRadios.count)")
+                .font(labelFont(size: 13, weight: .black))
+                .foregroundStyle(accentColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(countBackground)
+        }
+    }
+
+    private func topicChip(_ topic: MeditationTopic) -> some View {
+        let isSelected = viewModel.selectedTopic == topic
+
+        return Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                viewModel.selectedTopic = topic
+            }
+        } label: {
+            Text(topic.title)
+                .font(labelFont(size: 13, weight: .black))
+                .foregroundStyle(isSelected ? selectedChipTextColor : secondaryTextColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(chipBackground(isSelected: isSelected))
+                .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func radioCard(_ radio: RadioStation) -> some View {
+        HStack(spacing: 13) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(coverPlaceholderColor)
+                    .overlay(MonologueIcon(icon: .moon, size: 22, color: secondaryTextColor.opacity(0.42)))
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 62, height: 62)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(cardStrokeColor, lineWidth: cardStrokeWidth)
+            )
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(radio.name)
+                    .font(labelFont(size: 15, weight: .black))
+                    .foregroundStyle(primaryTextColor)
+                    .lineLimit(1)
+
+                if let desc = radio.desc, !desc.isEmpty {
+                    Text(desc)
+                        .font(labelFont(size: 12, weight: .medium))
+                        .foregroundStyle(secondaryTextColor)
+                        .lineLimit(2)
+                } else {
+                    Text(radio.dj?.nickname ?? String(localized: "podcast_title"))
+                        .font(labelFont(size: 12, weight: .medium))
+                        .foregroundStyle(secondaryTextColor)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 8) {
+                    if let count = radio.programCount, count > 0 {
+                        metaPill(String(format: String(localized: "podcast_episode_count"), count))
+                    }
+
+                    if let category = radio.category, !category.isEmpty {
+                        metaPill(category)
+                    }
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            MonologueIcon(icon: .play, size: 14, color: playIconColor, lineWidth: 1.7)
+                .frame(width: 34, height: 34)
+                .background(playButtonBackground)
+                .clipShape(Circle())
+                .overlay(playButtonStroke)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardBackground)
+        .contentShape(RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous))
+    }
+
+    private func metaPill(_ text: String) -> some View {
+        Text(text)
+            .font(labelFont(size: 10, weight: .bold))
+            .foregroundStyle(secondaryTextColor)
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(metaPillBackground)
+            .clipShape(Capsule())
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 0) {
+            MeditationModeLoadingGlyph(tint: accentColor, secondary: secondaryTextColor)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 80)
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 12) {
+            MonologueIcon(icon: .moon, size: 34, color: secondaryTextColor.opacity(0.44), lineWidth: 1.7)
+            Text(viewModel.errorMessage == nil ? String(localized: "meditation_empty") : String(localized: "meditation_load_failed"))
+                .font(labelFont(size: 15, weight: .black))
+                .foregroundStyle(primaryTextColor)
+            if let message = viewModel.errorMessage {
+                Text(message)
+                    .font(labelFont(size: 12, weight: .medium))
+                    .foregroundStyle(secondaryTextColor)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+            }
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                Text(String(localized: "reload"))
+                    .font(labelFont(size: 13, weight: .black))
+                    .foregroundStyle(selectedChipTextColor)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(accentColor, in: Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 76)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if PetWhiteStyle.isActive {
+            PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint)
+        } else {
+            RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                .fill(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                        .stroke(cardStrokeColor, lineWidth: cardStrokeWidth)
+                )
+        }
+    }
+
+    @ViewBuilder
+    private var countBackground: some View {
+        if PetWhiteStyle.isActive {
+            Capsule().fill(PetWhiteStyle.mint.opacity(0.56))
+        } else {
+            Capsule().fill(accentColor.opacity(0.12))
+        }
+    }
+
+    @ViewBuilder
+    private func chipBackground(isSelected: Bool) -> some View {
+        if PetWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(isSelected ? PetWhiteStyle.mint : PetWhiteStyle.surfaceRaised)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(PetWhiteStyle.stroke.opacity(isSelected ? 1 : 0.42), lineWidth: isSelected ? 1.4 : 1)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(isSelected ? accentColor.opacity(0.2) : cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(isSelected ? accentColor.opacity(0.45) : cardStrokeColor, lineWidth: cardStrokeWidth)
+                )
+        }
+    }
+
+    private var playButtonBackground: some View {
+        Circle().fill(PetWhiteStyle.isActive ? PetWhiteStyle.butter : accentColor.opacity(0.16))
+    }
+
+    @ViewBuilder
+    private var playButtonStroke: some View {
+        if PetWhiteStyle.isActive {
+            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+        }
+    }
+
+    private var metaPillBackground: some View {
+        Capsule().fill(secondaryTextColor.opacity(0.09))
+    }
+
+    private var horizontalPadding: CGFloat {
+        PetWhiteStyle.isActive ? DeviceLayout.homeHorizontalPadding : DeviceLayout.viewHorizontalPadding
+    }
+
+    private var cardCornerRadius: CGFloat {
+        if PetWhiteStyle.isActive { return 22 }
+        if MangaStyle.isActive { return 18 }
+        if MujiStyle.isActive { return 16 }
+        if NeumorphicStyle.isActive { return 22 }
+        if CapsuleStyle.isActive { return 24 }
+        if SequoiaStyle.isActive { return 20 }
+        return 20
+    }
+
+    private var cardStrokeWidth: CGFloat {
+        PetWhiteStyle.isActive ? 1.2 : 0.7
+    }
+
+    private var cardFillColor: Color {
+        if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.82) }
+        if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surface.opacity(0.92) }
+        if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised.opacity(0.82) }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.78) }
+        if SignalStyle.isActive { return SignalStyle.control.opacity(0.78) }
+        return Color.monologueGlassTint.opacity(0.82)
+    }
+
+    private var coverPlaceholderColor: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialList }
+        return Color.monologueGlassTint
+    }
+
+    private var cardStrokeColor: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.52) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.5) }
+        if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.48) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
+        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.62) }
+        return Color.monologueSeparator.opacity(0.5)
+    }
+
+    private var accentColor: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.mint }
+        if MangaStyle.isActive { return MangaStyle.bubbleBlue }
+        if MujiStyle.isActive { return MujiStyle.tea }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.mint }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
+        return .monologueAccent
+    }
+
+    private var primaryTextColor: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
+        if MangaStyle.isActive { return MangaStyle.inkSub }
+        if MujiStyle.isActive { return MujiStyle.inkSoft }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var selectedChipTextColor: Color {
+        PetWhiteStyle.isActive ? PetWhiteStyle.stroke : primaryTextColor
+    }
+
+    private var playIconColor: Color {
+        PetWhiteStyle.isActive ? PetWhiteStyle.stroke : accentColor
+    }
+
+    private func labelFont(size: CGFloat, weight: Font.Weight) -> Font {
+        if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(size, weight: weight) }
+        if MangaStyle.isActive { return MangaStyle.labelFont(size, weight: weight) }
+        if MujiStyle.isActive { return MujiStyle.labelFont(size, weight: weight) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
+        if CapsuleStyle.isActive { return CapsuleStyle.labelFont(size, weight: weight) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
+        if SignalStyle.isActive { return SignalStyle.labelFont(size, weight: weight) }
+        return .system(size: size, weight: weight, design: .rounded)
+    }
+}
+
+private struct MeditationRadioPlayerDestination: Identifiable {
+    let radio: RadioStation
+    var id: Int { radio.id }
+}
+
+private struct MeditationModeLoadingGlyph: View {
+    let tint: Color
+    let secondary: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: reduceMotion)) { context in
+            let phase = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+
+            ZStack {
+                ForEach(0..<3) { index in
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    tint.opacity(0.0),
+                                    tint.opacity(0.42 - Double(index) * 0.08),
+                                    secondary.opacity(0.16),
+                                    tint.opacity(0.0)
+                                ],
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 2.5 - CGFloat(index) * 0.35, lineCap: .round)
+                        )
+                        .frame(width: 48 + CGFloat(index) * 17, height: 48 + CGFloat(index) * 17)
+                        .rotationEffect(.degrees(phase * (34 + Double(index) * 12) + Double(index) * 42))
+                        .opacity(0.85 - Double(index) * 0.16)
+                }
+
+                Circle()
+                    .fill(tint.opacity(0.12))
+                    .frame(width: 46, height: 46)
+                    .overlay(Circle().stroke(tint.opacity(0.26), lineWidth: 1))
+
+                MonologueIcon(icon: .moon, size: 20, color: tint, lineWidth: 1.75)
+                    .scaleEffect(reduceMotion ? 1 : 0.94 + CGFloat((sin(phase * 2.2) + 1) * 0.035))
+            }
+            .frame(width: 92, height: 92)
+        }
+    }
+}

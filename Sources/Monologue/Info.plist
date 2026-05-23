@@ -17,7 +17,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>mono</string>
+	<string>Mono</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
@@ -123,8 +123,6 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>扫描系统音乐资料库需要访问你设备上的音乐</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>听歌识曲需要使用麦克风来识别正在播放的音乐</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
 	<key>NSSupportsLiveActivities</key>

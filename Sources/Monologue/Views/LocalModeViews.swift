@@ -1337,6 +1337,7 @@ struct LocalModeProfileView: View {
     @State private var tokenInput = SecureConfig.apiToken ?? ""
     @State private var isSubmitting = false
     @State private var recentSongs: [Song] = []
+    @State private var navigationPath = NavigationPath()
 
     private var customPlaylistCount: Int {
         localPlaylists.playlists.filter { !$0.isSystem }.count
@@ -1349,7 +1350,7 @@ struct LocalModeProfileView: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
@@ -1390,6 +1391,12 @@ struct LocalModeProfileView: View {
             .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_profile"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .navigationDestination(for: ProfileNavigationDestination.self) { destination in
+                switch destination {
+                case .settings:
+                    SettingsView()
+                }
+            }
         }
         .onAppear {
             tokenInput = SecureConfig.apiToken ?? tokenInput
@@ -1611,9 +1618,7 @@ struct LocalModeProfileView: View {
 
                 Divider().padding(.leading, 56)
 
-                NavigationLink(
-                    destination: SettingsView()
-                ) {
+                NavigationLink(value: ProfileNavigationDestination.settings) {
                     ProfileMenuRow(
                         icon: .settings,
                         title: localModeText("settings_title")

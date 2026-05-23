@@ -31,8 +31,11 @@ struct HomeHeader: View {
                         .opacity(greetingVisible ? 1 : 0)
                         .offset(y: greetingVisible ? 0 : 5)
                 } else if settings.hitokotoEnabled {
-                    MonoWordmarkImage(height: 14)
-                        .frame(maxWidth: 58, alignment: .leading)
+                    Text(HitokotoFallbackSlogan.text)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.8))
+                        .lineLimit(1...2)
+                        .minimumScaleFactor(0.85)
                         .opacity(greetingVisible ? 1 : 0)
                         .offset(y: greetingVisible ? 0 : 5)
                 } else {

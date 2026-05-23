@@ -14,16 +14,8 @@ struct SwipeToSkipModifier: ViewModifier {
     private let maxInteractiveOffset: CGFloat = 76
     private let exitDistance: CGFloat = 116
 
-    private var swipeProgress: CGFloat {
-        min(abs(swipeState.dragOffset) / triggerDistance, 1)
-    }
-
     func body(content: Content) -> some View {
-        ZStack {
-            swipeEdgeCue
-
-            content
-        }
+        content
         .contentShape(Rectangle())
         .simultaneousGesture(swipeGesture)
     }
@@ -64,59 +56,6 @@ struct SwipeToSkipModifier: ViewModifier {
                     resetSwipe()
                 }
             }
-    }
-
-    @ViewBuilder
-    private var swipeEdgeCue: some View {
-        if let direction = swipeState.activeDirection, swipeProgress > 0.04 {
-            HStack {
-                if direction == .next {
-                    cueCapsule(direction: direction)
-                    Spacer(minLength: 0)
-                } else {
-                    Spacer(minLength: 0)
-                    cueCapsule(direction: direction)
-                }
-            }
-            .padding(.horizontal, 8)
-            .opacity(Double(swipeProgress))
-            .allowsHitTesting(false)
-            .transition(.opacity)
-        }
-    }
-
-    private func cueCapsule(direction: SwipeSkipDirection) -> some View {
-        MonologueIcon(
-            icon: direction == .next ? .next : .previous,
-            size: 13,
-            color: cueForegroundColor.opacity(0.82),
-            lineWidth: 1.8
-        )
-        .frame(width: 34, height: 28)
-        .background(
-            Capsule()
-                .fill(cueBackgroundColor.opacity(0.52))
-                .blur(radius: 0.2)
-        )
-        .scaleEffect(0.9 + swipeProgress * 0.1)
-    }
-
-    private var cueForegroundColor: Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if MujiStyle.isActive { return MujiStyle.ink }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        return .monologueTextPrimary
-    }
-
-    private var cueBackgroundColor: Color {
-        if MangaStyle.isActive { return MangaStyle.labelYellow }
-        if MujiStyle.isActive { return MujiStyle.paper }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
-        if SequoiaStyle.isActive { return SequoiaStyle.glass }
-        if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
-        return .white
     }
 
     private func skip(direction: SwipeSkipDirection) {

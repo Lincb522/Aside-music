@@ -17,6 +17,7 @@
 		C0DE20000000000000000001 /* BlobIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE20000000000000000003 /* BlobIcons */; };
 		C0DE30000000000000000001 /* doodlePop in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE30000000000000000003 /* doodlePop */; };
 		C0DE40000000000000000001 /* PawPrintIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE40000000000000000003 /* PawPrintIcons */; };
+		C0DE50000000000000000001 /* DotDogSnakeIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE50000000000000000003 /* DotDogSnakeIcons */; };
 		DD300001DD300001DD300001 /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = DD300002DD300002DD300002 /* HiconIcons */; };
 		F4087C202F543A24006005CB /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = F4087C1F2F543A24006005CB /* HiconIcons */; };
 		F41CFD832F6C1576006ACEF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
@@ -129,6 +130,7 @@
 				C0DE20000000000000000001 /* BlobIcons in Frameworks */,
 				C0DE30000000000000000001 /* doodlePop in Frameworks */,
 				C0DE40000000000000000001 /* PawPrintIcons in Frameworks */,
+				C0DE50000000000000000001 /* DotDogSnakeIcons in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -225,6 +227,7 @@
 				C0DE20000000000000000003 /* BlobIcons */,
 				C0DE30000000000000000003 /* doodlePop */,
 				C0DE40000000000000000003 /* PawPrintIcons */,
+				C0DE50000000000000000003 /* DotDogSnakeIcons */,
 			);
 			productName = Monologue;
 			productReference = F4CCFD782F320B5900FC36CA /* Monologue.app */;
@@ -270,6 +273,7 @@
 				C0DE20000000000000000002 /* XCLocalSwiftPackageReference "BlobIcons" */,
 				C0DE30000000000000000002 /* XCLocalSwiftPackageReference "doodlePop" */,
 				C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */,
+				C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -333,7 +337,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 36;
+				CURRENT_PROJECT_VERSION = 39;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -368,11 +372,12 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 36;
+				CURRENT_PROJECT_VERSION = 39;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = mono;
@@ -513,7 +518,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -553,7 +558,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Sources/Monologue/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = mono;
+				INFOPLIST_KEY_CFBundleDisplayName = Mono;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -596,9 +601,10 @@
 				DEPLOYMENT_POSTPROCESSING = YES;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				ENABLE_PREVIEWS = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Sources/Monologue/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = mono;
+				INFOPLIST_KEY_CFBundleDisplayName = Mono;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -682,6 +688,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = PawPrintIcons;
 		};
+		C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = DotDogSnakeIcons;
+		};
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "SolarIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = SolarIcons;
@@ -734,6 +744,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */;
 			productName = PawPrintIcons;
+		};
+		C0DE50000000000000000003 /* DotDogSnakeIcons */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */;
+			productName = DotDogSnakeIcons;
 		};
 		DD300002DD300002DD300002 /* HiconIcons */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -9,6 +9,7 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
     case blobIcons
     case doodlePop
     case pawPrint
+    case dotDogSnake
 
     var id: String { rawValue }
 
@@ -30,12 +31,14 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
             return "doodlePop"
         case .pawPrint:
             return "Paw Print"
+        case .dotDogSnake:
+            return "Dot Dog-Snake"
         }
     }
 
     var usesOriginalArtwork: Bool {
         switch self {
-        case .iconExport, .doodlePop, .pawPrint:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake:
             return true
         case .hicon, .zappicon, .lucide, .solar, .blobIcons:
             return false
@@ -75,11 +78,26 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
             return iconSet
         }
 
-        if UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.petWhite.rawValue {
-            return .pawPrint
-        }
+        let themeRaw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.appDefault.rawValue
+        let theme = GlobalThemeId(rawValue: themeRaw) ?? .appDefault
+        return theme.preferredInterfaceIconSet
+    }
+}
 
-        return .hicon
+extension GlobalThemeId {
+    var preferredInterfaceIconSet: AppInterfaceIconSet {
+        switch self {
+        case .petWhite:
+            return .pawPrint
+        case .default:
+            return .hicon
+        case .muji, .manga:
+            return .doodlePop
+        case .neumorphic, .capsule:
+            return .blobIcons
+        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
+            return .hicon
+        }
     }
 }
 

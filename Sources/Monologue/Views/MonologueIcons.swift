@@ -7,6 +7,7 @@ import IconExportIcons
 import BlobIcons
 import doodlePop
 import PawPrintIcons
+import DotDogSnakeIcons
 
 // MARK: - Monologue Icon System (Hicon Icons)
 
@@ -205,6 +206,8 @@ struct MonologueIcon: View {
             return icon.doodlePopImage
         case .pawPrint:
             return icon.pawPrintImage
+        case .dotDogSnake:
+            return icon.dotDogSnakeImage
         }
     }
 
@@ -213,12 +216,12 @@ struct MonologueIcon: View {
     }
 
     private var usesBitmapVisualScale: Bool {
-        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint
+        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake
     }
 
     private var bitmapIconVisualScale: CGFloat {
         switch iconSet {
-        case .doodlePop, .pawPrint:
+        case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:
                 return 1.58
@@ -603,7 +606,7 @@ extension MonologueIcon.IconType {
         case .fmMode:           return Hicon.radio
         case .audioWave:        return Hicon.voiceShape2
         
-        case .mv:               return Hicon.tv
+        case .mv:               return Hicon.video1
         
         case .hitokoto:         return Hicon.message1
         
@@ -635,6 +638,8 @@ extension AppInterfaceIconSet {
             return icon.doodlePopImage
         case .pawPrint:
             return icon.pawPrintImage
+        case .dotDogSnake:
+            return icon.dotDogSnakeImage
         }
     }
 }
@@ -656,6 +661,10 @@ extension MonologueIcon.IconType {
 
     var pawPrintImage: UIImage {
         UIImage(pawPrintIconId: String(describing: self)) ?? hiconImage
+    }
+
+    var dotDogSnakeImage: UIImage {
+        UIImage(dotDogSnakeIconId: String(describing: self)) ?? hiconImage
     }
 }
 
@@ -827,7 +836,7 @@ extension MonologueIcon.IconType {
         case .microphone:       name = "microphone"
         case .fmMode:           name = "radio"
         case .audioWave:        name = "waveform-lines"
-        case .mv:               name = "tv"
+        case .mv:               name = "video"
         case .hitokoto:         name = "chat-dots"
 
         // Bar Styles
@@ -1000,7 +1009,7 @@ extension MonologueIcon.IconType {
         case .microphone:       name = "mic"
         case .fmMode:           name = "radio"
         case .audioWave:        name = "music-3"
-        case .mv:               name = "tv"
+        case .mv:               name = "video"
         case .hitokoto:         name = "message-circle"
 
         // Bar Styles
@@ -1146,7 +1155,7 @@ extension MonologueIcon.IconType {
         case .microphone:       name = "microphone"
         case .fmMode:           name = "radio"
         case .audioWave:        name = "activity"
-        case .mv:               name = "tv"
+        case .mv:               name = "play-circle"
         case .hitokoto:         name = "comment-dots"
         case .layers:           name = "grid-square"
         case .tabBar:           name = "list-ui"

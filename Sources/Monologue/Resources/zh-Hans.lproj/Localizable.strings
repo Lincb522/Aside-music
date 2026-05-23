@@ -227,6 +227,7 @@
 "settings_hitokoto" = "每日一言";
 "settings_hitokoto_desc" = "首页展示随机一言";
 "settings_hitokoto_type" = "一言类型";
+"hitokoto_fallback_slogan" = "世界很吵，留一点声音给自己。";
 "settings_other" = "其他";
 "settings_haptic" = "触感反馈";
 "settings_haptic_desc" = "操作时的震动反馈";
@@ -981,6 +982,42 @@
 "new_song_western" = "欧美";
 "new_song_korean" = "韩国";
 "new_song_japanese" = "日本";
+
+/* Meditation Mode */
+"meditation_mode_title" = "冥想模式";
+"meditation_mode_subtitle" = "";
+"meditation_mode_eyebrow" = "CALM";
+"meditation_recommended_title" = "推荐内容";
+"meditation_recommended_subtitle" = "";
+"meditation_loading" = "加载中";
+"meditation_empty" = "暂无内容";
+"meditation_load_failed" = "加载失败";
+"meditation_topic_all" = "全部";
+"meditation_topic_mindfulness" = "正念";
+"meditation_topic_focus" = "专注力训练";
+"meditation_topic_light_music" = "轻音乐";
+"meditation_topic_sleep" = "助眠";
+"meditation_topic_breathing" = "呼吸";
+"meditation_topic_ambient" = "白噪音";
+"meditation_topic_all_subtitle" = "";
+"meditation_topic_mindfulness_subtitle" = "";
+"meditation_topic_focus_subtitle" = "";
+"meditation_topic_light_music_subtitle" = "";
+"meditation_topic_sleep_subtitle" = "";
+"meditation_topic_breathing_subtitle" = "";
+"meditation_topic_ambient_subtitle" = "";
+"meditation_player_exit" = "退出冥想模式";
+"meditation_player_timer" = "定时";
+"meditation_player_timer_title" = "定时设置";
+"meditation_player_loading" = "加载中";
+"meditation_player_empty" = "暂无内容";
+"meditation_player_load_failed" = "加载失败";
+"meditation_player_retry" = "重试";
+"meditation_player_episode_progress" = "第 %d / %d 期";
+"meditation_timer_minutes" = "%d 分钟";
+"meditation_timer_pending" = "本曲后停";
+"meditation_timer_off" = "关闭";
+"reload" = "重新加载";
 
 /* Playlist Create */
 "create_netease_playlist" = "创建NCM歌单";

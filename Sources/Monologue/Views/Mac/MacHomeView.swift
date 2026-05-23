@@ -40,6 +40,7 @@ struct MacHomeView: View {
                 case .mvDiscover:       MVDiscoverView()
                 case .newSongExpress:   NewSongExpressView()
                 case .qcmNewSongs:      QCMNewSongsView()
+                case .meditationMode:   MeditationModeView()
                 }
             }
             .monologueSheet(isPresented: $showPersonalFM, preset: .detail) {
@@ -117,8 +118,10 @@ struct MacHomeView: View {
                         .foregroundStyle(.secondary.opacity(0.7))
                         .lineLimit(1)
                 } else if SettingsManager.shared.hitokotoEnabled {
-                    MonoWordmarkImage(height: 13)
-                        .frame(maxWidth: 54, alignment: .leading)
+                    Text(HitokotoFallbackSlogan.text)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                        .lineLimit(1)
                 } else {
                     Text(greetingText)
                         .font(.system(size: 12, weight: .medium, design: .rounded))

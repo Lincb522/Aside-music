@@ -9,7 +9,7 @@ struct HomeView: View {
     @State private var appeared = false
 
     enum HomeDestination: Hashable {
-        case search, dailyRecommend, playlist(Playlist), bannerPlaylist(Playlist, String?), artist(Int), album(Int), mvDiscover, newSongExpress, qcmNewSongs
+        case search, dailyRecommend, playlist(Playlist), bannerPlaylist(Playlist, String?), artist(Int), album(Int), mvDiscover, newSongExpress, qcmNewSongs, meditationMode
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -24,6 +24,7 @@ struct HomeView: View {
             case .mvDiscover:       hasher.combine("mv")
             case .newSongExpress:   hasher.combine("newSong")
             case .qcmNewSongs:      hasher.combine("qcmNewSongs")
+            case .meditationMode:   hasher.combine("meditationMode")
             }
         }
 
@@ -31,7 +32,7 @@ struct HomeView: View {
             switch (lhs, rhs) {
             case (.search, .search), (.dailyRecommend, .dailyRecommend),
                  (.mvDiscover, .mvDiscover), (.newSongExpress, .newSongExpress),
-                 (.qcmNewSongs, .qcmNewSongs): return true
+                 (.qcmNewSongs, .qcmNewSongs), (.meditationMode, .meditationMode): return true
             case (.playlist(let l), .playlist(let r)): return l.id == r.id
             case let (.bannerPlaylist(l, lImage), .bannerPlaylist(r, rImage)):
                 return l.id == r.id && lImage == rImage
@@ -76,21 +77,31 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 16) {
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            navigationPath.append(HomeDestination.meditationMode)
+                        }) {
+                            MonologueIcon(icon: .moon, size: 15)
+                                .padding(3)
+                        }
+
                         Button(action: {
                             showPersonalFM = true
                         }) {
-                            MonologueIcon(icon: .fm, size: 16)
+                            MonologueIcon(icon: .fm, size: 15)
                                 .padding(3)
                         }
 
                         Button(action: {
                             navigationPath.append(HomeDestination.search)
                         }) {
-                            MonologueIcon(icon: .search, size: 16)
+                            MonologueIcon(icon: .search, size: 15)
                                 .padding(3)
                         }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .monologueGlassCapsule()
                 }
             }
             .navigationDestination(for: HomeDestination.self, destination: destinationView)
@@ -112,8 +123,10 @@ struct HomeView: View {
                     .foregroundColor(.monologueTextSecondary.opacity(0.7))
                     .lineLimit(1)
             } else if settings.hitokotoEnabled {
-                MonoWordmarkImage(height: 12)
-                    .frame(maxWidth: 52, alignment: .leading)
+                Text(HitokotoFallbackSlogan.text)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                    .lineLimit(1)
             } else {
                 Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
                     .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -182,26 +195,21 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @State private var hitokotoRefreshing = false
-
     private var hitokotoFallbackCard: some View {
         HStack(alignment: .center, spacing: 12) {
             MonologueSymbolIcon(name: "quote.opening", size: 17, color: .monologueTextPrimary.opacity(0.42))
 
-            MonoWordmarkImage(height: 26)
+            Text(HitokotoFallbackSlogan.text)
+                .font(.system(size: 14, weight: .medium, design: .serif))
+                .foregroundColor(.monologueTextPrimary.opacity(0.75))
+                .lineLimit(3)
+                .minimumScaleFactor(0.85)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                    hitokotoRefreshing = true
-                }
                 viewModel.refreshHitokoto(force: true)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation { hitokotoRefreshing = false }
-                }
             } label: {
                 MonologueIcon(icon: .refresh, size: 12, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.5)
-                    .rotationEffect(.degrees(hitokotoRefreshing ? 360 : 0))
             }
             .buttonStyle(.plain)
         }
@@ -226,16 +234,9 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                    hitokotoRefreshing = true
-                }
-                viewModel.refreshHitokoto()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation { hitokotoRefreshing = false }
-                }
+                viewModel.refreshHitokoto(force: true)
             } label: {
                 MonologueIcon(icon: .refresh, size: 12, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.5)
-                    .rotationEffect(.degrees(hitokotoRefreshing ? 360 : 0))
             }
             .buttonStyle(.plain)
             .padding(.top, 2)
@@ -378,6 +379,7 @@ struct HomeView: View {
         case .mvDiscover:       MVDiscoverView()
         case .newSongExpress:   NewSongExpressView()
         case .qcmNewSongs:      QCMNewSongsView()
+        case .meditationMode:   MeditationModeView()
         }
     }
 }

@@ -273,65 +273,53 @@ private struct PlayerThemeStaticPreview: View {
         if NeumorphicStyle.isActive {
             neumorphicClassicPreview(size: size)
         } else {
-            VStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+            VStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(LinearGradient(colors: isDark ? [Color(hex: "444854"), Color(hex: "262A34")] : [Color.white, Color(hex: "DADDE4")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 54, height: 54)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 19, color: muted))
-
-                lineStack(widths: [70, 48], color: ink, mutedColor: muted)
-                progressBar(width: 80, progress: 0.58, tint: ink, track: muted.opacity(0.22))
-                controlsRow(tint: ink, muted: muted)
+                    .frame(width: 60, height: 60)
+                    .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.08), radius: 6, y: 3)
+                    .overlay(MonologueIcon(icon: .musicNote, size: 22, color: muted))
+                
+                HStack(spacing: 5) {
+                    Circle().fill(ink.opacity(0.8)).frame(width: 6, height: 6)
+                    Capsule().fill(ink.opacity(0.24)).frame(width: 44, height: 4)
+                }
             }
         }
     }
 
     private func pawcelainPreview(size: CGSize) -> some View {
         ZStack {
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 HStack(spacing: 8) {
-                    PetWhiteIconBadge(icon: .musicNoteList, tint: PetWhiteStyle.butter, size: 34)
+                    PetWhiteIconBadge(icon: .musicNoteList, tint: PetWhiteStyle.butter, size: 30)
                     VStack(alignment: .leading, spacing: 4) {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(PetWhiteStyle.ink)
-                            .frame(width: max(34, size.width * 0.28), height: 8)
+                            .frame(width: 50, height: 7)
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(PetWhiteStyle.inkSoft.opacity(0.6))
-                            .frame(width: max(24, size.width * 0.2), height: 7)
+                            .frame(width: 32, height: 6)
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 10)
-
+                
                 HStack(spacing: 8) {
-                    PetWhiteMascotMark(kind: .cat, size: 34)
-                        .frame(width: 40, height: 40)
-                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    PetWhiteMascotMark(kind: .dog, size: 34)
-                        .frame(width: 40, height: 40)
-                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    Spacer(minLength: 0)
+                    PetWhiteMascotMark(kind: .cat, size: 28)
+                        .frame(width: 34, height: 34)
+                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    PetWhiteMascotMark(kind: .dog, size: 28)
+                        .frame(width: 34, height: 34)
+                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    Spacer()
                 }
-                .padding(.horizontal, 10)
-
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(PetWhiteStyle.surfaceRaised)
-                        .frame(width: 52, height: 12)
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(PetWhiteStyle.mint)
-                        .frame(width: 26, height: 26)
-                        .overlay(PetWhitePackIcon(icon: .play, size: 12, visualScale: 1.06))
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 10)
             }
             .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color.white.opacity(isDark ? 0.07 : 0.82))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(PetWhiteStyle.stroke.opacity(0.8), lineWidth: 1.2)
                     )
             )
@@ -345,242 +333,207 @@ private struct PlayerThemeStaticPreview: View {
         let pressed = isDark ? Color(hex: "1B1F24") : Color(hex: "DDE3E7")
         let accent = isDark ? Color(hex: "7AB9B0") : Color(hex: "4F8E86")
 
-        return VStack(spacing: 8) {
-            HStack(spacing: 5) {
-                Capsule().fill(pressed).frame(width: 34, height: 12)
-                Spacer(minLength: 0)
-                Capsule().fill(accent.opacity(0.9)).frame(width: 18, height: 5)
-                Capsule().fill(Color(hex: "7D9475").opacity(0.55)).frame(width: 11, height: 5)
-                Capsule().fill(Color(hex: "C59A66").opacity(0.52)).frame(width: 7, height: 5)
-            }
-
-            HStack(spacing: 9) {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+        return VStack(spacing: 12) {
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(raised)
-                    .frame(width: 50, height: 50)
-                    .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 4, x: 3, y: 3)
-                    .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 4, x: -3, y: -3)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 15, color: accent.opacity(0.86), lineWidth: 1.5))
+                    .frame(width: 44, height: 44)
+                    .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 3, x: 2, y: 2)
+                    .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 3, x: -2, y: -2)
+                    .overlay(MonologueIcon(icon: .musicNote, size: 14, color: accent.opacity(0.86), lineWidth: 1.5))
 
-                VStack(alignment: .leading, spacing: 7) {
-                    lineStack(widths: [54, 38], color: ink, mutedColor: muted)
-
-                    HStack(spacing: 4) {
-                        ForEach(0..<5, id: \.self) { index in
-                            Capsule()
-                                .fill(index.isMultiple(of: 2) ? accent.opacity(0.76) : Color(hex: "7D9475").opacity(0.48))
-                                .frame(width: 4, height: CGFloat(7 + (index % 3) * 3))
-                        }
-                        Capsule().fill(pressed).frame(width: 34, height: 5)
-                    }
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(pressed))
+                VStack(alignment: .leading, spacing: 6) {
+                    Capsule().fill(ink.opacity(0.8)).frame(width: 42, height: 4)
+                    Capsule().fill(pressed).frame(width: 50, height: 6)
                 }
             }
-
-            progressBar(width: 84, progress: 0.56, tint: accent, track: pressed)
-
+            
             HStack(spacing: 8) {
-                neumorphicButton(base: raised, icon: .previous, size: 22)
-                neumorphicButton(base: accent.opacity(0.24), icon: .play, size: 30)
-                neumorphicButton(base: raised, icon: .next, size: 22)
+                neumorphicButton(base: raised, icon: .previous, size: 18)
+                neumorphicButton(base: accent.opacity(0.24), icon: .play, size: 24)
+                neumorphicButton(base: raised, icon: .next, size: 18)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(base.opacity(0.86))
-                .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 7, x: 4, y: 4)
-                .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 7, x: -4, y: -4)
+                .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 5, x: 3, y: 3)
+                .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 5, x: -3, y: -3)
         )
     }
 
     private func vinylPreview(size: CGSize) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isDark ? Color.white.opacity(0.05) : Color.white.opacity(0.42))
-                .frame(width: 110, height: 92)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(muted.opacity(0.18), lineWidth: 1))
-
             ZStack {
                 Circle()
-                    .fill(RadialGradient(colors: [Color(hex: "0B0B0C"), Color(hex: "242424"), Color(hex: "060606")], center: .center, startRadius: 5, endRadius: 38))
-                    .frame(width: 74, height: 74)
-                ForEach([28, 44, 60], id: \.self) { diameter in
-                    Circle().stroke(Color.white.opacity(0.07), lineWidth: 0.7).frame(width: CGFloat(diameter), height: CGFloat(diameter))
+                    .fill(RadialGradient(colors: [Color(hex: "0B0B0C"), Color(hex: "242424"), Color(hex: "060606")], center: .center, startRadius: 5, endRadius: 54))
+                    .frame(width: 104, height: 104)
+                    .shadow(color: Color.black.opacity(0.35), radius: 8, y: 4)
+                
+                ForEach([40, 64, 88], id: \.self) { diameter in
+                    Circle().stroke(Color.white.opacity(0.06), lineWidth: 0.7).frame(width: CGFloat(diameter), height: CGFloat(diameter))
                 }
-                Circle().fill(Color(hex: "D7B56D")).frame(width: 22, height: 22)
-                Circle().fill(Color.black.opacity(0.75)).frame(width: 5, height: 5)
+                Circle().fill(Color(hex: "D7B56D")).frame(width: 28, height: 28)
+                Circle().fill(Color.black.opacity(0.75)).frame(width: 6, height: 5)
             }
-            .offset(x: -12, y: 2)
+            .offset(x: -16, y: 6)
 
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(LinearGradient(colors: [Color.white.opacity(0.78), Color.gray.opacity(0.35)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 4, height: 48)
-                .rotationEffect(.degrees(-18), anchor: .top)
-                .offset(x: 36, y: -24)
+                .frame(width: 4, height: 58)
+                .rotationEffect(.degrees(-20), anchor: .top)
+                .offset(x: 36, y: -18)
         }
     }
 
     private func lyricFocusPreview(size: CGSize) -> some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: "7696FF"), Color(hex: "F29BC4")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 38, height: 48)
-                .overlay(MonologueIcon(icon: .musicNote, size: 15, color: .white.opacity(0.88)))
-
-            VStack(alignment: .leading, spacing: 8) {
-                Capsule().fill(muted.opacity(0.3)).frame(width: 54, height: 4)
-                Capsule().fill(ink).frame(width: 76, height: 7)
-                Capsule().fill(ink.opacity(0.72)).frame(width: 60, height: 5)
-                Capsule().fill(muted.opacity(0.32)).frame(width: 82, height: 4)
-            }
+        VStack(spacing: 8) {
+            Capsule().fill(muted.opacity(0.18)).frame(width: 76, height: 4)
+            Text("Focus on lyrics")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(ink)
+            Capsule().fill(muted.opacity(0.18)).frame(width: 96, height: 4)
         }
-        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RadialGradient(colors: [ink.opacity(0.04), .clear], center: .center, startRadius: 0, endRadius: 70)
+        )
     }
 
     private func cardPreview(size: CGSize) -> some View {
         ZStack {
-            Circle().fill(Color.white.opacity(isDark ? 0.08 : 0.32)).frame(width: 84, height: 84).offset(x: -42, y: -28)
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isDark ? Color.white.opacity(0.12) : Color.white.opacity(0.82))
-                .frame(width: 104, height: 90)
-                .shadow(color: Color.black.opacity(isDark ? 0.22 : 0.12), radius: 12, x: 0, y: 8)
-
-            VStack(spacing: 8) {
-                Circle()
-                    .fill(LinearGradient(colors: [Color(hex: "FF7CA8"), Color(hex: "8B78FF")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 42, height: 42)
-                lineStack(widths: [58, 38], color: ink, mutedColor: muted)
-                progressBar(width: 72, progress: 0.44, tint: Color(hex: "FF7CA8"), track: muted.opacity(0.22))
-            }
+            // Underlayer card
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.05) : Color.black.opacity(0.03))
+                .frame(width: 80, height: 72)
+                .rotationEffect(.degrees(-6))
+                .offset(x: -8, y: -4)
+                
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.12) : Color.white.opacity(0.85))
+                .frame(width: 84, height: 76)
+                .shadow(color: Color.black.opacity(isDark ? 0.22 : 0.08), radius: 8, x: 0, y: 5)
+                .overlay(
+                    Circle()
+                        .fill(LinearGradient(colors: [Color(hex: "FF7CA8"), Color(hex: "8B78FF")], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 38, height: 38)
+                )
+                .overlay(alignment: .bottom) {
+                    Capsule().fill(ink.opacity(0.24)).frame(width: 34, height: 4).padding(.bottom, 10)
+                }
         }
     }
 
     private func neumorphicPreview(size: CGSize) -> some View {
         let base = isDark ? Color(hex: "2B2D32") : Color(hex: "E7EBF2")
-        return VStack(spacing: 10) {
+        return ZStack {
             Circle()
                 .fill(base)
-                .frame(width: 54, height: 54)
-                .shadow(color: isDark ? Color.black.opacity(0.4) : Color.black.opacity(0.13), radius: 7, x: 5, y: 5)
-                .shadow(color: isDark ? Color.white.opacity(0.05) : Color.white.opacity(0.86), radius: 7, x: -5, y: -5)
-                .overlay(Circle().fill(LinearGradient(colors: [Color(hex: "8EA1B7").opacity(0.35), Color.clear], startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 38, height: 38))
-
-            progressBar(width: 76, progress: 0.62, tint: Color(hex: "6E8DA8"), track: isDark ? Color.black.opacity(0.22) : Color.white.opacity(0.64))
-            HStack(spacing: 12) {
-                neumorphicButton(base: base, icon: .previous, size: 18)
-                neumorphicButton(base: base, icon: .play, size: 25)
-                neumorphicButton(base: base, icon: .next, size: 18)
-            }
+                .frame(width: 66, height: 66)
+                .shadow(color: isDark ? Color.black.opacity(0.4) : Color.black.opacity(0.12), radius: 6, x: 4, y: 4)
+                .shadow(color: isDark ? Color.white.opacity(0.05) : Color.white.opacity(0.86), radius: 6, x: -4, y: -4)
+                .overlay(
+                    Circle()
+                        .fill(
+                            RadialGradient(colors: [Color(hex: "6E8DA8").opacity(0.24), .clear], center: .center, startRadius: 0, endRadius: 33)
+                        )
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color(hex: "6E8DA8").opacity(0.42), lineWidth: 1.2)
+                        .frame(width: 48, height: 44)
+                )
         }
     }
 
     private func posterPreview(size: CGSize) -> some View {
         let red = Color(hex: "EF2A2A")
-        return VStack(alignment: .leading, spacing: 2) {
-            Spacer(minLength: 0)
-            Text("PLAY")
-                .font(.system(size: 23, weight: .black, design: .rounded))
+        return VStack(alignment: .leading, spacing: 3) {
+            Spacer()
+            Text("MUSIC")
+                .font(.system(size: 26, weight: .black, design: .rounded))
                 .foregroundStyle(ink)
-            Text("LIST")
-                .font(.system(size: 35, weight: .black, design: .rounded))
-                .foregroundStyle(ink)
-                .offset(y: -5)
-            Rectangle().fill(red).frame(height: 4)
-            HStack(spacing: 0) {
-                ForEach(0..<4, id: \.self) { index in
-                    Rectangle()
-                        .fill(index == 1 ? red : ink.opacity(0.12))
-                        .frame(height: 16)
-                        .overlay(Rectangle().stroke(ink, lineWidth: 0.8))
-                }
-            }
-            Spacer(minLength: 0)
+                .tracking(-1)
+            Rectangle()
+                .fill(red)
+                .frame(height: 5)
+                .frame(width: 44)
+            Spacer()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
     }
 
     private func motoPagerPreview(size: CGSize) -> some View {
-        VStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(isDark ? Color(hex: "303323") : Color(hex: "D5D0A8"))
-                .frame(width: 106, height: 78)
-                .overlay(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(isDark ? Color(hex: "A8B47B").opacity(0.38) : Color(hex: "5F6D3A").opacity(0.28))
-                        .frame(width: 86, height: 34)
-                        .padding(.top, 10)
-                        .overlay(alignment: .center) {
-                            VStack(spacing: 4) {
-                                Capsule().fill(ink.opacity(0.65)).frame(width: 56, height: 3)
-                                Capsule().fill(ink.opacity(0.38)).frame(width: 42, height: 2)
-                            }
-                            .padding(.top, 4)
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(isDark ? Color(hex: "303323") : Color(hex: "D5D0A8"))
+            .frame(width: 100, height: 72)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isDark ? Color(hex: "A8B47B").opacity(0.32) : Color(hex: "5F6D3A").opacity(0.22))
+                    .frame(width: 82, height: 32)
+                    .overlay(
+                        HStack(spacing: 5) {
+                            Circle().fill(ink.opacity(0.65)).frame(width: 8, height: 8)
+                            Capsule().fill(ink.opacity(0.38)).frame(width: 44, height: 4)
                         }
+                    )
+            )
+            .overlay(alignment: .bottom) {
+                HStack(spacing: 6) {
+                    Circle().fill(ink.opacity(0.15)).frame(width: 8, height: 8)
+                    Circle().fill(ink.opacity(0.24)).frame(width: 11, height: 11)
+                    Circle().fill(ink.opacity(0.15)).frame(width: 8, height: 8)
                 }
-                .overlay(alignment: .bottom) {
-                    HStack(spacing: 8) {
-                        Circle().fill(ink.opacity(0.18)).frame(width: 12, height: 12)
-                        Circle().fill(ink.opacity(0.28)).frame(width: 16, height: 16)
-                        Circle().fill(ink.opacity(0.18)).frame(width: 12, height: 12)
-                    }
-                    .padding(.bottom, 9)
-                }
-        }
+                .padding(.bottom, 8)
+            }
     }
 
     private func typewriterPreview(size: CGSize) -> some View {
-        VStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+        VStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isDark ? Color(hex: "E5D2B3") : Color(hex: "FFF7E9"))
-                .frame(width: 88, height: 60)
-                .overlay(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Capsule().fill(Color(hex: "A54A32")).frame(width: 28, height: 3)
-                        Capsule().fill(Color(hex: "2D241C")).frame(width: 48, height: 4)
-                        Capsule().fill(Color(hex: "2D241C").opacity(0.22)).frame(width: 62, height: 2)
-                        Capsule().fill(Color(hex: "2D241C").opacity(0.18)).frame(width: 52, height: 2)
+                .frame(width: 74, height: 46)
+                .overlay(
+                    VStack(alignment: .center, spacing: 4) {
+                        Text("A")
+                            .font(.system(size: 16, weight: .black, design: .serif))
+                            .foregroundColor(Color(hex: "2D241C"))
+                        Capsule().fill(Color(hex: "2D241C").opacity(0.18)).frame(width: 44, height: 2)
                     }
-                    .padding(10)
-                }
-                .shadow(color: Color.black.opacity(0.18), radius: 5, x: 0, y: 4)
-
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+                .shadow(color: Color.black.opacity(0.14), radius: 4, y: 3)
+            
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isDark ? Color(hex: "44372F") : Color(hex: "5B493D"))
-                .frame(width: 104, height: 32)
-                .overlay {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 5) {
-                            ForEach(0..<5, id: \.self) { _ in keyCap() }
+                .frame(width: 92, height: 18)
+                .overlay(
+                    HStack(spacing: 4) {
+                        ForEach(0..<4, id: \.self) { _ in
+                            Circle().fill(Color(hex: "E9DCC8")).frame(width: 6, height: 6)
                         }
-                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color(hex: "E9DCC8")).frame(width: 44, height: 8)
                     }
-                }
-                .offset(y: -6)
+                )
         }
     }
 
     private func pixelPreview(size: CGSize) -> some View {
         let green = Color(hex: "30FF6A")
         return ZStack {
-            pixelGrid(color: isDark ? green.opacity(0.09) : Color.black.opacity(0.05), step: 8)
+            pixelGrid(color: isDark ? green.opacity(0.08) : Color.black.opacity(0.04), step: 8)
+            
             VStack(spacing: 8) {
-                Text("PIXEL")
-                    .font(.system(size: 15, weight: .black, design: .monospaced))
-                    .foregroundStyle(green)
-                    .shadow(color: green.opacity(0.35), radius: 4)
-                HStack(alignment: .bottom, spacing: 3) {
-                    ForEach([8, 17, 11, 23, 15, 20, 9, 14], id: \.self) { height in
-                        Rectangle().fill(green.opacity(height > 12 ? 0.9 : 0.42)).frame(width: 5, height: CGFloat(height))
-                    }
+                HStack(spacing: 4) {
+                    Rectangle().fill(green).frame(width: 10, height: 10)
+                    Text("CRT")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(green)
                 }
-                HStack(spacing: 9) {
-                    pixelButton(icon: .previous, color: green)
-                    Rectangle().fill(green).frame(width: 14, height: 14)
-                    pixelButton(icon: .next, color: green)
+                
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach([12, 24, 16, 8, 18], id: \.self) { h in
+                        Rectangle().fill(green.opacity(h > 12 ? 0.85 : 0.44)).frame(width: 4, height: CGFloat(h))
+                    }
                 }
             }
         }
@@ -588,25 +541,14 @@ private struct PlayerThemeStaticPreview: View {
 
     private func aquaPreview(size: CGSize) -> some View {
         ZStack {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .stroke(Color.white.opacity(isDark ? 0.12 : 0.32), lineWidth: 1)
-                    .frame(width: CGFloat(42 + index * 30), height: CGFloat(42 + index * 30))
-                    .offset(y: 4)
-            }
-
             Circle()
-                .fill(RadialGradient(colors: [Color.white.opacity(isDark ? 0.4 : 0.72), Color(hex: "4BB6E0").opacity(0.16), .clear], center: .center, startRadius: 2, endRadius: 36))
-                .frame(width: 70, height: 70)
-
-            VStack {
-                Spacer()
-                HStack(spacing: 12) {
-                    bubble(size: 15)
-                    bubble(size: 25, icon: .play)
-                    bubble(size: 15)
-                }
-                .padding(.bottom, 15)
+                .fill(RadialGradient(colors: [Color.white.opacity(isDark ? 0.35 : 0.64), Color(hex: "4BB6E0").opacity(0.12), .clear], center: .center, startRadius: 2, endRadius: 36))
+                .frame(width: 74, height: 74)
+            
+            HStack(spacing: 12) {
+                bubble(size: 14)
+                bubble(size: 26, icon: .play)
+                bubble(size: 14)
             }
         }
     }
@@ -615,18 +557,12 @@ private struct PlayerThemeStaticPreview: View {
         let cyan = Color(hex: "58D7FF")
         let violet = Color(hex: "8F7BFF")
         return ZStack {
-            Circle().fill(violet.opacity(0.2)).frame(width: 102, height: 102).blur(radius: 18)
-            Circle().stroke(cyan.opacity(0.34), lineWidth: 1.2).frame(width: 82, height: 82)
-            ForEach(0..<18, id: \.self) { index in
-                Circle()
-                    .fill(index < 11 ? cyan.opacity(0.82) : violet.opacity(0.32))
-                    .frame(width: index < 11 ? 5 : 3, height: index < 11 ? 5 : 3)
-                    .offset(breathingDotOffset(index: index))
-            }
+            Circle().fill(violet.opacity(0.15)).frame(width: 90, height: 90).blur(radius: 12)
+            Circle().stroke(cyan.opacity(0.28), lineWidth: 1.2).frame(width: 72, height: 72)
             Circle()
                 .fill(LinearGradient(colors: [violet, cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 48, height: 48)
-                .overlay(MonologueIcon(icon: .waveform, size: 18, color: .white.opacity(0.9)))
+                .frame(width: 44, height: 44)
+                .overlay(MonologueIcon(icon: .waveform, size: 16, color: .white.opacity(0.9)))
         }
     }
 
@@ -634,164 +570,147 @@ private struct PlayerThemeStaticPreview: View {
         let shell = isDark ? Color(hex: "2B2B31") : Color.white
         let label = isDark ? Color(hex: "E5E0D2") : Color(hex: "F6F1E6")
 
-        return RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return RoundedRectangle(cornerRadius: 10, style: .continuous)
             .fill(shell)
-            .frame(width: 106, height: 74)
-            .overlay(alignment: .top) {
+            .frame(width: 98, height: 68)
+            .overlay(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(label)
-                    .frame(width: 82, height: 38)
-                    .padding(.top, 13)
-                    .overlay(alignment: .top) {
-                        VStack(spacing: 2) {
-                            Rectangle().fill(Color(hex: "E85D45")).frame(width: 66, height: 4)
-                            Rectangle().fill(Color(hex: "F0B64E")).frame(width: 66, height: 4)
-                        }
-                        .padding(.top, 18)
-                    }
-                    .overlay {
-                        HStack(spacing: 24) {
+                    .frame(width: 80, height: 34)
+                    .overlay(
+                        HStack(spacing: 20) {
                             tapeReel()
                             tapeReel()
                         }
-                        .padding(.top, 13)
-                    }
-            }
+                    )
+            )
             .overlay(alignment: .bottom) {
                 TrapezoidShape()
                     .fill(Color.black.opacity(isDark ? 0.24 : 0.08))
-                    .frame(width: 56, height: 12)
-                    .padding(.bottom, 7)
+                    .frame(width: 48, height: 10)
+                    .padding(.bottom, 6)
             }
     }
 
     private func radioPreview(size: CGSize) -> some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
             .fill(isDark ? Color(hex: "312058") : Color(hex: "9272C8"))
-            .frame(width: 112, height: 86)
+            .frame(width: 104, height: 76)
             .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(isDark ? Color(hex: "090711") : Color(hex: "1D1331"))
-                    .frame(width: 92, height: 22)
-                    .padding(.top, 10)
+                    .frame(width: 86, height: 18)
+                    .padding(.top, 8)
                     .overlay {
                         HStack(spacing: 3) {
-                            ForEach(0..<12, id: \.self) { index in
+                            ForEach(0..<8, id: \.self) { index in
                                 Circle()
-                                    .fill(index < 7 ? Color(hex: "DCC8FF") : Color(hex: "DCC8FF").opacity(0.22))
-                                    .frame(width: 3, height: 3)
+                                    .fill(index < 5 ? Color(hex: "DCC8FF") : Color(hex: "DCC8FF").opacity(0.2))
+                                    .frame(width: 2.5, height: 2.5)
                             }
                         }
-                        .padding(.top, 10)
                     }
             }
             .overlay(alignment: .bottom) {
-                HStack(spacing: 9) {
+                HStack(spacing: 8) {
                     speaker()
-                    VStack(alignment: .leading, spacing: 6) {
-                        lineStack(widths: [34, 25], color: Color.white.opacity(0.86), mutedColor: Color.white.opacity(0.42))
-                        progressBar(width: 42, progress: 0.56, tint: Color(hex: "78E6A5"), track: Color.black.opacity(0.25))
-                    }
-                    .padding(7)
-                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.14)))
+                        .scaleEffect(0.85)
+                        .frame(width: 34, height: 34)
+                    Spacer()
+                    Circle().fill(Color.white.opacity(0.18)).frame(width: 18, height: 18)
                 }
-                .padding(.bottom, 9)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
             }
     }
 
     private func immersiveLyricPreview(size: CGSize) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(hex: "B495FF"), Color(hex: "F1A6C7")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 30, height: 30)
-                lineStack(widths: [54, 34], color: ink, mutedColor: muted)
-            }
-            Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: 7) {
-                Capsule().fill(muted.opacity(0.28)).frame(width: 78, height: 5)
-                Capsule().fill(ink).frame(width: 96, height: 11)
-                Capsule().fill(ink.opacity(0.66)).frame(width: 70, height: 7)
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 6) {
+            Spacer()
+            Capsule().fill(ink).frame(width: 86, height: 10)
+            Capsule().fill(ink.opacity(0.55)).frame(width: 66, height: 6)
+            Spacer()
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            LinearGradient(colors: isDark ? [Color(hex: "191526"), Color(hex: "0B0A11")] : [Color(hex: "FAF7FF"), Color(hex: "ECE9FA")], startPoint: .top, endPoint: .bottom)
+        )
     }
 
     private func mangaChatPreview(size: CGSize) -> some View {
         ZStack {
             mangaDotTexture()
-            VStack(alignment: .leading, spacing: 8) {
+            
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     mangaMark(fill: Color(hex: "FFE16B"))
                     Spacer()
-                    mangaMark(fill: Color(hex: "FF8BAD"))
                 }
-                speechBubble(width: 78, fill: Color.white, tailLeading: true)
-                speechBubble(width: 66, fill: Color(hex: "BFE3FF"), tailLeading: false)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                HStack(spacing: 7) {
-                    Circle().fill(Color(hex: "FF8BAD")).frame(width: 15, height: 15)
-                    Circle().fill(Color(hex: "FFE16B")).frame(width: 22, height: 22)
-                    Circle().fill(Color(hex: "BFE3FF")).frame(width: 15, height: 15)
-                }
-                .frame(maxWidth: .infinity)
+                
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                    .frame(width: 80, height: 32)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.black.opacity(isDark ? 0.48 : 0.82), lineWidth: 1.5)
+                    )
+                    .overlay(
+                        HStack(spacing: 5) {
+                            MonologueIcon(icon: .musicNote, size: 12, color: .black)
+                            Capsule().fill(Color.black.opacity(0.18)).frame(width: 38, height: 4)
+                        }
+                    )
             }
-            .padding(13)
+            .padding(14)
         }
     }
 
     private func folkPreview(size: CGSize) -> some View {
-        VStack(spacing: 9) {
+        VStack(spacing: 12) {
             HStack {
                 Spacer()
                 stamp()
             }
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
+            
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(Color.white.opacity(isDark ? 0.24 : 0.86))
-                    .frame(width: 30, height: 36)
-                    .rotationEffect(.degrees(-5))
-                    .overlay(Rectangle().fill(Color(hex: "D8C29D")).frame(width: 18, height: 5).rotationEffect(.degrees(-9)).offset(y: -15))
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Capsule().fill(Color(hex: "B44A3B")).frame(width: 22, height: 2)
-                    Capsule().fill(ink.opacity(0.78)).frame(width: 52, height: 4)
-                    Capsule().fill(muted.opacity(0.52)).frame(width: 38, height: 3)
+                    .frame(width: 32, height: 38)
+                    .rotationEffect(.degrees(-6))
+                    .overlay(
+                        Rectangle()
+                            .fill(Color(hex: "B44A3B").opacity(0.12))
+                            .frame(width: 24, height: 24)
+                            .offset(y: -4)
+                    )
+                    .shadow(color: Color.black.opacity(0.1), radius: 3)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Capsule().fill(Color(hex: "B44A3B")).frame(width: 30, height: 3)
+                    Capsule().fill(ink.opacity(0.42)).frame(width: 52, height: 3)
                 }
-                Spacer(minLength: 0)
             }
-            VStack(alignment: .leading, spacing: 5) {
-                Capsule().fill(ink.opacity(0.78)).frame(width: 82, height: 3)
-                Capsule().fill(ink.opacity(0.35)).frame(width: 58, height: 2)
-            }
-            progressBar(width: 82, progress: 0.43, tint: Color(hex: "B44A3B"), track: muted.opacity(0.22))
+            Spacer()
         }
-        .padding(13)
+        .padding(14)
     }
 
     private func game2048Preview(size: CGSize) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
-                gameTile("2", color: Color(hex: "EEE4DA"), textColor: Color(hex: "776E65"))
-                gameTile("4", color: Color(hex: "EDE0C8"), textColor: Color(hex: "776E65"))
-                gameTile("8", color: Color(hex: "F2B179"), textColor: .white)
-                gameTile("16", color: Color(hex: "F59563"), textColor: .white)
+                gameTile("2048", color: Color(hex: "EDC22E"), textColor: .white, wide: true)
+                gameTile("Aside", color: Color(hex: "F2B179"), textColor: .white, wide: true)
             }
             HStack(spacing: 4) {
-                gameTile("32", color: Color(hex: "F67C5F"), textColor: .white)
-                gameTile("64", color: Color(hex: "F65E3B"), textColor: .white)
-                gameTile("128", color: Color(hex: "EDCF72"), textColor: .white)
                 gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
-            }
-            HStack(spacing: 4) {
-                gameTile("PLAY", color: Color(hex: "EDC22E"), textColor: .white, wide: true)
+                gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
                 gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
                 gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
             }
         }
-        .padding(9)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(hex: "A99B8E")))
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: "A99B8E")))
     }
 
     private func lineStack(widths: [CGFloat], color: Color, mutedColor: Color) -> some View {

@@ -10,6 +10,9 @@ struct MangaHomeView: View {
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
     @State private var appeared = false
+    @State private var homeRenderRevision = 0
+    @State private var renderedHitokotoText = ""
+    @State private var hitokotoRenderRevision = 0
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -18,25 +21,46 @@ struct MangaHomeView: View {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
 
-                if viewModel.isLoading {
-                    mangaLoadingView
-                } else {
-                    scrollBody
-                }
+                scrollBody
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
+                viewModel.reloadHomeCacheIfUseful(reason: "manga appear cache sync")
+                syncMangaHitokoto(reason: "manga appear")
                 showHomeContentIfNeeded()
                 hydrateHome(reason: "manga appear")
+                invalidateHomeRender()
             }
             .task {
+                viewModel.reloadHomeCacheIfUseful(reason: "manga task cache sync")
+                syncMangaHitokoto(reason: "manga task")
                 showHomeContentIfNeeded()
+                hydrateHome(reason: "manga task")
+                await runInitialMangaHomeSync()
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
+                viewModel.reloadHomeCacheIfUseful(reason: "manga foreground cache sync")
+                syncMangaHitokoto(reason: "manga foreground")
                 hydrateHome(reason: "manga foreground")
+                invalidateHomeRender()
+            }
+            .onReceive(viewModel.$hitokoto) { hitokoto in
+                syncMangaHitokoto(hitokoto, reason: "manga hitokoto updated")
+            }
+            .onReceive(viewModel.$userProfile) { _ in
+                invalidateHomeRender()
+            }
+            .onReceive(viewModel.$homeContentRevision) { _ in
+                invalidateHomeRender()
+            }
+            .onChange(of: hitokotoEnabled) { _, _ in
+                syncMangaHitokoto(reason: "manga hitokoto setting changed")
+                if hitokotoEnabled {
+                    viewModel.refreshHitokoto(force: true)
+                }
             }
             .navigationDestination(for: HomeView.HomeDestination.self) { dest in
                 mangaDestination(for: dest)
@@ -66,8 +90,77 @@ struct MangaHomeView: View {
         }
     }
 
+    private func invalidateHomeRender() {
+        homeRenderRevision += 1
+    }
+
+    private func syncMangaHitokoto(reason: String) {
+        syncMangaHitokoto(viewModel.hitokoto, reason: reason)
+    }
+
+    private func syncMangaHitokoto(_ hitokoto: String?, reason: String) {
+        let nextText = hitokotoEnabled
+            ? (hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+            : ""
+        guard nextText != renderedHitokotoText else { return }
+
+        renderedHitokotoText = nextText
+        hitokotoRenderRevision += 1
+        invalidateHomeRender()
+        AppLogger.debug("MangaHomeView: 每日一言渲染刷新 - \(reason)")
+    }
+
+    private var expectsUserProfile: Bool {
+        (UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+            || APIService.shared.currentCookie != nil
+            || APIService.shared.currentUserId != nil)
+            && OnlineAccessManager.shared.hasStoredToken
+    }
+
+    private var hasMangaHomeContent: Bool {
+        !displayHomeData.isEmpty
+    }
+
+    private var isInitialHomeLoading: Bool {
+        displayHomeData.isEmpty && viewModel.isLoading
+    }
+
+    private var mangaHomeRenderIdentity: String {
+        [
+            "render-\(homeRenderRevision)",
+            displayHomeData.fingerprint,
+            "loading-\(viewModel.isLoading)",
+            "content-\(viewModel.homeContentRevision)",
+            "profile-\(viewModel.userProfile?.userId ?? 0)-\(viewModel.userProfile?.nickname ?? "none")",
+            "hitokoto-\(hitokotoRenderRevision)-\(renderedHitokotoText.isEmpty ? "empty" : "ready")"
+        ].joined(separator: "|")
+    }
+
+    private func runInitialMangaHomeSync() async {
+        for attempt in 0..<28 {
+            if Task.isCancelled { return }
+
+            await MainActor.run {
+                viewModel.reloadHomeCacheIfUseful(reason: "manga startup sync \(attempt)")
+                syncMangaHitokoto(reason: "manga startup sync \(attempt)")
+                invalidateHomeRender()
+            }
+
+            let hasContent = await MainActor.run {
+                hasMangaHomeContent
+                    && (!hitokotoEnabled || !renderedHitokotoText.isEmpty)
+                    && (!expectsUserProfile || viewModel.userProfile != nil)
+            }
+            if hasContent { return }
+
+            try? await Task.sleep(nanoseconds: 220_000_000)
+        }
+    }
+
     private var scrollBody: some View {
-        ScrollView {
+        let homeData = displayHomeData
+
+        return ScrollView {
             VStack(spacing: 20) {
                 mangaTopBar
                     .mangaStagger(appeared, order: 0)
@@ -76,38 +169,44 @@ struct MangaHomeView: View {
                     .padding(.horizontal, mangaHomeFeatureHorizontalPadding)
                     .mangaStagger(appeared, order: 1)
 
-                if !viewModel.banners.isEmpty {
-                    mangaBannerSection
-                        .mangaStagger(appeared, order: 2)
-                }
+                mangaEntryCards
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .mangaStagger(appeared, order: 2)
 
-                if !viewModel.dailySongs.isEmpty {
-                    mangaDailySection
+                if isInitialHomeLoading || homeData.isEmpty {
+                    mangaLoadingView
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                         .mangaStagger(appeared, order: 3)
                 }
 
-                if !viewModel.recommendPlaylists.isEmpty {
+                if !homeData.banners.isEmpty {
+                    mangaBannerSection(banners: homeData.banners)
+                        .mangaStagger(appeared, order: 3)
+                }
+
+                if !homeData.dailySongs.isEmpty {
+                    mangaDailySection(songs: homeData.dailySongs)
+                        .mangaStagger(appeared, order: 4)
+                }
+
+                if !homeData.recommendPlaylists.isEmpty {
                     mangaPlaylistSection(
                         title: String(localized: "推荐歌单"),
-                        playlists: viewModel.recommendPlaylists,
+                        playlists: homeData.recommendPlaylists,
                         tint: MangaStyle.labelYellow
                     )
-                    .mangaStagger(appeared, order: 4)
+                    .mangaStagger(appeared, order: 5)
                 }
 
-                if !viewModel.qqNewSongs.isEmpty {
-                    mangaNewSongsSection
-                        .mangaStagger(appeared, order: 5)
-                }
-
-                if !viewModel.qqRecommendPlaylists.isEmpty {
-                    mangaDiscoverySection
+                if !homeData.qqNewSongs.isEmpty {
+                    mangaNewSongsSection(songs: homeData.qqNewSongs)
                         .mangaStagger(appeared, order: 6)
                 }
 
-                mangaEntryCards
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                    .mangaStagger(appeared, order: 7)
+                if !homeData.qqRecommendPlaylists.isEmpty {
+                    mangaDiscoverySection(playlists: homeData.qqRecommendPlaylists)
+                        .mangaStagger(appeared, order: 7)
+                }
 
                 FloatingBarBottomSpacer()
             }
@@ -115,6 +214,7 @@ struct MangaHomeView: View {
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
+        .id(mangaHomeRenderIdentity)
         .refreshable {
             viewModel.fetchData()
             if hitokotoEnabled {
@@ -201,8 +301,12 @@ struct MangaHomeView: View {
                 MangaLabel(text: hitokotoLabel, tint: MangaStyle.accentPink, small: true)
 
                 if usesHitokotoFallback {
-                    MonoWordmarkImage(height: 30)
-                        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                    Text(HitokotoFallbackSlogan.text)
+                        .font(MangaStyle.titleFont(24, weight: .black))
+                        .foregroundStyle(MangaStyle.ink)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 58, alignment: .leading)
                         .layoutPriority(1)
                 } else {
                     Text(mangaHeaderLine)
@@ -313,14 +417,15 @@ struct MangaHomeView: View {
     }
 
     private var mangaHeroSong: Song? {
-        playerManager.currentSong ?? playerManager.history.first ?? viewModel.dailySongs.first
+        playerManager.currentSong ?? playerManager.history.first ?? displayHomeData.dailySongs.first
     }
 
     private func playHeroSong(_ song: Song) {
+        let dailySongs = displayHomeData.dailySongs
         if playerManager.currentSong?.id == song.id {
             playerManager.playSingle(song: song)
-        } else if viewModel.dailySongs.contains(where: { $0.id == song.id }) {
-            playerManager.play(song: song, in: viewModel.dailySongs)
+        } else if dailySongs.contains(where: { $0.id == song.id }) {
+            playerManager.play(song: song, in: dailySongs)
         } else {
             playerManager.playSingle(song: song)
         }
@@ -343,7 +448,7 @@ struct MangaHomeView: View {
         .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
     }
 
-    private var mangaDailySection: some View {
+    private func mangaDailySection(songs: [Song]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(
                 title: String(localized: "每日推荐"),
@@ -356,8 +461,8 @@ struct MangaHomeView: View {
 
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(viewModel.dailySongs.prefix(10).enumerated()), id: \.element.id) { index, song in
-                        mangaSongPanel(song, index: index)
+                    ForEach(Array(songs.prefix(10).enumerated()), id: \.element.id) { index, song in
+                        mangaSongPanel(song, index: index, songs: songs)
                             .scrollTransition(.animated(.spring(response: 0.32, dampingFraction: 0.82))) { content, phase in
                                 content
                                     .scaleEffect(phase.isIdentity ? 1 : 0.94)
@@ -374,8 +479,8 @@ struct MangaHomeView: View {
         }
     }
 
-    private var mangaBannerSection: some View {
-        MangaHomeBannerSection(banners: viewModel.banners) { banner in
+    private func mangaBannerSection(banners: [Banner]) -> some View {
+        MangaHomeBannerSection(banners: banners) { banner in
             handleBannerTap(banner)
         }
         .padding(.horizontal, mangaHomeFeatureHorizontalPadding)
@@ -385,13 +490,13 @@ struct MangaHomeView: View {
         DeviceLayout.isPad ? DeviceLayout.homeHorizontalPadding : 12
     }
 
-    private func mangaSongPanel(_ song: Song, index: Int) -> some View {
+    private func mangaSongPanel(_ song: Song, index: Int, songs: [Song]) -> some View {
         let isCurrent = playerManager.currentSong?.id == song.id
         let width: CGFloat = index == 0 ? 152 : 126
         let height: CGFloat = index == 0 ? 186 : 166
 
         return Button {
-            playerManager.play(song: song, in: viewModel.dailySongs)
+            playerManager.play(song: song, in: songs)
         } label: {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .topTrailing) {
@@ -449,7 +554,7 @@ struct MangaHomeView: View {
         .buttonStyle(MonologueBouncingButtonStyle())
     }
 
-    private var mangaNewSongsSection: some View {
+    private func mangaNewSongsSection(songs: [Song]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(
                 title: String(localized: "qq_new_songs"),
@@ -461,8 +566,8 @@ struct MangaHomeView: View {
 
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(viewModel.qqNewSongs.prefix(8).enumerated()), id: \.element.id) { index, song in
-                        mangaNewSongCard(song, rank: index + 1)
+                    ForEach(Array(songs.prefix(8).enumerated()), id: \.element.id) { index, song in
+                        mangaNewSongCard(song, rank: index + 1, songs: songs)
                             .scrollTransition(.animated(.spring(response: 0.32, dampingFraction: 0.82))) { content, phase in
                                 content
                                     .scaleEffect(phase.isIdentity ? 1 : 0.92)
@@ -478,11 +583,11 @@ struct MangaHomeView: View {
         }
     }
 
-    private func mangaNewSongCard(_ song: Song, rank: Int) -> some View {
+    private func mangaNewSongCard(_ song: Song, rank: Int, songs: [Song]) -> some View {
         let isCurrent = playerManager.currentSong?.id == song.id
 
         return Button {
-            playerManager.play(song: song, in: viewModel.qqNewSongs)
+            playerManager.play(song: song, in: songs)
         } label: {
             HStack(spacing: 10) {
                 ZStack(alignment: .topLeading) {
@@ -592,7 +697,7 @@ struct MangaHomeView: View {
         .buttonStyle(MonologueBouncingButtonStyle())
     }
 
-    private var mangaDiscoverySection: some View {
+    private func mangaDiscoverySection(playlists: [Playlist]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(
                 title: String(localized: "更多发现"),
@@ -603,7 +708,7 @@ struct MangaHomeView: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             VStack(spacing: 10) {
-                ForEach(Array(viewModel.qqRecommendPlaylists.prefix(6).enumerated()), id: \.element.id) { index, playlist in
+                ForEach(Array(playlists.prefix(6).enumerated()), id: \.element.id) { index, playlist in
                     mangaDiscoveryRow(playlist, index: index)
                 }
             }
@@ -656,7 +761,7 @@ struct MangaHomeView: View {
     }
 
     private var mangaEntryCards: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             MangaHomeEntryCard(
                 icon: .musicNoteList,
                 title: String(localized: "new_song_express"),
@@ -675,11 +780,44 @@ struct MangaHomeView: View {
             ) {
                 navigationPath.append(HomeView.HomeDestination.mvDiscover)
             }
+
+            MangaHomeEntryCard(
+                icon: .moon,
+                title: String(localized: "meditation_mode_title"),
+                tint: MangaStyle.bubbleBlue,
+                angle: -0.8
+            ) {
+                navigationPath.append(HomeView.HomeDestination.meditationMode)
+            }
         }
     }
 
     private var mangaHeaderLine: String {
-        viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        renderedHitokotoText
+    }
+
+    private var displayHomeData: MangaHomeDataSnapshot {
+        MangaHomeDataSnapshot(
+            dailySongs: firstNonEmpty(
+                nonEmpty(viewModel.dailySongs, cacheKey: "daily_songs", type: [Song].self),
+                nonEmpty(viewModel.popularSongs, cacheKey: "popular_songs", type: [Song].self)
+            ),
+            banners: nonEmpty(viewModel.banners, cacheKey: "banners", type: [Banner].self),
+            recommendPlaylists: nonEmpty(viewModel.recommendPlaylists, cacheKey: "recommend_playlists", type: [Playlist].self),
+            qqRecommendPlaylists: nonEmpty(viewModel.qqRecommendPlaylists, cacheKey: "qq_recommend_playlists", type: [Playlist].self),
+            qqNewSongs: nonEmpty(viewModel.qqNewSongs, cacheKey: "qq_new_songs", type: [Song].self)
+        )
+    }
+
+    private func nonEmpty<T: Codable>(_ source: [T], cacheKey: String, type: [T].Type) -> [T] {
+        if !source.isEmpty {
+            return source
+        }
+        return OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: type) ?? []
+    }
+
+    private func firstNonEmpty<T>(_ candidates: [T]...) -> [T] {
+        candidates.first { !$0.isEmpty } ?? []
     }
 
     private var usesHitokotoFallback: Bool {
@@ -762,6 +900,8 @@ struct MangaHomeView: View {
             NewSongExpressView()
         case .qcmNewSongs:
             QCMNewSongsView()
+        case .meditationMode:
+            MeditationModeView()
         }
     }
 }
@@ -815,14 +955,12 @@ private struct MangaHomeBannerCard: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(url: banner.imageUrl) {
+                HomeBannerArtwork(url: banner.imageUrl, cornerRadius: 16) {
                     MangaStyle.paperCool
                         .overlay(MangaDotsTexture(opacity: 0.06, gap: 10))
                 }
-                .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .frame(height: DeviceLayout.isPad ? 186 : 126)
-                .clipped()
 
                 LinearGradient(
                     colors: [.clear, Color.black.opacity(0.68)],
@@ -873,6 +1011,38 @@ private struct MangaHomeBannerCard: View {
     }
 }
 
+private struct MangaHomeDataSnapshot {
+    var dailySongs: [Song] = []
+    var banners: [Banner] = []
+    var recommendPlaylists: [Playlist] = []
+    var qqRecommendPlaylists: [Playlist] = []
+    var qqNewSongs: [Song] = []
+
+    var isEmpty: Bool {
+        dailySongs.isEmpty
+            && banners.isEmpty
+            && recommendPlaylists.isEmpty
+            && qqRecommendPlaylists.isEmpty
+            && qqNewSongs.isEmpty
+    }
+
+    var fingerprint: String {
+        [
+            part("daily", count: dailySongs.count, first: dailySongs.first?.id, last: dailySongs.last?.id),
+            part("banner", count: banners.count, first: banners.first?.id, last: banners.last?.id),
+            part("ncm-playlist", count: recommendPlaylists.count, first: recommendPlaylists.first?.id, last: recommendPlaylists.last?.id),
+            part("qq-playlist", count: qqRecommendPlaylists.count, first: qqRecommendPlaylists.first?.id, last: qqRecommendPlaylists.last?.id),
+            part("qq-song", count: qqNewSongs.count, first: qqNewSongs.first?.id, last: qqNewSongs.last?.id),
+        ].joined(separator: "|")
+    }
+
+    private func part<ID>(_ name: String, count: Int, first: ID?, last: ID?) -> String {
+        let firstValue = first.map { String(describing: $0) } ?? "nil"
+        let lastValue = last.map { String(describing: $0) } ?? "nil"
+        return "\(name)-\(count)-\(firstValue)-\(lastValue)"
+    }
+}
+
 private struct MangaHomeEntryCard: View {
     let icon: MonologueIcon.IconType
     let title: String
@@ -883,39 +1053,30 @@ private struct MangaHomeEntryCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    ZStack {
-                        Circle()
-                            .fill(tint)
-                        MonologueIcon(icon: icon, size: 20, color: foreground, lineWidth: 2)
-                    }
-                    .frame(width: 42, height: 42)
-                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-
-                    Spacer()
-
-                    MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.ink, lineWidth: 2)
-                        .frame(width: 28, height: 28)
-                        .background(MangaStyle.bubbleWhite, in: Circle())
-                        .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(tint)
+                    MonologueIcon(icon: icon, size: 19, color: foreground, lineWidth: 2)
                 }
-
-                Spacer(minLength: 4)
+                .frame(width: 40, height: 40)
+                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
 
                 Text(title)
-                    .font(MangaStyle.titleFont(16, weight: .black))
+                    .font(MangaStyle.labelFont(12, weight: .black))
                     .foregroundStyle(foreground)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.78)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.72)
+                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .top)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: DeviceLayout.entryCardHeight)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .frame(height: 92)
             .background(
                 MangaCardBackground(
-                    cornerRadius: 18,
+                    cornerRadius: 16,
                     elevated: true,
                     tint: tint.opacity(0.9)
                 )

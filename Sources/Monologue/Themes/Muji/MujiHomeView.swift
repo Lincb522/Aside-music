@@ -139,19 +139,24 @@ struct MujiHomeView: View {
 
                 mujiIntroCard
                     .padding(.horizontal, 28)
-                    .padding(.bottom, 34)
+                    .padding(.bottom, 18)
                     .mujiStagger(appeared, order: 1, reduceMotion: reduceMotion)
+
+                mujiEntryCards
+                    .padding(.horizontal, 28)
+                    .mujiStagger(appeared, order: 2, reduceMotion: reduceMotion)
+                    .padding(.bottom, 34)
 
                 if !viewModel.banners.isEmpty {
                     mujiBannerSection
                         .padding(.horizontal, 12)
                         .padding(.bottom, 34)
-                        .mujiStagger(appeared, order: 2, reduceMotion: reduceMotion)
+                        .mujiStagger(appeared, order: 3, reduceMotion: reduceMotion)
                 }
 
                 if !viewModel.dailySongs.isEmpty {
                     mujiDailySection
-                        .mujiStagger(appeared, order: 3, reduceMotion: reduceMotion)
+                        .mujiStagger(appeared, order: 4, reduceMotion: reduceMotion)
                         .padding(.bottom, 36)
                 }
 
@@ -161,13 +166,13 @@ struct MujiHomeView: View {
                         playlists: viewModel.recommendPlaylists,
                         action: openLibrarySquare
                     )
-                    .mujiStagger(appeared, order: 4, reduceMotion: reduceMotion)
+                    .mujiStagger(appeared, order: 5, reduceMotion: reduceMotion)
                     .padding(.bottom, 36)
                 }
 
                 if !viewModel.qqNewSongs.isEmpty {
                     mujiNewSongsSection
-                        .mujiStagger(appeared, order: 5, reduceMotion: reduceMotion)
+                        .mujiStagger(appeared, order: 6, reduceMotion: reduceMotion)
                         .padding(.bottom, 34)
                 }
 
@@ -177,14 +182,9 @@ struct MujiHomeView: View {
                         playlists: viewModel.qqRecommendPlaylists,
                         action: openLibrarySquare
                     )
-                    .mujiStagger(appeared, order: 6, reduceMotion: reduceMotion)
-                    .padding(.bottom, 36)
-                }
-
-                mujiEntryCards
-                    .padding(.horizontal, 28)
                     .mujiStagger(appeared, order: 7, reduceMotion: reduceMotion)
                     .padding(.bottom, 36)
+                }
 
                 FloatingBarBottomSpacer()
             }
@@ -220,9 +220,14 @@ struct MujiHomeView: View {
                     .padding(.top, 2)
 
                 if usesHitokotoFallback {
-                    MonoWordmarkImage(height: 28)
-                        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                    Text(HitokotoFallbackSlogan.text)
+                        .font(MujiStyle.bodyFont(18, weight: .regular))
+                        .foregroundStyle(textPrimary)
+                        .lineSpacing(5)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 58, alignment: .leading)
                         .layoutPriority(1)
+                        .textSelection(.disabled)
                 } else {
                     Text(mujiHeaderQuote)
                         .font(MujiStyle.bodyFont(18, weight: .regular))
@@ -517,7 +522,7 @@ struct MujiHomeView: View {
     }
 
     private var mujiEntryCards: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             MujiHomeEntryCard(
                 icon: .musicNoteList,
                 title: String(localized: "new_song_express"),
@@ -532,6 +537,14 @@ struct MujiHomeView: View {
                 tint: MujiStyle.indigo
             ) {
                 navigationPath.append(HomeView.HomeDestination.mvDiscover)
+            }
+
+            MujiHomeEntryCard(
+                icon: .moon,
+                title: String(localized: "meditation_mode_title"),
+                tint: MujiStyle.straw
+            ) {
+                navigationPath.append(HomeView.HomeDestination.meditationMode)
             }
         }
     }
@@ -597,6 +610,7 @@ struct MujiHomeView: View {
         case .mvDiscover: MVDiscoverView()
         case .newSongExpress: NewSongExpressView()
         case .qcmNewSongs: QCMNewSongsView()
+        case .meditationMode: MeditationModeView()
         }
     }
 }
@@ -665,17 +679,13 @@ private struct MujiHomeBannerCard: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(url: banner.imageUrl) {
+                HomeBannerArtwork(url: banner.imageUrl, cornerRadius: cornerRadius) {
                     cardShape
                         .fill(MujiStyle.surfaceRaised)
                         .overlay(MujiPaperTexture(opacity: 0.12))
                 }
-                .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .frame(height: cardHeight)
-                .clipped()
-                .compositingGroup()
-                .clipShape(cardShape)
 
                 LinearGradient(
                     colors: [.clear, Color.black.opacity(0.48)],
@@ -742,35 +752,28 @@ private struct MujiHomeEntryCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    MonologueIcon(icon: icon, size: 18, color: tint, lineWidth: 1.6)
-                        .frame(width: 38, height: 38)
-                        .background(MujiStyle.surface, in: Circle())
-                        .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.6))
-
-                    Spacer()
-
-                    Circle()
-                        .fill(tint.opacity(0.36))
-                        .frame(width: 8, height: 8)
-                }
-
-                Spacer(minLength: 2)
+            VStack(spacing: 8) {
+                MonologueIcon(icon: icon, size: 18, color: tint, lineWidth: 1.6)
+                    .frame(width: 38, height: 38)
+                    .background(MujiStyle.surface, in: Circle())
+                    .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.6))
 
                 Text(title)
-                    .font(MujiStyle.titleFont(16, weight: .regular))
+                    .font(MujiStyle.labelFont(12, weight: .semibold))
                     .foregroundStyle(MujiStyle.ink)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.74)
+                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .top)
 
                 Rectangle()
                     .fill(tint.opacity(0.64))
-                    .frame(width: 38, height: 1)
+                    .frame(width: 30, height: 1)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: DeviceLayout.entryCardHeight)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .frame(height: 96)
             .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
         }
         .buttonStyle(.plain)

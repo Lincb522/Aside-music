@@ -82,10 +82,13 @@ struct FloatingBallView: View {
             )
 
             if PetWhiteStyle.isActive {
-                petWhiteBallFace
+                PetWhiteSpinningCoverDisc(
+                    coverURL: player.currentSong?.coverUrl,
+                    size: ballSize - 8,
+                    isPlaying: player.isPlaying,
+                    strokeWidth: 1.5
+                )
                     .frame(width: ballSize - 8, height: ballSize - 8)
-                    .scaleEffect(player.isPlaying ? 1.03 : 1)
-                    .animation(MonologueAnimation.micro, value: player.isPlaying)
             } else {
                 // 黑胶唱片
                 TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !player.isPlaying)) { timeline in
@@ -288,16 +291,6 @@ struct FloatingBallView: View {
             Circle()
                 .fill(vinylBaseFill)
                 .frame(width: 5, height: 5)
-        }
-    }
-
-    private var petWhiteBallFace: some View {
-        ZStack {
-            Circle()
-                .fill(player.isPlaying ? PetWhiteStyle.butter : PetWhiteStyle.surfaceRaised)
-                .overlay(Circle().stroke(PetWhiteStyle.separator, lineWidth: 1))
-
-            PetWhiteMascotMark(kind: player.isPlaying ? .dog : .cat, size: ballSize * 0.52)
         }
     }
 
@@ -622,13 +615,14 @@ struct FloatingBallView: View {
     }
 
     private var progressLineWidth: CGFloat {
+        if PetWhiteStyle.isActive { return 3.6 }
         if CapsuleStyle.isActive { return 3 }
         return MangaStyle.isActive ? 3 : (NeumorphicStyle.isActive ? 3 : (SequoiaStyle.isActive ? 2.8 : 2.5))
     }
 
     private var progressTrackColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.separator.opacity(0.75) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.20) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.62) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.62) }
@@ -642,7 +636,7 @@ struct FloatingBallView: View {
             return AnyShapeStyle(LinearGradient(colors: [MangaStyle.accentPink, MangaStyle.labelYellow], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         if PetWhiteStyle.isActive {
-            return AnyShapeStyle(LinearGradient(colors: [PetWhiteStyle.dogOrange, PetWhiteStyle.mint], startPoint: .topLeading, endPoint: .bottomTrailing))
+            return AnyShapeStyle(LinearGradient(colors: [PetWhiteStyle.dogOrange, PetWhiteStyle.dogEar, PetWhiteStyle.blush.opacity(0.94)], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         if MujiStyle.isActive {
             return AnyShapeStyle(MujiStyle.accentGradient)
@@ -906,6 +900,7 @@ private struct FloatingBallProgressRing: View {
                 .trim(from: 0, to: progress)
                 .stroke(fill, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                .shadow(color: PetWhiteStyle.isActive ? PetWhiteStyle.dogOrange.opacity(0.22) : .clear, radius: PetWhiteStyle.isActive ? 3 : 0, x: 0, y: 0)
                 .animation(.linear(duration: 0.1), value: progress)
         }
         .frame(width: size, height: size)

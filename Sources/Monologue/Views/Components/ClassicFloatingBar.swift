@@ -466,6 +466,7 @@ private struct PetWhiteClassicCushionDock: View {
             VStack(spacing: 8) {
                 if let song = player.currentSong {
                     PetWhiteClassicNowPlayingChip(song: song)
+                        .swipeToSkip()
                         .padding(.horizontal, DeviceLayout.isPad ? 28 : 14)
                         .transition(.asymmetric(
                             insertion: .opacity.combined(with: .move(edge: .bottom)),
@@ -526,15 +527,12 @@ private struct PetWhiteClassicNowPlayingChip: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            CachedAsyncImage(url: song.coverUrl, width: 34, height: 34) {
-                PetWhiteMascotMark(kind: .cat, size: 20)
-                    .frame(width: 34, height: 34)
-                    .background(PetWhiteStyle.butter)
-            }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 34, height: 34)
-            .clipShape(Circle())
-            .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+            PetWhiteSpinningCoverDisc(
+                coverURL: song.coverUrl,
+                size: 34,
+                isPlaying: player.isPlaying,
+                strokeWidth: 1.4
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 MarqueeText(
@@ -544,7 +542,7 @@ private struct PetWhiteClassicNowPlayingChip: View {
                     speed: 25,
                     alignment: .leading
                 )
-                .frame(height: 15)
+                .frame(height: 17)
 
                 MarqueeText(
                     text: subtitleText,
@@ -553,14 +551,11 @@ private struct PetWhiteClassicNowPlayingChip: View {
                     speed: 22,
                     alignment: .leading
                 )
-                .frame(height: 13)
+                .frame(height: 14)
             }
             .swipeSkipTextMotion()
 
             Spacer(minLength: 4)
-
-            ProgressBarView()
-                .frame(width: DeviceLayout.isPad ? 86 : 58, height: 3)
 
             Button(action: { player.togglePlayPause() }) {
                 ZStack {
@@ -585,6 +580,21 @@ private struct PetWhiteClassicNowPlayingChip: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+
+            if !player.isPlaying {
+                Button {
+                    withAnimation(MonologueAnimation.floatingBar) {
+                        player.dismissMiniPlayerPreservingQueue()
+                    }
+                } label: {
+                    PetWhitePackIcon(icon: .close, size: 16, visualScale: 1, fallbackColor: PetWhiteStyle.inkMuted, lineWidth: 1.6)
+                        .frame(width: 28, height: 28)
+                        .background(PetWhiteStyle.surfacePressed, in: Circle())
+                        .overlay(Circle().stroke(PetWhiteStyle.separator, lineWidth: 1))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                .transition(.scale.combined(with: .opacity))
+            }
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
@@ -592,6 +602,13 @@ private struct PetWhiteClassicNowPlayingChip: View {
             Capsule(style: .continuous)
                 .fill(PetWhiteStyle.surfaceRaised)
                 .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1.1))
+                .overlay(alignment: .bottomLeading) {
+                    ProgressBarView(height: 4, minFillWidth: 7)
+                        .frame(height: 4)
+                        .padding(.leading, 55)
+                        .padding(.trailing, player.isPlaying ? 88 : 120)
+                        .offset(y: -3)
+                }
         }
         .contentShape(Capsule(style: .continuous))
         .onTapWithHaptic { openPlayer() }
@@ -635,10 +652,10 @@ private struct PetWhiteClassicTabRail: View {
                     HStack(spacing: 6) {
                         PetWhitePackIcon(
                             icon: selected ? tab.icon : tab.monologueIcon,
-                            size: selected ? 24 : 21,
-                            visualScale: 1.05,
+                            size: selected ? 18 : 16,
+                            visualScale: 1,
                             fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkMuted,
-                            lineWidth: 1.7
+                            lineWidth: 1.45
                         )
 
                         if selected {
@@ -774,7 +791,7 @@ private struct ClassicMiniPlayerSection: View {
                     speed: 25,
                     alignment: .leading
                 )
-                .frame(height: 15)
+                .frame(height: 17)
 
                 MarqueeText(
                     text: subtitleText,
@@ -783,7 +800,7 @@ private struct ClassicMiniPlayerSection: View {
                     speed: 22,
                     alignment: .leading
                 )
-                .frame(height: 13)
+                .frame(height: 14)
                     .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1483,7 +1500,7 @@ private struct ClassicTabBarSection: View {
     @ViewBuilder
     private func classicTabIcon(icon: MonologueIcon.IconType, size: CGFloat, color: Color) -> some View {
         if PetWhiteStyle.isActive {
-            PetWhitePackIcon(icon: icon, size: max(size + 5, 20), visualScale: 1.04, fallbackColor: color)
+            PetWhitePackIcon(icon: icon, size: 16, visualScale: 1, fallbackColor: color, lineWidth: 1.45)
         } else {
             MonologueIcon(icon: icon, size: size, color: color)
         }
