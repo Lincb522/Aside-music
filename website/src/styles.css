@@ -4107,3 +4107,11 @@ html, body, #app {
   grid-area: 1 / 1 / 2 / 1;
   width: 100%;
 }
+
+/* --- Mobile Performance Boost Optimization --- */
+@media (max-width: 768px) {
+  /* Freeze large heavily blurred moving/rotating layers to eliminate massive GPU composite fill-rate lag */
+  .glow-1, .glow-2, .glow-3 {
+    animation: none !important;
+  }
+}

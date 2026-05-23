@@ -295,7 +295,7 @@ public struct ContentView: View {
         switch iconSet {
         case .doodlePop:
             return 16.5
-        case .blobIcons, .iconExport:
+        case .blobIcons, .iconExport, .dotDogSnake:
             return 17
         case .pawPrint:
             return 18
