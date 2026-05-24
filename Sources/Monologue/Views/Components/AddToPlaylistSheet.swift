@@ -239,12 +239,13 @@ struct AddToPlaylistSheet: View {
                 )
             } else {
                 ForEach(localPlaylists, id: \.id) { playlist in
-                    let contains = playlist.containsSong(id: song.id)
+                    let summary = manager.summary(for: playlist)
+                    let contains = manager.contains(songId: song.id, in: playlist)
 
                     PlaylistPickerPlaylistRow(
-                        title: playlist.name,
-                        subtitle: songsCountText(playlist.trackCount),
-                        coverURL: playlist.displayCoverUrl,
+                        title: summary.name,
+                        subtitle: songsCountText(summary.trackCount),
+                        coverURL: summary.displayCoverUrl,
                         placeholderIcon: .musicNoteList,
                         statusText: contains ? String(localized: "playlist_picker_already_saved") : nil,
                         statusTint: .monologueTextSecondary,
@@ -320,7 +321,7 @@ struct AddToPlaylistSheet: View {
 
     @MainActor
     private func addToLocalPlaylist(_ playlist: LocalPlaylist) async {
-        guard !playlist.containsSong(id: song.id) else { return }
+        guard !manager.contains(songId: song.id, in: playlist) else { return }
 
         activeOperationID = OperationKey.localPlaylist(playlist.id)
         defer { activeOperationID = nil }

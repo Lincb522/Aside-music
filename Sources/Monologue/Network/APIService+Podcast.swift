@@ -102,15 +102,8 @@ extension APIService {
     /// 获取播客首页 Tab 数据（为你推荐、热门播客、上新佳作、音乐播客榜）
     func fetchPodcastHomeTab() -> AnyPublisher<PodcastHomeTabResponse, Error> {
         ncm.publisher { [ncm] in
-            guard let serverUrl = ncm.serverUrl else {
-                throw URLError(.badServerResponse)
-            }
-            let body = try await Self.postToBackend(
-                serverUrl: serverUrl,
-                route: "/podcast/home/tab",
-                params: [:]
-            )
-            let data = try JSONSerialization.data(withJSONObject: body)
+            let response = try await ncm.podcastHomeTab()
+            let data = try JSONSerialization.data(withJSONObject: response.body)
             return try JSONDecoder().decode(PodcastHomeTabResponse.self, from: data)
         }
     }

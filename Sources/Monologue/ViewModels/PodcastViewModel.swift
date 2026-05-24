@@ -4,6 +4,8 @@ import Combine
 
 @MainActor
 @Observable class PodcastViewModel {
+    static let shared = PodcastViewModel()
+
     var personalizedRadios: [RadioStation] = []
     var categories: [RadioCategory] = []
     var recommendRadios: [RadioStation] = []
@@ -28,10 +30,74 @@ import Combine
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
+    private enum CacheKey {
+        static let personalizedRadios = "podcast_personalized_radios"
+        static let categories = "podcast_categories"
+        static let recommendRadios = "podcast_recommend_radios"
+        static let broadcastChannels = "podcast_broadcast_channels"
+        static let djBanners = "podcast_dj_banners"
+        static let paygiftRadios = "podcast_paygift_radios"
+        static let newcomerRadios = "podcast_newcomer_radios"
+        static let programToplist = "podcast_program_toplist"
+        static let todayPreferred = "podcast_today_preferred"
+        static let hotRadios = "podcast_hot_radios"
+        static let rcmdPrograms = "podcast_rcmd_programs"
+        static let hotPodcasts = "podcast_hot_podcasts"
+        static let newestPrograms = "podcast_newest_programs"
+        static let chartPrograms = "podcast_chart_programs"
+    }
 
-    func fetchData() {
+    var hasDisplayableContent: Bool {
+        !personalizedRadios.isEmpty
+            || !categories.isEmpty
+            || !recommendRadios.isEmpty
+            || !broadcastChannels.isEmpty
+            || !rcmdPrograms.isEmpty
+            || !hotPodcasts.isEmpty
+            || !newestPrograms.isEmpty
+            || !chartPrograms.isEmpty
+    }
+
+    func ensureDataLoaded(reason: String = "podcast appear") {
+        loadCache()
+        guard !isLoading else { return }
+
+        let shouldRefreshDaily = GlobalRefreshManager.shared.checkDailyRefreshNeeded(for: .podcast)
+        guard shouldRefreshDaily || !hasDisplayableContent else { return }
+
+        fetchData(
+            forceDaily: shouldRefreshDaily,
+            marksDailyRefresh: shouldRefreshDaily,
+            reason: reason
+        )
+    }
+
+    func preloadIfNeeded(forceDaily: Bool, reason: String) {
+        loadCache()
+        guard !isLoading else { return }
+        guard forceDaily || !hasDisplayableContent else { return }
+
+        fetchData(
+            forceDaily: forceDaily,
+            marksDailyRefresh: forceDaily,
+            reason: reason
+        )
+    }
+
+    func fetchData(
+        forceDaily: Bool = false,
+        marksDailyRefresh: Bool = false,
+        reason: String = "podcast fetch"
+    ) {
+        guard !isLoading else {
+            AppLogger.debug("PodcastViewModel: 播客数据正在加载，跳过重复请求 - \(reason)")
+            return
+        }
+
+        loadCache()
         isLoading = true
         errorMessage = nil
+        AppLogger.debug("PodcastViewModel: 加载播客数据 - \(reason) forceDaily=\(forceDaily)")
 
         // 并行拉取分类、广播频道和播客首页 Tab
         let categoriesPublisher = apiService.fetchDJCategories()
@@ -45,11 +111,25 @@ import Combine
             .receive(on: DispatchQueue.main)
             .sink { [weak self] cats, broadcasts, homeTab in
                 guard let self = self else { return }
-                self.categories = cats
-                self.broadcastChannels = broadcasts
-                self.parsePodcastHomeTab(homeTab)
-                self.isLoading = false
-                self.fetchExtendedData()
+                let hasCategoriesPayload = !cats.isEmpty
+                let hasBroadcastPayload = !broadcasts.isEmpty
+                let hasHomeTabPayload = homeTab.data?.blockVOS?.contains {
+                    !($0.creatives?.isEmpty ?? true)
+                } ?? false
+
+                if hasCategoriesPayload {
+                    self.assignIfIdentityChanged(cats, to: &self.categories) { $0.id }
+                }
+                if hasBroadcastPayload {
+                    self.assignIfIdentityChanged(broadcasts, to: &self.broadcastChannels) { $0.id }
+                }
+                if hasHomeTabPayload {
+                    self.parsePodcastHomeTab(homeTab)
+                }
+                if hasCategoriesPayload || hasBroadcastPayload || hasHomeTabPayload {
+                    self.storeCoreCache()
+                }
+                self.fetchExtendedData(marksDailyRefresh: marksDailyRefresh)
             }
             .store(in: &cancellables)
     }
@@ -57,6 +137,15 @@ import Combine
     /// 解析播客首页 Tab 数据到各个区块
     private func parsePodcastHomeTab(_ response: PodcastHomeTabResponse) {
         guard let blocks = response.data?.blockVOS else { return }
+
+        rcmdPrograms = []
+        hotPodcasts = []
+        newestPrograms = []
+        chartPrograms = []
+        personalizedRadios = []
+        hotRadios = []
+        recommendRadios = []
+
         for block in blocks {
             guard let code = block.blockCode, let creatives = block.creatives else { continue }
             switch code {
@@ -95,7 +184,7 @@ import Combine
     }
     
     /// 加载 DJ 扩展数据（Banner、付费精品、新人榜、节目榜、今日优选）
-    private func fetchExtendedData() {
+    private func fetchExtendedData(marksDailyRefresh: Bool) {
         let bannerPub = apiService.fetchDJBanner()
             .catch { _ in Just([Banner]()) }
         let paygiftPub = apiService.fetchDJPaygift(limit: 6)
@@ -111,16 +200,146 @@ import Combine
             .combineLatest(Publishers.Zip(programPub, todayPub))
             .receive(on: DispatchQueue.main)
             .sink { [weak self] first, second in
-                self?.djBanners = first.0
-                self?.paygiftRadios = first.1
-                self?.newcomerRadios = first.2
-                self?.programToplist = second.0
-                self?.todayPerfered = second.1
+                guard let self else { return }
+
+                let hasExtendedPayload = !first.0.isEmpty
+                    || !first.1.isEmpty
+                    || !first.2.isEmpty
+                    || !second.0.isEmpty
+                    || !second.1.isEmpty
+
+                if !first.0.isEmpty {
+                    self.assignIfIdentityChanged(first.0, to: &self.djBanners) { $0.id }
+                }
+                if !first.1.isEmpty {
+                    self.assignIfIdentityChanged(first.1, to: &self.paygiftRadios) { $0.id }
+                }
+                if !first.2.isEmpty {
+                    self.assignIfIdentityChanged(first.2, to: &self.newcomerRadios) { $0.id }
+                }
+                if !second.0.isEmpty {
+                    self.assignIfIdentityChanged(second.0, to: &self.programToplist) { $0.id }
+                }
+                if !second.1.isEmpty {
+                    self.assignIfIdentityChanged(second.1, to: &self.todayPerfered) { $0.id }
+                }
+                if hasExtendedPayload {
+                    self.storeExtendedCache()
+                }
+
+                self.isLoading = false
+                if marksDailyRefresh {
+                    GlobalRefreshManager.shared.markDailyRefreshCompleted(for: .podcast)
+                }
             }
             .store(in: &cancellables)
     }
 
     func refreshData() {
-        fetchData()
+        fetchData(forceDaily: true, marksDailyRefresh: true, reason: "podcast manual refresh")
+    }
+
+    private func loadCache() {
+        let cache = OptimizedCacheManager.shared
+
+        if let cached = cache.getObject(forKey: CacheKey.personalizedRadios, type: [RadioStation].self) {
+            assignIfIdentityChanged(cached, to: &personalizedRadios) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.categories, type: [RadioCategory].self) {
+            assignIfIdentityChanged(cached, to: &categories) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.recommendRadios, type: [RadioStation].self) {
+            assignIfIdentityChanged(cached, to: &recommendRadios) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.broadcastChannels, type: [BroadcastChannel].self) {
+            assignIfIdentityChanged(cached, to: &broadcastChannels) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.djBanners, type: [Banner].self) {
+            assignIfIdentityChanged(cached, to: &djBanners) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.paygiftRadios, type: [RadioStation].self) {
+            assignIfIdentityChanged(cached, to: &paygiftRadios) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.newcomerRadios, type: [RadioStation].self) {
+            assignIfIdentityChanged(cached, to: &newcomerRadios) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.programToplist, type: [RadioProgram].self) {
+            assignIfIdentityChanged(cached, to: &programToplist) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.todayPreferred, type: [RadioStation].self) {
+            assignIfIdentityChanged(cached, to: &todayPerfered) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.hotRadios, type: [RadioStation].self) {
+            assignIfIdentityChanged(cached, to: &hotRadios) { $0.id }
+        }
+        if let cached = cache.getObject(forKey: CacheKey.rcmdPrograms, type: [PodcastCreative].self) {
+            assignIfIdentityChanged(cached, to: &rcmdPrograms, id: podcastCreativeIdentity)
+        }
+        if let cached = cache.getObject(forKey: CacheKey.hotPodcasts, type: [PodcastCreative].self) {
+            assignIfIdentityChanged(cached, to: &hotPodcasts, id: podcastCreativeIdentity)
+        }
+        if let cached = cache.getObject(forKey: CacheKey.newestPrograms, type: [PodcastCreative].self) {
+            assignIfIdentityChanged(cached, to: &newestPrograms, id: podcastCreativeIdentity)
+        }
+        if let cached = cache.getObject(forKey: CacheKey.chartPrograms, type: [PodcastCreative].self) {
+            assignIfIdentityChanged(cached, to: &chartPrograms, id: podcastCreativeIdentity)
+        }
+    }
+
+    private func storeCoreCache() {
+        let cache = OptimizedCacheManager.shared
+        cache.setObject(personalizedRadios, forKey: CacheKey.personalizedRadios)
+        cache.setObject(categories, forKey: CacheKey.categories)
+        cache.setObject(recommendRadios, forKey: CacheKey.recommendRadios)
+        cache.setObject(broadcastChannels, forKey: CacheKey.broadcastChannels)
+        cache.setObject(hotRadios, forKey: CacheKey.hotRadios)
+        cache.setObject(rcmdPrograms, forKey: CacheKey.rcmdPrograms)
+        cache.setObject(hotPodcasts, forKey: CacheKey.hotPodcasts)
+        cache.setObject(newestPrograms, forKey: CacheKey.newestPrograms)
+        cache.setObject(chartPrograms, forKey: CacheKey.chartPrograms)
+    }
+
+    private func storeExtendedCache() {
+        let cache = OptimizedCacheManager.shared
+        cache.setObject(djBanners, forKey: CacheKey.djBanners)
+        cache.setObject(paygiftRadios, forKey: CacheKey.paygiftRadios)
+        cache.setObject(newcomerRadios, forKey: CacheKey.newcomerRadios)
+        cache.setObject(programToplist, forKey: CacheKey.programToplist)
+        cache.setObject(todayPerfered, forKey: CacheKey.todayPreferred)
+    }
+
+    private func assignIfIdentityChanged<Element, ID: Equatable>(
+        _ cached: [Element],
+        to target: inout [Element],
+        id: (Element) -> ID
+    ) {
+        guard !hasSameIdentity(target, cached, id: id) else { return }
+        target = cached
+    }
+
+    private func hasSameIdentity<Element, ID: Equatable>(
+        _ lhs: [Element],
+        _ rhs: [Element],
+        id: (Element) -> ID
+    ) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        return zip(lhs, rhs).allSatisfy { id($0) == id($1) }
+    }
+
+    private func podcastCreativeIdentity(_ creative: PodcastCreative) -> String {
+        var parts: [String] = []
+        if let creativeId = creative.creativeId {
+            parts.append(creativeId)
+        }
+        if let title = creative.uiElement?.mainTitle?.title {
+            parts.append(title)
+        }
+        if let programId = creative.creativeExtInfoVO?.djProgram?.id {
+            parts.append(String(programId))
+        }
+        if let radioId = creative.creativeExtInfoVO?.radio?.id {
+            parts.append(String(radioId))
+        }
+        return parts.joined(separator: "-")
     }
 }

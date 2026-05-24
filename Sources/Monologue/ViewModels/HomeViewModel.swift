@@ -24,6 +24,7 @@ class HomeViewModel: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private var hitokotoFetchTask: Task<Void, Never>?
+    private var hitokotoRequestGeneration = 0
     private var lastHitokotoAttempt: Date?
     private var lastHitokotoFailure: Date?
     private var lastHitokotoSuccess: Date?
@@ -125,11 +126,20 @@ class HomeViewModel: ObservableObject {
 
     private func primeInitialHomeState() {
         loadCache()
-        refreshHitokotoIfNeeded()
+        if SettingsManager.shared.hitokotoEnabled {
+            _ = restoreCachedHitokotoForCurrentSettings()
+        } else {
+            hitokoto = nil
+        }
         restoreLoginStateIfNeeded(reason: "home init")
     }
     
     func fetchData(forceDaily: Bool = false) {
+        guard !isLoading else {
+            AppLogger.debug("HomeViewModel: 首页数据正在加载，跳过重复请求")
+            return
+        }
+
         loadCache()
         restoreLoginStateIfNeeded(reason: "home fetch")
         
@@ -147,7 +157,9 @@ class HomeViewModel: ObservableObject {
     }
 
     func ensureHomeDataLoaded(reason: String = "home appear") {
-        loadCache()
+        if needsHomeHydration {
+            loadCache()
+        }
         refreshHitokotoIfNeeded()
         restoreLoginStateIfNeeded(reason: reason)
 
@@ -206,6 +218,35 @@ class HomeViewModel: ObservableObject {
         } else {
             finishHomeLoading()
         }
+    }
+
+    func reloadHomeCacheForVisibleHomeIfNeeded(reason: String) {
+        guard needsHomeHydration || isHomeDataEmpty else { return }
+        reloadHomeCacheIfUseful(reason: reason)
+    }
+
+    func refreshThemeSensitiveHomeState(reason: String) {
+        emptyHomeRetryTask?.cancel()
+        emptyHomeRetryTask = nil
+        emptyHomeAutomaticRetryCount = 0
+        lastHomeHydrationAttempt = nil
+        homeLoadingStartedAt = nil
+        pendingLoginRefresh = false
+
+        loadCache()
+        if SettingsManager.shared.hitokotoEnabled {
+            if hasUsableHitokoto {
+                refreshHitokoto()
+            } else {
+                lastHitokotoAttempt = nil
+                lastHitokotoFailure = nil
+                refreshHitokoto(force: true)
+            }
+        }
+        restoreLoginStateIfNeeded(reason: reason)
+        ensureHomeDataLoaded(reason: reason)
+        publishHomeContentChange(reason: reason)
+        AppLogger.debug("[HomeThemeRefresh] reason=\(reason) themeId=\(SettingsManager.shared.globalThemeId.rawValue) hitokotoReady=\(hasUsableHitokoto) homeEmpty=\(isHomeDataEmpty)")
     }
 
     private var needsHomeHydration: Bool {
@@ -291,35 +332,53 @@ class HomeViewModel: ObservableObject {
         let cache = OptimizedCacheManager.shared
         
         if let cachedDaily = cache.getObject(forKey: "daily_songs", type: [Song].self) {
-            self.dailySongs = cachedDaily
+            assignIfIdentityChanged(cachedDaily, to: &dailySongs) { $0.id }
         }
         if let cachedPopular = cache.getObject(forKey: "popular_songs", type: [Song].self) {
-            self.popularSongs = cachedPopular
+            assignIfIdentityChanged(cachedPopular, to: &popularSongs) { $0.id }
         }
         if let cachedRecommend = cache.getObject(forKey: "recommend_playlists", type: [Playlist].self) {
-            self.recommendPlaylists = cachedRecommend
-            // 同时缓存到数据库
-            cache.cachePlaylists(cachedRecommend)
+            assignIfIdentityChanged(cachedRecommend, to: &recommendPlaylists) { $0.id }
         }
         if let cachedRecent = cache.getObject(forKey: "recent_songs", type: [Song].self) {
-            self.recentSongs = cachedRecent
+            assignIfIdentityChanged(cachedRecent, to: &recentSongs) { $0.id }
         }
         if let cachedBanners = cache.getObject(forKey: "banners", type: [Banner].self) {
-            self.banners = cachedBanners
+            assignIfIdentityChanged(cachedBanners, to: &banners) { $0.id }
         }
         if let cachedQQPlaylists = cache.getObject(forKey: "qq_recommend_playlists", type: [Playlist].self) {
-            self.qqRecommendPlaylists = cachedQQPlaylists
+            assignIfIdentityChanged(cachedQQPlaylists, to: &qqRecommendPlaylists) { $0.id }
         }
         if let cachedQQNewSongs = cache.getObject(forKey: "qq_new_songs", type: [Song].self) {
-            self.qqNewSongs = cachedQQNewSongs
+            assignIfIdentityChanged(cachedQQNewSongs, to: &qqNewSongs) { $0.id }
         }
         if let cachedProfile = cache.getObject(forKey: "user_profile_detail", type: UserProfile.self) ?? restoreUserProfileBackup() {
-            self.userProfile = cachedProfile
-            storeUserProfileBackup(cachedProfile)
+            if userProfile != cachedProfile {
+                userProfile = cachedProfile
+                storeUserProfileBackup(cachedProfile)
+            }
         }
         if !isHomeDataEmpty {
             markHomeDataArrived(reason: "cache load")
         }
+    }
+
+    private func assignIfIdentityChanged<Element, ID: Equatable>(
+        _ cached: [Element],
+        to target: inout [Element],
+        id: (Element) -> ID
+    ) {
+        guard !hasSameIdentity(target, cached, id: id) else { return }
+        target = cached
+    }
+
+    private func hasSameIdentity<Element, ID: Equatable>(
+        _ lhs: [Element],
+        _ rhs: [Element],
+        id: (Element) -> ID
+    ) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        return zip(lhs, rhs).allSatisfy { id($0) == id($1) }
     }
 
     private func applyUserProfile(_ profile: UserProfile, reason: String) {
@@ -667,6 +726,10 @@ class HomeViewModel: ObservableObject {
                         OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
                         OptimizedCacheManager.shared.cacheSongs(songs)
                     }
+
+                    if !songs.isEmpty {
+                        GlobalRefreshManager.shared.markDailyRefreshCompleted(for: .home)
+                    }
                 })
                 .store(in: &cancellables)
         } else {
@@ -700,7 +763,7 @@ class HomeViewModel: ObservableObject {
                     }
                     
                     if !songs.isEmpty {
-                        GlobalRefreshManager.shared.markDailyRefreshCompleted()
+                        GlobalRefreshManager.shared.markDailyRefreshCompleted(for: .home)
                     }
                 })
                 .store(in: &cancellables)
@@ -740,6 +803,7 @@ class HomeViewModel: ObservableObject {
             hitokoto = nil
             return
         }
+        guard !hasUsableHitokoto else { return }
 
         refreshHitokoto()
     }
@@ -763,9 +827,24 @@ class HomeViewModel: ObservableObject {
             return
         }
 
+        let type = settings.hitokotoType
+        let cacheKey = Self.hitokotoCacheKey(type: type)
+        if !hasUsableHitokoto {
+            _ = restoreCachedHitokotoForCurrentSettings()
+        }
+
         let now = Date()
-        if hitokotoFetchTask != nil {
-            return
+        if let hitokotoFetchTask {
+            if force {
+                hitokotoFetchTask.cancel()
+                self.hitokotoFetchTask = nil
+                lastHitokotoAttempt = nil
+                lastHitokotoFailure = nil
+                AppLogger.debug("[DailyQuote] cancelPending themeId=\(settings.globalThemeId.rawValue) cacheKey=\(cacheKey)")
+            } else {
+                AppLogger.debug("[DailyQuote] skipPending themeId=\(settings.globalThemeId.rawValue) cacheKey=\(cacheKey)")
+                return
+            }
         }
 
         if !force,
@@ -785,27 +864,43 @@ class HomeViewModel: ObservableObject {
 
         lastHitokotoAttempt = now
 
-        let type = settings.hitokotoType
         let urls = Self.hitokotoURLs(type: type)
+        hitokotoRequestGeneration &+= 1
+        let requestGeneration = hitokotoRequestGeneration
+        let requestThemeId = settings.globalThemeId.rawValue
+        AppLogger.debug("[DailyQuote] request themeId=\(requestThemeId) cacheKey=\(cacheKey) force=\(force) generation=\(requestGeneration)")
 
-        hitokotoFetchTask = Task { [weak self, urls] in
+        hitokotoFetchTask = Task { [weak self, urls, cacheKey, requestGeneration, requestThemeId] in
             var failures: [String] = []
 
             for url in urls {
+                if Task.isCancelled {
+                    await MainActor.run {
+                        self?.handleHitokotoCancellation(generation: requestGeneration, themeId: requestThemeId, cacheKey: cacheKey)
+                    }
+                    return
+                }
+
                 do {
                     let hitokotoString = try await Self.requestHitokoto(url: url)
                     await MainActor.run {
-                        self?.storeHitokoto(hitokotoString)
+                        self?.storeHitokoto(hitokotoString, generation: requestGeneration)
                     }
                     return
                 } catch {
+                    if Task.isCancelled {
+                        await MainActor.run {
+                            self?.handleHitokotoCancellation(generation: requestGeneration, themeId: requestThemeId, cacheKey: cacheKey)
+                        }
+                        return
+                    }
                     failures.append("\(url.absoluteString): \(Self.describeHitokotoError(error))")
                     continue
                 }
             }
 
             await MainActor.run {
-                self?.handleHitokotoFailure(failures)
+                self?.handleHitokotoFailure(failures, generation: requestGeneration)
             }
         }
     }
@@ -931,7 +1026,7 @@ class HomeViewModel: ObservableObject {
         }
 
         hitokoto = cached
-        AppLogger.debug("HomeViewModel: 使用缓存每日一言")
+        AppLogger.debug("[DailyQuote] cacheHit themeId=\(SettingsManager.shared.globalThemeId.rawValue) cacheKey=\(key)")
         return true
     }
 
@@ -940,22 +1035,38 @@ class HomeViewModel: ObservableObject {
         return "\(hitokotoCachePrefix)_\(suffix)"
     }
 
-    private func storeHitokoto(_ text: String) {
+    private func storeHitokoto(_ text: String, generation: Int? = nil) {
+        if let generation, generation != hitokotoRequestGeneration {
+            return
+        }
+
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            handleHitokotoFailure(["empty response"])
+            handleHitokotoFailure(["empty response"], generation: generation)
             return
         }
 
         hitokoto = trimmed
-        UserDefaults.standard.set(trimmed, forKey: Self.hitokotoCacheKey(type: SettingsManager.shared.hitokotoType))
+        let cacheKey = Self.hitokotoCacheKey(type: SettingsManager.shared.hitokotoType)
+        UserDefaults.standard.set(trimmed, forKey: cacheKey)
         let successDate = Date()
         lastHitokotoSuccess = successDate
         lastHitokotoFailure = nil
         hitokotoFetchTask = nil
+        AppLogger.debug("[DailyQuote] store themeId=\(SettingsManager.shared.globalThemeId.rawValue) cacheKey=\(cacheKey)")
     }
 
-    private func handleHitokotoFailure(_ failures: [String]) {
+    private func handleHitokotoCancellation(generation: Int, themeId: String, cacheKey: String) {
+        guard generation == hitokotoRequestGeneration else { return }
+        hitokotoFetchTask = nil
+        AppLogger.debug("[DailyQuote] cancelled themeId=\(themeId) cacheKey=\(cacheKey) generation=\(generation)")
+    }
+
+    private func handleHitokotoFailure(_ failures: [String], generation: Int? = nil) {
+        if let generation, generation != hitokotoRequestGeneration {
+            return
+        }
+
         lastHitokotoFailure = Date()
         hitokotoFetchTask = nil
         if !hasUsableHitokoto {

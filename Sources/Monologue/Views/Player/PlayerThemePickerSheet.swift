@@ -700,7 +700,7 @@ private struct PlayerThemeStaticPreview: View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
                 gameTile("2048", color: Color(hex: "EDC22E"), textColor: .white, wide: true)
-                gameTile("Aside", color: Color(hex: "F2B179"), textColor: .white, wide: true)
+                gameTile("Mono", color: Color(hex: "F2B179"), textColor: .white, wide: true)
             }
             HStack(spacing: 4) {
                 gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)

@@ -19,7 +19,7 @@ struct PlayPauseControlWidget: ControlWidget {
                 Label("播放/暂停", systemImage: "play.pause.fill")
             }
         }
-        .displayName("mono 播放/暂停")
+        .displayName("Mono 播放/暂停")
     }
 }
 
@@ -31,7 +31,7 @@ struct NextTrackControlWidget: ControlWidget {
                 Label("下一首", systemImage: "forward.fill")
             }
         }
-        .displayName("mono 下一首")
+        .displayName("Mono 下一首")
     }
 }
 
@@ -227,7 +227,7 @@ struct NowPlayingEntry: TimelineEntry {
             return NowPlayingEntry(
                 date: .now,
                 songName: "纸飞机",
-                artistName: "mono",
+                artistName: "Mono",
                 albumName: "Polaroid Preview",
                 playbackState: .playing,
                 coverImageData: nil,
@@ -248,7 +248,7 @@ struct NowPlayingEntry: TimelineEntry {
             return NowPlayingEntry(
                 date: .now,
                 songName: "Midnight Drive",
-                artistName: "mono",
+                artistName: "Mono",
                 albumName: "Vinyl Preview",
                 playbackState: .playing,
                 coverImageData: nil,
@@ -315,7 +315,7 @@ struct NowPlayingEntry: TimelineEntry {
             return NowPlayingEntry(
                 date: .now,
                 songName: "Midnight Drive",
-                artistName: "mono",
+                artistName: "Mono",
                 albumName: "Preview",
                 playbackState: .playing,
                 coverImageData: nil,
@@ -2475,7 +2475,7 @@ struct PosterWidgetTheme: View {
     let family: WidgetFamily
 
     private var displaySong: String { entry.isEmpty ? "Not Playing" : entry.songName }
-    private var displayArtist: String { entry.isEmpty ? "mono" : entry.artistName }
+    private var displayArtist: String { entry.isEmpty ? "Mono" : entry.artistName }
     private var displayLyric: String { entry.lyricText.isEmpty ? "" : entry.lyricText }
 
     @ViewBuilder
@@ -3152,8 +3152,6 @@ private struct MangaTheme: View {
 
     private var mediumWidget: some View {
         GeometryReader { g in
-            let coverSide = max(g.size.width * 0.24, 76)
-
             ZStack {
                 mangaCanvasBackdrop(size: g.size)
 
@@ -3502,7 +3500,7 @@ struct MagazineTheme: View {
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("ASIDE")
+                    Text("MONO")
                         .font(.system(size: 9, weight: .black, design: .monospaced))
                         .foregroundStyle(accent)
                         .tracking(4)
@@ -3592,7 +3590,7 @@ struct MagazineTheme: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("ASIDE")
+                    Text("MONO")
                         .font(.system(size: 11, weight: .black, design: .monospaced))
                         .foregroundStyle(accent)
                         .tracking(5)
@@ -3723,7 +3721,7 @@ struct MagazineTheme: View {
                     .padding(.horizontal, pad)
 
                 HStack {
-                    Text("ASIDE MUSIC EDITORIAL")
+                    Text("MONO MUSIC EDITORIAL")
                         .font(.system(size: 7, weight: .bold, design: .monospaced))
                         .foregroundStyle(inkLight.opacity(0.5))
                         .tracking(2)
@@ -4079,7 +4077,7 @@ struct ApertureWidgetTheme: View {
                 Spacer(minLength: 10)
 
                 HStack {
-                    Text(entry.sourceName.isEmpty ? "ASIDE" : entry.sourceName.uppercased())
+                    Text(entry.sourceName.isEmpty ? "MONO" : entry.sourceName.uppercased())
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundStyle(ink.opacity(0.28))
                         .tracking(1.4)
@@ -5878,7 +5876,6 @@ struct DashboardTheme: View {
 
     private var mediumLayout: some View {
         GeometryReader { geo in
-            let w = geo.size.width
             let h = geo.size.height
             let coverSize: CGFloat = h - 24
 
@@ -5990,7 +5987,6 @@ struct DashboardTheme: View {
     private var largeLayout: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            let h = geo.size.height
             let coverSize: CGFloat = min(w * 0.45, 150) // 左侧中等偏大封面
 
             VStack(spacing: 0) {
@@ -6186,7 +6182,7 @@ struct SoundwaveTheme: View {
     var family: WidgetFamily
 
     private var song: String {
-        return entry.songName.isEmpty ? "mono" : entry.songName
+        return entry.songName.isEmpty ? "Mono" : entry.songName
     }
     
     private var artist: String {
@@ -6385,7 +6381,6 @@ struct SoundwaveTheme: View {
     private var mediumLayout: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            let h = geo.size.height
             
             ZStack {
                 cardBg.ignoresSafeArea()
@@ -6525,10 +6520,7 @@ struct SoundwaveTheme: View {
     // MARK: - Large Layout
     
     private var largeLayout: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            
+        GeometryReader { _ in
             ZStack {
                 cardBg.ignoresSafeArea()
                 

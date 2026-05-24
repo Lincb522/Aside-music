@@ -68,7 +68,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`mono daily player proxy listening on 127.0.0.1:${port}`)
+  console.log(`Mono daily player proxy listening on 127.0.0.1:${port}`)
 })
 
 async function fetchDailyTracks() {

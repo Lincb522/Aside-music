@@ -230,7 +230,7 @@ struct RadioPlayerLayout: View {
 
     private var ledBanner: some View {
         let text = player.currentSong.map { "\($0.name)  ♪  \($0.artistName)" }
-            ?? "ASIDE MUSIC  ♪  READY"
+            ?? "MONO MUSIC  ♪  READY"
 
         return LEDDotMatrixBanner(
             text: text,

@@ -1,5 +1,19 @@
 # 更新日志
 
+## 1.4.0 (2026-05-24)
+
+### 新功能
+- 对齐 NeteaseCloudMusicApiEnhanced 4.33.0，新增 28 个后端模块的 Swift 调用入口
+- 新增 `backendRoute(_:data:)`，支持直接调用 Monologue 本地增强后端模块
+- 接入 Monologue 本地增强接口：`bannerBackup`、`podcastHomeTab`、`songQualities`、`songUrlNcmget`、`playShorten`
+
+### 改进
+- `RouteMap` 补齐 4.33.0 新增模块和本地增强模块映射，避免代理模式回退路由不透明
+- 同步 4.33.0 老接口变化：`recommendSongs(afresh:)`、`userFolloweds` 默认分页、`voicelistSearch(keyword:)`、`vipSign` 请求模式
+- README 与主工程 Package 注释更新为 4.33.0 / 396+ 路由口径
+
+---
+
 ## 1.3.6 (2026-02-09)
 
 ### 修复

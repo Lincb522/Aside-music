@@ -641,11 +641,11 @@ struct UnifiedFloatingBar: View {
     @ViewBuilder
     private var barBackground: some View {
         if PetWhiteStyle.isActive {
-            PetWhiteSurfaceBackground(
-                cornerRadius: cornerRadius,
-                elevated: true,
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
                 tint: PetWhiteStyle.surfaceRaised,
-                accent: PetWhiteStyle.mint
+                accent: PetWhiteStyle.mint,
+                lineWidth: PetWhiteStyle.strokeWidth
             )
         } else if PureWhiteStyle.isActive {
             PureWhiteSurfaceBackground(
@@ -772,12 +772,12 @@ private struct PetWhiteUnifiedFloatingBar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(PetWhiteStyle.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.7)
-                )
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: 30, style: .continuous),
+                tint: PetWhiteStyle.paper,
+                accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                lineWidth: 1.7
+            )
                 .overlay(alignment: .topTrailing) {
                     PetWhiteFloatingMascotDot(
                         filled: player.currentSong != nil,
@@ -900,18 +900,8 @@ private struct PetWhiteUnifiedNowPlayingTicket: View {
         .padding(.trailing, 10)
         .padding(.vertical, 7)
         .background {
-            UnevenRoundedRectangle(
-                cornerRadii: .init(
-                    topLeading: 22,
-                    bottomLeading: 22,
-                    bottomTrailing: 16,
-                    topTrailing: 28
-                ),
-                style: .continuous
-            )
-            .fill(PetWhiteStyle.surfaceRaised)
-            .overlay(
-                UnevenRoundedRectangle(
+            PetWhiteFrostedFloatingSurface(
+                shape: UnevenRoundedRectangle(
                     cornerRadii: .init(
                         topLeading: 22,
                         bottomLeading: 22,
@@ -919,8 +909,10 @@ private struct PetWhiteUnifiedNowPlayingTicket: View {
                         topTrailing: 28
                     ),
                     style: .continuous
-                )
-                .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                ),
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                lineWidth: 1.4
             )
             .overlay(alignment: .bottomLeading) {
                 ProgressBarView(height: 4, minFillWidth: 7)
@@ -1009,12 +1001,14 @@ private struct PetWhiteUnifiedTabPawDock: View {
         }
         .padding(5)
         .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(PetWhiteStyle.surfaceRaised)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(PetWhiteStyle.separator, lineWidth: 1.1)
-                )
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: 22, style: .continuous),
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: PetWhiteStyle.mint,
+                strokeColor: PetWhiteStyle.separator,
+                lineWidth: 1.1,
+                elevated: false
+            )
         }
     }
 

@@ -126,6 +126,19 @@ public class NCMClient {
         return requestClient.sessionManager.cookies
     }
 
+    /// 直接调用 Node 后端模块路由。
+    /// 适用于后端增强模块或本地自定义模块，例如 `/song/qualities`、`/podcast/home/tab`。
+    public func backendRoute(
+        _ route: String,
+        data: [String: Any] = [:]
+    ) async throws -> APIResponse {
+        guard let serverUrl = serverUrl else {
+            throw NCMError.invalidResponse(detail: "backendRoute 仅支持后端代理模式，请先设置 serverUrl")
+        }
+        let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
+        return try await proxyRequest(serverUrl: serverUrl, uri: normalizedRoute, data: data)
+    }
+
     // MARK: - 内部请求方法
 
     /// 发送 API 请求（供 API 扩展调用）

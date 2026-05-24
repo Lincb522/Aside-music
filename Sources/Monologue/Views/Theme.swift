@@ -86,8 +86,7 @@ extension Color {
     }
 
     private static var monologueDefaultAccent: Color {
-        let activeThemeRaw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.appDefault.rawValue
-        guard activeThemeRaw == GlobalThemeId.default.rawValue,
+        guard GlobalThemeId.persistedOrDefault == .default,
               ThemeColorCustomization.customColorsEnabled,
               ThemeColorCustomization.hasStoredAccent(for: .default)
         else {

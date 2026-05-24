@@ -2,7 +2,7 @@ import SwiftUI
 
 enum MujiStyle {
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.muji.rawValue
+        GlobalThemeId.persistedOrDefault == .muji
     }
 
     static var paper: Color {

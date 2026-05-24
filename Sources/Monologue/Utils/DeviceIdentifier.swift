@@ -30,7 +30,7 @@ enum DeviceIdentifier {
         }
 
         // Layer 2: 用 IDFV 派生稳定 UUID
-        if let idfv = UIDevice.current.identifierForVendor?.uuidString,
+        if let idfv = currentVendorIdentifier,
            !idfv.isEmpty {
             let derived = deriveUUID(from: idfv)
             KeychainHelper.save(key: deviceUUIDKey, value: derived)
@@ -73,14 +73,14 @@ enum DeviceIdentifier {
         var info: [String: Any] = [
             "device_uuid": uuid,
             "device_model": deviceModel,
-            "device_name": UIDevice.current.name,
-            "system_name": UIDevice.current.systemName,
-            "system_version": UIDevice.current.systemVersion,
+            "device_name": currentDeviceName,
+            "system_name": currentSystemName,
+            "system_version": currentSystemVersion,
             "app_version": appVersion,
             "bundle_id": Bundle.main.bundleIdentifier ?? "unknown"
         ]
 
-        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+        if let vendorId = currentVendorIdentifier {
             info["vendor_id"] = vendorId
         }
 
@@ -110,8 +110,33 @@ enum DeviceIdentifier {
         uname(&systemInfo)
         return withUnsafePointer(to: &systemInfo.machine) {
             $0.withMemoryRebound(to: CChar.self, capacity: 1) {
-                String(validatingUTF8: $0) ?? "Unknown"
+                String(validatingCString: $0) ?? "Unknown"
             }
+        }
+    }
+
+    private static var currentVendorIdentifier: String? {
+        readMainActorValue { UIDevice.current.identifierForVendor?.uuidString }
+    }
+
+    private static var currentDeviceName: String {
+        readMainActorValue { UIDevice.current.name }
+    }
+
+    private static var currentSystemName: String {
+        readMainActorValue { UIDevice.current.systemName }
+    }
+
+    private static var currentSystemVersion: String {
+        readMainActorValue { UIDevice.current.systemVersion }
+    }
+
+    private static func readMainActorValue<T: Sendable>(_ body: @MainActor @Sendable () -> T) -> T {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated { body() }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated { body() }
         }
     }
 

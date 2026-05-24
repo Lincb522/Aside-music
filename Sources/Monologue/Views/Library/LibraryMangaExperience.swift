@@ -351,7 +351,7 @@ struct MangaLibraryExperience: View {
                 LazyVGrid(columns: twoColumns, spacing: 14) {
                     ForEach(localManager.playlists, id: \.id) { playlist in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
-                            MangaLocalPlaylistPoster(playlist: playlist)
+                            MangaLocalPlaylistPoster(summary: localManager.summary(for: playlist))
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     }
@@ -1444,27 +1444,27 @@ struct MangaPodcastPoster: View {
 }
 
 struct MangaLocalPlaylistPoster: View {
-    let playlist: LocalPlaylist
+    let summary: LocalPlaylistSummary
 
     var body: some View {
-        MangaPosterShell(tint: playlist.isFavorite ? MangaStyle.bubblePink : (playlist.isDownload ? MangaStyle.bubbleBlue : MangaStyle.bubbleWhite)) {
+        MangaPosterShell(tint: summary.isFavorite ? MangaStyle.bubblePink : (summary.isDownload ? MangaStyle.bubbleBlue : MangaStyle.bubbleWhite)) {
             VStack(alignment: .leading, spacing: 10) {
                 cover
 
-                Text(playlist.name)
+                Text(summary.name)
                     .font(MangaStyle.bodyFont(14, weight: .black))
                     .foregroundStyle(MangaStyle.ink)
                     .lineLimit(2)
                     .frame(minHeight: 36, alignment: .topLeading)
 
-                MangaLabel(text: "\(playlist.trackCount) \(String(localized: "songs_unit"))", tint: MangaStyle.mint, small: true)
+                MangaLabel(text: "\(summary.trackCount) \(String(localized: "songs_unit"))", tint: MangaStyle.mint, small: true)
             }
         }
     }
 
     @ViewBuilder
     private var cover: some View {
-        if let url = playlist.displayCoverUrl {
+        if let url = summary.displayCoverUrl {
             CachedAsyncImage(url: url.sized(300)) {
                 placeholder
             }

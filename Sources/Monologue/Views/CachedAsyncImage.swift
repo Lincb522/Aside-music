@@ -4,7 +4,7 @@ import Combine
 // MARK: - 图片缓存配置
 private struct ImageCacheConfig {
     static let maxMemoryCost = 80 * 1024 * 1024   // 80MB 内存限制
-    static let maxCount = 150                      // 最多缓存 150 张图片
+    static let maxCount = 700                      // 歌单长列表需要保留更多缩略图，最终仍受内存成本限制
     static let maxConcurrentLoads = 6              // 最大并发加载数
     static let screenScale: CGFloat = 3.0          // 现代 iPhone 均为 3x Retina
     static let defaultMaxPointSize: CGFloat = 400
@@ -66,6 +66,10 @@ actor ImageLoadCoordinator {
             defer { inFlightTasks.removeValue(forKey: key) }
             
             do {
+                if url.isFileURL {
+                    let data = try Data(contentsOf: url)
+                    return downsampleImage(data: data, maxSize: normalizedMaxSize)
+                }
                 let (data, response) = try await imageSession.data(from: url)
                 if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                     return nil

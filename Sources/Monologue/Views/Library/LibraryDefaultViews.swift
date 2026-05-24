@@ -275,7 +275,7 @@ struct LocalPlaylistsView: View {
                             }
                             .opacity(0)
 
-                            LocalPlaylistRow(playlist: playlist)
+                            LocalPlaylistRow(summary: manager.summary(for: playlist))
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if !playlist.isSystem {
@@ -1117,13 +1117,13 @@ struct NeumorphicLibraryEmptyState: View {
 }
 
 struct LocalPlaylistRow: View {
-    let playlist: LocalPlaylist
+    let summary: LocalPlaylistSummary
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
         HStack(spacing: 14) {
             Group {
-                if let url = playlist.displayCoverUrl {
+                if let url = summary.displayCoverUrl {
                     CachedAsyncImage(url: url.sized(200)) {
                         systemPlaceholder
                     }
@@ -1149,12 +1149,12 @@ struct LocalPlaylistRow: View {
             .shadow(color: CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.08) : (SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08)), radius: CapsuleStyle.isActive ? 6 : (SequoiaStyle.isActive ? 3 : 4), x: 0, y: 2)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(playlist.name)
+                Text(summary.name)
                     .font(localRowTitleFont)
                     .foregroundColor(localRowPrimaryColor)
                     .lineLimit(1)
 
-                Text(String(format: String(localized: "songs_count_format"), playlist.trackCount))
+                Text(String(format: String(localized: "songs_count_format"), summary.trackCount))
                     .font(localRowSubtitleFont)
                     .foregroundColor(localRowSecondaryColor)
             }
@@ -1190,9 +1190,9 @@ struct LocalPlaylistRow: View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
                 .fill(
-                    playlist.isFavorite
+                    summary.isFavorite
                         ? LinearGradient(colors: [.pink.opacity(0.6), .red.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : playlist.isDownload
+                        : summary.isDownload
                         ? LinearGradient(colors: [.blue.opacity(0.5), .cyan.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
                         : LinearGradient(
                             colors: [
@@ -1204,9 +1204,9 @@ struct LocalPlaylistRow: View {
                         )
                 )
             MonologueIcon(
-                icon: playlist.isFavorite ? .liked : playlist.isDownload ? .download : .musicNoteList,
+                icon: summary.isFavorite ? .liked : summary.isDownload ? .download : .musicNoteList,
                 size: 24,
-                color: playlist.isSystem ? .white : (PetWhiteStyle.isActive ? PetWhiteStyle.stroke.opacity(0.54) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
+                color: summary.isSystem ? .white : (PetWhiteStyle.isActive ? PetWhiteStyle.stroke.opacity(0.54) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
             )
         }
     }

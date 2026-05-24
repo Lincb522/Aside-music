@@ -361,26 +361,23 @@ extension PlayerManager {
     /// 定时器轮询 StreamPlayer 的 currentTime
     func startTimeUpdateTimer() {
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            
-            // ── 睡眠定时器始终 tick（不受 isPlaying guard 影响） ──
-            self.tickSleepTimer()
-            
-            // 采样 StreamPlayer 状态（在 Timer RunLoop 中读取，不涉及 @Published）
-            let time = self.streamPlayer.currentTime
-            let timeValid = time.isFinite && !time.isNaN && time >= 0
-            let loadingTimeout = self.isLoading
-                && self.playbackStartedAt.map { Date().timeIntervalSince($0) > 60.0 } == true
-            let playing = self.isPlaying
-            let seeking = self.isSeeking
-            let seekTarget = self.seekTargetTime
-            let seekStarted = self.seekStartedAt
-            
-            guard playing || (timeValid && time > 0) || loadingTimeout else { return }
-            
-            // 将 @Published 修改推迟到下一个 RunLoop 迭代，避免在 SwiftUI 布局中触发
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self = self else { return }
+
+                // ── 睡眠定时器始终 tick（不受 isPlaying guard 影响） ──
+                self.tickSleepTimer()
+
+                // 采样 StreamPlayer 状态
+                let time = self.streamPlayer.currentTime
+                let timeValid = time.isFinite && !time.isNaN && time >= 0
+                let loadingTimeout = self.isLoading
+                    && self.playbackStartedAt.map { Date().timeIntervalSince($0) > 60.0 } == true
+                let playing = self.isPlaying
+                let seeking = self.isSeeking
+                let seekTarget = self.seekTargetTime
+                let seekStarted = self.seekStartedAt
+
+                guard playing || (timeValid && time > 0) || loadingTimeout else { return }
                 
                 if loadingTimeout {
                     AppLogger.warning("isLoading 超时（60s），强制解除")

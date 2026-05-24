@@ -26,12 +26,32 @@ final class MonologueSceneDelegate: UIResponder, UIWindowSceneDelegate {
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions
     ) {
+        if let windowScene = scene as? UIWindowScene {
+            AppFrameRate.lock(windowScene, reason: "scene will connect")
+        }
+
         // 启动时如果是从 shortcut 冷启动，立刻处理
         if let shortcutItem = connectionOptions.shortcutItem {
             Task { @MainActor in
                 _ = await Self.handle(shortcutItem: shortcutItem)
             }
         }
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        if let windowScene = scene as? UIWindowScene {
+            AppFrameRate.lock(windowScene, reason: "scene will enter foreground")
+        }
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        if let windowScene = scene as? UIWindowScene {
+            AppFrameRate.lock(windowScene, reason: "scene did become active")
+        }
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        AppFrameRate.unlock(scene)
     }
 
     func windowScene(

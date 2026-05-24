@@ -3,7 +3,7 @@ import SwiftUI
 struct MeditationModeView: View {
     @StateObject private var viewModel = MeditationModeViewModel()
     @ObservedObject private var settings = SettingsManager.shared
-    @State private var radioPlayerDestination: MeditationRadioPlayerDestination?
+    @State private var playerDestination: MeditationPlayerDestination?
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -33,8 +33,8 @@ struct MeditationModeView: View {
         .task {
             await viewModel.loadIfNeeded()
         }
-        .fullScreenCover(item: $radioPlayerDestination) { destination in
-            MeditationPlayerView(radio: destination.radio)
+        .fullScreenCover(item: $playerDestination) { destination in
+            MeditationPlayerView(source: destination.source)
         }
     }
 
@@ -115,10 +115,10 @@ struct MeditationModeView: View {
 
     @ViewBuilder
     private var contentSection: some View {
-        if viewModel.isLoading && viewModel.radios.isEmpty {
+        if viewModel.isLoading && viewModel.radios.isEmpty && viewModel.satiResources.isEmpty {
             loadingView
                 .padding(.horizontal, horizontalPadding)
-        } else if viewModel.visibleRadios.isEmpty {
+        } else if viewModel.visibleItems.isEmpty {
             emptyView
                 .padding(.horizontal, horizontalPadding)
         } else {
@@ -126,11 +126,11 @@ struct MeditationModeView: View {
                 sectionTitle
 
                 LazyVStack(spacing: ThemedPageStyle.listSpacing == 0 ? 10 : ThemedPageStyle.listSpacing) {
-                    ForEach(viewModel.visibleRadios) { radio in
+                    ForEach(viewModel.visibleItems) { item in
                         Button {
-                            radioPlayerDestination = MeditationRadioPlayerDestination(radio: radio)
+                            playerDestination = MeditationPlayerDestination(source: viewModel.playbackSource(for: item))
                         } label: {
-                            radioCard(radio)
+                            contentCard(item)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                     }
@@ -150,7 +150,7 @@ struct MeditationModeView: View {
 
             Spacer()
 
-            Text("\(viewModel.visibleRadios.count)")
+            Text("\(viewModel.visibleContentCount)")
                 .font(labelFont(size: 13, weight: .black))
                 .foregroundStyle(accentColor)
                 .padding(.horizontal, 10)
@@ -178,9 +178,9 @@ struct MeditationModeView: View {
         .buttonStyle(.plain)
     }
 
-    private func radioCard(_ radio: RadioStation) -> some View {
+    private func contentCard(_ item: MeditationContentItem) -> some View {
         HStack(spacing: 13) {
-            CachedAsyncImage(url: radio.coverUrl) {
+            CachedAsyncImage(url: item.coverURL) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(coverPlaceholderColor)
                     .overlay(MonologueIcon(icon: .moon, size: 22, color: secondaryTextColor.opacity(0.42)))
@@ -194,29 +194,24 @@ struct MeditationModeView: View {
             )
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(radio.name)
+                Text(item.title)
                     .font(labelFont(size: 15, weight: .black))
                     .foregroundStyle(primaryTextColor)
                     .lineLimit(1)
 
-                if let desc = radio.desc, !desc.isEmpty {
-                    Text(desc)
+                if !item.subtitle.isEmpty {
+                    Text(item.subtitle)
                         .font(labelFont(size: 12, weight: .medium))
                         .foregroundStyle(secondaryTextColor)
                         .lineLimit(2)
-                } else {
-                    Text(radio.dj?.nickname ?? String(localized: "podcast_title"))
-                        .font(labelFont(size: 12, weight: .medium))
-                        .foregroundStyle(secondaryTextColor)
-                        .lineLimit(1)
                 }
 
                 HStack(spacing: 8) {
-                    if let count = radio.programCount, count > 0 {
-                        metaPill(String(format: String(localized: "podcast_episode_count"), count))
+                    if let detail = item.detail, !detail.isEmpty {
+                        metaPill(detail)
                     }
 
-                    if let category = radio.category, !category.isEmpty {
+                    if let category = item.category, !category.isEmpty {
                         metaPill(category)
                     }
                 }
@@ -439,9 +434,17 @@ struct MeditationModeView: View {
     }
 }
 
-private struct MeditationRadioPlayerDestination: Identifiable {
-    let radio: RadioStation
-    var id: Int { radio.id }
+private struct MeditationPlayerDestination: Identifiable {
+    let source: MeditationPlaybackSource
+
+    var id: String {
+        switch source {
+        case .radio(let radio):
+            return "radio-\(radio.id)"
+        case .sati(_, let resource):
+            return "sati-\(resource.playableTrackId)"
+        }
+    }
 }
 
 private struct MeditationModeLoadingGlyph: View {

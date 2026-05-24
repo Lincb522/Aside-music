@@ -159,12 +159,13 @@ struct BatchAddToPlaylistSheet: View {
                 )
             } else {
                 ForEach(localPlaylists, id: \.id) { playlist in
-                    let addableCount = addableSongsCount(for: playlist)
+                    let summary = manager.summary(for: playlist)
+                    let addableCount = manager.addableSongCount(songs, for: playlist)
 
                     PlaylistPickerPlaylistRow(
-                        title: playlist.name,
-                        subtitle: songsCountText(playlist.trackCount),
-                        coverURL: playlist.displayCoverUrl,
+                        title: summary.name,
+                        subtitle: songsCountText(summary.trackCount),
+                        coverURL: summary.displayCoverUrl,
                         placeholderIcon: .musicNoteList,
                         statusText: statusText(for: addableCount),
                         statusTint: addableCount == 0 ? .monologueTextSecondary : .monologueAccentBlue,
@@ -240,8 +241,8 @@ struct BatchAddToPlaylistSheet: View {
         activeOperationID = OperationKey.favorite
         defer { activeOperationID = nil }
 
-        for song in songs where !manager.isFavorite(songId: song.id) {
-            manager.addToFavorite(song)
+        if let favorite = manager.favoritePlaylist {
+            manager.addSongs(songs, to: favorite)
         }
 
         dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
@@ -249,15 +250,12 @@ struct BatchAddToPlaylistSheet: View {
 
     @MainActor
     private func addSongs(to playlist: LocalPlaylist) async {
-        let songsToAdd = songs.filter { !playlist.containsSong(id: $0.id) }
-        guard !songsToAdd.isEmpty else { return }
+        guard manager.addableSongCount(songs, for: playlist) > 0 else { return }
 
         activeOperationID = OperationKey.localPlaylist(playlist.id)
         defer { activeOperationID = nil }
 
-        for song in songsToAdd {
-            manager.addSong(song, to: playlist)
-        }
+        manager.addSongs(songs, to: playlist)
 
         dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
     }
@@ -275,12 +273,6 @@ struct BatchAddToPlaylistSheet: View {
 
         _ = manager.importPlaylist(name: name, songs: songs)
         dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
-    }
-
-    private func addableSongsCount(for playlist: LocalPlaylist) -> Int {
-        songs.reduce(0) { partial, song in
-            partial + (playlist.containsSong(id: song.id) ? 0 : 1)
-        }
     }
 
     private func statusText(for addableCount: Int) -> String? {

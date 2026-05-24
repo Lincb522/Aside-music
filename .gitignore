@@ -115,3 +115,5 @@ test_layout.swift
 .local-backups/
 /Tests
 /.prompto
+/architecture
+*.md

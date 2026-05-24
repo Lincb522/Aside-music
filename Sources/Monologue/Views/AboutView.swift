@@ -415,7 +415,7 @@ struct AboutView: View {
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(aboutMutedText.opacity(0.86))
 
-            Text("© 2024-2026 mono. All Rights Reserved.")
+            Text("© 2024-2026 Mono. All Rights Reserved.")
                 .font(.system(size: 11, weight: .regular, design: .rounded))
                 .foregroundColor(aboutMutedText)
 

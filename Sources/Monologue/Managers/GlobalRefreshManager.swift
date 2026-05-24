@@ -65,7 +65,7 @@ class GlobalRefreshManager: ObservableObject {
         guard isLoggedIn, OnlineAccessManager.shared.hasStoredToken else { return }
         
         // 检查是否需要刷新每日数据
-        if checkDailyRefreshNeeded() {
+        if checkDailyRefreshNeeded() || checkDailyRefreshNeeded(for: .podcast) {
             AppLogger.debug("检测到新的一天，触发每日刷新")
             triggerDailyRefresh()
         }
@@ -109,12 +109,14 @@ class GlobalRefreshManager: ObservableObject {
             loadingProgress = 0.3
             
             // 2. 检查是否需要刷新
-            let shouldRefreshDaily = checkDailyRefreshNeeded()
-            loadingMessage = shouldRefreshDaily ? String(localized: "正在更新数据...") : String(localized: "正在加载...")
+            let shouldRefreshHomeDaily = checkDailyRefreshNeeded(for: .home)
+            loadingMessage = shouldRefreshHomeDaily ? String(localized: "正在更新数据...") : String(localized: "正在加载...")
             loadingProgress = 0.4
             
             // 3. 触发数据刷新（并行）
-            refreshHomePublisher.send(shouldRefreshDaily)
+            if shouldRefreshHomeDaily {
+                refreshHomePublisher.send(true)
+            }
             refreshLibraryPublisher.send(false)
             refreshProfilePublisher.send(false)
             
@@ -196,7 +198,12 @@ class GlobalRefreshManager: ObservableObject {
         AppLogger.debug("触发每日数据刷新...")
         lastRefreshTime = Date()
         
-        refreshHomePublisher.send(true)
+        if checkDailyRefreshNeeded(for: .home) {
+            refreshHomePublisher.send(true)
+        }
+        if checkDailyRefreshNeeded(for: .podcast) {
+            PodcastViewModel.shared.preloadIfNeeded(forceDaily: true, reason: "global daily refresh")
+        }
         // Library 和 Profile 不需要每日强制刷新
         refreshLibraryPublisher.send(false)
         refreshProfilePublisher.send(false)
@@ -309,7 +316,11 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 检查是否需要刷新每日数据
     func checkDailyRefreshNeeded() -> Bool {
-        guard let lastDate = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.lastDailyRefresh) as? Date else {
+        checkDailyRefreshNeeded(for: .home)
+    }
+
+    func checkDailyRefreshNeeded(for scope: DailyRefreshScope) -> Bool {
+        guard let lastDate = UserDefaults.standard.object(forKey: scope.storageKey) as? Date else {
             return true
         }
         
@@ -319,13 +330,20 @@ class GlobalRefreshManager: ObservableObject {
     
     /// 标记每日刷新完成
     func markDailyRefreshCompleted() {
-        UserDefaults.standard.set(Date(), forKey: AppConfig.StorageKeys.lastDailyRefresh)
-        OptimizedCacheManager.shared.markDailyDataRefreshed()
-        AppLogger.debug("每日刷新标记完成")
+        markDailyRefreshCompleted(for: .home)
+    }
+
+    func markDailyRefreshCompleted(for scope: DailyRefreshScope) {
+        UserDefaults.standard.set(Date(), forKey: scope.storageKey)
+        if scope == .home {
+            OptimizedCacheManager.shared.markDailyDataRefreshed()
+        }
+        AppLogger.debug("每日刷新标记完成 scope=\(scope.rawValue)")
     }
     
     private func resetDailyRefreshTimer() {
         UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.lastDailyRefresh)
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.lastPodcastDailyRefresh)
     }
     
     // MARK: - 缓存状态
@@ -344,6 +362,20 @@ class GlobalRefreshManager: ObservableObject {
 }
 
 // MARK: - 辅助类型
+
+enum DailyRefreshScope: String {
+    case home
+    case podcast
+
+    var storageKey: String {
+        switch self {
+        case .home:
+            return AppConfig.StorageKeys.lastDailyRefresh
+        case .podcast:
+            return AppConfig.StorageKeys.lastPodcastDailyRefresh
+        }
+    }
+}
 
 enum RefreshSection {
     case home

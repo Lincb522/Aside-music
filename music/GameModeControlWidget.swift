@@ -65,7 +65,7 @@ struct GameModeControlWidget: ControlWidget {
                 )
             }
         }
-        .displayName("mono 游戏模式")
+        .displayName("Mono 游戏模式")
         .description("边玩游戏边听歌，音乐与游戏音效共存")
     }
 }

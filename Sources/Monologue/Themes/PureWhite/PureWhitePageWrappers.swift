@@ -50,19 +50,19 @@ private enum PureWhitePageIdentity {
 
 private struct PureWhiteThemeRoot<Content: View>: View {
     let page: PureWhitePageIdentity
-    let content: Content
+    let content: () -> Content
     @ObservedObject private var settings = SettingsManager.shared
 
-    init(page: PureWhitePageIdentity, @ViewBuilder content: () -> Content) {
+    init(page: PureWhitePageIdentity, @ViewBuilder content: @escaping () -> Content) {
         self.page = page
-        self.content = content()
+        self.content = content
     }
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            content
+            content()
                 .padding(.top, 4)
                 .tint(PureWhiteStyle.accent)
                 .themeRenderSceneLayer()

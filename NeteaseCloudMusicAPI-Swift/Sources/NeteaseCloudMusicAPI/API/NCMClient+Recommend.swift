@@ -84,11 +84,14 @@ extension NCMClient {
     }
 
     /// 每日推荐歌曲
+    /// - Parameter afresh: 是否强制刷新推荐结果，nil 时保持后端默认行为
     /// - Returns: API 响应，包含每日推荐歌曲列表
-    public func recommendSongs() async throws -> APIResponse {
+    public func recommendSongs(afresh: Bool? = nil) async throws -> APIResponse {
+        var data: [String: Any] = [:]
+        if let afresh { data["afresh"] = afresh }
         return try await request(
             "/api/v3/discovery/recommend/songs",
-            data: [:],
+            data: data,
             crypto: .weapi
         )
     }

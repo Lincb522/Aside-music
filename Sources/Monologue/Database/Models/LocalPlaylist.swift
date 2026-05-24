@@ -17,9 +17,11 @@ final class LocalPlaylist {
     
     // MARK: - 预置歌单 ID
     static let favoriteId = "__system_favorite__"
+    static let localMusicId = "__system_local_music__"
     static let downloadId = "__system_download__"
     
     var isFavorite: Bool { id == Self.favoriteId }
+    var isLocalMusic: Bool { id == Self.localMusicId }
     var isDownload: Bool { id == Self.downloadId }
     
     /// 歌曲列表（计算属性）

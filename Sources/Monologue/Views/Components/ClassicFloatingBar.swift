@@ -210,11 +210,11 @@ struct ClassicFloatingBar: View {
                     shape.stroke(PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.72 : 0.96), lineWidth: 1)
                 )
         case .petWhite:
-            PetWhiteSurfaceBackground(
-                cornerRadius: dockCornerRadius,
-                elevated: true,
+            PetWhiteFrostedFloatingSurface(
+                shape: shape,
                 tint: PetWhiteStyle.surfaceRaised,
-                accent: PetWhiteStyle.mint
+                accent: PetWhiteStyle.mint,
+                lineWidth: PetWhiteStyle.strokeWidth
             )
             .overlay(
                 LinearGradient(
@@ -480,18 +480,8 @@ private struct PetWhiteClassicCushionDock: View {
             .padding(.top, 10)
             .padding(.bottom, 10 + bottomInset)
             .background {
-                UnevenRoundedRectangle(
-                    cornerRadii: .init(
-                        topLeading: 34,
-                        bottomLeading: 0,
-                        bottomTrailing: 0,
-                        topTrailing: 34
-                    ),
-                    style: .continuous
-                )
-                .fill(PetWhiteStyle.paper)
-                .overlay(
-                    UnevenRoundedRectangle(
+                PetWhiteFrostedFloatingSurface(
+                    shape: UnevenRoundedRectangle(
                         cornerRadii: .init(
                             topLeading: 34,
                             bottomLeading: 0,
@@ -499,8 +489,10 @@ private struct PetWhiteClassicCushionDock: View {
                             topTrailing: 34
                         ),
                         style: .continuous
-                    )
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.8)
+                    ),
+                    tint: PetWhiteStyle.paper,
+                    accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                    lineWidth: 1.8
                 )
                 .overlay(alignment: .topLeading) {
                     PetWhitePetPetIcon(size: 38)
@@ -599,9 +591,14 @@ private struct PetWhiteClassicNowPlayingChip: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
         .background {
-            Capsule(style: .continuous)
-                .fill(PetWhiteStyle.surfaceRaised)
-                .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1.1))
+            PetWhiteFrostedFloatingSurface(
+                shape: Capsule(style: .continuous),
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                strokeColor: PetWhiteStyle.separator,
+                lineWidth: 1.1,
+                elevated: false
+            )
                 .overlay(alignment: .bottomLeading) {
                     ProgressBarView(height: 4, minFillWidth: 7)
                         .frame(height: 4)
@@ -908,11 +905,11 @@ private struct ClassicMiniPlayerSection: View {
                 tint: PureWhiteStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.90 : 0.99)
             )
         } else if PetWhiteStyle.isActive {
-            PetWhiteSurfaceBackground(
-                cornerRadius: miniPillCornerRadius,
-                elevated: true,
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: miniPillCornerRadius, style: .continuous),
                 tint: PetWhiteStyle.surfaceRaised,
-                accent: PetWhiteStyle.mint
+                accent: PetWhiteStyle.mint,
+                lineWidth: PetWhiteStyle.fineStrokeWidth
             )
         } else if MujiStyle.isActive {
             shape

@@ -23,6 +23,26 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
 
     /// 当前新安装默认主题是 Paw；`.default` 仍表示历史经典主题。
     static let appDefault: GlobalThemeId = .petWhite
+    static let storageKey = "globalThemeId"
+
+    static var persistedOrDefault: GlobalThemeId {
+        resolvedStoredTheme(UserDefaults.standard.string(forKey: storageKey))
+    }
+
+    static func resolvedStoredTheme(_ raw: String?) -> GlobalThemeId {
+        if raw == "doodlePop" { return .default }
+        let restored = raw.flatMap { GlobalThemeId(rawValue: $0) } ?? appDefault
+        return resolveRemovedTheme(restored)
+    }
+
+    static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
+        switch id {
+        case .pureWhite, .bento, .sequoia, .liquidGlass, .clay, .signal, .material3Expressive:
+            return .default
+        default:
+            return id
+        }
+    }
 
     static var allCases: [GlobalThemeId] {
         [.petWhite, .default, .muji, .manga, .neumorphic, .capsule]

@@ -430,7 +430,7 @@ struct NeumorphicPlaylistPoster: View {
 }
 
 struct NeumorphicLocalShelfRow: View {
-    let playlist: LocalPlaylist
+    let summary: LocalPlaylistSummary
     let tint: Color
 
     var body: some View {
@@ -440,14 +440,14 @@ struct NeumorphicLocalShelfRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(playlist.name)
+                Text(summary.name)
                     .font(NeumorphicStyle.bodyFont(15, weight: .semibold))
                     .foregroundStyle(NeumorphicStyle.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 7) {
                     platformDot
-                    Text(String(format: String(localized: "songs_count_format"), playlist.trackCount))
+                    Text(String(format: String(localized: "songs_count_format"), summary.trackCount))
                         .font(NeumorphicStyle.labelFont(11, weight: .medium))
                         .foregroundStyle(NeumorphicStyle.inkMuted)
                         .lineLimit(1)
@@ -473,7 +473,7 @@ struct NeumorphicLocalShelfRow: View {
 
     @ViewBuilder
     private var cover: some View {
-        if let url = playlist.displayCoverUrl {
+        if let url = summary.displayCoverUrl {
             CachedAsyncImage(url: url.sized(260)) {
                 placeholder
             }
@@ -495,7 +495,7 @@ struct NeumorphicLocalShelfRow: View {
                 )
 
             MonologueIcon(
-                icon: playlist.isFavorite ? .liked : playlist.isDownload ? .download : .musicNoteList,
+                icon: summary.isFavorite ? .liked : summary.isDownload ? .download : .musicNoteList,
                 size: 22,
                 color: Color(light: .white, dark: NeumorphicStyle.ink),
                 lineWidth: 1.8

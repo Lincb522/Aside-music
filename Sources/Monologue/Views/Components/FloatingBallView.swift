@@ -214,9 +214,13 @@ struct FloatingBallView: View {
     @ViewBuilder
     private var floatingBallChromeBackground: some View {
         if PetWhiteStyle.isActive {
-            Circle()
-                .fill(PetWhiteStyle.surfaceRaised)
-                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.6))
+            PetWhiteFrostedFloatingSurface(
+                shape: Circle(),
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                lineWidth: 1.6,
+                elevated: false
+            )
         } else if CapsuleStyle.isActive {
             CapsuleFloatingGlassCircle(
                 tint: CapsuleStyle.surface,
@@ -396,9 +400,14 @@ struct FloatingBallView: View {
             tabSection
                 .padding(5)
                 .background {
-                    Capsule(style: .continuous)
-                        .fill(PetWhiteStyle.surfaceRaised)
-                        .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1))
+                    PetWhiteFrostedFloatingSurface(
+                        shape: Capsule(style: .continuous),
+                        tint: PetWhiteStyle.surfaceRaised,
+                        accent: PetWhiteStyle.mint,
+                        strokeColor: PetWhiteStyle.separator,
+                        lineWidth: 1,
+                        elevated: false
+                    )
                 }
 
             Capsule(style: .continuous)
@@ -416,18 +425,8 @@ struct FloatingBallView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .background {
-            UnevenRoundedRectangle(
-                cornerRadii: .init(
-                    topLeading: 28,
-                    bottomLeading: 22,
-                    bottomTrailing: 28,
-                    topTrailing: 16
-                ),
-                style: .continuous
-            )
-            .fill(PetWhiteStyle.paper)
-            .overlay(
-                UnevenRoundedRectangle(
+            PetWhiteFrostedFloatingSurface(
+                shape: UnevenRoundedRectangle(
                     cornerRadii: .init(
                         topLeading: 28,
                         bottomLeading: 22,
@@ -435,8 +434,10 @@ struct FloatingBallView: View {
                         topTrailing: 16
                     ),
                     style: .continuous
-                )
-                .stroke(PetWhiteStyle.stroke, lineWidth: 1.7)
+                ),
+                tint: PetWhiteStyle.paper,
+                accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                lineWidth: 1.7
             )
             .overlay(alignment: .topLeading) {
                 PetWhiteFloatingBowTie()
@@ -451,11 +452,11 @@ struct FloatingBallView: View {
         if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: panelCornerRadius, elevated: true, role: .floating)
         } else if PetWhiteStyle.isActive {
-            PetWhiteSurfaceBackground(
-                cornerRadius: panelCornerRadius,
-                elevated: true,
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous),
                 tint: PetWhiteStyle.surfaceRaised,
-                accent: PetWhiteStyle.mint
+                accent: PetWhiteStyle.mint,
+                lineWidth: PetWhiteStyle.strokeWidth
             )
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)

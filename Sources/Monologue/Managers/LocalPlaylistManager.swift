@@ -7,15 +7,69 @@ struct LocalPlaylistExportPayload {
     let suggestedFileName: String
 }
 
+struct LocalPlaylistSummary: Equatable {
+    let id: String
+    let name: String
+    let desc: String?
+    let isSystem: Bool
+    let isFavorite: Bool
+    let isLocalMusic: Bool
+    let isDownload: Bool
+    let trackCount: Int
+    let displayCoverUrl: URL?
+    let updatedAt: Date
+
+    init(playlist: LocalPlaylist, songs: [Song]) {
+        self.id = playlist.id
+        self.name = playlist.name
+        self.desc = playlist.desc
+        self.isSystem = playlist.isSystem
+        self.isFavorite = playlist.isFavorite
+        self.isLocalMusic = playlist.isLocalMusic
+        self.isDownload = playlist.isDownload
+        self.trackCount = songs.count
+        self.displayCoverUrl = Self.resolveCoverUrl(playlist: playlist, songs: songs)
+        self.updatedAt = playlist.updatedAt
+    }
+
+    private static func resolveCoverUrl(playlist: LocalPlaylist, songs: [Song]) -> URL? {
+        if let url = playlist.coverUrl, !url.isEmpty {
+            return URL(string: url)
+        }
+        return songs.first?.coverUrl
+    }
+}
+
+private struct LocalPlaylistCacheSignature: Equatable {
+    let name: String
+    let desc: String?
+    let coverUrl: String?
+    let updatedAt: Date
+    let songsDataSize: Int
+    let isSystem: Bool
+
+    init(playlist: LocalPlaylist) {
+        self.name = playlist.name
+        self.desc = playlist.desc
+        self.coverUrl = playlist.coverUrl
+        self.updatedAt = playlist.updatedAt
+        self.songsDataSize = playlist.songsData?.count ?? 0
+        self.isSystem = playlist.isSystem
+    }
+}
+
 /// 本地歌单管理器
 @MainActor
 class LocalPlaylistManager: ObservableObject {
     static let shared = LocalPlaylistManager()
     
     @Published var playlists: [LocalPlaylist] = []
+    private(set) var revision = 0
     
     private let context: ModelContext
     private var downloadSyncCancellable: AnyCancellable?
+    private var summaryCache: [String: (signature: LocalPlaylistCacheSignature, summary: LocalPlaylistSummary)] = [:]
+    private var songCache: [String: (signature: LocalPlaylistCacheSignature, songs: [Song], ids: Set<Int>)] = [:]
     
     private init() {
         self.context = DatabaseManager.shared.context
@@ -29,15 +83,22 @@ class LocalPlaylistManager: ObservableObject {
     
     // MARK: - 系统预置歌单
     
-    /// 确保「我喜欢」和「下载」歌单存在
+    /// 确保「我喜欢」「本地音乐」和「下载」歌单存在
     private func ensureSystemPlaylists() {
         let favId = LocalPlaylist.favoriteId
+        let localMusicId = LocalPlaylist.localMusicId
         let dlId = LocalPlaylist.downloadId
         
         let favDesc = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == favId })
         if (try? context.fetch(favDesc))?.first == nil {
             let fav = LocalPlaylist(id: favId, name: String(localized: "我喜欢"), isSystem: true)
             context.insert(fav)
+        }
+
+        let localMusicDesc = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == localMusicId })
+        if (try? context.fetch(localMusicDesc))?.first == nil {
+            let localMusic = LocalPlaylist(id: localMusicId, name: String(localized: "本地音乐"), isSystem: true)
+            context.insert(localMusic)
         }
         
         let dlDesc = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == dlId })
@@ -57,16 +118,20 @@ class LocalPlaylistManager: ObservableObject {
         )
         var all = (try? context.fetch(descriptor)) ?? []
         
-        // 系统歌单置顶：我喜欢 > 下载 > 其他按 updatedAt 排序
+        // 系统歌单置顶：我喜欢 > 本地音乐 > 下载 > 其他按 updatedAt 排序
         let favorite = all.first { $0.isFavorite }
+        let localMusic = all.first { $0.isLocalMusic }
         let download = all.first { $0.isDownload }
         all.removeAll { $0.isSystem }
         
         var sorted: [LocalPlaylist] = []
         if let f = favorite { sorted.append(f) }
+        if let l = localMusic { sorted.append(l) }
         if let d = download { sorted.append(d) }
         sorted.append(contentsOf: all)
         
+        trimCaches(validIds: Set(sorted.map(\.id)))
+        revision += 1
         playlists = sorted
     }
     
@@ -79,10 +144,61 @@ class LocalPlaylistManager: ObservableObject {
     var downloadPlaylist: LocalPlaylist? {
         playlists.first { $0.isDownload }
     }
+
+    var localMusicPlaylist: LocalPlaylist? {
+        playlists.first { $0.isLocalMusic }
+    }
     
     /// 检查歌曲是否在「我喜欢」歌单中
     func isFavorite(songId: Int) -> Bool {
-        favoritePlaylist?.containsSong(id: songId) ?? false
+        guard let favoritePlaylist else { return false }
+        return songIds(for: favoritePlaylist).contains(songId)
+    }
+
+    func summary(for playlist: LocalPlaylist) -> LocalPlaylistSummary {
+        let signature = LocalPlaylistCacheSignature(playlist: playlist)
+        if let cached = summaryCache[playlist.id], cached.signature == signature {
+            return cached.summary
+        }
+
+        let songs = songs(for: playlist)
+        let summary = LocalPlaylistSummary(playlist: playlist, songs: songs)
+        summaryCache[playlist.id] = (signature, summary)
+        return summary
+    }
+
+    func songs(for playlist: LocalPlaylist) -> [Song] {
+        let signature = LocalPlaylistCacheSignature(playlist: playlist)
+        if let cached = songCache[playlist.id], cached.signature == signature {
+            return cached.songs
+        }
+
+        let songs = playlist.songs
+        songCache[playlist.id] = (signature, songs, Set(songs.map(\.id)))
+        return songs
+    }
+
+    func songIds(for playlist: LocalPlaylist) -> Set<Int> {
+        let signature = LocalPlaylistCacheSignature(playlist: playlist)
+        if let cached = songCache[playlist.id], cached.signature == signature {
+            return cached.ids
+        }
+
+        let songs = playlist.songs
+        let ids = Set(songs.map(\.id))
+        songCache[playlist.id] = (signature, songs, ids)
+        return ids
+    }
+
+    func contains(songId: Int, in playlist: LocalPlaylist) -> Bool {
+        songIds(for: playlist).contains(songId)
+    }
+
+    func addableSongCount(_ songs: [Song], for playlist: LocalPlaylist) -> Int {
+        let existingIds = songIds(for: playlist)
+        return songs.reduce(0) { partial, song in
+            partial + (existingIds.contains(song.id) ? 0 : 1)
+        }
     }
     
     /// 添加到「我喜欢」
@@ -120,6 +236,17 @@ class LocalPlaylistManager: ObservableObject {
         reload()
     }
 
+    func syncLocalMusicPlaylist(with songs: [Song]) {
+        guard let localMusic = localMusicPlaylist else { return }
+        let playlistId = localMusic.id
+        let descriptor = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == playlistId })
+        guard let target = (try? context.fetch(descriptor))?.first else { return }
+
+        target.songs = songs
+        try? context.save()
+        reload()
+    }
+
     /// 从云端恢复下载记录到下载歌单（仅补充元数据，不重复已存在的）
     func restoreDownloadPlaylistSongs(_ cloudSongs: [Song]) {
         guard let dl = downloadPlaylist else { return }
@@ -127,11 +254,11 @@ class LocalPlaylistManager: ObservableObject {
         let descriptor = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == dlId })
         guard let target = (try? context.fetch(descriptor))?.first else { return }
 
-        let existingIds = Set(target.songs.map { $0.id })
+        let existingIds = songIds(for: target)
         let newSongs = cloudSongs.filter { !existingIds.contains($0.id) }
         guard !newSongs.isEmpty else { return }
 
-        var current = target.songs
+        var current = songs(for: target)
         current.append(contentsOf: newSongs)
         target.songs = current
         try? context.save()
@@ -139,13 +266,13 @@ class LocalPlaylistManager: ObservableObject {
     }
 
     var syncablePlaylists: [LocalPlaylist] {
-        playlists.filter { !$0.isDownload }
+        playlists.filter { !$0.isDownload && !$0.isLocalMusic }
     }
 
     var hasSyncableContent: Bool {
         let hasPlaylistContent = syncablePlaylists.contains { playlist in
             if playlist.isFavorite {
-                return !playlist.songs.isEmpty
+                return !songs(for: playlist).isEmpty
             }
             return true
         }
@@ -164,7 +291,7 @@ class LocalPlaylistManager: ObservableObject {
                 createdAt: playlist.createdAt,
                 updatedAt: playlist.updatedAt,
                 isSystem: playlist.isSystem,
-                songs: playlist.songs
+                songs: songs(for: playlist)
             )
         }
         let downloads = DownloadManager.shared.fetchAllDownloaded().map { CloudDownloadRecord(from: $0) }
@@ -192,7 +319,7 @@ class LocalPlaylistManager: ObservableObject {
                 createdAt: playlist.createdAt,
                 updatedAt: playlist.updatedAt,
                 isSystem: playlist.isSystem,
-                songs: playlist.songs
+                songs: songs(for: playlist)
             )
         }
 
@@ -268,7 +395,7 @@ class LocalPlaylistManager: ObservableObject {
         var remoteByID = Dictionary(uniqueKeysWithValues: remotePlaylists.map { ($0.id, $0) })
 
         for playlist in localPlaylists {
-            if playlist.isDownload { continue }
+            if playlist.isDownload || playlist.isLocalMusic { continue }
 
             let shouldPreserveLocal = shouldPreserveLocalChanges(for: playlist, since: baseline)
 
@@ -317,7 +444,7 @@ class LocalPlaylistManager: ObservableObject {
 
         try? context.save()
         reload()
-        return playlists.filter { !$0.isDownload }.count
+        return playlists.filter { !$0.isDownload && !$0.isLocalMusic }.count
     }
 
     @discardableResult
@@ -357,30 +484,47 @@ class LocalPlaylistManager: ObservableObject {
     // MARK: - 歌曲操作
     
     func addSong(_ song: Song, to playlist: LocalPlaylist) {
+        _ = addSongs([song], to: playlist)
+    }
+
+    @discardableResult
+    func addSongs(_ songs: [Song], to playlist: LocalPlaylist) -> Int {
+        guard !songs.isEmpty else { return 0 }
+
         let targetId = playlist.id
         let descriptor = FetchDescriptor<LocalPlaylist>(
             predicate: #Predicate { $0.id == targetId }
         )
         guard let target = (try? context.fetch(descriptor))?.first else {
             AppLogger.error("添加歌曲失败: 找不到歌单 \(playlist.name)")
-            return
+            return 0
         }
-        target.addSong(song)
+
+        var current = self.songs(for: target)
+        var existingIds = Set(current.map(\.id))
+        var songsToInsert: [Song] = []
+
+        for song in songs where !existingIds.contains(song.id) {
+            var normalizedSong = song
+            if normalizedSong.source == nil {
+                normalizedSong.source = normalizedSong.musicSource
+            }
+            songsToInsert.append(normalizedSong)
+            existingIds.insert(normalizedSong.id)
+        }
+
+        guard !songsToInsert.isEmpty else { return 0 }
+
+        current.insert(contentsOf: songsToInsert, at: 0)
+        target.songs = current
         try? context.save()
         reload()
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+        return songsToInsert.count
     }
     
     func removeSong(id: Int, from playlist: LocalPlaylist) {
-        let targetId = playlist.id
-        let descriptor = FetchDescriptor<LocalPlaylist>(
-            predicate: #Predicate { $0.id == targetId }
-        )
-        guard let target = (try? context.fetch(descriptor))?.first else { return }
-        target.removeSong(id: id)
-        try? context.save()
-        reload()
-        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+        removeSongs(ids: [id], from: playlist)
     }
 
     func removeSongs(ids: Set<Int>, from playlist: LocalPlaylist) {
@@ -392,8 +536,10 @@ class LocalPlaylistManager: ObservableObject {
         )
         guard let target = (try? context.fetch(descriptor))?.first else { return }
 
-        var current = target.songs
+        var current = songs(for: target)
+        let originalCount = current.count
         current.removeAll { ids.contains($0.id) }
+        guard current.count != originalCount else { return }
         target.songs = current
         try? context.save()
         reload()
@@ -409,7 +555,7 @@ class LocalPlaylistManager: ObservableObject {
     // MARK: - 导入
 
     func exportPlaylist(_ playlist: LocalPlaylist) throws -> LocalPlaylistExportPayload {
-        let songs = playlist.songs
+        let songs = songs(for: playlist)
         let exportSongs: [[String: Any]] = songs.map { song in
             var dict: [String: Any] = [
                 "id": song.id,
@@ -506,10 +652,15 @@ class LocalPlaylistManager: ObservableObject {
     }
 
     private func shouldPreserveLocalChanges(for playlist: LocalPlaylist, since baseline: Date?) -> Bool {
-        guard !playlist.isDownload else { return false }
+        guard !playlist.isDownload && !playlist.isLocalMusic else { return false }
         guard let baseline else {
-            return playlist.isFavorite ? !playlist.songs.isEmpty : true
+            return playlist.isFavorite ? !songs(for: playlist).isEmpty : true
         }
         return playlist.updatedAt > baseline
+    }
+
+    private func trimCaches(validIds: Set<String>) {
+        summaryCache = summaryCache.filter { validIds.contains($0.key) }
+        songCache = songCache.filter { validIds.contains($0.key) }
     }
 }

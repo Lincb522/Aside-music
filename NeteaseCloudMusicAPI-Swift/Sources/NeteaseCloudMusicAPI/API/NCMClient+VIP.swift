@@ -35,8 +35,7 @@ extension NCMClient {
     public func vipSign() async throws -> APIResponse {
         return try await request(
             "/api/vip-center-bff/task/sign",
-            data: [:],
-            crypto: .weapi
+            data: [:]
         )
     }
 

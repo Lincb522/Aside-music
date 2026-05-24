@@ -238,6 +238,10 @@ struct SongListRow: View {
         return 48
     }
 
+    private var rowCoverURL: URL? {
+        song.coverUrl?.sized(180)
+    }
+
     private var rowContentSpacing: CGFloat {
         if MangaStyle.isActive { return 9 }
         if PetWhiteStyle.isActive { return 7 }
@@ -290,9 +294,13 @@ struct SongListRow: View {
                             .fill(isCurrent ? CapsuleStyle.accent : CapsuleStyle.surfaceTint.opacity(0.54))
                     )
 
-                    CachedAsyncImage(url: song.coverUrl, width: coverSize, height: coverSize) {
-                        CapsuleStyle.surfaceTint.opacity(0.72)
-                    }
+                    CachedAsyncImage(
+                        url: rowCoverURL,
+                        width: coverSize,
+                        height: coverSize,
+                        placeholder: { CapsuleStyle.surfaceTint.opacity(0.72) },
+                        transition: .identity
+                    )
                     .aspectRatio(contentMode: .fill)
                     .frame(width: coverSize, height: coverSize)
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -401,9 +409,13 @@ struct SongListRow: View {
                             }
                             .frame(width: rowIndexWidth)
 
-                            CachedAsyncImage(url: song.coverUrl, width: coverSize, height: coverSize) {
-                                Color.gray.opacity(0.1)
-                            }
+                            CachedAsyncImage(
+                                url: rowCoverURL,
+                                width: coverSize,
+                                height: coverSize,
+                                placeholder: { Color.gray.opacity(0.1) },
+                                transition: .identity
+                            )
                             .aspectRatio(contentMode: .fill)
                             .frame(width: coverSize, height: coverSize)
                             .clipShape(RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous))

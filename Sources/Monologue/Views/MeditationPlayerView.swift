@@ -4,6 +4,7 @@ import SwiftUI
 import HiconIcons
 
 struct MeditationPlayerView: View {
+    let source: MeditationPlaybackSource
     let radio: RadioStation
 
     @StateObject private var viewModel: MeditationPlayerViewModel
@@ -21,8 +22,15 @@ struct MeditationPlayerView: View {
     #endif
 
     init(radio: RadioStation) {
+        self.source = .radio(radio)
         self.radio = radio
         _viewModel = StateObject(wrappedValue: MeditationPlayerViewModel(radio: radio))
+    }
+
+    init(source: MeditationPlaybackSource) {
+        self.source = source
+        self.radio = source.radio
+        _viewModel = StateObject(wrappedValue: MeditationPlayerViewModel(source: source))
     }
 
     var body: some View {

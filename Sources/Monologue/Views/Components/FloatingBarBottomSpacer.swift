@@ -34,7 +34,7 @@ struct FloatingBarBottomSpacer: View {
 
         switch floatingBarStyle {
         case .unified:
-            if globalThemeIdRaw == GlobalThemeId.neumorphic.rawValue {
+            if globalThemeId == .neumorphic {
                 return hasCurrentSong ? 176 : 108
             }
             if !hasCurrentSong {
@@ -57,7 +57,11 @@ struct FloatingBarBottomSpacer: View {
         FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .unified
     }
 
+    private var globalThemeId: GlobalThemeId {
+        GlobalThemeId.resolvedStoredTheme(globalThemeIdRaw)
+    }
+
     private var isThemedPageActive: Bool {
-        globalThemeIdRaw != GlobalThemeId.default.rawValue
+        globalThemeId != .default
     }
 }

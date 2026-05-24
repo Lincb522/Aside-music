@@ -415,7 +415,7 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, viewModel.hasSearched ? 0 : (ThemedPageStyle.isActive ? 0 : 4))
         .padding(.bottom, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 3 : 6) : (ThemedPageStyle.isActive ? 12 : 6))
-        .onChange(of: viewModel.hasSearched) { searched in
+        .onChange(of: viewModel.hasSearched) { _, searched in
             if !searched {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     isSearchBarExpanded = true

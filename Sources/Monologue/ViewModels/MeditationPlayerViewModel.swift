@@ -3,6 +3,7 @@ import Foundation
 
 @MainActor
 final class MeditationPlayerViewModel: ObservableObject {
+    let source: MeditationPlaybackSource
     let radio: RadioStation
 
     @Published private(set) var radioDetail: RadioStation?
@@ -15,8 +16,15 @@ final class MeditationPlayerViewModel: ObservableObject {
     private var didAutoStart = false
 
     init(radio: RadioStation) {
+        self.source = .radio(radio)
         self.radio = radio
         self.radioDetail = radio
+    }
+
+    init(source: MeditationPlaybackSource) {
+        self.source = source
+        self.radio = source.radio
+        self.radioDetail = source.radio
     }
 
     var orderedPrograms: [RadioProgram] {
@@ -106,18 +114,28 @@ final class MeditationPlayerViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            do {
-                radioDetail = try await APIService.shared.fetchDJDetail(id: radio.id).async()
-            } catch {
+            switch source {
+            case .radio:
+                do {
+                    radioDetail = try await APIService.shared.fetchDJDetail(id: radio.id).async()
+                } catch {
+                    radioDetail = radio
+                    AppLogger.warning("MeditationPlayerViewModel: 电台详情加载失败 \(radio.id) - \(error.localizedDescription)")
+                }
+
+                let loadedPrograms = try await APIService.shared
+                    .fetchDJPrograms(radioId: radio.id, limit: programLimit, offset: 0, asc: true)
+                    .async()
+
+                programs = sortedPrograms(loadedPrograms)
+
+            case .sati:
                 radioDetail = radio
-                AppLogger.warning("MeditationPlayerViewModel: 电台详情加载失败 \(radio.id) - \(error.localizedDescription)")
+                programs = source.normalizedSatiResources.enumerated().map { index, resource in
+                    resource.asRadioProgram(serialNum: index + 1, radio: radio)
+                }
             }
 
-            let loadedPrograms = try await APIService.shared
-                .fetchDJPrograms(radioId: radio.id, limit: programLimit, offset: 0, asc: true)
-                .async()
-
-            programs = sortedPrograms(loadedPrograms)
             isLoading = false
 
             if programs.isEmpty {
@@ -187,7 +205,10 @@ final class MeditationPlayerViewModel: ObservableObject {
     @discardableResult
     private func startFirstPlayableSong() -> Bool {
         let songs = playableSongs
-        guard let firstSong = songs.first else { return false }
+        let preferredSong = source.preferredStartSongID.flatMap { preferredID in
+            songs.first { $0.id == preferredID }
+        }
+        guard let firstSong = preferredSong ?? songs.first else { return false }
 
         player.playPodcast(song: firstSong, in: songs, radioId: radio.id, restoreSavedContext: false)
         return true

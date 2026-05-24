@@ -2,7 +2,7 @@ import Combine
 import SwiftUI
 
 struct PodcastView: View {
-    @State private var viewModel = PodcastViewModel()
+    @State private var viewModel = PodcastViewModel.shared
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen: Int = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?
@@ -152,9 +152,7 @@ struct PodcastView: View {
             }
         }
         .onAppear {
-            if viewModel.personalizedRadios.isEmpty {
-                viewModel.fetchData()
-            }
+            viewModel.ensureDataLoaded(reason: "podcast appear")
         }
         .fullScreenCover(isPresented: $showRadioPlayer, onDismiss: {
             radioIdToOpen = 0

@@ -12,6 +12,7 @@ final class SettingsManager: ObservableObject {
     @AppStorage("globalThemeId") var globalThemeIdRaw: String = GlobalThemeId.appDefault.rawValue
 
     @Published private(set) var globalThemeRevision: Int = 0
+    @Published private(set) var globalThemeApplicationRevision: Int = 0
 
     var globalThemeId: GlobalThemeId {
         get {
@@ -25,29 +26,37 @@ final class SettingsManager: ObservableObject {
 
     func selectGlobalTheme(_ themeId: GlobalThemeId) {
         let resolvedId = Self.resolveRemovedTheme(themeId)
-        guard globalThemeId != resolvedId else {
-            if applyPreferredInterfaceIconSet(for: resolvedId) {
-                globalThemeRevision &+= 1
-            }
-            return
-        }
+        let previousId = globalThemeId
+        let isSameTheme = previousId == resolvedId
 
-        globalThemeIdRaw = resolvedId.rawValue
-        applyGlobalThemeSelection(resolvedId, bumpRevision: true)
+        AppLogger.info("[ThemeSwitch] from=\(previousId.rawValue) to=\(resolvedId.rawValue) sameTheme=\(isSameTheme)")
+        applyGlobalThemeSelection(
+            resolvedId,
+            bumpRevision: true,
+            bumpApplicationRevision: true,
+            applyPreferredIconSet: !isSameTheme
+        )
+    }
+
+    func synchronizeGlobalThemeAfterLaunch(reason: String) {
+        let storedRaw = UserDefaults.standard.string(forKey: GlobalThemeId.storageKey)
+        let resolvedId = Self.resolveRemovedTheme(GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw))
+
+        AppLogger.info("[ThemeLaunchSync] reason=\(reason) persistedThemeId=\(storedRaw ?? "nil") finalThemeId=\(resolvedId.rawValue)")
+        applyGlobalThemeSelection(
+            resolvedId,
+            bumpRevision: true,
+            bumpApplicationRevision: true,
+            applyPreferredIconSet: false
+        )
     }
 
     private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
-        switch id {
-        case .pureWhite, .bento, .sequoia, .liquidGlass, .clay, .signal, .material3Expressive:
-            return .default
-        default:
-            return id
-        }
+        GlobalThemeId.resolveRemovedTheme(id)
     }
 
     private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
-        if raw == "doodlePop" { return .default }
-        return GlobalThemeId(rawValue: raw) ?? .appDefault
+        GlobalThemeId.resolvedStoredTheme(raw)
     }
 
     /// 悬浮栏样式
@@ -126,6 +135,8 @@ final class SettingsManager: ObservableObject {
                 }
             }
         }
+
+        AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "apply theme")
 
         // 更新 activeColorScheme
         if style == .dark {
@@ -334,26 +345,57 @@ final class SettingsManager: ObservableObject {
     @AppStorage("lyricGradientEndHex") var lyricGradientEndHex: String = "4ECDC4"
 
     private init() {
-        let restored = Self.resolveStoredTheme(globalThemeIdRaw)
+        let storedRaw = UserDefaults.standard.string(forKey: GlobalThemeId.storageKey)
+        let restored = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
         let resolved = Self.resolveRemovedTheme(restored)
-        if resolved.rawValue != globalThemeIdRaw {
-            UserDefaults.standard.set(resolved.rawValue, forKey: "globalThemeId")
+        let hasStoredInterfaceIconSet = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.interfaceIconSet) != nil
+
+        if storedRaw == nil || resolved.rawValue != globalThemeIdRaw {
+            UserDefaults.standard.set(resolved.rawValue, forKey: GlobalThemeId.storageKey)
             globalThemeIdRaw = resolved.rawValue
         }
 
-        applyGlobalThemeSelection(resolved, bumpRevision: false)
+        AppLogger.info("[ThemeInit] persistedThemeId=\(storedRaw ?? "nil") appDefault=\(GlobalThemeId.appDefault.rawValue) finalThemeId=\(resolved.rawValue) hasStoredIconSet=\(hasStoredInterfaceIconSet)")
+        applyGlobalThemeSelection(
+            resolved,
+            bumpRevision: false,
+            bumpApplicationRevision: false,
+            applyPreferredIconSet: !hasStoredInterfaceIconSet
+        )
         enforceCoverBackgroundPolicyForCurrentTheme()
         // 启动时应用一次主题
         applyTheme()
     }
 
-    private func applyGlobalThemeSelection(_ themeId: GlobalThemeId, bumpRevision: Bool) {
+    private func applyGlobalThemeSelection(
+        _ themeId: GlobalThemeId,
+        bumpRevision: Bool,
+        bumpApplicationRevision: Bool,
+        applyPreferredIconSet: Bool
+    ) {
+        let previousThemeId = GlobalThemeManager.shared.currentThemeId
+
+        if globalThemeIdRaw != themeId.rawValue {
+            globalThemeIdRaw = themeId.rawValue
+        }
+        UserDefaults.standard.set(themeId.rawValue, forKey: GlobalThemeId.storageKey)
+
         GlobalThemeManager.shared.switchTheme(to: themeId)
-        let iconSetChanged = applyPreferredInterfaceIconSet(for: themeId)
+        if previousThemeId == themeId, bumpRevision {
+            GlobalThemeManager.shared.refreshCurrentThemeTokens()
+        }
+        let iconSetChanged = applyPreferredIconSet
+            ? applyPreferredInterfaceIconSet(for: themeId)
+            : false
         enforceCoverBackgroundPolicyForCurrentTheme()
+
+        if bumpApplicationRevision {
+            globalThemeApplicationRevision &+= 1
+        }
         if bumpRevision || iconSetChanged {
             globalThemeRevision &+= 1
         }
+        AppLogger.info("[ApplyTheme] themeId=\(themeId.rawValue) savedThemeId=\(UserDefaults.standard.string(forKey: GlobalThemeId.storageKey) ?? "nil") previousManagerThemeId=\(previousThemeId.rawValue) bumpRevision=\(bumpRevision) appRevision=\(globalThemeApplicationRevision) applyPreferredIconSet=\(applyPreferredIconSet) revision=\(globalThemeRevision)")
     }
 
     @discardableResult

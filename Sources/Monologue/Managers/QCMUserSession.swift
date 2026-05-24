@@ -26,6 +26,10 @@ final class QQUserSession: ObservableObject {
     @Published private(set) var encryptUin: String?
     @Published private(set) var loginType: Int?
 
+    var hasStoredCredentials: Bool {
+        musicId != nil && !(musicKey?.isEmpty ?? true)
+    }
+
     private var qqClient: QQMusicClient { APIService.shared.qqClient }
 
     private init() {

@@ -114,11 +114,13 @@ struct LocalModeHomeView: View {
     }
 
     private var favoriteSongs: [Song] {
-        offlinePlayableSongs(from: localPlaylists.favoritePlaylist?.songs ?? [], using: downloadManager)
+        guard let playlist = localPlaylists.favoritePlaylist else { return [] }
+        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
     }
 
     private var downloadedSongs: [Song] {
-        offlinePlayableSongs(from: localPlaylists.downloadPlaylist?.songs ?? [], using: downloadManager)
+        guard let playlist = localPlaylists.downloadPlaylist else { return [] }
+        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
     }
 
     private var recentlyAddedSongs: [Song] {
@@ -482,7 +484,7 @@ struct LocalModeHomeView: View {
                         NavigationLink(
                             destination: LocalPlaylistDetailView(playlistId: playlist.id)
                         ) {
-                            LocalPlaylistRow(playlist: playlist)
+                            LocalPlaylistRow(summary: localPlaylists.summary(for: playlist))
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                     }
@@ -569,9 +571,11 @@ struct LocalMusicView: View {
         case .all:
             return localLibrary.songs
         case .favorites:
-            return offlinePlayableSongs(from: localPlaylists.favoritePlaylist?.songs ?? [], using: downloadManager)
+            guard let playlist = localPlaylists.favoritePlaylist else { return [] }
+            return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
         case .downloads:
-            return offlinePlayableSongs(from: localPlaylists.downloadPlaylist?.songs ?? [], using: downloadManager)
+            guard let playlist = localPlaylists.downloadPlaylist else { return [] }
+            return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
         case .recent:
             return recentSongs
         }
@@ -664,7 +668,14 @@ struct LocalMusicView: View {
                                         Button(role: .destructive) {
                                             localLibrary.deleteSong(song)
                                         } label: {
-                                            Label(localModeText("local_action_remove"), systemImage: "trash")
+                                            Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
+                                        }
+                                    }
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            localLibrary.deleteSong(song)
+                                        } label: {
+                                            Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
                                         }
                                     }
                                 }
@@ -916,6 +927,7 @@ struct LocalLibraryView: View {
     @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showFileImporter = false
+    @State private var showMusicImporter = false
     @State private var recentSongs: [Song] = []
 
     private var customPlaylists: [LocalPlaylist] {
@@ -923,11 +935,13 @@ struct LocalLibraryView: View {
     }
 
     private var favoriteSongs: [Song] {
-        offlinePlayableSongs(from: localPlaylists.favoritePlaylist?.songs ?? [], using: downloadManager)
+        guard let playlist = localPlaylists.favoritePlaylist else { return [] }
+        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
     }
 
     private var downloadedSongs: [Song] {
-        offlinePlayableSongs(from: localPlaylists.downloadPlaylist?.songs ?? [], using: downloadManager)
+        guard let playlist = localPlaylists.downloadPlaylist else { return [] }
+        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
     }
 
     var body: some View {
@@ -974,6 +988,28 @@ struct LocalLibraryView: View {
             .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("local_library_navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showMusicImporter = true
+                    } label: {
+                        if localLibrary.isProcessing {
+                            ProgressView()
+                                .scaleEffect(0.72)
+                        } else {
+                            MonologueIcon(icon: .download, size: 16, color: .monologueTextPrimary)
+                        }
+                    }
+                    .disabled(localLibrary.isProcessing)
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showMusicImporter,
+            allowedContentTypes: LocalMusicLibraryManager.importableContentTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            handleMusicImport(result)
         }
         .fileImporter(
             isPresented: $showFileImporter,
@@ -1199,7 +1235,7 @@ struct LocalLibraryView: View {
                         NavigationLink(
                             destination: LocalPlaylistDetailView(playlistId: playlist.id)
                         ) {
-                            LocalPlaylistRow(playlist: playlist)
+                            LocalPlaylistRow(summary: localPlaylists.summary(for: playlist))
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                         .contextMenu {
@@ -1263,6 +1299,30 @@ struct LocalLibraryView: View {
                 localPlaylists.deletePlaylist(playlist)
             }
         )
+    }
+
+    private func handleMusicImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard !urls.isEmpty else { return }
+            Task {
+                let importResult = await localLibrary.importItems(from: urls)
+                AlertManager.shared.show(
+                    title: localModeText("local_import_complete_title"),
+                    message: importResult.summaryText,
+                    primaryButtonTitle: localModeText("lib_confirm"),
+                    primaryAction: {}
+                )
+                refreshRecentSongs()
+            }
+        case .failure(let error):
+            AlertManager.shared.show(
+                title: localModeText("local_import_failed_title"),
+                message: error.localizedDescription,
+                primaryButtonTitle: localModeText("lib_confirm"),
+                primaryAction: {}
+            )
+        }
     }
 
     private func handlePlaylistImport(_ result: Result<[URL], Error>) {
@@ -1344,7 +1404,8 @@ struct LocalModeProfileView: View {
     }
 
     private var favoriteSongs: [Song] {
-        offlinePlayableSongs(from: localPlaylists.favoritePlaylist?.songs ?? [], using: downloadManager)
+        guard let playlist = localPlaylists.favoritePlaylist else { return [] }
+        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
     }
 
     var body: some View {

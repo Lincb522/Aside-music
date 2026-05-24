@@ -21,7 +21,7 @@ enum PetWhiteStyle {
     private static let fallbackLilac = Color(light: Color(hex: "F0ECFF"), dark: Color(hex: "332B4F"))
 
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.petWhite.rawValue
+        GlobalThemeId.persistedOrDefault == .petWhite
     }
 
     static var base: Color {
@@ -313,6 +313,66 @@ struct PetWhiteSurfaceBackground: View {
             shape
                 .fill(tint.opacity(fillOpacity))
                 .overlay(shape.stroke(PetWhiteStyle.stroke, lineWidth: elevated ? PetWhiteStyle.strokeWidth : PetWhiteStyle.fineStrokeWidth))
+        }
+    }
+}
+
+struct PetWhiteFrostedFloatingSurface<SurfaceShape: Shape>: View {
+    var shape: SurfaceShape
+    var tint: Color = PetWhiteStyle.surfaceRaised
+    var accent: Color = PetWhiteStyle.mint
+    var strokeColor: Color = PetWhiteStyle.stroke
+    var lineWidth: CGFloat = PetWhiteStyle.fineStrokeWidth
+    var elevated = true
+
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let _ = settings.globalThemeRevision
+        let tintOpacity = settings.petWhiteUsesIllustratedBackground
+            ? (elevated ? 0.84 : 0.80)
+            : (colorScheme == .dark ? 0.90 : 0.96)
+        let materialOpacity = colorScheme == .dark ? 0.16 : 0.10
+
+        ZStack {
+            if elevated {
+                shape
+                    .fill(PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.16 : 0.09))
+                    .offset(y: 3)
+            }
+
+            shape
+                .fill(.ultraThinMaterial)
+                .opacity(materialOpacity)
+                .overlay(shape.fill(tint.opacity(tintOpacity)))
+                .overlay(
+                    shape.fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.03 : 0.10),
+                                accent.opacity(colorScheme == .dark ? 0.025 : 0.035),
+                                PetWhiteStyle.sky.opacity(colorScheme == .dark ? 0.018 : 0.025),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                )
+                .overlay(
+                    shape.stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.06 : 0.24),
+                                strokeColor.opacity(colorScheme == .dark ? 0.92 : 0.98),
+                                PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.12 : 0.08),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: lineWidth
+                    )
+                )
         }
     }
 }

@@ -179,4 +179,10 @@ final class HistoryRepository {
             return nil
         }
     }
+
+    func deleteLyrics(songId: Int) {
+        let predicate = #Predicate<CachedLyrics> { $0.songId == songId }
+        try? context.delete(model: CachedLyrics.self, where: predicate)
+        try? context.save()
+    }
 }

@@ -3,12 +3,14 @@ import Combine
 
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @StateObject private var viewModel = LoginViewModel()
     @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
     
     @State private var selectedTab: LoginTab = .qr
     @State private var isLoading = false
+    @State private var didHandleLoginSuccess = false
     
     enum LoginTab {
         case qr
@@ -23,7 +25,7 @@ struct LoginView: View {
             
             VStack(spacing: 0) {
                 HStack {
-                    Button { dismiss() } label: {
+                    Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
                         MonologueIcon(icon: .xmark, size: 14, color: loginSecondaryText)
                             .frame(width: 32, height: 32)
                             .monologueGlassCircle()
@@ -53,10 +55,8 @@ struct LoginView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .didLogin)) { _ in
-            // 双保险：如果 onChange 没触发，通过通知兜底
-            if !isAppLoggedIn {
-                handleLoginSuccess()
-            }
+            // 双保险：如果 onChange 没触发，通过通知兜底。
+            handleLoginSuccess()
         }
     }
     
@@ -318,15 +318,18 @@ struct LoginView: View {
     // MARK: - Actions
     
     private func handleLoginSuccess() {
-        guard !isAppLoggedIn else { return }
-        isAppLoggedIn = true
+        guard !didHandleLoginSuccess else { return }
+        didHandleLoginSuccess = true
+        if !isAppLoggedIn {
+            isAppLoggedIn = true
+        }
         
         // 触发全量数据刷新
         GlobalRefreshManager.shared.triggerLoginRefresh()
         
         // 关闭登录界面
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.dismiss()
+            dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
         }
     }
 

@@ -256,11 +256,11 @@ struct MinimalMiniPlayer: View {
         if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: shellCornerRadius, elevated: true, role: .floating)
         } else if PetWhiteStyle.isActive {
-            PetWhiteSurfaceBackground(
-                cornerRadius: shellCornerRadius,
-                elevated: true,
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous),
                 tint: PetWhiteStyle.surfaceRaised,
-                accent: PetWhiteStyle.mint
+                accent: PetWhiteStyle.mint,
+                lineWidth: PetWhiteStyle.strokeWidth
             )
             .overlay(
                 LinearGradient(
@@ -725,12 +725,14 @@ struct MinimalMiniPlayer: View {
                         .stroke(MangaStyle.strokeInk.opacity(0.42), lineWidth: 1.1)
                 )
         } else if PetWhiteStyle.isActive {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(PetWhiteStyle.surfaceRaised)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(PetWhiteStyle.separator.opacity(0.86), lineWidth: 1)
-                )
+            PetWhiteFrostedFloatingSurface(
+                shape: RoundedRectangle(cornerRadius: 10, style: .continuous),
+                tint: PetWhiteStyle.surfaceRaised,
+                accent: PetWhiteStyle.mint,
+                strokeColor: PetWhiteStyle.separator.opacity(0.86),
+                lineWidth: 1,
+                elevated: false
+            )
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(MujiStyle.surface.opacity(0.54))
@@ -1008,9 +1010,12 @@ private struct PetWhiteMinimalBowPlayer: View {
         .padding(.trailing, 10)
         .padding(.vertical, 7)
         .background {
-            Capsule(style: .continuous)
-                .fill(PetWhiteStyle.paper)
-                .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.stroke, lineWidth: 1.7))
+            PetWhiteFrostedFloatingSurface(
+                shape: Capsule(style: .continuous),
+                tint: PetWhiteStyle.paper,
+                accent: player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint,
+                lineWidth: 1.7
+            )
         }
         .overlay(alignment: .top) {
             PetWhiteFloatingBowTie()

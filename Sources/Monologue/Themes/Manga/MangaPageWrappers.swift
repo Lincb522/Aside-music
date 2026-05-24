@@ -3,19 +3,19 @@ import SwiftUI
 // MARK: - Manga Theme Root Wrapper
 
 private struct MangaThemeRoot<Content: View>: View {
-    let content: Content
+    let content: () -> Content
     @ObservedObject private var settings = SettingsManager.shared
 
     init(
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) {
-        self.content = content()
+        self.content = content
     }
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        content
+        content()
             .tint(MangaStyle.accentPink)
             .themeRenderSceneLayer()
     }

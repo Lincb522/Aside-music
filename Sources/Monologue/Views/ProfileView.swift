@@ -25,6 +25,7 @@ private extension View {
 
 struct ProfileView: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var qqSession = QQUserSession.shared
 
     private var viewModel: HomeViewModel {
         HomeViewModel.shared
@@ -40,6 +41,7 @@ struct ProfileView: View {
     @State private var showQQAccount = false
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
+    @State private var hasRequestedQQSessionRestore = false
     @State private var navigationPath = NavigationPath()
 
     @State private var userLevel: Int?
@@ -59,6 +61,7 @@ struct ProfileView: View {
             }
         }
         .onAppear {
+            restoreQQSessionIfNeeded()
             if isAppLoggedIn {
                 if let profile = viewModel.userProfile, profile.userId != cachedProfile?.userId {
                     cachedProfile = profile
@@ -448,7 +451,7 @@ struct ProfileView: View {
                     ProfileMenuRow(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        trailingText: QQUserSession.shared.isLoggedIn
+                        trailingText: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in"),
                         petWhiteAssetName: "qqAccount"
@@ -480,21 +483,7 @@ struct ProfileView: View {
                 primaryButtonTitle: NSLocalizedString("alert_logout_confirm", comment: ""),
                 secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
             ) {
-                Task { @MainActor in
-                    do {
-                        _ = try await APIService.shared.logout().async()
-                    } catch {
-                        APIService.shared.currentCookie = nil
-                        OptimizedCacheManager.shared.clearAll()
-                    }
-                    isAppLoggedIn = false
-                    cachedProfile = nil
-                    hasAppeared = false
-                    userLevel = nil
-                    listenSongs = nil
-                    playerManager.clearPlaybackHistory()
-                    AlertManager.shared.dismiss()
-                }
+                performLogout()
             }
         }) {
             HStack(spacing: 8) {
@@ -738,7 +727,7 @@ struct ProfileView: View {
                 CapsuleProfilePortalTile(
                     icon: .musicNote,
                     title: String(localized: "settings_qq_account"),
-                    value: QQUserSession.shared.isLoggedIn ? String(localized: "settings_qq_logged_in") : String(localized: "settings_qq_not_logged_in"),
+                    value: qqSession.isLoggedIn ? String(localized: "settings_qq_logged_in") : String(localized: "settings_qq_not_logged_in"),
                     tint: CapsuleStyle.accent
                 )
             }
@@ -1151,7 +1140,7 @@ struct ProfileView: View {
                 liquidGlassProfilePortalTile(
                     icon: .musicNote,
                     title: String(localized: "settings_qq_account"),
-                    value: QQUserSession.shared.isLoggedIn ? String(localized: "settings_qq_logged_in") : String(localized: "settings_qq_not_logged_in"),
+                    value: qqSession.isLoggedIn ? String(localized: "settings_qq_logged_in") : String(localized: "settings_qq_not_logged_in"),
                     tint: LiquidGlassStyle.accent
                 )
             }
@@ -1345,7 +1334,7 @@ struct ProfileView: View {
                         }
                     }
 
-                    Text(signature.isEmpty ? String(localized: "mono") : signature)
+                    Text(signature.isEmpty ? String(localized: "Mono") : signature)
                         .font(SequoiaStyle.labelFont(12, weight: .regular))
                         .foregroundStyle(SequoiaStyle.inkSoft)
                         .lineLimit(2)
@@ -1624,7 +1613,7 @@ struct ProfileView: View {
                     NeumorphicProfileShortcutTile(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        value: QQUserSession.shared.isLoggedIn
+                        value: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in"),
                         tint: NeumorphicStyle.accent
@@ -1783,7 +1772,7 @@ struct ProfileView: View {
                     MangaProfileActionRow(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        value: QQUserSession.shared.isLoggedIn
+                        value: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in"),
                         tint: MangaStyle.labelYellow
@@ -1931,7 +1920,7 @@ struct ProfileView: View {
                     MujiProfileLedgerRow(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        value: QQUserSession.shared.isLoggedIn
+                        value: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in")
                     )
@@ -2099,7 +2088,7 @@ struct ProfileView: View {
                     NeumorphicProfileShortcutTile(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        value: QQUserSession.shared.isLoggedIn
+                        value: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in"),
                         tint: NeumorphicStyle.accent
@@ -2260,7 +2249,7 @@ struct ProfileView: View {
                     MangaProfileActionRow(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        value: QQUserSession.shared.isLoggedIn
+                        value: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in"),
                         tint: MangaStyle.labelYellow
@@ -2417,7 +2406,7 @@ struct ProfileView: View {
                     MujiProfileLedgerRow(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        value: QQUserSession.shared.isLoggedIn
+                        value: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in")
                     )
@@ -2862,7 +2851,7 @@ struct ProfileView: View {
                     ProfileMenuRow(
                         icon: .musicNote,
                         title: String(localized: "settings_qq_account"),
-                        trailingText: QQUserSession.shared.isLoggedIn
+                        trailingText: qqSession.isLoggedIn
                             ? String(localized: "settings_qq_logged_in")
                             : String(localized: "settings_qq_not_logged_in")
                     )
@@ -2929,6 +2918,35 @@ struct ProfileView: View {
 
     // MARK: - Logout
 
+    private func restoreQQSessionIfNeeded() {
+        guard !hasRequestedQQSessionRestore,
+              !qqSession.isLoggedIn,
+              qqSession.hasStoredCredentials else { return }
+        hasRequestedQQSessionRestore = true
+        Task { @MainActor in
+            await qqSession.refresh()
+        }
+    }
+
+    private func performLogout() {
+        let logoutPublisher = UnsafeSendableBox(APIService.shared.logout())
+        isAppLoggedIn = false
+        cachedProfile = nil
+        hasAppeared = false
+        userLevel = nil
+        listenSongs = nil
+        playerManager.clearPlaybackHistory()
+        AlertManager.shared.dismiss()
+
+        Task {
+            do {
+                _ = try await logoutPublisher.value.async()
+            } catch {
+                AppLogger.warning("远端退出登录失败，本地已退出: \(error)")
+            }
+        }
+    }
+
     private var logoutButton: some View {
         Button(action: {
             AlertManager.shared.show(
@@ -2937,21 +2955,7 @@ struct ProfileView: View {
                 primaryButtonTitle: NSLocalizedString("alert_logout_confirm", comment: ""),
                 secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
             ) {
-                Task { @MainActor in
-                    do {
-                        _ = try await APIService.shared.logout().async()
-                    } catch {
-                        APIService.shared.currentCookie = nil
-                        OptimizedCacheManager.shared.clearAll()
-                    }
-                    isAppLoggedIn = false
-                    cachedProfile = nil
-                    hasAppeared = false
-                    userLevel = nil
-                    listenSongs = nil
-                    playerManager.clearPlaybackHistory()
-                    AlertManager.shared.dismiss()
-                }
+                performLogout()
             }
         }) {
             Text(LocalizedStringKey("action_logout"))
@@ -3082,7 +3086,7 @@ struct ProfileView: View {
                                 ProfileMenuRow(
                                     icon: .musicNote,
                                     title: String(localized: "settings_qq_account"),
-                                    trailingText: QQUserSession.shared.isLoggedIn
+                                    trailingText: qqSession.isLoggedIn
                                         ? String(localized: "settings_qq_logged_in")
                                         : String(localized: "settings_qq_not_logged_in")
                                 )
@@ -3308,7 +3312,7 @@ struct ProfileView: View {
                                     ProfileMenuRow(
                                         icon: .musicNote,
                                         title: String(localized: "settings_qq_account"),
-                                        trailingText: QQUserSession.shared.isLoggedIn
+                                        trailingText: qqSession.isLoggedIn
                                             ? String(localized: "settings_qq_logged_in")
                                             : String(localized: "settings_qq_not_logged_in")
                                     )

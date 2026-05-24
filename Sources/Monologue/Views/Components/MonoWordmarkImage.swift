@@ -17,6 +17,6 @@ struct MonoWordmarkImage: View {
             .antialiased(true)
             .aspectRatio(contentMode: .fit)
             .frame(width: height * 3.62, height: height)
-            .accessibilityLabel("mono")
+            .accessibilityLabel("Mono")
     }
 }

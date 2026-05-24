@@ -375,7 +375,11 @@ struct NeumorphicLibraryWorkspace: View {
                 LazyVStack(spacing: 10) {
                     ForEach(localManager.playlists, id: \.id) { playlist in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
-                            NeumorphicLocalShelfRow(playlist: playlist, tint: playlist.isFavorite ? NeumorphicStyle.red : (playlist.isDownload ? NeumorphicStyle.sage : NeumorphicStyle.accent))
+                            let summary = localManager.summary(for: playlist)
+                            NeumorphicLocalShelfRow(
+                                summary: summary,
+                                tint: summary.isFavorite ? NeumorphicStyle.red : (summary.isDownload ? NeumorphicStyle.sage : NeumorphicStyle.accent)
+                            )
                         }
                         .buttonStyle(.plain)
                     }

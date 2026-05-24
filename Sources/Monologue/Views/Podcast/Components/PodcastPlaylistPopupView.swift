@@ -281,7 +281,7 @@ struct PodcastPlaylistPopupView: View {
         let displayEpisodeNumber = isAscending ? (index + 1) : max(totalCount - index, 1)
 
         let normalizedTitle = (song.name).lowercased()
-        var candidates: [String] = [
+        let candidates: [String] = [
             normalizedTitle,
             "\(displayEpisodeNumber)",
             "ep\(displayEpisodeNumber)",

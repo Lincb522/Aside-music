@@ -89,10 +89,10 @@ struct ThemeRenderHost<Content: View>: View {
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
-    private let content: Content
+    private let content: () -> Content
 
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
     }
 
     var body: some View {
@@ -114,7 +114,7 @@ struct ThemeRenderHost<Content: View>: View {
                     }
             }
 
-            content
+            content()
                 .environment(\.themeRenderContext, renderContext)
                 .environment(\.themeRenderHostActive, true)
                 .environment(\.themeCustomizationRevision, renderContext.revision)

@@ -117,6 +117,8 @@ struct MonologueApp: App {
                 .preferredColorScheme(effectiveColorScheme)
                 .background(SwipeBackInjector())
                 .onAppear {
+                    AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "app root appear")
+
                     let hasStoredToken = OnlineAccessManager.shared.hasStoredToken
 
                     AlertWindow.shared.setup()
@@ -163,7 +165,7 @@ struct MonologueApp: App {
                     // 检测用户 qcm 登录状态
                     Task { @MainActor in
                         let session = QQUserSession.shared
-                        if session.isLoggedIn {
+                        if session.isLoggedIn || session.hasStoredCredentials {
                             await session.refresh()
                             if !session.isLoggedIn {
                                 AppLogger.warning("[QQMusic] 用户登录已过期")
@@ -178,6 +180,8 @@ struct MonologueApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "application did become active")
+
                     if settings.themeMode == "system" {
                         DispatchQueue.main.async {
                             settings.applyTheme()

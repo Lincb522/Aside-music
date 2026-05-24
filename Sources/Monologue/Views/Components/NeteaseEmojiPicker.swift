@@ -5,18 +5,6 @@ import SwiftUI
 
 // MARK: - ncm表情数据
 
-struct NeteaseEmoji: Identifiable {
-    let id: String
-    let code: String
-    let emoji: String
-
-    init(_ code: String, _ emoji: String) {
-        self.id = code
-        self.code = code
-        self.emoji = emoji
-    }
-}
-
 enum NeteaseEmojiCategory: String, CaseIterable {
     case face = "表情"
     case gesture = "手势"
@@ -105,9 +93,18 @@ struct NeteaseEmojiPicker: View {
     let onSelect: (String) -> Void
     @ObservedObject private var settings = SettingsManager.shared
 
-    @State private var selectedCategory: NeteaseEmojiCategory = .face
+    @State private var sections: [NeteaseEmojiSection] = NeteaseEmojiSection.fallbackSections
+    @State private var selectedSectionID: String = NeteaseEmojiSection.fallbackSections.first?.id ?? ""
+    @State private var didLoadRemoteEmojis = false
+    @State private var isLoadingRemoteEmojis = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
+
+    private var selectedSection: NeteaseEmojiSection {
+        sections.first { $0.id == selectedSectionID }
+            ?? sections.first
+            ?? NeteaseEmojiSection.fallbackSections[0]
+    }
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -122,29 +119,36 @@ struct NeteaseEmojiPicker: View {
         }
         .frame(height: 220)
         .background(.clear).monologueGlass(cornerRadius: 16)
+        .task {
+            await loadRemoteEmojisIfNeeded()
+        }
     }
 
     // MARK: - 分类标签
 
     private var categoryTabs: some View {
-        HStack(spacing: 0) {
-            ForEach(NeteaseEmojiCategory.allCases, id: \.rawValue) { category in
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        selectedCategory = category
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(sections) { section in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            selectedSectionID = section.id
+                        }
+                    } label: {
+                        Text(section.title)
+                            .font(.system(size: 13, weight: selectedSectionID == section.id ? .bold : .medium, design: .rounded))
+                            .foregroundColor(selectedSectionID == section.id ? .monologueTextPrimary : .monologueTextSecondary)
+                            .lineLimit(1)
+                            .frame(minWidth: 68)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 9)
+                            .background(
+                                selectedSectionID == section.id ?
+                                Color.monologueTextPrimary.opacity(0.06) : Color.clear
+                            )
                     }
-                } label: {
-                    Text(category.rawValue)
-                        .font(.system(size: 13, weight: selectedCategory == category ? .bold : .medium, design: .rounded))
-                        .foregroundColor(selectedCategory == category ? .monologueTextPrimary : .monologueTextSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(
-                            selectedCategory == category ?
-                            Color.monologueTextPrimary.opacity(0.06) : Color.clear
-                        )
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .background(Color.monologueTextPrimary.opacity(0.02))
@@ -155,14 +159,11 @@ struct NeteaseEmojiPicker: View {
     private var emojiGrid: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 4) {
-                ForEach(selectedCategory.emojis) { emoji in
+                ForEach(selectedSection.emojis) { emoji in
                     Button {
                         onSelect(emoji.code)
                     } label: {
-                        Text(emoji.emoji)
-                            .font(.system(size: 28))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 40)
+                        emojiCell(emoji)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                 }
@@ -172,5 +173,59 @@ struct NeteaseEmojiPicker: View {
         }
         .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+    }
+
+    @ViewBuilder
+    private func emojiCell(_ emoji: NeteaseEmoji) -> some View {
+        if let imageURL = emoji.imageURL {
+            CachedAsyncImage(url: imageURL.sized(96), width: 32, height: 32) {
+                Text(emoji.emoji)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.monologueTextSecondary)
+                    .frame(width: 32, height: 32)
+                    .background(Color.monologueTextPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            .frame(width: 32, height: 32)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .accessibilityLabel(emoji.name)
+        } else {
+            Text(emoji.emoji)
+                .font(.system(size: 28))
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+                .accessibilityLabel(emoji.name)
+        }
+    }
+
+    @MainActor
+    private func loadRemoteEmojisIfNeeded() async {
+        guard !didLoadRemoteEmojis, !isLoadingRemoteEmojis else { return }
+        didLoadRemoteEmojis = true
+        isLoadingRemoteEmojis = true
+
+        defer { isLoadingRemoteEmojis = false }
+
+        do {
+            let remoteSections = try await APIService.shared.fetchCommentEmojiSections().async()
+            guard !remoteSections.isEmpty else { return }
+            sections = remoteSections
+            selectedSectionID = remoteSections.first?.id ?? selectedSectionID
+            AppLogger.info("[CommentEmoji] loaded sections=\(remoteSections.count) emojis=\(remoteSections.reduce(0) { $0 + $1.emojis.count })")
+        } catch {
+            AppLogger.warning("[CommentEmoji] load remote emojis failed, using fallback: \(error)")
+        }
+    }
+}
+
+extension NeteaseEmojiSection {
+    static var fallbackSections: [NeteaseEmojiSection] {
+        NeteaseEmojiCategory.allCases.map { category in
+            NeteaseEmojiSection(
+                id: category.rawValue,
+                title: category.rawValue,
+                emojis: category.emojis
+            )
+        }
     }
 }

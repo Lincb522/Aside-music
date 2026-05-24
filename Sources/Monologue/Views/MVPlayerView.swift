@@ -42,7 +42,7 @@ final class PlayerLayerView: UIView {
 
 /// 包装 AVPlayer 为 ObservableObject，提供播放控制和状态观察
 @preconcurrency
-final class MVPlayerWrapper: ObservableObject {
+final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
     let player = AVPlayer()
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
@@ -98,12 +98,11 @@ final class MVPlayerWrapper: ObservableObject {
     private func setupTimeObserver() {
         let interval = CMTime(seconds: 0.3, preferredTimescale: 600)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self else { return }
             let t = time.seconds
-            if t.isFinite && !t.isNaN {
-                MainActor.assumeIsolated {
-                    self.currentTime = t
-                }
+            guard t.isFinite && !t.isNaN else { return }
+
+            Task { @MainActor [weak self] in
+                self?.currentTime = t
             }
         }
     }
@@ -112,12 +111,11 @@ final class MVPlayerWrapper: ObservableObject {
         durationObservation?.invalidate()
 
         durationObservation = item.observe(\.duration, options: [.new]) { [weak self] item, _ in
-            guard let self else { return }
             let d = item.duration.seconds
-            if d.isFinite && d > 0 {
-                MainActor.assumeIsolated {
-                    self.duration = d
-                }
+            guard d.isFinite && d > 0 else { return }
+
+            Task { @MainActor [weak self] in
+                self?.duration = d
             }
         }
     }

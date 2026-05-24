@@ -2,7 +2,7 @@ import SwiftUI
 
 enum NeumorphicStyle {
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.neumorphic.rawValue
+        GlobalThemeId.persistedOrDefault == .neumorphic
     }
 
     static var base: Color {

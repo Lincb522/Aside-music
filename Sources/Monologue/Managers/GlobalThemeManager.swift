@@ -11,7 +11,7 @@ final class GlobalThemeManager {
 
     var currentThemeId: GlobalThemeId {
         didSet {
-            UserDefaults.standard.set(currentThemeId.rawValue, forKey: "globalThemeId")
+            UserDefaults.standard.set(currentThemeId.rawValue, forKey: GlobalThemeId.storageKey)
             _cachedProvider = nil
             tokenRevision &+= 1
         }
@@ -30,7 +30,7 @@ final class GlobalThemeManager {
     }
 
     func provider(for id: GlobalThemeId) -> GlobalThemeProvider {
-        Self.makeProvider(for: Self.resolveRemovedTheme(id))
+        Self.makeProvider(for: GlobalThemeId.resolveRemovedTheme(id))
     }
 
     // MARK: - Token 快捷访问
@@ -67,11 +67,10 @@ final class GlobalThemeManager {
     private var _cachedProvider: GlobalThemeProvider?
 
     private init() {
-        let raw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.appDefault.rawValue
-        let restored = Self.resolveStoredTheme(raw)
-        currentThemeId = Self.resolveRemovedTheme(restored)
-        if currentThemeId.rawValue != raw {
-            UserDefaults.standard.set(currentThemeId.rawValue, forKey: "globalThemeId")
+        let raw = UserDefaults.standard.string(forKey: GlobalThemeId.storageKey)
+        currentThemeId = GlobalThemeId.resolvedStoredTheme(raw)
+        if raw != Optional(currentThemeId.rawValue) {
+            UserDefaults.standard.set(currentThemeId.rawValue, forKey: GlobalThemeId.storageKey)
         }
     }
 
@@ -98,7 +97,7 @@ final class GlobalThemeManager {
     // MARK: - 切换
 
     func switchTheme(to id: GlobalThemeId) {
-        let resolvedId = Self.resolveRemovedTheme(id)
+        let resolvedId = GlobalThemeId.resolveRemovedTheme(id)
         guard resolvedId != currentThemeId else { return }
         currentThemeId = resolvedId
     }
@@ -108,17 +107,4 @@ final class GlobalThemeManager {
         tokenRevision &+= 1
     }
 
-    private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
-        switch id {
-        case .pureWhite, .bento, .clay, .signal, .liquidGlass, .sequoia, .material3Expressive:
-            return .default
-        default:
-            return id
-        }
-    }
-
-    private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
-        if raw == "doodlePop" { return .default }
-        return GlobalThemeId(rawValue: raw) ?? .appDefault
-    }
 }

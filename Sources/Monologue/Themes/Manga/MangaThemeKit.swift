@@ -2,7 +2,7 @@ import SwiftUI
 
 enum MangaStyle {
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.manga.rawValue
+        GlobalThemeId.persistedOrDefault == .manga
     }
 
     static let ink = Color(light: Color(hex: "17151F"), dark: Color(hex: "F5F0E8"))

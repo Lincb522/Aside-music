@@ -2,7 +2,7 @@ import SwiftUI
 
 enum PureWhiteStyle {
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.pureWhite.rawValue
+        GlobalThemeId.persistedOrDefault == .pureWhite
     }
 
     static var base: Color {

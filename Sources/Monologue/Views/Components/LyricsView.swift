@@ -48,7 +48,11 @@ class LyricViewModel: ObservableObject {
     private var lyricSessionId: Int = 0
     
     func fetchLyrics(for song: Song) {
-        if song.isQishui, let trackId = song.qishuiTrackId {
+        if applyCachedLyricsIfAvailable(for: song) {
+            return
+        }
+
+        if let trackId = song.qishuiTrackId {
             fetchQishuiLyrics(trackId: trackId, songId: song.id)
             return
         }
@@ -59,6 +63,35 @@ class LyricViewModel: ObservableObject {
         }
 
         fetchNeteaseLyrics(for: song, fallbackQQMid: song.qqMid)
+    }
+
+    private func applyCachedLyricsIfAvailable(for song: Song) -> Bool {
+        if song.id == currentSongId && (hasLyrics || isLoading) { return true }
+        guard let cached = OptimizedCacheManager.shared.getLyrics(songId: song.id) else { return false }
+
+        lyricSessionId += 1
+        currentSongId = song.id
+        lyrics = []
+        hasLyrics = false
+        currentLineIndex = 0
+        currentLineProgress = 0.0
+        translations = [:]
+        isLoading = false
+
+        if let translated = cached.translated {
+            parseTranslations(translated)
+        }
+
+        let rawLyrics = cached.lyrics
+        if rawLyrics.contains("<QrcInfos>") || rawLyrics.hasPrefix("<?xml") {
+            parseQRC(rawLyrics)
+        } else if rawLyrics.contains("(") && rawLyrics.contains(")") && rawLyrics.first == "[" {
+            parseQRC(rawLyrics)
+        } else {
+            parseLyrics(rawLyrics)
+        }
+        hasLyrics = !lyrics.isEmpty
+        return hasLyrics
     }
 
     private func fetchQishuiLyrics(trackId: Int, songId: Int) {
@@ -265,7 +298,7 @@ class LyricViewModel: ObservableObject {
                 let candidates = try await APIService.shared.searchSongs(keyword: query, offset: 0).async()
                 guard self.lyricSessionId == sessionId else { return }
 
-                if let matchedSong = self.bestMetadataMatch(from: candidates, title: song.name, artist: song.artistName),
+                if let matchedSong = self.bestMetadataMatch(from: candidates, title: song.name, artist: song.artistName, durationMs: song.dt),
                    matchedSong.id != song.id {
                     let response = try await APIService.shared.fetchLyric(id: matchedSong.id).async()
                     guard self.lyricSessionId == sessionId else { return }
@@ -309,7 +342,7 @@ class LyricViewModel: ObservableObject {
                 let candidates = try await APIService.shared.searchQQSongs(keyword: query, page: 1, num: 10).async()
                 guard self.lyricSessionId == sessionId else { return }
 
-                if let matchedSong = self.bestMetadataMatch(from: candidates, title: song.name, artist: song.artistName),
+                if let matchedSong = self.bestMetadataMatch(from: candidates, title: song.name, artist: song.artistName, durationMs: song.dt),
                    let qqMid = matchedSong.qqMid,
                    !qqMid.isEmpty {
                     AppLogger.info("[Lyrics] 已从 QCM 搜索结果补全歌词入口: \(song.name) - \(song.artistName)")
@@ -343,17 +376,29 @@ class LyricViewModel: ObservableObject {
         }
     }
 
-    private func bestMetadataMatch(from songs: [Song], title: String, artist: String) -> Song? {
+    private func bestMetadataMatch(from songs: [Song], title: String, artist: String, durationMs: Int?) -> Song? {
         let normalizedTitle = normalizeMatchText(title)
-        let normalizedArtist = normalizeMatchText(artist)
+        let normalizedArtist = normalizeMatchText(effectiveArtistName(artist))
+        let hasKnownArtist = !normalizedArtist.isEmpty
 
         var bestMatch: Song?
         var bestScore = 0.0
 
         for song in songs {
             let titleScore = similarityScore(normalizedTitle, normalizeMatchText(song.name))
-            let artistScore = artist.isEmpty ? 1.0 : similarityScore(normalizedArtist, normalizeMatchText(song.artistName))
-            let totalScore = titleScore * 0.72 + artistScore * 0.28
+            guard titleScore >= 0.72 else { continue }
+
+            let artistScore = hasKnownArtist ? similarityScore(normalizedArtist, normalizeMatchText(song.artistName)) : 1.0
+            if hasKnownArtist, artistScore < 0.42 { continue }
+
+            let exactDurationScore = durationMatchScore(localDurationMs: durationMs, remoteDurationMs: song.dt)
+            if let exactDurationScore, exactDurationScore < 0.35 { continue }
+            if !hasKnownArtist, exactDurationScore == nil, titleScore < 0.96 { continue }
+
+            let durationScore = exactDurationScore ?? (hasKnownArtist ? 0.72 : 0.0)
+            let totalScore = hasKnownArtist
+                ? titleScore * 0.58 + artistScore * 0.27 + durationScore * 0.15
+                : titleScore * 0.70 + durationScore * 0.30
 
             if totalScore > bestScore {
                 bestScore = totalScore
@@ -361,7 +406,35 @@ class LyricViewModel: ObservableObject {
             }
         }
 
-        return bestScore >= 0.4 ? bestMatch : nil
+        return bestScore >= (hasKnownArtist ? 0.78 : 0.88) ? bestMatch : nil
+    }
+
+    private func effectiveArtistName(_ artist: String) -> String {
+        let trimmed = artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.localizedCaseInsensitiveCompare("Unknown Artist") == .orderedSame ? "" : trimmed
+    }
+
+    private func durationMatchScore(localDurationMs: Int?, remoteDurationMs: Int?) -> Double? {
+        guard let localDurationMs,
+              let remoteDurationMs,
+              localDurationMs > 0,
+              remoteDurationMs > 0 else {
+            return nil
+        }
+
+        let diff = abs(Double(localDurationMs - remoteDurationMs)) / 1000.0
+        switch diff {
+        case 0...3:
+            return 1.0
+        case 3...8:
+            return 0.88
+        case 8...15:
+            return 0.68
+        case 15...30:
+            return 0.42
+        default:
+            return 0.0
+        }
     }
 
     private func normalizeMatchText(_ text: String) -> String {
@@ -748,7 +821,7 @@ class LyricViewModel: ObservableObject {
     private func schedulePublish() {
         guard !publishScheduled else { return }
         publishScheduled = true
-        RunLoop.main.perform { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.publishScheduled = false
             self.objectWillChange.send()

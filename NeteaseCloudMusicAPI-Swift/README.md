@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-5.9+-F05138?style=flat-square&logo=swift&logoColor=white" />
   <img src="https://img.shields.io/badge/平台-iOS%20|%20macOS%20|%20tvOS%20|%20watchOS-blue?style=flat-square" />
-  <img src="https://img.shields.io/badge/API-362+-green?style=flat-square" />
+  <img src="https://img.shields.io/badge/API-396+-green?style=flat-square" />
   <img src="https://img.shields.io/badge/依赖-零依赖-orange?style=flat-square" />
 </p>
 
@@ -19,7 +19,7 @@
 
 ## 特性
 
-- 🎵 **362+ 个 API** — 搜索、歌曲、歌单、用户、歌手、专辑、评论、MV、电台、排行榜、推荐、VIP、私信、云盘、解灰等
+- 🎵 **396+ 个后端路由 / API** — 对齐 NeteaseCloudMusicApiEnhanced 4.33.0，并接入 Monologue 本地增强接口
 - 🔐 **四种加密模式** — WeAPI / EAPI / LinuxAPI / 明文
 - 🍎 **Apple 全系平台** — iOS 15+ / macOS 12+ / tvOS 15+ / watchOS 8+
 - 📦 **零外部依赖** — 仅 Foundation + CommonCrypto

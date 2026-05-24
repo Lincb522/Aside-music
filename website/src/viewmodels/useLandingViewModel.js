@@ -67,7 +67,7 @@ export function useLandingViewModel() {
   const miniPlayerArtist = computed(() => {
     const track = miniPlayerTrack.value
     if (!track) return '正在准备'
-    return track.artist || track.artistName || 'mono'
+    return track.artist || track.artistName || 'Mono'
   })
   const miniPlayerCover = computed(() => miniPlayerTrack.value?.cover || assets.pawIcon)
 
@@ -526,7 +526,7 @@ export function useLandingViewModel() {
     testFlightDuplicateDialog.value = {
       email: data?.email || testFlightEmail.value.trim(),
       groupName: data?.group_name || testFlightInfo.value?.group_name || 'TestFlight 测试组',
-      appName: data?.app_name || testFlightInfo.value?.app_name || 'mono',
+      appName: data?.app_name || testFlightInfo.value?.app_name || 'Mono',
     }
   }
 
@@ -837,12 +837,21 @@ export function useLandingViewModel() {
         : artists
       const album = item.album || item.al || {}
 
+      let rawCover = item.cover || item.coverUrl || item.picUrl || album.picUrl || album.coverUrl || ''
+      if (rawCover && typeof rawCover === 'string' && rawCover.startsWith('http://')) {
+        rawCover = rawCover.replace(/^http:\/\//, 'https://')
+      }
+      let rawUrl = item.url || item.playUrl || item.src || ''
+      if (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('http://')) {
+        rawUrl = rawUrl.replace(/^http:\/\//, 'https://')
+      }
+
       return {
         id: item.id || item.songId,
         name: item.name || item.title || '未命名歌曲',
         artist: item.artistName || artist || '未知艺人',
-        cover: item.cover || item.coverUrl || item.picUrl || album.picUrl || album.coverUrl || '',
-        url: item.url || item.playUrl || item.src || '',
+        cover: rawCover,
+        url: rawUrl,
       }
     }).filter((track) => track.id || track.url)
   }

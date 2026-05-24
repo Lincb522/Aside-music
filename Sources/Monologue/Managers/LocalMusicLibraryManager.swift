@@ -4,6 +4,10 @@ import Foundation
 import MediaPlayer
 import UniformTypeIdentifiers
 
+private struct SendableAVAssetExportSession: @unchecked Sendable {
+    let session: AVAssetExportSession
+}
+
 @MainActor
 final class LocalMusicLibraryManager: ObservableObject {
     static let shared = LocalMusicLibraryManager()
@@ -13,6 +17,9 @@ final class LocalMusicLibraryManager: ObservableObject {
         var skippedCount = 0
         var failedItems: [String] = []
         var notices: [String] = []
+        var importedSongs: [Song] = []
+        var matchedMetadataCount = 0
+        var prefetchedLyricsCount = 0
 
         var summaryText: String {
             var parts = [
@@ -40,6 +47,24 @@ final class LocalMusicLibraryManager: ObservableObject {
                     )
                 )
             }
+            if matchedMetadataCount > 0 {
+                parts.append(
+                    String(
+                        format: NSLocalizedString("local_import_result_metadata_matched", comment: ""),
+                        locale: Locale.current,
+                        matchedMetadataCount
+                    )
+                )
+            }
+            if prefetchedLyricsCount > 0 {
+                parts.append(
+                    String(
+                        format: NSLocalizedString("local_import_result_lyrics_prefetched", comment: ""),
+                        locale: Locale.current,
+                        prefetchedLyricsCount
+                    )
+                )
+            }
             let summary = parts.joined(separator: "，")
             guard !notices.isEmpty else { return summary }
             if summary.isEmpty {
@@ -53,6 +78,36 @@ final class LocalMusicLibraryManager: ObservableObject {
     @Published private(set) var isProcessing = false
     @Published private(set) var lastImportResult: ImportResult?
 
+    private struct LocalSongImportPayload {
+        let song: Song
+        let matchedMetadata: Bool
+        let prefetchedLyrics: Bool
+    }
+
+    private struct OnlineMetadataMatch {
+        let song: Song
+        let score: Double
+    }
+
+    private struct OnlineMetadataSelection {
+        let match: OnlineMetadataMatch
+        let source: MusicSource
+    }
+
+    private struct MetadataSearchCandidate: Hashable {
+        let title: String
+        let artist: String
+
+        var query: String {
+            [effectiveArtistName(artist), title]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+    }
+
+    private typealias OnlineMetadataMatches = (netease: OnlineMetadataMatch?, qq: OnlineMetadataMatch?, qishui: OnlineMetadataMatch?)
+
     nonisolated static var rootDirectory: URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
@@ -63,6 +118,12 @@ final class LocalMusicLibraryManager: ObservableObject {
 
     nonisolated static var musicDirectory: URL {
         let dir = rootDirectory.appendingPathComponent("Library", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    nonisolated static var artworkDirectory: URL {
+        let dir = rootDirectory.appendingPathComponent("Artwork", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
@@ -81,6 +142,11 @@ final class LocalMusicLibraryManager: ObservableObject {
     private static let supportedExtensions: Set<String> = [
         "aac", "aif", "aiff", "alac", "flac", "m4a", "m4b", "mp3", "ogg", "opus", "wav"
     ]
+
+    private static let onlineMetadataMatchThreshold = 0.78
+    private static let unknownArtistMetadataMatchThreshold = 0.88
+    private static let minimumTitleMatchScore = 0.72
+    private static let minimumKnownArtistMatchScore = 0.42
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -125,9 +191,17 @@ final class LocalMusicLibraryManager: ObservableObject {
                         continue
                     }
 
-                    let song = try await Self.makeLocalSong(from: destinationURL, relativePath: relativePath)
+                    let payload = try await Self.makeLocalSongImportPayload(from: destinationURL, relativePath: relativePath)
+                    let song = payload.song
                     nextSongs.append(song)
+                    result.importedSongs.append(song)
                     result.importedCount += 1
+                    if payload.matchedMetadata {
+                        result.matchedMetadataCount += 1
+                    }
+                    if payload.prefetchedLyrics {
+                        result.prefetchedLyricsCount += 1
+                    }
                 } catch {
                     result.failedItems.append(candidate.lastPathComponent)
                     AppLogger.error("本地音乐导入失败: \(candidate.lastPathComponent), error=\(error.localizedDescription)")
@@ -160,8 +234,14 @@ final class LocalMusicLibraryManager: ObservableObject {
 
         for file in files {
             do {
-                let song = try await Self.makeLocalSong(from: file, relativePath: file.lastPathComponent)
-                rebuilt.append(song)
+                let payload = try await Self.makeLocalSongImportPayload(from: file, relativePath: file.lastPathComponent)
+                rebuilt.append(payload.song)
+                if payload.matchedMetadata {
+                    result.matchedMetadataCount += 1
+                }
+                if payload.prefetchedLyrics {
+                    result.prefetchedLyricsCount += 1
+                }
             } catch {
                 result.failedItems.append(file.lastPathComponent)
                 AppLogger.error("扫描本地曲库失败: \(file.lastPathComponent), error=\(error.localizedDescription)")
@@ -175,15 +255,34 @@ final class LocalMusicLibraryManager: ObservableObject {
     }
 
     func deleteSong(_ song: Song) {
-        guard song.musicSource == .local,
-              let relativePath = song.localRelativePath else { return }
+        deleteSongs([song])
+    }
 
-        let fileURL = Self.musicDirectory.appendingPathComponent(relativePath)
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            try? FileManager.default.removeItem(at: fileURL)
+    func deleteSongs(_ songsToDelete: [Song]) {
+        let localSongs = songsToDelete.filter { $0.musicSource == .local }
+        guard !localSongs.isEmpty else { return }
+
+        var removedIds = Set<Int>()
+
+        for song in localSongs {
+            guard let relativePath = song.localRelativePath else { continue }
+
+            let fileURL = Self.musicDirectory.appendingPathComponent(relativePath)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+
+            let artworkURL = Self.artworkDirectory.appendingPathComponent("\(song.id).artwork")
+            if FileManager.default.fileExists(atPath: artworkURL.path) {
+                try? FileManager.default.removeItem(at: artworkURL)
+            }
+
+            OptimizedCacheManager.shared.removeLyrics(songId: song.id)
+            removedIds.insert(song.id)
         }
 
-        applyLibrarySongs(songs.filter { $0.id != song.id })
+        guard !removedIds.isEmpty else { return }
+        applyLibrarySongs(songs.filter { !removedIds.contains($0.id) })
     }
 
     func reload() {
@@ -204,6 +303,7 @@ final class LocalMusicLibraryManager: ObservableObject {
 
         songs = deduplicated
         persist()
+        LocalPlaylistManager.shared.syncLocalMusicPlaylist(with: deduplicated)
         pruneMissingLocalSongsFromPlaylists(validSongIDs: Set(deduplicated.map(\.id)))
     }
 
@@ -237,13 +337,11 @@ final class LocalMusicLibraryManager: ObservableObject {
         let manager = LocalPlaylistManager.shared
 
         for playlist in manager.playlists {
-            let missingLocalSongs = playlist.songs.filter {
+            let missingLocalSongIds = Set(manager.songs(for: playlist).filter {
                 $0.musicSource == .local && !validSongIDs.contains($0.id)
-            }
+            }.map(\.id))
 
-            for song in missingLocalSongs {
-                manager.removeSong(id: song.id, from: playlist)
-            }
+            manager.removeSongs(ids: missingLocalSongIds, from: playlist)
         }
     }
 
@@ -471,8 +569,10 @@ final class LocalMusicLibraryManager: ObservableObject {
         exporter.outputFileType = outputType
         exporter.shouldOptimizeForNetworkUse = false
 
+        let sendableExporter = SendableAVAssetExportSession(session: exporter)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            exporter.exportAsynchronously {
+            sendableExporter.session.exportAsynchronously {
+                let exporter = sendableExporter.session
                 switch exporter.status {
                 case .completed:
                     continuation.resume(returning: ())
@@ -529,14 +629,20 @@ final class LocalMusicLibraryManager: ObservableObject {
         return cleaned.isEmpty ? "Local Track" : cleaned
     }
 
-    private static func makeLocalSong(from fileURL: URL, relativePath: String) async throws -> Song {
+    private static func makeLocalSongImportPayload(from fileURL: URL, relativePath: String) async throws -> LocalSongImportPayload {
         let asset = AVURLAsset(url: fileURL)
         let duration = try? await asset.load(.duration)
-        let metadata = try? await asset.load(.commonMetadata)
+        let commonMetadata = try? await asset.load(.commonMetadata)
+        let metadata = (commonMetadata ?? []) + ((try? await asset.load(.metadata)) ?? [])
 
-        let title = await metadataValue(for: metadata, identifier: .commonIdentifierTitle)
-            ?? fileURL.deletingPathExtension().lastPathComponent
-        let artistName = await metadataValue(for: metadata, identifier: .commonIdentifierArtist) ?? "Unknown Artist"
+        let fileName = fileURL.deletingPathExtension().lastPathComponent
+        let inferred = inferredMetadata(from: fileName)
+        let metadataTitle = await metadataValue(for: metadata, identifier: .commonIdentifierTitle)
+        let metadataArtist = await metadataValue(for: metadata, identifier: .commonIdentifierArtist)
+        let title = metadataTitle ?? inferred.title
+        let artistName = metadataArtist
+            ?? inferred.artist
+            ?? "Unknown Artist"
         let albumName = await metadataValue(for: metadata, identifier: .commonIdentifierAlbumName) ?? "Local Library"
 
         let durationMs: Int?
@@ -552,12 +658,14 @@ final class LocalMusicLibraryManager: ObservableObject {
         let songID = stableSongID(for: relativePath)
         let artistID = stableSongID(for: "artist:\(artistName)")
         let albumID = stableSongID(for: "album:\(albumName)")
+        let embeddedArtworkURL = await embeddedArtworkURL(from: metadata, songID: songID)
+        let embeddedLyrics = await embeddedLyrics(from: metadata)
 
-        return Song(
+        let localSong = Song(
             id: songID,
             name: title,
             ar: [Artist(id: artistID, name: artistName)],
-            al: Album(id: albumID, name: albumName, picUrl: nil),
+            al: Album(id: albumID, name: albumName, picUrl: embeddedArtworkURL?.absoluteString),
             dt: durationMs,
             fee: nil,
             mv: nil,
@@ -576,6 +684,555 @@ final class LocalMusicLibraryManager: ObservableObject {
             localRelativePath: relativePath,
             localImportedAt: importedAt
         )
+
+        let searchCandidates = metadataSearchCandidates(
+            fileName: fileName,
+            metadataTitle: metadataTitle,
+            metadataArtist: metadataArtist,
+            fallbackTitle: title,
+            fallbackArtist: artistName
+        )
+
+        return await enrichLocalSong(
+            localSong,
+            embeddedArtworkURL: embeddedArtworkURL,
+            embeddedLyrics: embeddedLyrics,
+            searchCandidates: searchCandidates
+        )
+    }
+
+    private static func inferredMetadata(from fileName: String) -> (title: String, artist: String?) {
+        let cleaned = fileName
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"^\d+\s*[-.、_]\s*"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for separator in [" - ", " – ", " — "] {
+            let parts = cleaned.components(separatedBy: separator)
+            if parts.count >= 2 {
+                let artist = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                let title = parts.dropFirst().joined(separator: separator).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !artist.isEmpty, !title.isEmpty {
+                    return (title, artist)
+                }
+            }
+        }
+
+        return (cleaned.isEmpty ? "Local Track" : cleaned, nil)
+    }
+
+    private static func embeddedArtworkURL(from metadata: [AVMetadataItem]?, songID: Int) async -> URL? {
+        guard let item = AVMetadataItem.metadataItems(from: metadata ?? [], filteredByIdentifier: .commonIdentifierArtwork).first,
+              let data = try? await item.load(.dataValue),
+              !data.isEmpty else {
+            return nil
+        }
+
+        let destination = artworkDirectory.appendingPathComponent("\(songID).artwork")
+        do {
+            try data.write(to: destination, options: [.atomic])
+            return destination
+        } catch {
+            AppLogger.warning("本地音乐封面写入失败: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private static func embeddedLyrics(from metadata: [AVMetadataItem]?) async -> String? {
+        for item in metadata ?? [] where isLyricsMetadataItem(item) {
+            guard let value = try? await item.load(.stringValue) else { continue }
+            let normalized = normalizedEmbeddedLyrics(value)
+            if !normalized.isEmpty {
+                return normalized
+            }
+        }
+        return nil
+    }
+
+    private static func isLyricsMetadataItem(_ item: AVMetadataItem) -> Bool {
+        let identifier = item.identifier?.rawValue.lowercased() ?? ""
+        let commonKey = item.commonKey?.rawValue.lowercased() ?? ""
+        let key = item.key.map { "\($0)".lowercased() } ?? ""
+        return identifier.contains("lyric")
+            || commonKey.contains("lyric")
+            || key.contains("lyric")
+            || key == "uslt"
+            || key == "sylt"
+    }
+
+    private static func normalizedEmbeddedLyrics(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if trimmed.range(of: #"\[\d{1,2}:\d{2}"#, options: .regularExpression) != nil {
+            return trimmed
+        }
+
+        let lines = trimmed
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !lines.isEmpty else { return trimmed }
+        return lines.enumerated().map { index, line in
+            let seconds = Double(index) * 5.0
+            let minutes = Int(seconds) / 60
+            let remainingSeconds = seconds - Double(minutes * 60)
+            return String(format: "[%02d:%05.2f]%@", locale: Locale(identifier: "en_US_POSIX"), minutes, remainingSeconds, line)
+        }.joined(separator: "\n")
+    }
+
+    private static func enrichLocalSong(
+        _ song: Song,
+        embeddedArtworkURL: URL?,
+        embeddedLyrics: String?,
+        searchCandidates: [MetadataSearchCandidate]
+    ) async -> LocalSongImportPayload {
+        let candidates = searchCandidates.isEmpty
+            ? [MetadataSearchCandidate(title: song.name, artist: song.artistName)]
+            : searchCandidates
+
+        guard candidates.contains(where: { !$0.query.isEmpty }) else {
+            return LocalSongImportPayload(song: song, matchedMetadata: false, prefetchedLyrics: cacheEmbeddedLyrics(embeddedLyrics, localSongId: song.id))
+        }
+
+        let matches = await bestOnlineMatches(for: candidates, durationMs: song.dt)
+        let primarySelection = bestSelection(from: matches)
+        let enrichedSong = applyOnlineMetadata(
+            to: song,
+            primarySelection: primarySelection,
+            neteaseSong: matches.netease?.song,
+            qqSong: matches.qq?.song,
+            qishuiSong: matches.qishui?.song,
+            embeddedArtworkURL: embeddedArtworkURL
+        )
+
+        var prefetchedLyrics = cacheEmbeddedLyrics(embeddedLyrics, localSongId: enrichedSong.id, overwrite: true)
+        if !prefetchedLyrics {
+            prefetchedLyrics = await prefetchLyrics(
+                for: enrichedSong,
+                primarySelection: primarySelection,
+                neteaseSong: matches.netease?.song,
+                qqSong: matches.qq?.song,
+                qishuiSong: matches.qishui?.song
+            )
+        }
+        if !prefetchedLyrics, primarySelection == nil, embeddedLyrics == nil {
+            OptimizedCacheManager.shared.removeLyrics(songId: enrichedSong.id)
+        }
+
+        return LocalSongImportPayload(
+            song: enrichedSong,
+            matchedMetadata: primarySelection != nil,
+            prefetchedLyrics: prefetchedLyrics
+        )
+    }
+
+    private static func bestOnlineMatches(
+        for candidates: [MetadataSearchCandidate],
+        durationMs: Int?
+    ) async -> OnlineMetadataMatches {
+        var best: OnlineMetadataMatches = (nil, nil, nil)
+
+        for candidate in candidates.prefix(4) where !candidate.query.isEmpty {
+            async let neteaseMatch = fetchNeteaseMetadataMatch(
+                query: candidate.query,
+                title: candidate.title,
+                artist: candidate.artist,
+                durationMs: durationMs
+            )
+            async let qqMatch = fetchQQMetadataMatch(
+                query: candidate.query,
+                title: candidate.title,
+                artist: candidate.artist,
+                durationMs: durationMs
+            )
+            async let qishuiMatch = fetchQishuiMetadataMatch(
+                query: candidate.query,
+                title: candidate.title,
+                artist: candidate.artist,
+                durationMs: durationMs
+            )
+            let result = await (netease: neteaseMatch, qq: qqMatch, qishui: qishuiMatch)
+
+            best.netease = strongerMatch(best.netease, result.netease)
+            best.qq = strongerMatch(best.qq, result.qq)
+            best.qishui = strongerMatch(best.qishui, result.qishui)
+
+            if let selection = bestSelection(from: best), selection.match.score >= 0.96 {
+                break
+            }
+        }
+
+        return best
+    }
+
+    private static func bestSelection(from matches: OnlineMetadataMatches) -> OnlineMetadataSelection? {
+        [
+            matches.netease.map { OnlineMetadataSelection(match: $0, source: .netease) },
+            matches.qq.map { OnlineMetadataSelection(match: $0, source: .qqmusic) },
+            matches.qishui.map { OnlineMetadataSelection(match: $0, source: .qishui) }
+        ]
+        .compactMap { $0 }
+        .max { $0.match.score < $1.match.score }
+    }
+
+    private static func strongerMatch(_ lhs: OnlineMetadataMatch?, _ rhs: OnlineMetadataMatch?) -> OnlineMetadataMatch? {
+        guard let lhs else { return rhs }
+        guard let rhs else { return lhs }
+        return lhs.score >= rhs.score ? lhs : rhs
+    }
+
+    private static func fetchNeteaseMetadataMatch(query: String, title: String, artist: String, durationMs: Int?) async -> OnlineMetadataMatch? {
+        do {
+            let candidates = try await APIService.shared.searchSongs(keyword: query, offset: 0).async()
+            return bestMetadataMatch(from: candidates, title: title, artist: artist, durationMs: durationMs)
+        } catch {
+            AppLogger.warning("本地音乐 NCM 元数据匹配失败: \(query), error=\(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private static func fetchQQMetadataMatch(query: String, title: String, artist: String, durationMs: Int?) async -> OnlineMetadataMatch? {
+        do {
+            let candidates = try await APIService.shared.searchQQSongs(keyword: query, page: 1, num: 10).async()
+            return bestMetadataMatch(from: candidates, title: title, artist: artist, durationMs: durationMs)
+        } catch {
+            AppLogger.warning("本地音乐 QCM 元数据匹配失败: \(query), error=\(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private static func fetchQishuiMetadataMatch(query: String, title: String, artist: String, durationMs: Int?) async -> OnlineMetadataMatch? {
+        do {
+            let candidates = try await APIService.shared.searchQishuiSongs(keyword: query, page: 0).async()
+            return bestMetadataMatch(from: Array(candidates.prefix(10)), title: title, artist: artist, durationMs: durationMs)
+        } catch {
+            AppLogger.warning("本地音乐 Qishui 元数据匹配失败: \(query), error=\(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private static func bestMetadataMatch(from songs: [Song], title: String, artist: String, durationMs: Int?) -> OnlineMetadataMatch? {
+        let normalizedTitle = normalizeMatchText(title)
+        let normalizedArtist = normalizeMatchText(effectiveArtistName(artist))
+        let hasKnownArtist = !normalizedArtist.isEmpty
+
+        var bestMatch: Song?
+        var bestScore = 0.0
+
+        for song in songs {
+            let titleScore = similarityScore(normalizedTitle, normalizeMatchText(song.name))
+            guard titleScore >= minimumTitleMatchScore else { continue }
+
+            let artistScore = hasKnownArtist
+                ? similarityScore(normalizedArtist, normalizeMatchText(song.artistName))
+                : 1.0
+            if hasKnownArtist, artistScore < minimumKnownArtistMatchScore {
+                continue
+            }
+
+            let exactDurationScore = durationMatchScore(localDurationMs: durationMs, remoteDurationMs: song.dt)
+            if let exactDurationScore, exactDurationScore < 0.35 {
+                continue
+            }
+            if !hasKnownArtist, exactDurationScore == nil, titleScore < 0.96 {
+                continue
+            }
+
+            let durationScore = exactDurationScore ?? (hasKnownArtist ? 0.72 : 0.0)
+            let totalScore = hasKnownArtist
+                ? titleScore * 0.58 + artistScore * 0.27 + durationScore * 0.15
+                : titleScore * 0.70 + durationScore * 0.30
+
+            if totalScore > bestScore {
+                bestScore = totalScore
+                bestMatch = song
+            }
+        }
+
+        let threshold = hasKnownArtist ? onlineMetadataMatchThreshold : unknownArtistMetadataMatchThreshold
+        guard let bestMatch, bestScore >= threshold else { return nil }
+        return OnlineMetadataMatch(song: bestMatch, score: bestScore)
+    }
+
+    private static func applyOnlineMetadata(
+        to baseSong: Song,
+        primarySelection: OnlineMetadataSelection?,
+        neteaseSong: Song?,
+        qqSong: Song?,
+        qishuiSong: Song?,
+        embeddedArtworkURL: URL?
+    ) -> Song {
+        guard primarySelection != nil || embeddedArtworkURL != nil else { return baseSong }
+
+        let primarySong = primarySelection?.match.song
+        let isHighConfidence = (primarySelection?.match.score ?? 0) >= 0.90
+        let coverURL = firstNonEmpty(
+            isHighConfidence ? primarySong?.coverUrl?.absoluteString : embeddedArtworkURL?.absoluteString,
+            isHighConfidence ? neteaseSong?.coverUrl?.absoluteString : nil,
+            isHighConfidence ? qqSong?.coverUrl?.absoluteString : nil,
+            isHighConfidence ? qishuiSong?.coverUrl?.absoluteString : nil,
+            isHighConfidence ? embeddedArtworkURL?.absoluteString : primarySong?.coverUrl?.absoluteString,
+            isHighConfidence ? nil : neteaseSong?.coverUrl?.absoluteString,
+            isHighConfidence ? nil : qqSong?.coverUrl?.absoluteString,
+            isHighConfidence ? nil : qishuiSong?.coverUrl?.absoluteString,
+            baseSong.coverUrl?.absoluteString
+        )
+        let albumName = firstNonEmpty(primarySong?.album?.name, baseSong.album?.name) ?? "Local Library"
+        let albumID = primarySong?.album?.id ?? baseSong.album?.id ?? stableSongID(for: "album:\(albumName)")
+        let artists = nonEmptyArtists(primarySong?.ar) ?? nonEmptyArtists(baseSong.ar) ?? [Artist(id: stableSongID(for: "artist:\(baseSong.artistName)"), name: baseSong.artistName)]
+
+        var mergedSong = Song(
+            id: baseSong.id,
+            name: firstNonEmpty(primarySong?.name, baseSong.name) ?? baseSong.name,
+            ar: artists,
+            al: Album(id: albumID, name: albumName, picUrl: coverURL),
+            dt: baseSong.dt ?? primarySong?.dt,
+            fee: nil,
+            mv: nil,
+            h: nil,
+            m: nil,
+            l: nil,
+            sq: nil,
+            hr: nil,
+            alia: baseSong.alia
+        )
+
+        mergedSong.source = .local
+        mergedSong.qqMid = qqSong?.qqMid ?? baseSong.qqMid
+        mergedSong.qqAlbumMid = qqSong?.qqAlbumMid ?? baseSong.qqAlbumMid
+        mergedSong.qqArtistMid = qqSong?.qqArtistMid ?? baseSong.qqArtistMid
+        mergedSong.qqMaxQuality = qqSong?.qqMaxQuality ?? baseSong.qqMaxQuality
+        mergedSong.qishuiTrackId = qishuiSong?.qishuiTrackId ?? baseSong.qishuiTrackId
+        mergedSong.localRelativePath = baseSong.localRelativePath
+        mergedSong.localImportedAt = baseSong.localImportedAt
+        return mergedSong
+    }
+
+    private static func prefetchLyrics(
+        for song: Song,
+        primarySelection: OnlineMetadataSelection?,
+        neteaseSong: Song?,
+        qqSong: Song?,
+        qishuiSong: Song?
+    ) async -> Bool {
+        guard let primarySelection else { return false }
+
+        switch primarySelection.source {
+        case .qishui:
+            guard let qishuiTrackId = qishuiSong?.qishuiTrackId ?? primarySelection.match.song.qishuiTrackId else {
+                return false
+            }
+            do {
+                let content = try await APIService.shared.fetchQishuiLyric(trackId: qishuiTrackId).async()
+                if cacheQishuiLyrics(content, localSongId: song.id) {
+                    return true
+                }
+            } catch {
+                AppLogger.warning("本地音乐 Qishui 歌词预取失败: \(song.name), error=\(error.localizedDescription)")
+            }
+            return false
+
+        case .netease:
+            let matchedSong = neteaseSong ?? primarySelection.match.song
+            do {
+                let response = try await APIService.shared.fetchLyric(id: matchedSong.id).async()
+                if cacheNeteaseLyrics(response, localSongId: song.id) {
+                    return true
+                }
+            } catch {
+                AppLogger.warning("本地音乐 NCM 歌词预取失败: \(song.name), error=\(error.localizedDescription)")
+            }
+            return false
+
+        case .qqmusic:
+            guard let qqMid = firstNonEmpty(qqSong?.qqMid, primarySelection.match.song.qqMid) else {
+                return false
+            }
+            do {
+                let response = try await APIService.shared.fetchQQLyric(mid: qqMid).async()
+                if cacheQQLyrics(response, localSongId: song.id) {
+                    return true
+                }
+            } catch {
+                AppLogger.warning("本地音乐 QCM 歌词预取失败: \(song.name), error=\(error.localizedDescription)")
+            }
+            return false
+
+        case .local:
+            return false
+        }
+    }
+
+    private static func cacheNeteaseLyrics(_ response: LyricResponse, localSongId: Int) -> Bool {
+        guard let lyric = firstNonEmpty(response.yrc?.lyric, response.lrc?.lyric) else { return false }
+        OptimizedCacheManager.shared.cacheLyrics(
+            songId: localSongId,
+            lyrics: lyric,
+            translated: firstNonEmpty(response.tlyric?.lyric)
+        )
+        return true
+    }
+
+    private static func cacheQQLyrics(_ response: QQLyricResponse, localSongId: Int) -> Bool {
+        guard let lyric = firstNonEmpty(response.qrc, response.lyric) else { return false }
+        OptimizedCacheManager.shared.cacheLyrics(
+            songId: localSongId,
+            lyrics: lyric,
+            translated: firstNonEmpty(response.trans, response.roma)
+        )
+        return true
+    }
+
+    private static func cacheQishuiLyrics(_ content: String, localSongId: Int) -> Bool {
+        let lyric = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !lyric.isEmpty else { return false }
+        OptimizedCacheManager.shared.cacheLyrics(songId: localSongId, lyrics: lyric)
+        return true
+    }
+
+    private static func cacheEmbeddedLyrics(_ lyrics: String?, localSongId: Int, overwrite: Bool = false) -> Bool {
+        guard (overwrite || OptimizedCacheManager.shared.getLyrics(songId: localSongId) == nil),
+              let lyrics,
+              !lyrics.isEmpty else {
+            return false
+        }
+        OptimizedCacheManager.shared.cacheLyrics(songId: localSongId, lyrics: lyrics)
+        return true
+    }
+
+    private static func metadataSearchCandidates(
+        fileName: String,
+        metadataTitle: String?,
+        metadataArtist: String?,
+        fallbackTitle: String,
+        fallbackArtist: String
+    ) -> [MetadataSearchCandidate] {
+        var candidates: [MetadataSearchCandidate] = []
+        var seen = Set<String>()
+
+        func append(title: String?, artist: String?) {
+            let cleanedTitle = cleanedSearchTitle(title ?? "")
+            let cleanedArtist = cleanedSearchArtist(artist ?? "")
+            guard !cleanedTitle.isEmpty else { return }
+
+            let key = "\(normalizeMatchText(cleanedTitle))|\(normalizeMatchText(cleanedArtist))"
+            guard seen.insert(key).inserted else { return }
+            candidates.append(MetadataSearchCandidate(title: cleanedTitle, artist: cleanedArtist))
+        }
+
+        append(title: metadataTitle, artist: metadataArtist)
+
+        let inferred = inferredMetadata(from: fileName)
+        append(title: inferred.title, artist: inferred.artist)
+
+        append(title: fallbackTitle, artist: fallbackArtist)
+
+        if let metadataTitle, metadataArtist == nil || metadataArtist?.isEmpty == true {
+            append(title: metadataTitle, artist: nil)
+        }
+
+        return candidates
+    }
+
+    private static func cleanedSearchTitle(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: #"(?i)\.(mp3|m4a|flac|wav|aac|aiff|ogg|opus)$"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"^\d+\s*[-.、_]\s*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\[[^\]]*\]"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"【[^】]*】"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\((?:cover|伴奏|instrumental|karaoke|320k|flac|mp3|hq|sq|hi-?res)[^)]*\)"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"（(?:cover|伴奏|instrumental|karaoke|320k|flac|mp3|hq|sq|hi-?res)[^）]*）"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func cleanedSearchArtist(_ text: String) -> String {
+        let cleaned = text
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return effectiveArtistName(cleaned)
+    }
+
+    private static func durationMatchScore(localDurationMs: Int?, remoteDurationMs: Int?) -> Double? {
+        guard let localDurationMs,
+              let remoteDurationMs,
+              localDurationMs > 0,
+              remoteDurationMs > 0 else {
+            return nil
+        }
+
+        let diff = abs(Double(localDurationMs - remoteDurationMs)) / 1000.0
+        switch diff {
+        case 0...3:
+            return 1.0
+        case 3...8:
+            return 0.88
+        case 8...15:
+            return 0.68
+        case 15...30:
+            return 0.42
+        default:
+            return 0.0
+        }
+    }
+
+    nonisolated private static func effectiveArtistName(_ artist: String) -> String {
+        let trimmed = artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.localizedCaseInsensitiveCompare("Unknown Artist") == .orderedSame {
+            return ""
+        }
+        return trimmed
+    }
+
+    private static func firstNonEmpty(_ values: String?...) -> String? {
+        for value in values {
+            if let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return nil
+    }
+
+    private static func nonEmptyArtists(_ artists: [Artist]?) -> [Artist]? {
+        guard let artists, !artists.isEmpty else { return nil }
+        let cleaned = artists.filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    private static func normalizeMatchText(_ text: String) -> String {
+        text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.union(.init(charactersIn: "\u{4E00}"..."\u{9FFF}")).inverted)
+            .joined()
+    }
+
+    private static func similarityScore(_ lhs: String, _ rhs: String) -> Double {
+        guard !lhs.isEmpty && !rhs.isEmpty else { return lhs == rhs ? 1.0 : 0.0 }
+        if lhs.contains(rhs) || rhs.contains(lhs) {
+            return max(Double(min(lhs.count, rhs.count)) / Double(max(lhs.count, rhs.count)), 0.8)
+        }
+
+        let lhsChars = Array(lhs)
+        let rhsChars = Array(rhs)
+        let m = lhsChars.count
+        let n = rhsChars.count
+
+        if Double(min(m, n)) / Double(max(m, n)) < 0.3 {
+            return 0.2
+        }
+
+        var dp = Array(repeating: Array(repeating: 0, count: n + 1), count: m + 1)
+        for i in 1...m {
+            for j in 1...n {
+                dp[i][j] = lhsChars[i - 1] == rhsChars[j - 1]
+                    ? dp[i - 1][j - 1] + 1
+                    : max(dp[i - 1][j], dp[i][j - 1])
+            }
+        }
+
+        return Double(dp[m][n] * 2) / Double(m + n)
     }
 
     private static func metadataValue(for metadata: [AVMetadataItem]?, identifier: AVMetadataIdentifier) async -> String? {

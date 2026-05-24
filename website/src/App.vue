@@ -1,5 +1,30 @@
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useLandingViewModel } from './viewmodels/useLandingViewModel'
+
+const showSplash = ref(true)
+const loadingProgress = ref(0)
+const loadingPhaseText = ref('正在调制声学谐振...')
+
+onMounted(() => {
+  const interval = setInterval(() => {
+    loadingProgress.value += Math.floor(Math.random() * 8) + 5
+    if (loadingProgress.value >= 100) {
+      loadingProgress.value = 100
+      loadingPhaseText.value = '有温度的音乐，已就绪。'
+      clearInterval(interval)
+      setTimeout(() => {
+        showSplash.value = false
+      }, 550)
+    } else if (loadingProgress.value >= 82) {
+      loadingPhaseText.value = '正在对齐频谱矩阵...'
+    } else if (loadingProgress.value >= 54) {
+      loadingPhaseText.value = '正在预热模拟电子管...'
+    } else if (loadingProgress.value >= 26) {
+      loadingPhaseText.value = '正在对齐位深与频率...'
+    }
+  }, 95)
+})
 
 const {
   assets,
@@ -81,16 +106,72 @@ const {
 </script>
 
 <template>
+  <!-- Icon Morphing Portal Entrance Screen with Calibration Loading -->
+  <Transition name="portal-fade">
+    <div v-if="showSplash" class="icon-portal-splash" aria-hidden="true">
+      <div class="splash-panel">
+        <div class="portal-logo-container">
+          <img class="portal-logo" :src="assets.pawIcon" alt="Mono" />
+          <div class="portal-logo-halo"></div>
+        </div>
+        <div class="splash-brand">
+          <img class="splash-wordmark" :src="assets.monoTextBlack" alt="Mono" />
+          <div class="splash-calibration">
+            <span class="splash-phase">{{ loadingPhaseText }}</span>
+            <div class="splash-gauge">
+              <div class="splash-gauge-fill" :style="{ width: `${loadingProgress}%` }"></div>
+            </div>
+            <span class="splash-percentage">{{ loadingProgress }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Transition>
+
   <div class="dynamic-ambient-backdrop" aria-hidden="true">
     <div class="ambient-glow glow-1"></div>
     <div class="ambient-glow glow-2"></div>
     <div class="ambient-glow glow-3"></div>
   </div>
 
+  <div v-if="miniPlayerPlaying" class="immersive-soundwave" aria-hidden="true">
+    <span v-for="n in 64" :key="n" :style="{ '--i': n }"></span>
+  </div>
+
+  <aside class="mini-player" :class="{ 'is-playing': miniPlayerPlaying, 'is-expanded': miniPlayerExpanded }" aria-label="迷你播放器">
+    <div class="mini-player-panel">
+      <button class="mini-panel-artwork" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
+        <img :src="miniPlayerCover" alt="" />
+      </button>
+      <button class="mini-track-info" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
+        <strong>{{ miniPlayerTrack?.name || (miniPlayerLoading ? '准备播放中' : '今日推荐') }}</strong>
+        <small>{{ miniPlayerError || miniPlayerArtist }}</small>
+      </button>
+      <button class="mini-play-button" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
+        {{ miniPlayerPlaying ? 'Ⅱ' : '▶' }}
+      </button>
+      <button class="mini-next-button" type="button" :disabled="miniPlayerLoading" @click="nextMiniPlayerTrack">›</button>
+    </div>
+    <button class="mini-player-ball" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayerPanel">
+      <span class="vinyl-disc">
+        <img :src="miniPlayerCover" alt="" />
+      </span>
+    </button>
+    <audio
+      ref="miniPlayerAudio"
+      preload="none"
+      crossorigin="anonymous"
+      @play="onMiniPlayerPlay"
+      @pause="onMiniPlayerPause"
+      @ended="nextMiniPlayerTrack"
+      @error="onMiniPlayerError"
+    ></audio>
+  </aside>
+
   <main id="top" class="page-shell" :class="{ 'page-shell-subpage': currentPage !== 'home' }">
     <section v-if="currentPage === 'home'" class="hero-section" aria-labelledby="hero-title">
       <img class="app-icon" :src="assets.pawIcon" alt="" />
-      <img class="hero-wordmark" :src="assets.monoTextBlack" alt="mono" />
+      <img class="hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
       <h1 id="hero-title">{{ content.hero.title }}</h1>
       <p class="hero-slogan">{{ content.hero.slogan }}</p>
       <p class="hero-lead">{{ content.hero.lead }}</p>
@@ -112,44 +193,10 @@ const {
       </div>
     </section>
 
-    <div v-if="miniPlayerPlaying" class="immersive-soundwave" aria-hidden="true">
-      <span v-for="n in 64" :key="n" :style="{ '--i': n }"></span>
-    </div>
-
-    <aside class="mini-player" :class="{ 'is-playing': miniPlayerPlaying, 'is-expanded': miniPlayerExpanded }" aria-label="迷你播放器">
-      <div class="mini-player-panel">
-        <button class="mini-panel-artwork" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
-          <img :src="miniPlayerCover" alt="" />
-        </button>
-        <button class="mini-track-info" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
-          <strong>{{ miniPlayerTrack?.name || (miniPlayerLoading ? '准备播放中' : '今日推荐') }}</strong>
-          <small>{{ miniPlayerError || miniPlayerArtist }}</small>
-        </button>
-        <button class="mini-play-button" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
-          {{ miniPlayerPlaying ? 'Ⅱ' : '▶' }}
-        </button>
-        <button class="mini-next-button" type="button" :disabled="miniPlayerLoading" @click="nextMiniPlayerTrack">›</button>
-      </div>
-      <button class="mini-player-ball" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayerPanel">
-        <span class="vinyl-disc">
-          <img :src="miniPlayerCover" alt="" />
-        </span>
-      </button>
-      <audio
-        ref="miniPlayerAudio"
-        preload="none"
-        crossorigin="anonymous"
-        @play="onMiniPlayerPlay"
-        @pause="onMiniPlayerPause"
-        @ended="nextMiniPlayerTrack"
-        @error="onMiniPlayerError"
-      ></audio>
-    </aside>
-
     <section v-if="currentPage === 'token'" class="subpage-section token-page" aria-labelledby="token-query-title">
       <header class="subpage-brand-hero">
         <img class="subpage-hero-icon" :src="assets.pawIcon" alt="" />
-        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="mono" />
+        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
         <p>{{ content.tokenQuery.lead }}</p>
       </header>
 
@@ -172,18 +219,18 @@ const {
 
         <div v-if="tokenResults.length" class="token-result-list">
           <article v-for="token in tokenResults" :key="token.id || token.key" class="token-result-card">
-            <div class="token-result-header">
-              <div>
-                <h3>{{ token.registeredName || token.name || 'mono user' }}</h3>
-                <p>{{ token.email || '未填写邮箱' }}</p>
+            <div class="token-result-header" style="display: flex !important; justify-content: space-between !important; align-items: flex-start !important; gap: 12px !important; width: 100% !important;">
+              <div style="flex: 1 !important; min-width: 0 !important;">
+                <h3 style="margin: 0; color: #1b1712; font-size: 18px; font-weight: 860; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ token.registeredName || token.name || 'Mono user' }}</h3>
+                <p style="margin: 5px 0 0; color: #746c61; font-size: 13px; font-weight: 680; word-break: break-all;">{{ token.email || '未填写邮箱' }}</p>
               </div>
-              <span class="token-status" :class="tokenStatusClass(token)">
+              <span class="token-status" :class="tokenStatusClass(token)" style="flex: 0 0 auto !important; white-space: nowrap !important;">
                 {{ tokenStatusLabel(token) }}
               </span>
             </div>
-            <div class="token-key-row">
-              <code>{{ token.key }}</code>
-              <button type="button" @click="copyTokenKey(token.key)">
+            <div class="token-key-row" style="display: flex !important; align-items: center !important; gap: 10px !important; margin-top: 16px !important; width: 100% !important; flex-flow: row nowrap !important;">
+              <code style="flex: 1 !important; min-width: 0 !important; max-width: none !important; width: auto !important; box-sizing: border-box !important; white-space: nowrap !important; overflow-x: auto !important;">{{ token.key }}</code>
+              <button type="button" style="flex: 0 0 auto !important; width: auto !important; max-width: none !important; box-sizing: border-box !important; white-space: nowrap !important;" @click="copyTokenKey(token.key)">
                 {{ copiedTokenKey === token.key ? content.tokenQuery.copiedLabel : content.tokenQuery.copyLabel }}
               </button>
             </div>
@@ -195,13 +242,13 @@ const {
         </div>
       </article>
 
-      <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 mono 首页</a>
+      <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 Mono 首页</a>
     </section>
 
     <section v-if="currentPage === 'testflight'" class="subpage-section testflight-page" aria-labelledby="testflight-title">
       <header class="subpage-brand-hero">
         <img class="subpage-hero-icon" :src="assets.pawIcon" alt="" />
-        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="mono" />
+        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
         <p>{{ testFlightInfo?.group_name || 'TestFlight 测试组' }}</p>
       </header>
 
@@ -279,17 +326,17 @@ const {
         </article>
       </div>
 
-      <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 mono 首页</a>
+      <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 Mono 首页</a>
     </section>
 
     <section v-if="currentPage === 'updates'" class="subpage-section updates-page" aria-labelledby="updates-title">
       <header class="subpage-brand-hero">
         <img class="subpage-hero-icon" :src="assets.pawIcon" alt="" />
-        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="mono" />
+        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
         <p>{{ content.updates.lead }}</p>
       </header>
 
-      <a class="subpage-home-link updates-home-link-top" href="/" @click="navigateTo('/', $event)">返回 mono 首页</a>
+      <a class="subpage-home-link updates-home-link-top" href="/" @click="navigateTo('/', $event)">返回 Mono 首页</a>
 
       <div v-if="updatesLoading" class="section-placeholder">读取更新公告中...</div>
       <div v-else-if="updatesError" class="section-placeholder">
@@ -300,7 +347,7 @@ const {
         <article class="update-hero-card">
           <span class="release-kicker">Latest Update</span>
           <h2 id="updates-title">v{{ latestUpdate.version }}</h2>
-          <p>{{ latestUpdate.title || 'mono 更新' }}</p>
+          <p>{{ latestUpdate.title || 'Mono 更新' }}</p>
           <div class="release-meta">
             <span>{{ formatDate(latestUpdate.publishedAt || latestUpdate.updatedAt || latestUpdate.createdAt) }}</span>
             <span v-if="latestUpdate.fileSize">{{ formatSize(latestUpdate.fileSize) }}</span>
@@ -341,7 +388,7 @@ const {
     <section v-if="currentPage === 'download'" class="subpage-section download-page" aria-label="IPA 下载">
       <header class="subpage-brand-hero download-brand-hero">
         <img class="subpage-hero-icon" :src="assets.pawIcon" alt="" />
-        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="mono" />
+        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
         <p>领取专属 Token，并下载最新自签 IPA。</p>
       </header>
 
@@ -380,16 +427,16 @@ const {
             <p v-else-if="ipaRegisterMessage" class="section-message">{{ ipaRegisterMessage }}</p>
 
             <div v-if="ipaRegisterResult?.key" class="token-result-card ipa-token-card">
-              <div class="token-result-header">
-                <div>
-                  <h3>{{ ipaRegisterResult.name || 'mono user' }}</h3>
-                  <p>{{ ipaRegisterResult.email || ipaRegisterEmail }}</p>
+              <div class="token-result-header" style="display: flex !important; justify-content: space-between !important; align-items: flex-start !important; gap: 12px !important; width: 100% !important;">
+                <div style="flex: 1 !important; min-width: 0 !important;">
+                  <h3 style="margin: 0; color: #1b1712; font-size: 18px; font-weight: 860; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ ipaRegisterResult.name || 'Mono user' }}</h3>
+                  <p style="margin: 5px 0 0; color: #746c61; font-size: 13px; font-weight: 680; word-break: break-all;">{{ ipaRegisterResult.email || ipaRegisterEmail }}</p>
                 </div>
-                <span class="token-status is-active">已领取</span>
+                <span class="token-status is-active" style="flex: 0 0 auto !important; white-space: nowrap !important;">已领取</span>
               </div>
-              <div class="token-key-row">
-                <code>{{ ipaRegisterResult.key }}</code>
-                <button type="button" @click="copyTokenKey(ipaRegisterResult.key)">
+              <div class="token-key-row" style="display: flex !important; align-items: center !important; gap: 10px !important; margin-top: 16px !important; width: 100% !important; flex-flow: row nowrap !important;">
+                <code style="flex: 1 !important; min-width: 0 !important; max-width: none !important; width: auto !important; box-sizing: border-box !important; white-space: nowrap !important; overflow-x: auto !important;">{{ ipaRegisterResult.key }}</code>
+                <button type="button" style="flex: 0 0 auto !important; width: auto !important; max-width: none !important; box-sizing: border-box !important; white-space: nowrap !important;" @click="copyTokenKey(ipaRegisterResult.key)">
                   {{ copiedTokenKey === ipaRegisterResult.key ? content.tokenQuery.copiedLabel : content.tokenQuery.copyLabel }}
                 </button>
               </div>
@@ -410,7 +457,7 @@ const {
               <article class="mono-feature-card download-focus-card ipa-download-card">
                 <span class="release-kicker">Latest Release</span>
                 <h2>v{{ latestUpdate.version }}</h2>
-                <p>{{ latestUpdate.title || 'mono 最新版' }}</p>
+                <p>{{ latestUpdate.title || 'Mono 最新版' }}</p>
                 <div class="release-meta">
                   <span v-if="latestUpdate.fileSize">{{ formatSize(latestUpdate.fileSize) }}</span>
                   <span>{{ formatDate(latestUpdate.publishedAt || latestUpdate.updatedAt || latestUpdate.createdAt) }}</span>
@@ -458,7 +505,7 @@ const {
         </ol>
       </section>
 
-      <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 mono 首页</a>
+      <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 Mono 首页</a>
     </section>
 
     <footer class="site-footer" aria-label="开发者信息">

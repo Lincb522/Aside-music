@@ -1140,7 +1140,7 @@ struct ScrollableLibraryExperience: View {
                 LazyVStack(spacing: 10) {
                     ForEach(localManager.playlists, id: \.id) { playlist in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.localPlaylist(playlist.id)) {
-                            LocalPlaylistRow(playlist: playlist)
+                            LocalPlaylistRow(summary: localManager.summary(for: playlist))
                         }
                         .buttonStyle(.plain)
                     }

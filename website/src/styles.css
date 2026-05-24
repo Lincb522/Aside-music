@@ -1493,14 +1493,17 @@ h1 {
 
 .hero-action-links {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 8px;
-  max-width: 430px;
-  padding: 6px;
+  align-items: center;
+  gap: clamp(4px, 1.2vw, 8px);
+  width: 100%;
+  max-width: min(430px, 92vw);
+  padding: 5px 6px;
   border: 1px solid rgba(27, 23, 18, 0.07);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.46);
+  box-sizing: border-box;
 }
 
 .hero-action-links a {
@@ -1508,11 +1511,13 @@ h1 {
   align-items: center;
   justify-content: center;
   min-height: 34px;
-  padding: 0 13px;
+  padding: 0 clamp(8px, 1.8vw, 13px);
   border-radius: 999px;
   color: rgba(27, 23, 18, 0.76);
-  font-size: 13px;
+  font-size: clamp(11px, 2.8vw, 13px);
   font-weight: 780;
+  white-space: nowrap;
+  flex: 1;
   transition:
     background 0.18s ease,
     color 0.18s ease,
@@ -2118,21 +2123,28 @@ h1 {
 }
 
 .token-key-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  align-items: center;
   gap: 10px;
   margin-top: 16px;
 }
 
 .token-key-row code {
+  flex: 1;
   min-width: 0;
   padding: 13px 14px;
-  overflow: auto;
+  overflow-x: auto;
   border-radius: 16px;
   background: rgba(27, 23, 18, 0.06);
   color: #1b1712;
   font-size: 13px;
   font-weight: 760;
+  white-space: nowrap;
+}
+
+.token-key-row button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .token-meta-grid {
@@ -3466,7 +3478,6 @@ h1 {
   }
 
   .token-query-form,
-  .token-key-row,
   .download-split-layout,
   .update-log-card,
   .release-card {
@@ -3474,7 +3485,6 @@ h1 {
   }
 
   .token-query-form button,
-  .token-key-row button,
   .release-download {
     width: 100%;
   }
@@ -3517,8 +3527,11 @@ h1 {
 
   .hero-actions {
     display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
     width: min(100%, 340px);
     margin-top: 28px;
+    gap: 14px;
   }
 
   .hero-action-main {
@@ -3569,11 +3582,16 @@ h1 {
 
   .mini-player-panel {
     display: none;
-    grid-template-columns: 38px minmax(0, 1fr) 34px;
-    width: min(274px, calc(100vw - 94px));
+    grid-template-columns: 38px minmax(0, 1fr) 34px 32px;
+    width: min(312px, calc(100vw - 74px));
     min-height: 54px;
     border-radius: 22px;
     transform-origin: right center;
+    
+    /* Hardware accelerated layers & opaque fallback to fix Webkit backdrop-filter rendering transparency bug when child vinylSpin rotates */
+    background: rgba(255, 253, 248, 0.94) !important;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
   }
 
   .mini-player.is-expanded .mini-player-panel {
@@ -3581,7 +3599,7 @@ h1 {
   }
 
   .mini-player.is-expanded .mini-next-button {
-    display: none;
+    display: inline-flex;
   }
 
   .mini-player-ball {
@@ -3667,9 +3685,11 @@ h1 {
   }
 
   .mini-player-panel {
-    grid-template-columns: 38px minmax(0, 1fr) 34px;
+    grid-template-columns: 38px minmax(0, 1fr) 34px 32px;
+    width: min(300px, calc(100vw - 64px));
     gap: 7px;
     padding: 7px 8px 7px 7px;
+    background: rgba(255, 253, 248, 0.94) !important;
   }
 
   .contact-line {
@@ -4113,5 +4133,164 @@ html, body, #app {
   /* Freeze large heavily blurred moving/rotating layers to eliminate massive GPU composite fill-rate lag */
   .glow-1, .glow-2, .glow-3 {
     animation: none !important;
+  }
+}
+
+/* --- Cinematic Premium Icon Morphing Portal --- */
+.icon-portal-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fffcf3;
+  overflow: hidden;
+  pointer-events: all;
+  transform-origin: center center;
+}
+
+.portal-logo-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+}
+
+.portal-logo {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border-radius: 26px;
+  box-shadow: 
+    0 20px 48px rgba(27, 23, 18, 0.08),
+    0 8px 16px rgba(27, 23, 18, 0.04);
+  animation: portalHeartbeat 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+  transform-origin: center center;
+}
+
+.portal-logo-halo {
+  position: absolute;
+  inset: -16px;
+  z-index: 1;
+  border-radius: 38px;
+  background: radial-gradient(circle, rgba(248, 183, 15, 0.3) 0%, transparent 70%);
+  animation: portalGlowScale 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+  transform-origin: center center;
+}
+
+.splash-panel {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  text-align: center;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.splash-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.splash-wordmark {
+  height: 24px;
+  width: auto;
+  opacity: 0.9;
+}
+
+.splash-calibration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+}
+
+.splash-phase {
+  font-size: 11px;
+  font-weight: 780;
+  color: #746c61;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  min-height: 16px;
+  animation: splashTextBreathe 1.2s ease-in-out infinite alternate;
+}
+
+.splash-gauge {
+  width: 100%;
+  height: 4px;
+  background: rgba(27, 23, 18, 0.05);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.splash-gauge-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3f3529, #f8b70f);
+  border-radius: 99px;
+  transition: width 0.12s linear;
+  box-shadow: 0 0 8px rgba(248, 183, 15, 0.46);
+}
+
+.splash-percentage {
+  font-size: 10px;
+  font-weight: 860;
+  font-family: ui-monospace, SFMono-Regular, SF Pro Mono, Menlo, Monaco, Consolas, monospace;
+  color: rgba(27, 23, 18, 0.54);
+}
+
+@keyframes splashTextBreathe {
+  0% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 0.95;
+  }
+}
+
+/* --- Vue Portal Transition Animation (Zoom-Out Reveal Portal) --- */
+.portal-fade-leave-active {
+  transition: 
+    opacity 0.85s cubic-bezier(0.76, 0, 0.24, 1), 
+    transform 0.9s cubic-bezier(0.76, 0, 0.24, 1), 
+    filter 0.85s ease;
+  pointer-events: none;
+}
+
+.portal-fade-leave-to {
+  opacity: 0;
+  transform: scale(8.5); /* Icon morphs and bursts outward to open the portal! */
+  filter: blur(24px);
+}
+
+/* --- Keyframe Animations --- */
+@keyframes portalHeartbeat {
+  0% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes portalGlowScale {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 1;
   }
 }

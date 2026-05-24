@@ -7,7 +7,7 @@
 "search_placeholder" = "Search songs, artists...";
 "cancel" = "Cancel";
 "play_now" = "Play All";
-"login_title" = "Login to mono";
+"login_title" = "Login to Mono";
 "scan_qr" = "Scan QR Code";
 "phone_login" = "Phone Login";
 "scan_instruction" = "Please use NCM App to scan";
@@ -39,7 +39,7 @@
 "good_dusk" = "Good Dusk";
 "good_evening" = "Good Evening";
 "good_late_night" = "Good Late Night";
-"default_nickname" = "mono";
+"default_nickname" = "Mono";
 "search_bar_placeholder" = "Search songs, artists, playlists...";
 "new_releases" = "New Releases";
 "quick_daily" = "Daily";
@@ -305,6 +305,7 @@
 "local_action_import_title" = "Import Music";
 "local_action_import_subtitle" = "Supports single files and folders";
 "local_action_remove" = "Remove";
+"local_action_delete_local_song" = "Delete Local Track";
 "local_scan_complete_title" = "Scan Complete";
 "local_import_complete_title" = "Import Complete";
 "local_import_failed_title" = "Import Failed";
@@ -324,6 +325,10 @@
 "local_import_result_imported" = "Imported %d";
 "local_import_result_skipped" = "Skipped %d";
 "local_import_result_failed" = "Failed %d";
+"local_import_result_metadata_matched" = "Matched metadata and artwork for %d tracks";
+"local_import_result_lyrics_prefetched" = "Fetched lyrics for %d tracks";
+"local_playlist_import_added" = "Added %d tracks to \"%@\".";
+"local_playlist_import_no_added" = "No new tracks could be added to \"%@\".";
 "local_scan_notice_media_denied" = "System media library access was not granted, so only app documents and iTunes/Finder shared audio were scanned this time.";
 "local_filter_all" = "All";
 "local_filter_favorites" = "Favorites";
@@ -370,7 +375,7 @@
 "local_library_custom_subtitle" = "%d playlists ready to edit and play";
 "local_library_import_no_local_match" = "The playlist file was parsed, but none of its songs exist in the local library yet. Import the music first and try again.";
 "local_library_import_success" = "Imported \"%@\" and matched %d local tracks.";
-"local_profile_hero_title" = "mono";
+"local_profile_hero_title" = "Mono";
 "local_profile_hero_subtitle" = "%d local tracks are ready, along with your library, downloads, and device settings.";
 "local_profile_shortcuts_title" = "Shortcuts";
 "local_profile_shortcuts_subtitle" = "Jump back into favorites, recent playback, and offline collections.";
@@ -384,7 +389,7 @@
 "settings_default_liquid_glass_tabbar" = "Liquid Glass TabBar";
 "settings_background_audio_policy" = "Background Playback Mode";
 "settings_background_audio_policy_exclusive" = "Exclusive";
-"settings_background_audio_policy_exclusive_desc" = "Prefer mono as the primary player and may interrupt other audio";
+"settings_background_audio_policy_exclusive_desc" = "Prefer Mono as the primary player and may interrupt other audio";
 "settings_background_audio_policy_automatic" = "Automatic";
 "settings_background_audio_policy_automatic_desc" = "Mix with other audio only when another app is already playing";
 "settings_background_audio_policy_always_mix" = "Always Mix";
@@ -438,7 +443,7 @@
 "settings_app_brand_title" = "App Icon";
 "settings_app_brand_desc" = "Switch the Home Screen icon and the in-app logo together";
 "settings_app_brand_device_hint" = "Home Screen icon switching may require a real device; the in-app logo updates immediately.";
-"settings_app_brand_monologue" = "mono";
+"settings_app_brand_monologue" = "Mono";
 "settings_app_brand_monologue_desc" = "Classic ghost mark";
 "settings_app_brand_aurora" = "Aside";
 "settings_app_brand_aurora_desc" = "Headphone waveform mark";
@@ -447,7 +452,7 @@
 "settings_app_brand_paw" = "Default";
 "settings_app_brand_paw_desc" = "Default Paw cat and dog icon";
 "settings_app_brand_paw_mono" = "Paw Mono";
-"settings_app_brand_paw_mono_desc" = "Paw icon with mono wordmark";
+"settings_app_brand_paw_mono_desc" = "Paw icon with Mono wordmark";
 "settings_app_brand_appearance_title" = "Icon Appearance";
 "settings_app_brand_appearance_desc" = "Choose light or dark manually instead of following the system";
 "settings_app_brand_appearance_light" = "Light";
@@ -476,7 +481,7 @@
 "settings_like_choose_playlist_subtitle" = "Show a playlist picker when liking a new song";
 "settings_header_footer_authorized" = "Thanks for your support. Contact the developer if you have feedback.";
 "settings_header_footer_unauthorized" = "Not authorized. Tap the status button on the right to enter a token.";
-"settings_developer_status" = "mono Development & Maintenance";
+"settings_developer_status" = "Mono Development & Maintenance";
 "settings_open_wechat" = "Open WeChat";
 "settings_contact_copied" = "Copied";
 "settings_token_authorized_format" = "Authorized: %@";
@@ -669,7 +674,7 @@
 "debug_level_error" = "Error";
 "debug_level_network" = "Network";
 "debug_level_success" = "Success";
-"debug_export_title" = "mono Debug Log";
+"debug_export_title" = "Mono Debug Log";
 "debug_export_time" = "Export Time";
 "debug_export_count" = "Log Count";
 
@@ -992,12 +997,14 @@
 "meditation_loading" = "Loading";
 "meditation_empty" = "Empty";
 "meditation_load_failed" = "Load Failed";
+"meditation_sati_source" = "Sleep & Relax";
 "meditation_topic_all" = "All";
 "meditation_topic_mindfulness" = "Mindfulness";
 "meditation_topic_focus" = "Focus Training";
 "meditation_topic_light_music" = "Light Music";
 "meditation_topic_sleep" = "Sleep";
 "meditation_topic_breathing" = "Breathing";
+"meditation_topic_relax" = "Relax";
 "meditation_topic_ambient" = "White Noise";
 "meditation_topic_all_subtitle" = "";
 "meditation_topic_mindfulness_subtitle" = "";
@@ -1005,6 +1012,7 @@
 "meditation_topic_light_music_subtitle" = "";
 "meditation_topic_sleep_subtitle" = "";
 "meditation_topic_breathing_subtitle" = "";
+"meditation_topic_relax_subtitle" = "";
 "meditation_topic_ambient_subtitle" = "";
 "meditation_player_exit" = "Exit Meditation";
 "meditation_player_timer" = "Timer";

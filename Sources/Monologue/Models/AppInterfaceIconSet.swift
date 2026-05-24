@@ -78,9 +78,7 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
             return iconSet
         }
 
-        let themeRaw = UserDefaults.standard.string(forKey: "globalThemeId") ?? GlobalThemeId.appDefault.rawValue
-        let theme = GlobalThemeId(rawValue: themeRaw) ?? .appDefault
-        return theme.preferredInterfaceIconSet
+        return GlobalThemeId.persistedOrDefault.preferredInterfaceIconSet
     }
 }
 

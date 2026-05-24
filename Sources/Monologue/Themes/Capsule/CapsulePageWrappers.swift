@@ -1,17 +1,17 @@
 import SwiftUI
 
 private struct CapsuleThemeRoot<Content: View>: View {
-    let content: Content
+    let content: () -> Content
     @ObservedObject private var settings = SettingsManager.shared
 
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
     }
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        content
+        content()
             .tint(CapsuleStyle.accent)
             .themeRenderSceneLayer()
     }

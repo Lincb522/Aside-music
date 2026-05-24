@@ -532,6 +532,10 @@ final class OptimizedCacheManager: ObservableObject {
     func cacheLyrics(songId: Int, lyrics: String, translated: String? = nil) {
         historyRepo.saveLyrics(songId: songId, lyrics: lyrics, translated: translated)
     }
+
+    func removeLyrics(songId: Int) {
+        historyRepo.deleteLyrics(songId: songId)
+    }
     
     // MARK: - 通用对象缓存（兼容旧 API）
     

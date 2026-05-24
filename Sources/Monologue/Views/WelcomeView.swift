@@ -8,39 +8,26 @@ struct WelcomeView: View {
     @Binding var isPresented: Bool
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
 
-    @State private var backgroundOpacity = 0.0
+    @State private var backgroundOpacity = 1.0
     @State private var backgroundScale: CGFloat = 1.018
-    @State private var plateOpacity = 0.0
+    @State private var plateOpacity = 1.0
     @State private var plateScale: CGFloat = 0.82
     @State private var plateOffset: CGFloat = 28
-    @State private var titleOpacity = 0.0
-    @State private var titleOffset: CGFloat = 18
-    @State private var subtitleOpacity = 0.0
-    @State private var subtitleOffset: CGFloat = 26
-    @State private var accentOpacity = 0.0
-    @State private var accentScaleX: CGFloat = 0.28
-    @State private var footerOpacity = 0.0
+    @State private var titleOpacity = 1.0
+    @State private var titleOffset: CGFloat = 0
+    @State private var subtitleOpacity = 1.0
+    @State private var subtitleOffset: CGFloat = 0
+    @State private var accentOpacity = 1.0
+    @State private var accentScaleX: CGFloat = 1
+    @State private var footerOpacity = 1.0
     @State private var sceneOffset: CGFloat = 0
     @State private var sceneScale: CGFloat = 1
     @State private var isDismissing = false
     @State private var animationTask: Task<Void, Never>?
     @State private var preloadTask: Task<Void, Never>?
 
-    // Paw (PetWhite) specific animation states
-    @State private var pawPlateRotation: Double = 0.0
-    @State private var pawMascotOffset: CGFloat = 0.0
-    @State private var pawMascotScale: CGFloat = 1.0
-    @State private var pawBowTieRotation: Double = 0.0
-    @State private var pawBowTieScale: CGFloat = 1.0
-    @State private var pawDotScale: CGFloat = 1.0
-    @State private var pawDotOffset: CGFloat = 0.0
-    @State private var pawCapsuleScaleY: CGFloat = 1.0
-
     private enum Timing {
         static let preloadStartDelay: TimeInterval = 0.08
-        static let titleDelay: TimeInterval = 0.14
-        static let subtitleDelay: TimeInterval = 0.26
-        static let footerDelay: TimeInterval = 0.42
         static let dismissDelay: TimeInterval = 2.05
         static let initialContentPollInterval: TimeInterval = 0.12
         static let initialContentRetryInterval: TimeInterval = 2.0
@@ -60,10 +47,6 @@ struct WelcomeView: View {
 
     private var heroSpring: Animation {
         .spring(response: reduceMotion ? 0.24 : 0.54, dampingFraction: 0.82)
-    }
-
-    private var secondarySpring: Animation {
-        .spring(response: reduceMotion ? 0.2 : 0.36, dampingFraction: 0.88)
     }
 
     private var fadeAnimation: Animation {
@@ -148,14 +131,7 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var welcomeDecor: some View {
-        if MangaStyle.isActive {
-            MangaWelcomeDecor()
-                .scaleEffect(plateScale)
-        } else if PetWhiteStyle.isActive {
-            PetWhiteWelcomeDecor()
-                .opacity(accentOpacity)
-                .scaleEffect(plateScale)
-        } else if PureWhiteStyle.isActive {
+        if MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive {
             EmptyView()
         } else if NeumorphicStyle.isActive {
             NeumorphicWelcomeDecor()
@@ -279,36 +255,34 @@ struct WelcomeView: View {
     }
 
     private var mangaHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 26 : 20) {
+        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
             ZStack {
-                welcomeLogoImage(size: logoSize * 1.42)
-                    .scaleEffect(plateScale > 0.96 ? 1 : 0.96)
+                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                    .fill(MangaStyle.strokeInk.opacity(0.10))
+                    .frame(width: plateSize * 0.98, height: plateSize * 0.98)
+                    .offset(x: 7, y: 8)
 
-                MangaWelcomeFloatingMark(kind: .star, tint: MangaStyle.labelYellow, size: DeviceLayout.isPad ? 38 : 32)
-                    .offset(x: -plateSize * 0.47, y: -plateSize * 0.36)
-                    .rotationEffect(.degrees(-12))
-                    .scaleEffect(accentScaleX)
-                    .opacity(accentOpacity)
+                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                    .fill(MangaStyle.bubbleWhite.opacity(colorScheme == .dark ? 0.86 : 0.94))
+                    .frame(width: plateSize * 0.98, height: plateSize * 0.98)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                            .stroke(MangaStyle.strokeInk.opacity(0.84), lineWidth: 1.4)
+                    )
+                    .shadow(color: MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.18 : 0.08), radius: 16, x: 0, y: 10)
 
-                MangaWelcomeFloatingMark(kind: .heart, tint: MangaStyle.accentPink, size: DeviceLayout.isPad ? 35 : 29)
-                    .offset(x: plateSize * 0.45, y: -plateSize * 0.22)
-                    .rotationEffect(.degrees(10))
-                    .scaleEffect(accentScaleX)
-                    .opacity(accentOpacity)
+                welcomeLogoImage(size: logoSize * 0.86)
 
-                MangaWelcomeFloatingMark(kind: .heart, tint: MangaStyle.bubblePink, size: DeviceLayout.isPad ? 25 : 21)
-                    .offset(x: -plateSize * 0.38, y: plateSize * 0.32)
-                    .rotationEffect(.degrees(13))
-                    .scaleEffect(accentScaleX)
-                    .opacity(accentOpacity)
-
-                MangaWelcomeFloatingMark(kind: .star, tint: MangaStyle.decoBlue, size: DeviceLayout.isPad ? 27 : 23)
-                    .offset(x: plateSize * 0.42, y: plateSize * 0.35)
-                    .rotationEffect(.degrees(15))
-                    .scaleEffect(accentScaleX)
-                    .opacity(accentOpacity)
+                HStack(spacing: 6) {
+                    Capsule().fill(MangaStyle.accentPink.opacity(0.86)).frame(width: 30, height: 5)
+                    Capsule().fill(MangaStyle.labelYellow.opacity(0.78)).frame(width: 18, height: 5)
+                    Capsule().fill(MangaStyle.decoBlue.opacity(0.62)).frame(width: 12, height: 5)
+                }
+                .offset(y: plateSize * 0.43)
+                .scaleEffect(x: accentScaleX, y: 1)
+                .opacity(accentOpacity)
             }
-            .frame(width: plateSize * 1.22, height: plateSize * 1.16)
+            .frame(width: plateSize * 1.12, height: plateSize * 1.12)
             .scaleEffect(plateScale)
             .opacity(plateOpacity)
             .offset(y: plateOffset)
@@ -321,44 +295,26 @@ struct WelcomeView: View {
         VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
             ZStack {
                 RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                    .fill(PetWhiteStyle.surfaceRaised.opacity(settings.petWhiteUsesIllustratedBackground ? 0.76 : 0.94))
-                    .frame(width: plateSize * 1.38, height: plateSize * 0.92)
+                    .fill(PetWhiteStyle.surfaceRaised.opacity(settings.petWhiteUsesIllustratedBackground ? 0.80 : 0.96))
+                    .frame(width: plateSize * 0.98, height: plateSize * 0.98)
                     .overlay(
                         RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke.opacity(0.88), lineWidth: 1.5)
+                            .stroke(PetWhiteStyle.stroke.opacity(0.84), lineWidth: 1.3)
                     )
-                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 18, x: 0, y: 12)
-                    .rotationEffect(.degrees(pawPlateRotation))
+                    .shadow(color: PetWhiteStyle.stroke.opacity(0.09), radius: 16, x: 0, y: 10)
 
-                PetWhitePetPetHeroIcon(width: logoSize * (DeviceLayout.isPad ? 2.0 : 1.92))
-                    .offset(y: pawMascotOffset)
-                    .scaleEffect(pawMascotScale)
-                    .scaleEffect(plateScale > 0.96 ? 1 : 0.92)
-
-                PetWhiteFloatingBowTie()
-                    .offset(x: -plateSize * 0.44, y: -plateSize * 0.34)
-                    .rotationEffect(.degrees(pawBowTieRotation))
-                    .scaleEffect(pawBowTieScale)
-                    .scaleEffect(accentScaleX)
-                    .opacity(accentOpacity)
-
-                PetWhiteFloatingMascotDot(filled: true, tint: PetWhiteStyle.butter, size: 30)
-                    .offset(x: plateSize * 0.47, y: plateSize * 0.28)
-                    .offset(y: pawDotOffset)
-                    .scaleEffect(pawDotScale)
-                    .scaleEffect(accentScaleX)
-                    .opacity(accentOpacity)
+                welcomeLogoImage(size: logoSize * 0.86)
 
                 HStack(spacing: 6) {
                     Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 28, height: 6)
                     Capsule().fill(PetWhiteStyle.mint).frame(width: 18, height: 6)
                     Capsule().fill(PetWhiteStyle.blush.opacity(0.78)).frame(width: 12, height: 6)
                 }
-                .offset(y: plateSize * 0.52)
-                .scaleEffect(x: accentScaleX, y: pawCapsuleScaleY)
+                .offset(y: plateSize * 0.43)
+                .scaleEffect(x: accentScaleX, y: 1)
                 .opacity(accentOpacity)
             }
-            .frame(width: plateSize * 1.55, height: plateSize * 1.22)
+            .frame(width: plateSize * 1.12, height: plateSize * 1.12)
             .scaleEffect(plateScale)
             .opacity(plateOpacity)
             .offset(y: plateOffset)
@@ -576,11 +532,11 @@ struct WelcomeView: View {
                 .offset(y: subtitleOffset)
 
             HStack(spacing: 10) {
-                MangaWelcomeFloatingMark(kind: .heart, tint: MangaStyle.accentPink, size: 16)
-                MangaWelcomeFloatingMark(kind: .star, tint: MangaStyle.labelYellow, size: 18)
-                MangaWelcomeFloatingMark(kind: .heart, tint: MangaStyle.bubblePink, size: 14)
+                Capsule().fill(MangaStyle.accentPink.opacity(0.86)).frame(width: 34, height: 5)
+                Capsule().fill(MangaStyle.labelYellow.opacity(0.76)).frame(width: 20, height: 5)
+                Capsule().fill(MangaStyle.decoBlue.opacity(0.58)).frame(width: 12, height: 5)
             }
-            .scaleEffect(accentScaleX)
+            .scaleEffect(x: accentScaleX, y: 1)
             .opacity(accentOpacity)
             .padding(.top, 2)
         }
@@ -602,10 +558,9 @@ struct WelcomeView: View {
                 .offset(y: subtitleOffset)
 
             HStack(spacing: 8) {
-                PetWhiteMascotMark(kind: .cat, size: 18)
                 Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 36, height: 6)
                 Capsule().fill(PetWhiteStyle.mint).frame(width: 22, height: 6)
-                PetWhiteMascotMark(kind: .dog, size: 18)
+                Capsule().fill(PetWhiteStyle.sky.opacity(0.72)).frame(width: 14, height: 6)
             }
             .scaleEffect(x: accentScaleX, y: 1)
             .opacity(accentOpacity)
@@ -799,84 +754,30 @@ struct WelcomeView: View {
         animationTask?.cancel()
         isDismissing = false
 
-        backgroundOpacity = 0
+        backgroundOpacity = 1
         backgroundScale = (reduceMotion || PetWhiteStyle.isActive) ? 1 : 1.018
-        plateOpacity = 0
+        plateOpacity = 1
         plateScale = MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82)))
         plateOffset = MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28)))
-        titleOpacity = 0
-        titleOffset = 18
-        subtitleOpacity = 0
-        subtitleOffset = 26
-        accentOpacity = 0
-        accentScaleX = 0.28
-        footerOpacity = 0
+        titleOpacity = 1
+        titleOffset = 0
+        subtitleOpacity = 1
+        subtitleOffset = 0
+        accentOpacity = 1
+        accentScaleX = 1
+        footerOpacity = 1
         sceneOffset = 0
         sceneScale = 1
-
-        // Initialize Paw specific animation states
-        if PetWhiteStyle.isActive {
-            pawPlateRotation = -7.0
-            pawMascotOffset = 65.0
-            pawMascotScale = 0.75
-            pawBowTieRotation = -50.0
-            pawBowTieScale = 0.1
-            pawDotScale = 0.1
-            pawDotOffset = 20.0
-            pawCapsuleScaleY = 0.1
-        } else {
-            pawPlateRotation = 0
-            pawMascotOffset = 0
-            pawMascotScale = 1.0
-            pawBowTieRotation = 0
-            pawBowTieScale = 1.0
-            pawDotScale = 1.0
-            pawDotOffset = 0
-            pawCapsuleScaleY = 1.0
-        }
 
         withAnimation(fadeAnimation) {
             backgroundOpacity = 1
             backgroundScale = 1
         }
 
-        if PetWhiteStyle.isActive {
-            // Playful bouncing entrance for the Paw background plate
-            withAnimation(.spring(response: 0.54, dampingFraction: 0.64)) {
-                plateOpacity = 1
-                plateScale = 1
-                plateOffset = 0
-                pawPlateRotation = 0
-            }
-
-            // Mascot jumps up with high-energy bouncing action
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.56).delay(0.12)) {
-                pawMascotOffset = 0
-                pawMascotScale = 1.0
-            }
-
-            // Bowtie spins in playfully
-            withAnimation(.spring(response: 0.44, dampingFraction: 0.58).delay(0.24)) {
-                pawBowTieScale = 1.0
-                pawBowTieRotation = 0
-            }
-
-            // Dot pops in
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.58).delay(0.32)) {
-                pawDotScale = 1.0
-                pawDotOffset = 0
-            }
-
-            // Bottom colored capsules scale in
-            withAnimation(.spring(response: 0.46, dampingFraction: 0.62).delay(0.40)) {
-                pawCapsuleScaleY = 1.0
-            }
-        } else {
-            withAnimation(heroSpring) {
-                plateOpacity = 1
-                plateScale = 1
-                plateOffset = 0
-            }
+        withAnimation(heroSpring) {
+            plateOpacity = 1
+            plateScale = 1
+            plateOffset = 0
         }
 
         let isLoggedIn = isAppLoggedIn
@@ -887,32 +788,7 @@ struct WelcomeView: View {
 
         animationTask = Task {
             do {
-                try await sleep(seconds: Timing.titleDelay)
-                await MainActor.run {
-                    withAnimation(secondarySpring) {
-                        titleOpacity = 1
-                        titleOffset = 0
-                    }
-                }
-
-                try await sleep(seconds: Timing.subtitleDelay - Timing.titleDelay)
-                await MainActor.run {
-                    withAnimation(secondarySpring) {
-                        subtitleOpacity = 1
-                        subtitleOffset = 0
-                        accentOpacity = 1
-                        accentScaleX = 1
-                    }
-                }
-
-                try await sleep(seconds: Timing.footerDelay - Timing.subtitleDelay)
-                await MainActor.run {
-                    withAnimation(fadeAnimation) {
-                        footerOpacity = 1
-                    }
-                }
-
-                try await sleep(seconds: Timing.dismissDelay - Timing.footerDelay)
+                try await sleep(seconds: Timing.dismissDelay)
                 await waitForInitialHomeContentIfNeeded()
                 await MainActor.run {
                     dismissWelcome()
@@ -926,6 +802,7 @@ struct WelcomeView: View {
     private func loadDataInBackground(isLoggedIn: Bool) async {
         await MainActor.run {
             _ = HomeViewModel.shared
+            _ = PodcastViewModel.shared
         }
 
         await OptimizedCacheManager.shared.quickPreload()
@@ -943,12 +820,21 @@ struct WelcomeView: View {
             }
         }
 
-        let needsRefresh = await MainActor.run {
-            GlobalRefreshManager.shared.checkDailyRefreshNeeded()
+        let refreshPlan = await MainActor.run {
+            (
+                home: GlobalRefreshManager.shared.checkDailyRefreshNeeded(for: .home),
+                podcast: GlobalRefreshManager.shared.checkDailyRefreshNeeded(for: .podcast)
+            )
         }
         await MainActor.run {
-            HomeViewModel.shared.fetchData(forceDaily: needsRefresh || !HomeViewModel.shared.hasDisplayableHomeContent)
-            GlobalRefreshManager.shared.refreshHomePublisher.send(needsRefresh)
+            let shouldLoadHome = refreshPlan.home || !HomeViewModel.shared.hasDisplayableHomeContent
+            if shouldLoadHome {
+                HomeViewModel.shared.fetchData(forceDaily: refreshPlan.home || !HomeViewModel.shared.hasDisplayableHomeContent)
+            }
+            PodcastViewModel.shared.preloadIfNeeded(
+                forceDaily: refreshPlan.podcast,
+                reason: "welcome preload"
+            )
             GlobalRefreshManager.shared.refreshLibraryPublisher.send(false)
             GlobalRefreshManager.shared.refreshProfilePublisher.send(false)
         }
@@ -1005,29 +891,6 @@ struct WelcomeView: View {
     private func sleep(seconds: TimeInterval) async throws {
         let nanoseconds = UInt64(seconds * 1_000_000_000)
         try await Task.sleep(nanoseconds: nanoseconds)
-    }
-}
-
-private struct PetWhiteWelcomeDecor: View {
-    var body: some View {
-        ZStack {
-            PetWhiteFloatingMascotDot(filled: true, tint: PetWhiteStyle.butter.opacity(0.92), size: DeviceLayout.isPad ? 42 : 34)
-                .offset(x: -DeviceLayout.screenWidth * 0.34, y: -ScreenInfo.mainScreenSize.height * 0.24)
-                .rotationEffect(.degrees(-8))
-
-            PetWhiteFloatingMascotDot(filled: false, tint: PetWhiteStyle.mint.opacity(0.92), size: DeviceLayout.isPad ? 38 : 30)
-                .offset(x: DeviceLayout.screenWidth * 0.34, y: -ScreenInfo.mainScreenSize.height * 0.14)
-                .rotationEffect(.degrees(10))
-
-            PetWhiteFloatingBowTie()
-                .offset(x: DeviceLayout.screenWidth * 0.31, y: ScreenInfo.mainScreenSize.height * 0.23)
-                .rotationEffect(.degrees(12))
-
-            PetWhitePawPrint(size: DeviceLayout.isPad ? 40 : 32, tint: PetWhiteStyle.stroke.opacity(0.10))
-                .offset(x: -DeviceLayout.screenWidth * 0.31, y: ScreenInfo.mainScreenSize.height * 0.18)
-                .rotationEffect(.degrees(-16))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1413,59 +1276,5 @@ private struct MangaWelcomeBackdrop: View {
             endPoint: .bottomTrailing
         )
         .ignoresSafeArea()
-    }
-}
-
-private struct MangaWelcomeDecor: View {
-    var body: some View {
-        ZStack {
-            MangaWelcomeFloatingMark(kind: .heart, tint: MangaStyle.bubblePink.opacity(0.78), size: 34, strokeOpacity: 0.18)
-                .rotationEffect(.degrees(-14))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.leading, DeviceLayout.isPad ? 108 : 34)
-                .padding(.top, DeviceLayout.isPad ? 150 : 116)
-
-            MangaWelcomeFloatingMark(kind: .star, tint: MangaStyle.labelYellow.opacity(0.86), size: 30, strokeOpacity: 0.2)
-                .rotationEffect(.degrees(16))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(.trailing, DeviceLayout.isPad ? 118 : 42)
-                .padding(.top, DeviceLayout.isPad ? 184 : 146)
-
-            MangaWelcomeFloatingMark(kind: .heart, tint: MangaStyle.accentPink.opacity(0.64), size: 24, strokeOpacity: 0.18)
-                .rotationEffect(.degrees(10))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, DeviceLayout.isPad ? 120 : 44)
-                .padding(.bottom, DeviceLayout.isPad ? 164 : 126)
-        }
-        .ignoresSafeArea()
-    }
-}
-
-private struct MangaWelcomeFloatingMark: View {
-    var kind: MangaSectionMarkKind
-    var tint: Color
-    var size: CGFloat
-    var strokeOpacity: Double = 1
-
-    var body: some View {
-        Group {
-            if kind == .heart {
-                MangaRoundedHeartShape()
-                    .fill(tint)
-            } else {
-                MangaRoundedStarShape()
-                    .fill(tint)
-            }
-        }
-        .frame(width: size, height: size)
-        .overlay {
-            if kind == .heart {
-                MangaRoundedHeartShape()
-                    .stroke(MangaStyle.strokeInk.opacity(strokeOpacity), lineWidth: max(1, size * 0.055))
-            } else {
-                MangaRoundedStarShape()
-                    .stroke(MangaStyle.strokeInk.opacity(strokeOpacity), lineWidth: max(1, size * 0.055))
-            }
-        }
     }
 }

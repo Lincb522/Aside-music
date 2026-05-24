@@ -76,6 +76,7 @@ private enum SettingsNavigationDestination: Hashable {
     case about
     case debugLog
 
+    @MainActor
     @ViewBuilder
     var view: some View {
         switch self {

@@ -66,7 +66,7 @@ extension NCMClient {
     /// 获取用户关注列表
     /// - Parameters:
     ///   - uid: 用户 ID
-    ///   - limit: 每页数量，默认 30
+    ///   - limit: 每页数量，默认 20
     ///   - offset: 偏移量，默认 0
     /// - Returns: API 响应，包含关注用户列表
     public func userFollows(
@@ -95,7 +95,7 @@ extension NCMClient {
     /// - Returns: API 响应，包含粉丝用户列表
     public func userFolloweds(
         uid: Int,
-        limit: Int = 30,
+        limit: Int = 20,
         offset: Int = 0,
         lasttime: Int = -1
     ) async throws -> APIResponse {

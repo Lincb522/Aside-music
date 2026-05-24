@@ -298,11 +298,12 @@ final class GameModeManager: ObservableObject {
     /// - 空闲（没有 currentSong，或暂停中且无当前歌曲）→ 自动开始播
     private func switchToAutoPlaylistIfAvailable() {
         let targetId = settings.gameModeAutoPlaylistLocalId
-        guard let playlist = LocalPlaylistManager.shared.playlists.first(where: { $0.id == targetId }) else {
+        let playlistManager = LocalPlaylistManager.shared
+        guard let playlist = playlistManager.playlists.first(where: { $0.id == targetId }) else {
             AppLogger.warning("游戏模式指定歌单不存在: \(targetId)")
             return
         }
-        let songs = playlist.songs
+        let songs = playlistManager.songs(for: playlist)
         guard let first = songs.first else {
             AppLogger.warning("游戏模式指定歌单为空: \(playlist.name)")
             return

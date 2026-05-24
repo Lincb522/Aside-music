@@ -404,9 +404,15 @@ extension NCMClient {
     }
 
     /// 搜索播客
-    public func voicelistSearch(podcastName: String = "", limit: Int = 200, offset: Int = 0) async throws -> APIResponse {
-        let data: [String: Any] = ["fee": "-1", "limit": limit, "offset": offset, "podcastName": podcastName]
-        return try await request("/api/voice/workbench/voicelist/search", data: data)
+    public func voicelistSearch(keyword: String = "", limit: Int = 10, offset: Int = 30) async throws -> APIResponse {
+        let data: [String: Any] = [
+            "keyword": keyword,
+            "scene": "normal",
+            "limit": limit,
+            "offset": offset,
+            "e_r": true,
+        ]
+        return try await request("/api/search/voicelist/get", data: data)
     }
 
     /// 播客节目排序

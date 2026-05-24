@@ -52,7 +52,7 @@ class APIService: @unchecked Sendable {
     }
 
     /// 是否配置了服务器 VIP Cookie
-    var hasVIPCookie: Bool { ncmVIP != nil }
+    var hasVIPCookie: Bool { ncmVIP != nil && vipCookieHeader != nil }
     
     private let cookieKey = "monologue_music_cookie"
     private let userIdKey = "monologue_music_uid"
@@ -173,6 +173,18 @@ class APIService: @unchecked Sendable {
         return pairs.map { "\($0.0)=\($0.1)" }.joined(separator: "; ")
     }
 
+    private static func normalizedCookieHeader(_ raw: String?) -> String? {
+        guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        let normalized = normalizeCookieHeader(raw)
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    private var vipCookieHeader: String? {
+        Self.normalizedCookieHeader(SecureConfig.vipCookie)
+    }
+
     var isLoggedIn: Bool {
         return currentCookie != nil && currentUserId != nil
     }
@@ -209,7 +221,7 @@ class APIService: @unchecked Sendable {
         )
         ncm.apiToken = SecureConfig.apiToken
         
-        if let vipCookie = SecureConfig.vipCookie {
+        if let vipCookie = Self.normalizedCookieHeader(SecureConfig.vipCookie) {
             self.ncmVIP = NCMClient(cookie: vipCookie, serverUrl: serverUrl)
             ncmVIP?.apiToken = SecureConfig.apiToken
             #if DEBUG
@@ -404,6 +416,9 @@ class APIService: @unchecked Sendable {
                     #endif
                 }
             } catch {
+                await MainActor.run {
+                    self.isCurrentUserVIP = false
+                }
                 #if DEBUG
                 print("[APIService] VIP 状态检测失败: \(error)")
                 #endif
@@ -413,33 +428,48 @@ class APIService: @unchecked Sendable {
 
     // MARK: - 登出
 
+    func clearLocalLoginState(clearCache: Bool = true) {
+        let wasLoggedIn = currentCookie != nil
+            || currentUserId != nil
+            || UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
+        let hadUserId = currentUserId != nil
+
+        KeychainHelper.delete(key: "monologue_music_cookie")
+        KeychainHelper.delete(key: "monologue_music_uid")
+        UserDefaults.standard.set(false, forKey: AppConfig.StorageKeys.isLoggedIn)
+
+        isCurrentUserVIP = false
+        ncm.clearCookies()
+        currentUserId = nil
+
+        if wasLoggedIn, !hadUserId {
+            NotificationCenter.default.post(name: .didLogout, object: nil)
+        }
+
+        if clearCache {
+            Task { @MainActor in
+                OptimizedCacheManager.shared.clearAll()
+                LikeManager.shared.refreshLikes()
+            }
+        }
+    }
+
     func logout() -> AnyPublisher<SimpleResponse, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.logout()
+        let serverUrl = ncm.serverUrl ?? SecureConfig.apiBaseURL
+        let cookieSnapshot = currentCookie
+        let tokenSnapshot = SecureConfig.apiToken
+        let logoutClient = NCMClient(cookie: cookieSnapshot, serverUrl: serverUrl)
+        logoutClient.apiToken = tokenSnapshot
+
+        clearLocalLoginState()
+
+        return logoutClient.publisher { [logoutClient] in
+            let response = try await logoutClient.logout()
             return SimpleResponse(
                 code: response.body["code"] as? Int ?? 200,
                 message: nil
             )
         }
-        .handleEvents(receiveOutput: { [weak self] _ in
-            // 清除 Keychain 中的凭证
-            KeychainHelper.delete(key: "monologue_music_cookie")
-            KeychainHelper.delete(key: "monologue_music_uid")
-            UserDefaults.standard.set(false, forKey: AppConfig.StorageKeys.isLoggedIn)
-            
-            // 重置 VIP 状态（登出后 contentClient 自动回退到 ncmVIP）
-            self?.isCurrentUserVIP = false
-            
-            // 直接设置内部状态，避免通过 didSet 重复发送通知
-            // currentCookie 的 setter 会触发 currentUserId = nil，
-            // currentUserId 的 didSet 会发送 .didLogout 通知
-            self?.currentCookie = nil
-            // currentUserId 此时已经被 currentCookie setter 设为 nil，无需再设置
-            
-            Task { @MainActor in
-                OptimizedCacheManager.shared.clearAll()
-            }
-        })
         .eraseToAnyPublisher()
     }
 
@@ -916,16 +946,16 @@ class APIService: @unchecked Sendable {
         ncm.publisher { [ncm] in
             var allDicts: [[String: Any]] = []
             
-            if let serverUrl = ncm.serverUrl {
-                async let newBannersReq = try? Self.postToBackend(serverUrl: serverUrl, route: "/banner", params: ["type": 2])
-                async let oldBannersReq = try? Self.postToBackend(serverUrl: serverUrl, route: "/banner/backup", params: ["type": 2])
+            if ncm.serverUrl != nil {
+                async let newBannersReq = try? ncm.banner(type: .iphone)
+                async let oldBannersReq = try? ncm.bannerBackup(type: .iphone)
                 
                 let (newBody, oldBody) = await (newBannersReq, oldBannersReq)
                 
-                if let newBody = newBody, let arr1 = newBody["banners"] as? [[String: Any]] {
+                if let newBody = newBody?.body, let arr1 = newBody["banners"] as? [[String: Any]] {
                     allDicts.append(contentsOf: arr1)
                 }
-                if let oldBody = oldBody, let arr2 = oldBody["banners"] as? [[String: Any]] {
+                if let oldBody = oldBody?.body, let arr2 = oldBody["banners"] as? [[String: Any]] {
                     allDicts.append(contentsOf: arr2)
                 }
             } else {
@@ -1011,6 +1041,34 @@ class APIService: @unchecked Sendable {
 
     // MARK: - Song URL & Detail
 
+    private func contentClientCandidates() -> [NCMClient] {
+        var clients: [NCMClient] = []
+
+        func appendUnique(_ client: NCMClient) {
+            guard !clients.contains(where: { $0 === client }) else { return }
+            clients.append(client)
+        }
+
+        // 播放 URL / 音质查询属于内容解锁链路。
+        // 只要配置了内置 VIP Cookie，就优先使用它，避免用户账号 VIP 状态误判时被低音质结果截断。
+        if let ncmVIP {
+            appendUnique(ncmVIP)
+        }
+        appendUnique(ncm)
+
+        return clients
+    }
+
+    private func contentClientLabel(_ client: NCMClient) -> String {
+        if let vipClient = ncmVIP, client === vipClient {
+            return "vip-cookie"
+        }
+        if client === ncm {
+            return "user-cookie"
+        }
+        return "unknown-cookie"
+    }
+
     /// 播放错误类型
     enum PlaybackError: Error {
         case unavailable      // 无版权
@@ -1065,80 +1123,120 @@ class APIService: @unchecked Sendable {
             if await MainActor.run(body: { OnlineAccessManager.shared.lastTokenStatus }) == .missing {
                 throw PlaybackError.tokenRequired
             }
-            let client = self.contentClient
-
             let preferredQuality = level.flatMap(SoundQuality.init(rawValue:))
             let prefetchedQuality = prefetchedLevel.flatMap(SoundQuality.init(rawValue:))
-            let availableInfos: [NeteaseSongQualityInfo]?
+            let clients = self.contentClientCandidates()
+            var lastError: Error?
 
-            do {
-                let infos = try await self.queryNeteaseQualities(id: id, client: client)
-                availableInfos = infos
-                if !infos.isEmpty {
-                    AppLogger.info("[Netease] 可用音质: \(infos.map(\.quality.displayName).joined(separator: " > "))")
-                }
-            } catch {
-                availableInfos = nil
-                AppLogger.warning("[Netease] 音质查询失败，按回退链盲试: \(error.localizedDescription)")
-            }
-
-            let candidates = self.buildNeteasePlaybackCandidates(
-                preferred: preferredQuality,
-                prefetched: prefetchedQuality,
-                availableInfos: availableInfos
-            )
-
-            // 快速路径：availableInfos 已知真实可用档位时，直接用第一个（"最高可用"）
-            // 成功即返回，节省串行重试的网络延迟
-            if availableInfos != nil, let best = candidates.first {
-                AppLogger.info("[Netease] 使用最高可用音质: \(best.displayName)")
+            for (index, client) in clients.enumerated() {
+                let clientLabel = self.contentClientLabel(client)
                 do {
-                    let result = try await self.tryNeteaseLevel(client: client, id: id, level: best.rawValue, isDownload: isDownload)
-                    AppLogger.success("[Netease] \(best.displayName) 获取成功（快速路径）")
-                    return result
+                    return try await self.resolveNeteaseSongUrl(
+                        id: id,
+                        client: client,
+                        clientLabel: clientLabel,
+                        preferredQuality: preferredQuality,
+                        prefetchedQuality: prefetchedQuality,
+                        isDownload: isDownload
+                    )
                 } catch PlaybackError.tokenRequired {
                     throw PlaybackError.tokenRequired
+                } catch PlaybackError.tokenExpired {
+                    throw PlaybackError.tokenExpired
                 } catch {
-                    AppLogger.warning("[Netease] 最高可用档 \(best.displayName) 失败，回退到候选链: \(error.localizedDescription)")
-                }
-                // 快速路径失败则走剩余候选链
-                for quality in candidates.dropFirst() {
-                    AppLogger.info("[Netease] 降级尝试: \(quality.displayName)")
-                    do {
-                        let result = try await self.tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
-                        AppLogger.success("[Netease] \(quality.displayName) 获取成功")
-                        return result
-                    } catch PlaybackError.tokenRequired {
-                        throw PlaybackError.tokenRequired
-                    } catch {
-                        AppLogger.debug("[Netease] \(quality.displayName) 失败，继续降级: \(error.localizedDescription)")
+                    lastError = error
+                    if index < clients.count - 1 {
+                        AppLogger.warning("[Netease] \(clientLabel) 播放 URL 获取失败，切换 Cookie 兜底: \(error.localizedDescription)")
+                    } else {
+                        AppLogger.warning("[Netease] \(clientLabel) 播放 URL 获取失败，无更多 Cookie 可兜底: \(error.localizedDescription)")
                     }
                 }
-                throw PlaybackError.unavailable
             }
 
-            // 兜底：availableInfos 查询失败时走盲试候选链
-            if candidates.isEmpty {
-                let fallbackQuality = preferredQuality ?? prefetchedQuality ?? .exhigh
-                AppLogger.warning("[Netease] 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
-                return try await self.tryNeteaseLevel(client: client, id: id, level: fallbackQuality.rawValue, isDownload: isDownload)
+            if let lastError {
+                throw lastError
             }
+            throw PlaybackError.unavailable
+        }
+    }
 
-            for quality in candidates {
-                AppLogger.info("[Netease] 盲试: \(quality.displayName)")
+    private func resolveNeteaseSongUrl(
+        id: Int,
+        client: NCMClient,
+        clientLabel: String,
+        preferredQuality: SoundQuality?,
+        prefetchedQuality: SoundQuality?,
+        isDownload: Bool
+    ) async throws -> SongUrlResult {
+        let availableInfos: [NeteaseSongQualityInfo]?
+
+        do {
+            let infos = try await queryNeteaseQualities(id: id, client: client)
+            availableInfos = infos
+            if !infos.isEmpty {
+                AppLogger.info("[Netease] \(clientLabel) 可用音质: \(infos.map(\.quality.displayName).joined(separator: " > "))")
+            }
+        } catch {
+            availableInfos = nil
+            AppLogger.warning("[Netease] \(clientLabel) 音质查询失败，按回退链盲试: \(error.localizedDescription)")
+        }
+
+        let candidates = buildNeteasePlaybackCandidates(
+            preferred: preferredQuality,
+            prefetched: prefetchedQuality,
+            availableInfos: availableInfos
+        )
+
+        // 快速路径：availableInfos 已知真实可用档位时，直接用第一个（"最高可用"）
+        // 成功即返回，节省串行重试的网络延迟
+        if availableInfos != nil, let best = candidates.first {
+            AppLogger.info("[Netease] \(clientLabel) 使用最高可用音质: \(best.displayName)")
+            do {
+                let result = try await tryNeteaseLevel(client: client, id: id, level: best.rawValue, isDownload: isDownload)
+                AppLogger.success("[Netease] \(clientLabel) \(best.displayName) 获取成功（快速路径）")
+                return result
+            } catch PlaybackError.tokenRequired {
+                throw PlaybackError.tokenRequired
+            } catch {
+                AppLogger.warning("[Netease] \(clientLabel) 最高可用档 \(best.displayName) 失败，回退到候选链: \(error.localizedDescription)")
+            }
+            // 快速路径失败则走剩余候选链
+            for quality in candidates.dropFirst() {
+                AppLogger.info("[Netease] \(clientLabel) 降级尝试: \(quality.displayName)")
                 do {
-                    let result = try await self.tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
-                    AppLogger.success("[Netease] \(quality.displayName) 获取成功（盲试）")
+                    let result = try await tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
+                    AppLogger.success("[Netease] \(clientLabel) \(quality.displayName) 获取成功")
                     return result
                 } catch PlaybackError.tokenRequired {
                     throw PlaybackError.tokenRequired
                 } catch {
-                    AppLogger.debug("[Netease] \(quality.displayName) 失败，继续降级: \(error.localizedDescription)")
+                    AppLogger.debug("[Netease] \(clientLabel) \(quality.displayName) 失败，继续降级: \(error.localizedDescription)")
                 }
             }
-
             throw PlaybackError.unavailable
         }
+
+        // 兜底：availableInfos 查询失败时走盲试候选链
+        if candidates.isEmpty {
+            let fallbackQuality = preferredQuality ?? prefetchedQuality ?? .exhigh
+            AppLogger.warning("[Netease] \(clientLabel) 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
+            return try await tryNeteaseLevel(client: client, id: id, level: fallbackQuality.rawValue, isDownload: isDownload)
+        }
+
+        for quality in candidates {
+            AppLogger.info("[Netease] \(clientLabel) 盲试: \(quality.displayName)")
+            do {
+                let result = try await tryNeteaseLevel(client: client, id: id, level: quality.rawValue, isDownload: isDownload)
+                AppLogger.success("[Netease] \(clientLabel) \(quality.displayName) 获取成功（盲试）")
+                return result
+            } catch PlaybackError.tokenRequired {
+                throw PlaybackError.tokenRequired
+            } catch {
+                AppLogger.debug("[Netease] \(clientLabel) \(quality.displayName) 失败，继续降级: \(error.localizedDescription)")
+            }
+        }
+
+        throw PlaybackError.unavailable
     }
     
     /// 尝试用指定级别获取ncm播放 URL
@@ -1181,18 +1279,29 @@ class APIService: @unchecked Sendable {
     
     /// 查询ncm歌曲可用音质（供外部预查询）
     func prefetchNeteaseQualities(id: Int) async throws -> [NeteaseSongQualityInfo] {
-        try await queryNeteaseQualities(id: id, client: contentClient)
+        var lastError: Error?
+        for client in contentClientCandidates() {
+            do {
+                let infos = try await queryNeteaseQualities(id: id, client: client)
+                if !infos.isEmpty {
+                    return infos
+                }
+            } catch {
+                lastError = error
+                AppLogger.debug("[Netease] \(contentClientLabel(client)) 预查询音质失败: \(error.localizedDescription)")
+            }
+        }
+        if let lastError {
+            throw lastError
+        }
+        return []
     }
     
     /// 查询ncm歌曲可用音质
     private func queryNeteaseQualities(id: Int, client: NCMClient) async throws -> [NeteaseSongQualityInfo] {
-        guard let serverUrl = ncm.serverUrl else { return [] }
-        let body = try await Self.postToBackend(
-            serverUrl: serverUrl,
-            route: "/song/qualities",
-            params: ["id": id],
-            cookie: cookieHeader(for: client)
-        )
+        guard client.serverUrl != nil else { return [] }
+        let response = try await client.songQualities(id: id)
+        let body = response.body
         guard let data = body["data"] as? [String: Any],
               let qualities = data["qualities"] as? [[String: Any]] else {
             return []
@@ -1382,7 +1491,22 @@ class APIService: @unchecked Sendable {
     func fetchSongQualities(id: Int) -> AnyPublisher<[NeteaseSongQualityInfo], Error> {
         asyncToPublisher { [weak self] in
             guard let self = self else { return [] }
-            return try await self.queryNeteaseQualities(id: id, client: self.contentClient)
+            var lastError: Error?
+            for client in self.contentClientCandidates() {
+                do {
+                    let infos = try await self.queryNeteaseQualities(id: id, client: client)
+                    if !infos.isEmpty {
+                        return infos
+                    }
+                } catch {
+                    lastError = error
+                    AppLogger.debug("[Netease] \(self.contentClientLabel(client)) 音质列表获取失败: \(error.localizedDescription)")
+                }
+            }
+            if let lastError {
+                throw lastError
+            }
+            return []
         }
     }
 
@@ -1403,10 +1527,10 @@ class APIService: @unchecked Sendable {
         }
 
         if let vipClient = ncmVIP, client === vipClient {
-            return SecureConfig.vipCookie
+            return vipCookieHeader
         }
 
-        return currentCookie ?? SecureConfig.vipCookie
+        return currentCookie ?? vipCookieHeader
     }
 
     // MARK: - 听歌打卡（上报播放记录到ncm）

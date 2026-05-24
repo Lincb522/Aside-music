@@ -65,6 +65,7 @@ enum AppConfig {
         static let playerStateSnapshot = "player_state_snapshot_v1"
         static let playerTheme = "playerTheme"
         static let lastDailyRefresh = "last_daily_refresh_date"
+        static let lastPodcastDailyRefresh = "last_podcast_daily_refresh_date"
         static let lastFullSync = "last_full_sync_time"
         static let isLoggedIn = "isLoggedIn"
         static let pitchSemitones = "monologue_pitch_semitones"

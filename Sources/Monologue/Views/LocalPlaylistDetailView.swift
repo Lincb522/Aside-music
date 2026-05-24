@@ -6,7 +6,7 @@ struct LocalPlaylistDetailView: View {
     let playlistId: String
 
     @ObservedObject private var manager = LocalPlaylistManager.shared
-    @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
@@ -25,6 +25,11 @@ struct LocalPlaylistDetailView: View {
     @State private var isSelectMode = false
     @State private var selectedSongIds: Set<Int> = []
     @State private var showBatchAddToPlaylist = false
+    @State private var showLocalMusicImporter = false
+    @State private var isImportingLocalMusic = false
+    @State private var playlistSongs: [Song] = []
+    @State private var filteredPlaylistSongs: [Song] = []
+    @State private var playlistSummary: LocalPlaylistSummary?
 
     private var playlist: LocalPlaylist? {
         manager.playlists.first { $0.id == playlistId }
@@ -32,7 +37,24 @@ struct LocalPlaylistDetailView: View {
 
     private var canRemoveSongsFromCurrentPlaylist: Bool {
         guard let playlist else { return false }
-        return playlist.isFavorite || !playlist.isSystem
+        return playlist.isFavorite || playlist.isLocalMusic || !playlist.isSystem
+    }
+
+    private var canImportLocalMusicIntoCurrentPlaylist: Bool {
+        guard let playlist else { return false }
+        return !playlist.isDownload
+    }
+
+    private var playlistCoverUrl: URL? {
+        playlistSummary?.displayCoverUrl
+    }
+
+    private var playlistTrackCount: Int {
+        playlistSummary?.trackCount ?? playlistSongs.count
+    }
+
+    private var selectedPlaylistSongs: [Song] {
+        playlistSongs.filter { selectedSongIds.contains($0.id) }
     }
 
     typealias Theme = PlaylistDetailView.Theme
@@ -60,7 +82,7 @@ struct LocalPlaylistDetailView: View {
         } else if CapsuleStyle.isActive {
             CapsuleRootBackdrop()
         } else if SettingsManager.shared.coverBgPlaylist {
-            PlaylistColorBackground(coverUrl: playlist?.displayCoverUrl?.sized(200))
+            PlaylistColorBackground(coverUrl: playlistCoverUrl?.sized(200))
         } else {
                 ThemedPageBackground()
             }
@@ -92,9 +114,23 @@ struct LocalPlaylistDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if let p = playlist {
-                    toolbarTrackCountView(p.trackCount)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if canImportLocalMusicIntoCurrentPlaylist {
+                    Button {
+                        showLocalMusicImporter = true
+                    } label: {
+                        if isImportingLocalMusic || localLibrary.isProcessing {
+                            ProgressView()
+                                .scaleEffect(0.72)
+                        } else {
+                            MonologueIcon(icon: .download, size: 16, color: .monologueTextPrimary)
+                        }
+                    }
+                    .disabled(isImportingLocalMusic || localLibrary.isProcessing)
+                }
+
+                if playlist != nil {
+                    toolbarTrackCountView(playlistTrackCount)
                 }
             }
         }
@@ -131,10 +167,24 @@ struct LocalPlaylistDetailView: View {
                 )
             }
         }
+        .fileImporter(
+            isPresented: $showLocalMusicImporter,
+            allowedContentTypes: LocalMusicLibraryManager.importableContentTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            handleLocalMusicImport(result)
+        }
         .onAppear {
+            refreshPlaylistSnapshot()
             Task {
                 await LocalPlaylistCloudSyncManager.shared.refreshFromCloudIfNeeded()
             }
+        }
+        .onChange(of: manager.revision) { _, _ in
+            refreshPlaylistSnapshot()
+        }
+        .onChange(of: searchText) { _, _ in
+            refreshFilteredPlaylistSongs()
         }
     }
 
@@ -149,10 +199,9 @@ struct LocalPlaylistDetailView: View {
                 isSearching: $isSearching,
                 isSelectMode: $isSelectMode,
                 selectedIds: $selectedSongIds,
-                songs: playlist?.songs.filtered(by: searchText) ?? [],
+                songs: filteredPlaylistSongs,
                 onBatchQueue: {
-                    let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }
-                    SongBatchActionHelper.addToQueue(selected) {
+                    SongBatchActionHelper.addToQueue(selectedPlaylistSongs) {
                         isSelectMode = false
                         selectedSongIds.removeAll()
                     }
@@ -165,6 +214,26 @@ struct LocalPlaylistDetailView: View {
             songListSection
                 .padding(.bottom, 100)
         }
+    }
+
+    private func refreshPlaylistSnapshot() {
+        guard let playlist else {
+            playlistSongs = []
+            filteredPlaylistSongs = []
+            playlistSummary = nil
+            selectedSongIds.removeAll()
+            return
+        }
+
+        let songs = manager.songs(for: playlist)
+        playlistSongs = songs
+        playlistSummary = manager.summary(for: playlist)
+        selectedSongIds = selectedSongIds.intersection(Set(songs.map(\.id)))
+        refreshFilteredPlaylistSongs()
+    }
+
+    private func refreshFilteredPlaylistSongs() {
+        filteredPlaylistSongs = playlistSongs.filtered(by: searchText)
     }
 
     // MARK: - 导出
@@ -183,6 +252,67 @@ struct LocalPlaylistDetailView: View {
                 primaryAction: {}
             )
         }
+    }
+
+    private func handleLocalMusicImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard !urls.isEmpty else { return }
+            Task {
+                await importLocalMusicIntoCurrentPlaylist(from: urls)
+            }
+        case .failure(let error):
+            AlertManager.shared.show(
+                title: String(localized: "local_import_failed_title"),
+                message: error.localizedDescription,
+                primaryButtonTitle: String(localized: "lib_confirm"),
+                primaryAction: {}
+            )
+        }
+    }
+
+    @MainActor
+    private func importLocalMusicIntoCurrentPlaylist(from urls: [URL]) async {
+        guard canImportLocalMusicIntoCurrentPlaylist else { return }
+        let targetId = playlistId
+        let playlistName = playlist?.name ?? ""
+
+        isImportingLocalMusic = true
+        let result = await localLibrary.importItems(from: urls)
+
+        let addedCount = manager.playlists.first(where: { $0.id == targetId }).map {
+            manager.addSongs(result.importedSongs, to: $0)
+        } ?? 0
+
+        isImportingLocalMusic = false
+        AlertManager.shared.show(
+            title: String(localized: "local_import_complete_title"),
+            message: playlistImportMessage(result: result, addedCount: addedCount, playlistName: playlistName),
+            primaryButtonTitle: String(localized: "lib_confirm"),
+            primaryAction: {}
+        )
+    }
+
+    private func playlistImportMessage(
+        result: LocalMusicLibraryManager.ImportResult,
+        addedCount: Int,
+        playlistName: String
+    ) -> String {
+        let addedMessage = if addedCount > 0 {
+            String(
+                format: NSLocalizedString("local_playlist_import_added", comment: ""),
+                locale: Locale.current,
+                addedCount,
+                playlistName
+            )
+        } else {
+            String(
+                format: NSLocalizedString("local_playlist_import_no_added", comment: ""),
+                locale: Locale.current,
+                playlistName
+            )
+        }
+        return [result.summaryText, addedMessage].joined(separator: "\n")
     }
 
     // MARK: - Header
@@ -208,7 +338,7 @@ struct LocalPlaylistDetailView: View {
             if let p = playlist {
                 HStack(alignment: .top, spacing: 16) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(400)) {
                                 coverPlaceholder
                             }
@@ -243,7 +373,7 @@ struct LocalPlaylistDetailView: View {
 
                         HStack(spacing: 8) {
                             Button(action: {
-                                let songs = p.songs
+                                let songs = playlistSongs
                                 if let first = songs.first {
                                     PlayerManager.shared.playReplacingContext(song: first, in: songs)
                                 }
@@ -335,7 +465,7 @@ struct LocalPlaylistDetailView: View {
             if let p = playlist {
                 HStack(alignment: .top, spacing: 15) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(500)) {
                                 sequoiaCoverPlaceholder
                             }
@@ -355,7 +485,7 @@ struct LocalPlaylistDetailView: View {
                     VStack(alignment: .leading, spacing: 9) {
                         HStack(spacing: 7) {
                             SequoiaPill(text: String(localized: "local_playlist_label"), icon: .musicNoteList, tint: SequoiaStyle.green, selected: true, compact: true)
-                            SequoiaPill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: SequoiaStyle.aqua, compact: true)
+                            SequoiaPill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: SequoiaStyle.aqua, compact: true)
                         }
 
                         Text(p.name)
@@ -379,7 +509,7 @@ struct LocalPlaylistDetailView: View {
 
                 HStack(spacing: 10) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -396,8 +526,8 @@ struct LocalPlaylistDetailView: View {
                         .overlay(Capsule().stroke(SequoiaStyle.luminousSeparator.opacity(0.24), lineWidth: 0.55))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
-                    .disabled(p.songs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
 
                     if !p.isSystem {
                         Button(action: {
@@ -458,7 +588,7 @@ struct LocalPlaylistDetailView: View {
             if let p = playlist {
                 HStack(alignment: .top, spacing: 16) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(400)) {
                                 PetWhiteStyle.mint.opacity(0.28)
                             }
@@ -477,7 +607,7 @@ struct LocalPlaylistDetailView: View {
                     VStack(alignment: .leading, spacing: 9) {
                         HStack(spacing: 7) {
                             PetWhitePill(text: String(localized: "local_playlist_label"), tint: PetWhiteStyle.mint)
-                            PetWhitePill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                            PetWhitePill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
                         }
 
                         Text(p.name)
@@ -498,7 +628,7 @@ struct LocalPlaylistDetailView: View {
 
                 HStack(spacing: 10) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -506,8 +636,8 @@ struct LocalPlaylistDetailView: View {
                         petWhiteLocalAction(title: String(localized: "play_now"), icon: .play, tint: PetWhiteStyle.dogOrange, filled: true)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .disabled(p.songs.isEmpty)
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
 
                     if !p.isSystem {
                         Button(action: {
@@ -587,7 +717,7 @@ struct LocalPlaylistDetailView: View {
             if let p = playlist {
                 HStack(alignment: .top, spacing: 14) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(500)) {
                                 mangaCoverPlaceholder
                             }
@@ -621,14 +751,14 @@ struct LocalPlaylistDetailView: View {
                                 .lineLimit(2)
                         }
 
-                        MangaLabel(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
+                        MangaLabel(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: MangaStyle.paperCool, small: true, foreground: MangaStyle.ink)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 HStack(spacing: 10) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -646,8 +776,8 @@ struct LocalPlaylistDetailView: View {
                         .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
-                    .disabled(p.songs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
 
                     if !p.isSystem {
                         Button(action: {
@@ -725,7 +855,7 @@ struct LocalPlaylistDetailView: View {
             if let p = playlist {
                 HStack(alignment: .top, spacing: 16) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(500)) {
                                 neumorphicCoverPlaceholder
                             }
@@ -745,7 +875,7 @@ struct LocalPlaylistDetailView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 7) {
                             NeumorphicPill(text: String(localized: "local_playlist_label"), tint: NeumorphicStyle.accent, selected: true, compact: true)
-                            NeumorphicPill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: NeumorphicStyle.sage, compact: true)
+                            NeumorphicPill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: NeumorphicStyle.sage, compact: true)
                         }
 
                         Text(p.name)
@@ -766,7 +896,7 @@ struct LocalPlaylistDetailView: View {
 
                 HStack(spacing: 10) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -774,8 +904,8 @@ struct LocalPlaylistDetailView: View {
                         NeumorphicPlayPill(title: String(localized: "play_now"), tint: NeumorphicStyle.accent)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
-                    .disabled(p.songs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
 
                     if !p.isSystem {
                         Button(action: {
@@ -856,7 +986,7 @@ struct LocalPlaylistDetailView: View {
             if let p = playlist {
                 HStack(alignment: .top, spacing: 16) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(500)) {
                                 signalCoverPlaceholder
                             }
@@ -876,7 +1006,7 @@ struct LocalPlaylistDetailView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 7) {
                             SignalPill(text: String(localized: "local_playlist_label"), tint: SignalStyle.accent, selected: true, compact: true)
-                            SignalPill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
+                            SignalPill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
                         }
 
                         Text(p.name)
@@ -897,7 +1027,7 @@ struct LocalPlaylistDetailView: View {
 
                 HStack(spacing: 10) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -905,8 +1035,8 @@ struct LocalPlaylistDetailView: View {
                         SignalPlayPill(title: String(localized: "play_now"))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
-                    .disabled(p.songs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
 
                     if !p.isSystem {
                         Button(action: {
@@ -982,7 +1112,7 @@ struct LocalPlaylistDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         MujiPill(text: String(localized: "local_playlist_label"), tint: MujiStyle.tea)
-                        MujiPill(text: "\(p.trackCount) \(String(localized: "songs_unit"))", tint: MujiStyle.indigo)
+                        MujiPill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: MujiStyle.indigo)
                     }
 
                     Text(p.name)
@@ -1002,7 +1132,7 @@ struct LocalPlaylistDetailView: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     Group {
-                        if let url = p.displayCoverUrl {
+                        if let url = playlistCoverUrl {
                             CachedAsyncImage(url: url.sized(500)) {
                                 mujiCoverPlaceholder
                             }
@@ -1024,7 +1154,7 @@ struct LocalPlaylistDetailView: View {
 
                 HStack(spacing: 10) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -1032,8 +1162,8 @@ struct LocalPlaylistDetailView: View {
                         MujiActionPill(title: String(localized: "play_now"), icon: .play, selected: true, tint: MujiStyle.clay)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
-                    .disabled(p.songs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
 
                     if !p.isSystem {
                         Button(action: {
@@ -1115,14 +1245,14 @@ struct LocalPlaylistDetailView: View {
                 eyebrow: String(localized: "local_playlist_label"),
                 title: p.name,
                 subtitle: p.desc ?? "",
-                coverURL: p.displayCoverUrl?.sized(500),
+                coverURL: playlistCoverUrl?.sized(500),
                 fallbackIcon: .musicNoteList,
                 tint: CapsuleStyle.accent,
-                chips: ["\(p.trackCount) \(String(localized: "songs_unit"))", p.isSystem ? "SYSTEM" : "LOCAL"]
+                chips: ["\(playlistTrackCount) \(String(localized: "songs_unit"))", p.isSystem ? "SYSTEM" : "LOCAL"]
             ) {
                 HStack(spacing: 9) {
                     Button(action: {
-                        let songs = p.songs
+                        let songs = playlistSongs
                         if let first = songs.first {
                             PlayerManager.shared.playReplacingContext(song: first, in: songs)
                         }
@@ -1134,8 +1264,8 @@ struct LocalPlaylistDetailView: View {
                         )
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                    .opacity(p.songs.isEmpty ? 0.55 : 1)
-                    .disabled(p.songs.isEmpty)
+                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
+                    .disabled(playlistSongs.isEmpty)
 
                     if !p.isSystem {
                         Button(action: {
@@ -1254,7 +1384,7 @@ struct LocalPlaylistDetailView: View {
             }
         }
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
-            let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }
+            let selected = selectedPlaylistSongs
             BatchAddToPlaylistSheet(songs: selected)
         }
     }
@@ -1262,8 +1392,8 @@ struct LocalPlaylistDetailView: View {
     private var petWhiteLocalSongListSection: some View {
         LazyVStack(spacing: 14) {
             if let currentPlaylist = playlist {
-                let songs = currentPlaylist.songs
-                let displaySongs = songs.filtered(by: searchText)
+                let songs = playlistSongs
+                let displaySongs = filteredPlaylistSongs
                 VStack(alignment: .leading, spacing: 12) {
                     PetWhiteSectionTitle(
                         title: "LOCAL",
@@ -1293,8 +1423,8 @@ struct LocalPlaylistDetailView: View {
     private var capsuleLocalSongListSection: some View {
         LazyVStack(spacing: 14) {
             if let currentPlaylist = playlist {
-                let songs = currentPlaylist.songs
-                let displaySongs = songs.filtered(by: searchText)
+                let songs = playlistSongs
+                let displaySongs = filteredPlaylistSongs
                 if songs.isEmpty {
                     CapsuleDetailSection(title: "LOCAL", icon: .musicNoteList, tint: CapsuleStyle.mint) {
                         CapsuleDetailEmptyState(title: "local_playlist_no_songs", icon: .musicNoteList, tint: CapsuleStyle.mint)
@@ -1318,8 +1448,8 @@ struct LocalPlaylistDetailView: View {
     private var defaultLocalSongListSection: some View {
         LazyVStack(spacing: 0) {
             if let currentPlaylist = playlist {
-                let songs = currentPlaylist.songs
-                let displaySongs = songs.filtered(by: searchText)
+                let songs = playlistSongs
+                let displaySongs = filteredPlaylistSongs
                 if songs.isEmpty {
                     localEmptyState
                 } else {
@@ -1400,14 +1530,31 @@ struct LocalPlaylistDetailView: View {
                         removeSongFromPlaylist(song, playlist: currentPlaylist)
                     }
                 } label: {
-                    Label(NSLocalizedString("local_playlist_remove", comment: ""), systemImage: "trash")
+                    Label(
+                        NSLocalizedString(currentPlaylist.isLocalMusic ? "local_action_delete_local_song" : "local_playlist_remove", comment: ""),
+                        systemImage: "trash"
+                    )
+                }
+            }
+            .contextMenu {
+                Button(role: .destructive) {
+                    withAnimation {
+                        removeSongFromPlaylist(song, playlist: currentPlaylist)
+                    }
+                } label: {
+                    Label(
+                        NSLocalizedString(currentPlaylist.isLocalMusic ? "local_action_delete_local_song" : "local_playlist_remove", comment: ""),
+                        systemImage: "trash"
+                    )
                 }
             }
         }
     }
 
     private func removeSongFromPlaylist(_ song: Song, playlist currentPlaylist: LocalPlaylist) {
-        if currentPlaylist.isFavorite {
+        if currentPlaylist.isLocalMusic, song.isLocal {
+            localLibrary.deleteSong(song)
+        } else if currentPlaylist.isFavorite {
             manager.removeFromFavorite(songId: song.id)
         } else {
             manager.removeSong(id: song.id, from: currentPlaylist)
@@ -1420,14 +1567,18 @@ struct LocalPlaylistDetailView: View {
         guard !ids.isEmpty else { return }
 
         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-            manager.removeSongs(ids: ids, from: currentPlaylist)
+            if currentPlaylist.isLocalMusic {
+                localLibrary.deleteSongs(selectedPlaylistSongs)
+            } else {
+                manager.removeSongs(ids: ids, from: currentPlaylist)
+            }
             isSelectMode = false
             selectedSongIds.removeAll()
         }
     }
 
     private func batchDownloadSelected() {
-        let selected = (playlist?.songs ?? []).filter { selectedSongIds.contains($0.id) }
+        let selected = selectedPlaylistSongs
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)

@@ -4,7 +4,9 @@ import SwiftUI
 public struct ContentView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     @State private var showWelcome = true
+    @State private var canMountMainContent = false
     @State private var currentTab: Tab = .home
+    @State private var didSynchronizeLaunchTheme = false
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @State private var themeManager = GlobalThemeManager.shared
@@ -20,62 +22,10 @@ public struct ContentView: View {
     public var body: some View {
         ThemeRenderHost {
             ZStack {
-                tabViewContent
-                    .themeRenderSceneLayer()
-                    .ignoresSafeArea(.keyboard)
-                    .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
-                    .gesture(
-                        (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
-                            ? swipeGesture : nil
-                    )
-                    .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
-                        showPersonalFM = true
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
-                        showNormalPlayer = true
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
-                        currentTab = .library
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibraryArtists"))) { _ in
-                        currentTab = .library
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToHome"))) { _ in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            currentTab = .home
-                        }
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToProfile"))) { _ in
-                        currentTab = .profile
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
-                        if let radioId = notification.object as? Int, radioId > 0 {
-                            radioPlayerRadioId = radioId
-                            showRadioPlayer = true
-                        }
-                    }
-                    .fullScreenCover(isPresented: $showPersonalFM) {
-                        PersonalFMView()
-                    }
-                    .fullScreenCover(isPresented: $showNormalPlayer) {
-                        FullScreenPlayerView()
-                    }
-                    .fullScreenCover(isPresented: $showRadioPlayer) {
-                        if let radioId = radioPlayerRadioId {
-                            PodcastPlayerView(radioId: radioId)
-                        }
-                    }
-
-                // MARK: - 自定义悬浮栏（所有样式）
-
-                ContentViewFloatingBarContainer(
-                    currentTab: $currentTab,
-                    settings: settings
-                )
-
-                // MARK: - 系统 TabBar 模式下的紧凑迷你播放器
-
-                ContentViewCompactPlayerContainer(settings: settings)
+                if canMountMainContent || !showWelcome {
+                    mainAppContent
+                        .transition(.identity)
+                }
 
                 if showWelcome {
                     WelcomeView(isPresented: $showWelcome)
@@ -105,16 +55,100 @@ public struct ContentView: View {
                 settings.activeColorScheme = newScheme
             }
         }
+        .onAppear {
+            synchronizeLaunchThemeIfNeeded()
+            scheduleMainContentMountAfterWelcomeFirstFrame()
+        }
         .onChange(of: settings.globalThemeRevision) { _, _ in
             refreshHomeStateForThemeChange()
         }
         .onChange(of: showWelcome) { _, isShowing in
             if !isShowing {
+                mountMainContentWithoutAnimation()
                 onlineAccess.refreshOnLaunch(showInvalidAlert: true)
             }
         }
         .onOpenURL { url in
             handleDeepLink(url)
+        }
+    }
+
+    private var mainAppContent: some View {
+        ZStack {
+            tabViewContent
+                .themeRenderSceneLayer()
+                .ignoresSafeArea(.keyboard)
+                .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
+                .gesture(
+                    (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
+                        ? swipeGesture : nil
+                )
+                .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
+                    showPersonalFM = true
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
+                    showNormalPlayer = true
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
+                    selectTabImmediately(.library)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibraryArtists"))) { _ in
+                    selectTabImmediately(.library)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToHome"))) { _ in
+                    selectTabImmediately(.home)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToProfile"))) { _ in
+                    selectTabImmediately(.profile)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .init("OpenRadioPlayer"))) { notification in
+                    if let radioId = notification.object as? Int, radioId > 0 {
+                        radioPlayerRadioId = radioId
+                        showRadioPlayer = true
+                    }
+                }
+                .fullScreenCover(isPresented: $showPersonalFM) {
+                    PersonalFMView()
+                }
+                .fullScreenCover(isPresented: $showNormalPlayer) {
+                    FullScreenPlayerView()
+                }
+                .fullScreenCover(isPresented: $showRadioPlayer) {
+                    if let radioId = radioPlayerRadioId {
+                        PodcastPlayerView(radioId: radioId)
+                    }
+                }
+
+            // MARK: - 自定义悬浮栏（所有样式）
+
+            ContentViewFloatingBarContainer(
+                currentTab: tabSelectionBinding,
+                settings: settings
+            )
+
+            // MARK: - 系统 TabBar 模式下的紧凑迷你播放器
+
+            ContentViewCompactPlayerContainer(settings: settings)
+        }
+    }
+
+    private func scheduleMainContentMountAfterWelcomeFirstFrame() {
+        guard showWelcome, !canMountMainContent else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 850_000_000)
+            guard showWelcome, !canMountMainContent else { return }
+            mountMainContentWithoutAnimation()
+        }
+    }
+
+    private func mountMainContentWithoutAnimation() {
+        guard !canMountMainContent else { return }
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            canMountMainContent = true
         }
     }
 
@@ -132,9 +166,11 @@ public struct ContentView: View {
 
     private var tabViewCore: some View {
         let _ = settings.globalThemeRevision
+        let _ = settings.globalThemeApplicationRevision
+        let accessMode = onlineAccess.canUseOnlineFeatures ? "online" : "local"
         let tabTint = themeManager.provider(for: settings.globalThemeId).colorPalette.accent
 
-        return TabView(selection: $currentTab) {
+        return TabView(selection: tabSelectionBinding) {
             tabRootView(for: .home)
                 .id(tabRootIdentity(for: .home))
                 .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
@@ -180,6 +216,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.profile)
         }
+        .id("tab-view-\(settings.globalThemeId.rawValue)-\(settings.globalThemeApplicationRevision)-\(accessMode)")
         .tint(tabTint)
     }
 
@@ -210,9 +247,9 @@ public struct ContentView: View {
                 }
             case .profile:
                 if onlineAccess.canUseOnlineFeatures {
-                    ProfileView()
+                    theme.makeProfileView()
                 } else {
-                    LocalModeProfileView()
+                    theme.makeLocalProfileView()
                 }
             }
         }
@@ -220,16 +257,34 @@ public struct ContentView: View {
 
     private func tabRootIdentity(for tab: Tab) -> String {
         let accessMode = onlineAccess.canUseOnlineFeatures ? "online" : "local"
-        if tab == .profile {
-            return "\(accessMode)-tab-\(tab.rawValue)"
-        }
-
-        return "\(settings.globalThemeId.rawValue)-\(accessMode)-tab-\(tab.rawValue)"
+        return "\(settings.globalThemeId.rawValue)-\(settings.globalThemeApplicationRevision)-\(accessMode)-tab-\(tab.rawValue)"
     }
 
     private func refreshHomeStateForThemeChange() {
-        HomeViewModel.shared.reloadHomeCacheIfUseful(reason: "global theme changed")
-        HomeViewModel.shared.ensureHomeDataLoaded(reason: "global theme changed")
+        HomeViewModel.shared.refreshThemeSensitiveHomeState(reason: "global theme changed \(settings.globalThemeId.rawValue)")
+    }
+
+    private var tabSelectionBinding: Binding<Tab> {
+        Binding(
+            get: { currentTab },
+            set: { selectTabImmediately($0) }
+        )
+    }
+
+    private func selectTabImmediately(_ tab: Tab) {
+        guard currentTab != tab else { return }
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            currentTab = tab
+        }
+    }
+
+    private func synchronizeLaunchThemeIfNeeded() {
+        guard !didSynchronizeLaunchTheme else { return }
+        didSynchronizeLaunchTheme = true
+        settings.synchronizeGlobalThemeAfterLaunch(reason: "content view appear")
     }
 
     private func tabLabelKey(for tab: Tab) -> String {
@@ -395,17 +450,13 @@ public struct ContentView: View {
                     let nextIndex = currentIndex + 1
                     if nextIndex < allTabs.count {
                         HapticManager.shared.light()
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                            currentTab = allTabs[nextIndex]
-                        }
+                        selectTabImmediately(allTabs[nextIndex])
                     }
                 } else if value.translation.width > 20 {
                     let prevIndex = currentIndex - 1
                     if prevIndex >= 0 {
                         HapticManager.shared.light()
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                            currentTab = allTabs[prevIndex]
-                        }
+                        selectTabImmediately(allTabs[prevIndex])
                     }
                 }
             }

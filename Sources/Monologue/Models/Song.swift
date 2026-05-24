@@ -333,6 +333,10 @@ extension URL {
     }
 
     func sized(_ size: Int) -> URL {
+        if isFileURL {
+            return self
+        }
+
         let str = absoluteString
 
         // qcm CDN: 替换路径中的 R{w}x{h} 尺寸段（T001/T002/T003 等）

@@ -7,7 +7,7 @@
 "search_placeholder" = "搜索歌曲、歌手...";
 "cancel" = "取消";
 "play_now" = "全部播放";
-"login_title" = "登录 mono";
+"login_title" = "登录 Mono";
 "scan_qr" = "扫码登录";
 "phone_login" = "手机号登录";
 "scan_instruction" = "请使用NCM App 扫码";
@@ -39,7 +39,7 @@
 "good_dusk" = "傍晚好";
 "good_evening" = "晚上好";
 "good_late_night" = "深夜好";
-"default_nickname" = "mono";
+"default_nickname" = "Mono";
 "search_bar_placeholder" = "搜索歌曲、歌手、歌单...";
 "new_releases" = "新歌首发";
 "quick_daily" = "每日推荐";
@@ -305,6 +305,7 @@
 "local_action_import_title" = "导入音乐";
 "local_action_import_subtitle" = "支持单个文件和文件夹导入";
 "local_action_remove" = "移除";
+"local_action_delete_local_song" = "删除本地音乐";
 "local_scan_complete_title" = "扫描完成";
 "local_import_complete_title" = "导入完成";
 "local_import_failed_title" = "导入失败";
@@ -324,6 +325,10 @@
 "local_import_result_imported" = "已导入 %d 首";
 "local_import_result_skipped" = "跳过 %d 项";
 "local_import_result_failed" = "失败 %d 项";
+"local_import_result_metadata_matched" = "已自动匹配 %d 首歌曲信息与封面";
+"local_import_result_lyrics_prefetched" = "已自动获取 %d 首歌词";
+"local_playlist_import_added" = "已添加 %d 首到「%@」。";
+"local_playlist_import_no_added" = "没有可添加到「%@」的新歌曲。";
 "local_scan_notice_media_denied" = "系统音乐资料库未授权，本次仅扫描了 App 文稿和 iTunes/Finder 共享音频。";
 "local_filter_all" = "全部";
 "local_filter_favorites" = "收藏";
@@ -370,7 +375,7 @@
 "local_library_custom_subtitle" = "共 %d 个歌单，可继续编辑和播放";
 "local_library_import_no_local_match" = "歌单文件已解析，但其中的歌曲还没有导入到本地曲库。请先导入音乐后再试。";
 "local_library_import_success" = "已导入「%@」，并匹配到 %d 首本地音乐。";
-"local_profile_hero_title" = "mono";
+"local_profile_hero_title" = "Mono";
 "local_profile_hero_subtitle" = "当前已经整理 %d 首本地音乐，可继续管理资料库和下载。";
 "local_profile_shortcuts_title" = "常用入口";
 "local_profile_shortcuts_subtitle" = "快速回到收藏、最近播放和离线内容。";
@@ -438,7 +443,7 @@
 "settings_app_brand_title" = "应用图标";
 "settings_app_brand_desc" = "主屏幕图标和应用内 Logo 会一起切换";
 "settings_app_brand_device_hint" = "桌面图标切换可能需要在真机上查看，应用内 Logo 会立即更新。";
-"settings_app_brand_monologue" = "mono";
+"settings_app_brand_monologue" = "Mono";
 "settings_app_brand_monologue_desc" = "经典幽灵标识";
 "settings_app_brand_aurora" = "Aside";
 "settings_app_brand_aurora_desc" = "耳机声波标识";
@@ -447,7 +452,7 @@
 "settings_app_brand_paw" = "默认";
 "settings_app_brand_paw_desc" = "默认 Paw 猫狗图标";
 "settings_app_brand_paw_mono" = "Paw Mono";
-"settings_app_brand_paw_mono_desc" = "带 mono 字标的 Paw 专属图标";
+"settings_app_brand_paw_mono_desc" = "带 Mono 字标的 Paw 专属图标";
 "settings_app_brand_appearance_title" = "图标外观";
 "settings_app_brand_appearance_desc" = "手动切换浅色或深色，不跟随系统";
 "settings_app_brand_appearance_light" = "浅色";
@@ -476,7 +481,7 @@
 "settings_like_choose_playlist_subtitle" = "给新喜欢的歌曲弹出歌单选择器";
 "settings_header_footer_authorized" = "感谢你的赞赏与支持，如有反馈请联系开发者";
 "settings_header_footer_unauthorized" = "未授权，点击右侧状态按钮输入 Token，如需帮助请联系开发者";
-"settings_developer_status" = "mono 开发 & 维护";
+"settings_developer_status" = "Mono 开发 & 维护";
 "settings_open_wechat" = "打开微信";
 "settings_contact_copied" = "已复制";
 "settings_token_authorized_format" = "当前已授权：%@";
@@ -669,7 +674,7 @@
 "debug_level_error" = "错误";
 "debug_level_network" = "网络";
 "debug_level_success" = "成功";
-"debug_export_title" = "mono 调试日志";
+"debug_export_title" = "Mono 调试日志";
 "debug_export_time" = "导出时间";
 "debug_export_count" = "日志数量";
 
@@ -992,12 +997,14 @@
 "meditation_loading" = "加载中";
 "meditation_empty" = "暂无内容";
 "meditation_load_failed" = "加载失败";
+"meditation_sati_source" = "来自助眠解压";
 "meditation_topic_all" = "全部";
 "meditation_topic_mindfulness" = "正念";
 "meditation_topic_focus" = "专注力训练";
 "meditation_topic_light_music" = "轻音乐";
 "meditation_topic_sleep" = "助眠";
 "meditation_topic_breathing" = "呼吸";
+"meditation_topic_relax" = "解压";
 "meditation_topic_ambient" = "白噪音";
 "meditation_topic_all_subtitle" = "";
 "meditation_topic_mindfulness_subtitle" = "";
@@ -1005,6 +1012,7 @@
 "meditation_topic_light_music_subtitle" = "";
 "meditation_topic_sleep_subtitle" = "";
 "meditation_topic_breathing_subtitle" = "";
+"meditation_topic_relax_subtitle" = "";
 "meditation_topic_ambient_subtitle" = "";
 "meditation_player_exit" = "退出冥想模式";
 "meditation_player_timer" = "定时";

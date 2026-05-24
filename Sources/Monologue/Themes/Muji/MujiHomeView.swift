@@ -316,6 +316,7 @@ struct MujiHomeView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 16) {
+                    let shouldReduceMotion = reduceMotion
                     ForEach(Array(viewModel.dailySongs.prefix(10).enumerated()), id: \.element.id) { _, song in
                         Button {
                             playerManager.play(song: song, in: viewModel.dailySongs)
@@ -323,10 +324,10 @@ struct MujiHomeView: View {
                             mujiSongCard(song)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
-                        .scrollTransition(.animated(reduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24))) { content, phase in
+                        .scrollTransition(.animated(shouldReduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24))) { content, phase in
                             content
-                                .scaleEffect(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.95))
-                                .opacity(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.7))
+                                .scaleEffect(phase.isIdentity ? 1 : (shouldReduceMotion ? 1 : 0.95))
+                                .opacity(phase.isIdentity ? 1 : (shouldReduceMotion ? 1 : 0.7))
                         }
                     }
                 }
@@ -394,6 +395,7 @@ struct MujiHomeView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
+                    let shouldReduceMotion = reduceMotion
                     ForEach(Array(viewModel.qqNewSongs.prefix(8).enumerated()), id: \.element.id) { index, song in
                         Button {
                             playerManager.play(song: song, in: viewModel.qqNewSongs)
@@ -401,10 +403,10 @@ struct MujiHomeView: View {
                             mujiNewSongCard(song, rank: index + 1)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
-                        .scrollTransition(.animated(reduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24))) { content, phase in
+                        .scrollTransition(.animated(shouldReduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24))) { content, phase in
                             content
-                                .scaleEffect(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.96))
-                                .opacity(phase.isIdentity ? 1 : (reduceMotion ? 1 : 0.72))
+                                .scaleEffect(phase.isIdentity ? 1 : (shouldReduceMotion ? 1 : 0.96))
+                                .opacity(phase.isIdentity ? 1 : (shouldReduceMotion ? 1 : 0.72))
                         }
                     }
                 }

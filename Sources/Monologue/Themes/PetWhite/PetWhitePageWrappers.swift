@@ -60,18 +60,18 @@ private enum PetWhitePageIdentity {
 
 private struct PetWhiteThemeRoot<Content: View>: View {
     let page: PetWhitePageIdentity
-    let content: Content
+    let content: () -> Content
     @ObservedObject private var settings = SettingsManager.shared
 
-    init(page: PetWhitePageIdentity, @ViewBuilder content: () -> Content) {
+    init(page: PetWhitePageIdentity, @ViewBuilder content: @escaping () -> Content) {
         self.page = page
-        self.content = content()
+        self.content = content
     }
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        content
+        content()
             .tint(PetWhiteStyle.accent)
             .themeRenderSceneLayer()
             .background(PetWhiteRootBackdrop())
@@ -160,6 +160,7 @@ struct PetWhiteHomeView: View {
     @State private var homeRenderRevision = 0
     @State private var renderedHitokotoText = ""
     @State private var hitokotoRefreshRotation: Double = 0
+    @State private var didRunInitialRenderedHomeDataSync = false
     private let maxEmptyHomeRecoveryAttempts = 8
 
     var body: some View {
@@ -178,7 +179,7 @@ struct PetWhiteHomeView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .onAppear {
-                    viewModel.reloadHomeCacheIfUseful(reason: "pet white home appear cache sync")
+                    viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "pet white home appear cache sync")
                     syncPetWhiteHitokoto(reason: "pet white home appear")
                     syncRenderedHomeData(reason: "pet white home appear")
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white home appear")
@@ -188,7 +189,9 @@ struct PetWhiteHomeView: View {
                     revealHomeContent()
                 }
                 .task {
-                    viewModel.reloadHomeCacheIfUseful(reason: "pet white home task cache sync")
+                    guard !didRunInitialRenderedHomeDataSync else { return }
+                    didRunInitialRenderedHomeDataSync = true
+                    viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "pet white home task cache sync")
                     syncPetWhiteHitokoto(reason: "pet white home task")
                     syncRenderedHomeData(reason: "pet white home task")
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white home task")
@@ -198,6 +201,7 @@ struct PetWhiteHomeView: View {
                 }
                 .onChange(of: settings.globalThemeRevision) { _, _ in
                     appeared = false
+                    didRunInitialRenderedHomeDataSync = false
                     emptyHomeRecoveryAttempts = 0
                     syncPetWhiteHitokoto(reason: "pet white theme revision")
                     syncRenderedHomeData(reason: "pet white theme revision")
@@ -375,7 +379,8 @@ struct PetWhiteHomeView: View {
         guard settings.hitokotoEnabled else { return }
 
         let current = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        viewModel.refreshHitokoto(force: current.isEmpty)
+        guard current.isEmpty else { return }
+        viewModel.refreshHitokoto(force: true)
         AppLogger.debug("PetWhiteHomeView: 检查每日一言 - \(reason)")
     }
 
@@ -440,7 +445,7 @@ struct PetWhiteHomeView: View {
             if Task.isCancelled { return }
 
             await MainActor.run {
-                viewModel.reloadHomeCacheIfUseful(reason: "pet white startup sync \(attempt)")
+                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "pet white startup sync \(attempt)")
                 syncRenderedHomeData(reason: "pet white startup sync \(attempt)")
                 syncPetWhiteHitokoto(reason: "pet white startup sync \(attempt)")
             }

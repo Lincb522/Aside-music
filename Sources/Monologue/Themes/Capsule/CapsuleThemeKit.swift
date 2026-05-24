@@ -2,7 +2,7 @@ import SwiftUI
 
 enum CapsuleStyle {
     static var isActive: Bool {
-        UserDefaults.standard.string(forKey: "globalThemeId") == GlobalThemeId.capsule.rawValue
+        GlobalThemeId.persistedOrDefault == .capsule
     }
 
     static var base: Color {

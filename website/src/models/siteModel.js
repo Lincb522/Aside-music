@@ -14,7 +14,7 @@ export const assets = {
 
 export const siteContent = {
   hero: {
-    title: 'mono',
+    title: 'Mono',
     slogan: '世界很吵，留一点声音给自己。',
     lead: 'LOUD WORLD · QUIET SOUND',
   },
@@ -54,7 +54,7 @@ export const siteContent = {
   updates: {
     label: '更新公告',
     title: '更新公告',
-    lead: '查看 mono 最新版本与更新内容。',
+    lead: '查看 Mono 最新版本与更新内容。',
     latestLabel: 'Latest Release',
     downloadLabel: '下载最新版本',
     archiveLabel: '历史版本',
@@ -82,7 +82,7 @@ export const siteContent = {
     publicLinkLabel: '前往邮箱',
   },
   footer: {
-    appName: 'mono',
+    appName: 'Mono',
     developer: 'Developed by ZIJIU522',
   },
 }

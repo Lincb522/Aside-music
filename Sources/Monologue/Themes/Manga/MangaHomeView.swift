@@ -13,6 +13,7 @@ struct MangaHomeView: View {
     @State private var homeRenderRevision = 0
     @State private var renderedHitokotoText = ""
     @State private var hitokotoRenderRevision = 0
+    @State private var didRunInitialHomeSync = false
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -27,15 +28,19 @@ struct MangaHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
-                viewModel.reloadHomeCacheIfUseful(reason: "manga appear cache sync")
+                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga appear cache sync")
                 syncMangaHitokoto(reason: "manga appear")
+                refreshMangaHitokotoIfNeeded(reason: "manga appear")
                 showHomeContentIfNeeded()
                 hydrateHome(reason: "manga appear")
                 invalidateHomeRender()
             }
             .task {
-                viewModel.reloadHomeCacheIfUseful(reason: "manga task cache sync")
+                guard !didRunInitialHomeSync else { return }
+                didRunInitialHomeSync = true
+                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga task cache sync")
                 syncMangaHitokoto(reason: "manga task")
+                refreshMangaHitokotoIfNeeded(reason: "manga task")
                 showHomeContentIfNeeded()
                 hydrateHome(reason: "manga task")
                 await runInitialMangaHomeSync()
@@ -44,7 +49,18 @@ struct MangaHomeView: View {
                 guard phase == .active else { return }
                 viewModel.reloadHomeCacheIfUseful(reason: "manga foreground cache sync")
                 syncMangaHitokoto(reason: "manga foreground")
+                refreshMangaHitokotoIfNeeded(reason: "manga foreground")
                 hydrateHome(reason: "manga foreground")
+                invalidateHomeRender()
+            }
+            .onChange(of: settings.globalThemeRevision) { _, _ in
+                appeared = false
+                didRunInitialHomeSync = false
+                viewModel.reloadHomeCacheIfUseful(reason: "manga theme revision cache sync")
+                syncMangaHitokoto(reason: "manga theme revision")
+                refreshMangaHitokotoIfNeeded(reason: "manga theme revision")
+                hydrateHome(reason: "manga theme revision")
+                showHomeContentIfNeeded()
                 invalidateHomeRender()
             }
             .onReceive(viewModel.$hitokoto) { hitokoto in
@@ -84,10 +100,7 @@ struct MangaHomeView: View {
 
     private func hydrateHome(reason: String) {
         viewModel.ensureHomeDataLoaded(reason: reason)
-        if hitokotoEnabled,
-           viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-            viewModel.refreshHitokoto()
-        }
+        refreshMangaHitokotoIfNeeded(reason: reason)
     }
 
     private func invalidateHomeRender() {
@@ -96,6 +109,15 @@ struct MangaHomeView: View {
 
     private func syncMangaHitokoto(reason: String) {
         syncMangaHitokoto(viewModel.hitokoto, reason: reason)
+    }
+
+    private func refreshMangaHitokotoIfNeeded(reason: String) {
+        guard hitokotoEnabled else { return }
+
+        let current = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard current.isEmpty else { return }
+        viewModel.refreshHitokoto(force: true)
+        AppLogger.debug("MangaHomeView: 检查每日一言 - \(reason)")
     }
 
     private func syncMangaHitokoto(_ hitokoto: String?, reason: String) {
@@ -141,7 +163,7 @@ struct MangaHomeView: View {
             if Task.isCancelled { return }
 
             await MainActor.run {
-                viewModel.reloadHomeCacheIfUseful(reason: "manga startup sync \(attempt)")
+                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga startup sync \(attempt)")
                 syncMangaHitokoto(reason: "manga startup sync \(attempt)")
                 invalidateHomeRender()
             }
