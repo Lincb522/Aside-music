@@ -128,7 +128,6 @@ struct NeumorphicPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
                 onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false },
@@ -302,6 +301,7 @@ extension NeumorphicPlayerLayout {
                                 .shadow(color: lightShadow, radius: 2, x: -1, y: -1)
                         )
                 }
+                .playerQualitySelectionAvailability()
             }
         }
         .padding(.horizontal, DeviceLayout.playerHorizontalPadding)

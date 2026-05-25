@@ -90,7 +90,6 @@ struct PawcelainPlayerLayout: View {
                 SoundQualitySheet(
                     currentQuality: player.soundQuality,
                     currentQQQuality: player.qqMusicQuality,
-                    isUnblocked: player.isCurrentSongUnblocked,
                     isQQMusic: song.isQQMusic,
                     onSelectNetease: { quality in
                         player.switchQuality(quality)
@@ -293,6 +292,7 @@ struct PawcelainPlayerLayout: View {
                     .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                .playerQualitySelectionAvailability()
                 .fixedSize()
             }
             .padding(.horizontal, 4)
@@ -397,6 +397,7 @@ struct PawcelainPlayerLayout: View {
                 ) {
                     showQualitySheet = true
                 }
+                .playerQualitySelectionAvailability()
 
                 if let song = player.currentSong {
                     pawLikeActionButton(song: song)

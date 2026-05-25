@@ -145,6 +145,10 @@ struct LocalModeHomeView: View {
                             neumorphicLocalHomeHeader
                         }
 
+                        if let progress = localLibrary.importProgress {
+                            LocalImportProgressPanel(progress: progress)
+                        }
+
                         homeHeroCard
 
                         actionCards
@@ -194,8 +198,7 @@ struct LocalModeHomeView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task {
-                            let result = await localLibrary.scanLibrary()
-                            showLibraryResult(title: localModeText("local_scan_complete_title"), result: result)
+                            _ = await localLibrary.scanLibrary()
                             refreshRecentSongs()
                         }
                     } label: {
@@ -353,8 +356,7 @@ struct LocalModeHomeView: View {
                 isLoading: localLibrary.isProcessing
             ) {
                 Task {
-                    let result = await localLibrary.scanLibrary()
-                    showLibraryResult(title: localModeText("local_scan_complete_title"), result: result)
+                    _ = await localLibrary.scanLibrary()
                     refreshRecentSongs()
                 }
             }
@@ -514,8 +516,7 @@ struct LocalModeHomeView: View {
         case .success(let urls):
             guard !urls.isEmpty else { return }
             Task {
-                let importResult = await localLibrary.importItems(from: urls)
-                showLibraryResult(title: localModeText("local_import_complete_title"), result: importResult)
+                _ = await localLibrary.importItems(from: urls)
                 refreshRecentSongs()
             }
         case .failure(let error):
@@ -526,22 +527,6 @@ struct LocalModeHomeView: View {
                 primaryAction: {}
             )
         }
-    }
-
-    private func showLibraryResult(title: String, result: LocalMusicLibraryManager.ImportResult) {
-        let message = localModeFormat(
-            "local_result_message",
-            result.summaryText,
-            localLibrary.songCount,
-            localPlaylists.playlists.count
-        )
-
-        AlertManager.shared.show(
-            title: title,
-            message: message,
-            primaryButtonTitle: localModeText("common_ok"),
-            primaryAction: {}
-        )
     }
 
     private func refreshRecentSongs() {
@@ -637,6 +622,11 @@ struct LocalMusicView: View {
                         neumorphicLocalMusicHeader
                     }
 
+                    if let progress = localLibrary.importProgress {
+                        LocalImportProgressPanel(progress: progress)
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    }
+
                     overviewCard
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                         .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
@@ -720,8 +710,7 @@ struct LocalMusicView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task {
-                            let result = await localLibrary.scanLibrary()
-                            showScanOrImportResult(title: localModeText("local_scan_complete_title"), result: result)
+                            _ = await localLibrary.scanLibrary()
                             refreshRecentSongs()
                         }
                     } label: {
@@ -745,8 +734,7 @@ struct LocalMusicView: View {
             case .success(let urls):
                 guard !urls.isEmpty else { return }
                 Task {
-                    let importResult = await localLibrary.importItems(from: urls)
-                    showScanOrImportResult(title: localModeText("local_import_complete_title"), result: importResult)
+                    _ = await localLibrary.importItems(from: urls)
                     refreshRecentSongs()
                 }
             case .failure(let error):
@@ -815,8 +803,7 @@ struct LocalMusicView: View {
                         icon: .refresh
                     ) {
                         Task {
-                            let result = await localLibrary.scanLibrary()
-                            showScanOrImportResult(title: localModeText("local_scan_complete_title"), result: result)
+                            _ = await localLibrary.scanLibrary()
                             refreshRecentSongs()
                         }
                     }
@@ -906,15 +893,6 @@ struct LocalMusicView: View {
         return localModeText("local_empty_collection_subtitle")
     }
 
-    private func showScanOrImportResult(title: String, result: LocalMusicLibraryManager.ImportResult) {
-        AlertManager.shared.show(
-            title: title,
-            message: result.summaryText,
-            primaryButtonTitle: localModeText("common_ok"),
-            primaryAction: {}
-        )
-    }
-
     private func refreshRecentSongs() {
         recentSongs = recentOfflineSongs(limit: 40, using: downloadManager)
     }
@@ -962,6 +940,10 @@ struct LocalLibraryView: View {
                             neumorphicLocalLibraryHeader
                         } else if SignalStyle.isActive {
                             signalLocalLibraryHeader
+                        }
+
+                        if let progress = localLibrary.importProgress {
+                            LocalImportProgressPanel(progress: progress)
                         }
 
                         libraryOverviewCard
@@ -1306,13 +1288,7 @@ struct LocalLibraryView: View {
         case .success(let urls):
             guard !urls.isEmpty else { return }
             Task {
-                let importResult = await localLibrary.importItems(from: urls)
-                AlertManager.shared.show(
-                    title: localModeText("local_import_complete_title"),
-                    message: importResult.summaryText,
-                    primaryButtonTitle: localModeText("lib_confirm"),
-                    primaryAction: {}
-                )
+                _ = await localLibrary.importItems(from: urls)
                 refreshRecentSongs()
             }
         case .failure(let error):

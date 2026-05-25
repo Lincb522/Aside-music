@@ -105,8 +105,16 @@ enum QQMusicQuality: String, CaseIterable, Codable {
             return "SQ"
         case .ogg320, .mp3_320, .aac192:
             return "HQ"
-        case .ogg192, .ogg96, .mp3_128, .aac96, .aac48:
-            return nil
+        case .ogg192:
+            return "OGG 192"
+        case .ogg96:
+            return "OGG 96"
+        case .mp3_128:
+            return "MP3 128"
+        case .aac96:
+            return "AAC 96"
+        case .aac48:
+            return "AAC 48"
         }
     }
     

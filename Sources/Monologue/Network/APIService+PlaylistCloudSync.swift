@@ -3,6 +3,18 @@ import Foundation
 extension APIService {
     private var playlistCloudSyncPath: String { "/_admin/api/account/playlists" }
 
+    private var playlistCloudSyncDeviceId: String {
+        if let stored = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playlistSyncDeviceId)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !stored.isEmpty {
+            return stored
+        }
+
+        let generated = DeviceIdentifier.uuid
+        UserDefaults.standard.set(generated, forKey: AppConfig.StorageKeys.playlistSyncDeviceId)
+        return generated
+    }
+
     private func playlistCloudSyncURL() -> URL? {
         guard var components = URLComponents(string: SecureConfig.apiBaseURL) else {
             return nil
@@ -27,7 +39,7 @@ extension APIService {
 
         components.queryItems = [
             URLQueryItem(name: "token", value: token),
-            URLQueryItem(name: "deviceId", value: UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playlistSyncDeviceId))
+            URLQueryItem(name: "deviceId", value: playlistCloudSyncDeviceId)
         ]
 
         guard let url = components.url else {

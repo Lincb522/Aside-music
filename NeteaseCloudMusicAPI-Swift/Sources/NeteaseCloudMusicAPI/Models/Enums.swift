@@ -334,6 +334,8 @@ public enum ShareResourceType: String, Codable, CaseIterable, Sendable {
 public enum SoundQualityType: String, Codable, CaseIterable, Sendable {
     /// 标准音质
     case standard = "standard"
+    /// 较高音质
+    case higher = "higher"
     /// 极高音质
     case exhigh = "exhigh"
     /// 无损音质

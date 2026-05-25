@@ -3,7 +3,6 @@ import SwiftUI
 struct SoundQualitySheet: View {
     let currentQuality: SoundQuality
     let currentQQQuality: QQMusicQuality
-    let isUnblocked: Bool
     let isQQMusic: Bool
     let onSelectNetease: (SoundQuality) -> Void
     let onSelectQQ: (QQMusicQuality) -> Void
@@ -17,7 +16,7 @@ struct SoundQualitySheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
     
-    private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .none }
+    private let neteaseQualities: [SoundQuality] = SoundQuality.descendingPreferenceOrder
     
     @State private var availableQualities: [QQSongQualityInfo]?
     @State private var availableNeteaseQualities: [NeteaseSongQualityInfo]?
@@ -58,7 +57,7 @@ struct SoundQualitySheet: View {
                     
                     if isQishui {
                         PlatformBadgeLabel(text: "QSM", source: .qishui)
-                    } else if isUnblocked || isQQMusic {
+                    } else if isQQMusic {
                         PlatformBadgeLabel(text: String(localized: "quality_qq_source"), source: .qqmusic)
                     }
                     
@@ -81,7 +80,7 @@ struct SoundQualitySheet: View {
                             } else {
                                 qishuiQualityList
                             }
-                        } else if isQQMusic || isUnblocked {
+                        } else if isQQMusic {
                             if isLoadingQualities {
                                 ProgressView()
                                     .padding(.vertical, 40)
@@ -127,9 +126,9 @@ struct SoundQualitySheet: View {
         .task {
             if isQishui, let trackId = qishuiTrackId, trackId > 0 {
                 await loadQishuiQualities(trackId: trackId)
-            } else if (isQQMusic || isUnblocked), let mid = songMid, !mid.isEmpty {
+            } else if isQQMusic, let mid = songMid, !mid.isEmpty {
                 await loadQQQualities(mid: mid)
-            } else if !isQQMusic && !isUnblocked, let id = songId, id > 0 {
+            } else if !isQQMusic, let id = songId, id > 0 {
                 await loadNeteaseQualities(id: id)
             }
         }

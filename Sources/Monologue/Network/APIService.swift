@@ -947,15 +947,13 @@ class APIService: @unchecked Sendable {
             var allDicts: [[String: Any]] = []
             
             if ncm.serverUrl != nil {
-                async let newBannersReq = try? ncm.banner(type: .iphone)
-                async let oldBannersReq = try? ncm.bannerBackup(type: .iphone)
-                
-                let (newBody, oldBody) = await (newBannersReq, oldBannersReq)
-                
-                if let newBody = newBody?.body, let arr1 = newBody["banners"] as? [[String: Any]] {
+                if let newBody = try? await ncm.banner(type: .iphone).body,
+                   let arr1 = newBody["banners"] as? [[String: Any]] {
                     allDicts.append(contentsOf: arr1)
                 }
-                if let oldBody = oldBody?.body, let arr2 = oldBody["banners"] as? [[String: Any]] {
+
+                if let oldBody = try? await ncm.bannerBackup(type: .iphone).body,
+                   let arr2 = oldBody["banners"] as? [[String: Any]] {
                     allDicts.append(contentsOf: arr2)
                 }
             } else {
@@ -1268,10 +1266,21 @@ class APIService: @unchecked Sendable {
         if let dataArray = response.body["data"] as? [[String: Any]],
            let first = dataArray.first,
            let url = first["url"] as? String, !url.isEmpty {
+            let requestedQuality = SoundQuality(rawValue: level)
+            let actualQuality = (first["level"] as? String).flatMap(SoundQuality.init(rawValue:)) ?? requestedQuality
+
+            if let requestedQuality,
+               let actualQuality,
+               requestedQuality != .standard,
+               actualQuality != requestedQuality {
+                AppLogger.debug("[Netease] 请求 \(requestedQuality.displayName) 实际返回 \(actualQuality.displayName)，继续降级尝试")
+                throw PlaybackError.unavailable
+            }
+
             return SongUrlResult(
                 url: url,
                 isUnblocked: false,
-                actualNeteaseQuality: SoundQuality(rawValue: level)
+                actualNeteaseQuality: actualQuality
             )
         }
         throw PlaybackError.unavailable
@@ -1437,23 +1446,68 @@ class APIService: @unchecked Sendable {
         return json
     }
 
-    /// 将真实播放 URL 提交给后端，换取短链接
-    static func shortenPlayUrl(_ playUrl: String) -> AnyPublisher<String, Error> {
+    /// 将播放信息提交到 Mono 官网，换取官网短链接
+    static func shortenPlayUrl(
+        _ playUrl: String,
+        song: Song? = nil,
+        source: MusicSource? = nil,
+        qqQualityRaw: String? = nil,
+        qishuiQualityRaw: String? = nil
+    ) -> AnyPublisher<String, Error> {
         asyncToPublisher {
-            let base = SecureConfig.apiBaseURL.hasSuffix("/")
-                ? String(SecureConfig.apiBaseURL.dropLast())
-                : SecureConfig.apiBaseURL
-            let body = try await postToBackend(
-                serverUrl: SecureConfig.apiBaseURL,
-                route: "/play/shorten",
-                params: ["url": playUrl]
-            )
+            let base = SecureConfig.officialWebsiteBaseURL.hasSuffix("/")
+                ? String(SecureConfig.officialWebsiteBaseURL.dropLast())
+                : SecureConfig.officialWebsiteBaseURL
+            guard let url = URL(string: "\(base)/api/public/play/shorten") else {
+                throw URLError(.badURL)
+            }
+
+            let resolvedSource = source ?? song?.musicSource ?? .netease
+            var params: [String: Any] = [
+                "url": playUrl,
+                "source": resolvedSource.rawValue
+            ]
+            if let song {
+                params["songId"] = song.id
+                params["name"] = song.name
+                params["artistName"] = song.artistName
+                params["albumName"] = song.al?.name
+                params["coverUrl"] = song.coverUrl?.absoluteString
+                params["duration"] = song.dt
+                params["qqMid"] = song.qqMid
+                params["qishuiTrackId"] = song.qishuiTrackId
+            }
+            params["qqQualityRaw"] = qqQualityRaw
+            params["qishuiQualityRaw"] = qishuiQualityRaw
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 15
+            request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: params)
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+                throw URLError(.badServerResponse)
+            }
+
+            if let url = body["url"] as? String {
+                return url
+            }
+            if let data = body["data"] as? [String: Any],
+               let url = data["url"] as? String {
+                return url
+            }
+            if let code = body["code"] as? String {
+                return "\(base)/play/\(code)"
+            }
             if let data = body["data"] as? [String: Any],
                let code = data["code"] as? String {
                 return "\(base)/play/\(code)"
-            } else {
-                throw URLError(.badServerResponse)
             }
+            throw URLError(.badServerResponse)
         }
     }
 

@@ -378,6 +378,7 @@ class PlayerManager: ObservableObject {
     
     /// 当前播放的音频 URL（用于音频分析等功能）
     @Published var currentPlayingURL: String?
+    @Published var isCurrentPlaybackUsingLocalFile = false
     
     /// 当前歌曲动态封面 URL
     @Published var dynamicCoverUrl: String?
@@ -507,6 +508,9 @@ class PlayerManager: ObservableObject {
     
     /// 当前音质按钮显示文字（根据歌曲来源区分）
     var qualityButtonText: String {
+        if !isCurrentPlaybackQualitySelectable {
+            return localPlaybackQualityButtonText
+        }
         if currentSong?.isQishui == true {
             return QishuiQualityPickerSheet.displayName(for: qishuiSelectedQuality)
         }
@@ -514,6 +518,100 @@ class PlayerManager: ObservableObject {
             return qqMusicQuality.badgeText ?? String(localized: "标准")
         }
         return soundQuality.buttonText
+    }
+
+    private var localPlaybackQualityButtonText: String {
+        currentSong?.localFileURL == nil ? "DOWNLOAD" : "LOCAL"
+    }
+
+    var streamInfoDisplayText: String? {
+        guard let streamInfo else { return nil }
+        let text = compactStreamInfoText(streamInfo)
+        return text.isEmpty ? nil : text
+    }
+
+    var qualityInfoText: String? {
+        guard currentSong != nil else { return nil }
+        guard let streamInfoDisplayText else { return compactQualityInfoText }
+        return "\(compactQualityInfoText) · \(streamInfoDisplayText)"
+    }
+
+    private var compactQualityInfoText: String {
+        if !isCurrentPlaybackQualitySelectable, currentSong?.localFileURL == nil {
+            return "DL"
+        }
+        if currentSong?.isQishui == true {
+            return compactQishuiQualityText(for: qishuiSelectedQuality)
+        }
+        if isCurrentSongQQBacked {
+            return qqMusicQuality.badgeText ?? String(localized: "标准")
+        }
+        return soundQuality.buttonText
+    }
+
+    private func compactQishuiQualityText(for quality: String) -> String {
+        switch quality {
+        case "lossless":
+            return SoundQuality.lossless.buttonText
+        case "spatial":
+            return SoundQuality.sky.buttonText
+        case "hi_res":
+            return SoundQuality.hires.buttonText
+        case "highest":
+            return SoundQuality.exhigh.buttonText
+        case "higher":
+            return SoundQuality.higher.buttonText
+        case "medium":
+            return SoundQuality.standard.buttonText
+        default:
+            break
+        }
+        return qualityButtonText
+    }
+
+    private func compactStreamInfoText(_ info: StreamInfo) -> String {
+        var parts: [String] = []
+        if let codec = info.audioCodec, !codec.isEmpty {
+            parts.append(compactCodecText(codec))
+        }
+        if let sampleRate = info.sampleRate {
+            var sampleRateText = compactSampleRateText(sampleRate)
+            if let bitDepth = info.bitDepth, bitDepth > 0 {
+                sampleRateText += "/\(bitDepth)bit"
+            }
+            parts.append(sampleRateText)
+        } else if let bitDepth = info.bitDepth, bitDepth > 0 {
+            parts.append("\(bitDepth)bit")
+        }
+        if let channelCount = info.channelCount, channelCount > 2 {
+            parts.append("\(channelCount)ch")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    private func compactCodecText(_ codec: String) -> String {
+        let value = codec.lowercased()
+        if value.contains("flac") { return "FLAC" }
+        if value.contains("alac") { return "ALAC" }
+        if value.contains("ape") { return "APE" }
+        if value.contains("mp3") { return "MP3" }
+        if value.contains("aac") { return "AAC" }
+        if value.contains("opus") { return "OPUS" }
+        if value.contains("ogg") || value.contains("vorbis") { return "OGG" }
+        if value.contains("wav") || value.contains("pcm") { return "WAV" }
+        return codec.uppercased()
+    }
+
+    private func compactSampleRateText(_ sampleRate: Int) -> String {
+        if sampleRate >= 1000 {
+            let kilohertz = Double(sampleRate) / 1000.0
+            return kilohertz == kilohertz.rounded() ? "\(Int(kilohertz))kHz" : String(format: "%.1fkHz", kilohertz)
+        }
+        return "\(sampleRate)Hz"
+    }
+
+    var isCurrentPlaybackQualitySelectable: Bool {
+        !isCurrentPlaybackUsingLocalFile
     }
     
     var isCurrentSongQQBacked: Bool {

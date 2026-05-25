@@ -89,6 +89,12 @@ struct SongListRow: View {
         }
     }
 
+    private struct ShortLinkPayload {
+        let playUrl: String
+        let qqQualityRaw: String?
+        let qishuiQualityRaw: String?
+    }
+
     private struct QuickActionButtonStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
@@ -262,7 +268,7 @@ struct SongListRow: View {
 
     private var rowIndexWidth: CGFloat {
         if MangaStyle.isActive { return 15 }
-        if PetWhiteStyle.isActive { return 18 }
+        if PetWhiteStyle.isActive { return 22 }
         if MujiStyle.isActive { return 14 }
         if CapsuleStyle.isActive { return 14 }
         return 16
@@ -600,20 +606,8 @@ struct SongListRow: View {
             if !isLocalSong {
                 Divider()
                 
-                // 复制播放链接（获取真实 URL → 后端生成短码 → 复制短链接）
                 Button {
-                    Task {
-                        do {
-                            let result = try await APIService.shared.fetchSongUrl(id: song.id, level: "jymaster").async()
-                            guard !result.url.isEmpty else { return }
-                            let shortLink = try await APIService.shortenPlayUrl(result.url).async()
-                            await MainActor.run {
-                                UIPasteboard.general.string = shortLink
-                            }
-                        } catch {
-                            AppLogger.error("复制播放链接失败: \(error)")
-                        }
-                    }
+                    copyShortPlayLink()
                 } label: {
                     Label(String(localized: "song_copy_link"), systemImage: "link")
                 }
@@ -819,8 +813,8 @@ struct SongListRow: View {
 
             Capsule()
                 .fill(PetWhiteStyle.dogOrange)
-                .frame(width: 5, height: 30)
-                .padding(.leading, 8)
+                .frame(width: 3.5, height: 24)
+                .padding(.leading, 2)
         }
     }
 
@@ -1288,6 +1282,57 @@ struct SongListRow: View {
     private func downloadSong() {
         guard !song.isLocal else { return }
         rowDownloads.download(song: song)
+    }
+
+    private func copyShortPlayLink() {
+        Task {
+            do {
+                let payload = try await playUrlForShortLink()
+                guard !payload.playUrl.isEmpty else { return }
+                let shortLink = try await APIService.shortenPlayUrl(
+                    payload.playUrl,
+                    song: song,
+                    source: song.musicSource,
+                    qqQualityRaw: payload.qqQualityRaw,
+                    qishuiQualityRaw: payload.qishuiQualityRaw
+                ).async()
+                await MainActor.run {
+                    UIPasteboard.general.string = shortLink
+                }
+            } catch {
+                AppLogger.error("复制播放链接失败: \(error)")
+            }
+        }
+    }
+
+    private func playUrlForShortLink() async throws -> ShortLinkPayload {
+        if song.isQishui, let trackId = song.qishuiTrackId {
+            let quality = SettingsManager.shared.defaultQishuiPlaybackQuality
+            let playUrl = APIService.qishuiProxyPlayURL(
+                trackId: trackId,
+                quality: quality
+            )
+            return ShortLinkPayload(playUrl: playUrl, qqQualityRaw: nil, qishuiQualityRaw: quality)
+        } else if song.isQishui {
+            throw APIService.PlaybackError.unavailable
+        }
+
+        if song.isQQMusic, let mid = song.qqMid, !mid.isEmpty {
+            let result = try await APIService.shared.fetchQQSongUrl(
+                mid: mid,
+                quality: PlayerManager.shared.qqMusicQuality
+            ).async()
+            return ShortLinkPayload(
+                playUrl: result.url,
+                qqQualityRaw: result.actualQQQuality?.rawValue ?? PlayerManager.shared.qqMusicQuality.rawValue,
+                qishuiQualityRaw: nil
+            )
+        } else if song.isQQMusic {
+            throw APIService.PlaybackError.unavailable
+        }
+
+        let result = try await APIService.shared.fetchSongUrl(id: song.id, level: "jymaster").async()
+        return ShortLinkPayload(playUrl: result.url, qqQualityRaw: nil, qishuiQualityRaw: nil)
     }
 
     private func quickActionFeedbackBadge(for action: QuickAction) -> some View {

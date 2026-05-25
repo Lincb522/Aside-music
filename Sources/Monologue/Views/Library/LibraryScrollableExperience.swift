@@ -229,21 +229,21 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteHeaderDeck: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             // Elegant, frameless header with beautiful breathing room and playful elements
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
                 // Left badge - stands out beautifully on the paper backdrop
-                PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 46)
-                    .shadow(color: activeTabTint.opacity(0.12), radius: 6, y: 3)
+                PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 38)
+                    .shadow(color: activeTabTint.opacity(0.10), radius: 5, y: 2)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
                         PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
                         PetWhitePill(text: activeTabShortLabel, tint: PetWhiteStyle.butter)
                     }
 
                     Text(String(localized: "tabbar_library"))
-                        .font(PetWhiteStyle.titleFont(28, weight: .black))
+                        .font(PetWhiteStyle.titleFont(24, weight: .black))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
@@ -253,26 +253,25 @@ struct ScrollableLibraryExperience: View {
                 Spacer(minLength: 8)
 
                 // The mascot paw floats beautifully in a playful circle container
-                PetWhitePetPetIcon(size: 42)
-                    .padding(6)
+                PetWhitePetPetIcon(size: 34)
+                    .padding(5)
                     .background(
                         Circle()
                             .fill(PetWhiteStyle.surfaceRaised)
-                            .shadow(color: PetWhiteStyle.ink.opacity(0.06), radius: 5, y: 3)
+                            .shadow(color: PetWhiteStyle.ink.opacity(0.05), radius: 4, y: 2)
                     )
                     .overlay(
                         Circle()
-                            .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                            .stroke(PetWhiteStyle.stroke, lineWidth: 1.2)
                     )
             }
-            .padding(.horizontal, 4)
-            .padding(.top, 4)
+            .padding(.horizontal, 2)
 
             // The main interactive tab controller (keeps its solid, tactile dock-like appearance)
             tabStrip
         }
         .padding(.horizontal, contentHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .padding(.top, DeviceLayout.headerTopPadding + 2)
     }
 
     private var signalHeaderDeck: some View {
@@ -576,13 +575,13 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteTabDeck: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 5) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 petWhiteTabButton(tab: tab, index: index)
             }
         }
-        .padding(5)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfacePressed, accent: activeTabTint))
+        .padding(4)
+        .background(PetWhiteSurfaceBackground(cornerRadius: 19, elevated: true, tint: PetWhiteStyle.surfacePressed, accent: activeTabTint))
         .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
     }
 
@@ -593,10 +592,10 @@ struct ScrollableLibraryExperience: View {
         return Button {
             selectTab(tab, index: index)
         } label: {
-            VStack(spacing: 5) {
+            VStack(spacing: 3) {
                 PetWhitePackIcon(
                     icon: icon(for: tab),
-                    size: 19,
+                    size: 16,
                     visualScale: selected ? 1.08 : 0.98,
                     fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
                     lineWidth: selected ? 1.9 : 1.55
@@ -609,8 +608,8 @@ struct ScrollableLibraryExperience: View {
                     .minimumScaleFactor(0.72)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(PetWhiteDockSelectionBackground(tint: tint, isSelected: selected, cornerRadius: 16))
+            .frame(height: 40)
+            .background(PetWhiteDockSelectionBackground(tint: tint, isSelected: selected, cornerRadius: 14))
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
     }
@@ -979,14 +978,23 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteLibraryControlPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 10) {
-                PetWhiteSectionTitle(
-                    title: String(localized: "音乐库分区"),
-                    detail: selectedMyLibraryColumn.title,
-                    icon: selectedMyLibraryColumn.icon,
-                    tint: tint(for: selectedMyLibraryColumn)
-                )
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .center, spacing: 8) {
+                HStack(alignment: .center, spacing: 8) {
+                    PetWhiteIconBadge(icon: selectedMyLibraryColumn.icon, tint: tint(for: selectedMyLibraryColumn), size: 28)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(localized: "音乐库分区"))
+                            .font(PetWhiteStyle.titleFont(15, weight: .black))
+                            .foregroundStyle(PetWhiteStyle.ink)
+                            .lineLimit(1)
+
+                        Text(selectedMyLibraryColumn.title)
+                            .font(PetWhiteStyle.labelFont(10, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                }
 
                 Spacer(minLength: 0)
 
@@ -1004,14 +1012,14 @@ struct ScrollableLibraryExperience: View {
                             lineWidth: 1.75
                         )
                         Text(String(localized: "工具"))
-                            .font(PetWhiteStyle.labelFont(11, weight: .black))
+                            .font(PetWhiteStyle.labelFont(10, weight: .black))
                             .foregroundStyle(PetWhiteStyle.stroke)
                     }
-                    .padding(.horizontal, 11)
-                    .frame(height: 34)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
                     .background(
                         PetWhiteSurfaceBackground(
-                            cornerRadius: 14,
+                            cornerRadius: 13,
                             elevated: isLibraryActionsExpanded,
                             tint: isLibraryActionsExpanded ? tint(for: selectedMyLibraryColumn).opacity(0.22) : PetWhiteStyle.surfacePressed,
                             accent: tint(for: selectedMyLibraryColumn)
@@ -1025,10 +1033,10 @@ struct ScrollableLibraryExperience: View {
 
             LibraryDisclosureReveal(isExpanded: isLibraryActionsExpanded) {
                 actionStrip
-                    .padding(10)
+                    .padding(8)
                     .background(
                         PetWhiteSurfaceBackground(
-                            cornerRadius: 22,
+                            cornerRadius: 20,
                             elevated: false,
                             tint: PetWhiteStyle.surfacePressed,
                             accent: tint(for: selectedMyLibraryColumn)
@@ -1036,10 +1044,10 @@ struct ScrollableLibraryExperience: View {
                     )
             }
         }
-        .padding(12)
+        .padding(9)
         .background(
             PetWhiteSurfaceBackground(
-                cornerRadius: 24,
+                cornerRadius: 21,
                 elevated: true,
                 tint: PetWhiteStyle.surfaceRaised,
                 accent: tint(for: selectedMyLibraryColumn)
@@ -1050,7 +1058,7 @@ struct ScrollableLibraryExperience: View {
 
     private var columnStrip: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 8) {
+            HStack(spacing: PetWhiteStyle.isActive ? 6 : 8) {
                 ForEach(MyLibraryColumn.allCases, id: \.self) { column in
                     let selected = selectedMyLibraryColumn == column
                     Button {
@@ -1061,11 +1069,11 @@ struct ScrollableLibraryExperience: View {
                             loadQQUserPlaylistsIfNeeded()
                         }
                     } label: {
-                        HStack(spacing: 7) {
+                        HStack(spacing: 5) {
                             if PetWhiteStyle.isActive {
                                 PetWhitePackIcon(
                                     icon: column.icon,
-                                    size: 15,
+                                    size: 13,
                                     visualScale: selected ? 1.08 : 1,
                                     fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
                                     lineWidth: selected ? 1.9 : 1.55
@@ -1078,20 +1086,20 @@ struct ScrollableLibraryExperience: View {
                                 .foregroundColor(selected ? selectedChipText : secondaryText)
                                 .lineLimit(1)
                         }
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 42)
+                        .padding(.horizontal, PetWhiteStyle.isActive ? 10 : 12)
+                        .frame(minHeight: PetWhiteStyle.isActive ? 34 : 42)
                         .background(chipBackground(selected: selected, tint: tint(for: column), capsule: true))
                         .contentShape(Capsule())
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                 }
             }
-            .padding(.horizontal, 1) // Horizontal inset
-            .padding(.top, 2)
-            .padding(.bottom, 6) // Extra padding to accommodate stroke overflow + bottom shadow (y: 3)
+            .padding(.horizontal, 1)
+            .padding(.top, PetWhiteStyle.isActive ? 1 : 2)
+            .padding(.bottom, PetWhiteStyle.isActive ? 4 : 6)
         }
-        .padding(.top, -2)
-        .padding(.bottom, -6) // Offset layout spacing
+        .padding(.top, PetWhiteStyle.isActive ? -1 : -2)
+        .padding(.bottom, PetWhiteStyle.isActive ? -4 : -6)
         .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
     }

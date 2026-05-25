@@ -1877,8 +1877,8 @@ struct PodcastView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .padding(.horizontal, padH)
         .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .padding(.horizontal, padH)
     }
 
     // MARK: - 节目榜行

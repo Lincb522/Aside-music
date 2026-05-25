@@ -143,7 +143,6 @@ struct VinylPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
                 onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false },
@@ -563,6 +562,7 @@ extension VinylPlayerLayout {
                                 .stroke(secondaryColor.opacity(0.5), lineWidth: 0.8)
                         )
                 }
+                .playerQualitySelectionAvailability()
 
                 if let info = player.streamInfo {
                     Text(streamInfoText(info))

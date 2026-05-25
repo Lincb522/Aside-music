@@ -22,8 +22,6 @@ struct CommentView: View {
         self.coverUrl = coverUrl
     }
     
-    @State private var showEmojiPicker = false
-    
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -37,14 +35,6 @@ struct CommentView: View {
                 
                 // 评论内容
                 commentContent
-                
-                // 表情选择器
-                if showEmojiPicker {
-                    NeteaseEmojiPicker { emoji in
-                        vm.commentText += emoji
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
                 
                 // 底部输入栏
                 inputBar
@@ -72,7 +62,6 @@ struct CommentView: View {
             }
         }
         .onAppear { vm.loadComments() }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showEmojiPicker)
     }
     
     // MARK: - 顶部导航栏
@@ -373,24 +362,6 @@ struct CommentView: View {
             }
             
             HStack(spacing: 10) {
-                // 表情按钮
-                Button {
-                    withAnimation { showEmojiPicker.toggle() }
-                    isInputFocused = false
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(showEmojiPicker ? commentAccentFill : commentControlFill)
-                            .frame(width: 36, height: 36)
-                        MonologueIcon(
-                            icon: .emoji,
-                            size: 18,
-                            color: showEmojiPicker ? commentAccentForeground : commentSecondaryText
-                        )
-                    }
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
                 // 输入框
                 HStack(spacing: 8) {
                     TextField(
@@ -400,11 +371,6 @@ struct CommentView: View {
                     .font(.rounded(size: 15))
                     .monologueTextInputBehavior()
                     .focused($isInputFocused)
-                    .onTapGesture {
-                        if showEmojiPicker {
-                            withAnimation { showEmojiPicker = false }
-                        }
-                    }
                     
                     if !vm.commentText.isEmpty {
                         Button {
@@ -429,7 +395,6 @@ struct CommentView: View {
                 Button {
                     vm.sendComment()
                     isInputFocused = false
-                    withAnimation { showEmojiPicker = false }
                 } label: {
                     ZStack {
                         Circle()

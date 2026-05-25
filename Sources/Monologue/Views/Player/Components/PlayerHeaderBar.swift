@@ -1,5 +1,4 @@
 import SwiftUI
-import FFmpegSwiftSDK
 
 /// 播放器共享顶栏
 struct PlayerHeaderBar: View {
@@ -30,8 +29,8 @@ struct PlayerHeaderBar: View {
                         .lineLimit(1)
                 }
                 
-                if let info = player.streamInfo {
-                    Text(streamInfoText(info))
+                if let qualityInfoText = player.qualityInfoText {
+                    Text(qualityInfoText)
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundColor(secondaryColor.opacity(0.6))
                         .lineLimit(1)
@@ -58,21 +57,5 @@ struct PlayerHeaderBar: View {
             .monologueGlassCircle()
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-    }
-    
-    private func streamInfoText(_ info: StreamInfo) -> String {
-        var parts: [String] = []
-        if let codec = info.audioCodec { parts.append(codec.uppercased()) }
-        if let sr = info.sampleRate {
-            if sr >= 1000 {
-                let khz = Double(sr) / 1000.0
-                parts.append(khz == khz.rounded() ? "\(Int(khz))kHz" : String(format: "%.1fkHz", khz))
-            } else {
-                parts.append("\(sr)Hz")
-            }
-        }
-        if let bd = info.bitDepth, bd > 0 { parts.append("\(bd)bit") }
-        if let ch = info.channelCount, ch > 2 { parts.append("\(ch)ch") }
-        return parts.joined(separator: " / ")
     }
 }

@@ -1,5 +1,21 @@
 import SwiftUI
 
+struct PlayerQualitySelectionAvailabilityModifier: ViewModifier {
+    @ObservedObject private var player = PlayerManager.shared
+
+    func body(content: Content) -> some View {
+        content
+            .disabled(!player.isCurrentPlaybackQualitySelectable)
+            .opacity(player.isCurrentPlaybackQualitySelectable ? 1 : 0.42)
+    }
+}
+
+extension View {
+    func playerQualitySelectionAvailability() -> some View {
+        modifier(PlayerQualitySelectionAvailabilityModifier())
+    }
+}
+
 /// 播放器右上角三点菜单 — 全屏遮罩 + 右上角弹出菜单
 struct PlayerMoreMenu: View {
     @Binding var isPresented: Bool
@@ -43,7 +59,11 @@ struct PlayerMoreMenu: View {
             if !showTimerSheet {
                 VStack(spacing: 0) {
                     if let onQuality {
-                        menuItem(icon: .soundQuality, title: NSLocalizedString("quality_title", comment: "")) {
+                        menuItem(
+                            icon: .soundQuality,
+                            title: NSLocalizedString("quality_title", comment: ""),
+                            isEnabled: player.isCurrentPlaybackQualitySelectable
+                        ) {
                             isPresented = false
                             onQuality()
                         }
@@ -123,19 +143,20 @@ struct PlayerMoreMenu: View {
         icon: MonologueIcon.IconType,
         title: String,
         trailingText: String? = nil,
+        isEnabled: Bool = true,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                MonologueIcon(icon: icon, size: 18, color: textColor)
+                MonologueIcon(icon: icon, size: 18, color: textColor.opacity(isEnabled ? 1 : 0.38))
                 Text(title)
                     .font(.rounded(size: 15, weight: .medium))
-                    .foregroundColor(textColor)
+                    .foregroundColor(textColor.opacity(isEnabled ? 1 : 0.38))
                 if let trailingText {
                     Spacer(minLength: 8)
                     Text(trailingText)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(.monologueTextSecondary.opacity(isEnabled ? 1 : 0.38))
                         .monospacedDigit()
                 } else {
                     Spacer()
@@ -146,5 +167,6 @@ struct PlayerMoreMenu: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 }

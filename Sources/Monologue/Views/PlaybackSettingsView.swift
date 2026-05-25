@@ -68,7 +68,6 @@ struct PlaybackSettingsView: View {
             SoundQualitySheet(
                 currentQuality: SoundQuality(rawValue: settings.defaultPlaybackQuality) ?? .standard,
                 currentQQQuality: .mp3_320,
-                isUnblocked: false,
                 isQQMusic: false,
                 onSelectNetease: { quality in
                     settings.defaultPlaybackQuality = quality.rawValue
@@ -81,7 +80,6 @@ struct PlaybackSettingsView: View {
             SoundQualitySheet(
                 currentQuality: .standard,
                 currentQQQuality: QQMusicQuality(rawValue: settings.defaultQQPlaybackQuality) ?? .mp3_320,
-                isUnblocked: false,
                 isQQMusic: true,
                 onSelectNetease: { _ in },
                 onSelectQQ: { quality in

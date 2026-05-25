@@ -105,7 +105,6 @@ struct ImmersiveLyricPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
                 onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false },

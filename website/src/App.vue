@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useLandingViewModel } from './viewmodels/useLandingViewModel'
 
-const showSplash = ref(true)
+const showSplash = ref(!window.location.pathname.startsWith('/play/'))
 const loadingProgress = ref(0)
 const loadingPhaseText = ref('正在调制声学谐振...')
 
@@ -72,6 +72,9 @@ const {
   miniPlayerCover,
   miniPlayerPlaying,
   miniPlayerExpanded,
+  playShareLoading,
+  playShareError,
+  playShare,
   openContactDialog,
   copyWechatAndOpen,
   closeContactDialog,
@@ -96,10 +99,13 @@ const {
   onMiniPlayerPlay,
   onMiniPlayerPause,
   onMiniPlayerError,
+  fetchPlayShare,
+  playSharePlatformLabel,
   copyTokenKey,
   tokenStatusLabel,
   tokenStatusClass,
   formatDate,
+  formatDuration,
   formatSize,
   navigateTo,
 } = useLandingViewModel()
@@ -327,6 +333,46 @@ const {
       </div>
 
       <a class="subpage-home-link" href="/" @click="navigateTo('/', $event)">返回 Mono 首页</a>
+    </section>
+
+    <section v-if="currentPage === 'playShare'" class="subpage-section play-share-page" aria-labelledby="play-share-title">
+      <header class="subpage-brand-hero">
+        <img class="subpage-hero-icon" :src="assets.pawIcon" alt="" />
+        <img class="subpage-hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
+        <p>来自 Mono 的歌曲分享</p>
+      </header>
+
+      <div v-if="playShareLoading" class="section-placeholder">读取歌曲信息中...</div>
+      <div v-else-if="playShareError" class="section-placeholder">
+        <p>{{ playShareError }}</p>
+        <button type="button" @click="fetchPlayShare">重新读取</button>
+      </div>
+
+      <article v-else-if="playShare" class="play-share-card">
+        <div class="play-share-cover-wrap">
+          <img class="play-share-cover" :src="playShare.coverUrl || assets.pawIcon" :alt="playShare.name" />
+          <span class="play-share-platform">{{ playSharePlatformLabel(playShare.source) }}</span>
+        </div>
+
+        <div class="play-share-info">
+          <span class="eyebrow">SHARED TRACK</span>
+          <h2 id="play-share-title">{{ playShare.name }}</h2>
+          <p class="play-share-artist">{{ playShare.artistName || '未知艺人' }}</p>
+          <div class="play-share-meta">
+            <span v-if="playShare.albumName">{{ playShare.albumName }}</span>
+            <span v-if="formatDuration(playShare.duration)">{{ formatDuration(playShare.duration) }}</span>
+            <span>{{ playSharePlatformLabel(playShare.source) }}</span>
+          </div>
+          <div class="play-share-actions">
+            <a class="action-button action-button-primary" :href="playShare.downloadUrl">
+              下载歌曲
+            </a>
+            <a class="action-button action-button-secondary" href="/" @click="navigateTo('/', $event)">
+              了解 Mono
+            </a>
+          </div>
+        </div>
+      </article>
     </section>
 
     <section v-if="currentPage === 'updates'" class="subpage-section updates-page" aria-labelledby="updates-title">

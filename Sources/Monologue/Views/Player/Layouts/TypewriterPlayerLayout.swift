@@ -330,7 +330,6 @@ struct TypewriterPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { player.switchQuality($0); showQualitySheet = false },
                 onSelectQQ: { player.switchQQMusicQuality($0); showQualitySheet = false },
@@ -827,6 +826,7 @@ struct TypewriterPlayerLayout: View {
                 )
         }
         .buttonStyle(TypewriterKeyStyle(depth: 2))
+        .playerQualitySelectionAvailability()
     }
 
     private func labelKey(text: String, icon: MonologueIcon.IconType, disabled: Bool = false, action: @escaping () -> Void) -> some View {

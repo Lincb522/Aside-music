@@ -187,7 +187,7 @@ extension PlayerManager {
         let artistName = currentSong?.artistName ?? ""
         let albumName = currentSong?.album?.name ?? ""
         let sourceName = currentSong?.musicSource.widgetDisplayName ?? ""
-        let qualityText = currentSong == nil ? "" : qualityButtonText
+        let qualityText = currentSong == nil ? "" : (qualityInfoText ?? qualityButtonText)
         let playModeText = widgetPlayModeText
         let queueCount = currentSong == nil ? 0 : max(currentContextList.count, 1)
         let queueIndex = currentSong == nil ? 0 : min(max(currentIndexInContext + 1, 1), queueCount)

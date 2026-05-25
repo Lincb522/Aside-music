@@ -59,7 +59,9 @@ enum SoundQuality: String, CaseIterable, Codable {
 
     var badgeText: String? {
         switch self {
-        case .standard, .higher, .none: return nil
+        case .standard: return "Standard"
+        case .higher: return "Higher"
+        case .none: return nil
         case .exhigh: return "HQ"
         case .lossless: return "SQ"
         case .hires: return "Hi-Res"
@@ -75,7 +77,7 @@ enum SoundQuality: String, CaseIterable, Codable {
         default: return false
         }
     }
-    
+
     static let descendingPreferenceOrder: [SoundQuality] = [
         .jymaster, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher, .standard
     ]

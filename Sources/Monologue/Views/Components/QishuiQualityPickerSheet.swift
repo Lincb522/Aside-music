@@ -8,13 +8,13 @@ struct QishuiQualityPickerSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
 
-    private static let qualities: [(key: String, name: String, subtitle: String)] = [
-        ("lossless", "无损", "FLAC · ~820kbps"),
-        ("spatial", "空间音频", "AAC · ~324kbps"),
-        ("hi_res", "高解析度", "AAC · ~320kbps"),
-        ("highest", "超清", "AAC · ~260kbps"),
-        ("higher", "较高", "AAC · ~132kbps"),
-        ("medium", "标准", "AAC · ~64kbps"),
+    private static let qualities: [(key: String, name: String, subtitle: String, badge: String?)] = [
+        ("lossless", "无损", "FLAC · ~820kbps", SoundQuality.lossless.badgeText),
+        ("spatial", "空间音频", "AAC · ~324kbps", SoundQuality.sky.badgeText),
+        ("hi_res", "高解析度", "AAC · ~320kbps", SoundQuality.hires.badgeText),
+        ("highest", "超清", "AAC · ~260kbps", SoundQuality.exhigh.badgeText),
+        ("higher", "较高", "AAC · ~132kbps", SoundQuality.higher.badgeText),
+        ("medium", "标准", "AAC · ~64kbps", SoundQuality.standard.badgeText),
     ]
 
     static func displayName(for quality: String) -> String {
@@ -60,9 +60,26 @@ struct QishuiQualityPickerSheet: View {
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.name)
-                                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 16, weight: .medium, design: .rounded))
-                                        .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)
+                                    HStack(spacing: 6) {
+                                        Text(item.name)
+                                            .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 16, weight: .medium, design: .rounded))
+                                            .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)
+
+                                        if let badge = item.badge {
+                                            Text(badge)
+                                                .font(qualityBadgeFont)
+                                                .foregroundColor(qualityBadgeForeground)
+                                                .tracking(MujiStyle.isActive ? 0.5 : 0)
+                                                .padding(.horizontal, qualityBadgeHorizontalPadding)
+                                                .padding(.vertical, qualityBadgeVerticalPadding)
+                                                .background {
+                                                    qualityBadgeBackground
+                                                }
+                                                .overlay {
+                                                    qualityBadgeStroke
+                                                }
+                                        }
+                                    }
 
                                     Text(item.subtitle)
                                         .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))
@@ -111,6 +128,47 @@ struct QishuiQualityPickerSheet: View {
     private var defaultIconColor: Color {
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+    }
+
+    private var qualityBadgeFont: Font {
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(9, weight: .semibold) }
+        return .system(size: 9, weight: .semibold, design: .rounded)
+    }
+
+    private var qualityBadgeForeground: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return .monologueTextPrimary.opacity(0.72)
+    }
+
+    private var qualityBadgeHorizontalPadding: CGFloat {
+        MujiStyle.isActive ? 6 : 5
+    }
+
+    private var qualityBadgeVerticalPadding: CGFloat {
+        MujiStyle.isActive ? 2.5 : 2
+    }
+
+    @ViewBuilder
+    private var qualityBadgeBackground: some View {
+        if SequoiaStyle.isActive {
+            Capsule().fill(SequoiaStyle.accent.opacity(0.12))
+        } else if NeumorphicStyle.isActive {
+            Capsule().fill(NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.16 : 0.1))
+        } else {
+            Capsule().fill(Color.monologueSeparator.opacity(0.55))
+        }
+    }
+
+    @ViewBuilder
+    private var qualityBadgeStroke: some View {
+        if SequoiaStyle.isActive {
+            Capsule().stroke(SequoiaStyle.accent.opacity(0.22), lineWidth: 0.7)
+        } else if NeumorphicStyle.isActive {
+            Capsule().stroke(NeumorphicStyle.accent.opacity(0.16), lineWidth: 0.6)
+        } else {
+            Capsule().stroke(Color.monologueTextSecondary.opacity(0.08), lineWidth: 0.6)
+        }
     }
 
     @ViewBuilder

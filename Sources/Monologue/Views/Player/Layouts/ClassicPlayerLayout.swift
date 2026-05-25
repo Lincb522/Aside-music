@@ -138,7 +138,6 @@ struct ClassicPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { quality in
                     player.switchQuality(quality)
@@ -651,6 +650,7 @@ struct ClassicPlayerLayout: View {
             )
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+        .playerQualitySelectionAvailability()
     }
 
     @ViewBuilder
@@ -1187,6 +1187,7 @@ struct ClassicPlayerLayout: View {
             .overlay(Capsule().stroke(CapsuleStyle.accent.opacity(0.22), lineWidth: 0.9))
         }
         .buttonStyle(CapsulePressStyle())
+        .playerQualitySelectionAvailability()
     }
 
     @ViewBuilder
@@ -1706,6 +1707,7 @@ struct ClassicPlayerLayout: View {
                 )
         }
         .buttonStyle(.plain)
+        .playerQualitySelectionAvailability()
     }
 
     @ViewBuilder
@@ -1947,6 +1949,7 @@ struct ClassicPlayerLayout: View {
                             .stroke(qualityBadgeStroke, lineWidth: MangaStyle.isActive ? 1.4 : 1)
                     )
             }
+            .playerQualitySelectionAvailability()
 
             if let song = player.currentSong {
                 LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 26, activeColor: .red, inactiveColor: contentColor)

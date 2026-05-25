@@ -115,7 +115,6 @@ struct RadioPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { player.switchQuality($0); showQualitySheet = false },
                 onSelectQQ: { player.switchQQMusicQuality($0); showQualitySheet = false },
@@ -411,6 +410,7 @@ struct RadioPlayerLayout: View {
                             .frame(width: 30, height: 30)
                     }
                     skeuBtn(icon: nil, size: 36, label: player.qualityButtonText) { showQualitySheet = true }
+                        .playerQualitySelectionAvailability()
                 }
             }
         }

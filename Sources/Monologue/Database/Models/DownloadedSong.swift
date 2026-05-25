@@ -40,11 +40,14 @@ final class DownloadedSong {
     var isQishui: Bool = false
     /// 汽水歌曲 Track ID
     var qishuiTrackId: Int?
+    /// 汽水下载音质
+    var qishuiQualityRaw: String?
     
     enum Status: String {
         case waiting = "waiting"
         case downloading = "downloading"
         case completed = "completed"
+        case restored = "restored"
         case failed = "failed"
     }
     
@@ -79,7 +82,8 @@ final class DownloadedSong {
         isQQMusic: Bool = false,
         qqQuality: QQMusicQuality? = nil,
         isQishui: Bool = false,
-        qishuiTrackId: Int? = nil
+        qishuiTrackId: Int? = nil,
+        qishuiQualityRaw: String? = nil
     ) {
         if isQQMusic {
             self.uniqueKey = "qq_\(id)"
@@ -106,6 +110,7 @@ final class DownloadedSong {
         self.qqQualityRaw = qqQuality?.rawValue
         self.isQishui = isQishui
         self.qishuiTrackId = qishuiTrackId
+        self.qishuiQualityRaw = qishuiQualityRaw
     }
     
     /// 从 Song 模型创建（ncm 及 QSM）
@@ -121,7 +126,8 @@ final class DownloadedSong {
             qqMid: song.qqMid,
             isQQMusic: song.isQQMusic,
             isQishui: song.isQishui,
-            qishuiTrackId: song.qishuiTrackId
+            qishuiTrackId: song.qishuiTrackId,
+            qishuiQualityRaw: nil
         )
     }
     
@@ -138,7 +144,8 @@ final class DownloadedSong {
             isQQMusic: true,
             qqQuality: qqQuality,
             isQishui: false,
-            qishuiTrackId: nil
+            qishuiTrackId: nil,
+            qishuiQualityRaw: nil
         )
     }
     

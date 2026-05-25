@@ -12,7 +12,7 @@ struct DownloadQualitySheet: View {
     private var isQQ: Bool { song.isQQMusic }
     private var isQishui: Bool { song.isQishui }
 
-    private let neteaseQualities: [SoundQuality] = SoundQuality.allCases.filter { $0 != .higher && $0 != .none }
+    private let neteaseQualities: [SoundQuality] = SoundQuality.descendingPreferenceOrder.filter { $0 != .higher }
 
     private let qqPremiumQualities: [QQMusicQuality] = [.master, .atmos2, .atmos51]
     private let qqLosslessQualities: [QQMusicQuality] = [.flac, .ogg640]

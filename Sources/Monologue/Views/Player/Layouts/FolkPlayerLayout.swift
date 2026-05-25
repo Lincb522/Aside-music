@@ -92,7 +92,6 @@ struct FolkPlayerLayout: View {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
                 onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false },
@@ -267,6 +266,7 @@ extension FolkPlayerLayout {
                         .overlay(Rectangle().stroke(inkDark, lineWidth: 1))
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
+                .playerQualitySelectionAvailability()
                 .padding(.top, 2)
             }
             Spacer()

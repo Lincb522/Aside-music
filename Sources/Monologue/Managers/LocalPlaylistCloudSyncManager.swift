@@ -15,6 +15,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     private let settings = SettingsManager.shared
     private var cancellables = Set<AnyCancellable>()
     private var hasBootstrappedCurrentToken = false
+    private var isBootstrappingCurrentToken = false
     private var currentTokenFingerprint: String?
     private var isApplyingRemoteSnapshot = false
     private var lastObservedDigest: String
@@ -66,6 +67,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     func handleAccessRevoked() {
         currentTokenFingerprint = nil
         hasBootstrappedCurrentToken = false
+        isBootstrappingCurrentToken = false
         uploadRetryTask?.cancel()
         uploadRetryTask = nil
         pendingUploadDigest = nil
@@ -184,9 +186,14 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         guard accessManager.canUseOnlineFeatures else { return }
         guard let fingerprint = Self.tokenFingerprint() else { return }
         guard !hasBootstrappedCurrentToken else { return }
+        guard !isBootstrappingCurrentToken else { return }
 
+        isBootstrappingCurrentToken = true
         currentTokenFingerprint = fingerprint
-        defer { hasBootstrappedCurrentToken = true }
+        defer {
+            isBootstrappingCurrentToken = false
+            hasBootstrappedCurrentToken = true
+        }
 
         do {
             guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot() else {
@@ -382,6 +389,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     private func refreshRemoteSnapshotIfNeeded(showStatus: Bool) async throws -> Int? {
         guard accessManager.canUseOnlineFeatures else { return nil }
         guard hasBootstrappedCurrentToken else { return nil }
+        guard !isBootstrappingCurrentToken else { return nil }
         guard !isApplyingRemoteSnapshot else { return nil }
         guard !isSyncing else { return nil }
         guard lastRemoteRevision != nil else { return nil }
@@ -434,6 +442,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
         // 恢复下载记录到下载歌单（仅元数据，显示用）
         if let downloads = downloads, !downloads.isEmpty {
+            DownloadManager.shared.restoreCloudDownloadRecords(downloads)
             let songs = downloads.map { $0.toSong() }
             playlistManager.restoreDownloadPlaylistSongs(songs)
         }
@@ -522,7 +531,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     }
 
     private static func deviceId() -> String {
-        return DeviceIdentifier.uuid
+        let id = DeviceIdentifier.uuid
+        UserDefaults.standard.set(id, forKey: AppConfig.StorageKeys.playlistSyncDeviceId)
+        return id
     }
 
     private static func tokenFingerprint() -> String? {

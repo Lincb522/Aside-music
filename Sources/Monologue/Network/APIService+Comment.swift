@@ -34,22 +34,6 @@ extension APIService {
         }
     }
 
-    /// 获取评论表情包列表
-    func fetchCommentEmojiSections(groupId: String? = nil) -> AnyPublisher<[NeteaseEmojiSection], Error> {
-        ncm.publisher { [ncm] in
-            let loginCookie = self.currentCookie
-            if let cookie = loginCookie {
-                ncm.clearCookies()
-                ncm.setCookie(cookie)
-            }
-            AppLogger.info("[CommentEmoji] fetch groupId=\(groupId ?? "all") hasLoginCookie=\(loginCookie != nil)")
-            let response = try await ncm.emojiList(groupId: groupId)
-            let data = try JSONSerialization.data(withJSONObject: response.body)
-            let decoded = try JSONDecoder().decode(CommentEmojiAPIResponse.self, from: data)
-            return decoded.sections()
-        }
-    }
-
     /// 评论点赞/取消点赞
     func likeComment(type: CommentType, id: Int, commentId: Int, like: Bool) -> AnyPublisher<SimpleResponse, Error> {
         ncm.publisher { [ncm] in

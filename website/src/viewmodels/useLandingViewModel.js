@@ -44,6 +44,9 @@ export function useLandingViewModel() {
   const miniPlayerIndex = ref(0)
   const miniPlayerPlaying = ref(false)
   const miniPlayerExpanded = ref(false)
+  const playShareLoading = ref(false)
+  const playShareError = ref('')
+  const playShare = ref(null)
 
   const currentPath = ref(window.location.pathname)
 
@@ -54,6 +57,7 @@ export function useLandingViewModel() {
     if (path === '/updates') return 'updates'
     if (path === '/download') return 'download'
     if (path === '/testflight') return 'testflight'
+    if (path.startsWith('/play/')) return 'playShare'
 
     return 'home'
   })
@@ -81,6 +85,9 @@ export function useLandingViewModel() {
     if (currentPage.value === 'testflight') {
       fetchTestFlightInfo()
     }
+    if (currentPage.value === 'playShare') {
+      fetchPlayShare()
+    }
 
     window.addEventListener('popstate', handlePopState)
   })
@@ -96,6 +103,9 @@ export function useLandingViewModel() {
     }
     if (currentPage.value === 'testflight') {
       fetchTestFlightInfo()
+    }
+    if (currentPage.value === 'playShare') {
+      fetchPlayShare()
     }
   }
 
@@ -122,6 +132,9 @@ export function useLandingViewModel() {
     }
     if (path === '/testflight') {
       fetchTestFlightInfo()
+    }
+    if (path.startsWith('/play/')) {
+      fetchPlayShare()
     }
   }
 
@@ -235,7 +248,7 @@ export function useLandingViewModel() {
     updatesError.value = ''
 
     try {
-      const response = await fetch('/api/public/ipa-releases')
+      const response = await fetch('/api/public/changelogs')
       const payload = await parseJsonResponse(response, '更新公告读取失败。')
 
       if (!response.ok) {
@@ -818,6 +831,54 @@ export function useLandingViewModel() {
     return updatedTrack
   }
 
+  async function fetchPlayShare() {
+    const code = currentPath.value.split('/').filter(Boolean)[1]
+    if (!code) {
+      playShare.value = null
+      playShareError.value = '分享链接不完整。'
+      return
+    }
+
+    playShareLoading.value = true
+    playShareError.value = ''
+
+    try {
+      const response = await fetch(`/api/public/play/${encodeURIComponent(code)}`)
+      const payload = await parseJsonResponse(response, '分享读取失败。')
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.message || '分享不存在或已失效。')
+      }
+      playShare.value = payload.data || payload
+    } catch (error) {
+      playShare.value = null
+      playShareError.value = error.message || '分享读取失败。'
+    } finally {
+      playShareLoading.value = false
+    }
+  }
+
+  function playSharePlatformLabel(source) {
+    switch (source) {
+      case 'qqmusic':
+        return 'QCM'
+      case 'qishui':
+        return 'QSM'
+      case 'netease':
+        return 'NCM'
+      default:
+        return 'Mono'
+    }
+  }
+
+  function formatDuration(value) {
+    const milliseconds = Number(value)
+    if (!milliseconds) return ''
+    const seconds = Math.round(milliseconds / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const rest = seconds % 60
+    return `${minutes}:${String(rest).padStart(2, '0')}`
+  }
+
   function normalizeMiniPlayerTracks(payload) {
     const source = payload.tracks
       || payload.songs
@@ -975,6 +1036,9 @@ export function useLandingViewModel() {
     miniPlayerCover,
     miniPlayerPlaying,
     miniPlayerExpanded,
+    playShareLoading,
+    playShareError,
+    playShare,
     openContactDialog,
     copyWechatAndOpen,
     closeContactDialog,
@@ -1000,10 +1064,13 @@ export function useLandingViewModel() {
     onMiniPlayerPlay,
     onMiniPlayerPause,
     onMiniPlayerError,
+    fetchPlayShare,
+    playSharePlatformLabel,
     copyTokenKey,
     tokenStatusLabel,
     tokenStatusClass,
     formatDate,
+    formatDuration,
     formatSize,
     navigateTo,
     currentPath,

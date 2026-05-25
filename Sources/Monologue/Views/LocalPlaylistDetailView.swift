@@ -211,6 +211,12 @@ struct LocalPlaylistDetailView: View {
                 onBatchRemove: canRemoveSongsFromCurrentPlaylist ? { batchRemoveSelected() } : nil
             )
 
+            if let progress = localLibrary.importProgress {
+                LocalImportProgressPanel(progress: progress)
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.bottom, 10)
+            }
+
             songListSection
                 .padding(.bottom, 100)
         }
@@ -285,34 +291,7 @@ struct LocalPlaylistDetailView: View {
         } ?? 0
 
         isImportingLocalMusic = false
-        AlertManager.shared.show(
-            title: String(localized: "local_import_complete_title"),
-            message: playlistImportMessage(result: result, addedCount: addedCount, playlistName: playlistName),
-            primaryButtonTitle: String(localized: "lib_confirm"),
-            primaryAction: {}
-        )
-    }
-
-    private func playlistImportMessage(
-        result: LocalMusicLibraryManager.ImportResult,
-        addedCount: Int,
-        playlistName: String
-    ) -> String {
-        let addedMessage = if addedCount > 0 {
-            String(
-                format: NSLocalizedString("local_playlist_import_added", comment: ""),
-                locale: Locale.current,
-                addedCount,
-                playlistName
-            )
-        } else {
-            String(
-                format: NSLocalizedString("local_playlist_import_no_added", comment: ""),
-                locale: Locale.current,
-                playlistName
-            )
-        }
-        return [result.summaryText, addedMessage].joined(separator: "\n")
+        AppLogger.info("[LocalMusicImport] playlist=\(playlistName) added=\(addedCount) \(result.summaryText)")
     }
 
     // MARK: - Header

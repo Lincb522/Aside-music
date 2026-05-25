@@ -93,7 +93,7 @@ extension PlayerManager {
         if let localURL = song.localFileURL {
             return localURL
         }
-        return DownloadManager.shared.localFileURL(songId: song.id, isQQ: song.isQQMusic)
+        return DownloadManager.shared.localFileURL(for: song)
     }
     
     /// 根据歌曲来源加载动态封面（仅ncm）
@@ -494,6 +494,7 @@ extension PlayerManager {
             duration = song.dt.map { Double($0) / 1000.0 } ?? 0
         }
         isCurrentSongUnblocked = false
+        isCurrentPlaybackUsingLocalFile = false
         streamInfo = nil
         qualitySwitchTimeoutTask?.cancel()
         qualitySwitchTimeoutTask = nil
@@ -535,9 +536,11 @@ extension PlayerManager {
         // 优先使用本地已下载文件
         if let localURL = localPlaybackURL(for: song) {
             AppLogger.info("使用本地文件播放: \(song.name)")
+            isCurrentPlaybackUsingLocalFile = true
             self.startPlayback(url: localURL, autoPlay: autoPlay, startTime: startTime)
             return
         }
+        DownloadManager.shared.enqueueRestoredDownloadIfNeeded(for: song)
 
         // 根据歌曲来源获取播放 URL
         if song.isQishui, let trackId = song.qishuiTrackId {

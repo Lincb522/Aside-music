@@ -23,6 +23,7 @@ struct CloudDownloadRecord: Codable, Hashable {
     var source: String?        // MusicSource.rawValue
     var qqMid: String?
     var qishuiTrackId: Int?
+    var qishuiQualityRaw: String?
     var qualityRaw: String?
     var qqQualityRaw: String?
     var downloadedAt: Date?
@@ -37,6 +38,7 @@ struct CloudDownloadRecord: Codable, Hashable {
         self.duration = downloaded.duration
         self.qqMid = downloaded.qqMid
         self.qishuiTrackId = downloaded.qishuiTrackId
+        self.qishuiQualityRaw = downloaded.qishuiQualityRaw
         self.qualityRaw = downloaded.qualityRaw
         self.qqQualityRaw = downloaded.qqQualityRaw
         self.downloadedAt = downloaded.downloadedAt

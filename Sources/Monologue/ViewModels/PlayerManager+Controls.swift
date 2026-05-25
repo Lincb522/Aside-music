@@ -27,6 +27,15 @@ extension PlayerManager {
             return currentSong != nil
         }
 
+        if let song = currentSong, isCurrentPlaybackAtEnd {
+            AppLogger.info("播放已在结尾，用户点击播放时从头开始: \(song.name)")
+            currentTime = 0
+            pendingRestoreTime = nil
+            needsPlaybackRestoration = false
+            loadAndPlay(song: song, startTime: 0)
+            return true
+        }
+
         if needsPlaybackRestoration, currentSong != nil {
             restorePlaybackSessionIfNeeded(forceAutoPlay: true)
             return true
@@ -86,6 +95,19 @@ extension PlayerManager {
             loadAndPlay(song: song, startTime: resumeTime)
             return true
         }
+    }
+
+    private var isCurrentPlaybackAtEnd: Bool {
+        let expectedDuration: Double = {
+            if let metaMs = currentSong?.dt, metaMs > 0 {
+                return Double(metaMs) / 1000.0
+            }
+            return duration
+        }()
+
+        guard expectedDuration > 0 else { return false }
+        let referenceTime = max(currentTime, streamPlayer.currentTime)
+        return referenceTime >= max(expectedDuration - 0.75, 0)
     }
 
     @discardableResult
@@ -246,6 +268,7 @@ extension PlayerManager {
     }
     
     func switchQuality(_ quality: SoundQuality) {
+        guard isCurrentPlaybackQualitySelectable else { return }
         guard soundQuality != quality || !hasManualNeteaseQualityOverride else { return }
 
         // 游戏模式下用户手动切音质 → 同步更新备份值（由 GameModeManager 判断内部/外部）
@@ -263,6 +286,7 @@ extension PlayerManager {
     
     /// 切换汽水音乐音质
     func switchQishuiQuality(_ info: QishuiQualityInfo) {
+        guard isCurrentPlaybackQualitySelectable else { return }
         guard let current = currentSong, current.isQishui else { return }
         soundQuality = info.soundQuality
         qishuiSelectedQuality = info.quality
@@ -271,6 +295,7 @@ extension PlayerManager {
     
     /// 切换 qcm音质（仅对当前是 QQ 歌曲且已有 qqMid 时生效）
     func switchQQMusicQuality(_ quality: QQMusicQuality) {
+        guard isCurrentPlaybackQualitySelectable else { return }
         guard qqMusicQuality != quality || !hasManualQQQualityOverride else { return }
         guard let current = currentSong else {
             qqMusicQuality = quality

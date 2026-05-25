@@ -164,7 +164,7 @@ final class LyricsLiveActivityManager {
             artist: song.artistName,
             album: song.album?.name ?? "",
             source: song.musicSource.widgetDisplayName,
-            quality: player.qualityButtonText,
+            quality: player.qualityInfoText ?? player.qualityButtonText,
             lyric: currentLyric,
             nextLyric: nextLyric,
             playbackState: player.playbackSurfaceState,

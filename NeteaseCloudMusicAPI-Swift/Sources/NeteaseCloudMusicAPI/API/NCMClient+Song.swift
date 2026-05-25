@@ -75,6 +75,7 @@ extension NCMClient {
         let quality: String
         switch level {
         case .standard: quality = "128"
+        case .higher: quality = "192"
         case .exhigh: quality = "320"
         case .lossless: quality = "flac"
         case .hires: quality = "999"
@@ -255,11 +256,13 @@ extension NCMClient {
     ///   - level: 音质等级
     /// - Returns: API 响应
     public func songDownloadUrlV1(id: Int, level: SoundQualityType = .exhigh) async throws -> APIResponse {
-        let data: [String: Any] = [
+        var data: [String: Any] = [
             "id": id,
-            "immerseType": "c51",
             "level": level.rawValue,
         ]
+        if level == .sky {
+            data["immerseType"] = "c51"
+        }
         return try await request("/api/song/enhance/download/url/v1", data: data)
     }
 

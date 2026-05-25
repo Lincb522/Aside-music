@@ -178,6 +178,20 @@ enum SecureConfig {
             : qqMusicBaseURL
         return "\(base)/qishui"
     }
+
+    /// Mono 官网地址，用于公开分享页与短链接
+    static var officialWebsiteBaseURL: String {
+        if let envURL = ProcessInfo.processInfo.environment["MONO_OFFICIAL_BASE_URL"],
+           !envURL.isEmpty {
+            return envURL
+        }
+        if let plistURL = Bundle.main.object(forInfoDictionaryKey: "MONO_OFFICIAL_BASE_URL") as? String,
+           !plistURL.isEmpty,
+           !plistURL.hasPrefix("$(") {
+            return plistURL
+        }
+        return "https://mono.zijiu522.cn"
+    }
     
     // MARK: - API Token
     

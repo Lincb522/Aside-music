@@ -64,6 +64,20 @@ final class DownloadManager: NSObject, ObservableObject {
     static func makeQishuiKey(trackId: Int) -> String {
         "qishui_\(trackId)"
     }
+
+    private static func makeKey(for song: Song) -> String {
+        if song.isQishui, let trackId = song.qishuiTrackId {
+            return makeQishuiKey(trackId: trackId)
+        }
+        return makeKey(songId: song.id, isQQ: song.isQQMusic)
+    }
+
+    private static func makeKey(for record: CloudDownloadRecord) -> String {
+        if record.source == MusicSource.qishui.rawValue, let trackId = record.qishuiTrackId {
+            return makeQishuiKey(trackId: trackId)
+        }
+        return makeKey(songId: record.songId, isQQ: record.source == MusicSource.qqmusic.rawValue)
+    }
     
     // MARK: - 默认下载音质
 
@@ -152,7 +166,10 @@ final class DownloadManager: NSObject, ObservableObject {
             albumName: song.al?.name,
             coverUrl: song.coverUrl?.absoluteString,
             duration: song.dt,
-            quality: .exhigh
+            quality: .exhigh,
+            isQishui: true,
+            qishuiTrackId: trackId,
+            qishuiQualityRaw: quality
         )
         downloaded.uniqueKey = key
         context.insert(downloaded)
@@ -287,6 +304,11 @@ final class DownloadManager: NSObject, ObservableObject {
     }
     
     /// 获取本地文件 URL
+    func localFileURL(for song: Song) -> URL? {
+        localFileURL(forKey: Self.makeKey(for: song))
+    }
+
+    /// 获取本地文件 URL
     func localFileURL(songId: Int, isQQ: Bool = false) -> URL? {
         let key = Self.makeKey(songId: songId, isQQ: isQQ)
         let context = DatabaseManager.shared.context
@@ -328,12 +350,97 @@ final class DownloadManager: NSObject, ObservableObject {
         }
         return records
     }
+
+    func fetchCloudSyncedDownloads() -> [DownloadedSong] {
+        fetchDownloadRecords(includingRestored: true)
+    }
+
+    func fetchDownloadPlaylistSongs() -> [Song] {
+        fetchDownloadRecords(includingRestored: true).map { $0.toSong() }
+    }
+
+    func restoreCloudDownloadRecords(_ records: [CloudDownloadRecord]) {
+        guard !records.isEmpty else { return }
+
+        let context = DatabaseManager.shared.context
+        for cloudRecord in records {
+            let key = Self.makeKey(for: cloudRecord)
+            let existing = getDownloadRecord(key: key)
+
+            if existing?.status == .completed, localFileURL(forKey: key) != nil {
+                continue
+            }
+
+            let target = existing ?? DownloadedSong(
+                id: cloudRecord.songId,
+                name: cloudRecord.name,
+                artistName: cloudRecord.artistName,
+                albumName: cloudRecord.albumName,
+                coverUrl: cloudRecord.coverUrl,
+                duration: cloudRecord.duration,
+                quality: cloudRecord.qualityRaw.flatMap(SoundQuality.init(rawValue:)) ?? .exhigh,
+                qqMid: cloudRecord.qqMid,
+                isQQMusic: cloudRecord.source == MusicSource.qqmusic.rawValue,
+                qqQuality: cloudRecord.qqQualityRaw.flatMap(QQMusicQuality.init(rawValue:)),
+                isQishui: cloudRecord.source == MusicSource.qishui.rawValue,
+                qishuiTrackId: cloudRecord.qishuiTrackId,
+                qishuiQualityRaw: cloudRecord.qishuiQualityRaw
+            )
+
+            target.uniqueKey = key
+            target.name = cloudRecord.name
+            target.artistName = cloudRecord.artistName
+            target.albumName = cloudRecord.albumName
+            target.coverUrl = cloudRecord.coverUrl
+            target.duration = cloudRecord.duration
+            target.qualityRaw = cloudRecord.qualityRaw ?? target.qualityRaw
+            target.qqQualityRaw = cloudRecord.qqQualityRaw
+            target.qqMid = cloudRecord.qqMid
+            target.isQQMusic = cloudRecord.source == MusicSource.qqmusic.rawValue
+            target.isQishui = cloudRecord.source == MusicSource.qishui.rawValue
+            target.qishuiTrackId = cloudRecord.qishuiTrackId
+            target.qishuiQualityRaw = cloudRecord.qishuiQualityRaw
+            target.localPath = nil
+            target.fileSize = 0
+            target.progress = 0
+            target.status = .restored
+            target.downloadedAt = cloudRecord.downloadedAt
+
+            if existing == nil {
+                context.insert(target)
+            }
+        }
+
+        try? context.save()
+    }
+
+    func enqueueRestoredDownloadIfNeeded(for song: Song) {
+        let key = Self.makeKey(for: song)
+        guard localFileURL(forKey: key) == nil,
+              downloadingTasks[key] == nil,
+              !waitingQueue.contains(key),
+              let record = getDownloadRecord(key: key),
+              record.status == .restored || record.status == .failed else {
+            return
+        }
+
+        record.status = .waiting
+        record.progress = 0
+        record.localPath = nil
+        record.fileSize = 0
+        try? DatabaseManager.shared.context.save()
+        waitingQueue.append(key)
+        AppLogger.info("[DownloadRestore] 本地文件缺失，按原音质重新加入下载队列: \(record.name)")
+        processQueue()
+    }
     
     /// 获取下载中的歌曲
     func fetchDownloading() -> [DownloadedSong] {
         let context = DatabaseManager.shared.context
+        let completed = DownloadedSong.Status.completed.rawValue
+        let restored = DownloadedSong.Status.restored.rawValue
         let descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.statusRaw != "completed" },
+            predicate: #Predicate { $0.statusRaw != completed && $0.statusRaw != restored },
             sortBy: [SortDescriptor(\.createdAt)]
         )
         return (try? context.fetch(descriptor)) ?? []
@@ -369,7 +476,7 @@ final class DownloadManager: NSObject, ObservableObject {
         if key.hasPrefix("qishui_") {
             let trackIdStr = key.replacingOccurrences(of: "qishui_", with: "")
             if let trackId = Int(trackIdStr) {
-                startQishuiDownload(key: key, trackId: trackId)
+                startQishuiDownload(key: key, trackId: trackId, record: record)
             } else {
                 handleDownloadFailed(key: key, reason: "无效的汽水音乐 track ID")
             }
@@ -432,8 +539,8 @@ final class DownloadManager: NSObject, ObservableObject {
     }
     
     /// 开始汽水音乐下载（通过服务端代理，返回已解密的音频）
-    private func startQishuiDownload(key: String, trackId: Int) {
-        let quality = SettingsManager.shared.defaultQishuiPlaybackQuality
+    private func startQishuiDownload(key: String, trackId: Int, record: DownloadedSong?) {
+        let quality = record?.qishuiQualityRaw ?? SettingsManager.shared.defaultQishuiPlaybackQuality
         var proxyURL = APIService.qishuiProxyPlayURL(trackId: trackId, quality: quality)
         let separator = proxyURL.contains("?") ? "&" : "?"
         proxyURL += separator + "_download=1"
@@ -663,6 +770,21 @@ final class DownloadManager: NSObject, ObservableObject {
             downloadedSongIds = Set(records.map { $0.uniqueKey })
         }
     }
+
+    private func fetchDownloadRecords(includingRestored: Bool) -> [DownloadedSong] {
+        let context = DatabaseManager.shared.context
+        let descriptor = FetchDescriptor<DownloadedSong>(
+            sortBy: [SortDescriptor(\.downloadedAt, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let allowedStatuses: Set<DownloadedSong.Status> = includingRestored
+            ? [.completed, .restored, .waiting, .downloading]
+            : [.completed]
+        let records = ((try? context.fetch(descriptor)) ?? []).filter { allowedStatuses.contains($0.status) }
+        for record in records where record.status == .completed {
+            _ = normalizeCompletedFileNameIfNeeded(for: record)
+        }
+        return records
+    }
     
     private func getQuality(key: String) -> SoundQuality {
         getDownloadRecord(key: key)?.quality ?? .exhigh
@@ -675,6 +797,15 @@ final class DownloadManager: NSObject, ObservableObject {
         )
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
+    }
+
+    private func localFileURL(forKey key: String) -> URL? {
+        guard let record = getDownloadRecord(key: key),
+              let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
+              FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+        return url
     }
     
     private func deleteFromDB(key: String) {

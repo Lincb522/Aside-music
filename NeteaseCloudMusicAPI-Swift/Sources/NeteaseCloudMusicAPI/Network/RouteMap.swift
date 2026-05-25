@@ -437,7 +437,6 @@ enum RouteMap {
         "/api/song/url/ncmget": "/song/url/ncmget",
         "/api/banner/backup": "/banner/backup",
         "/api/play/shorten": "/play/shorten",
-        "/api/social/emoji/bff/home/detail": "/emoji/list",
     ]
 
 

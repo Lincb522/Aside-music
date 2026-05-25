@@ -272,7 +272,6 @@ struct Game2048PlayerLayout: View {
         .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality, currentQQQuality: player.qqMusicQuality,
-                isUnblocked: player.isCurrentSongUnblocked,
                 isQQMusic: player.currentSong?.isQQMusic == true,
                 onSelectNetease: { q in player.switchQuality(q); showQualitySheet = false },
                 onSelectQQ: { q in player.switchQQMusicQuality(q); showQualitySheet = false },
@@ -625,6 +624,7 @@ extension Game2048PlayerLayout {
                 }.foregroundColor(tileFg(64)).frame(maxWidth: .infinity, maxHeight: .infinity)
             }.frame(width: cell, height: cell)
         }.buttonStyle(MonologueBouncingButtonStyle())
+        .playerQualitySelectionAvailability()
     }
 
     // ─── 通用方块模板 ───

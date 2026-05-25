@@ -74,9 +74,34 @@ final class LocalMusicLibraryManager: ObservableObject {
         }
     }
 
+    struct ImportProgress {
+        var title: String
+        var phaseText: String
+        var detailText: String?
+        var processedItems: Int
+        var totalItems: Int
+        var importedCount: Int
+        var skippedCount: Int
+        var failedCount: Int
+        var matchedMetadataCount: Int
+        var prefetchedLyricsCount: Int
+        var isCompleted: Bool
+
+        var fraction: Double {
+            guard totalItems > 0 else { return 0 }
+            return min(max(Double(processedItems) / Double(totalItems), 0), 1)
+        }
+
+        var countText: String {
+            guard totalItems > 0 else { return "" }
+            return "\(processedItems)/\(totalItems)"
+        }
+    }
+
     @Published private(set) var songs: [Song] = []
     @Published private(set) var isProcessing = false
     @Published private(set) var lastImportResult: ImportResult?
+    @Published private(set) var importProgress: ImportProgress?
 
     private struct LocalSongImportPayload {
         let song: Song
@@ -150,6 +175,7 @@ final class LocalMusicLibraryManager: ObservableObject {
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private var progressDismissTask: Task<Void, Never>?
 
     private init() {
         loadManifest()
@@ -159,13 +185,100 @@ final class LocalMusicLibraryManager: ObservableObject {
         songs.count
     }
 
+    private func beginImportProgress(title: String, phase: String, detail: String?, totalItems: Int) {
+        progressDismissTask?.cancel()
+        progressDismissTask = nil
+        importProgress = ImportProgress(
+            title: title,
+            phaseText: phase,
+            detailText: detail,
+            processedItems: 0,
+            totalItems: totalItems,
+            importedCount: 0,
+            skippedCount: 0,
+            failedCount: 0,
+            matchedMetadataCount: 0,
+            prefetchedLyricsCount: 0,
+            isCompleted: false
+        )
+    }
+
+    private func updateImportProgress(
+        phase: String? = nil,
+        detail: String? = nil,
+        processedItems: Int? = nil,
+        totalItems: Int? = nil,
+        result: ImportResult? = nil
+    ) {
+        guard var progress = importProgress else { return }
+        if let phase {
+            progress.phaseText = phase
+        }
+        if let detail {
+            progress.detailText = detail
+        }
+        if let processedItems {
+            progress.processedItems = processedItems
+        }
+        if let totalItems {
+            progress.totalItems = max(totalItems, progress.totalItems)
+        }
+        if let result {
+            progress.importedCount = result.importedCount
+            progress.skippedCount = result.skippedCount
+            progress.failedCount = result.failedItems.count
+            progress.matchedMetadataCount = result.matchedMetadataCount
+            progress.prefetchedLyricsCount = result.prefetchedLyricsCount
+        }
+        importProgress = progress
+    }
+
+    private func completeImportProgress(title: String, result: ImportResult, totalItems: Int) {
+        importProgress = ImportProgress(
+            title: title,
+            phaseText: String(localized: "完成"),
+            detailText: result.summaryText,
+            processedItems: max(totalItems, result.importedCount + result.skippedCount + result.failedItems.count),
+            totalItems: max(totalItems, result.importedCount + result.skippedCount + result.failedItems.count),
+            importedCount: result.importedCount,
+            skippedCount: result.skippedCount,
+            failedCount: result.failedItems.count,
+            matchedMetadataCount: result.matchedMetadataCount,
+            prefetchedLyricsCount: result.prefetchedLyricsCount,
+            isCompleted: true
+        )
+
+        progressDismissTask?.cancel()
+        progressDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard !Task.isCancelled else { return }
+            guard self?.importProgress?.isCompleted == true else { return }
+            self?.importProgress = nil
+        }
+    }
+
     func importItems(from urls: [URL]) async -> ImportResult {
+        guard !isProcessing else {
+            var result = ImportResult()
+            result.notices.append(String(localized: "已有导入任务正在进行"))
+            return result
+        }
+
         isProcessing = true
         defer { isProcessing = false }
 
         var result = ImportResult()
         var nextSongs = songs
         let existingPaths = Set(nextSongs.compactMap(\.localRelativePath))
+        var processedItems = 0
+        var totalItems = max(urls.count, 1)
+
+        beginImportProgress(
+            title: String(localized: "导入本地音乐"),
+            phase: String(localized: "准备文件"),
+            detail: String(localized: "正在读取选择的音乐文件"),
+            totalItems: totalItems
+        )
 
         for rootURL in urls {
             let accessGranted = rootURL.startAccessingSecurityScopedResource()
@@ -175,22 +288,56 @@ final class LocalMusicLibraryManager: ObservableObject {
                 }
             }
 
+            updateImportProgress(
+                phase: String(localized: "扫描文件"),
+                detail: rootURL.lastPathComponent
+            )
             let candidates = Self.collectImportableFiles(from: rootURL)
+            totalItems = max(totalItems, processedItems + candidates.count)
+            updateImportProgress(totalItems: totalItems, result: result)
+
             if candidates.isEmpty {
                 result.skippedCount += 1
+                processedItems += 1
+                updateImportProgress(
+                    phase: String(localized: "跳过"),
+                    detail: rootURL.lastPathComponent,
+                    processedItems: processedItems,
+                    result: result
+                )
                 continue
             }
 
             for candidate in candidates {
                 do {
+                    updateImportProgress(
+                        phase: String(localized: "复制文件"),
+                        detail: candidate.lastPathComponent,
+                        processedItems: processedItems,
+                        totalItems: totalItems,
+                        result: result
+                    )
                     let destinationURL = try Self.copyToLibrary(candidate)
                     let relativePath = destinationURL.lastPathComponent
 
                     if existingPaths.contains(relativePath) || nextSongs.contains(where: { $0.localRelativePath == relativePath }) {
                         result.skippedCount += 1
+                        processedItems += 1
+                        updateImportProgress(
+                            phase: String(localized: "跳过已存在"),
+                            detail: candidate.lastPathComponent,
+                            processedItems: processedItems,
+                            result: result
+                        )
                         continue
                     }
 
+                    updateImportProgress(
+                        phase: String(localized: "匹配封面和歌词"),
+                        detail: candidate.lastPathComponent,
+                        processedItems: processedItems,
+                        result: result
+                    )
                     let payload = try await Self.makeLocalSongImportPayload(from: destinationURL, relativePath: relativePath)
                     let song = payload.song
                     nextSongs.append(song)
@@ -202,38 +349,101 @@ final class LocalMusicLibraryManager: ObservableObject {
                     if payload.prefetchedLyrics {
                         result.prefetchedLyricsCount += 1
                     }
+                    processedItems += 1
+                    updateImportProgress(
+                        phase: payload.matchedMetadata ? String(localized: "已匹配") : String(localized: "已导入"),
+                        detail: song.name,
+                        processedItems: processedItems,
+                        result: result
+                    )
                 } catch {
                     result.failedItems.append(candidate.lastPathComponent)
+                    processedItems += 1
+                    updateImportProgress(
+                        phase: String(localized: "导入失败"),
+                        detail: candidate.lastPathComponent,
+                        processedItems: processedItems,
+                        result: result
+                    )
                     AppLogger.error("本地音乐导入失败: \(candidate.lastPathComponent), error=\(error.localizedDescription)")
                 }
             }
         }
 
+        updateImportProgress(
+            phase: String(localized: "保存曲库"),
+            detail: String(localized: "正在更新本地音乐列表"),
+            processedItems: processedItems,
+            result: result
+        )
         applyLibrarySongs(nextSongs)
         lastImportResult = result
+        completeImportProgress(
+            title: String(localized: "导入完成"),
+            result: result,
+            totalItems: totalItems
+        )
         return result
     }
 
     func scanLibrary() async -> ImportResult {
+        guard !isProcessing else {
+            var result = ImportResult()
+            result.notices.append(String(localized: "已有导入任务正在进行"))
+            return result
+        }
+
         isProcessing = true
         defer { isProcessing = false }
 
+        beginImportProgress(
+            title: String(localized: "扫描本地音乐"),
+            phase: String(localized: "准备扫描"),
+            detail: String(localized: "正在检查 App 文稿和系统媒体库"),
+            totalItems: 1
+        )
+
         var result = ImportResult()
+        updateImportProgress(
+            phase: String(localized: "扫描 App 文稿"),
+            detail: String(localized: "查找可导入音频")
+        )
         let sharedImportResult = await importSharedDocumentAudio()
         result.skippedCount += sharedImportResult.skippedCount
         result.failedItems.append(contentsOf: sharedImportResult.failedItems)
         result.notices.append(contentsOf: sharedImportResult.notices)
 
+        updateImportProgress(
+            phase: String(localized: "读取系统媒体库"),
+            detail: String(localized: "同步本机可访问音频"),
+            result: result
+        )
         let mediaImportResult = await importSystemMediaLibraryAudio()
         result.skippedCount += mediaImportResult.skippedCount
         result.failedItems.append(contentsOf: mediaImportResult.failedItems)
         result.notices.append(contentsOf: mediaImportResult.notices)
 
         let files = Self.collectImportableFiles(from: Self.musicDirectory)
+        var processedItems = 0
+        let totalItems = max(files.count, 1)
+        updateImportProgress(
+            phase: String(localized: "匹配封面和歌词"),
+            detail: files.first?.lastPathComponent ?? String(localized: "整理本地曲库"),
+            processedItems: processedItems,
+            totalItems: totalItems,
+            result: result
+        )
         var rebuilt: [Song] = []
 
         for file in files {
             do {
+                updateImportProgress(
+                    phase: String(localized: "匹配封面和歌词"),
+                    detail: file.lastPathComponent,
+                    processedItems: processedItems,
+                    totalItems: totalItems,
+                    result: result
+                )
                 let payload = try await Self.makeLocalSongImportPayload(from: file, relativePath: file.lastPathComponent)
                 rebuilt.append(payload.song)
                 if payload.matchedMetadata {
@@ -242,15 +452,40 @@ final class LocalMusicLibraryManager: ObservableObject {
                 if payload.prefetchedLyrics {
                     result.prefetchedLyricsCount += 1
                 }
+                processedItems += 1
+                updateImportProgress(
+                    phase: payload.matchedMetadata ? String(localized: "已匹配") : String(localized: "已扫描"),
+                    detail: payload.song.name,
+                    processedItems: processedItems,
+                    result: result
+                )
             } catch {
                 result.failedItems.append(file.lastPathComponent)
+                processedItems += 1
+                updateImportProgress(
+                    phase: String(localized: "扫描失败"),
+                    detail: file.lastPathComponent,
+                    processedItems: processedItems,
+                    result: result
+                )
                 AppLogger.error("扫描本地曲库失败: \(file.lastPathComponent), error=\(error.localizedDescription)")
             }
         }
 
+        updateImportProgress(
+            phase: String(localized: "保存曲库"),
+            detail: String(localized: "正在更新本地音乐列表"),
+            processedItems: processedItems,
+            result: result
+        )
         applyLibrarySongs(rebuilt)
         result.importedCount = rebuilt.count
         lastImportResult = result
+        completeImportProgress(
+            title: String(localized: "扫描完成"),
+            result: result,
+            totalItems: totalItems
+        )
         return result
     }
 

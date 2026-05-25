@@ -731,15 +731,6 @@ extension NCMClient {
         return try await request("/api/user/setting", data: [:], crypto: .weapi)
     }
 
-    /// 获取表情包列表
-    /// - Parameter groupId: 表情组 ID，传 nil 返回所有组（175001 云村表情, 177001 黑胶VIP, 178001 新年, 221001 蛋仔派对）
-    /// - Returns: API 响应，包含表情包列表（含 emojiImgUrl）
-    public func emojiList(groupId: String? = nil) async throws -> APIResponse {
-        var data: [String: Any] = [:]
-        if let groupId { data["groupId"] = groupId }
-        return try await request("/api/social/emoji/bff/home/detail", data: data)
-    }
-
     /// 听歌识曲
     /// - Parameters:
     ///   - duration: 音频时长（毫秒）
@@ -940,13 +931,6 @@ extension NCMClient {
         return try await request("/api/voice/workbench/voice/batch/upload/v2", data: data,
             crypto: .weapi
         )
-    }
-
-    // MARK: - 表情包
-
-    /// 获取ncm官方表情包列表
-    public func emojiList() async throws -> APIResponse {
-        return try await request("/api/social/emoji/bff/home/detail", data: [:])
     }
 
     // MARK: - 私有辅助方法
