@@ -13,6 +13,9 @@ export function useLandingViewModel() {
   const updatesLoading = ref(false)
   const updatesError = ref('')
   const updatesData = ref(null)
+  const ipaReleasesLoading = ref(false)
+  const ipaReleasesError = ref('')
+  const ipaReleasesData = ref(null)
   const expandedUpdateIds = ref(new Set())
   const showHistoryUpdates = ref(false)
   const downloadTab = ref('token')
@@ -67,6 +70,11 @@ export function useLandingViewModel() {
     const releases = updatesData.value?.releases ?? []
     return releases.filter((release) => release.id !== latestUpdate.value?.id)
   })
+  const latestIpaRelease = computed(() => ipaReleasesData.value?.latest ?? null)
+  const historyIpaReleases = computed(() => {
+    const releases = ipaReleasesData.value?.releases ?? []
+    return releases.filter((release) => release.id !== latestIpaRelease.value?.id)
+  })
   const miniPlayerTrack = computed(() => miniPlayerTracks.value[miniPlayerIndex.value] ?? null)
   const miniPlayerArtist = computed(() => {
     const track = miniPlayerTrack.value
@@ -78,8 +86,11 @@ export function useLandingViewModel() {
   onMounted(() => {
     fetchMiniPlayerTracks()
 
-    if (currentPage.value === 'updates' || currentPage.value === 'download') {
+    if (currentPage.value === 'updates') {
       fetchUpdates()
+    }
+    if (currentPage.value === 'download') {
+      fetchIpaReleases()
     }
 
     if (currentPage.value === 'testflight') {
@@ -98,8 +109,11 @@ export function useLandingViewModel() {
 
   function handlePopState() {
     currentPath.value = window.location.pathname
-    if (currentPage.value === 'updates' || currentPage.value === 'download') {
+    if (currentPage.value === 'updates') {
       fetchUpdates()
+    }
+    if (currentPage.value === 'download') {
+      fetchIpaReleases()
     }
     if (currentPage.value === 'testflight') {
       fetchTestFlightInfo()
@@ -127,8 +141,11 @@ export function useLandingViewModel() {
     window.history.pushState(null, '', path)
     currentPath.value = path
 
-    if (path === '/updates' || path === '/download') {
+    if (path === '/updates') {
       fetchUpdates()
+    }
+    if (path === '/download') {
+      fetchIpaReleases()
     }
     if (path === '/testflight') {
       fetchTestFlightInfo()
@@ -263,6 +280,26 @@ export function useLandingViewModel() {
     }
   }
 
+  async function fetchIpaReleases() {
+    ipaReleasesLoading.value = true
+    ipaReleasesError.value = ''
+
+    try {
+      const response = await fetch('/api/public/ipa-releases')
+      const payload = await parseJsonResponse(response, 'IPA 信息读取失败。')
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'IPA 信息读取失败。')
+      }
+
+      ipaReleasesData.value = payload
+    } catch (error) {
+      ipaReleasesError.value = error.message || 'IPA 信息读取失败。'
+    } finally {
+      ipaReleasesLoading.value = false
+    }
+  }
+
   async function submitIpaRegister() {
     const name = ipaRegisterName.value.trim()
     const email = ipaRegisterEmail.value.trim()
@@ -305,8 +342,8 @@ export function useLandingViewModel() {
         ? '该邮箱已注册 Token，已为你找回。'
         : 'Token 创建成功，请妥善保存。'
 
-      if (!updatesData.value) {
-        await fetchUpdates()
+      if (!ipaReleasesData.value) {
+        await fetchIpaReleases()
       }
     } catch (error) {
       ipaRegisterError.value = error.message || '领取失败，请稍后重试。'
@@ -1004,6 +1041,10 @@ export function useLandingViewModel() {
     updatesError,
     latestUpdate,
     historyUpdates,
+    ipaReleasesLoading,
+    ipaReleasesError,
+    latestIpaRelease,
+    historyIpaReleases,
     expandedUpdateIds,
     showHistoryUpdates,
     downloadTab,
@@ -1044,6 +1085,7 @@ export function useLandingViewModel() {
     closeContactDialog,
     queryToken,
     fetchUpdates,
+    fetchIpaReleases,
     submitIpaRegister,
     toggleUpdateLog,
     isUpdateLogExpanded,

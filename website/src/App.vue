@@ -42,6 +42,10 @@ const {
   updatesError,
   latestUpdate,
   historyUpdates,
+  ipaReleasesLoading,
+  ipaReleasesError,
+  latestIpaRelease,
+  historyIpaReleases,
   showHistoryUpdates,
   downloadTab,
   ipaRegisterName,
@@ -80,6 +84,7 @@ const {
   closeContactDialog,
   queryToken,
   fetchUpdates,
+  fetchIpaReleases,
   submitIpaRegister,
   toggleUpdateLog,
   isUpdateLogExpanded,
@@ -494,39 +499,39 @@ const {
           </article>
 
           <div v-else-if="downloadTab === 'updates'" key="updates" class="download-updates-panel">
-            <div v-if="updatesLoading" class="section-placeholder">读取 IPA 信息中...</div>
-            <div v-else-if="updatesError" class="section-placeholder">
-              <p>{{ updatesError }}</p>
-              <button type="button" @click="fetchUpdates">重新读取</button>
+            <div v-if="ipaReleasesLoading" class="section-placeholder">读取 IPA 信息中...</div>
+            <div v-else-if="ipaReleasesError" class="section-placeholder">
+              <p>{{ ipaReleasesError }}</p>
+              <button type="button" @click="fetchIpaReleases">重新读取</button>
             </div>
-            <template v-else-if="latestUpdate">
+            <template v-else-if="latestIpaRelease">
               <article class="mono-feature-card download-focus-card ipa-download-card">
                 <span class="release-kicker">Latest Release</span>
-                <h2>v{{ latestUpdate.version }}</h2>
-                <p>{{ latestUpdate.title || 'Mono 最新版' }}</p>
+                <h2>v{{ latestIpaRelease.version }}</h2>
+                <p>{{ latestIpaRelease.title || 'Mono 最新版' }}</p>
                 <div class="release-meta">
-                  <span v-if="latestUpdate.fileSize">{{ formatSize(latestUpdate.fileSize) }}</span>
-                  <span>{{ formatDate(latestUpdate.publishedAt || latestUpdate.updatedAt || latestUpdate.createdAt) }}</span>
-                  <span v-if="latestUpdate.downloadCount">{{ latestUpdate.downloadCount }} 次下载</span>
+                  <span v-if="latestIpaRelease.fileSize">{{ formatSize(latestIpaRelease.fileSize) }}</span>
+                  <span>{{ formatDate(latestIpaRelease.publishedAt || latestIpaRelease.updatedAt || latestIpaRelease.createdAt) }}</span>
+                  <span v-if="latestIpaRelease.downloadCount">{{ latestIpaRelease.downloadCount }} 次下载</span>
                 </div>
-                <pre v-if="latestUpdate.releaseNotes" class="update-notes" :class="{ 'is-expanded': isUpdateLogExpanded(latestUpdate) }">{{ latestUpdate.releaseNotes }}</pre>
-                <button v-if="latestUpdate.releaseNotes" class="update-expand-button" type="button" @click="toggleUpdateLog(latestUpdate)">
-                  {{ isUpdateLogExpanded(latestUpdate) ? '收起' : '展开查看' }}
+                <pre v-if="latestIpaRelease.releaseNotes" class="update-notes" :class="{ 'is-expanded': isUpdateLogExpanded(latestIpaRelease) }">{{ latestIpaRelease.releaseNotes }}</pre>
+                <button v-if="latestIpaRelease.releaseNotes" class="update-expand-button" type="button" @click="toggleUpdateLog(latestIpaRelease)">
+                  {{ isUpdateLogExpanded(latestIpaRelease) ? '收起' : '展开查看' }}
                 </button>
-                <a v-if="latestUpdate.downloadUrl" class="release-download" :href="latestUpdate.downloadUrl" download>
-                  下载 v{{ latestUpdate.version }}
+                <a v-if="latestIpaRelease.downloadUrl" class="release-download" :href="latestIpaRelease.downloadUrl" download>
+                  下载 v{{ latestIpaRelease.version }}
                 </a>
               </article>
 
-              <section v-if="historyUpdates.length" class="release-history download-release-history" aria-label="历史版本">
+              <section v-if="historyIpaReleases.length" class="release-history download-release-history" aria-label="历史版本">
                 <button class="history-toggle-button" type="button" @click="toggleHistoryUpdates">
                   <span>历史版本</span>
-                  <small>{{ historyUpdates.length }} 个版本</small>
+                  <small>{{ historyIpaReleases.length }} 个版本</small>
                   <strong>{{ showHistoryUpdates ? '收起' : '展开' }}</strong>
                 </button>
 
                 <div v-if="showHistoryUpdates" class="history-download-list">
-                  <article v-for="release in historyUpdates" :key="release.id" class="mono-feature-card history-release-card">
+                  <article v-for="release in historyIpaReleases" :key="release.id" class="mono-feature-card history-release-card">
                     <div>
                       <strong>v{{ release.version }} {{ release.title || '' }}</strong>
                       <span>{{ formatDate(release.publishedAt || release.createdAt) }} · {{ formatSize(release.fileSize) }}</span>
