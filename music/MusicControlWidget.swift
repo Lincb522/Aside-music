@@ -304,6 +304,35 @@ struct NowPlayingEntry: TimelineEntry {
                 tempoIsAnalyzing: false,
                 lyricText: "PRINTING..."
             )
+        case .lyrics:
+            return NowPlayingEntry(
+                date: .now,
+                songName: "海阔天空",
+                artistName: "Beyond",
+                albumName: "乐与怒",
+                playbackState: .playing,
+                coverImageData: nil,
+                theme: theme,
+                dominantRGB: [0.36, 0.54, 0.86],
+                secondaryRGB: [0.10, 0.14, 0.26],
+                coverIsDark: true,
+                sourceName: "ncm",
+                qualityText: "HQ",
+                playModeText: "顺序",
+                queueIndex: 5,
+                queueCount: 18,
+                tempoBPM: 82,
+                tempoIsAnalyzing: false,
+                lyricText: "原谅我这一生不羁放纵爱自由",
+                lyricTranslation: "",
+                prevLyricText: "背弃了理想 谁人都可以",
+                nextLyricText: "也会怕有一天会跌倒",
+                lyricIndex: 12,
+                lyricCount: 36,
+                playbackCurrentTime: 118,
+                playbackDuration: 323,
+                playbackReferenceDate: .now
+            )
         case .aperture:
             return NowPlayingEntry(
                 date: .now,
@@ -673,6 +702,9 @@ struct NowPlayingWidgetView: View {
             Color(hex: "151515").ignoresSafeArea()
         case .typewriter:
             Color(hex: "DED0B6").ignoresSafeArea()
+        case .lyrics:
+            LyricsWidgetTheme.background(for: entry)
+                .ignoresSafeArea()
         }
     }
 
