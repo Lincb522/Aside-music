@@ -128,10 +128,15 @@ struct NowPlayingEntry: TimelineEntry {
     let queueCount: Int
     let tempoBPM: Int?
     let tempoIsAnalyzing: Bool
-    let lyricText: String
-    let playbackCurrentTime: TimeInterval
-    let playbackDuration: TimeInterval
-    let playbackReferenceDate: Date
+    var lyricText: String
+    var lyricTranslation: String = ""
+    var prevLyricText: String = ""
+    var nextLyricText: String = ""
+    var lyricIndex: Int = -1
+    var lyricCount: Int = 0
+    var playbackCurrentTime: TimeInterval
+    var playbackDuration: TimeInterval
+    var playbackReferenceDate: Date
 
     init(
         date: Date,
@@ -152,6 +157,11 @@ struct NowPlayingEntry: TimelineEntry {
         tempoBPM: Int?,
         tempoIsAnalyzing: Bool,
         lyricText: String,
+        lyricTranslation: String = "",
+        prevLyricText: String = "",
+        nextLyricText: String = "",
+        lyricIndex: Int = -1,
+        lyricCount: Int = 0,
         playbackCurrentTime: TimeInterval = 0,
         playbackDuration: TimeInterval = 0,
         playbackReferenceDate: Date = .now
@@ -174,6 +184,11 @@ struct NowPlayingEntry: TimelineEntry {
         self.tempoBPM = tempoBPM
         self.tempoIsAnalyzing = tempoIsAnalyzing
         self.lyricText = lyricText
+        self.lyricTranslation = lyricTranslation
+        self.prevLyricText = prevLyricText
+        self.nextLyricText = nextLyricText
+        self.lyricIndex = lyricIndex
+        self.lyricCount = lyricCount
         self.playbackCurrentTime = playbackCurrentTime
         self.playbackDuration = playbackDuration
         self.playbackReferenceDate = playbackReferenceDate

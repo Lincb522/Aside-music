@@ -93,7 +93,7 @@ private struct MonologuePresentedSheetView: View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
                 Color.black
-                    .opacity(isTopmost && entry.isVisible ? entry.preset.backdropOpacity : 0)
+                    .opacity(isTopmost && entry.isVisible ? resolvedBackdropOpacity : 0)
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .allowsHitTesting(isTopmost && entry.isVisible && entry.preset.allowsBackgroundDismiss)
@@ -140,6 +140,10 @@ private struct MonologuePresentedSheetView: View {
         let dismissalBaseline = max(0, dragCoordinator.dismissalBaseline)
         let visibility: CGFloat = entry.isVisible ? 0 : containerHeight + 80
         return entry.isVisible ? drag : max(drag, dismissalBaseline) + visibility
+    }
+
+    private var resolvedBackdropOpacity: Double {
+        MinimalWhiteStyle.isActive ? min(entry.preset.backdropOpacity, 0.08) : entry.preset.backdropOpacity
     }
 
     private var upwardStretchAmount: CGFloat {

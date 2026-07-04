@@ -179,6 +179,19 @@ struct CapsuleSurfaceBackground: View {
     }
 }
 
+struct CapsuleFlatRowBackground: View {
+    var cornerRadius: CGFloat = 18
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(CapsuleStyle.surface.opacity(0.4))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(CapsuleStyle.separator.opacity(0.5), lineWidth: 0.8)
+            )
+    }
+}
+
 struct CapsulePageHeader<Accessory: View>: View {
     let eyebrow: String
     let title: String

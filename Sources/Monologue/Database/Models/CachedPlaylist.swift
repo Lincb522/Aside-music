@@ -1,10 +1,8 @@
 import Foundation
-import SwiftData
 
 /// 缓存的歌单数据模型
-@Model
 final class CachedPlaylist {
-    @Attribute(.unique) var id: Int
+    var id: Int
     var name: String
     var coverUrl: String?
     var creatorName: String?
@@ -123,5 +121,45 @@ final class CachedPlaylist {
     /// 记录访问
     func recordAccess() {
         lastAccessedAt = Date()
+    }
+}
+
+// MARK: - MonoEntity
+
+extension CachedPlaylist: MonoEntity {
+    static let monoEntityName = "CachedPlaylist"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("id", .int), .init("name", .string), .init("coverUrl", .string),
+        .init("creatorName", .string), .init("trackCount", .int), .init("playCount", .int),
+        .init("desc", .string), .init("tagsData", .string), .init("cachedAt", .date),
+        .init("lastAccessedAt", .date), .init("trackIdsData", .string)
+    ]
+
+    var monoUniqueKey: String { String(id) }
+
+    func monoSnapshot() -> [String: Any?] {
+        [
+            "id": id, "name": name, "coverUrl": coverUrl, "creatorName": creatorName,
+            "trackCount": trackCount, "playCount": playCount, "desc": desc,
+            "tagsData": tagsData, "cachedAt": cachedAt, "lastAccessedAt": lastAccessedAt,
+            "trackIdsData": trackIdsData
+        ]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = CachedPlaylist(
+            id: MonoSnapshotValue.int(s, "id"),
+            name: MonoSnapshotValue.string(s, "name"),
+            coverUrl: MonoSnapshotValue.stringOpt(s, "coverUrl"),
+            creatorName: MonoSnapshotValue.stringOpt(s, "creatorName"),
+            trackCount: MonoSnapshotValue.intOpt(s, "trackCount"),
+            playCount: MonoSnapshotValue.intOpt(s, "playCount"),
+            desc: MonoSnapshotValue.stringOpt(s, "desc")
+        )
+        obj.tagsData = MonoSnapshotValue.stringOpt(s, "tagsData")
+        obj.trackIdsData = MonoSnapshotValue.stringOpt(s, "trackIdsData")
+        obj.cachedAt = MonoSnapshotValue.date(s, "cachedAt")
+        obj.lastAccessedAt = MonoSnapshotValue.dateOpt(s, "lastAccessedAt")
+        return unsafeDowncast(obj, to: Self.self)
     }
 }

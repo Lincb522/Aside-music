@@ -137,7 +137,9 @@ struct LocalModeHomeView: View {
 
                 ScrollView {
                     VStack(spacing: 22) {
-                        if MangaStyle.isActive {
+                        if MinimalWhiteStyle.isActive {
+                            minimalWhiteLocalHomeHeader
+                        } else if MangaStyle.isActive {
                             mangaLocalHomeHeader
                         } else if MujiStyle.isActive {
                             mujiLocalHomeHeader
@@ -149,7 +151,11 @@ struct LocalModeHomeView: View {
                             LocalImportProgressPanel(progress: progress)
                         }
 
-                        homeHeroCard
+                        if MinimalWhiteStyle.isActive {
+                            minimalWhiteLocalHomeSummary
+                        } else {
+                            homeHeroCard
+                        }
 
                         actionCards
 
@@ -195,20 +201,22 @@ struct LocalModeHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        Task {
-                            _ = await localLibrary.scanLibrary()
-                            refreshRecentSongs()
+                if !MinimalWhiteStyle.isActive {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button {
+                            Task {
+                                _ = await localLibrary.scanLibrary()
+                                refreshRecentSongs()
+                            }
+                        } label: {
+                            MonologueIcon(icon: .refresh, size: 16, color: .monologueTextPrimary)
                         }
-                    } label: {
-                        MonologueIcon(icon: .refresh, size: 16, color: .monologueTextPrimary)
-                    }
 
-                    Button {
-                        showImporter = true
-                    } label: {
-                        MonologueIcon(icon: .download, size: 16, color: .monologueTextPrimary)
+                        Button {
+                            showImporter = true
+                        } label: {
+                            MonologueIcon(icon: .download, size: 16, color: .monologueTextPrimary)
+                        }
                     }
                 }
             }
@@ -228,6 +236,78 @@ struct LocalModeHomeView: View {
         }
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
             refreshRecentSongs()
+        }
+    }
+
+    private var minimalWhiteLocalHomeHeader: some View {
+        HStack(spacing: 10) {
+            Text(localModeText("tabbar_home"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 0)
+
+            MinimalWhiteHeaderButton(icon: .refresh) {
+                Task {
+                    _ = await localLibrary.scanLibrary()
+                    refreshRecentSongs()
+                }
+            }
+
+            MinimalWhiteHeaderButton(icon: .download, selected: true) {
+                showImporter = true
+            }
+        }
+    }
+
+    private var minimalWhiteLocalHomeSummary: some View {
+        VStack(spacing: 18) {
+            HStack(spacing: 0) {
+                LocalMetricBadge(title: localModeText("tabbar_local_music"), value: "\(localLibrary.songCount)")
+                Rectangle().fill(MinimalWhiteStyle.hairline).frame(width: 1, height: 34)
+                LocalMetricBadge(title: localModeText("profile_local_playlists"), value: "\(customPlaylists.count)")
+                Rectangle().fill(MinimalWhiteStyle.hairline).frame(width: 1, height: 34)
+                LocalMetricBadge(title: localModeText("local_downloads_title"), value: "\(downloadManager.downloadedSongIds.count)")
+            }
+            .padding(.vertical, 14)
+            .background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            )
+            .overlay(alignment: .top) { Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1) }
+            .overlay(alignment: .bottom) { Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1) }
+
+            HStack(spacing: 10) {
+                Button(action: playAllLocalSongs) {
+                    Label(localModeText("local_home_play_all"), systemImage: "play.fill")
+                        .font(MinimalWhiteStyle.labelFont(14, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.onAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(MinimalWhiteStyle.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(localLibrary.songs.isEmpty)
+
+                NavigationLink(destination: LocalLibraryView()) {
+                    Text(localModeText("local_home_open_library"))
+                        .font(MinimalWhiteStyle.labelFont(14, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(
+                            MinimalWhiteSurfaceBackground(
+                                cornerRadius: 12,
+                                elevated: false,
+                                tint: MinimalWhiteStyle.glassFill
+                            )
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -614,7 +694,9 @@ struct LocalMusicView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 16) {
-                    if MangaStyle.isActive {
+                    if MinimalWhiteStyle.isActive {
+                        minimalWhiteLocalMusicHeader
+                    } else if MangaStyle.isActive {
                         mangaLocalMusicHeader
                     } else if MujiStyle.isActive {
                         mujiLocalMusicHeader
@@ -627,8 +709,14 @@ struct LocalMusicView: View {
                             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     }
 
-                    overviewCard
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    Group {
+                        if MinimalWhiteStyle.isActive {
+                            minimalWhiteLocalMusicOverview
+                        } else {
+                            overviewCard
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                         .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
 
                     filterBar
@@ -749,6 +837,42 @@ struct LocalMusicView: View {
         .onAppear(perform: refreshRecentSongs)
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
             refreshRecentSongs()
+        }
+    }
+
+    private var minimalWhiteLocalMusicHeader: some View {
+        HStack {
+            Text(localModeText("tabbar_local_music"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
+    private var minimalWhiteLocalMusicOverview: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(localModeText(selectedFilter.titleKey))
+                .font(MinimalWhiteStyle.titleFont(19, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 0)
+
+            Text("\(filteredSongs.count)")
+                .font(MinimalWhiteStyle.labelFont(14, weight: .medium))
+                .foregroundStyle(MinimalWhiteStyle.inkMuted)
+        }
+        .padding(.vertical, 12)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1)
         }
     }
 
@@ -932,7 +1056,9 @@ struct LocalLibraryView: View {
 
                 ScrollView {
                     VStack(spacing: 22) {
-                        if MangaStyle.isActive {
+                        if MinimalWhiteStyle.isActive {
+                            minimalWhiteLocalLibraryHeader
+                        } else if MangaStyle.isActive {
                             mangaLocalLibraryHeader
                         } else if MujiStyle.isActive {
                             mujiLocalLibraryHeader
@@ -1008,52 +1134,43 @@ struct LocalLibraryView: View {
         }
     }
 
-    private var mujiLocalLibraryHeader: some View {
-        MujiPageHeader(
-            eyebrow: "offline shelves",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            MujiIconBadge(icon: .library, tint: MujiStyle.tea, size: 48)
+    private var minimalWhiteLocalLibraryHeader: some View {
+        HStack {
+            Text(localModeText("local_library_navigation_title"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var mujiLocalLibraryHeader: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            Text(localModeText("local_library_navigation_title"))
+                .font(MujiStyle.titleFont(24, weight: .regular))
+                .foregroundStyle(MujiStyle.ink)
+
+            Rectangle()
+                .fill(MujiStyle.separator)
+                .frame(height: 0.6)
+                .padding(.bottom, 8)
+        }
+        .padding(.top, DeviceLayout.headerTopPadding + 2)
     }
 
     private var mangaLocalLibraryHeader: some View {
-        MangaPageHeader(
-            eyebrow: "SHELF",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(MangaStyle.mint)
-
-                MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.strokeInk, lineWidth: 2)
-            }
-            .frame(width: 48, height: 48)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(MangaStyle.strokeInk)
-                    .offset(x: 2.5, y: 2.5)
-            )
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+        Text(localModeText("local_library_navigation_title"))
+            .font(MangaStyle.titleFont(28, weight: .black))
+            .foregroundStyle(MangaStyle.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, DeviceLayout.headerTopPadding + 2)
     }
 
     private var neumorphicLocalLibraryHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "SHELF",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .library, tint: NeumorphicStyle.sage, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
+        Text(localModeText("local_library_navigation_title"))
+            .font(NeumorphicStyle.titleFont(29, weight: .semibold))
+            .foregroundStyle(NeumorphicStyle.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, DeviceLayout.headerTopPadding + 2)
     }
 
     private var signalLocalLibraryHeader: some View {
@@ -1069,7 +1186,19 @@ struct LocalLibraryView: View {
 
     @ViewBuilder
     private var libraryOverviewCard: some View {
-        if SignalStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            libraryOverviewContent
+                .padding(16)
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.chromeRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                )
+                .overlay(alignment: .top) { Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1) }
+                .overlay(alignment: .bottom) { Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1) }
+        } else if SignalStyle.isActive {
             libraryOverviewContent
                 .padding(20)
                 .background(SignalSurfaceBackground(cornerRadius: 28, elevated: true, fill: SignalStyle.paper))
@@ -1394,7 +1523,9 @@ struct LocalModeProfileView: View {
 
                 ScrollView {
                     VStack(spacing: 18) {
-                        if MangaStyle.isActive {
+                        if MinimalWhiteStyle.isActive {
+                            minimalWhiteLocalProfileHeader
+                        } else if MangaStyle.isActive {
                             mangaLocalProfileHeader
                         } else if MujiStyle.isActive {
                             mujiLocalProfileHeader
@@ -1402,8 +1533,14 @@ struct LocalModeProfileView: View {
                             neumorphicLocalProfileHeader
                         }
 
-                        profileHeroCard
-                            .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
+                        Group {
+                            if MinimalWhiteStyle.isActive {
+                                minimalWhiteLocalProfileIdentity
+                            } else {
+                                profileHeroCard
+                            }
+                        }
+                        .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
 
                         statsBar
 
@@ -1442,6 +1579,48 @@ struct LocalModeProfileView: View {
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
             refreshRecentSongs()
         }
+    }
+
+    private var minimalWhiteLocalProfileHeader: some View {
+        HStack {
+            Text(localModeText("tabbar_profile"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 0)
+
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                MonologueIcon(icon: .settings, size: 17, color: MinimalWhiteStyle.ink, lineWidth: 1.7)
+                    .frame(width: 40, height: 40)
+                    .background(MinimalWhiteCircleBackground(elevated: true, selected: true))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
+    private var minimalWhiteLocalProfileIdentity: some View {
+        HStack(spacing: 16) {
+            Circle()
+                .fill(MinimalWhiteStyle.controlGlassFill)
+                .frame(width: 68, height: 68)
+                .overlay(MonologueIcon(icon: .profileFilled, size: 25, color: MinimalWhiteStyle.inkMuted))
+                .overlay(Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+
+            Text(localModeText("local_profile_hero_title"))
+                .font(MinimalWhiteStyle.titleFont(21, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
     }
 
     private var mujiLocalProfileHeader: some View {
@@ -1628,18 +1807,21 @@ struct LocalModeProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                Divider().padding(.leading, 56)
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    Divider().padding(.leading, 56)
 
-                NavigationLink(
-                    destination: DownloadManageView()
-                ) {
-                    ProfileMenuRow(
-                        icon: .download,
-                        title: localModeText("local_downloads_title"),
-                        trailingText: "\(downloadManager.downloadedSongIds.count)"
-                    )
+                    NavigationLink(
+                        destination: DownloadManageView()
+                    ) {
+                        ProfileMenuRow(
+                            icon: .download,
+                            title: localModeText("local_downloads_title"),
+                            trailingText: "\(downloadManager.downloadedSongIds.count)"
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
                 Divider().padding(.leading, 56)
 
@@ -1999,10 +2181,12 @@ private struct LocalEmptyStateView: View {
                     .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
                     .multilineTextAlignment(.center)
 
-                Text(subtitle)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-                    .multilineTextAlignment(.center)
+                if !MinimalWhiteStyle.isActive && !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
+                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                        .multilineTextAlignment(.center)
+                }
             }
 
             if let buttonTitle, let buttonAction {
@@ -2021,7 +2205,9 @@ private struct LocalEmptyStateView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.vertical, 28)
-        .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 12 : 20)
+        .if(!MinimalWhiteStyle.isActive) { view in
+            view.monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 12 : 20)
+        }
     }
 }
 

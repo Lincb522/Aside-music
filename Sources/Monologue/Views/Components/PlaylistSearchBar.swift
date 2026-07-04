@@ -232,13 +232,17 @@ struct PlaylistSearchBar: View {
                     .buttonStyle(.plain)
                 }
                 
-                Button { onBatchDownload?() } label: {
-                    MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.warm : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.aqua : .monologueTextPrimary))))
-                        .frame(width: 32, height: 32)
-                        .background(MangaStyle.isActive ? MangaStyle.labelYellow : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextPrimary.opacity(0.06)))))
-                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : (CapsuleStyle.isActive ? 13 : (SequoiaStyle.isActive ? 11 : 16))), style: .continuous))
+                // 下载功能暂时隐藏（AppConfig.Features.downloadEnabled = false）：
+                // 批量下载按钮不显示，前面的「加入队列 / 收藏」图标自然向右补位；后期恢复下载时改回开关即可。
+                if AppConfig.Features.downloadEnabled {
+                    Button { onBatchDownload?() } label: {
+                        MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.warm : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.aqua : .monologueTextPrimary))))
+                            .frame(width: 32, height: 32)
+                            .background(MangaStyle.isActive ? MangaStyle.labelYellow : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextPrimary.opacity(0.06)))))
+                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : (CapsuleStyle.isActive ? 13 : (SequoiaStyle.isActive ? 11 : 16))), style: .continuous))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 if onBatchRemove != nil {
                     Button { onBatchRemove?() } label: {

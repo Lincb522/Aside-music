@@ -29,6 +29,7 @@ struct ClassicPlayerLayout: View {
     private var isThemedClassic: Bool { ThemedPageStyle.isActive }
 
     private var contentColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -39,6 +40,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var secondaryContentColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
@@ -49,6 +51,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var progressColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
@@ -59,6 +62,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var classicArtworkCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 12 }
         if MangaStyle.isActive { return 12 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
@@ -69,6 +73,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private func classicTitleFont(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(size, weight: weight) }
         if MangaStyle.isActive { return MangaStyle.titleFont(size, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(size, weight: weight == .bold ? .medium : weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
@@ -79,6 +84,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private func classicBodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(size, weight: weight) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(size, weight: weight == .regular ? .bold : weight) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(size, weight: weight == .bold ? .medium : weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
@@ -924,7 +930,15 @@ struct ClassicPlayerLayout: View {
                 showComments = true
             }
 
-            neumorphicDownloadButton(song: song)
+            if AppConfig.Features.downloadEnabled {
+                // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                neumorphicDownloadButton(song: song)
+            } else {
+                // 沉浸模式按钮 — 占用原下载按钮的位置
+                neumorphicUtilityButton(icon: .immersive, tint: NeumorphicStyle.warm) {
+                    CinemaModeController.shared.present()
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -1167,8 +1181,27 @@ struct ClassicPlayerLayout: View {
             capsuleLikeControl
             capsuleLyricsToggle
             capsuleCommentQuick
-            capsuleDownloadQuick
+            if AppConfig.Features.downloadEnabled {
+                // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                capsuleDownloadQuick
+            } else {
+                // 沉浸模式按钮 — 占用原下载按钮的位置
+                capsuleImmersiveQuick
+            }
         }
+    }
+
+    private var capsuleImmersiveQuick: some View {
+        Button {
+            CinemaModeController.shared.present()
+        } label: {
+            MonologueIcon(icon: .immersive, size: 16, color: CapsuleStyle.mint, lineWidth: 1.6)
+                .frame(width: 36, height: 36)
+                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
+        }
+        .buttonStyle(CapsulePressStyle())
+        .disabled(player.currentSong == nil)
+        .opacity(player.currentSong == nil ? 0.4 : 1)
     }
 
     private var capsuleQualityChip: some View {
@@ -1712,7 +1745,10 @@ struct ClassicPlayerLayout: View {
 
     @ViewBuilder
     private var classicThemeBackdrop: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteRootBackdrop()
+                .ignoresSafeArea()
+        } else if MangaStyle.isActive {
             ZStack {
                 MangaRootBackdrop()
                 MangaDotsTexture(opacity: colorScheme == .dark ? 0.03 : 0.045, gap: 15)
@@ -1788,6 +1824,9 @@ struct ClassicPlayerLayout: View {
                                     .stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 0.8)
                             )
                             .shadow(color: CapsuleStyle.accent.opacity(0.08), radius: 10, x: 0, y: 5)
+                    } else if MinimalWhiteStyle.isActive {
+                        MinimalWhiteCircleBackground(elevated: true)
+                            .frame(width: 44, height: 44)
                     } else if SequoiaStyle.isActive {
                         Circle()
                             .fill(SequoiaStyle.materialRaised.opacity(0.82))
@@ -1827,10 +1866,10 @@ struct ClassicPlayerLayout: View {
 
         return classicArtworkFrame(
             ZStack {
-                if let song = player.currentSong {
-                    ZStack {
-                        CachedAsyncImage(url: song.coverUrl?.sized(800)) {
-                            MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2))))))
+                    if let song = player.currentSong {
+                        ZStack {
+                            CachedAsyncImage(url: song.coverUrl?.sized(800)) {
+                            MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2)))))))
                         }
                         .aspectRatio(contentMode: .fill)
 
@@ -1840,7 +1879,7 @@ struct ClassicPlayerLayout: View {
                     }
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.1)))))))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.1))))))))
                         .overlay(
                             MonologueIcon(icon: .musicNoteList, size: 80, color: secondaryContentColor.opacity(0.32))
                         )
@@ -1854,7 +1893,14 @@ struct ClassicPlayerLayout: View {
 
     @ViewBuilder
     private func classicArtworkFrame<Content: View>(_ content: Content, cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            content
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+                .shadow(color: MinimalWhiteStyle.ink.opacity(0.045), radius: 10, x: 0, y: 4)
+        } else if MangaStyle.isActive {
             content
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -1985,7 +2031,10 @@ struct ClassicPlayerLayout: View {
 
     @ViewBuilder
     private var qualityBadgeBackground: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(MinimalWhiteStyle.controlGlassFill)
+        } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(MangaStyle.labelYellow)
         } else if MujiStyle.isActive {
@@ -2009,6 +2058,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var qualityBadgeStroke: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.hairline }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
@@ -2158,7 +2208,7 @@ struct ClassicPlayerLayout: View {
                 Spacer()
                 Text(formatTime(timePublisher.duration))
             }
-            .font(.rounded(size: 11, weight: .medium))
+            .font(classicBodyFont(11, weight: .medium))
             .foregroundColor(secondaryContentColor.opacity(0.6))
             .monospacedDigit()
         }
@@ -2169,7 +2219,11 @@ struct ClassicPlayerLayout: View {
     private var classicPlayButtonBackground: some View {
         let size = DeviceLayout.playerPlayButtonSize
 
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            Circle()
+                .fill(MinimalWhiteStyle.accent)
+                .frame(width: size, height: size)
+        } else if MangaStyle.isActive {
             Circle()
                 .fill(MangaStyle.labelYellow)
                 .frame(width: size, height: size)
@@ -2226,6 +2280,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var classicPlayIconColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
@@ -2301,23 +2356,37 @@ struct ClassicPlayerLayout: View {
 
                     Spacer()
 
-                    Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        Button {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        } label: {
+                            MonologueIcon(
+                                icon: .playerDownload,
+                                size: 22,
+                                color: downloadManager.isDownloaded(songId: song.id) ? .monologueTextSecondary : secondaryContentColor,
+                                lineWidth: 1.4
+                            )
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                         }
-                    } label: {
-                        MonologueIcon(
-                            icon: .playerDownload,
-                            size: 22,
-                            color: downloadManager.isDownloaded(songId: song.id) ? .monologueTextSecondary : secondaryContentColor,
-                            lineWidth: 1.4
-                        )
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                        .frame(width: 44)
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        Button {
+                            CinemaModeController.shared.present()
+                        } label: {
+                            MonologueIcon(icon: .immersive, size: 22, color: secondaryContentColor, lineWidth: 1.4)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .frame(width: 44)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
-                    .frame(width: 44)
                 }
             }
         }

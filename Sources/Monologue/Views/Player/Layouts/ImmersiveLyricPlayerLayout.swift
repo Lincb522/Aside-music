@@ -10,7 +10,7 @@ struct ImmersiveLyricPlayerLayout: View {
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
 
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
     @State private var showMoreMenu = false
     @State private var showQualitySheet = false
     @State private var showEQSettings = false

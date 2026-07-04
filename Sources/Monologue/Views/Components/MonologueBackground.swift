@@ -48,11 +48,11 @@ struct MonologueBackButton: View {
 struct MonologueBackground: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
-    @State private var themeManager = GlobalThemeManager.shared
+    @ObservedObject private var themeManager = GlobalThemeManager.shared
     @State private var coverURL = PlayerManager.shared.currentSong?.coverUrl?.sized(200)
 
     private var useCoverBg: Bool {
-        settings.coverBgGlobal && coverURL != nil
+        !MinimalWhiteStyle.isActive && settings.coverBgGlobal && coverURL != nil
     }
 
     /// 当前全局主题 ID
@@ -107,6 +107,8 @@ struct MonologueBackground: View {
             mangaBackground
         case .petWhite:
             petWhiteBackground
+        case .minimalWhite:
+            MinimalWhiteRootBackdrop()
         case .pureWhite:
             PureWhiteRootBackdrop()
         case .neumorphic:
@@ -199,7 +201,28 @@ struct MonologueBackground: View {
 
     @ViewBuilder
     private var defaultBackground: some View {
-        if ThemeColorCustomization.usesCustomBackground(for: .default) {
+        if colorScheme == .dark,
+           ThemeColorCustomization.usesDarkImageBackground(for: .default),
+           let wallpaper = ThemeColorCustomization.backgroundImage(for: .default, dark: true) {
+            wallpaperFillBackground(
+                wallpaper,
+                baseHex: ThemeColorCustomization.darkBackgroundSolidHex(for: .default)
+            )
+        } else if colorScheme == .dark, ThemeColorCustomization.usesDarkSolidBackground(for: .default) {
+            Color(hex: ThemeColorCustomization.darkBackgroundSolidHex(for: .default))
+                .ignoresSafeArea()
+        } else if ThemeColorCustomization.usesImageBackground(for: .default),
+                  let wallpaper = ThemeColorCustomization.backgroundImage(for: .default) {
+            wallpaperFillBackground(
+                wallpaper,
+                baseHex: ThemeColorCustomization.hex(
+                    .default,
+                    .background,
+                    "solid",
+                    fallback: ThemeColorCustomization.defaultBackgroundStartHex(for: .default)
+                )
+            )
+        } else if ThemeColorCustomization.usesCustomBackground(for: .default) {
             ZStack {
                 ThemeCustomDiffuseBackground(
                     theme: .default,
@@ -221,6 +244,22 @@ struct MonologueBackground: View {
         }
     }
 
+    /// 参考系统壁纸：整张图缩放填满屏幕，超出部分裁切
+    private func wallpaperFillBackground(_ wallpaper: UIImage, baseHex: String) -> some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color(hex: baseHex)
+
+                Image(uiImage: wallpaper)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+            }
+        }
+        .ignoresSafeArea()
+    }
+
     private var defaultSystemBackground: some View {
         GeometryReader { proxy in
             Image("default_theme_bg")
@@ -228,8 +267,27 @@ struct MonologueBackground: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
+                .overlay(defaultImageAtmosphere)
         }
         .ignoresSafeArea()
+    }
+
+    private var defaultImageAtmosphere: some View {
+        ZStack {
+            Color.monologueBackground.opacity(colorScheme == .dark ? 0.04 : 0.06)
+
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: Color.monologueBackground.opacity(colorScheme == .dark ? 0.06 : 0.08), location: 0.32),
+                    .init(color: Color.monologueBackground.opacity(colorScheme == .dark ? 0.2 : 0.18), location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func fillGlow(_ ctx: GraphicsContext, center: CGPoint, radius: CGFloat, color: Color, opacity: Double) {
@@ -317,7 +375,15 @@ struct MonologueLiquidGlassCard<Content: View>: View {
     }
 
     var body: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            content
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: min(cornerRadius, MinimalWhiteStyle.cardRadius),
+                        elevated: false
+                    )
+                )
+        } else if MangaStyle.isActive {
             content
                 .background(MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true))
         } else if PureWhiteStyle.isActive {
@@ -361,7 +427,12 @@ struct SwiftUIGlassBackground: View {
     var body: some View {
         let isDark = colorScheme == .dark
         ZStack {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: min(cornerRadius, MinimalWhiteStyle.cardRadius),
+                    elevated: false
+                )
+            } else if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: min(cornerRadius, 18), elevated: true)
             } else if PureWhiteStyle.isActive {
                 PureWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 26), elevated: true)

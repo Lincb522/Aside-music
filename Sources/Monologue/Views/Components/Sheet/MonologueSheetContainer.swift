@@ -162,16 +162,17 @@ private struct MonologueSheetLiquidSurfaceModifier: ViewModifier {
 
 enum MonologueSheetThemeStyle {
     static var usesCustomThemeSurface: Bool {
-        MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var shadowColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink.opacity(0.08) }
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.22) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.18) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.shadowInk.opacity(0.14) }
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
         if NeumorphicStyle.isActive { return Color.black.opacity(0.16) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.16) }
@@ -185,6 +186,7 @@ enum MonologueSheetThemeStyle {
 
     static func shadowRadius(colorScheme: ColorScheme, isInteractiveMotionActive: Bool) -> CGFloat {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 8 : 10 }
+        if MinimalWhiteStyle.isActive { return 6 }
         if MangaStyle.isActive { return 0 }
         if PetWhiteStyle.isActive { return colorScheme == .dark ? 24 : 18 }
         if MujiStyle.isActive { return 18 }
@@ -200,6 +202,7 @@ enum MonologueSheetThemeStyle {
 
     static func shadowYOffset(isInteractiveMotionActive: Bool) -> CGFloat {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 3 : 4 }
+        if MinimalWhiteStyle.isActive { return 2 }
         if MangaStyle.isActive { return 5 }
         if PetWhiteStyle.isActive { return 8 }
         if MujiStyle.isActive { return 9 }
@@ -256,7 +259,11 @@ struct MonologueSheetHandleView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            Capsule()
+                .fill(MinimalWhiteStyle.hairline)
+                .frame(width: 36, height: 4)
+        } else if MangaStyle.isActive {
             Capsule()
                 .fill(MangaStyle.labelYellow)
                 .frame(width: 48, height: 7)
@@ -265,21 +272,11 @@ struct MonologueSheetHandleView: View {
                         .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
                 )
         } else if PetWhiteStyle.isActive {
-            HStack(spacing: 5) {
-                Capsule()
-                    .fill(PetWhiteStyle.dogOrange)
-                    .frame(width: 26, height: 6)
-                Capsule()
-                    .fill(PetWhiteStyle.mint)
-                    .frame(width: 12, height: 6)
-                Capsule()
-                    .fill(PetWhiteStyle.sky)
-                    .frame(width: 12, height: 6)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(PetWhiteStyle.surfaceRaised, in: Capsule())
-            .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.fineStrokeWidth))
+            // 黏土上压出的一道指痕
+            Capsule()
+                .fill(PetWhiteStyle.surfacePressed)
+                .frame(width: 42, height: 6)
+                .overlay(PetWhiteClayInnerShadow(shape: Capsule(), depth: 1.6))
         } else if MujiStyle.isActive {
             Capsule()
                 .fill(MujiStyle.hairline.opacity(0.78))
@@ -420,7 +417,23 @@ struct MonologueSheetSurfaceBackground: View {
         )
 
         ZStack {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                shape
+                    .fill(.ultraThinMaterial)
+
+                shape
+                    .fill(MinimalWhiteStyle.glassStrongFill)
+
+                LinearGradient(
+                    colors: [
+                        MinimalWhiteStyle.luminousEdge.opacity(0.54),
+                        Color.clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+            } else if MangaStyle.isActive {
                 shape
                     .fill(MangaStyle.bubbleWhite)
 
@@ -443,10 +456,9 @@ struct MonologueSheetSurfaceBackground: View {
 
                 LinearGradient(
                     colors: [
-                        PetWhiteStyle.mint.opacity(colorScheme == .dark ? 0.16 : 0.34),
+                        PetWhiteStyle.butter.opacity(colorScheme == .dark ? 0.08 : 0.14),
                         PetWhiteStyle.surfaceRaised.opacity(0.98),
-                        PetWhiteStyle.sky.opacity(colorScheme == .dark ? 0.16 : 0.30),
-                        PetWhiteStyle.butter.opacity(colorScheme == .dark ? 0.12 : 0.22)
+                        PetWhiteStyle.sky.opacity(colorScheme == .dark ? 0.06 : 0.10)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -454,7 +466,7 @@ struct MonologueSheetSurfaceBackground: View {
                 .clipShape(shape)
 
                 PetWhitePawPattern()
-                    .opacity(colorScheme == .dark ? 0.18 : 0.28)
+                    .opacity(colorScheme == .dark ? 0.10 : 0.16)
                     .clipShape(shape)
             } else if MujiStyle.isActive {
                 shape
@@ -699,7 +711,13 @@ struct MonologueSheetSurfaceOverlay: View {
         )
 
         ZStack(alignment: .top) {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                shape
+                    .strokeBorder(
+                        MinimalWhiteStyle.hairline,
+                        lineWidth: MinimalWhiteStyle.strokeWidth
+                    )
+            } else if MangaStyle.isActive {
                 shape
                     .strokeBorder(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
 
@@ -710,26 +728,13 @@ struct MonologueSheetSurfaceOverlay: View {
                         .clipShape(shape)
                 }
             } else if PetWhiteStyle.isActive {
-                shape
-                    .strokeBorder(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.strokeWidth)
-
                 if !isInteractiveMotionActive {
                     LinearGradient(
-                        colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.32), .clear],
+                        colors: [PetWhiteStyle.glazeHighlight.opacity(colorScheme == .dark ? 0.06 : 0.5), .clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                     .frame(height: 116)
-                    .clipShape(shape)
-
-                    HStack(spacing: 0) {
-                        PetWhiteStyle.dogOrange.frame(width: 64, height: 5)
-                        PetWhiteStyle.mint.frame(width: 42, height: 5)
-                        PetWhiteStyle.sky.frame(width: 38, height: 5)
-                        Spacer()
-                        PetWhiteStyle.blush.opacity(0.72).frame(width: 46, height: 5)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .clipShape(shape)
                 }
             } else if MujiStyle.isActive {

@@ -2,20 +2,19 @@ import SwiftUI
 
 struct PetWhiteSearchHeader: View {
     var body: some View {
-        PetWhitePageHeader(
-            eyebrow: "SNIFF",
-            title: String(localized: "搜索"),
-            subtitle: String(localized: "找到今天想听的声音"),
-            icon: .magnifyingGlass
-        ) {
-            PetWhiteProfileHeadIcon(filled: false, size: 38)
-                .frame(width: 48, height: 48)
-                .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(PetWhiteStyle.separator, lineWidth: 1)
-                )
+        HStack(alignment: .center, spacing: 12) {
+            Text(String(localized: "搜索"))
+                .font(PetWhiteStyle.titleFont(26, weight: .bold))
+                .foregroundStyle(PetWhiteStyle.ink)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            PetWhitePetPetIcon(size: 36)
         }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 2)
+        .padding(.bottom, 10)
     }
 }
 
@@ -37,12 +36,15 @@ struct PetWhiteSearchTabBar: View {
             }
             .padding(5)
             .background(
-                PetWhiteSurfaceBackground(
-                    cornerRadius: hasSearched ? 18 : 21,
-                    elevated: true,
-                    tint: PetWhiteStyle.surfacePressed,
-                    accent: PetWhiteStyle.mint
-                )
+                // 凹槽托盘：标签像嵌在黏土上压出的浅槽里
+                RoundedRectangle(cornerRadius: hasSearched ? 18 : 21, style: .continuous)
+                    .fill(PetWhiteStyle.surfacePressed)
+                    .overlay(
+                        PetWhiteClayInnerShadow(
+                            shape: RoundedRectangle(cornerRadius: hasSearched ? 18 : 21, style: .continuous),
+                            depth: 2.4
+                        )
+                    )
             )
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.vertical, hasSearched ? 2 : 7)
@@ -61,31 +63,32 @@ struct PetWhiteSearchTabBar: View {
                 if !hasSearched {
                     PetWhitePackIcon(
                         icon: iconProvider(tab),
-                        size: 17,
-                        visualScale: 1.04,
-                        fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
-                        lineWidth: selected ? 1.9 : 1.55
+                        size: 16,
+                        visualScale: 1.02,
+                        fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted,
+                        lineWidth: selected ? 1.8 : 1.5
                     )
                 }
 
                 Text(tab.rawValue)
-                    .font(PetWhiteStyle.labelFont(hasSearched ? 11 : 12.5, weight: selected ? .black : .bold))
-                    .foregroundStyle(selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft)
+                    .font(PetWhiteStyle.labelFont(hasSearched ? 11 : 12.5, weight: selected ? .bold : .semibold))
+                    .foregroundStyle(selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
             .frame(width: itemWidth)
             .padding(.vertical, hasSearched ? 7 : 9)
-            .background(
-                PetWhiteSurfaceBackground(
-                    cornerRadius: hasSearched ? 14 : 16,
-                    elevated: selected,
-                    tint: selected ? PetWhiteStyle.sky.opacity(0.82) : PetWhiteStyle.surfaceRaised,
-                    accent: selected ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint
-                )
-            )
+            .background {
+                if selected {
+                    // 凹槽里凸起的选中块：从槽底鼓出来的一小块糖果黏土
+                    PetWhiteClayPuck(
+                        shape: RoundedRectangle(cornerRadius: hasSearched ? 12 : PetWhiteStyle.compactRadius, style: .continuous),
+                        tint: PetWhiteStyle.sky
+                    )
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.94))
     }
 
     private func itemWidth(totalWidth: CGFloat, spacing: CGFloat) -> CGFloat {

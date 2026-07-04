@@ -40,8 +40,18 @@ public final class SpectrumAnalyzer {
     /// 频谱数据回调。在音频线程调用，UI 更新需自行 dispatch 到主线程。
     public var onSpectrum: SpectrumCallback?
 
+    /// 原始频谱回调（模拟 WebAudio AnalyserNode.getByteFrequencyData / 255）。
+    /// magnitudes: 长度 = fftSize/2 的线性 bin，值域 [0,1]（dB 归一化，minDb=-100, maxDb=-30，
+    /// 含 WebAudio 默认 smoothingTimeConstant=0.8 的幅度平滑）。
+    /// sampleRate: 当前音频采样率；rms: 时域 RMS（等价 getByteTimeDomainData 计算的 RMS）。
+    /// 在音频线程调用。
+    public var onRawSpectrum: ((_ magnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)?
+
     /// 平滑系数（0~1）。越大越平滑，但响应越慢。
     public var smoothing: Float = 0.7
+
+    /// 当前采样率（由 feed 更新）
+    public private(set) var sampleRate: Double = 44100
 
     // MARK: - 内部状态
 
@@ -61,6 +71,9 @@ public final class SpectrumAnalyzer {
 
     /// 上一帧的频谱值（用于平滑）
     private var previousMagnitudes: [Float]
+
+    /// WebAudio 风格幅度平滑的上一帧线性幅度（长度 = fftSize/2）
+    private var previousRawAmplitudes: [Float]
 
     /// 临时缓冲区
     private var realPart: [Float]
@@ -86,6 +99,7 @@ public final class SpectrumAnalyzer {
 
         self.inputBuffer = [Float](repeating: 0, count: fftSize)
         self.previousMagnitudes = [Float](repeating: 0, count: bandCount)
+        self.previousRawAmplitudes = [Float](repeating: 0, count: fftSize / 2)
         self.realPart = [Float](repeating: 0, count: fftSize / 2)
         self.imagPart = [Float](repeating: 0, count: fftSize / 2)
     }
@@ -102,8 +116,9 @@ public final class SpectrumAnalyzer {
     ///   - samples: interleaved Float32 PCM 数据指针
     ///   - frameCount: 帧数
     ///   - channelCount: 声道数
-    func feed(samples: UnsafePointer<Float>, frameCount: Int, channelCount: Int) {
+    func feed(samples: UnsafePointer<Float>, frameCount: Int, channelCount: Int, sampleRate: Double = 44100) {
         guard isEnabled else { return }
+        self.sampleRate = sampleRate
 
         // 取左声道（或单声道）
         for i in 0..<frameCount {
@@ -154,6 +169,32 @@ public final class SpectrumAnalyzer {
         // 转换为 dB 并归一化
         let halfSize = Float(fftSize / 2)
         var scaledMags = magnitudes.map { sqrtf($0) / halfSize }
+
+        // 原始频谱输出：复刻 WebAudio getByteFrequencyData 语义
+        // 1) 线性幅度做 smoothingTimeConstant=0.8 平滑
+        // 2) 转 dB 后按 [minDb=-100, maxDb=-30] 归一化到 [0,1]
+        if let rawCallback = onRawSpectrum {
+            let tau: Float = 0.8
+            let minDb: Float = -100
+            let maxDb: Float = -30
+            var rawBytes = [Float](repeating: 0, count: fftSize / 2)
+            for i in 0..<(fftSize / 2) {
+                let smoothedAmp = tau * previousRawAmplitudes[i] + (1 - tau) * scaledMags[i]
+                previousRawAmplitudes[i] = smoothedAmp
+                let db = 20 * log10f(max(smoothedAmp, 1e-10))
+                rawBytes[i] = min(1, max(0, (db - minDb) / (maxDb - minDb)))
+            }
+
+            // 时域 RMS（等价 getByteTimeDomainData 的 RMS 计算）
+            var rms: Float = 0
+            for sample in inputBuffer {
+                let v = min(1, max(-1, sample))
+                rms += v * v
+            }
+            rms = sqrtf(rms / Float(fftSize))
+
+            rawCallback(rawBytes, sampleRate, rms)
+        }
 
         // 合并 bin 到指定频段数（对数分布）
         let bands = mergeToBands(magnitudes: &scaledMags)

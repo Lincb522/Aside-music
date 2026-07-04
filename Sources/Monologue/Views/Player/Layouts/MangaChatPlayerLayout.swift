@@ -37,7 +37,7 @@ struct MangaChatPlayerLayout: View {
     @State private var showArtistDetail = false
     @State private var showDownloadSheet = false
     @State private var userAvatarUrl: String? = nil
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
     @ObservedObject private var homeVM = HomeViewModel.shared
 
     var body: some View {
@@ -611,19 +611,30 @@ extension MangaChatPlayerLayout {
 
                 Spacer()
 
-                // 下载
-                if let song = player.currentSong {
-                    Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                // 下载（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled；隐藏期间该位置显示沉浸模式按钮）
+                if player.currentSong != nil {
+                    if AppConfig.Features.downloadEnabled, let song = player.currentSong {
+                        Button {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        } label: {
+                            mangaControlIcon(symbolName: "arrow.down.circle.fill", size: 16,
+                                            dimmed: downloadManager.isDownloaded(songId: song.id))
+                                .frame(width: 36, height: 36)
                         }
-                    } label: {
-                        mangaControlIcon(symbolName: "arrow.down.circle.fill", size: 16,
-                                        dimmed: downloadManager.isDownloaded(songId: song.id))
-                            .frame(width: 36, height: 36)
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        Button {
+                            CinemaModeController.shared.present()
+                        } label: {
+                            MonologueIcon(icon: .immersive, size: 16, color: inkSub)
+                                .frame(width: 36, height: 36)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
                 } else {
                     Color.clear.frame(width: 36)
                 }

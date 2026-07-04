@@ -5,9 +5,13 @@
 //  外观与歌词设置子页面
 //
 
+import PhotosUI
 import SwiftUI
 
 private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if MinimalWhiteStyle.isActive {
+        return MinimalWhiteStyle.bodyFont(size, weight: weight)
+    }
     if MangaStyle.isActive {
         return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
     }
@@ -305,7 +309,7 @@ struct AppearanceSettingsView: View {
             return .classic
         case .capsule, .sequoia, .liquidGlass:
             return .classic
-        case .default, .muji, .manga, .pureWhite, .bento, .clay, .signal, .material3Expressive:
+        case .default, .muji, .manga, .minimalWhite, .pureWhite, .bento, .clay, .signal, .material3Expressive:
             return nil
         }
     }
@@ -440,6 +444,9 @@ private struct ThemeColorCustomizationSection: View {
     @Binding var isExpanded: Bool
     @ObservedObject private var settings = SettingsManager.shared
     @State private var activeColorPicker: ThemeColorPickerTarget?
+    @State private var backgroundPhotoItem: PhotosPickerItem?
+    @State private var darkBackgroundPhotoItem: PhotosPickerItem?
+    @State private var showSavePresetOptions = false
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -498,6 +505,11 @@ private struct ThemeColorCustomizationSection: View {
 
                         colorRoleEditor(role: .background)
 
+                        if ThemeColorCustomization.supportsImageBackground(theme) {
+                            Divider().opacity(0.35)
+                            darkBackgroundEditor
+                        }
+
                         if theme == .manga {
                             Divider().opacity(0.35)
                             mangaExtraEditor
@@ -514,7 +526,7 @@ private struct ThemeColorCustomizationSection: View {
             preset: .custom(
                 height: .fixed(438),
                 maxContentWidth: 620,
-                cornerRadius: theme == .manga ? 22 : (theme == .muji ? 20 : 30)
+                cornerRadius: theme == .manga ? 22 : (theme == .minimalWhite ? MinimalWhiteStyle.chromeRadius : (theme == .muji ? 20 : 30))
             )
         ) { target in
             ThemeColorPickerSheet(
@@ -652,7 +664,7 @@ private struct ThemeColorCustomizationSection: View {
                     .allowsTightening(true)
 
                 if preset.isCustom {
-                    Text(String(localized: "已存"))
+                    Text(preset.iconSetRaw == nil ? String(localized: "已存") : String(localized: "已存 · 含图标包"))
                         .font(appearanceSettingsFont(8.5, weight: .semibold))
                         .foregroundStyle(themeSubtextColor.opacity(0.72))
                         .textCase(.uppercase)
@@ -674,7 +686,9 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var deletePresetButtonBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteCircleBackground()
+        } else if theme == .manga {
             Circle()
                 .fill(MangaStyle.bubbleWhite)
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.1))
@@ -709,9 +723,7 @@ private struct ThemeColorCustomizationSection: View {
 
     private var saveCurrentPresetButton: some View {
         Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                ThemeColorCustomization.saveCurrentPreset(for: theme)
-            }
+            showSavePresetOptions = true
         } label: {
             HStack(spacing: 9) {
                 MonologueIcon(icon: .add, size: 10, color: savePresetIconColor, lineWidth: 1.8)
@@ -736,10 +748,34 @@ private struct ThemeColorCustomizationSection: View {
             .background(savePresetButtonBackground)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+        .confirmationDialog(
+            String(localized: "保存当前方案"),
+            isPresented: $showSavePresetOptions,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "仅保存配色")) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    ThemeColorCustomization.saveCurrentPreset(for: theme)
+                }
+            }
+            Button(String(localized: "保存配色与图标包（\(SettingsManager.shared.interfaceIconSet.displayName)）")) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    ThemeColorCustomization.saveCurrentPreset(for: theme, includingIconSet: true)
+                }
+            }
+            Button(String(localized: "取消"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "选择是否将当前界面图标包一并保存到方案中"))
+        }
     }
 
     private func colorRoleEditor(role: ThemeCustomColorRole) -> some View {
         let usesSingleColor = role == .accent || (theme == .muji && role == .background)
+        let allowsImage = role == .background && ThemeColorCustomization.supportsImageBackground(theme)
+        let modeOptions: [ThemeCustomColorMode] = allowsImage
+            ? [.solid, .gradient, .image]
+            : ThemeCustomColorMode.allCases
+        let currentMode = ThemeColorCustomization.mode(for: theme, role: role)
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -751,12 +787,12 @@ private struct ThemeColorCustomizationSection: View {
 
                 if !usesSingleColor {
                     Picker("", selection: modeBinding(role)) {
-                        ForEach(ThemeCustomColorMode.allCases) { mode in
+                        ForEach(modeOptions) { mode in
                             Text(mode.displayName).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 132)
+                    .frame(width: allowsImage ? 196 : 132)
                 } else {
                     Text(String(localized: "单色"))
                         .font(appearanceSettingsFont(11, weight: .semibold))
@@ -767,9 +803,11 @@ private struct ThemeColorCustomizationSection: View {
                 }
             }
 
-            if !usesSingleColor && ThemeColorCustomization.mode(for: theme, role: role) == .gradient {
+            if !usesSingleColor && currentMode == .gradient {
                 backgroundGradientColorGrid(role: role)
                 gradientStyleSelector(role: role)
+            } else if allowsImage && currentMode == .image {
+                backgroundImageEditor(dark: false)
             } else {
                 colorPickerPill(
                     title: String(localized: "颜色"),
@@ -778,6 +816,147 @@ private struct ThemeColorCustomizationSection: View {
                 )
             }
         }
+    }
+
+    // MARK: - 背景图（壁纸式铺满）
+
+    private func backgroundImageEditor(dark: Bool) -> some View {
+        let photoItemBinding = dark ? $darkBackgroundPhotoItem : $backgroundPhotoItem
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                PhotosPicker(selection: photoItemBinding, matching: .images, photoLibrary: .shared()) {
+                    ThemeBackgroundImagePickerLabel(theme: theme, dark: dark)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+
+                if ThemeColorCustomization.hasBackgroundImage(for: theme, dark: dark) {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                            ThemeColorCustomization.clearBackgroundImage(for: theme, dark: dark)
+                        }
+                    } label: {
+                        MonologueIcon(icon: .trash, size: 12, color: themeSubtextColor.opacity(0.85), lineWidth: 1.6)
+                            .frame(width: 38, height: 38)
+                            .background(deletePresetButtonBackground)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+                    .accessibilityLabel(String(localized: "移除背景图"))
+                }
+            }
+
+            Text(String(localized: "图片将像系统壁纸一样缩放铺满屏幕"))
+                .font(appearanceSettingsFont(10.5, weight: .regular))
+                .foregroundStyle(themeSubtextColor.opacity(0.72))
+        }
+        .onChange(of: photoItemBinding.wrappedValue) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                        ThemeColorCustomization.setBackgroundImageData(data, for: theme, dark: dark)
+                    }
+                }
+                photoItemBinding.wrappedValue = nil
+            }
+        }
+    }
+
+    // MARK: - 夜间背景（默认主题）
+
+    private var darkBackgroundEditor: some View {
+        let kind = ThemeColorCustomization.darkBackgroundKind(for: theme)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(String(localized: "夜间背景"))
+                    .font(appearanceSettingsFont(13, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer()
+
+                Picker("", selection: darkBackgroundKindBinding) {
+                    ForEach(ThemeDarkBackgroundKind.allCases) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 196)
+            }
+
+            switch kind {
+            case .solid:
+                darkSolidSwatchRow
+                colorPickerPill(
+                    title: String(localized: "夜间纯色"),
+                    target: .role(.background, suffix: "darkSolid", title: String(localized: "夜间纯色"), fallback: ThemeColorCustomization.defaultDarkBackgroundSolidHex),
+                    binding: colorBinding(role: .background, suffix: "darkSolid", fallback: ThemeColorCustomization.defaultDarkBackgroundSolidHex)
+                )
+            case .image:
+                backgroundImageEditor(dark: true)
+            case .standard:
+                Text(String(localized: "夜间模式使用主题默认深色背景"))
+                    .font(appearanceSettingsFont(10.5, weight: .regular))
+                    .foregroundStyle(themeSubtextColor.opacity(0.72))
+            }
+        }
+    }
+
+    private var darkSolidSwatchRow: some View {
+        let swatches: [(name: String, hex: String)] = [
+            (String(localized: "纯黑"), "000000"),
+            (String(localized: "碳黑"), "0B0B0D"),
+            (String(localized: "暗夜蓝"), "070B14"),
+            (String(localized: "深灰"), "141418"),
+        ]
+        let currentHex = ThemeColorCustomization.normalizedHex(
+            ThemeColorCustomization.darkBackgroundSolidHex(for: theme)
+        )
+
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(swatches, id: \.hex) { swatch in
+                    let isSelected = currentHex == ThemeColorCustomization.normalizedHex(swatch.hex)
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                            ThemeColorCustomization.setHex(swatch.hex, for: theme, role: .background, suffix: "darkSolid")
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Color(hex: swatch.hex))
+                                .frame(width: 20, height: 20)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .stroke(themeStrokeColor, lineWidth: 0.7)
+                                )
+
+                            Text(swatch.name)
+                                .font(appearanceSettingsFont(11.5, weight: isSelected ? .bold : .semibold))
+                                .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(presetBackground(isSelected: isSelected))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(.vertical, 1)
+        }
+    }
+
+    private var darkBackgroundKindBinding: Binding<ThemeDarkBackgroundKind> {
+        Binding(
+            get: { ThemeColorCustomization.darkBackgroundKind(for: theme) },
+            set: { kind in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    ThemeColorCustomization.setDarkBackgroundKind(kind, for: theme)
+                }
+            }
+        )
     }
 
     private func backgroundGradientColorGrid(role: ThemeCustomColorRole) -> some View {
@@ -970,6 +1149,8 @@ private struct ThemeColorCustomizationSection: View {
         }
 
         switch (theme, role, suffix) {
+        case (.minimalWhite, .accent, _): return "18181B"
+        case (.minimalWhite, .background, _): return "FFFFFF"
         case (.muji, .accent, "end"): return "B56B4B"
         case (.muji, .accent, _): return "B56B4B"
         case (.muji, .background, "end"): return "F7F1E8"
@@ -1050,7 +1231,9 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private func presetBackground(isSelected: Bool) -> some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteCapsuleBackground(elevated: isSelected, selected: isSelected)
+        } else if theme == .manga {
             Capsule()
                 .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
                 .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: isSelected ? 1.9 : 1.3))
@@ -1093,7 +1276,13 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var fieldBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.compactRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.controlGlassFill
+            )
+        } else if theme == .manga {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MangaStyle.bubbleWhite)
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
@@ -1127,6 +1316,7 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var themeTextColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .capsule { return CapsuleStyle.ink }
@@ -1140,6 +1330,7 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var themeSubtextColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.inkMuted }
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .capsule { return CapsuleStyle.inkSoft }
@@ -1153,6 +1344,7 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var themeStrokeColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.hairline }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
         if theme == .capsule { return CapsuleStyle.separator.opacity(0.64) }
@@ -1166,6 +1358,7 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var selectedPresetTextColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
         if theme == .capsule { return CapsuleStyle.accent }
@@ -1179,6 +1372,9 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var selectedPresetMarkColor: Color {
+        if theme == .minimalWhite {
+            return MinimalWhiteStyle.onAccent
+        }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.bubblePink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
         }
@@ -1193,7 +1389,10 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var selectedPresetMarkBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            Circle()
+                .fill(MinimalWhiteStyle.ink)
+        } else if theme == .manga {
             Circle()
                 .fill(MangaStyle.bubblePink)
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
@@ -1228,6 +1427,9 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var savePresetIconColor: Color {
+        if theme == .minimalWhite {
+            return MinimalWhiteStyle.onAccent
+        }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
         }
@@ -1239,7 +1441,10 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var savePresetIconBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            Circle()
+                .fill(MinimalWhiteStyle.ink)
+        } else if theme == .manga {
             Circle()
                 .fill(MangaStyle.labelYellow)
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.1))
@@ -1281,7 +1486,13 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var savePresetButtonBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.compactRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        } else if theme == .manga {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(MangaStyle.bubbleWhite)
                 .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.25))
@@ -1314,6 +1525,65 @@ private struct ThemeColorCustomizationSection: View {
         }
     }
 
+}
+
+/// 独立 View 结构体：PhotosPicker 的 label 闭包是 nonisolated 的，
+/// 构造结构体规避主 actor 隔离限制
+private struct ThemeBackgroundImagePickerLabel: View {
+    let theme: GlobalThemeId
+    var dark = false
+    @ObservedObject private var settings = SettingsManager.shared
+
+    var body: some View {
+        let _ = settings.globalThemeRevision
+        let image = ThemeColorCustomization.backgroundImage(for: theme, dark: dark)
+
+        HStack(spacing: 10) {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.monologueGlassTint)
+                        .overlay(
+                            MonologueIcon(icon: .album, size: 14, color: .monologueTextSecondary, lineWidth: 1.5)
+                        )
+                }
+            }
+            .frame(width: 38, height: 38)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.monologueSeparator.opacity(0.7), lineWidth: 0.7)
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(image == nil ? String(localized: "选择背景图") : String(localized: "更换背景图"))
+                    .font(appearanceSettingsFont(12, weight: .semibold))
+                    .foregroundStyle(Color.monologueTextPrimary)
+                    .lineLimit(1)
+
+                Text(String(localized: "从相册选取"))
+                    .font(appearanceSettingsFont(9.5, weight: .regular))
+                    .foregroundStyle(Color.monologueTextSecondary.opacity(0.8))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            MonologueIcon(icon: .chevronRight, size: 9, color: Color.monologueTextSecondary.opacity(0.72), lineWidth: 1.5)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.monologueSeparator.opacity(0.68), lineWidth: 0.65))
+        )
+    }
 }
 
 private struct ThemeColorPresetPreviewSwatch: View {
@@ -1593,6 +1863,10 @@ private struct ThemeColorPickerSheet: View {
             return ["E97871", "F5A5C5", "A7DEC6", "A8C9F5", "FFE39B", "CDB4F6", "F6E8DD", "F1F5E9", "F3ECE5", "E8F0FA", "F8E8EA", "EFEAF7"]
         }
 
+        if theme == .minimalWhite {
+            return ["111114", "3F3F46", "73737C", "DEDEE3", "EFEFF2", "F6F6F7", "FFFFFF", "FBFBFC", "F8FAFC", "F3F4F6", "EEF2F7", "E5E7EB"]
+        }
+
         if theme == .pureWhite {
             return ["2563EB", "0F172A", "475569", "64748B", "94A3B8", "CBD5E1", "FFFFFF", "F8FAFC", "EEF2F7", "E2E8F0", "DBEAFE", "EFF6FF"]
         }
@@ -1620,6 +1894,8 @@ private struct ThemeColorPickerSheet: View {
                 MujiStyle.paper
                 MujiPaperTexture(opacity: 0.09)
             }
+        } else if theme == .minimalWhite {
+            MinimalWhiteRootBackdrop()
         } else if theme == .default {
             Color.monologueSheetSurfaceBottom
         } else if theme == .pureWhite {
@@ -1649,6 +1925,12 @@ private struct ThemeColorPickerSheet: View {
                 .fill(MujiStyle.surface.opacity(0.82))
                 .overlay(MujiPaperTexture(opacity: 0.07).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous)))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.65))
+        } else if theme == .minimalWhite {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
         } else if theme == .default {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -1676,6 +1958,8 @@ private struct ThemeColorPickerSheet: View {
             Circle()
                 .fill(MujiStyle.surface.opacity(0.86))
                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+        } else if theme == .minimalWhite {
+            MinimalWhiteCircleBackground(elevated: true)
         } else if theme == .default {
             Circle()
                 .fill(Color.monologueGlassTint)
@@ -1779,6 +2063,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var titleFont: Font {
+        if theme == .minimalWhite { return MinimalWhiteStyle.titleFont(18, weight: .semibold) }
         if theme == .manga { return MangaStyle.titleFont(19, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(18, weight: .semibold) }
         if theme == .default { return .system(size: 18, weight: .semibold, design: .rounded) }
@@ -1790,6 +2075,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var labelFont: Font {
+        if theme == .minimalWhite { return MinimalWhiteStyle.labelFont(13, weight: .medium) }
         if theme == .manga { return MangaStyle.labelFont(13, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(13, weight: .semibold) }
         if theme == .default { return .system(size: 13, weight: .semibold, design: .rounded) }
@@ -1801,6 +2087,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var titleColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
@@ -1812,6 +2099,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var subtitleColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.inkMuted }
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
@@ -1823,6 +2111,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var closeIconColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.inkMuted }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
@@ -1834,6 +2123,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var previewStrokeColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.hairline }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.55) }
         if theme == .default { return Color.monologueSeparator.opacity(0.72) }
@@ -1845,6 +2135,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var selectedStrokeColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
         if theme == .default { return Color.monologueAccent }
@@ -1856,6 +2147,9 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var selectedCheckColor: Color {
+        if theme == .minimalWhite {
+            return MinimalWhiteStyle.onAccent
+        }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
         }
@@ -1869,6 +2163,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var selectedCheckBackground: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.labelYellow }
         if theme == .muji { return MujiStyle.tea }
         if theme == .default { return Color.monologueIconBackground }
@@ -1880,6 +2175,7 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var previewShadowColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink.opacity(0.035) }
         if theme == .manga { return MangaStyle.strokeInk.opacity(0.12) }
         if theme == .muji { return MujiStyle.ink.opacity(0.08) }
         if theme == .default { return Color.black.opacity(0.1) }
@@ -2220,7 +2516,7 @@ private struct InterfaceIconSetOptionCard: View {
 
     private var previewIconSize: CGFloat {
         switch iconSet {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
             return 18
         case .blobIcons:
             return 17
@@ -2231,6 +2527,8 @@ private struct InterfaceIconSetOptionCard: View {
 
     private func originalArtworkScale(for icon: MonologueIcon.IconType) -> CGFloat {
         switch iconSet {
+        case .minimalWhiteIcons:
+            return 1.02
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:

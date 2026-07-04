@@ -1,10 +1,8 @@
 import Foundation
-import SwiftData
 
 /// 已下载歌曲数据模型
-@Model
 final class DownloadedSong {
-    @Attribute(.unique) var uniqueKey: String  // "ncm_123" 或 "qq_456"，避免跨平台 ID 冲突
+    var uniqueKey: String  // "ncm_123" 或 "qq_456"，避免跨平台 ID 冲突
     var id: Int
     var name: String
     var artistName: String
@@ -197,5 +195,60 @@ final class DownloadedSong {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: fileSize)
+    }
+}
+
+// MARK: - MonoEntity
+
+extension DownloadedSong: MonoEntity {
+    static let monoEntityName = "DownloadedSong"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("uniqueKey", .string), .init("id", .int), .init("name", .string),
+        .init("artistName", .string), .init("albumName", .string), .init("coverUrl", .string),
+        .init("duration", .int), .init("statusRaw", .string), .init("progress", .double),
+        .init("qualityRaw", .string), .init("localPath", .string), .init("fileSize", .int64),
+        .init("downloadedAt", .date), .init("createdAt", .date), .init("qqMid", .string),
+        .init("isQQMusic", .bool), .init("qqQualityRaw", .string), .init("isQishui", .bool),
+        .init("qishuiTrackId", .int), .init("qishuiQualityRaw", .string)
+    ]
+
+    var monoUniqueKey: String { uniqueKey }
+
+    func monoSnapshot() -> [String: Any?] {
+        [
+            "uniqueKey": uniqueKey, "id": id, "name": name, "artistName": artistName,
+            "albumName": albumName, "coverUrl": coverUrl, "duration": duration,
+            "statusRaw": statusRaw, "progress": progress, "qualityRaw": qualityRaw,
+            "localPath": localPath, "fileSize": fileSize, "downloadedAt": downloadedAt,
+            "createdAt": createdAt, "qqMid": qqMid, "isQQMusic": isQQMusic,
+            "qqQualityRaw": qqQualityRaw, "isQishui": isQishui,
+            "qishuiTrackId": qishuiTrackId, "qishuiQualityRaw": qishuiQualityRaw
+        ]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = DownloadedSong(
+            id: MonoSnapshotValue.int(s, "id"),
+            name: MonoSnapshotValue.string(s, "name"),
+            artistName: MonoSnapshotValue.string(s, "artistName"),
+            albumName: MonoSnapshotValue.stringOpt(s, "albumName"),
+            coverUrl: MonoSnapshotValue.stringOpt(s, "coverUrl"),
+            duration: MonoSnapshotValue.intOpt(s, "duration"),
+            qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
+            isQQMusic: MonoSnapshotValue.bool(s, "isQQMusic"),
+            isQishui: MonoSnapshotValue.bool(s, "isQishui"),
+            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId"),
+            qishuiQualityRaw: MonoSnapshotValue.stringOpt(s, "qishuiQualityRaw")
+        )
+        obj.uniqueKey = MonoSnapshotValue.string(s, "uniqueKey", default: obj.uniqueKey)
+        obj.statusRaw = MonoSnapshotValue.string(s, "statusRaw", default: Status.waiting.rawValue)
+        obj.progress = MonoSnapshotValue.double(s, "progress")
+        obj.qualityRaw = MonoSnapshotValue.string(s, "qualityRaw", default: SoundQuality.exhigh.rawValue)
+        obj.localPath = MonoSnapshotValue.stringOpt(s, "localPath")
+        obj.fileSize = MonoSnapshotValue.int64(s, "fileSize")
+        obj.downloadedAt = MonoSnapshotValue.dateOpt(s, "downloadedAt")
+        obj.createdAt = MonoSnapshotValue.date(s, "createdAt")
+        obj.qqQualityRaw = MonoSnapshotValue.stringOpt(s, "qqQualityRaw")
+        return unsafeDowncast(obj, to: Self.self)
     }
 }

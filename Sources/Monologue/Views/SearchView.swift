@@ -94,7 +94,9 @@ struct SearchView: View {
 
     @ViewBuilder
     private var searchRootContent: some View {
-        if viewModel.hasSearched {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteSearchRoot
+        } else if viewModel.hasSearched {
             ZStack {
                 searchContentView
                 suggestionsOverlay
@@ -133,6 +135,20 @@ struct SearchView: View {
         }
     }
 
+    private var minimalWhiteSearchRoot: some View {
+        VStack(spacing: 0) {
+            searchBarSection
+                .padding(.top, DeviceLayout.headerTopPadding + 8)
+                .padding(.bottom, 12)
+
+            ZStack {
+                searchContentView
+                suggestionsOverlay
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
     private var petWhiteInitialSearchRoot: some View {
         ZStack {
             ScrollView {
@@ -160,15 +176,9 @@ struct SearchView: View {
 
     private var mangaSearchHeader: some View {
         HStack(alignment: .center, spacing: 12) {
-            MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
-
-            VStack(alignment: .leading, spacing: 4) {
-                MangaLabel(text: "SEARCH", tint: MangaStyle.labelYellow, small: true)
-
-                Text(String(localized: "搜索"))
-                    .font(MangaStyle.comicFont(26, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-            }
+            Text(String(localized: "搜索"))
+                .font(MangaStyle.comicFont(26, weight: .black))
+                .foregroundStyle(MangaStyle.ink)
 
             Spacer(minLength: 12)
         }
@@ -194,14 +204,13 @@ struct SearchView: View {
     }
 
     private var neumorphicSearchHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "SEARCH",
-            title: String(localized: "搜索"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.accent, size: 46)
-        }
-        .padding(.bottom, 2)
+        Text(String(localized: "搜索"))
+            .font(NeumorphicStyle.titleFont(29, weight: .semibold))
+            .foregroundStyle(NeumorphicStyle.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .padding(.bottom, 10)
     }
 
     private var signalSearchHeader: some View {
@@ -262,30 +271,14 @@ struct SearchView: View {
     }
 
     private var capsuleSearchHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            CapsuleIconBadge(icon: .magnifyingGlass, tint: CapsuleStyle.accent, size: 44)
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Capsule()
-                        .fill(CapsuleStyle.accent)
-                        .frame(width: 22, height: 7)
-                    Capsule()
-                        .fill(CapsuleStyle.cyan.opacity(0.72))
-                        .frame(width: 9, height: 7)
-                }
-
-                Text(String(localized: "搜索"))
-                    .font(CapsuleStyle.titleFont(26, weight: .bold))
-                    .foregroundStyle(CapsuleStyle.ink)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 8)
-        .padding(.bottom, 12)
+        Text(String(localized: "搜索"))
+            .font(CapsuleStyle.titleFont(26, weight: .bold))
+            .foregroundStyle(CapsuleStyle.ink)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .padding(.bottom, 12)
     }
 
     private var petWhiteSearchHeader: some View {
@@ -382,7 +375,13 @@ struct SearchView: View {
             .padding(.vertical, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 7 : 8) : (showFullSearch ? (SequoiaStyle.isActive ? 9 : 10) : 12))
             .background(
                 Group {
-                    if MangaStyle.isActive {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: searchRadius,
+                            elevated: true,
+                            tint: MinimalWhiteStyle.glassStrongFill
+                        )
+                    } else if MangaStyle.isActive {
                         MangaCardBackground(cornerRadius: searchRadius, elevated: true)
                     } else if MujiStyle.isActive {
                         MujiPaperCardBackground(cornerRadius: searchRadius, elevated: true)
@@ -425,6 +424,7 @@ struct SearchView: View {
     }
 
     private func searchBarCornerRadius(showFullSearch: Bool) -> CGFloat {
+        if MinimalWhiteStyle.isActive { return showFullSearch ? 16 : 20 }
         if MangaStyle.isActive { return MangaStyle.cardRadius }
         if PetWhiteStyle.isActive { return showFullSearch ? 20 : 22 }
         if MujiStyle.isActive { return 10 }
@@ -461,6 +461,7 @@ struct SearchView: View {
     }
 
     private var searchBackButtonRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 14 }
         if MangaStyle.isActive { return MangaStyle.buttonRadius }
         if NeumorphicStyle.isActive { return 16 }
         if SignalStyle.isActive { return 17 }
@@ -471,6 +472,7 @@ struct SearchView: View {
     }
 
     private var searchBackButtonFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.surface }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surface }
@@ -483,6 +485,7 @@ struct SearchView: View {
     }
 
     private var searchBackButtonStroke: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
@@ -495,14 +498,16 @@ struct SearchView: View {
     }
 
     private var searchBackButtonStrokeWidth: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.strokeWidth }
         if MangaStyle.isActive { return MangaStyle.strokeWidth }
-        if PetWhiteStyle.isActive { return 1.5 }
+        if PetWhiteStyle.isActive { return 1 }
         if CapsuleStyle.isActive { return 0.8 }
         return 0.5
     }
 
     private var searchBackButtonIconColor: Color {
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -512,8 +517,9 @@ struct SearchView: View {
     }
 
     private var searchIconColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
@@ -524,6 +530,7 @@ struct SearchView: View {
     }
 
     private var searchPlaceholderColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
@@ -536,6 +543,7 @@ struct SearchView: View {
     }
 
     private var searchTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
@@ -548,8 +556,9 @@ struct SearchView: View {
     }
 
     private func searchFieldFont(weight: Font.Weight) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: weight) }
         if MangaStyle.isActive { return MangaStyle.comicFont(15, weight: weight == .bold ? .bold : .medium) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15, weight: .black) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(15, weight: .semibold) }
@@ -961,25 +970,29 @@ struct SearchView: View {
     private var searchedResultsScrollView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                searchBarSection
+                if !MinimalWhiteStyle.isActive {
+                    searchBarSection
+                }
 
                 if CapsuleStyle.isActive {
                     capsuleSearchCommandBoard
                 } else {
-                    if MangaStyle.isActive {
-                        mangaResultConsole
-                    } else if MujiStyle.isActive {
-                        mujiResultConsole
-                    } else if NeumorphicStyle.isActive {
-                        neumorphicResultConsole
-                    } else if SignalStyle.isActive {
-                        signalResultConsole
-                    } else if SequoiaStyle.isActive {
-                        sequoiaResultConsole
-                    } else if LiquidGlassStyle.isActive {
-                        liquidGlassResultConsole
-                    } else {
-                        defaultResultConsole
+                    if !MinimalWhiteStyle.isActive {
+                        if MangaStyle.isActive {
+                            mangaResultConsole
+                        } else if MujiStyle.isActive {
+                            mujiResultConsole
+                        } else if NeumorphicStyle.isActive {
+                            neumorphicResultConsole
+                        } else if SignalStyle.isActive {
+                            signalResultConsole
+                        } else if SequoiaStyle.isActive {
+                            sequoiaResultConsole
+                        } else if LiquidGlassStyle.isActive {
+                            liquidGlassResultConsole
+                        } else {
+                            defaultResultConsole
+                        }
                     }
 
                     searchTabBar
@@ -1737,7 +1750,8 @@ struct SearchView: View {
     }
 
     private var searchStateNeedsHorizontalPadding: Bool {
-        MangaStyle.isActive
+        MinimalWhiteStyle.isActive
+            || MangaStyle.isActive
             || MujiStyle.isActive
             || NeumorphicStyle.isActive
             || SignalStyle.isActive
@@ -2844,7 +2858,7 @@ struct SearchView: View {
 
     private var searchResultTitleFont: Font {
         if MangaStyle.isActive { return MangaStyle.comicFont(15.5, weight: .black) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: .black) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(16, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(16, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.bodyFont(16, weight: .semibold) }
@@ -2888,7 +2902,7 @@ struct SearchView: View {
 
     private var searchResultChevronColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.72) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkMuted }
@@ -2903,7 +2917,7 @@ struct SearchView: View {
             MangaCardBackground(cornerRadius: 16, elevated: true)
         } else if PetWhiteStyle.isActive {
             PetWhiteSurfaceBackground(
-                cornerRadius: 22,
+                cornerRadius: PetWhiteStyle.cardRadius,
                 elevated: false,
                 tint: PetWhiteStyle.surfaceRaised.opacity(0.88),
                 accent: PetWhiteStyle.sky
@@ -3756,7 +3770,13 @@ struct SearchView: View {
 
     @ViewBuilder
     private var emptyResultsView: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: String(localized: "search_no_results"),
+                tint: MinimalWhiteStyle.inkMuted
+            )
+        } else if MangaStyle.isActive {
             themeSearchStatePanel(
                 icon: .magnifyingGlass,
                 title: viewModel.displayKeyword.isEmpty ? String(localized: "search_no_results") : viewModel.displayKeyword,
@@ -3800,8 +3820,20 @@ struct SearchView: View {
                 subtitle: String(localized: "search_no_results"),
                 tint: CapsuleStyle.accent
             )
-        } else {
+        } else if #available(iOS 17.0, *) {
             ContentUnavailableView.search(text: viewModel.displayKeyword)
+        } else {
+            VStack(spacing: 13) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 42, weight: .regular))
+                    .foregroundStyle(.secondary)
+                Text("search_no_results")
+                    .font(.headline)
+                Text(viewModel.displayKeyword)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -3825,6 +3857,10 @@ struct SearchView: View {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.65)
                     )
+            } else if MinimalWhiteStyle.isActive {
+                MonologueIcon(icon: icon, size: 21, color: tint, lineWidth: 1.55)
+                    .frame(width: 50, height: 50)
+                    .background(MinimalWhiteCircleBackground())
             } else if CapsuleStyle.isActive {
                 CapsuleIconBadge(icon: icon, tint: tint, size: 52)
             } else {
@@ -3865,6 +3901,7 @@ struct SearchView: View {
     }
 
     private var themeSearchStateTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(17, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .medium) }
         if CapsuleStyle.isActive { return CapsuleStyle.titleFont(18, weight: .bold) }
@@ -3872,6 +3909,7 @@ struct SearchView: View {
     }
 
     private var themeSearchStateSubtitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: .semibold) }
@@ -3879,6 +3917,7 @@ struct SearchView: View {
     }
 
     private var themeSearchPrimaryColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
@@ -3886,6 +3925,7 @@ struct SearchView: View {
     }
 
     private var themeSearchSecondaryColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
@@ -3894,7 +3934,13 @@ struct SearchView: View {
 
     @ViewBuilder
     private var themeSearchStateBackground: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        } else if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: 18, elevated: true)
         } else if MujiStyle.isActive {
             MujiPaperCardBackground(cornerRadius: 13, elevated: true)
@@ -3911,7 +3957,9 @@ struct SearchView: View {
 
     @ViewBuilder
     private var emptySearchView: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteEmptySearchView
+        } else if MangaStyle.isActive {
             mangaEmptySearchView
         } else if PetWhiteStyle.isActive {
             petWhiteEmptySearchView
@@ -4009,6 +4057,95 @@ struct SearchView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
+    }
+
+    private var minimalWhiteEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if viewModel.searchHistory.isEmpty && viewModel.hotSearchItems.isEmpty {
+                    themeSearchStatePanel(
+                        icon: .magnifyingGlass,
+                        title: String(localized: "搜索"),
+                        tint: MinimalWhiteStyle.inkMuted
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 36)
+                }
+
+                if !viewModel.searchHistory.isEmpty {
+                    MinimalWhiteSectionTitle(title: String(localized: "search_history")) {
+                        Button(action: viewModel.clearAllHistory) {
+                            MonologueIcon(icon: .trash, size: 15, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55)
+                                .frame(width: 32, height: 32)
+                                .background(MinimalWhiteCircleBackground())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                    VStack(spacing: 0) {
+                        ForEach(viewModel.searchHistory, id: \.id) { item in
+                            Button {
+                                viewModel.performSearch(keyword: item.keyword)
+                                isFocused = false
+                            } label: {
+                                HStack(spacing: 12) {
+                                    MonologueIcon(icon: .clock, size: 15, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.45)
+
+                                    Text(item.keyword)
+                                        .font(MinimalWhiteStyle.bodyFont(15, weight: .regular))
+                                        .foregroundStyle(MinimalWhiteStyle.ink)
+                                        .lineLimit(1)
+
+                                    Spacer(minLength: 8)
+
+                                    Button {
+                                        viewModel.deleteHistoryItem(keyword: item.keyword)
+                                    } label: {
+                                        MonologueIcon(icon: .xmark, size: 11, color: MinimalWhiteStyle.inkMuted.opacity(0.7), lineWidth: 1.5)
+                                            .frame(width: 28, height: 28)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .minimalWhiteHairline(.bottom)
+                        }
+                    }
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    MinimalWhiteSectionTitle(title: String(localized: "search_hot"))
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                    FlowLayout(spacing: 10) {
+                        ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
+                            Button {
+                                viewModel.performSearch(keyword: item.searchWord)
+                                isFocused = false
+                            } label: {
+                                Text(item.searchWord)
+                                    .font(MinimalWhiteStyle.bodyFont(14, weight: .regular))
+                                    .foregroundStyle(MinimalWhiteStyle.ink)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(MinimalWhiteCapsuleBackground())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                }
+            }
+            .padding(.top, 18)
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
     }
 
     private var petWhiteEmptySearchView: some View {

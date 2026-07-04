@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PodcastEpisodeListSheet: View {
-    @Bindable var viewModel: PodcastPlayerViewModel
+    @ObservedObject var viewModel: PodcastPlayerViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -23,21 +23,50 @@ struct PodcastEpisodeListSheet: View {
             if viewModel.programs.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .micSlash, size: 44, color: secondaryTextColor.opacity(0.38))
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteIconBadge(icon: .micSlash, size: 54)
+                    } else {
+                        MonologueIcon(icon: .micSlash, size: 44, color: secondaryTextColor.opacity(0.38))
+                    }
                     Text("radio_no_programs")
                         .font(emptyFont)
                         .foregroundColor(secondaryTextColor)
                 }
+                .padding(.vertical, 44)
+                .frame(maxWidth: .infinity)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
                 Spacer()
             } else if filteredPrograms.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .search, size: 40, color: secondaryTextColor.opacity(0.38))
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteIconBadge(icon: .search, size: 54)
+                    } else {
+                        MonologueIcon(icon: .search, size: 40, color: secondaryTextColor.opacity(0.38))
+                    }
                     Text("podcast_episode_search_empty")
                         .font(emptyFont)
                         .foregroundColor(secondaryTextColor)
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
                 Spacer()
             } else {
                 ScrollViewReader { proxy in
@@ -100,6 +129,8 @@ struct PodcastEpisodeListSheet: View {
                 Color.clear
             } else if SequoiaStyle.isActive {
                 Color.clear
+            } else if MinimalWhiteStyle.isActive {
+                Color.clear
             } else {
                 Rectangle()
                     .fill(Color.monologueGlassTint)
@@ -135,6 +166,12 @@ struct PodcastEpisodeListSheet: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        if MinimalWhiteStyle.isActive {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                        }
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -262,6 +299,12 @@ struct PodcastEpisodeListSheet: View {
                         NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                     } else if SequoiaStyle.isActive {
                         SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, role: .list)
+                    } else if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
                     } else {
                         Color.monologueSeparator.opacity(0.85)
                     }
@@ -350,6 +393,16 @@ struct PodcastEpisodeListSheet: View {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: isCurrent,
+                    tint: isCurrent ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
         .contentShape(Rectangle())
     }
 
@@ -359,6 +412,8 @@ struct PodcastEpisodeListSheet: View {
             NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true, lightweight: true)
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: cornerRadius, elevated: false, pressed: true, role: .list)
+        } else if MinimalWhiteStyle.isActive {
+            MinimalWhiteCapsuleBackground()
         } else {
             Color.monologueSeparator.opacity(0.9)
         }
@@ -499,71 +554,84 @@ struct PodcastEpisodeListSheet: View {
     private var activeTint: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return .monologueAccentBlue
     }
 
     private var primaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return .monologueTextSecondary
     }
 
     private var controlColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return .monologueTextSecondary
     }
 
     private var separatorColor: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.42) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         return Color.monologueSeparator
     }
 
     private var coverPlaceholderFill: Color {
-        SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextSecondary.opacity(0.08)
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
+        return SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextSecondary.opacity(0.08)
     }
 
     private var searchCloseBackground: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         return Color.monologueSeparator
     }
 
     private var headerTitleFont: Font {
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(17, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.titleFont(17, weight: .semibold) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(17, weight: .semibold) }
         return .rounded(size: 17, weight: .bold)
     }
 
     private var headerCaptionFont: Font {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(13, weight: .regular) }
         return .rounded(size: 13)
     }
 
     private var controlFont: Font {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .medium) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(11, weight: .medium) }
         return .rounded(size: 11, weight: .medium)
     }
 
     private var emptyFont: Font {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .medium) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(14, weight: .medium) }
         return .rounded(size: 15, weight: .medium)
     }
 
     private var metaFont: Font {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .regular) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(11, weight: .regular) }
         return .rounded(size: 11)
     }
 
     private func episodeTitleFont(isCurrent: Bool) -> Font {
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: isCurrent ? .semibold : .regular) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) }
         return .rounded(size: 15, weight: isCurrent ? .semibold : .regular)
     }
 }

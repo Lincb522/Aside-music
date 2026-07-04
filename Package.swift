@@ -5,8 +5,7 @@ let package = Package(
     name: "Monologue",
     defaultLocalization: "zh-Hans",
     platforms: [
-        .iOS(.v26),
-        .macOS(.v26)
+        .iOS(.v16)
     ],
     products: [
         .library(
@@ -38,6 +37,8 @@ let package = Package(
         .package(path: "PawPrintIcons"),
         // DotDogSnakeIcons - 点狗蛇 PNG 图标包
         .package(path: "DotDogSnakeIcons"),
+        // MinimalWhiteIcons - 纯白主题配套 PNG 图标包
+        .package(path: "MinimalWhiteIcons"),
     ],
     targets: [
         .target(
@@ -55,6 +56,7 @@ let package = Package(
                 "doodlePop",
                 "PawPrintIcons",
                 "DotDogSnakeIcons",
+                "MinimalWhiteIcons",
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi.ttf"),

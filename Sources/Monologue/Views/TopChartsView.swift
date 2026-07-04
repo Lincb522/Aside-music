@@ -23,15 +23,21 @@ struct TopChartsView: View {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
             } else {
                 ThemedPageBackground()
             }
 
             if isLoading {
-                MonologueLoadingView(text: "LOADING CHARTS")
+                MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING CHARTS")
             } else if let error = errorMessage {
-                VStack {
-                    MonologueIcon(icon: .warning, size: 48, color: secondaryTextColor)
+                VStack(spacing: 14) {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteIconBadge(icon: .warning, size: 56)
+                    } else {
+                        MonologueIcon(icon: .warning, size: 48, color: secondaryTextColor)
+                    }
                     Text(error)
                         .foregroundColor(secondaryTextColor)
                         .padding()
@@ -39,6 +45,18 @@ struct TopChartsView: View {
                         loadData()
                     }
                 }
+                .padding(.vertical, 44)
+                .frame(maxWidth: .infinity)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
             } else {
                 VStack(spacing: 0) {
                     ScrollView {
@@ -57,6 +75,8 @@ struct TopChartsView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
                             }
+                        } else if MinimalWhiteStyle.isActive {
+                            MinimalWhitePageHeader(eyebrow: "", title: String(localized: "top_charts"), icon: .chart)
                         } else if MujiStyle.isActive {
                             MujiPageHeader(
                                 eyebrow: String(localized: "lib_tab_charts"),
@@ -143,6 +163,9 @@ struct TopChartsView: View {
                         } else if BentoStyle.isActive {
                             RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous)
                                 .stroke(BentoStyle.hairline.opacity(0.62), lineWidth: 0.7)
+                        } else if MinimalWhiteStyle.isActive {
+                            RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous)
+                                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                         }
                     }
                     .shadow(color: Color.black.opacity(ThemedPageStyle.isActive ? 0.055 : 0.1), radius: ThemedPageStyle.isActive ? 8 : 5, x: 0, y: ThemedPageStyle.isActive ? 4 : 2)
@@ -170,6 +193,8 @@ struct TopChartsView: View {
                                 Circle().fill(SequoiaStyle.materialFloating.opacity(0.92))
                             } else if BentoStyle.isActive {
                                 Circle().fill(BentoStyle.surfaceRaised.opacity(0.94))
+                            } else if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCircleBackground(elevated: false, selected: isSubscribed)
                             } else {
                                 Circle().fill(.ultraThinMaterial)
                             }
@@ -205,6 +230,12 @@ struct TopChartsView: View {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(BentoStyle.surface)
                         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BentoStyle.hairline.opacity(0.52), lineWidth: 0.7))
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
                 }
             }
         }
@@ -216,6 +247,7 @@ struct TopChartsView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
         if BentoStyle.isActive { return BentoStyle.buckwheat.opacity(0.45) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         return Color.gray.opacity(0.1)
     }
 
@@ -223,6 +255,7 @@ struct TopChartsView: View {
         if MangaStyle.isActive || MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive || SequoiaStyle.isActive { return 16 }
         if BentoStyle.isActive { return 16 }
+        if MinimalWhiteStyle.isActive { return 12 }
         return 12
     }
 
@@ -232,6 +265,7 @@ struct TopChartsView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .semibold) }
         if BentoStyle.isActive { return BentoStyle.labelFont(12, weight: .heavy) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .medium) }
         return .system(size: 12, weight: .medium)
     }
 
@@ -241,6 +275,7 @@ struct TopChartsView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(10, weight: .regular) }
         if BentoStyle.isActive { return BentoStyle.labelFont(10, weight: .semibold) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(10, weight: .regular) }
         return .system(size: 10)
     }
 
@@ -250,6 +285,7 @@ struct TopChartsView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if BentoStyle.isActive { return BentoStyle.ink }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return Theme.text
     }
 
@@ -259,6 +295,7 @@ struct TopChartsView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if BentoStyle.isActive { return BentoStyle.inkSoft }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return Theme.secondaryText
     }
 
@@ -268,6 +305,7 @@ struct TopChartsView: View {
         if NeumorphicStyle.isActive { return isSubscribed ? NeumorphicStyle.red : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return isSubscribed ? SequoiaStyle.red : SequoiaStyle.inkSoft }
         if BentoStyle.isActive { return isSubscribed ? BentoStyle.tomato : BentoStyle.inkSoft }
+        if MinimalWhiteStyle.isActive { return isSubscribed ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted }
         return isSubscribed ? .red : .primary
     }
 

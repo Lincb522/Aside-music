@@ -139,6 +139,7 @@ struct ProfileView: View {
     }
 
     private var themedProfileSpacing: CGFloat {
+        if MinimalWhiteStyle.isActive { return 24 }
         if MangaStyle.isActive { return 14 }
         if PetWhiteStyle.isActive { return 16 }
         if NeumorphicStyle.isActive { return 18 }
@@ -152,7 +153,9 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var loggedInDashboardContent: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteProfileDashboard
+        } else if MangaStyle.isActive {
             mangaProfileDashboard
         } else if PetWhiteStyle.isActive {
             petWhiteProfileDashboard
@@ -181,6 +184,127 @@ struct ProfileView: View {
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             logoutButton
+        }
+    }
+
+    @ViewBuilder
+    private var minimalWhiteProfileDashboard: some View {
+        minimalWhiteProfileHeader
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+
+        minimalWhiteIdentity
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        minimalWhiteMetrics
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        ProfileRecentPlaysHost(variant: .standard)
+
+        menuList
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+        logoutButton
+    }
+
+    private var minimalWhiteProfileHeader: some View {
+        HStack(spacing: 12) {
+            Text(String(localized: "我的"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 0)
+
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                MonologueIcon(icon: .settings, size: 17, color: MinimalWhiteStyle.ink, lineWidth: 1.7)
+                    .frame(width: 40, height: 40)
+                    .background(MinimalWhiteCircleBackground(elevated: true, selected: true))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var minimalWhiteIdentity: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+        let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return HStack(spacing: 16) {
+            minimalWhiteAvatar(profile: profile, size: 72)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                        .font(MinimalWhiteStyle.titleFont(22, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
+                        .lineLimit(1)
+
+                    if let userLevel {
+                        Text("Lv.\(userLevel)")
+                            .font(MinimalWhiteStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(MinimalWhiteStyle.inkSoft)
+                    }
+                }
+
+                if !signature.isEmpty {
+                    Text(signature)
+                        .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                        .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+    }
+
+    @ViewBuilder
+    private func minimalWhiteAvatar(profile: UserProfile?, size: CGFloat) -> some View {
+        if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
+            CachedAsyncImage(url: url, width: size, height: size) {
+                Circle().fill(MinimalWhiteStyle.controlGlassFill)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+        } else {
+            Circle()
+                .fill(MinimalWhiteStyle.controlGlassFill)
+                .frame(width: size, height: size)
+                .overlay(MonologueIcon(icon: .profile, size: 25, color: MinimalWhiteStyle.inkMuted))
+                .overlay(Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+        }
+    }
+
+    private var minimalWhiteMetrics: some View {
+        HStack(spacing: 0) {
+            StatCell(value: formatNumber(listenSongs ?? 0), label: String(localized: "profile_total_songs"))
+            statDivider
+            StatCell(value: "\(localPlaylistCount)", label: String(localized: "profile_local_playlists"))
+            statDivider
+            StatCell(value: "\(downloadedSongCount)", label: String(localized: "profile_downloads"))
+        }
+        .padding(.vertical, 16)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .overlay(alignment: .top) {
+            Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(MinimalWhiteStyle.hairline).frame(height: 1)
         }
     }
 
@@ -333,18 +457,11 @@ struct ProfileView: View {
                 }
             }
 
-            HStack(spacing: 8) {
-                Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 54, height: 6)
-                Capsule().fill(PetWhiteStyle.mint).frame(width: 34, height: 6)
-                Capsule().fill(PetWhiteStyle.sky).frame(width: 20, height: 6)
-                Spacer(minLength: 0)
-                PetWhiteProfileHeadIcon(filled: true, size: 26)
-            }
         }
         .padding(18)
         .background(
             PetWhiteSurfaceBackground(
-                cornerRadius: 30,
+                cornerRadius: PetWhiteStyle.cardRadius,
                 elevated: true,
                 tint: PetWhiteStyle.surfaceRaised,
                 accent: PetWhiteStyle.dogOrange
@@ -370,15 +487,7 @@ struct ProfileView: View {
                 PetWhitePetPetIcon(size: size * 0.82)
             }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .stroke(PetWhiteStyle.stroke, lineWidth: 2)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(PetWhiteStyle.stroke.opacity(0.12))
-                .offset(y: 4)
-        )
+        .petWhiteClayShadow()
     }
 
     private var petWhiteProfileQuickActions: some View {
@@ -394,15 +503,18 @@ struct ProfileView: View {
                 GridItem(.flexible(), spacing: 10),
                 GridItem(.flexible(), spacing: 10),
             ], spacing: 10) {
-                NavigationLink(destination: DownloadManageView()) {
-                    PetWhiteProfileActionTile(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
-                        tint: PetWhiteStyle.sky
-                    )
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        PetWhiteProfileActionTile(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
+                            tint: PetWhiteStyle.sky
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
 
                 NavigationLink(destination: ListeningStatsView()) {
                     PetWhiteProfileActionTile(
@@ -738,15 +850,18 @@ struct ProfileView: View {
                 }
             }
 
-            NavigationLink(destination: DownloadManageView()) {
-                CapsuleProfilePortalTile(
-                    icon: .download,
-                    title: NSLocalizedString("profile_downloads", comment: ""),
-                    value: "\(downloadedSongCount)",
-                    tint: CapsuleStyle.amber
-                )
+            // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled {
+                NavigationLink(destination: DownloadManageView()) {
+                    CapsuleProfilePortalTile(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: "\(downloadedSongCount)",
+                        tint: CapsuleStyle.amber
+                    )
+                }
+                .buttonStyle(CapsulePressStyle())
             }
-            .buttonStyle(CapsulePressStyle())
 
             NavigationLink(destination: ListeningStatsView()) {
                 CapsuleProfilePortalTile(
@@ -1146,15 +1261,18 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: DownloadManageView()) {
-                liquidGlassProfilePortalTile(
-                    icon: .download,
-                    title: NSLocalizedString("profile_downloads", comment: ""),
-                    value: "\(downloadedSongCount)",
-                    tint: LiquidGlassStyle.amber
-                )
+            // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled {
+                NavigationLink(destination: DownloadManageView()) {
+                    liquidGlassProfilePortalTile(
+                        icon: .download,
+                        title: NSLocalizedString("profile_downloads", comment: ""),
+                        value: "\(downloadedSongCount)",
+                        tint: LiquidGlassStyle.amber
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             NavigationLink(destination: ListeningStatsView()) {
                 liquidGlassProfilePortalTile(
@@ -1621,15 +1739,18 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
-                NavigationLink(destination: DownloadManageView()) {
-                    NeumorphicProfileShortcutTile(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
-                        tint: NeumorphicStyle.warm
-                    )
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        NeumorphicProfileShortcutTile(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
+                            tint: NeumorphicStyle.warm
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
                 NavigationLink(destination: ListeningStatsView()) {
                     NeumorphicProfileShortcutTile(
@@ -1782,17 +1903,20 @@ struct ProfileView: View {
 
                 MangaProfileActionDivider()
 
-                NavigationLink(destination: DownloadManageView()) {
-                    MangaProfileActionRow(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: "\(downloadedSongCount)",
-                        tint: MangaStyle.decoBlue
-                    )
-                }
-                .buttonStyle(.plain)
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        MangaProfileActionRow(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: "\(downloadedSongCount)",
+                            tint: MangaStyle.decoBlue
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                MangaProfileActionDivider()
+                    MangaProfileActionDivider()
+                }
 
 
                 MangaProfileActionDivider()
@@ -1929,16 +2053,19 @@ struct ProfileView: View {
 
                 MujiProfileDivider()
 
-                NavigationLink(destination: DownloadManageView()) {
-                    MujiProfileLedgerRow(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: "\(downloadedSongCount)"
-                    )
-                }
-                .buttonStyle(.plain)
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        MujiProfileLedgerRow(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: "\(downloadedSongCount)"
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                MujiProfileDivider()
+                    MujiProfileDivider()
+                }
 
                 NavigationLink(destination: ListeningStatsView()) {
                     MujiProfileLedgerRow(
@@ -2096,15 +2223,18 @@ struct ProfileView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
-                NavigationLink(destination: DownloadManageView()) {
-                    NeumorphicProfileShortcutTile(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
-                        tint: NeumorphicStyle.warm
-                    )
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        NeumorphicProfileShortcutTile(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: String(format: String(localized: "profile_recent_count"), downloadedSongCount),
+                            tint: NeumorphicStyle.warm
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
 
                 NavigationLink(destination: ListeningStatsView()) {
                     NeumorphicProfileShortcutTile(
@@ -2259,17 +2389,20 @@ struct ProfileView: View {
 
                 MangaProfileActionDivider()
 
-                NavigationLink(destination: DownloadManageView()) {
-                    MangaProfileActionRow(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: "\(downloadedSongCount)",
-                        tint: MangaStyle.decoBlue
-                    )
-                }
-                .buttonStyle(.plain)
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        MangaProfileActionRow(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: "\(downloadedSongCount)",
+                            tint: MangaStyle.decoBlue
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                MangaProfileActionDivider()
+                    MangaProfileActionDivider()
+                }
 
                 NavigationLink(destination: ListeningStatsView()) {
                     MangaProfileActionRow(
@@ -2415,16 +2548,19 @@ struct ProfileView: View {
 
                 MujiProfileDivider()
 
-                NavigationLink(destination: DownloadManageView()) {
-                    MujiProfileLedgerRow(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        value: "\(downloadedSongCount)"
-                    )
-                }
-                .buttonStyle(.plain)
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    NavigationLink(destination: DownloadManageView()) {
+                        MujiProfileLedgerRow(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            value: "\(downloadedSongCount)"
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                MujiProfileDivider()
+                    MujiProfileDivider()
+                }
 
                 NavigationLink(destination: ListeningStatsView()) {
                     MujiProfileLedgerRow(
@@ -2532,7 +2668,7 @@ struct ProfileView: View {
                         )
                     )
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 2))
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
             } else {
                 Circle()
                     .fill(Color.monologueSeparator)
@@ -2552,7 +2688,7 @@ struct ProfileView: View {
                     if let level = userLevel {
                         Text("Lv.\(level)")
                             .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(10, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded)))))))
-                            .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.stroke : .monologueIconForeground)
+                            .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : .monologueIconForeground)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .background(PetWhiteStyle.isActive ? PetWhiteStyle.mint : Color.monologueIconBackground)
@@ -2616,7 +2752,7 @@ struct ProfileView: View {
                 )
             }
             .padding(.vertical, 14)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 20, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+            .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         } else if MujiStyle.isActive {
             HStack(spacing: 10) {
                 MujiMetricTile(
@@ -2863,18 +2999,21 @@ struct ProfileView: View {
                     }
                 }
 
-                Divider().padding(.leading, 56)
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    Divider().padding(.leading, 56)
 
-                NavigationLink(
-                    destination: DownloadManageView()
-                ) {
-                    ProfileMenuRow(
-                        icon: .download,
-                        title: NSLocalizedString("profile_downloads", comment: ""),
-                        trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
-                    )
+                    NavigationLink(
+                        destination: DownloadManageView()
+                    ) {
+                        ProfileMenuRow(
+                            icon: .download,
+                            title: NSLocalizedString("profile_downloads", comment: ""),
+                            trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                        )
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
                 Divider().padding(.leading, 56)
 
@@ -2973,7 +3112,9 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var notLoggedInContent: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteNotLoggedInContent
+        } else if MangaStyle.isActive {
             mangaNotLoggedInContent
         } else if PetWhiteStyle.isActive {
             petWhiteNotLoggedInContent
@@ -3098,18 +3239,21 @@ struct ProfileView: View {
                                 }
                             }
 
-                            Divider().padding(.leading, 56)
+                            // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                            if AppConfig.Features.downloadEnabled {
+                                Divider().padding(.leading, 56)
 
-                            NavigationLink(
-                                destination: DownloadManageView()
-                            ) {
-                                ProfileMenuRow(
-                                    icon: .download,
-                                    title: NSLocalizedString("profile_downloads", comment: ""),
-                                    trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
-                                )
+                                NavigationLink(
+                                    destination: DownloadManageView()
+                                ) {
+                                    ProfileMenuRow(
+                                        icon: .download,
+                                        title: NSLocalizedString("profile_downloads", comment: ""),
+                                        trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                                    )
+                                }
+                                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                             }
-                            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
                             Divider().padding(.leading, 56)
 
@@ -3155,6 +3299,59 @@ struct ProfileView: View {
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .profileNavigationDestinations()
             }
+        }
+    }
+
+    private var minimalWhiteNotLoggedInContent: some View {
+        NavigationStack(path: $navigationPath) {
+            ZStack {
+                MinimalWhiteRootBackdrop().ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    HStack {
+                        Text(String(localized: "我的"))
+                            .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                            .foregroundStyle(MinimalWhiteStyle.ink)
+
+                        Spacer(minLength: 0)
+
+                        NavigationLink(value: ProfileNavigationDestination.settings) {
+                            MonologueIcon(icon: .settings, size: 17, color: MinimalWhiteStyle.ink, lineWidth: 1.7)
+                                .frame(width: 40, height: 40)
+                                .background(MinimalWhiteCircleBackground(elevated: true, selected: true))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    MonologueIcon(icon: .profile, size: 30, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5)
+                        .frame(width: 76, height: 76)
+                        .background(MinimalWhiteCircleBackground(elevated: true))
+
+                    Text(LocalizedStringKey("profile_not_logged_in"))
+                        .font(MinimalWhiteStyle.titleFont(21, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
+
+                    Button(action: { showLoginView = true }) {
+                        Text(LocalizedStringKey("profile_login_button"))
+                            .font(MinimalWhiteStyle.labelFont(15, weight: .semibold))
+                            .foregroundStyle(MinimalWhiteStyle.onAccent)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(MinimalWhiteStyle.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer(minLength: 0)
+                    FloatingBarBottomSpacer()
+                }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.top, DeviceLayout.headerTopPadding + 8)
+            }
+            .navigationTitle("")
+            .toolbar(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
         }
     }
 
@@ -3223,7 +3420,7 @@ struct ProfileView: View {
                     .background(PetWhiteStyle.surfacePressed, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke, lineWidth: 2)
+                            .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                     )
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -3233,13 +3430,13 @@ struct ProfileView: View {
                             Text(LocalizedStringKey("profile_login_button"))
                                 .font(PetWhiteStyle.labelFont(15, weight: .black))
                         }
-                        .foregroundStyle(PetWhiteStyle.stroke)
+                        .foregroundStyle(PetWhiteStyle.ink)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
                         .background(PetWhiteStyle.mint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+                                .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                         )
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
@@ -3324,14 +3521,17 @@ struct ProfileView: View {
                                     }
                                 }
 
-                                NavigationLink(destination: DownloadManageView()) {
-                                    ProfileMenuRow(
-                                        icon: .download,
-                                        title: NSLocalizedString("profile_downloads", comment: ""),
-                                        trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
-                                    )
+                                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                                if AppConfig.Features.downloadEnabled {
+                                    NavigationLink(destination: DownloadManageView()) {
+                                        ProfileMenuRow(
+                                            icon: .download,
+                                            title: NSLocalizedString("profile_downloads", comment: ""),
+                                            trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                                        )
+                                    }
+                                    .buttonStyle(CapsulePressStyle())
                                 }
-                                .buttonStyle(CapsulePressStyle())
 
                                 NavigationLink(destination: ListeningStatsView()) {
                                     ProfileMenuRow(
@@ -3617,7 +3817,7 @@ private struct ProfileRecentPlaysHost: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                                 )
                                 .overlay(alignment: .bottomTrailing) {
                                     PetWhitePackIcon(icon: .play, size: 14, visualScale: 1.06)
@@ -4344,20 +4544,24 @@ private struct PetWhiteProfileMetricPill: View {
     let tint: Color
 
     var body: some View {
-        HStack(spacing: 8) {
-            PetWhiteIconBadge(icon: icon, tint: tint, size: 32)
+        HStack(spacing: 9) {
+            PetWhiteClayPuck(shape: Circle(), tint: tint)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.02, lineWidth: 1.6)
+                )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(PetWhiteStyle.titleFont(15, weight: .black))
+                    .font(PetWhiteStyle.titleFont(15, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.68)
 
                 Text(label)
-                    .font(PetWhiteStyle.labelFont(9.5, weight: .bold))
-                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .font(PetWhiteStyle.labelFont(9.5))
+                    .foregroundStyle(PetWhiteStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
             }
@@ -4369,7 +4573,7 @@ private struct PetWhiteProfileMetricPill: View {
         .padding(.vertical, 8)
         .background(
             PetWhiteSurfaceBackground(
-                cornerRadius: 18,
+                cornerRadius: PetWhiteStyle.compactRadius,
                 elevated: false,
                 tint: PetWhiteStyle.surfaceRaised,
                 accent: tint
@@ -4385,43 +4589,44 @@ private struct PetWhiteProfileActionTile: View {
     let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
-                PetWhiteIconBadge(icon: icon, tint: tint, size: 40)
+                PetWhiteClayPuck(shape: Circle(), tint: tint)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        PetWhitePackIcon(icon: icon, size: 17, visualScale: 1.04, lineWidth: 1.7)
+                    )
 
                 Spacer(minLength: 8)
 
-                PetWhitePackIcon(icon: .chevronRight, size: 15, visualScale: 1.04)
-                    .frame(width: 32, height: 32)
-                    .background(PetWhiteStyle.surfacePressed, in: Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.separator, lineWidth: 1))
+                PetWhitePackIcon(icon: .chevronRight, size: 14, visualScale: 1.02, fallbackColor: PetWhiteStyle.inkMuted)
             }
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(PetWhiteStyle.bodyFont(14, weight: .black))
+                    .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.72)
 
                 Text(value)
-                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
-                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .font(PetWhiteStyle.labelFont(11))
+                    .foregroundStyle(PetWhiteStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
         .padding(14)
         .background(
             PetWhiteSurfaceBackground(
-                cornerRadius: 24,
-                elevated: true,
+                cornerRadius: PetWhiteStyle.cardRadius,
+                elevated: false,
                 tint: PetWhiteStyle.surfaceRaised,
                 accent: tint
             )
         )
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
     }
 }
 
@@ -4505,20 +4710,14 @@ struct ProfileMenuRow: View {
     }
 
     private func petWhiteAssetBadge(assetName: String, tint: Color, size: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
-            .fill(tint)
-            .frame(width: size, height: size)
-            .overlay(
-                PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: size * 0.72)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: max(1.5, size * 0.04))
-            )
-            .overlay(alignment: .topTrailing) {
-                PetWhiteProfileHeadIcon(filled: true, size: max(14, size * 0.30))
-                    .offset(x: size * 0.10, y: -size * 0.10)
-            }
+        PetWhiteClayPuck(
+            shape: RoundedRectangle(cornerRadius: max(13, size * 0.34), style: .continuous),
+            tint: tint
+        )
+        .frame(width: size, height: size)
+        .overlay(
+            PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: size * 0.66)
+        )
     }
 }
 

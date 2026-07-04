@@ -709,23 +709,37 @@ extension VinylPlayerLayout {
                 Spacer()
 
                 if let song = player.currentSong {
-                    Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        Button {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        } label: {
+                            MonologueIcon(
+                                icon: .playerDownload,
+                                size: 22,
+                                color: downloadManager.isDownloaded(songId: song.id) ? secondaryColor : secondaryColor,
+                                lineWidth: 1.4
+                            )
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                         }
-                    } label: {
-                        MonologueIcon(
-                            icon: .playerDownload,
-                            size: 22,
-                            color: downloadManager.isDownloaded(songId: song.id) ? secondaryColor : secondaryColor,
-                            lineWidth: 1.4
-                        )
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                        .frame(width: 44)
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        Button {
+                            CinemaModeController.shared.present()
+                        } label: {
+                            MonologueIcon(icon: .immersive, size: 22, color: secondaryColor, lineWidth: 1.4)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .frame(width: 44)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
-                    .frame(width: 44)
                 } else {
                     Color.clear
                         .frame(width: 44, height: 44)

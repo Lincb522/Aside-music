@@ -3,7 +3,15 @@ import Foundation
 /// 应用配置常量
 /// 集中管理所有硬编码值，便于维护和调整
 enum AppConfig {
-    
+
+    // MARK: - 功能开关
+    enum Features {
+        /// 下载功能总开关：目前暂时隐藏所有下载相关 UI（下载管理入口、歌单批量下载按钮、
+        /// 播放器下载按钮、歌曲行下载操作等），下载能力代码全部保留。
+        /// 后期需要恢复下载功能时，把此值改回 true 即可。
+        static let downloadEnabled = false
+    }
+
     // MARK: - 缓存配置
     enum Cache {
         /// 内存缓存限制 (100MB)

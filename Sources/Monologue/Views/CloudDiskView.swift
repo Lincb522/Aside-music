@@ -26,6 +26,7 @@ struct CloudDiskView: View {
 
     private struct Theme {
         static var accent: Color {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
             if MangaStyle.isActive { return MangaStyle.accentPink }
             if MujiStyle.isActive { return MujiStyle.clay }
             if CapsuleStyle.isActive { return CapsuleStyle.cyan }
@@ -35,6 +36,7 @@ struct CloudDiskView: View {
         }
 
         static var accentForeground: Color {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
             if MangaStyle.isActive { return MangaStyle.ink }
             if MujiStyle.isActive { return MujiStyle.paper }
             if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: accent) }
@@ -44,6 +46,7 @@ struct CloudDiskView: View {
         }
 
         static var text: Color {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
             if CapsuleStyle.isActive { return CapsuleStyle.ink }
             if SequoiaStyle.isActive { return SequoiaStyle.ink }
             if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -51,6 +54,7 @@ struct CloudDiskView: View {
         }
 
         static var secondaryText: Color {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
             if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
             if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
@@ -58,6 +62,7 @@ struct CloudDiskView: View {
         }
 
         static var mutedText: Color {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
             if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
@@ -65,6 +70,7 @@ struct CloudDiskView: View {
         }
 
         static var coverFill: Color {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
             if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
             if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
@@ -72,6 +78,7 @@ struct CloudDiskView: View {
         }
 
         static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(size, weight: weight) }
             if CapsuleStyle.isActive { return CapsuleStyle.labelFont(size, weight: weight) }
             if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
@@ -79,6 +86,7 @@ struct CloudDiskView: View {
         }
 
         static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(size, weight: weight) }
             if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(size, weight: weight) }
             if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
@@ -96,8 +104,7 @@ struct CloudDiskView: View {
             VStack(spacing: 0) {
                 if isLoading && songs.isEmpty {
                     Spacer()
-                    ProgressView()
-                        .tint(Theme.secondaryText)
+                    MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
                     Spacer()
                 } else if songs.isEmpty {
                     emptyState
@@ -148,12 +155,27 @@ struct CloudDiskView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
-            MonologueIcon(icon: .cloud, size: 48, color: Theme.mutedText.opacity(0.42), lineWidth: 1.4)
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .cloud, size: 54)
+            } else {
+                MonologueIcon(icon: .cloud, size: 48, color: Theme.mutedText.opacity(0.42), lineWidth: 1.4)
+            }
             Text(LocalizedStringKey("cloud_empty"))
                 .font(Theme.bodyFont(15))
                 .foregroundColor(Theme.secondaryText)
             Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
     
     // MARK: - 歌曲列表
@@ -201,6 +223,16 @@ struct CloudDiskView: View {
                         tint: Theme.accent,
                         selected: true
                     )
+                } else if MinimalWhiteStyle.isActive {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 14, color: Theme.accentForeground, lineWidth: 1.6)
+                        Text(LocalizedStringKey("cloud_play_all"))
+                            .font(Theme.labelFont(14, weight: .semibold))
+                            .foregroundColor(Theme.accentForeground)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Theme.accent, in: Capsule(style: .continuous))
                 } else if SequoiaStyle.isActive {
                     HStack(spacing: 7) {
                         MonologueIcon(icon: .play, size: 14, color: Theme.accentForeground, lineWidth: 1.6)
@@ -297,7 +329,7 @@ struct CloudDiskView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.songName)
                         .font(Theme.bodyFont(15, weight: .semibold))
-                        .foregroundColor(isCurrent && (CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
+                        .foregroundColor(isCurrent && (MinimalWhiteStyle.isActive || CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
                         .lineLimit(1)
                     
                     HStack(spacing: 6) {
@@ -307,6 +339,13 @@ struct CloudDiskView: View {
                             SequoiaPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
                         } else if NeumorphicStyle.isActive {
                             NeumorphicPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
+                        } else if MinimalWhiteStyle.isActive {
+                            Text(song.bitrateText)
+                                .font(MinimalWhiteStyle.labelFont(10, weight: .medium))
+                                .foregroundColor(isCurrent ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(MinimalWhiteCapsuleBackground(selected: isCurrent))
                         } else {
                             Text(song.bitrateText)
                                 .font(.system(size: 7, weight: .bold))
@@ -329,13 +368,13 @@ struct CloudDiskView: View {
                 Spacer()
                 
                 if isCurrent {
-                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: (CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monologueTextPrimary)
+                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: (MinimalWhiteStyle.isActive || CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monologueTextPrimary)
                         .frame(width: 20)
                 }
             }
             .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
             .padding(.vertical, 8)
-            .background(isCurrent ? Theme.accent.opacity((SequoiaStyle.isActive || CapsuleStyle.isActive) ? 0.08 : 0.05) : Color.clear)
+            .background(isCurrent ? Theme.accent.opacity((MinimalWhiteStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive) ? 0.08 : 0.05) : Color.clear)
             .themedOnlyPageSurface(
                 cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
                 elevated: isCurrent,
@@ -374,6 +413,7 @@ struct CloudDiskView: View {
     }
 
     private var coverRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 12 }
         if CapsuleStyle.isActive { return 16 }
         if SequoiaStyle.isActive { return 12 }
         return NeumorphicStyle.isActive ? 14 : 10
@@ -387,6 +427,9 @@ struct CloudDiskView: View {
         } else if NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(SequoiaStyle.isActive ? SequoiaStyle.separator : NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
+        } else if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
         }
     }
     

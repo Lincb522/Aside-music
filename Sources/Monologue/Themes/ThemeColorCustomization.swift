@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 private struct ThemeCustomizationRevisionKey: EnvironmentKey {
     static let defaultValue = 0
@@ -28,9 +29,34 @@ enum ThemeCustomColorRole: String, CaseIterable, Identifiable {
     }
 }
 
+/// 默认主题夜间模式的背景类型（与浅色自定义背景相互独立）
+enum ThemeDarkBackgroundKind: String, CaseIterable, Identifiable {
+    case standard
+    case solid
+    case image
+
+    var id: String {
+        rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .standard: return String(localized: "默认")
+        case .solid: return String(localized: "纯色")
+        case .image: return String(localized: "背景图")
+        }
+    }
+}
+
 enum ThemeCustomColorMode: String, CaseIterable, Identifiable, Codable {
     case solid
     case gradient
+    case image
+
+    /// 「背景图」仅默认主题的背景角色开放，不进入通用模式列表。
+    static var allCases: [ThemeCustomColorMode] {
+        [.solid, .gradient]
+    }
 
     var id: String {
         rawValue
@@ -40,6 +66,7 @@ enum ThemeCustomColorMode: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .solid: return String(localized: "单色")
         case .gradient: return String(localized: "渐变")
+        case .image: return String(localized: "背景图")
         }
     }
 }
@@ -110,6 +137,8 @@ struct ThemeColorPreset: Identifiable, Codable {
     let mangaBlockCHex: String?
     let mangaStrokeHex: String?
     let mangaSettingsIconHex: String?
+    /// 保存方案时一并记录的界面图标包（可选，旧数据为 nil）。
+    let iconSetRaw: String?
     let isCustom: Bool
 
     init(
@@ -127,6 +156,7 @@ struct ThemeColorPreset: Identifiable, Codable {
         mangaBlockCHex: String? = nil,
         mangaStrokeHex: String? = nil,
         mangaSettingsIconHex: String? = nil,
+        iconSetRaw: String? = nil,
         isCustom: Bool = false
     ) {
         self.id = id
@@ -143,6 +173,7 @@ struct ThemeColorPreset: Identifiable, Codable {
         self.mangaBlockCHex = mangaBlockCHex
         self.mangaStrokeHex = mangaStrokeHex
         self.mangaSettingsIconHex = mangaSettingsIconHex
+        self.iconSetRaw = iconSetRaw
         self.isCustom = isCustom
     }
 
@@ -199,7 +230,11 @@ enum ThemeColorCustomization {
         }
 
         let raw = UserDefaults.standard.string(forKey: key(theme, role, "mode"))
-        return ThemeCustomColorMode(rawValue: raw ?? ThemeCustomColorMode.gradient.rawValue) ?? .gradient
+        let mode = ThemeCustomColorMode(rawValue: raw ?? ThemeCustomColorMode.gradient.rawValue) ?? .gradient
+        if mode == .image && !supportsImageBackground(theme) {
+            return .gradient
+        }
+        return mode
     }
 
     static func gradientStyle(for theme: GlobalThemeId, role: ThemeCustomColorRole) -> ThemeCustomGradientStyle {
@@ -234,7 +269,7 @@ enum ThemeColorCustomization {
 
         let defaults = UserDefaults.standard
         let hasRoleCustomization = ThemeCustomColorRole.allCases.contains { role in
-            (["mode", "gradientStyle", "solid"] + backgroundGradientSuffixes).contains { suffix in
+            (["mode", "gradientStyle", "solid", "darkKind", "darkSolid"] + backgroundGradientSuffixes).contains { suffix in
                 defaults.object(forKey: key(theme, role, suffix)) != nil
             }
         }
@@ -251,6 +286,163 @@ enum ThemeColorCustomization {
 
     static func usesCustomBackground(for theme: GlobalThemeId) -> Bool {
         customColorsEnabled && hasStoredBackground(for: theme)
+    }
+
+    // MARK: - 背景图（壁纸式铺满）
+
+    /// 目前仅默认主题支持自定义背景图。
+    static func supportsImageBackground(_ theme: GlobalThemeId) -> Bool {
+        theme == .default || theme == .material3Expressive
+    }
+
+    @MainActor
+    private static var backgroundImageCache: [String: UIImage] = [:]
+
+    private static func backgroundImageDirectory() -> URL {
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ThemeBackgrounds", isDirectory: true)
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base
+    }
+
+    private static func backgroundImageFileKeySuffix(dark: Bool) -> String {
+        dark ? "darkImageFile" : "imageFile"
+    }
+
+    static func backgroundImageFileName(for theme: GlobalThemeId, dark: Bool = false) -> String? {
+        let stored = UserDefaults.standard.string(forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
+        return stored?.isEmpty == false ? stored : nil
+    }
+
+    static func backgroundImageURL(for theme: GlobalThemeId, dark: Bool = false) -> URL? {
+        guard let fileName = backgroundImageFileName(for: theme, dark: dark) else { return nil }
+        let url = backgroundImageDirectory().appendingPathComponent(fileName)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    static func hasBackgroundImage(for theme: GlobalThemeId, dark: Bool = false) -> Bool {
+        backgroundImageURL(for: theme, dark: dark) != nil
+    }
+
+    static func usesImageBackground(for theme: GlobalThemeId) -> Bool {
+        customColorsEnabled
+            && supportsImageBackground(theme)
+            && mode(for: theme, role: .background) == .image
+            && hasBackgroundImage(for: theme)
+    }
+
+    /// 加载壁纸背景图；参考系统壁纸，整张图缩放填满屏幕显示。
+    @MainActor
+    static func backgroundImage(for theme: GlobalThemeId, dark: Bool = false) -> UIImage? {
+        guard let url = backgroundImageURL(for: theme, dark: dark) else { return nil }
+
+        let cacheKey = url.lastPathComponent
+        if let cached = backgroundImageCache[cacheKey] {
+            return cached
+        }
+
+        guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
+        backgroundImageCache[cacheKey] = image
+        return image
+    }
+
+    @MainActor
+    @discardableResult
+    static func setBackgroundImageData(_ data: Data, for theme: GlobalThemeId, dark: Bool = false) -> Bool {
+        guard supportsImageBackground(theme), let raw = UIImage(data: data) else { return false }
+
+        // 压缩上限取设备屏幕像素长边（不低于 2048px），保证壁纸清晰的同时避免超大图占用过多磁盘与内存
+        let screenLongestPixel = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height) * UIScreen.main.scale
+        let maxPixel: CGFloat = max(2048, screenLongestPixel)
+        let pixelWidth = raw.size.width * raw.scale
+        let pixelHeight = raw.size.height * raw.scale
+        let ratio = min(1, maxPixel / max(pixelWidth, pixelHeight))
+        let targetSize = CGSize(width: pixelWidth * ratio, height: pixelHeight * ratio)
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let resized = UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+            raw.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+
+        guard let output = resized.pngData() else { return false }
+
+        removeBackgroundImageFile(for: theme, dark: dark)
+
+        let fileName = "\(theme.rawValue)-bg\(dark ? "-dark" : "")-\(UUID().uuidString).png"
+        let url = backgroundImageDirectory().appendingPathComponent(fileName)
+        do {
+            try output.write(to: url)
+        } catch {
+            return false
+        }
+
+        let defaults = UserDefaults.standard
+        defaults.set(fileName, forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
+        if dark {
+            defaults.set(ThemeDarkBackgroundKind.image.rawValue, forKey: key(theme, .background, "darkKind"))
+        } else {
+            defaults.set(ThemeCustomColorMode.image.rawValue, forKey: key(theme, .background, "mode"))
+            defaults.removeObject(forKey: selectedPresetKey(theme))
+        }
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+        return true
+    }
+
+    @MainActor
+    static func clearBackgroundImage(for theme: GlobalThemeId, dark: Bool = false) {
+        removeBackgroundImageFile(for: theme, dark: dark)
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
+        if dark {
+            if darkBackgroundKind(for: theme) == .image {
+                defaults.removeObject(forKey: key(theme, .background, "darkKind"))
+            }
+        } else {
+            if mode(for: theme, role: .background) == .image {
+                defaults.removeObject(forKey: key(theme, .background, "mode"))
+            }
+            defaults.removeObject(forKey: selectedPresetKey(theme))
+        }
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    private static func removeBackgroundImageFile(for theme: GlobalThemeId, dark: Bool = false) {
+        if let fileName = backgroundImageFileName(for: theme, dark: dark) {
+            backgroundImageCache.removeValue(forKey: fileName)
+            let url = backgroundImageDirectory().appendingPathComponent(fileName)
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    // MARK: - 夜间背景（默认主题）
+
+    static let defaultDarkBackgroundSolidHex = "000000"
+
+    /// 夜间背景与浅色自定义背景独立存储；不受 `customColorsEnabled`（深色禁用自定义配色）限制。
+    static func darkBackgroundKind(for theme: GlobalThemeId) -> ThemeDarkBackgroundKind {
+        guard supportsImageBackground(theme) else { return .standard }
+        let raw = UserDefaults.standard.string(forKey: key(theme, .background, "darkKind"))
+        return ThemeDarkBackgroundKind(rawValue: raw ?? "") ?? .standard
+    }
+
+    @MainActor
+    static func setDarkBackgroundKind(_ kind: ThemeDarkBackgroundKind, for theme: GlobalThemeId) {
+        UserDefaults.standard.set(kind.rawValue, forKey: key(theme, .background, "darkKind"))
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    static func darkBackgroundSolidHex(for theme: GlobalThemeId) -> String {
+        hex(theme, .background, "darkSolid", fallback: defaultDarkBackgroundSolidHex)
+    }
+
+    static func usesDarkSolidBackground(for theme: GlobalThemeId) -> Bool {
+        darkBackgroundKind(for: theme) == .solid
+    }
+
+    static func usesDarkImageBackground(for theme: GlobalThemeId) -> Bool {
+        darkBackgroundKind(for: theme) == .image && hasBackgroundImage(for: theme, dark: true)
     }
 
     static func readableForegroundColor(
@@ -272,27 +464,16 @@ enum ThemeColorCustomization {
     }
 
     private static func resolvedLuminance(of color: Color) -> CGFloat {
-        #if os(iOS)
-            let uiColor = UIColor(color)
-        #elseif os(macOS)
-            let uiColor = NSColor(color)
-        #endif
+        let uiColor = UIColor(color)
 
         var red: CGFloat = 0
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
 
-        #if os(iOS)
-            guard uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-                return 1
-            }
-        #elseif os(macOS)
-            guard let srgb = uiColor.usingColorSpace(.sRGB) else {
-                return 1
-            }
-            srgb.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        #endif
+        guard uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return 1
+        }
 
         let compositedRed = red * alpha + (1 - alpha)
         let compositedGreen = green * alpha + (1 - alpha)
@@ -312,6 +493,7 @@ enum ThemeColorCustomization {
 
     static func defaultAccentHex(for theme: GlobalThemeId) -> String {
         switch theme {
+        case .minimalWhite: return "18181B"
         case .muji: return "B56B4B"
         case .neumorphic: return "4F8E86"
         case .capsule: return "3867FF"
@@ -329,6 +511,7 @@ enum ThemeColorCustomization {
 
     static func defaultBackgroundStartHex(for theme: GlobalThemeId) -> String {
         switch theme {
+        case .minimalWhite: return "FFFFFF"
         case .muji: return "F7F1E8"
         case .neumorphic: return "E9EDF0"
         case .capsule: return "F6F8FF"
@@ -346,6 +529,7 @@ enum ThemeColorCustomization {
 
     static func defaultBackgroundEndHex(for theme: GlobalThemeId) -> String {
         switch theme {
+        case .minimalWhite: return "FFFFFF"
         case .muji: return "F7F1E8"
         case .neumorphic: return "F2EEE8"
         case .capsule: return "EAF1FF"
@@ -369,6 +553,7 @@ enum ThemeColorCustomization {
             return defaultBackgroundEndHex(for: theme)
         case "stop3":
             switch theme {
+            case .minimalWhite: return "FFFFFF"
             case .muji: return "F4EBDD"
             case .neumorphic: return "E4ECE7"
             case .capsule: return "F8F2FF"
@@ -384,6 +569,7 @@ enum ThemeColorCustomization {
             }
         case "stop4":
             switch theme {
+            case .minimalWhite: return "FFFFFF"
             case .muji: return "FAF4E8"
             case .neumorphic: return "EEF0F5"
             case .capsule: return "EDF9FF"
@@ -426,6 +612,8 @@ enum ThemeColorCustomization {
         )
 
         switch theme {
+        case .minimalWhite:
+            return readableForegroundColor(on: accent, light: MinimalWhiteStyle.ink, dark: .white)
         case .manga:
             return readableForegroundColor(on: accent, light: Color(hex: "17151F"), dark: Color(hex: "FFFDF5"))
         case .muji:
@@ -456,7 +644,7 @@ enum ThemeColorCustomization {
     static func backgroundBase(for theme: GlobalThemeId, fallback: Color, fallbackHex _: String) -> Color {
         guard customColorsEnabled else { return fallback }
         let mode = mode(for: theme, role: .background)
-        let suffix = mode == .solid ? "solid" : "start"
+        let suffix = mode == .gradient ? "start" : "solid"
         guard let stored = storedHex(theme, .background, suffix) else { return fallback }
         return Color(hex: stored)
     }
@@ -474,7 +662,7 @@ enum ThemeColorCustomization {
             return fallbackHexes.map { Color(hex: $0) }
         }
         let mode = mode(for: theme, role: .background)
-        if mode == .solid {
+        if mode == .solid || mode == .image {
             return [Color(hex: hex(theme, .background, "solid", fallback: fallbackHexes.first ?? "FFFFFF"))]
         }
 
@@ -543,6 +731,8 @@ enum ThemeColorCustomization {
 
     private static func builtInPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
         switch theme {
+        case .minimalWhite:
+            return []
         case .muji:
             return [
                 ThemeColorPreset(id: "muji-linen", name: "Linen", accentStartHex: "B56B4B", accentEndHex: "B56B4B", backgroundStartHex: "F7F1E8", backgroundEndHex: "F7F1E8"),
@@ -756,6 +946,10 @@ enum ThemeColorCustomization {
             if let value = preset.mangaSettingsIconHex { defaults.set(value, forKey: mangaKey("settingsIcon")) }
         }
 
+        if let iconSetRaw = preset.iconSetRaw, let iconSet = AppInterfaceIconSet(rawValue: iconSetRaw) {
+            SettingsManager.shared.interfaceIconSet = iconSet
+        }
+
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }
 
@@ -779,7 +973,10 @@ enum ThemeColorCustomization {
     static func setHex(_ value: String, for theme: GlobalThemeId, role: ThemeCustomColorRole, suffix: String) {
         let defaults = UserDefaults.standard
         defaults.set(normalizedHex(value), forKey: key(theme, role, suffix))
-        defaults.removeObject(forKey: selectedPresetKey(theme))
+        // 夜间背景设置独立于配色方案，不影响当前选中的方案
+        if !suffix.hasPrefix("dark") {
+            defaults.removeObject(forKey: selectedPresetKey(theme))
+        }
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }
 
@@ -794,7 +991,9 @@ enum ThemeColorCustomization {
     @MainActor
     static func resetBackground(for theme: GlobalThemeId) {
         let defaults = UserDefaults.standard
-        (["mode", "gradientStyle", "solid"] + backgroundGradientSuffixes).forEach { suffix in
+        removeBackgroundImageFile(for: theme)
+        removeBackgroundImageFile(for: theme, dark: true)
+        (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkImageFile"] + backgroundGradientSuffixes).forEach { suffix in
             defaults.removeObject(forKey: key(theme, .background, suffix))
         }
         defaults.removeObject(forKey: selectedPresetKey(theme))
@@ -806,8 +1005,10 @@ enum ThemeColorCustomization {
         guard supports(theme) else { return }
 
         let defaults = UserDefaults.standard
+        removeBackgroundImageFile(for: theme)
+        removeBackgroundImageFile(for: theme, dark: true)
         ThemeCustomColorRole.allCases.forEach { role in
-            (["mode", "gradientStyle", "solid"] + backgroundGradientSuffixes).forEach { suffix in
+            (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkImageFile"] + backgroundGradientSuffixes).forEach { suffix in
                 defaults.removeObject(forKey: key(theme, role, suffix))
             }
         }
@@ -823,7 +1024,7 @@ enum ThemeColorCustomization {
     }
 
     @MainActor
-    static func saveCurrentPreset(for theme: GlobalThemeId) {
+    static func saveCurrentPreset(for theme: GlobalThemeId, includingIconSet: Bool = false) {
         guard supports(theme) else { return }
 
         var presets = savedPresets(for: theme)
@@ -832,7 +1033,13 @@ enum ThemeColorCustomization {
         while existingNames.contains(String(localized: "方案 \(nextIndex)")) {
             nextIndex += 1
         }
-        presets.append(currentPresetSnapshot(for: theme, name: String(localized: "方案 \(nextIndex)")))
+        presets.append(
+            currentPresetSnapshot(
+                for: theme,
+                name: String(localized: "方案 \(nextIndex)"),
+                includingIconSet: includingIconSet
+            )
+        )
 
         if let data = try? JSONEncoder().encode(presets) {
             UserDefaults.standard.set(data, forKey: savedPresetsKey(theme))
@@ -860,8 +1067,10 @@ enum ThemeColorCustomization {
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }
 
-    static func currentPresetSnapshot(for theme: GlobalThemeId, name: String) -> ThemeColorPreset {
-        let backgroundMode = mode(for: theme, role: .background)
+    static func currentPresetSnapshot(for theme: GlobalThemeId, name: String, includingIconSet: Bool = false) -> ThemeColorPreset {
+        // 背景图不进入配色方案，按其底色的单色模式快照
+        let storedMode = mode(for: theme, role: .background)
+        let backgroundMode: ThemeCustomColorMode = storedMode == .image ? .solid : storedMode
         let accentHex = hex(theme, .accent, "solid", fallback: defaultAccentHex(for: theme))
         let backgroundStart: String
         let backgroundEnd: String
@@ -895,6 +1104,7 @@ enum ThemeColorCustomization {
             mangaBlockCHex: theme == .manga ? mangaHex("blockC", fallback: defaultMangaExtraHex("blockC")) : nil,
             mangaStrokeHex: theme == .manga ? mangaHex("stroke", fallback: defaultMangaExtraHex("stroke")) : nil,
             mangaSettingsIconHex: theme == .manga ? mangaHex("settingsIcon", fallback: defaultMangaExtraHex("settingsIcon")) : nil,
+            iconSetRaw: includingIconSet ? AppInterfaceIconSet.selectedFromDefaults.rawValue : nil,
             isCustom: true
         )
     }

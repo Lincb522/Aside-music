@@ -35,19 +35,19 @@ struct ThemeRenderContext: Equatable {
     }
 
     var isolatesExpensiveSurfaces: Bool {
-        isHosted && (theme == .manga || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .manga || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
     }
 }
 
@@ -143,6 +143,8 @@ struct ThemeRenderUnderlay: View {
         switch theme {
         case .manga:
             MangaStyle.paper
+        case .minimalWhite:
+            MinimalWhiteStyle.paper
         case .pureWhite:
             PureWhiteStyle.paper
         case .petWhite:
@@ -171,6 +173,8 @@ struct ThemeRenderBackdrop: View {
         switch theme {
         case .manga:
             MangaRootBackdrop()
+        case .minimalWhite:
+            MinimalWhiteRootBackdrop()
         case .pureWhite:
             PureWhiteRootBackdrop()
         case .petWhite:

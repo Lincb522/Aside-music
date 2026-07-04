@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 // MARK: - 听歌统计服务
 
@@ -83,19 +82,15 @@ final class ListeningStatsService {
 
     /// 获取指定周期的统计数据
     func fetchStats(for period: Period) -> Stats {
-        let context = DatabaseManager.shared.context
         let startDate = startDate(for: period)
         let now = Date()
 
-        let predicate = #Predicate<PlayHistory> { record in
-            record.playedAt >= startDate && record.playedAt <= now
-        }
-        let descriptor = FetchDescriptor<PlayHistory>(
-            predicate: predicate,
-            sortBy: [SortDescriptor(\.playedAt, order: .reverse)]
+        let records = DatabaseManager.shared.store.fetch(
+            PlayHistory.self,
+            where: { $0.playedAt >= startDate && $0.playedAt <= now },
+            sortBy: { $0.playedAt > $1.playedAt }
         )
-
-        guard let records = try? context.fetch(descriptor), !records.isEmpty else {
+        guard !records.isEmpty else {
             return .empty
         }
 
@@ -167,25 +162,16 @@ final class ListeningStatsService {
 
     /// 清理所有统计数据
     func clearAllData() {
-        let context = DatabaseManager.shared.context
-        do {
-            try context.delete(model: PlayHistory.self)
-            try context.save()
-        } catch {
-            AppLogger.error("清理听歌统计失败: \(error)")
-        }
+        let store = DatabaseManager.shared.store
+        store.deleteAll(PlayHistory.self)
+        store.save()
     }
 
     /// 清理 N 个月前的数据
     func clearOldData(monthsAgo: Int = 12) {
-        let context = DatabaseManager.shared.context
+        let store = DatabaseManager.shared.store
         let cutoff = Calendar.current.date(byAdding: .month, value: -monthsAgo, to: Date()) ?? Date()
-        let predicate = #Predicate<PlayHistory> { $0.playedAt < cutoff }
-        do {
-            try context.delete(model: PlayHistory.self, where: predicate)
-            try context.save()
-        } catch {
-            AppLogger.error("清理旧统计数据失败: \(error)")
-        }
+        store.deleteAll(PlayHistory.self) { $0.playedAt < cutoff }
+        store.save()
     }
 }

@@ -13,7 +13,7 @@ struct RadioPlayerLayout: View {
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lyricVM = LyricViewModel.shared
 
-    @State private var colorEx = CoverColorExtractor()
+    @StateObject private var colorEx = CoverColorExtractor()
 
     @State private var showPlaylist = false
     @State private var showMoreMenu = false

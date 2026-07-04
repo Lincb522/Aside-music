@@ -132,6 +132,11 @@ struct GlobalPlaybackProgressBar: View {
 /// Compact waveform-style playback progress rail.
 /// Used by the default player and FM player so they share the same redesigned
 /// audio-texture language while keeping seek interactions lightweight.
+///
+/// Design: bars float directly on the layout with no container box. The played
+/// side carries the accent gradient, the remainder is a quiet tint of the same
+/// hue. Bars around the playhead breathe gently while music plays, and the
+/// whole wave lifts slightly while scrubbing.
 struct GlobalWaveformPlaybackProgressBar: View {
     let progress: CGFloat
     var isPlaying: Bool = false
@@ -142,6 +147,7 @@ struct GlobalWaveformPlaybackProgressBar: View {
     var onCommit: ((CGFloat) -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
+    @GestureState private var isScrubbing = false
 
     private var clampedProgress: CGFloat {
         min(max(progress, 0), 1)
@@ -166,95 +172,114 @@ struct GlobalWaveformPlaybackProgressBar: View {
     }
 
     private var trackColor: Color {
-        color.opacity(colorScheme == .dark ? max(trackOpacity, 0.16) : trackOpacity)
+        color.opacity(colorScheme == .dark ? max(trackOpacity, 0.2) : max(trackOpacity, 0.14))
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = max(geometry.size.width, 1)
-            let height = max(geometry.size.height, 1)
-            let barCount = width > 320 ? 86 : (width > 240 ? 72 : 56)
-            let spacing: CGFloat = 1.6
-            let horizontalInset: CGFloat = 2
-            let waveformWidth = max(1, width - horizontalInset * 2)
-            let barWidth = max(1.8, (waveformWidth - CGFloat(barCount - 1) * spacing) / CGFloat(barCount))
-            let railHeight = max(12, height * 0.72)
-            let maxWaveHeight = max(railHeight - 7, 7)
-            let thumbWidth: CGFloat = 3
-            let thumbHeight = max(railHeight - 3, 10)
-            let thumbX = min(max(width * clampedProgress - thumbWidth / 2, 0), max(width - thumbWidth, 0))
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 20, paused: !isPlaying || isScrubbing)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
 
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: max(6, railHeight * 0.28), style: .continuous)
-                    .fill(trackColor.opacity(colorScheme == .dark ? 0.34 : 0.28))
-                    .frame(height: railHeight)
+            GeometryReader { geometry in
+                let width = max(geometry.size.width, 1)
+                let height = max(geometry.size.height, 1)
 
-                waveformBars(
-                    barCount: barCount,
-                    spacing: spacing,
-                    barWidth: barWidth,
-                    railHeight: railHeight,
-                    maxWaveHeight: maxWaveHeight,
-                    fill: color.opacity(colorScheme == .dark ? 0.28 : 0.20)
-                )
-                .padding(.horizontal, horizontalInset)
-
-                waveformBars(
-                    barCount: barCount,
-                    spacing: spacing,
-                    barWidth: barWidth,
-                    railHeight: railHeight,
-                    maxWaveHeight: maxWaveHeight,
-                    fill: resolvedFillColor
-                )
-                .padding(.horizontal, horizontalInset)
-                .frame(width: max(0, width * clampedProgress), alignment: .leading)
-                .clipped()
-
-                Capsule(style: .continuous)
-                    .fill(resolvedFillColor)
-                    .frame(width: thumbWidth, height: thumbHeight)
-                    .offset(x: thumbX)
-                    .opacity(clampedProgress > 0 ? 1 : 0)
-            }
-            .frame(width: width, height: height)
-            .contentShape(Rectangle())
-            .gesture(seekGesture(width: width))
-            .animation(.linear(duration: 0.12), value: clampedProgress)
-        }
-    }
-
-    private func waveformBars(
-        barCount: Int,
-        spacing: CGFloat,
-        barWidth: CGFloat,
-        railHeight: CGFloat,
-        maxWaveHeight: CGFloat,
-        fill: Color
-    ) -> some View {
-            HStack(alignment: .center, spacing: spacing) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    let amplitude = waveformAmplitude(index: index, count: barCount)
-                    let lineHeight = 3 + amplitude * maxWaveHeight
-
-                    RoundedRectangle(cornerRadius: max(1.2, barWidth * 0.72), style: .continuous)
-                        .fill(fill)
-                        .frame(width: barWidth, height: min(lineHeight, max(3, railHeight - 5)))
+                Canvas { context, size in
+                    drawWave(context: &context, size: size, time: time)
                 }
+                .frame(width: width, height: height)
+                .contentShape(Rectangle())
+                .gesture(seekGesture(width: width))
             }
-        .frame(maxHeight: .infinity, alignment: .center)
+        }
+        .scaleEffect(x: 1, y: isScrubbing ? 1.18 : 1, anchor: .center)
+        .animation(.spring(response: 0.32, dampingFraction: 0.75), value: isScrubbing)
     }
 
-    private func waveformAmplitude(index: Int, count: Int) -> CGFloat {
-        let t = Double(index) / Double(max(count - 1, 1))
-        let envelope = 0.56 + 0.44 * sin(t * .pi)
-        let primary = 0.52 + 0.48 * sin(Double(index) * 1.23 + 0.7)
-        let detail = 0.72 + 0.28 * sin(Double(index) * 2.17 + 1.9)
-        return CGFloat(min(max(envelope * primary * detail, 0.18), 1.0))
+    private func drawWave(context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let barWidth: CGFloat = 3
+        let pitch: CGFloat = 5.5
+        let barCount = max(Int(size.width / pitch), 12)
+        let usedWidth = CGFloat(barCount) * pitch - (pitch - barWidth)
+        let leadingInset = (size.width - usedWidth) / 2
+
+        let playheadWidth: CGFloat = 3
+        let maxBarHeight = max(size.height - 8, 8)
+        let minBarHeight: CGFloat = 3.5
+        let midY = size.height / 2
+
+        let progressX = leadingInset + usedWidth * clampedProgress
+        let playheadIndex = Double(clampedProgress) * Double(barCount - 1)
+
+        var barsPath = Path()
+        for index in 0..<barCount {
+            let amplitude = amplitude(index: index, count: barCount, time: time, playheadIndex: playheadIndex)
+            let barHeight = minBarHeight + amplitude * (maxBarHeight - minBarHeight)
+            let x = leadingInset + CGFloat(index) * pitch
+            let rect = CGRect(x: x, y: midY - barHeight / 2, width: barWidth, height: barHeight)
+            barsPath.addRoundedRect(in: rect, cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2))
+        }
+
+        // 未播放侧：同色系低透明度
+        context.fill(barsPath, with: .color(trackColor))
+
+        // 已播放侧：裁剪到进度位置后用主题渐变填充
+        var played = context
+        played.clip(to: Path(CGRect(x: 0, y: 0, width: progressX, height: size.height)))
+        played.fill(
+            barsPath,
+            with: .linearGradient(
+                Gradient(colors: resolvedFillColors),
+                startPoint: CGPoint(x: leadingInset, y: midY),
+                endPoint: CGPoint(x: leadingInset + usedWidth, y: midY)
+            )
+        )
+
+        // 播放头：略高于波形的圆头竖条，带一点同色光晕
+        guard clampedProgress > 0 else { return }
+        let playheadHeight = maxBarHeight + 5
+        let playheadRect = CGRect(
+            x: min(max(progressX - playheadWidth / 2, 0), size.width - playheadWidth),
+            y: midY - playheadHeight / 2,
+            width: playheadWidth,
+            height: playheadHeight
+        )
+        var playhead = context
+        playhead.addFilter(.shadow(color: resolvedFillColor.opacity(0.55), radius: 3, x: 0, y: 0))
+        playhead.fill(
+            Path(roundedRect: playheadRect, cornerSize: CGSize(width: playheadWidth / 2, height: playheadWidth / 2)),
+            with: .color(resolvedFillColor)
+        )
+    }
+
+    /// 确定性的伪波形轮廓：低频起伏叠加少量细节，避免旧版的密集噪点感；
+    /// 播放中时，播放头附近数根条做轻微呼吸。
+    private func amplitude(index: Int, count: Int, time: TimeInterval, playheadIndex: Double) -> CGFloat {
+        let i = Double(index)
+        let t = i / Double(max(count - 1, 1))
+
+        let envelope = 0.66 + 0.34 * sin(t * .pi)
+        let body = 0.5
+            + 0.30 * sin(i * 0.31 + 0.8)
+            + 0.16 * sin(i * 0.73 + 2.1)
+            + 0.06 * sin(i * 1.61 + 0.3)
+        var amp = envelope * body
+
+        if isPlaying, !isScrubbing {
+            let distance = abs(i - playheadIndex)
+            let falloff = max(0, 1 - distance / 4.5)
+            if falloff > 0 {
+                amp += Double(falloff) * 0.24 * sin(time * 5.4 + i * 1.3)
+            }
+        }
+
+        return CGFloat(min(max(amp, 0.12), 1.0))
     }
 
     private func seekGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .updating($isScrubbing) { _, state, _ in
+                state = true
+            }
             .onChanged { value in
                 let next = min(max(value.location.x / max(width, 1), 0), 1)
                 onSeek?(next)

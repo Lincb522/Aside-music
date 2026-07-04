@@ -401,9 +401,9 @@ final class AudioRenderer {
 
             if let analyzer = self.spectrumAnalyzer, analyzer.isEnabled {
                 if pcmBuffer.format.isInterleaved {
-                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: channels)
+                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: channels, sampleRate: pcmBuffer.format.sampleRate)
                 } else {
-                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: 1)
+                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: 1, sampleRate: pcmBuffer.format.sampleRate)
                 }
             }
 
@@ -570,10 +570,10 @@ final class AudioRenderer {
 
             if let analyzer = self.spectrumAnalyzer, analyzer.isEnabled {
                 if pcmBuffer.format.isInterleaved {
-                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: channels)
+                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: channels, sampleRate: pcmBuffer.format.sampleRate)
                 } else {
                     // Non-interleaved: feed left channel only (mono mix).
-                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: 1)
+                    analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: 1, sampleRate: pcmBuffer.format.sampleRate)
                 }
             }
 

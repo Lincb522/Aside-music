@@ -723,12 +723,20 @@ extension PixelPlayerLayout {
                 funcButton(icon: .comment) { showComments = true }
                 Spacer()
                 if let song = player.currentSong {
-                    funcButton(
-                        icon: .playerDownload,
-                        tint: downloadManager.isDownloaded(songId: song.id) ? accent : fg
-                    ) {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        funcButton(
+                            icon: .playerDownload,
+                            tint: downloadManager.isDownloaded(songId: song.id) ? accent : fg
+                        ) {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        }
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        funcButton(icon: .immersive) {
+                            CinemaModeController.shared.present()
                         }
                     }
                 }

@@ -38,30 +38,42 @@ class OrientationManager: ObservableObject {
     }
 
     private func applyLandscape(retries: Int) {
-        guard retries > 0 else { return }
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard retries > 0, isLandscapeLocked else { return }
+        guard let windowScene = activeWindowScene else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.applyLandscape(retries: retries - 1)
             }
             return
         }
 
-        let currentOrientation = windowScene.interfaceOrientation
-        if currentOrientation.isLandscape {
+        if windowScene.interfaceOrientation.isLandscape {
             return
         }
 
+        // 先通知系统支持方向已变，再请求旋转，避免请求被旧的方向掩码拒绝
+        setNeedsUpdateOfSupportedInterfaceOrientations()
         let prefs = UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: .landscapeRight)
-        windowScene.requestGeometryUpdate(prefs) { [weak self] _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self?.applyLandscape(retries: retries - 1)
+        windowScene.requestGeometryUpdate(prefs) { error in
+            AppLogger.error("横屏旋转失败: \(error.localizedDescription)")
+        }
+
+        // 无论成功与否，稍后校验一次；仍是竖屏则重试（修复进入后显示竖屏布局的问题）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self, self.isLandscapeLocked else { return }
+            if !(self.activeWindowScene?.interfaceOrientation.isLandscape ?? false) {
+                self.applyLandscape(retries: retries - 1)
             }
         }
-        setNeedsUpdateOfSupportedInterfaceOrientations()
+    }
+
+    /// 前台活跃的 windowScene（连接场景中的第一个可能是后台场景）
+    private var activeWindowScene: UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
     }
 
     private func rotateToPortrait() {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        guard let windowScene = activeWindowScene else { return }
         let prefs = UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: .portrait)
         windowScene.requestGeometryUpdate(prefs) { error in
             AppLogger.error("竖屏旋转失败: \(error.localizedDescription)")
@@ -70,7 +82,7 @@ class OrientationManager: ObservableObject {
     }
 
     private func setNeedsUpdateOfSupportedInterfaceOrientations() {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        guard let windowScene = activeWindowScene else { return }
         for window in windowScene.windows {
             window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
         }

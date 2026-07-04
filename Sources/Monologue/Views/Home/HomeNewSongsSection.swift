@@ -15,7 +15,10 @@ struct HomeNewSongsSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteBody
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 10) {
                 Text("NEW")
                     .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(31, weight: .semibold) : .system(size: 36, weight: .black, design: .rounded))
@@ -29,8 +32,16 @@ struct HomeNewSongsSection: View {
                         )
                     )
                     .onAppear {
+                        guard shimmerPhase == -1 else { return }
                         withAnimation(.linear(duration: 2.5).repeatForever(autoreverses: false)) {
                             shimmerPhase = 1.5
+                        }
+                    }
+                    .onDisappear {
+                        var transaction = Transaction(animation: nil)
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            shimmerPhase = -1
                         }
                     }
 
@@ -80,20 +91,80 @@ struct HomeNewSongsSection: View {
                             rankedCard(song: song, rank: idx + 1)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
-                            content
-                                .scaleEffect(phase.isIdentity ? 1 : 0.9)
-                                .opacity(phase.isIdentity ? 1 : 0.5)
-                                .offset(y: phase.isIdentity ? 0 : phase.value * -6)
-                        }
                     }
                 }
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
+            }
+        }
+    }
+
+    private var minimalWhiteBody: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MinimalWhiteSectionTitle(title: NSLocalizedString("qq_new_songs", comment: "")) {
+                if let onViewAll {
+                    Button(action: onViewAll) {
+                        MinimalWhiteDisclosureGlyph()
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+            VStack(spacing: 0) {
+                ForEach(Array(songs.prefix(5).enumerated()), id: \.element.id) { index, song in
+                    Button {
+                        onPlay(song)
+                    } label: {
+                        HStack(spacing: 12) {
+                            CachedAsyncImage(url: song.coverUrl, width: 48, height: 48) {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(MinimalWhiteStyle.controlGlassFill)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                                    )
+                            }
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(song.name)
+                                    .font(MinimalWhiteStyle.bodyFont(14, weight: .medium))
+                                    .foregroundStyle(MinimalWhiteStyle.ink)
+                                    .lineLimit(1)
+
+                                Text(song.artistName)
+                                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Text("\(index + 1)")
+                                .font(MinimalWhiteStyle.labelFont(12, weight: .medium))
+                                .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                        }
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < min(songs.count, 5) - 1 {
+                        Rectangle()
+                            .fill(MinimalWhiteStyle.hairline)
+                            .frame(height: 1)
+                            .padding(.leading, 60)
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         }
     }
 
@@ -101,7 +172,11 @@ struct HomeNewSongsSection: View {
         VStack(alignment: .leading, spacing: 0) {
             // 封面区
             ZStack(alignment: .topLeading) {
-                CachedAsyncImage(url: song.coverUrl) {
+                CachedAsyncImage(
+                    url: song.coverUrl,
+                    width: DeviceLayout.newSongCardSize,
+                    height: DeviceLayout.newSongCardSize
+                ) {
                     Rectangle()
                         .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
                 }
@@ -148,7 +223,11 @@ struct HomeNewSongsSection: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised.opacity(0.75) : Color.monologueGlassTint)
+            .background(
+                NeumorphicStyle.isActive
+                    ? NeumorphicStyle.surfaceRaised.opacity(0.75)
+                    : (ThemedPageStyle.isActive ? Color.monologueGlassTint : Color.clear)
+            )
             .modifier(NewSongInfoSurfaceModifier())
         }
         .frame(width: DeviceLayout.newSongCardSize)
@@ -174,7 +253,7 @@ private struct NewSongInfoSurfaceModifier: ViewModifier {
         if NeumorphicStyle.isActive {
             content
         } else {
-            content.monologueGlass(cornerRadius: 0)
+            content.homeInformationSurface(cornerRadius: 0, showsTopSeparator: true)
         }
     }
 }

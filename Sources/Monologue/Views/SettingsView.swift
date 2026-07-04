@@ -16,6 +16,9 @@ private func settingsFormat(_ key: String, _ arguments: CVarArg...) -> String {
 }
 
 private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if MinimalWhiteStyle.isActive {
+        return MinimalWhiteStyle.bodyFont(size, weight: weight)
+    }
     if MangaStyle.isActive {
         return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
     }
@@ -44,6 +47,7 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
 }
 
 private func themedSettingsPrimaryColor() -> Color {
+    if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
     if MangaStyle.isActive { return MangaStyle.ink }
     if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
     if MujiStyle.isActive { return MujiStyle.ink }
@@ -56,6 +60,7 @@ private func themedSettingsPrimaryColor() -> Color {
 }
 
 private func themedSettingsSecondaryColor() -> Color {
+    if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
     if MangaStyle.isActive { return MangaStyle.inkSub }
     if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
     if MujiStyle.isActive { return MujiStyle.inkSoft }
@@ -127,32 +132,40 @@ struct SettingsView: View {
     @State private var isHeaderCardExpanded = false
 
     var body: some View {
-        ZStack {
-            ThemedSettingsBackground()
+        settingsRoot
+            .preferredColorScheme(settings.preferredColorScheme)
+    }
 
-            ScrollView {
-                LazyVStack(spacing: themedSettingsSpacing) {
-                    settingsContent
-                    FloatingBarBottomSpacer()
+    // 返回具体类型 AnyView（而非 some View）：规避 Swift 6.3 Release
+    // 编译器展开此视图不透明类型链时的 SILGen 无限替换崩溃。
+    private var settingsRoot: AnyView {
+        AnyView(
+            ZStack {
+                ThemedSettingsBackground()
+
+                ScrollView {
+                    LazyVStack(spacing: themedSettingsSpacing) {
+                        settingsContent
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, settingsOuterHorizontalPadding)
+                    .iPadContentWidth(700)
                 }
-                .padding(.horizontal, settingsOuterHorizontalPadding)
-                .iPadContentWidth(700)
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-        }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationDestination(for: SettingsNavigationDestination.self) { destination in
-            destination.view
-        }
-        .onAppear {
-            updateCacheSize()
-            apiTokenInput = SecureConfig.apiToken ?? ""
-            isHeaderCardExpanded = false
-        }
-        .preferredColorScheme(settings.preferredColorScheme)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .navigationDestination(for: SettingsNavigationDestination.self) { destination in
+                AnyView(destination.view)
+            }
+            .onAppear {
+                updateCacheSize()
+                apiTokenInput = SecureConfig.apiToken ?? ""
+                isHeaderCardExpanded = false
+            }
+        )
     }
 
     private var themedSettingsSpacing: CGFloat {
@@ -170,28 +183,31 @@ struct SettingsView: View {
         DeviceLayout.settingsSectionHorizontalPadding
     }
 
-    @ViewBuilder
-    private var settingsContent: some View {
+    // 每个主题分支都在此处用 AnyView 擦除：十个分支叠成的 _ConditionalContent
+    // 巨型类型会让 Swift 6.3 Release 编译器在类型替换时崩溃（SILGen abort）。
+    // 用 VStack(spacing:) 包住 ViewBuilder 内容，保持与外层 LazyVStack 相同的间距。
+    private var settingsContent: AnyView {
+        let spacing = themedSettingsSpacing
         if MangaStyle.isActive {
-            mangaSettingsContent
+            return AnyView(VStack(spacing: spacing) { mangaSettingsContent })
         } else if PetWhiteStyle.isActive {
-            petWhiteSettingsContent
+            return AnyView(VStack(spacing: spacing) { petWhiteSettingsContent })
         } else if NeumorphicStyle.isActive {
-            neumorphicSettingsContent
+            return AnyView(VStack(spacing: spacing) { neumorphicSettingsContent })
         } else if SignalStyle.isActive {
-            signalSettingsContent
+            return AnyView(VStack(spacing: spacing) { signalSettingsContent })
         } else if BentoStyle.isActive {
-            bentoSettingsContent
+            return AnyView(VStack(spacing: spacing) { bentoSettingsContent })
         } else if CapsuleStyle.isActive {
-            capsuleSettingsContent
+            return AnyView(VStack(spacing: spacing) { capsuleSettingsContent })
         } else if SequoiaStyle.isActive {
-            sequoiaSettingsContent
+            return AnyView(VStack(spacing: spacing) { sequoiaSettingsContent })
         } else if LiquidGlassStyle.isActive {
-            liquidGlassSettingsContent
+            return AnyView(VStack(spacing: spacing) { liquidGlassSettingsContent })
         } else if MujiStyle.isActive {
-            mujiSettingsContent
+            return AnyView(VStack(spacing: spacing) { mujiSettingsContent })
         } else {
-            defaultSettingsContent
+            return AnyView(VStack(spacing: spacing) { defaultSettingsContent })
         }
     }
 
@@ -417,15 +433,18 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                SettingsNavigationLink(destination: .download) {
-                    PetWhiteSettingsPortalCard(
-                        icon: .download,
-                        title: String(localized: "settings_download_manage"),
-                        badge: "DL",
-                        tint: PetWhiteStyle.blush
-                    )
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    SettingsNavigationLink(destination: .download) {
+                        PetWhiteSettingsPortalCard(
+                            icon: .download,
+                            title: String(localized: "settings_download_manage"),
+                            badge: "DL",
+                            tint: PetWhiteStyle.blush
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 SettingsNavigationLink(destination: .about) {
                     PetWhiteSettingsPortalCard(
@@ -539,15 +558,18 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            SettingsNavigationLink(destination: .download) {
-                CapsuleSettingsTile(
-                    icon: .download,
-                    title: String(localized: "settings_download_manage"),
-                    value: "DL",
-                    tint: CapsuleStyle.amber
-                )
+            // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled {
+                SettingsNavigationLink(destination: .download) {
+                    CapsuleSettingsTile(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        value: "DL",
+                        tint: CapsuleStyle.amber
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             SettingsNavigationLink(destination: .about) {
                 CapsuleSettingsTile(
@@ -662,15 +684,18 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            SettingsNavigationLink(destination: .download) {
-                LiquidGlassSettingsTile(
-                    icon: .download,
-                    title: String(localized: "settings_download_manage"),
-                    value: "DL",
-                    tint: LiquidGlassStyle.amber
-                )
+            // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled {
+                SettingsNavigationLink(destination: .download) {
+                    LiquidGlassSettingsTile(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        value: "DL",
+                        tint: LiquidGlassStyle.amber
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             SettingsNavigationLink(destination: .about) {
                 LiquidGlassSettingsTile(
@@ -761,15 +786,18 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            SettingsNavigationLink(destination: .download) {
-                BentoSettingsTile(
-                    icon: .download,
-                    title: String(localized: "settings_download_manage"),
-                    value: "DL",
-                    tint: BentoStyle.salmon
-                )
+            // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled {
+                SettingsNavigationLink(destination: .download) {
+                    BentoSettingsTile(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        value: "DL",
+                        tint: BentoStyle.salmon
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             SettingsNavigationLink(destination: .about) {
                 BentoSettingsTile(
@@ -893,15 +921,18 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                SettingsNavigationLink(destination: .download) {
-                    MangaSettingsPortalCard(
-                        icon: .download,
-                        title: String(localized: "settings_download_manage"),
-                        badge: "DL",
-                        tint: MangaStyle.decoBlue
-                    )
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    SettingsNavigationLink(destination: .download) {
+                        MangaSettingsPortalCard(
+                            icon: .download,
+                            title: String(localized: "settings_download_manage"),
+                            badge: "DL",
+                            tint: MangaStyle.decoBlue
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 SettingsNavigationLink(destination: .about) {
                     MangaSettingsPortalCard(
@@ -963,14 +994,17 @@ struct SettingsView: View {
                     destination: .storage
                 )
 
-                MujiSettingsDivider()
+                // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                if AppConfig.Features.downloadEnabled {
+                    MujiSettingsDivider()
 
-                MujiSettingsLedgerLink(
-                    icon: .download,
-                    title: String(localized: "settings_download_manage"),
-                    value: "DOWNLOAD",
-                    destination: .download
-                )
+                    MujiSettingsLedgerLink(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        value: "DOWNLOAD",
+                        destination: .download
+                    )
+                }
 
                 MujiSettingsDivider()
 
@@ -1724,7 +1758,22 @@ struct SettingsIconBadge: View {
 
     var body: some View {
         let _ = settings.globalThemeRevision
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MonologueIcon(
+                icon: icon,
+                size: 14,
+                color: MinimalWhiteStyle.inkSoft,
+                lineWidth: 1.55
+            )
+            .frame(width: 32, height: 32)
+            .background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.compactRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.controlGlassFill
+                )
+            )
+        } else if MangaStyle.isActive {
             MonologueIcon(
                 icon: icon,
                 size: 15,
@@ -1822,11 +1871,11 @@ struct SettingsSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title.uppercased())
+            Text(MinimalWhiteStyle.isActive ? title : title.uppercased())
                 .font(sectionTitleFont)
                 .foregroundColor(sectionTitleColor)
                 .padding(.leading, 16)
-                .tracking(MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4)
+                .tracking(MinimalWhiteStyle.isActive ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4))
 
             VStack(spacing: 0) {
                 content
@@ -1859,6 +1908,7 @@ struct SettingsSection<Content: View>: View {
     }
 
     private var sectionTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .semibold) }
@@ -1870,6 +1920,7 @@ struct SettingsSection<Content: View>: View {
     }
 
     private var sectionTitleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
@@ -1894,7 +1945,15 @@ private extension View {
 
     @ViewBuilder
     func themedSettingsStandaloneCard(cornerRadius: CGFloat, tint: Color = MangaStyle.bubbleWhite) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, MinimalWhiteStyle.compactRadius), MinimalWhiteStyle.chromeRadius),
+                    elevated: true,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            )
+        } else if MangaStyle.isActive {
             background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint))
         } else if PetWhiteStyle.isActive {
             background(
@@ -1944,6 +2003,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     @Environment(\.colorScheme) private var colorScheme
 
     private var offTrackColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint.opacity(0.8) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
@@ -1953,6 +2013,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     }
 
     private var offStrokeColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.45) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.48) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
@@ -1962,6 +2023,9 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     }
 
     private func knobColor(isOn: Bool) -> Color {
+        if MinimalWhiteStyle.isActive {
+            return isOn ? MinimalWhiteStyle.onAccent : MinimalWhiteStyle.paper
+        }
         if NeumorphicStyle.isActive {
             return isOn ? NeumorphicStyle.surfaceRaised : NeumorphicStyle.surface
         }
@@ -1985,6 +2049,9 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
 
     private func strokeColor(isOn: Bool) -> Color {
         if isOn {
+            if MinimalWhiteStyle.isActive {
+                return MinimalWhiteStyle.ink.opacity(0.08)
+            }
             if SequoiaStyle.isActive {
                 return SequoiaStyle.accent.opacity(colorScheme == .dark ? 0.28 : 0.16)
             }
@@ -2028,7 +2095,8 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
     }
 
     private var activeTrackColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : (CapsuleStyle.isActive ? CapsuleStyle.accent : (BentoStyle.isActive ? BentoStyle.tomato : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueToggleTint)))
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : (CapsuleStyle.isActive ? CapsuleStyle.accent : (BentoStyle.isActive ? BentoStyle.tomato : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueToggleTint)))
     }
 }
 

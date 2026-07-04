@@ -32,6 +32,8 @@ final class LyricsLiveActivityManager {
     }
 
     func sync(with player: PlayerManager, forceRestart: Bool = false) async {
+        guard #available(iOS 16.2, *) else { return }
+
         guard Self.isEnabled else {
             await endCurrentActivity()
             return
@@ -69,7 +71,7 @@ final class LyricsLiveActivityManager {
     }
 
     func endCurrentActivity() async {
-        if let activeActivityID {
+        if #available(iOS 16.2, *), let activeActivityID {
             await Self.endActivity(withID: activeActivityID)
         }
         activeActivityID = nil
@@ -79,7 +81,9 @@ final class LyricsLiveActivityManager {
     }
 
     func endAllActivities() async {
-        await Self.endAllSystemActivities()
+        if #available(iOS 16.2, *) {
+            await Self.endAllSystemActivities()
+        }
         activeActivityID = nil
         activeSongID = nil
         lastState = nil
@@ -88,6 +92,8 @@ final class LyricsLiveActivityManager {
 
     private func start(songID: String, state: LyricsActivityAttributes.ContentState) async {
         await endCurrentActivity()
+
+        guard #available(iOS 16.2, *) else { return }
 
         let attributes = LyricsActivityAttributes(songID: songID)
         do {
@@ -106,6 +112,7 @@ final class LyricsLiveActivityManager {
         }
     }
 
+    @available(iOS 16.2, *)
     nonisolated private static func updateActivity(
         withID activityID: String,
         state: LyricsActivityAttributes.ContentState,
@@ -123,6 +130,7 @@ final class LyricsLiveActivityManager {
         )
     }
 
+    @available(iOS 16.2, *)
     nonisolated private static func endActivity(withID activityID: String) async {
         guard let activity = Activity<LyricsActivityAttributes>.activities.first(where: { $0.id == activityID }) else {
             return
@@ -131,6 +139,7 @@ final class LyricsLiveActivityManager {
         await activity.end(nil, dismissalPolicy: .immediate)
     }
 
+    @available(iOS 16.2, *)
     nonisolated private static func endAllSystemActivities() async {
         for activity in Activity<LyricsActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)

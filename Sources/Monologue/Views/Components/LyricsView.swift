@@ -1135,7 +1135,7 @@ struct KaraokeLineView: View {
     private var defaultLyricContent: some View {
         if isCurrent {
             if enableKaraoke {
-                if #available(iOS 16.0, macOS 13.0, *) {
+                if #available(iOS 16.0, *) {
                     let words = syntheticWords()
                     FlowLayout(spacing: 0) {
                         ForEach(words.indices, id: \.self) { i in

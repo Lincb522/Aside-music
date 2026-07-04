@@ -294,14 +294,11 @@ struct WelcomeView: View {
     private var petWhiteHeroSection: some View {
         VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
             ZStack {
-                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                    .fill(PetWhiteStyle.surfaceRaised.opacity(settings.petWhiteUsesIllustratedBackground ? 0.80 : 0.96))
-                    .frame(width: plateSize * 0.98, height: plateSize * 0.98)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke.opacity(0.84), lineWidth: 1.3)
-                    )
-                    .shadow(color: PetWhiteStyle.stroke.opacity(0.09), radius: 16, x: 0, y: 10)
+                PetWhiteClayPuck(
+                    shape: RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous),
+                    tint: PetWhiteStyle.surfaceRaised.opacity(settings.petWhiteUsesIllustratedBackground ? 0.80 : 0.96)
+                )
+                .frame(width: plateSize * 0.98, height: plateSize * 0.98)
 
                 welcomeLogoImage(size: logoSize * 0.86)
 
@@ -875,7 +872,7 @@ struct WelcomeView: View {
         guard !isDismissing else { return }
         isDismissing = true
 
-        withAnimation(dismissAnimation, completionCriteria: .logicallyComplete) {
+        let applyDismissState = {
             sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
             sceneScale = reduceMotion ? 1 : 1.015
             backgroundScale = 1.03
@@ -883,8 +880,22 @@ struct WelcomeView: View {
             plateOffset = -18
             titleOffset = -14
             subtitleOffset = -12
-        } completion: {
-            isPresented = false
+        }
+
+        if #available(iOS 17.0, *) {
+            withAnimation(dismissAnimation, completionCriteria: .logicallyComplete) {
+                applyDismissState()
+            } completion: {
+                isPresented = false
+            }
+        } else {
+            withAnimation(dismissAnimation) {
+                applyDismissState()
+            }
+            // iOS 16 无 completion 回调，按动画时长延迟收尾
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                isPresented = false
+            }
         }
     }
 

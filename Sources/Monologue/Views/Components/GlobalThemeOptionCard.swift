@@ -100,6 +100,8 @@ struct GlobalThemeOptionCard: View {
             capsulePreview
         case .petWhite:
             petWhitePreview
+        case .minimalWhite:
+            minimalWhitePreview
         case .pureWhite:
             pureWhitePreview
         case .sequoia:
@@ -119,7 +121,8 @@ struct GlobalThemeOptionCard: View {
         case .neumorphic: return Color(hex: "4F8E86")
         case .capsule: return Color(hex: "3867FF")
         case .petWhite: return Color(hex: "F6A93B")
-        case .pureWhite: return Color(hex: "2563EB")
+        case .minimalWhite: return MinimalWhiteStyle.accent
+        case .pureWhite: return Color(hex: "111827")
         case .sequoia:   return Color(hex: "0A84FF")
         case .liquidGlass: return Color(hex: "18A7FF")
         case .bento, .clay, .signal, .material3Expressive: return .monologueAccent
@@ -349,33 +352,66 @@ struct GlobalThemeOptionCard: View {
         ZStack {
             PureWhiteRootBackdrop()
             
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("01 // PURE")
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .foregroundColor(PureWhiteStyle.strokeInk.opacity(0.68))
-                    Spacer()
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(PureWhiteStyle.paperBlue.opacity(0.38))
-                        .frame(width: 18, height: 10)
-                }
-                
-                HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(PureWhiteStyle.surfaceRaised)
+                .frame(width: 88, height: 72)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(PureWhiteStyle.separator, lineWidth: 1)
+                )
+                .overlay(
+                    VStack(alignment: .leading, spacing: 8) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(PureWhiteStyle.paperBlue)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                MonologueIcon(icon: .sparkle, size: 14, color: PureWhiteStyle.accent, lineWidth: 1.7)
+                            )
+                        Capsule().fill(PureWhiteStyle.strokeInk).frame(width: 44, height: 4)
+                        Capsule().fill(PureWhiteStyle.separator).frame(width: 58, height: 3)
+                    }
+                    .padding(12),
+                    alignment: .leading
+                )
+        }
+    }
+
+    private var minimalWhitePreview: some View {
+        ZStack {
+            MinimalWhiteStyle.paper
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(PureWhiteStyle.strokeInk, lineWidth: 1.2)
-                        .frame(width: 36, height: 36)
-                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(PureWhiteStyle.surfaceRaised))
+                        .fill(MinimalWhiteStyle.controlFill)
+                        .frame(width: 32, height: 32)
                         .overlay(
-                            MonologueIcon(icon: .sparkle, size: 16, color: PureWhiteStyle.accent, lineWidth: 1.8)
+                            MonologueIcon(
+                                icon: .musicNote,
+                                size: 15,
+                                color: MinimalWhiteStyle.ink,
+                                lineWidth: 1.6
+                            )
                         )
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Capsule().fill(PureWhiteStyle.strokeInk).frame(width: 50, height: 4)
-                        Capsule().fill(PureWhiteStyle.strokeInk.opacity(0.24)).frame(width: 34, height: 3)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Capsule().fill(MinimalWhiteStyle.ink).frame(width: 42, height: 4)
+                        Capsule().fill(MinimalWhiteStyle.separator).frame(width: 54, height: 3)
+                    }
+                }
+
+                Divider()
+                    .overlay(MinimalWhiteStyle.hairline)
+
+                HStack(spacing: 7) {
+                    ForEach(0 ..< 3, id: \.self) { index in
+                        Circle()
+                            .fill(index == 0 ? MinimalWhiteStyle.ink : MinimalWhiteStyle.controlFill)
+                            .frame(width: 7, height: 7)
                     }
                 }
             }
-            .padding(12)
+            .padding(16)
         }
     }
 

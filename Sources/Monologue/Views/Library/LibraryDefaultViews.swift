@@ -1137,7 +1137,7 @@ struct LocalPlaylistRow: View {
             .overlay {
                 if PetWhiteStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                 } else if SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
@@ -1146,7 +1146,7 @@ struct LocalPlaylistRow: View {
                         .stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 0.8)
                 }
             }
-            .shadow(color: CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.08) : (SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08)), radius: CapsuleStyle.isActive ? 6 : (SequoiaStyle.isActive ? 3 : 4), x: 0, y: 2)
+            .shadow(color: CapsuleStyle.isActive ? Color.clear : (SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08)), radius: CapsuleStyle.isActive ? 0 : (SequoiaStyle.isActive ? 3 : 4), x: 0, y: 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(summary.name)
@@ -1162,7 +1162,7 @@ struct LocalPlaylistRow: View {
             Spacer()
 
             if PetWhiteStyle.isActive {
-                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.inkMuted)
             } else {
                 MonologueIcon(icon: .chevronRight, size: 12, color: localRowSecondaryColor.opacity(0.7))
             }
@@ -1175,7 +1175,7 @@ struct LocalPlaylistRow: View {
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             } else if CapsuleStyle.isActive {
-                CapsuleSurfaceBackground(cornerRadius: 22, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
+                CapsuleFlatRowBackground(cornerRadius: 18)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
             } else {
@@ -1183,7 +1183,7 @@ struct LocalPlaylistRow: View {
                     .monologueGlass(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : 18))
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 20 : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (CapsuleStyle.isActive ? 22 : (SequoiaStyle.isActive ? 20 : 18))))), style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 20 : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (CapsuleStyle.isActive ? 18 : (SequoiaStyle.isActive ? 20 : 18))))), style: .continuous))
     }
 
     private var systemPlaceholder: some View {
@@ -1206,7 +1206,7 @@ struct LocalPlaylistRow: View {
             MonologueIcon(
                 icon: summary.isFavorite ? .liked : summary.isDownload ? .download : .musicNoteList,
                 size: 24,
-                color: summary.isSystem ? .white : (PetWhiteStyle.isActive ? PetWhiteStyle.stroke.opacity(0.54) : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
+                color: summary.isSystem ? .white : (PetWhiteStyle.isActive ? PetWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
             )
         }
     }
@@ -3253,7 +3253,7 @@ struct LibraryPlaylistRow: View {
             .overlay {
                 if PetWhiteStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                 } else if SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
@@ -3262,7 +3262,7 @@ struct LibraryPlaylistRow: View {
                         .stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 0.8)
                 }
             }
-            .shadow(color: CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.08) : (SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08)), radius: CapsuleStyle.isActive ? 6 : (SequoiaStyle.isActive ? 3 : 4), x: 0, y: 2)
+            .shadow(color: CapsuleStyle.isActive ? Color.clear : (SequoiaStyle.isActive ? Color.black.opacity(0.04) : Color.black.opacity(0.08)), radius: CapsuleStyle.isActive ? 0 : (SequoiaStyle.isActive ? 3 : 4), x: 0, y: 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(playlist.name)
@@ -3278,7 +3278,7 @@ struct LibraryPlaylistRow: View {
             Spacer()
 
             if PetWhiteStyle.isActive {
-                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.inkMuted)
             } else {
                 MonologueIcon(icon: .chevronRight, size: 12, color: (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : Theme.secondaryText))).opacity(0.7))
             }
@@ -3291,13 +3291,13 @@ struct LibraryPlaylistRow: View {
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             } else if CapsuleStyle.isActive {
-                CapsuleSurfaceBackground(cornerRadius: 22, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
+                CapsuleFlatRowBackground(cornerRadius: 18)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 20 : (CapsuleStyle.isActive ? 22 : (SequoiaStyle.isActive ? 20 : 18))), style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 20 : (CapsuleStyle.isActive ? 18 : (SequoiaStyle.isActive ? 20 : 18))), style: .continuous))
     }
 }

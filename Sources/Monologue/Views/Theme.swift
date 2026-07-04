@@ -35,6 +35,7 @@ enum MonologueTimeGreeting {
 
 extension Color {
     static var monologueBackground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.paper }
         if MangaStyle.isActive { return MangaStyle.paper }
         if PetWhiteStyle.isActive { return PetWhiteStyle.paper }
         if PureWhiteStyle.isActive { return PureWhiteStyle.paper }
@@ -48,6 +49,7 @@ extension Color {
     }
         
     static var monologueTextPrimary: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.ink }
@@ -61,6 +63,7 @@ extension Color {
     }
 
     static var monologueTextSecondary: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if PureWhiteStyle.isActive { return PureWhiteStyle.inkSoft }
@@ -101,6 +104,7 @@ extension Color {
     
     /// 主强调色（与 monologueIconBackground 一致，用于 EQ 等交互组件）
     static var monologueAccent: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
@@ -115,6 +119,7 @@ extension Color {
 
     /// 强调色上的可读前景色，用于勾选标记、强调按钮和浅色自定义强调色的图标。
     static var monologueAccentForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.accentPink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
@@ -129,6 +134,7 @@ extension Color {
     
     /// 设置页系统 Toggle 激活色
     static var monologueToggleTint: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
@@ -147,6 +153,7 @@ extension Color {
     static let monologueAccentRed = Color(hex: "FF3B30")
     
     static var monologueMilk: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.88) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surface.opacity(0.9) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.9) }
@@ -161,6 +168,7 @@ extension Color {
 
     /// Liquid Glass 专用染色 — 兼顾玻璃效果与无 glassEffect 时的可见兜底
     static var monologueGlassTint: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.95) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised.opacity(0.95) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised.opacity(0.95) }
@@ -175,6 +183,7 @@ extension Color {
     
     /// 悬浮栏专用填充色 — 更通透的玻璃质感
     static var monologueFloatingBarFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.96) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised.opacity(0.96) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.96) }
@@ -189,6 +198,7 @@ extension Color {
     
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueCardBackground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.96) }
@@ -203,6 +213,7 @@ extension Color {
     /// 毛玻璃卡片叠加色（浅色白色半透明，深色浅灰半透明）
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueGlassOverlay: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.78) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.82) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.72) }
@@ -217,6 +228,7 @@ extension Color {
     /// Sheet 面板背景叠加色
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monologueSheetOverlay: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.95) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.96) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
@@ -230,6 +242,7 @@ extension Color {
 
     /// 新通用 Sheet 面板主表面（顶部）
     static var monologueSheetSurfaceTop: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surface }
@@ -243,6 +256,7 @@ extension Color {
 
     /// 新通用 Sheet 面板主表面（底部）
     static var monologueSheetSurfaceBottom: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.paperWarm }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceTint }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
@@ -256,6 +270,7 @@ extension Color {
 
     /// 新通用 Sheet 面板顶部高光
     static var monologueSheetHighlight: Color {
+        if MinimalWhiteStyle.isActive { return .clear }
         if MangaStyle.isActive { return MangaStyle.labelYellow.opacity(0.15) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.paperBlue.opacity(0.34) }
         if MujiStyle.isActive { return MujiStyle.straw.opacity(0.18) }
@@ -269,6 +284,7 @@ extension Color {
 
     /// 新通用 Sheet 面板内侧柔光
     static var monologueSheetInnerGlow: Color {
+        if MinimalWhiteStyle.isActive { return .clear }
         if MangaStyle.isActive { return MangaStyle.accentPink.opacity(0.08) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent.opacity(0.08) }
         if MujiStyle.isActive { return MujiStyle.tea.opacity(0.12) }
@@ -282,6 +298,7 @@ extension Color {
 
     /// 新通用 Sheet 面板描边
     static var monologueSheetStroke: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.separator }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.74) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.72) }
@@ -295,6 +312,7 @@ extension Color {
 
     /// 新通用 Sheet 阴影色
     static var monologueSheetShadow: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink.opacity(0.08) }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.16) }
         if MujiStyle.isActive { return Color.black.opacity(0.08) }
@@ -308,6 +326,7 @@ extension Color {
 
     /// 新通用 Sheet 顶部拖拽把手
     static var monologueSheetHandle: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted.opacity(0.45) }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.46) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.44) }
         if MujiStyle.isActive { return MujiStyle.hairline }
@@ -320,6 +339,7 @@ extension Color {
     }
     
     static var monologueSeparator: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.separator }
         if MangaStyle.isActive { return MangaStyle.separator }
         if PureWhiteStyle.isActive { return PureWhiteStyle.separator }
         if MujiStyle.isActive { return MujiStyle.separator }
@@ -332,6 +352,7 @@ extension Color {
     }
     
     static var monologueIconBackground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlFill }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.mint }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
@@ -345,8 +366,9 @@ extension Color {
     }
     
     static var monologueIconForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
@@ -426,7 +448,12 @@ struct MonologueGlassCardBackground: View {
     var cornerRadius: CGFloat = 20
 
     var body: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: min(cornerRadius, MinimalWhiteStyle.cardRadius),
+                elevated: false
+            )
+        } else if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
         } else if PureWhiteStyle.isActive {
             PureWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 26), elevated: true)
@@ -461,10 +488,10 @@ extension View {
         self.background(
             MonologueGlassCardBackground(cornerRadius: cornerRadius)
                 .shadow(
-                    color: MangaStyle.isActive || PureWhiteStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : (CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.12) : (SequoiaStyle.isActive ? Color.black.opacity(0.12) : (ClayStyle.isActive ? Color.black.opacity(0.08) : .black.opacity(0.04))))),
-                    radius: MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 10 : 8),
+                    color: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : (CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.12) : (SequoiaStyle.isActive ? Color.black.opacity(0.12) : (ClayStyle.isActive ? Color.black.opacity(0.08) : .black.opacity(0.04))))),
+                    radius: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 10 : 8),
                     x: 0,
-                    y: MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 4 : 2)
+                    y: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 4 : 2)
                 )
         )
     }

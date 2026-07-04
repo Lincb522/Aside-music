@@ -2,14 +2,13 @@ import SwiftUI
 
 /// 全局主题引擎管理器
 /// 负责持久化当前选中的全局主题，并提供 Token 快捷访问
-@Observable
 @MainActor
-final class GlobalThemeManager {
+final class GlobalThemeManager: ObservableObject {
     static let shared = GlobalThemeManager()
 
     // MARK: - 当前主题
 
-    var currentThemeId: GlobalThemeId {
+    @Published var currentThemeId: GlobalThemeId {
         didSet {
             UserDefaults.standard.set(currentThemeId.rawValue, forKey: GlobalThemeId.storageKey)
             _cachedProvider = nil
@@ -18,7 +17,7 @@ final class GlobalThemeManager {
     }
 
     /// 主题 token 刷新版本。配色变更时即使主题 ID 不变，也要让读取全局 token 的视图重新计算。
-    var tokenRevision: Int = 0
+    @Published var tokenRevision: Int = 0
 
     /// 当前主题的 Provider 实例
     var current: GlobalThemeProvider {
@@ -63,7 +62,6 @@ final class GlobalThemeManager {
 
     // MARK: - 初始化
 
-    @ObservationIgnored
     private var _cachedProvider: GlobalThemeProvider?
 
     private init() {
@@ -84,6 +82,7 @@ final class GlobalThemeManager {
         case .neumorphic: return NeumorphicThemeProvider()
         case .capsule: return CapsuleThemeProvider()
         case .petWhite: return PetWhiteThemeProvider()
+        case .minimalWhite: return MinimalWhiteThemeProvider()
         case .pureWhite: return DefaultThemeProvider()
         case .material3Expressive: return DefaultThemeProvider()
         case .bento: return DefaultThemeProvider()

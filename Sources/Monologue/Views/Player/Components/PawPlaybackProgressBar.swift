@@ -57,13 +57,15 @@ struct PawPlaybackProgressBar: View {
             let fillWidth = proxy.size.width * CGFloat(progress)
 
             ZStack(alignment: .leading) {
+                // 黏土凹槽：真内阴影，轨道是在黏土上压出的一道凹痕
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(PetWhiteStyle.surfaceRaised)
+                    .fill(PetWhiteStyle.surfacePressed)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                        PetWhiteClayInnerShadow(
+                            shape: RoundedRectangle(cornerRadius: 15, style: .continuous),
+                            depth: 3
+                        )
                     )
-                    .shadow(color: PetWhiteStyle.stroke.opacity(0.08), radius: 8, x: 0, y: 4)
 
                 Capsule()
                     .fill(PetWhiteStyle.separator.opacity(0.72))
@@ -96,16 +98,13 @@ struct PawPlaybackProgressBar: View {
                 }
                 .padding(.horizontal, 24)
 
-                Circle()
-                    .fill(PetWhiteStyle.butter)
+                PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.butter)
                     .frame(width: 25, height: 25)
                     .overlay(
                         PetWhiteMascotMark(kind: .dog, size: 18)
                     )
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
-                    .shadow(color: PetWhiteStyle.stroke.opacity(0.14), radius: 6, x: 0, y: 3)
                     .offset(x: min(max(fillWidth - 12.5, 0), max(proxy.size.width - 25, 0)))
-                    .animation(.spring(response: 0.28, dampingFraction: 0.78), value: progress)
+                    .animation(.spring(response: 0.28, dampingFraction: 0.66), value: progress)
             }
             .contentShape(Rectangle().inset(by: -10))
             .gesture(
@@ -163,7 +162,6 @@ struct PawTimePill: View {
         .foregroundStyle(PetWhiteStyle.inkSoft)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(tint.opacity(0.62), in: Capsule())
-        .overlay(Capsule().stroke(PetWhiteStyle.stroke.opacity(0.8), lineWidth: 1))
+        .background(PetWhiteClayPuck(shape: Capsule(), tint: tint))
     }
 }

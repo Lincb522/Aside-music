@@ -87,7 +87,7 @@ struct HomeHeader: View {
                 .padding(3)
         }
         .monologueGlassButtonStyle()
-        .buttonBorderShape(.circle)
+        .compatCircleButtonBorderShape()
     }
 
     @ViewBuilder

@@ -12,6 +12,7 @@ struct MinimalMiniPlayer: View {
     @State private var showingTabs = false
 
     private var shellCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 18 }
         if MangaStyle.isActive { return 20 }
         if PetWhiteStyle.isActive { return 22 }
         if NeumorphicStyle.isActive { return 22 }
@@ -24,6 +25,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var shellHorizontalPadding: CGFloat {
+        if MinimalWhiteStyle.isActive { return 10 }
         if MangaStyle.isActive { return DeviceLayout.isPad ? 16 : 10 }
         if PetWhiteStyle.isActive { return DeviceLayout.isPad ? 18 : 12 }
         if SequoiaStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
@@ -33,6 +35,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var shellVerticalPadding: CGFloat {
+        if MinimalWhiteStyle.isActive { return 8 }
         if MangaStyle.isActive { return 7 }
         if PetWhiteStyle.isActive { return 8 }
         if SequoiaStyle.isActive { return 9 }
@@ -79,10 +82,172 @@ struct MinimalMiniPlayer: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        if PetWhiteStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteBody
+        } else if PetWhiteStyle.isActive {
             PetWhiteMinimalBowPlayer(currentTab: $currentTab)
         } else {
             defaultBody
+        }
+    }
+
+    private var minimalWhiteBody: some View {
+        HStack(spacing: 8) {
+            Button {
+                HapticManager.shared.light()
+                withAnimation(MonologueAnimation.panelToggle) {
+                    showingTabs.toggle()
+                }
+            } label: {
+                minimalWhiteCoverToggle
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+
+            if showingTabs || player.currentSong == nil {
+                minimalWhiteTabCapsule
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity.combined(with: .move(edge: .leading))
+                    ))
+            } else {
+                minimalWhiteNowPlayingCapsule
+                    .swipeToSkip()
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .leading)),
+                        removal: .opacity.combined(with: .move(edge: .trailing))
+                    ))
+            }
+        }
+        .padding(.leading, 7)
+        .padding(.trailing, 9)
+        .padding(.vertical, 7)
+        .background(MinimalWhiteCapsuleBackground(elevated: true))
+        .overlay(Capsule(style: .continuous).stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
+        .contentShape(Capsule(style: .continuous))
+        .simultaneousGesture(panelSwitchGesture)
+        .animation(.easeInOut(duration: 0.18), value: showingTabs)
+        .themeRenderInteractiveLayer()
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private var minimalWhiteCoverToggle: some View {
+        Group {
+            if let song = player.currentSong {
+                CachedAsyncImage(url: song.coverUrl, width: 42, height: 42) {
+                    defaultVinylCover
+                }
+                .aspectRatio(contentMode: .fill)
+            } else {
+                defaultVinylCover
+            }
+        }
+        .frame(width: 42, height: 42)
+        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+        )
+        .overlay(alignment: .bottomTrailing) {
+            Circle()
+                .fill(showingTabs ? MinimalWhiteStyle.ink : MinimalWhiteStyle.surface)
+                .frame(width: 11, height: 11)
+                .overlay(Circle().stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
+                .offset(x: 2, y: 2)
+        }
+    }
+
+    private var minimalWhiteNowPlayingCapsule: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                MarqueeText(
+                    text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: ""),
+                    font: MinimalWhiteStyle.bodyFont(13, weight: .semibold),
+                    color: MinimalWhiteStyle.ink,
+                    speed: 24
+                )
+                .frame(height: 16)
+
+                MarqueeText(
+                    text: subtitleText,
+                    font: MinimalWhiteStyle.labelFont(11, weight: .regular),
+                    color: MinimalWhiteStyle.inkMuted,
+                    speed: 22
+                )
+                .frame(height: 14)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .swipeSkipTextMotion()
+            .onTapWithHaptic {
+                if player.currentSong != nil {
+                    openPlayer()
+                }
+            }
+
+            Button(action: { player.togglePlayPause() }) {
+                ZStack {
+                    Circle()
+                        .fill(MinimalWhiteStyle.ink)
+                        .frame(width: 34, height: 34)
+
+                    if player.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: MinimalWhiteStyle.onAccent))
+                            .scaleEffect(0.55)
+                    } else {
+                        MonologueIcon(
+                            icon: player.isPlaying ? .pause : .play,
+                            size: 14,
+                            color: MinimalWhiteStyle.onAccent,
+                            lineWidth: 1.8
+                        )
+                    }
+                }
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+
+            Button(action: { showPlaylist.toggle() }) {
+                MonologueIcon(icon: .list, size: 15, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.7)
+                    .frame(width: 30, height: 34)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+        }
+    }
+
+    private var minimalWhiteTabCapsule: some View {
+        HStack(spacing: 5) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                Button {
+                    HapticManager.shared.light()
+                    withAnimation(MonologueAnimation.tabSwitch) {
+                        currentTab = tab
+                    }
+                } label: {
+                    let selected = currentTab == tab
+                    MonologueIcon(
+                        icon: selected ? tab.icon : tab.monologueIcon,
+                        size: 17,
+                        color: selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted,
+                        lineWidth: 1.7
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 38)
+                    .background {
+                        if selected {
+                            Capsule(style: .continuous)
+                                .fill(MinimalWhiteStyle.selectedFill)
+                                .overlay(Capsule(style: .continuous).stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
+                        }
+                    }
+                    .contentShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -125,14 +290,7 @@ struct MinimalMiniPlayer: View {
                         }
             } else if PetWhiteStyle.isActive {
                 RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.6)
-                    .overlay(alignment: .topLeading) {
-                        PetWhiteFloatingSignature(
-                            compact: true,
-                            tint: showingTabs ? PetWhiteStyle.sky : PetWhiteStyle.mint
-                        )
-                        .offset(x: 13, y: -9)
-                    }
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
             } else if SequoiaStyle.isActive {
                 RoundedRectangle(cornerRadius: shellCornerRadius, style: .continuous)
                     .stroke(
@@ -240,10 +398,10 @@ struct MinimalMiniPlayer: View {
             }
         }
         .shadow(
-            color: SequoiaStyle.isActive ? SequoiaStyle.shadow(colorScheme, elevated: true) : (LiquidGlassStyle.isActive ? LiquidGlassStyle.shadow(colorScheme, elevated: true) : (PetWhiteStyle.isActive ? PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.16 : 0.10) : .clear)),
-            radius: (SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 17 : (PetWhiteStyle.isActive ? 10 : 0),
+            color: SequoiaStyle.isActive ? SequoiaStyle.shadow(colorScheme, elevated: true) : (LiquidGlassStyle.isActive ? LiquidGlassStyle.shadow(colorScheme, elevated: true) : .clear),
+            radius: (SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 17 : 0,
             x: 0,
-            y: (SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 8 : (PetWhiteStyle.isActive ? 3 : 0)
+            y: (SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? 8 : 0
         )
         .contentShape(Rectangle())
         .simultaneousGesture(panelSwitchGesture)
@@ -453,7 +611,16 @@ struct MinimalMiniPlayer: View {
 
     private var defaultVinylCover: some View {
         ZStack {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(MinimalWhiteStyle.controlGlassFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                    )
+
+                MonologueIcon(icon: .musicNote, size: 13, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5)
+            } else if MangaStyle.isActive {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(MangaStyle.paperCool)
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.35))
@@ -462,7 +629,7 @@ struct MinimalMiniPlayer: View {
             } else if PetWhiteStyle.isActive {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(PetWhiteStyle.surfaceRaised)
-                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(PetWhiteStyle.stroke, lineWidth: 1))
 
                 MonologueIcon(icon: .musicNote, size: 14, color: PetWhiteStyle.inkMuted, lineWidth: 1.6)
             } else if MujiStyle.isActive {
@@ -632,6 +799,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var titleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(13, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(12, weight: .bold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(13, weight: .black) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
@@ -644,6 +812,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var subtitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(11, weight: .regular) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(10, weight: .medium) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(11, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .regular) }
@@ -656,6 +825,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var titleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -668,6 +838,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var subtitleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
@@ -680,6 +851,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var controlFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
@@ -692,6 +864,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private var controlForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
@@ -704,8 +877,9 @@ struct MinimalMiniPlayer: View {
     }
 
     private var transportControlColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         if MangaStyle.isActive { return MangaStyle.inkSub }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.inkSoft }
@@ -717,7 +891,13 @@ struct MinimalMiniPlayer: View {
 
     @ViewBuilder
     private var compactControlBackground: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: 10,
+                elevated: false,
+                tint: MinimalWhiteStyle.controlGlassFill
+            )
+        } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(MangaStyle.bubbleWhite.opacity(0.72))
                 .overlay(
@@ -778,10 +958,12 @@ struct MinimalMiniPlayer: View {
 
     @ViewBuilder
     private var controlStroke: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+        } else if MangaStyle.isActive {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.6)
         } else if PetWhiteStyle.isActive {
-            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
         } else if BentoStyle.isActive {
@@ -798,8 +980,9 @@ struct MinimalMiniPlayer: View {
     }
 
     private var sourceIndicatorForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.onAccent }
@@ -810,6 +993,7 @@ struct MinimalMiniPlayer: View {
     }
 
     private func tabFont(selected: Bool) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(9, weight: selected ? .semibold : .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(9, weight: selected ? .black : .bold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(9, weight: selected ? .black : .bold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: selected ? .semibold : .medium) }
@@ -823,6 +1007,7 @@ struct MinimalMiniPlayer: View {
 
     private func tabForeground(_ tab: Tab, selected: Bool) -> Color {
         guard selected else {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
             if MangaStyle.isActive { return MangaStyle.inkMuted }
             if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
@@ -834,8 +1019,9 @@ struct MinimalMiniPlayer: View {
             return .monologueTextSecondary.opacity(0.4)
         }
 
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if LiquidGlassStyle.isActive { return liquidGlassTabTint(tab) }
@@ -847,7 +1033,14 @@ struct MinimalMiniPlayer: View {
 
     @ViewBuilder
     private func tabSelectionBackground(_ tab: Tab) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(MinimalWhiteStyle.selectedFill.opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+        } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(mangaTabTint(tab).opacity(0.86))
                 .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
@@ -1021,7 +1214,6 @@ private struct PetWhiteMinimalBowPlayer: View {
             PetWhiteFloatingBowTie()
                 .offset(y: -9)
         }
-        .shadow(color: PetWhiteStyle.stroke.opacity(0.12), radius: 0, x: 0, y: 4)
         .contentShape(Capsule(style: .continuous))
         .simultaneousGesture(panelSwitchGesture)
         .animation(MonologueAnimation.panelToggle, value: showTabs)
@@ -1080,7 +1272,7 @@ private struct PetWhiteMinimalBowPlayer: View {
                     Circle()
                         .fill(player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint)
                         .frame(width: 34, height: 34)
-                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
 
                     if player.isLoading {
                         ProgressView()
@@ -1094,7 +1286,7 @@ private struct PetWhiteMinimalBowPlayer: View {
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
             Button(action: { showPlaylist.toggle() }) {
-                PetWhitePackIcon(icon: .list, size: 21, visualScale: 1.04, fallbackColor: PetWhiteStyle.stroke)
+                PetWhitePackIcon(icon: .list, size: 21, visualScale: 1.04, fallbackColor: PetWhiteStyle.ink)
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
@@ -1123,26 +1315,30 @@ private struct PetWhiteMinimalBowPlayer: View {
                             icon: selected ? tab.icon : tab.monologueIcon,
                             size: selected ? 18 : 16,
                             visualScale: 1,
-                            fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkMuted,
+                            fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted,
                             lineWidth: 1.45
                         )
 
                         if selected {
                             Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
                                 .font(PetWhiteStyle.labelFont(9, weight: .black))
-                                .foregroundColor(PetWhiteStyle.stroke)
+                                .foregroundColor(PetWhiteStyle.ink)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.75)
                         }
                     }
                     .frame(width: selected ? 66 : 42, height: 42)
                     .background {
-                        Capsule(style: .continuous)
-                            .fill(selected ? tabTint(tab) : PetWhiteStyle.surfaceRaised)
-                            .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.stroke.opacity(selected ? 1 : 0.32), lineWidth: selected ? 1.3 : 1))
+                        if selected {
+                            PetWhiteClayPuck(
+                                shape: Capsule(style: .continuous),
+                                tint: tabTint(tab),
+                                pressedLook: true
+                            )
+                        }
                     }
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.9))
             }
         }
     }

@@ -123,7 +123,7 @@ final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
 
 struct MVPlayerView: View {
     let mvId: Int
-    @State private var viewModel: MVPlayerViewModel
+    @StateObject private var viewModel: MVPlayerViewModel
     @StateObject private var commentVM: CommentViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -145,7 +145,7 @@ struct MVPlayerView: View {
 
     init(mvId: Int) {
         self.mvId = mvId
-        _viewModel = State(initialValue: MVPlayerViewModel(mvId: mvId))
+        _viewModel = StateObject(wrappedValue: MVPlayerViewModel(mvId: mvId))
         _commentVM = StateObject(wrappedValue: CommentViewModel(resourceId: mvId, resourceType: .mv))
     }
 

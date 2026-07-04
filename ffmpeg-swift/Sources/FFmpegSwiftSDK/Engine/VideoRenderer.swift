@@ -12,7 +12,7 @@ import AVFoundation
 /// Renders decoded video frames via an `AVSampleBufferDisplayLayer`.
 ///
 /// The `sampleBufferDisplayLayer` is created once at init and can be embedded
-/// directly into a UIView/NSView layer hierarchy by the caller.
+/// directly into a UIView layer hierarchy by the caller.
 ///
 /// Thread safety: All layer operations are serialised through `renderQueue`
 /// to prevent concurrent enqueue / flush races that crash in CoreMedia XPC.

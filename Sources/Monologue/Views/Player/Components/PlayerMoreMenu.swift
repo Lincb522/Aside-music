@@ -21,9 +21,11 @@ struct PlayerMoreMenu: View {
     @Binding var isPresented: Bool
     var anchorFrame: CGRect? = nil
     var isDarkBackground: Bool = false
+    /// 是否显示"沉浸模式"入口（沉浸模式内部的菜单不显示）
+    var showImmersiveEntry: Bool = true
     var onQuality: (() -> Void)? = nil
     var onEQ: () -> Void
-    var onTheme: () -> Void
+    var onTheme: (() -> Void)? = nil
     
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var gameMode = GameModeManager.shared
@@ -94,14 +96,29 @@ struct PlayerMoreMenu: View {
                         .fill(Color.monologueSeparator)
                         .frame(height: 0.5)
 
-                    menuItem(icon: .playerTheme, title: String(localized: "播放器主题")) {
-                        isPresented = false
-                        onTheme()
+                    if let onTheme {
+                        menuItem(icon: .playerTheme, title: String(localized: "播放器主题")) {
+                            isPresented = false
+                            onTheme()
+                        }
+
+                        Rectangle()
+                            .fill(Color.monologueSeparator)
+                            .frame(height: 0.5)
                     }
 
-                    Rectangle()
-                        .fill(Color.monologueSeparator)
-                        .frame(height: 0.5)
+                    // 沉浸模式入口已移至播放器控制栏（原下载按钮位置），三点菜单暂不显示。
+                    // 如需恢复菜单入口，取消下方注释即可。
+                    // if showImmersiveEntry {
+                    //     menuItem(icon: .immersive, title: String(localized: "沉浸模式（实验室功能）")) {
+                    //         isPresented = false
+                    //         CinemaModeController.shared.present()
+                    //     }
+                    //
+                    //     Rectangle()
+                    //         .fill(Color.monologueSeparator)
+                    //         .frame(height: 0.5)
+                    // }
 
                     // 游戏模式快捷开关（边打游戏边听歌）
                     menuItem(

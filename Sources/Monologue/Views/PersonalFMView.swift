@@ -312,18 +312,15 @@ struct PersonalFMView: View {
                             PetWhiteChevronIcon(
                                 direction: .down,
                                 size: 20,
-                                fallbackColor: PetWhiteStyle.stroke
+                                fallbackColor: PetWhiteStyle.ink
                             )
                             .frame(width: 44, height: 44)
                             .background(
-                                Circle()
-                                    .fill(PetWhiteStyle.surfaceRaised)
-                                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
-                                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 5, x: 0, y: 3)
+                                PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.surfaceRaised)
                             )
                             .contentShape(Circle())
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.88))
                     } else {
                         MonologueBackButton(style: .dismiss, isDarkBackground: false)
                     }
@@ -347,18 +344,15 @@ struct PersonalFMView: View {
                                 icon: .fmMode,
                                 size: 18,
                                 visualScale: 1.04,
-                                fallbackColor: PetWhiteStyle.stroke,
+                                fallbackColor: PetWhiteStyle.ink,
                                 lineWidth: 1.9
                             )
                             .frame(width: 44, height: 44)
                             .background(
-                                Circle()
-                                    .fill(PetWhiteStyle.surfaceRaised)
-                                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
-                                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 5, x: 0, y: 3)
+                                PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.surfaceRaised)
                             )
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.88))
                     } else {
                         Button(action: { showFMModePicker = true }) {
                             MonologueIcon(icon: .fmMode, size: 20, color: Theme.accent)
@@ -468,7 +462,7 @@ struct PersonalFMView: View {
                             icon: .like,
                             size: 22,
                             visualScale: 1.04,
-                            fallbackColor: PetWhiteStyle.stroke,
+                            fallbackColor: PetWhiteStyle.ink,
                             lineWidth: 2.0
                         )
                     }
@@ -484,11 +478,8 @@ struct PersonalFMView: View {
                 }
             }) {
                 ZStack {
-                    Circle()
-                        .fill(PetWhiteStyle.dogOrange)
+                    PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.dogOrange)
                         .frame(width: 78, height: 78)
-                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.8))
-                        .shadow(color: PetWhiteStyle.stroke.opacity(0.18), radius: 10, x: 0, y: 5)
 
                     PetWhitePackIcon(
                         icon: isFMPlaying ? .pause : .play,
@@ -509,7 +500,7 @@ struct PersonalFMView: View {
                     icon: .next,
                     size: 22,
                     visualScale: 1.04,
-                    fallbackColor: PetWhiteStyle.stroke,
+                    fallbackColor: PetWhiteStyle.ink,
                     lineWidth: 2.0
                 )
             } action: {
@@ -576,16 +567,13 @@ struct PersonalFMView: View {
         let content = label()
             .frame(width: 56, height: 56)
             .background(
-                Circle()
-                    .fill(PetWhiteStyle.surfaceRaised)
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
-                    .shadow(color: PetWhiteStyle.stroke.opacity(0.10), radius: 6, x: 0, y: 3)
+                PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.surfaceRaised)
             )
 
         return Group {
             if let action {
                 Button(action: action) { content }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                    .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.88))
             } else {
                 content
             }
@@ -784,7 +772,7 @@ struct PersonalFMView: View {
                     .fill(PetWhiteStyle.butter.opacity(0.74))
                     .frame(width: 96, height: 96)
                     .overlay(Circle().stroke(PetWhiteStyle.stroke.opacity(0.55), lineWidth: 1.4))
-                PetWhitePackIcon(icon: .fm, size: 38, visualScale: 1.04, fallbackColor: PetWhiteStyle.stroke, lineWidth: 2.4)
+                PetWhitePackIcon(icon: .fm, size: 38, visualScale: 1.04, fallbackColor: PetWhiteStyle.ink, lineWidth: 2.4)
             }
 
             VStack(spacing: 6) {
@@ -810,7 +798,7 @@ struct PersonalFMView: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 11)
                 .background(PetWhiteStyle.accent, in: Capsule())
-                .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1))
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
         }

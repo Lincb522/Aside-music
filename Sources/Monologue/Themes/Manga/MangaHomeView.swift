@@ -485,7 +485,7 @@ struct MangaHomeView: View {
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(Array(songs.prefix(10).enumerated()), id: \.element.id) { index, song in
                         mangaSongPanel(song, index: index, songs: songs)
-                            .scrollTransition(.animated(.spring(response: 0.32, dampingFraction: 0.82))) { content, phase in
+                            .compatScrollTransition(animation: .spring(response: 0.32, dampingFraction: 0.82)) { content, phase in
                                 content
                                     .scaleEffect(phase.isIdentity ? 1 : 0.94)
                                     .opacity(phase.isIdentity ? 1 : 0.72)
@@ -590,7 +590,7 @@ struct MangaHomeView: View {
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(Array(songs.prefix(8).enumerated()), id: \.element.id) { index, song in
                         mangaNewSongCard(song, rank: index + 1, songs: songs)
-                            .scrollTransition(.animated(.spring(response: 0.32, dampingFraction: 0.82))) { content, phase in
+                            .compatScrollTransition(animation: .spring(response: 0.32, dampingFraction: 0.82)) { content, phase in
                                 content
                                     .scaleEffect(phase.isIdentity ? 1 : 0.92)
                                     .opacity(phase.isIdentity ? 1 : 0.66)

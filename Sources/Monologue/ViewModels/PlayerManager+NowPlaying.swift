@@ -197,6 +197,7 @@ extension PlayerManager {
         let safeDuration = currentSong == nil ? 0 : max(duration, currentSong?.dt.map { Double($0) / 1000.0 } ?? 0)
         defaults.set(songName, forKey: "widget_songName")
         defaults.set(artistName, forKey: "widget_artistName")
+        defaults.set(currentSong?.id ?? 0, forKey: "widget_song_id")
         defaults.set(playbackState.rawValue, forKey: "widget_playbackState")
         defaults.set(playbackState.isPlaying, forKey: "widget_isPlaying")
         defaults.set(albumName, forKey: Self.widgetAlbumNameKey)
@@ -217,6 +218,7 @@ extension PlayerManager {
             return text.trimmingCharacters(in: .whitespacesAndNewlines)
         }()
         defaults.set(lyricText, forKey: "widget_lyricText")
+        let lyricsSignature = syncWidgetLyricsFile(lyricVM: lyricVM)
         syncWidgetTempo(for: currentSong, playbackState: playbackState, defaults: defaults)
         let metadataSignature = [
             songName,
@@ -242,20 +244,69 @@ extension PlayerManager {
             currentSong != nil &&
             (abs(safeCurrentTime - expectedWidgetProgressTime) > 2.5 ||
              abs(safeDuration - lastWidgetProgressDuration) > 0.5)
+        // 有整首同步歌词时，逐句换行由 Widget 侧预生成的时间线自动推进，
+        // 不再为每句歌词触发 reload（节省系统刷新配额）；无同步歌词时保留逐句兜底。
+        let hasSyncedLyrics = !lyricsSignature.isEmpty
+        let lyricNeedsReload = hasSyncedLyrics
+            ? lyricsSignature != lastWidgetLyricsSignature
+            : lyricText != lastWidgetLyricText
         if songName != lastWidgetSongName
             || playbackState != lastWidgetPlaybackState
             || metadataSignature != lastWidgetMetadataSignature
-            || lyricText != lastWidgetLyricText
+            || lyricNeedsReload
             || progressNeedsReload {
             lastWidgetSongName = songName
             lastWidgetPlaybackState = playbackState
             lastWidgetMetadataSignature = metadataSignature
             lastWidgetLyricText = lyricText
+            lastWidgetLyricsSignature = lyricsSignature
             lastWidgetProgressAnchorTime = safeCurrentTime
             lastWidgetProgressAnchorDate = progressReferenceDate
             lastWidgetProgressDuration = safeDuration
             WidgetCenter.shared.reloadAllTimelines()
         }
+    }
+
+    /// 把整首歌的逐行同步歌词写入 App Group，供 Widget 预生成未来时间线。
+    /// 返回本次歌词内容的签名；无同步歌词时清空文件并返回空字符串。
+    private func syncWidgetLyricsFile(lyricVM: LyricViewModel) -> String {
+        guard let containerURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: Self.widgetGroupID) else { return "" }
+        let fileURL = containerURL.appendingPathComponent("widget_lyrics.json")
+
+        guard let song = currentSong,
+              lyricVM.currentSongId == song.id,
+              lyricVM.hasLyrics,
+              !lyricVM.lyrics.isEmpty else {
+            if lastWidgetLyricsSignature != "" || FileManager.default.fileExists(atPath: fileURL.path) {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+            return ""
+        }
+
+        let signature = "\(song.id)|\(lyricVM.lyrics.count)"
+        guard signature != lastWidgetLyricsSignature else { return signature }
+
+        var lines: [[String: Any]] = []
+        lines.reserveCapacity(lyricVM.lyrics.count)
+        for line in lyricVM.lyrics {
+            let text = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            var item: [String: Any] = ["t": line.time, "x": text]
+            if let translation = line.translation?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !translation.isEmpty {
+                item["tr"] = translation
+            }
+            lines.append(item)
+        }
+        let payload: [String: Any] = ["songId": song.id, "lines": lines]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return "" }
+        do {
+            try data.write(to: fileURL, options: [.atomic])
+        } catch {
+            AppLogger.warning("小组件歌词文件写入失败: \(error)")
+            return ""
+        }
+        return signature
     }
 
     private func syncWidgetTempo(

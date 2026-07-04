@@ -4,15 +4,15 @@ import SwiftUI
 struct FullScreenPlayerView: View {
     @ObservedObject var player = PlayerManager.shared
     
-    // PlayerThemeManager 使用 @Observable，需要用 @State 持有引用以确保观察生效
-    @State private var themeManager = PlayerThemeManager.shared
+    @ObservedObject private var themeManager = PlayerThemeManager.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var cinemaController = CinemaModeController.shared
     @Environment(\.colorScheme) private var envColorScheme
 
     var body: some View {
         ZStack {
             Group {
-                if SettingsManager.shared.coverBgPlayer {
+                if SettingsManager.shared.coverBgPlayer && !MinimalWhiteStyle.isActive {
                     PlaylistColorBackground(coverUrl: player.currentSong?.coverUrl?.sized(200))
                 } else {
                     ThemedPageBackground()
@@ -21,7 +21,10 @@ struct FullScreenPlayerView: View {
             .ignoresSafeArea()
 
             Group {
-                switch themeManager.currentTheme {
+                if MinimalWhiteStyle.isActive {
+                    ClassicPlayerLayout()
+                } else {
+                    switch themeManager.currentTheme {
                 case .classic:
                     if PetWhiteStyle.isActive {
                         PawcelainPlayerLayout()
@@ -38,14 +41,14 @@ struct FullScreenPlayerView: View {
                     NeumorphicPlayerLayout()
                 case .poster:
                     PosterPlayerLayout()
-                        .fontDesign(nil)
+                        .compatFontDesign(nil)
                 case .motoPager:
                     MotoPagerLayout()
                 case .typewriter:
                     TypewriterPlayerLayout()
                 case .pixel:
                     PixelPlayerLayout()
-                        .fontDesign(nil)
+                        .compatFontDesign(nil)
                 case .aqua:
                     AquaPlayerLayout()
                 case .breathing:
@@ -62,13 +65,20 @@ struct FullScreenPlayerView: View {
                     FolkPlayerLayout()
                 case .game2048:
                     Game2048PlayerLayout()
+                case .cinema:
+                    // 沉浸模式已从主题体系移出（经右上角三点菜单进入），旧存档回退经典布局
+                    ClassicPlayerLayout()
+                    }
                 }
             }
-            .environment(\.colorScheme, themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme)
+            .environment(\.colorScheme, MinimalWhiteStyle.isActive ? settings.nativeColorScheme : (themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme))
 
 
         }
         .monologueEdgeSwipeToDismiss()
+        .fullScreenCover(isPresented: $cinemaController.isPresented) {
+            AriaStageView()
+        }
     }
 
     // MARK: - 播放器进度条组件（供默认播放器及共享布局复用）
@@ -98,6 +108,7 @@ struct FullScreenPlayerView: View {
         }
 
         private var progressFillColors: [Color] {
+            if MinimalWhiteStyle.isActive { return [MinimalWhiteStyle.accent, MinimalWhiteStyle.accent] }
             if MangaStyle.isActive { return [MangaStyle.accentPink, MangaStyle.labelYellow] }
             if MujiStyle.isActive { return [MujiStyle.clay, MujiStyle.indigo.opacity(0.86)] }
             if NeumorphicStyle.isActive { return [NeumorphicStyle.accent, NeumorphicStyle.sage] }

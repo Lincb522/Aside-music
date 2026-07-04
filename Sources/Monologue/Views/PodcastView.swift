@@ -2,7 +2,7 @@ import Combine
 import SwiftUI
 
 struct PodcastView: View {
-    @State private var viewModel = PodcastViewModel.shared
+    @ObservedObject private var viewModel = PodcastViewModel.shared
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen: Int = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?
@@ -49,9 +49,12 @@ struct PodcastView: View {
                 ThemedPageBackground(useRenderLayer: true)
 
                 if viewModel.isLoading && viewModel.personalizedRadios.isEmpty {
-                    MonologueLoadingView(text: "LOADING")
+                    MonologueLoadingView(text: MinimalWhiteStyle.isActive ? "" : "LOADING")
                 } else {
-                    ScrollView {
+                    if MinimalWhiteStyle.isActive {
+                        minimalWhitePodcastScroll
+                    } else {
+                        ScrollView {
                         LazyVStack(alignment: .leading, spacing: 28) {
                             if MangaStyle.isActive {
                                 mangaPodcastHeader
@@ -125,11 +128,12 @@ struct PodcastView: View {
                             }
                         }
                         .padding(.bottom, 120)
-                    }
-                    .scrollIndicators(.hidden)
-                    .themeRenderScrollLayer()
-                    .refreshable {
-                        viewModel.refreshData()
+                        }
+                        .scrollIndicators(.hidden)
+                        .themeRenderScrollLayer()
+                        .refreshable {
+                            viewModel.refreshData()
+                        }
                     }
                 }
             }
@@ -178,6 +182,83 @@ struct PodcastView: View {
         showRadioPlayer = true
     }
 
+    private var minimalWhitePodcastScroll: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 30) {
+                minimalWhitePodcastHeader
+
+                if !viewModel.categories.isEmpty {
+                    categoriesSection
+                }
+
+                PodcastHistorySection(onOpenRadio: openRadioPlayer)
+
+                if !viewModel.personalizedRadios.isEmpty {
+                    personalizedSection
+                }
+
+                if !viewModel.todayPerfered.isEmpty {
+                    todayPerferedSection
+                }
+
+                if !viewModel.recommendRadios.isEmpty {
+                    recommendSection
+                }
+
+                if !viewModel.newestPrograms.isEmpty {
+                    newestSection
+                }
+
+                if !viewModel.chartPrograms.isEmpty {
+                    chartSection
+                }
+
+                if !viewModel.programToplist.isEmpty {
+                    programToplistSection
+                }
+
+                if !viewModel.broadcastChannels.isEmpty {
+                    broadcastSection
+                }
+
+                if !viewModel.djBanners.isEmpty {
+                    bannerSection
+                }
+
+                FloatingBarBottomSpacer()
+            }
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+        .refreshable { viewModel.refreshData() }
+    }
+
+    private var minimalWhitePodcastHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text(String(localized: "tabbar_podcast"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 12)
+
+            NavigationLink(value: PodcastDestination.categoryBrowse) {
+                MonologueIcon(icon: .gridSquare, size: 17, color: MinimalWhiteStyle.inkSoft, lineWidth: 1.6)
+                    .frame(width: 40, height: 40)
+                    .background(MinimalWhiteCircleBackground(elevated: true))
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(value: PodcastDestination.search) {
+                MonologueIcon(icon: .magnifyingGlass, size: 17, color: MinimalWhiteStyle.ink, lineWidth: 1.7)
+                    .frame(width: 40, height: 40)
+                    .background(MinimalWhiteCircleBackground(elevated: true, selected: true))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, padH)
+    }
+
     @ViewBuilder
     private func podcastDestinationView(for destination: PodcastDestination) -> some View {
         switch destination {
@@ -214,11 +295,14 @@ struct PodcastView: View {
     private var petWhitePodcastHeader: some View {
         PetWhitePageHeader(
             eyebrow: "PODCAST",
-            title: String(localized: "tabbar_podcast"),
-            subtitle: String(localized: "global_theme_pet_white_name")
+            title: String(localized: "tabbar_podcast")
         ) {
             NavigationLink(value: PodcastDestination.search) {
-                PetWhiteIconBadge(icon: .magnifyingGlass, tint: PetWhiteStyle.sky, size: 48)
+                PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.sky)
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        PetWhitePackIcon(icon: .magnifyingGlass, size: 20, visualScale: 1.05, lineWidth: 1.7)
+                    )
             }
             .buttonStyle(.plain)
         }
@@ -230,29 +314,34 @@ struct PodcastView: View {
             petWhitePodcastMetric(value: "\(viewModel.categories.count)", label: String(localized: "podcast_all"), tint: PetWhiteStyle.mint, icon: .gridSquare)
             petWhitePodcastMetric(value: "\(viewModel.broadcastChannels.count)", label: String(localized: "podcast_broadcast"), tint: PetWhiteStyle.sky, icon: .radio)
         }
-        .padding(12)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 24, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         .padding(.horizontal, padH)
     }
 
     private func petWhitePodcastMetric(value: String, label: String, tint: Color, icon: MonologueIcon.IconType) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            PetWhiteIconBadge(icon: icon, tint: tint, size: 34)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 7) {
+                PetWhiteClayPuck(shape: Circle(), tint: tint)
+                    .frame(width: 26, height: 26)
+                    .overlay(
+                        PetWhitePackIcon(icon: icon, size: 13, visualScale: 1.02, lineWidth: 1.6)
+                    )
 
-            Text(value)
-                .font(PetWhiteStyle.titleFont(18, weight: .black))
-                .foregroundStyle(PetWhiteStyle.ink)
-                .lineLimit(1)
+                Text(value)
+                    .font(PetWhiteStyle.titleFont(18, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(1)
+            }
 
             Text(label)
-                .font(PetWhiteStyle.labelFont(10, weight: .black))
-                .foregroundStyle(PetWhiteStyle.inkSoft)
+                .font(PetWhiteStyle.labelFont(10))
+                .foregroundStyle(PetWhiteStyle.inkMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 18, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: tint))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.compactRadius, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: tint))
     }
 
     private var mujiPodcastHeader: some View {
@@ -414,7 +503,17 @@ struct PodcastView: View {
         detail: String? = nil,
         destination: PodcastDestination? = nil
     ) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSectionTitle(title: title) {
+                if let destination {
+                    NavigationLink(value: destination) {
+                        MinimalWhiteDisclosureGlyph()
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        } else if MangaStyle.isActive {
             HStack(alignment: .center, spacing: 12) {
                 MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
 
@@ -435,20 +534,18 @@ struct PodcastView: View {
             }
             .padding(.horizontal, padH)
         } else if PetWhiteStyle.isActive {
-            HStack(alignment: .center, spacing: 10) {
-                PetWhiteIconBadge(icon: .podcast, tint: PetWhiteStyle.mint, size: 34)
-
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(PetWhiteStyle.titleFont(18, weight: .black))
+                        .font(PetWhiteStyle.titleFont(20, weight: .bold))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
 
                     if let detail, !detail.isEmpty {
                         Text(detail)
-                            .font(PetWhiteStyle.labelFont(11, weight: .semibold))
-                            .foregroundStyle(PetWhiteStyle.inkSoft)
+                            .font(PetWhiteStyle.labelFont(11))
+                            .foregroundStyle(PetWhiteStyle.inkMuted)
                             .lineLimit(1)
                     }
                 }
@@ -457,19 +554,12 @@ struct PodcastView: View {
 
                 if let destination {
                     NavigationLink(value: destination) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Text(String(localized: "view_all"))
-                                .font(PetWhiteStyle.labelFont(11, weight: .black))
-                            PetWhitePackIcon(icon: .chevronRight, size: 15, visualScale: 1.05)
+                                .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            PetWhitePackIcon(icon: .chevronRight, size: 12, visualScale: 1, fallbackColor: PetWhiteStyle.dogEar)
                         }
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(PetWhiteStyle.surfaceRaised)
-                                .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1))
-                        )
+                        .foregroundStyle(PetWhiteStyle.dogEar)
                     }
                     .buttonStyle(.plain)
                 }
@@ -662,7 +752,13 @@ struct PodcastView: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 10) {
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
-                    if MangaStyle.isActive {
+                    if MinimalWhiteStyle.isActive {
+                        minimalWhiteCategoryPill(
+                            title: String(localized: "podcast_all"),
+                            icon: .gridSquare,
+                            selected: true
+                        )
+                    } else if MangaStyle.isActive {
                         HStack(spacing: 6) {
                             MonologueIcon(icon: .gridSquare, size: 15, color: MangaStyle.strokeInk, lineWidth: 1.8)
                             Text(String(localized: "podcast_all"))
@@ -725,7 +821,12 @@ struct PodcastView: View {
 
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
-                        if MangaStyle.isActive {
+                        if MinimalWhiteStyle.isActive {
+                            minimalWhiteCategoryPill(
+                                title: cat.name,
+                                icon: cat.monologueIconType
+                            )
+                        } else if MangaStyle.isActive {
                             HStack(spacing: 6) {
                                 MonologueIcon(icon: cat.monologueIconType, size: 16, color: MangaStyle.ink, lineWidth: 1.8)
                                 Text(cat.name)
@@ -779,19 +880,42 @@ struct PodcastView: View {
                         }
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
-                    .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                    .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                         content
                             .scaleEffect(phase.isIdentity ? 1 : 0.93)
                             .opacity(phase.isIdentity ? 1 : 0.5)
                     }
                 }
             }
-            .scrollTargetLayout()
+            .compatScrollTargetLayout()
             .padding(.horizontal, padH)
         }
-        .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+        .compatViewAlignedScrollBehavior(limitNever: true)
         .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+    }
+
+    private func minimalWhiteCategoryPill(
+        title: String,
+        icon: MonologueIcon.IconType,
+        selected: Bool = false
+    ) -> some View {
+        HStack(spacing: 7) {
+            MonologueIcon(
+                icon: icon,
+                size: 15,
+                color: selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkSoft,
+                lineWidth: 1.6
+            )
+
+            Text(title)
+                .font(MinimalWhiteStyle.labelFont(12, weight: selected ? .medium : .regular))
+                .foregroundStyle(selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkSoft)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(MinimalWhiteCapsuleBackground(elevated: false, selected: selected))
     }
 
     private func petWhiteCategoryPill(
@@ -811,12 +935,11 @@ struct PodcastView: View {
         .padding(.horizontal, 13)
         .padding(.vertical, 10)
         .background(
-            Capsule(style: .continuous)
-                .fill(selected ? tint : PetWhiteStyle.surfaceRaised)
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(selected ? PetWhiteStyle.stroke : PetWhiteStyle.separator, lineWidth: selected ? 1.4 : 1)
-                )
+            PetWhiteClayPuck(
+                shape: Capsule(style: .continuous),
+                tint: selected ? tint : PetWhiteStyle.surfaceRaised,
+                pressedLook: selected
+            )
         )
     }
 
@@ -881,7 +1004,7 @@ struct PodcastView: View {
                             todayPickCard(radio: radio)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                 .opacity(phase.isIdentity ? 1 : 0.5)
@@ -889,10 +1012,10 @@ struct PodcastView: View {
                         }
                     }
                 }
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
                 .padding(.horizontal, padH)
             }
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
@@ -1001,7 +1124,7 @@ struct PodcastView: View {
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
             )
 
             VStack(alignment: .leading, spacing: 6) {
@@ -1024,11 +1147,11 @@ struct PodcastView: View {
             PetWhitePackIcon(icon: .play, size: 18, visualScale: 1.08)
                 .frame(width: 34, height: 34)
                 .background(PetWhiteStyle.dogOrange, in: Circle())
-                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
         }
         .padding(12)
         .frame(width: DeviceLayout.isPad ? 348 : 292, height: DeviceLayout.isPad ? 116 : 106)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
     }
 
     // MARK: - 精选电台（列表）
@@ -1081,7 +1204,7 @@ struct PodcastView: View {
                             creativeCompactCard(creative: program)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                 .opacity(phase.isIdentity ? 1 : 0.8)
@@ -1091,8 +1214,8 @@ struct PodcastView: View {
                 .padding(.horizontal, padH)
             }
             .themeRenderScrollLayer()
-            .scrollTargetBehavior(.viewAligned)
-            .scrollClipDisabled()
+            .compatViewAlignedScrollBehavior()
+            .compatScrollClipDisabled()
         }
     }
 
@@ -1116,7 +1239,7 @@ struct PodcastView: View {
                             creativeCompactCard(creative: program, rank: index + 1)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                 .opacity(phase.isIdentity ? 1 : 0.8)
@@ -1126,8 +1249,8 @@ struct PodcastView: View {
                 .padding(.horizontal, padH)
             }
             .themeRenderScrollLayer()
-            .scrollTargetBehavior(.viewAligned)
-            .scrollClipDisabled()
+            .compatViewAlignedScrollBehavior()
+            .compatScrollClipDisabled()
         }
     }
 
@@ -1263,7 +1386,7 @@ struct PodcastView: View {
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
             )
             .overlay(alignment: .topTrailing) {
                 if let rank {
@@ -1291,7 +1414,7 @@ struct PodcastView: View {
         }
         .frame(width: s)
         .padding(9)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: rank.map { $0 <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky } ?? PetWhiteStyle.mint))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: rank.map { $0 <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky } ?? PetWhiteStyle.mint))
     }
 
     // MARK: - 新人电台榜
@@ -1313,7 +1436,7 @@ struct PodcastView: View {
                             rankedCompactCard(radio: radio, rank: index + 1)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                 .opacity(phase.isIdentity ? 1 : 0.5)
@@ -1321,10 +1444,10 @@ struct PodcastView: View {
                         }
                     }
                 }
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
                 .padding(.horizontal, padH)
             }
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
@@ -1417,7 +1540,7 @@ struct PodcastView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 23, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 23, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                 )
 
                 Text("\(rank)")
@@ -1443,7 +1566,7 @@ struct PodcastView: View {
         }
         .frame(width: size)
         .padding(9)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: rank <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: rank <= 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky))
     }
 
     // MARK: - 节目榜
@@ -1489,14 +1612,14 @@ struct PodcastView: View {
         } else if NeumorphicStyle.isActive {
             neumorphicRadioGridCard(radio: radio)
         } else {
-            let cr: CGFloat = MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16)
-            let cardPadding: CGFloat = MujiStyle.isActive ? 9 : 0
+            let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
+            let cardPadding: CGFloat = (MinimalWhiteStyle.isActive || MujiStyle.isActive) ? 9 : 0
 
             VStack(alignment: .leading, spacing: 0) {
                 GeometryReader { _ in
                     CachedAsyncImage(url: radio.coverUrl) {
                         RoundedRectangle(cornerRadius: cr)
-                            .fill(Color.monologueGlassTint)
+                            .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.monologueGlassTint)
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1504,11 +1627,13 @@ struct PodcastView: View {
                 }
                 .aspectRatio(1, contentMode: .fit)
                 .overlay(
-                    LinearGradient(
-                        colors: [.clear, .clear, .black.opacity(0.35)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                    (MinimalWhiteStyle.isActive
+                        ? LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom)
+                        : LinearGradient(
+                            colors: [.clear, .clear, .black.opacity(0.35)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
                     .clipShape(RoundedRectangle(cornerRadius: cr))
                 )
                 .overlay(alignment: .bottomTrailing) {
@@ -1521,7 +1646,7 @@ struct PodcastView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(radio.name)
-                        .font(MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .semibold, design: .rounded))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .semibold, design: .rounded)))
                         .foregroundColor(.monologueTextPrimary)
                         .lineLimit(2, reservesSpace: true)
                         .minimumScaleFactor(0.86)
@@ -1530,7 +1655,7 @@ struct PodcastView: View {
                         .frame(maxWidth: .infinity, minHeight: 36, alignment: .topLeading)
 
                     Text(radio.dj?.nickname ?? " ")
-                        .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded)))
                         .foregroundColor(.monologueTextSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
@@ -1542,7 +1667,13 @@ struct PodcastView: View {
             }
             .padding(cardPadding)
             .background {
-                if MujiStyle.isActive {
+                if MinimalWhiteStyle.isActive {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: 14,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                } else if MujiStyle.isActive {
                     MujiPaperCardBackground(cornerRadius: 11)
                 }
             }
@@ -1565,13 +1696,13 @@ struct PodcastView: View {
                 .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                 )
 
                 PetWhitePackIcon(icon: .play, size: 15, visualScale: 1.08)
                     .frame(width: 34, height: 34)
                     .background(PetWhiteStyle.butter, in: Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
                     .padding(8)
             }
             .aspectRatio(1, contentMode: .fit)
@@ -1590,7 +1721,7 @@ struct PodcastView: View {
             }
         }
         .padding(10)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
     }
 
     private func sequoiaRadioGridCard(radio: RadioStation) -> some View {
@@ -1761,11 +1892,13 @@ struct PodcastView: View {
         }
 
         let rowImg: CGFloat = DeviceLayout.isPad ? 72 : 60
-        let themedInset = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
-        let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 16)
-        let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+        let themedInset = MinimalWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
+        let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 16))
+        let placeholderFill: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
         let titleFont: Font
-        if MujiStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            titleFont = MinimalWhiteStyle.bodyFont(15, weight: .medium)
+        } else if MujiStyle.isActive {
             titleFont = MujiStyle.bodyFont(15, weight: .regular)
         } else if NeumorphicStyle.isActive {
             titleFont = NeumorphicStyle.bodyFont(15, weight: .semibold)
@@ -1774,11 +1907,11 @@ struct PodcastView: View {
         } else {
             titleFont = .system(size: 15, weight: .medium, design: .rounded)
         }
-        let secondaryFont: Font = SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded)
-        let primaryColor: Color = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-        let secondaryColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-        let playForeground: Color = SequoiaStyle.isActive ? SequoiaStyle.onAccent : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)
-        let playBackground: Color = SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
+        let secondaryFont: Font = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
+        let primaryColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
+        let secondaryColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
+        let playForeground: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.onAccent : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground))
+        let playBackground: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground))
 
         return AnyView(HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
@@ -1821,6 +1954,8 @@ struct PodcastView: View {
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(cornerRadius: 14, elevated: false, tint: MinimalWhiteStyle.glassFill)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
             } else if SequoiaStyle.isActive {
@@ -1844,7 +1979,7 @@ struct PodcastView: View {
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
             )
 
             VStack(alignment: .leading, spacing: 5) {
@@ -1890,14 +2025,18 @@ struct PodcastView: View {
 
         let isTop3 = rank <= 3
         let coverSize: CGFloat = DeviceLayout.isPad ? 60 : 50
-        let themedInset = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
-        let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 15 : 14)
-        let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
-        let rankFont: Font = SequoiaStyle.isActive
+        let themedInset = MinimalWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
+        let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 15 : 14))
+        let placeholderFill: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
+        let rankFont: Font = MinimalWhiteStyle.isActive
+            ? MinimalWhiteStyle.titleFont(isTop3 ? 18 : 15, weight: .semibold)
+            : (SequoiaStyle.isActive
             ? SequoiaStyle.titleFont(isTop3 ? 19 : 16, weight: .semibold)
-            : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(isTop3 ? 20 : 16, weight: .semibold) : .system(size: isTop3 ? 20 : 16, weight: .heavy, design: .rounded))
+            : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(isTop3 ? 20 : 16, weight: .semibold) : .system(size: isTop3 ? 20 : 16, weight: .heavy, design: .rounded)))
         let titleFont: Font
-        if MujiStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            titleFont = MinimalWhiteStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .medium : .regular)
+        } else if MujiStyle.isActive {
             titleFont = MujiStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .medium : .regular)
         } else if NeumorphicStyle.isActive {
             titleFont = NeumorphicStyle.bodyFont(isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium)
@@ -1906,10 +2045,10 @@ struct PodcastView: View {
         } else {
             titleFont = .system(size: isTop3 ? 15 : 14, weight: isTop3 ? .semibold : .medium, design: .rounded)
         }
-        let subtitleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded)
-        let primaryColor: Color = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-        let secondaryColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-        let rankColor: Color = isTop3 ? (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground)) : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary))
+        let subtitleFont: Font = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, design: .rounded))
+        let primaryColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
+        let secondaryColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
+        let rankColor: Color = MinimalWhiteStyle.isActive ? (isTop3 ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted) : (isTop3 ? (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground)) : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary)))
 
         return AnyView(HStack(spacing: 14) {
             Text("\(rank)")
@@ -1954,6 +2093,8 @@ struct PodcastView: View {
         .background {
             if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(cornerRadius: 14, elevated: isTop3, tint: MinimalWhiteStyle.glassFill)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isTop3)
             } else if SequoiaStyle.isActive {
@@ -1984,7 +2125,7 @@ struct PodcastView: View {
             .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.2)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
             )
 
             VStack(alignment: .leading, spacing: 4) {
@@ -2035,7 +2176,7 @@ struct PodcastView: View {
                             broadcastCard(channel: channel)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                 .opacity(phase.isIdentity ? 1 : 0.5)
@@ -2043,10 +2184,10 @@ struct PodcastView: View {
                         }
                     }
                 }
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
                 .padding(.horizontal, padH)
             }
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
@@ -2054,13 +2195,13 @@ struct PodcastView: View {
 
     private func broadcastCard(channel: BroadcastChannel) -> some View {
         let bcSize = broadcastCardSize
-        let bcCR: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16))
-        let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
-        let iconColor: Color = SequoiaStyle.isActive ? SequoiaStyle.aqua : (NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary)
-        let titleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)))
-        let subtitleFont: Font = SequoiaStyle.isActive ? SequoiaStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
-        let titleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-        let subtitleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+        let bcCR: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16)))
+        let placeholderFill: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
+        let iconColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.aqua : (NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary))
+        let titleFont: Font = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))))
+        let subtitleFont: Font = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded))))
+        let titleColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
+        let subtitleColor: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
 
         return VStack(alignment: .leading, spacing: 8) {
             ZStack {
@@ -2118,9 +2259,11 @@ struct PodcastView: View {
             }
         }
         .frame(width: bcSize)
-        .padding(MujiStyle.isActive ? 8 : 0)
+        .padding((MinimalWhiteStyle.isActive || MujiStyle.isActive) ? 8 : 0)
         .background {
-            if MujiStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(cornerRadius: 14, elevated: false, tint: MinimalWhiteStyle.glassFill)
+            } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: 10)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
@@ -2183,7 +2326,7 @@ private struct PodcastHistorySection: View {
                 HStack(spacing: 14) {
                     ForEach(history.prefix(10)) { song in
                         historyCard(song: song)
-                            .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                            .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                                 content
                                     .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                     .opacity(phase.isIdentity ? 1 : 0.5)
@@ -2191,10 +2334,10 @@ private struct PodcastHistorySection: View {
                             }
                     }
                 }
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
                 .padding(.horizontal, padH)
             }
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }

@@ -1,32 +1,31 @@
 import Foundation
-import Observation
 import Combine
 
 @MainActor
-@Observable class PodcastViewModel {
+class PodcastViewModel: ObservableObject {
     static let shared = PodcastViewModel()
 
-    var personalizedRadios: [RadioStation] = []
-    var categories: [RadioCategory] = []
-    var recommendRadios: [RadioStation] = []
-    var broadcastChannels: [BroadcastChannel] = []
+    @Published var personalizedRadios: [RadioStation] = []
+    @Published var categories: [RadioCategory] = []
+    @Published var recommendRadios: [RadioStation] = []
+    @Published var broadcastChannels: [BroadcastChannel] = []
     
     // DJ 扩展数据
-    var djBanners: [Banner] = []
-    var paygiftRadios: [RadioStation] = []
-    var newcomerRadios: [RadioStation] = []
-    var programToplist: [RadioProgram] = []
-    var todayPerfered: [RadioStation] = []
-    var hotRadios: [RadioStation] = []
+    @Published var djBanners: [Banner] = []
+    @Published var paygiftRadios: [RadioStation] = []
+    @Published var newcomerRadios: [RadioStation] = []
+    @Published var programToplist: [RadioProgram] = []
+    @Published var todayPerfered: [RadioStation] = []
+    @Published var hotRadios: [RadioStation] = []
 
     // 播客首页 Tab 真实数据
-    var rcmdPrograms: [PodcastCreative] = []      // 为你推荐（节目）
-    var hotPodcasts: [PodcastCreative] = []        // 热门播客（电台）
-    var newestPrograms: [PodcastCreative] = []     // 上新佳作
-    var chartPrograms: [PodcastCreative] = []      // 音乐播客榜
+    @Published var rcmdPrograms: [PodcastCreative] = []      // 为你推荐（节目）
+    @Published var hotPodcasts: [PodcastCreative] = []        // 热门播客（电台）
+    @Published var newestPrograms: [PodcastCreative] = []     // 上新佳作
+    @Published var chartPrograms: [PodcastCreative] = []      // 音乐播客榜
     
-    var isLoading = false
-    var errorMessage: String?
+    @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared

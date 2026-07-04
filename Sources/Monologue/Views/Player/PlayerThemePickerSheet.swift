@@ -7,7 +7,7 @@ struct PlayerThemePickerSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.monologueSheetContext) private var monologueSheetContext
     @ObservedObject private var settings = SettingsManager.shared
-    @State private var themeManager = PlayerThemeManager.shared
+    @ObservedObject private var themeManager = PlayerThemeManager.shared
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -32,7 +32,8 @@ struct PlayerThemePickerSheet: View {
                     GridItem(.flexible(), spacing: 14),
                     GridItem(.flexible(), spacing: 14)
                 ], spacing: 14) {
-                    ForEach(PlayerTheme.allCases, id: \.self) { theme in
+                    // 影院已改为沉浸模式（三点菜单进入），不再作为主题出现
+                    ForEach(PlayerTheme.allCases.filter { $0 != .cinema }, id: \.self) { theme in
                         themeCard(theme)
                     }
                 }
@@ -220,6 +221,8 @@ private struct PlayerThemeStaticPreview: View {
             LinearGradient(colors: isDark ? [Color(hex: "2C2118"), Color(hex: "15100C")] : [Color(hex: "F5E9D8"), Color(hex: "E4D1B8")], startPoint: .top, endPoint: .bottom)
         case .game2048:
             Color(hex: "BBADA0")
+        case .cinema:
+            LinearGradient(colors: [Color(hex: "17151D"), Color(hex: "0B0B0F")], startPoint: .top, endPoint: .bottom)
         }
     }
 
@@ -248,6 +251,15 @@ private struct PlayerThemeStaticPreview: View {
         case .mangaChat: mangaChatPreview(size: size)
         case .folk: folkPreview(size: size)
         case .game2048: game2048Preview(size: size)
+        case .cinema:
+            VStack(spacing: 6) {
+                Image(systemName: "film.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white.opacity(0.85))
+                RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.7)).frame(width: size.width * 0.5, height: 4)
+                RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.4)).frame(width: size.width * 0.34, height: 4)
+            }
+            .frame(width: size.width, height: size.height)
         }
     }
 

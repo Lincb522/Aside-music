@@ -10,6 +10,7 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
     case doodlePop
     case pawPrint
     case dotDogSnake
+    case minimalWhiteIcons
 
     var id: String { rawValue }
 
@@ -33,12 +34,14 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
             return "Paw Print"
         case .dotDogSnake:
             return "Dot Dog-Snake"
+        case .minimalWhiteIcons:
+            return "Minimal White"
         }
     }
 
     var usesOriginalArtwork: Bool {
         switch self {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
             return true
         case .hicon, .zappicon, .lucide, .solar, .blobIcons:
             return false
@@ -93,6 +96,8 @@ extension GlobalThemeId {
             return .doodlePop
         case .neumorphic, .capsule:
             return .blobIcons
+        case .minimalWhite:
+            return .minimalWhiteIcons
         case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
             return .hicon
         }

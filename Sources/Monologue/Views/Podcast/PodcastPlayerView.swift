@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PodcastPlayerView: View {
     let radioId: Int
-    @State private var viewModel: PodcastPlayerViewModel
+    @StateObject private var viewModel: PodcastPlayerViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
@@ -16,15 +16,19 @@ struct PodcastPlayerView: View {
 
     init(radioId: Int) {
         self.radioId = radioId
-        _viewModel = State(initialValue: PodcastPlayerViewModel(radioId: radioId))
+        _viewModel = StateObject(wrappedValue: PodcastPlayerViewModel(radioId: radioId))
     }
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
+            } else {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
+            }
 
             if viewModel.isLoading && viewModel.radioDetail == nil {
                 loadingState
@@ -60,7 +64,7 @@ struct PodcastPlayerView: View {
             topBar
                 .padding(.top, DeviceLayout.headerTopPadding)
             Spacer()
-            MonologueLoadingView(text: "LOADING")
+            MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
             Spacer()
         }
     }
@@ -72,20 +76,24 @@ struct PodcastPlayerView: View {
             topBar
                 .padding(.top, DeviceLayout.headerTopPadding)
             Spacer()
-            MonologueIcon(icon: .warning, size: 40, color: .monologueTextSecondary)
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .warning, size: 56)
+            } else {
+                MonologueIcon(icon: .warning, size: 40, color: .monologueTextSecondary)
+            }
             Text(error)
-                .font(.system(size: 14, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : .system(size: 14, design: .rounded))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button(String(localized: "radio_retry")) {
                 viewModel.fetchDetail()
             }
             .font(.system(size: 15, weight: .medium, design: .rounded))
-            .foregroundColor(.monologueIconForeground)
+            .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.onAccent : .monologueIconForeground)
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
-            .background(Color.monologueIconBackground)
+            .background(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : Color.monologueIconBackground)
             .clipShape(Capsule())
             Spacer()
         }
@@ -151,8 +159,8 @@ struct PodcastPlayerView: View {
 
             if let radio = viewModel.radioDetail {
                 Text(radio.name)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
                     .lineLimit(1)
             }
 
@@ -170,17 +178,27 @@ struct PodcastPlayerView: View {
                     MonologueIcon(
                         icon: isSubscribed ? .liked : .like,
                         size: 18,
-                        color: isSubscribed ? .monologueAccent : .monologueTextPrimary,
+                        color: MinimalWhiteStyle.isActive ? (isSubscribed ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted) : (isSubscribed ? .monologueAccent : .monologueTextPrimary),
                         lineWidth: 1.4
                     )
                     .frame(width: 40, height: 40)
+                    .background {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteCircleBackground(elevated: false, selected: isSubscribed)
+                        }
+                    }
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
             }
 
             Button(action: { showEpisodeList = true }) {
-                MonologueIcon(icon: .list, size: 18, color: .monologueTextPrimary, lineWidth: 1.4)
+                MonologueIcon(icon: .list, size: 18, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextPrimary, lineWidth: 1.4)
                     .frame(width: 40, height: 40)
+                    .background {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteCircleBackground(elevated: false)
+                        }
+                    }
             }
             .buttonStyle(MonologueBouncingButtonStyle())
         }
@@ -194,7 +212,7 @@ struct PodcastPlayerView: View {
             if let coverURL = viewModel.currentProgram?.programCoverUrl ?? viewModel.radioDetail?.coverUrl {
                 CachedAsyncImage(url: coverURL) {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color.monologueTextSecondary.opacity(0.08))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.monologueTextSecondary.opacity(0.08))
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity)
@@ -203,13 +221,19 @@ struct PodcastPlayerView: View {
                 .overlay(alignment: .bottom) {
                     coverProgressOverlay
                 }
-                .shadow(color: .black.opacity(0.15), radius: 24, x: 0, y: 12)
+                .overlay {
+                    if MinimalWhiteStyle.isActive {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                    }
+                }
+                .shadow(color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink.opacity(0.06) : .black.opacity(0.15), radius: MinimalWhiteStyle.isActive ? 14 : 24, x: 0, y: MinimalWhiteStyle.isActive ? 6 : 12)
             } else {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.monologueTextSecondary.opacity(0.08))
+                    .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.monologueTextSecondary.opacity(0.08))
                     .aspectRatio(1, contentMode: .fit)
                     .overlay(
-                        MonologueIcon(icon: .radio, size: 56, color: .monologueTextSecondary.opacity(0.3), lineWidth: 1.2)
+                        MonologueIcon(icon: .radio, size: 56, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted.opacity(0.6) : .monologueTextSecondary.opacity(0.3), lineWidth: 1.2)
                     )
                     .overlay(alignment: .bottom) {
                         coverProgressOverlay
@@ -225,7 +249,7 @@ struct PodcastPlayerView: View {
             if let program = viewModel.currentProgram {
                 Text(program.name ?? String(localized: "radio_unknown_program"))
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : .monologueTextPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
 
@@ -233,34 +257,34 @@ struct PodcastPlayerView: View {
                     if let radio = viewModel.radioDetail {
                         Text(radio.name)
                             .font(.system(size: 13, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
+                            .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
                     }
                     Circle()
-                        .fill(Color.monologueTextSecondary.opacity(0.3))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.hairline : Color.monologueTextSecondary.opacity(0.3))
                         .frame(width: 3, height: 3)
                     Text(String(format: String(localized: "radio_episode_format"), viewModel.currentEpisodeNumber, viewModel.totalProgramCount))
                         .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
                     if !program.durationText.isEmpty {
                         Circle()
-                            .fill(Color.monologueTextSecondary.opacity(0.3))
+                            .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.hairline : Color.monologueTextSecondary.opacity(0.3))
                             .frame(width: 3, height: 3)
                         HStack(spacing: 3) {
-                            MonologueIcon(icon: .clock, size: 11, color: .monologueTextSecondary)
+                            MonologueIcon(icon: .clock, size: 11, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
                             Text(program.durationText)
                                 .font(.system(size: 12, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+                                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
                         }
                     }
                 }
             } else if viewModel.isLoading {
                 Text("radio_tuning")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
             } else {
                 Text("radio_no_programs")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : .monologueTextSecondary)
             }
         }
     }

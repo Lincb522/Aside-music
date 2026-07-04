@@ -1,6 +1,9 @@
 import SwiftUI
 import FFmpegSwiftSDK
 
+/// Paw 播放器 — 黏土玩具语言：
+/// 大封面像一块厚黏土浮在桌面上（播放/暂停呼吸缩放），
+/// 按钮是能「按下去」的糖果色黏土块，进度条使用全局音纹组件的暖橙配色。
 struct PawcelainPlayerLayout: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
@@ -32,41 +35,47 @@ struct PawcelainPlayerLayout: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: pawPlayerSectionSpacing) {
-                        headerBar
-                            .padding(.top, DeviceLayout.headerTopPadding)
-                            .padding(.bottom, 10)
+                headerBar
+                    .padding(.top, DeviceLayout.headerTopPadding)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 
-                        stageCard
-                            .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
-
-                        songMetaCard
-                            .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
-
-                        pawProgressSection
+                if showLyrics {
+                    lyricsStage
                         .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
-
-                        PlayerControlsBar(
-                            contentColor: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
-                            secondaryColor: usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkSoft,
-                            showSecondaryRow: !showLyrics,
-                            onShowPlaylist: { showPlaylist = true },
-                            onShowComments: { showComments = true },
-                            onShowEQ: { showEQSettings = true }
-                        )
-                        .padding(.horizontal, usesIllustratedBackground ? 14 : DeviceLayout.playerHorizontalPadding)
-                        .padding(.vertical, usesIllustratedBackground ? 10 : 0)
-                        .background {
-                            playerReadabilityBackground(cornerRadius: 26, opacity: 0.64)
-                        }
-                        .padding(.horizontal, usesIllustratedBackground ? DeviceLayout.playerHorizontalPadding : 0)
-
-                        Spacer(minLength: pawPlayerBottomBreathingRoom)
-                    }
-                    .padding(.bottom, pawPlayerBottomPadding)
+                        .padding(.top, 12)
+                        .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
+                } else {
+                    coverStage
+                        .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
                 }
-                .themeRenderScrollLayer()
+
+                songInfoSection
+                    .padding(.horizontal, DeviceLayout.playerHorizontalPadding + 6)
+                    .padding(.top, showLyrics ? 14 : 0)
+
+                Spacer(minLength: 10)
+
+                progressSection
+                    .padding(.horizontal, DeviceLayout.playerHorizontalPadding + 4)
+
+                PlayerControlsBar(
+                    contentColor: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
+                    secondaryColor: usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkSoft,
+                    showSecondaryRow: true,
+                    onShowPlaylist: { showPlaylist = true },
+                    onShowComments: { showComments = true },
+                    onShowEQ: { showEQSettings = true }
+                )
+                .padding(.horizontal, usesIllustratedBackground ? 14 : DeviceLayout.playerHorizontalPadding)
+                .padding(.vertical, usesIllustratedBackground ? 10 : 0)
+                .background {
+                    playerReadabilityBackground(cornerRadius: PetWhiteStyle.cardRadius, opacity: 0.64)
+                }
+                .padding(.horizontal, usesIllustratedBackground ? DeviceLayout.playerHorizontalPadding : 0)
+                .padding(.top, 16)
+
+                Spacer(minLength: 0)
+                    .frame(height: pawPlayerBottomPadding)
             }
 
             if showMoreMenu {
@@ -152,178 +161,143 @@ struct PawcelainPlayerLayout: View {
         }
     }
 
+    // MARK: - Header
+
     private var headerBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 6) {
             MonologueBackButton(style: .dismiss, isDarkBackground: false)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(LocalizedStringKey("player_now_playing"))
-                    .font(PetWhiteStyle.labelFont(11, weight: .black))
-                    .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkSoft)
-                    .tracking(1)
-
-                Text(player.currentSong?.name ?? String(localized: "暂无播放内容"))
-                    .font(PetWhiteStyle.bodyFont(13, weight: .bold))
-                    .foregroundStyle(usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-
-                if let info = player.streamInfo {
-                    Text(streamInfoText(info))
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText.opacity(0.82) : PetWhiteStyle.inkSoft.opacity(0.72))
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, usesIllustratedBackground ? 12 : 0)
-            .padding(.vertical, usesIllustratedBackground ? 8 : 0)
-            .background {
-                playerReadabilityBackground(cornerRadius: 18, opacity: 0.66)
-            }
-            .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 8)
 
-            headerIconButton(
-                icon: showLyrics ? .musicNote : .karaoke,
-                assetName: showLyrics ? "albumToggle" : "lyricsToggle",
-                tint: showLyrics ? PetWhiteStyle.butter : PetWhiteStyle.sky,
-                isActive: showLyrics
-            ) {
-                toggleLyrics()
-            }
+            Text(LocalizedStringKey("player_now_playing"))
+                .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                .tracking(1.6)
+                .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.dogEar)
+                .lineLimit(1)
+                .padding(.horizontal, usesIllustratedBackground ? 10 : 0)
+                .padding(.vertical, usesIllustratedBackground ? 5 : 0)
+                .background {
+                    playerReadabilityBackground(cornerRadius: 12, opacity: 0.6)
+                }
 
-            headerIconButton(icon: .more, tint: PetWhiteStyle.mint, isActive: showMoreMenu) {
+            Spacer(minLength: 8)
+
+            headerIconButton(icon: .more, isActive: showMoreMenu) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {
                     showMoreMenu.toggle()
                 }
             }
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
 
-    @ViewBuilder
-    private var stageCard: some View {
-        if showLyrics {
-            lyricsCard
-                .transition(.opacity.combined(with: .scale(scale: 0.985)))
-        } else {
-            coverCard
-                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+    private func headerIconButton(
+        icon: MonologueIcon.IconType,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            PetWhiteClayPuck(
+                shape: Circle(),
+                tint: isActive ? PetWhiteStyle.butter : PetWhiteStyle.surfaceRaised.opacity(usesIllustratedBackground ? 0.85 : 1),
+                pressedLook: isActive
+            )
+            .frame(width: 38, height: 38)
+            .overlay(
+                PetWhitePackIcon(
+                    icon: icon,
+                    size: 19,
+                    visualScale: 1,
+                    fallbackColor: PetWhiteStyle.ink,
+                    lineWidth: 1.8
+                )
+            )
         }
+        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.88))
     }
 
-    private var coverCard: some View {
-        VStack(spacing: 12) {
+    // MARK: - Cover stage
+
+    private var coverStage: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 12)
+
             ZStack {
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                RoundedRectangle(cornerRadius: 34, style: .continuous)
                     .fill(PetWhiteStyle.surfaceRaised)
-                    .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 10)
 
                 if let song = player.currentSong {
                     CachedAsyncImage(url: song.coverUrl?.sized(800)) {
-                        PetWhiteMascotMark(kind: .pair, size: 90)
+                        PetWhiteMascotMark(kind: .pair, size: coverSide * 0.34)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: geometryAwareCoverHeight)
+                    .frame(width: coverSide, height: coverSide)
                     .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
                 } else {
-                    PetWhiteMascotMark(kind: .pair, size: 108)
+                    PetWhiteMascotMark(kind: .pair, size: coverSide * 0.38)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: geometryAwareCoverHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+            .frame(width: coverSide, height: coverSide)
+            .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .strokeBorder(PetWhiteStyle.stroke, lineWidth: 1.5)
+                // 黏土受光面：顶部柔白反光，让封面像嵌进黏土块里
+                RoundedRectangle(cornerRadius: 34, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [PetWhiteStyle.glazeHighlight.opacity(0.2), .clear],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+                    .allowsHitTesting(false)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+            // 新拟物双向阴影：黏土封面从桌面「挤」出来，播放时挤得更高
+            .shadow(
+                color: PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.05 : 0.95),
+                radius: player.isPlaying ? 16 : 10,
+                x: player.isPlaying ? -11 : -7,
+                y: player.isPlaying ? -11 : -7
+            )
+            .shadow(
+                color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.6 : (player.isPlaying ? 0.65 : 0.42)),
+                radius: player.isPlaying ? 24 : 13,
+                x: player.isPlaying ? 13 : 8,
+                y: player.isPlaying ? 17 : 10
+            )
+            .scaleEffect(player.isPlaying ? 1 : 0.92)
+            .animation(.spring(response: 0.5, dampingFraction: 0.72), value: player.isPlaying)
+            .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .onTapGesture {
-                if player.currentSong != nil {
-                    toggleLyrics()
-                }
+                toggleLyrics()
             }
 
-            HStack(spacing: 12) {
-                PetWhiteIconBadge(icon: .musicNoteList, tint: PetWhiteStyle.butter, size: 42)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(player.currentSong?.name ?? String(localized: "暂无播放内容"))
-                        .font(PetWhiteStyle.titleFont(22, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
-                        .allowsTightening(true)
-                        .multilineTextAlignment(.leading)
-
-                    Button {
-                        showArtistDetail = true
-                    } label: {
-                        Text(player.currentSong?.artistName ?? String(localized: "先挑一首歌吧"))
-                            .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
-                            .foregroundStyle(PetWhiteStyle.inkSoft)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.82)
-                            .allowsTightening(true)
-                            .multilineTextAlignment(.leading)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .layoutPriority(1)
-
-                Spacer(minLength: 8)
-
-                Button {
-                    showQualitySheet = true
-                } label: {
-                    HStack(spacing: 5) {
-                        PetWhitePackIcon(icon: .soundQuality, size: 14, visualScale: 1.04)
-                        Text(player.qualityButtonText)
-                            .font(PetWhiteStyle.labelFont(11, weight: .black))
-                    }
-                    .foregroundStyle(PetWhiteStyle.ink)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(PetWhiteStyle.mint, in: Capsule())
-                    .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1))
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
-                .playerQualitySelectionAvailability()
-                .fixedSize()
-            }
-            .padding(.horizontal, 4)
+            Spacer(minLength: 18)
         }
-        .padding(14)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 34, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .frame(maxWidth: .infinity)
     }
 
-    private var lyricsCard: some View {
-        ZStack(alignment: .top) {
-            if let song = player.currentSong {
-                LyricsView(song: song, onBackgroundTap: {
-                    toggleLyrics()
-                })
-                .padding(.top, 10)
-            } else {
-                VStack(spacing: 12) {
-                    PetWhiteMascotMark(kind: .pair, size: 96)
-                    Text(String(localized: "暂无播放内容"))
-                        .font(PetWhiteStyle.titleFont(20, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                    Text(String(localized: "先挑一首歌吧"))
-                        .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
-                        .foregroundStyle(PetWhiteStyle.inkSoft)
+    // MARK: - Lyrics stage
+
+    private var lyricsStage: some View {
+        ZStack(alignment: .topTrailing) {
+            Group {
+                if let song = player.currentSong {
+                    LyricsView(song: song, onBackgroundTap: {
+                        toggleLyrics()
+                    })
+                } else {
+                    VStack(spacing: 12) {
+                        PetWhiteMascotMark(kind: .pair, size: 96)
+                        Text(String(localized: "暂无播放内容"))
+                            .font(PetWhiteStyle.titleFont(20, weight: .bold))
+                            .foregroundStyle(PetWhiteStyle.ink)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .padding(.top, 6)
 
             HStack(spacing: 8) {
-                Spacer()
-
                 Button {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         enableKaraoke.toggle()
@@ -352,91 +326,175 @@ struct PawcelainPlayerLayout: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(12)
+            .padding(.trailing, 10)
+            .padding(.top, 10)
         }
-        .frame(height: geometryAwareLyricsHeight)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 34, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
-        .overlay(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: .infinity)
+        .background(
+            PetWhiteSurfaceBackground(
+                cornerRadius: PetWhiteStyle.cardRadius,
+                elevated: false,
+                tint: usesIllustratedBackground
+                    ? PetWhiteStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.9 : 0.86)
+                    : PetWhiteStyle.surfaceRaised,
+                accent: PetWhiteStyle.butter
+            )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
     }
 
-    private var songMetaCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                PetWhitePill(text: player.mode.displayName.uppercased(), tint: PetWhiteStyle.sky)
+    // MARK: - Song info
 
-                if player.isPlayingPodcast {
-                    PetWhitePill(text: String(localized: "podcast"), tint: PetWhiteStyle.butter)
+    private var songInfoSection: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(player.currentSong?.name ?? String(localized: "暂无播放内容"))
+                    .font(PetWhiteStyle.titleFont(23, weight: .bold))
+                    .foregroundStyle(usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink)
+                    .lineLimit(showLyrics ? 1 : 2)
+                    .minimumScaleFactor(0.72)
+                    .allowsTightening(true)
+                    .multilineTextAlignment(.leading)
+
+                Button {
+                    showArtistDetail = true
+                } label: {
+                    Text(player.currentSong?.artistName ?? String(localized: "先挑一首歌吧"))
+                        .font(PetWhiteStyle.bodyFont(14))
+                        .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkSoft)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
                 }
+                .buttonStyle(.plain)
 
-                if player.currentSong?.isQQMusic == true {
-                    PetWhitePill(text: "QQ", tint: PetWhiteStyle.blush.opacity(0.72))
+                if !showLyrics {
+                    HStack(spacing: 8) {
+                        Button {
+                            showQualitySheet = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                PetWhitePackIcon(icon: .soundQuality, size: 11, visualScale: 1, fallbackColor: PetWhiteStyle.dogEar, lineWidth: 1.5)
+                                Text(player.qualityButtonText)
+                                    .font(PetWhiteStyle.labelFont(10, weight: .semibold))
+                            }
+                            .foregroundStyle(PetWhiteStyle.dogEar)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(PetWhiteClayPuck(shape: Capsule(), tint: PetWhiteStyle.butter))
+                        }
+                        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.9))
+                        .playerQualitySelectionAvailability()
+
+                        if let info = player.streamInfo {
+                            Text(streamInfoText(info))
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText.opacity(0.85) : PetWhiteStyle.inkMuted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                    }
+                    .padding(.top, 3)
                 }
-
-                Spacer(minLength: 0)
             }
+            .layoutPriority(1)
 
-            HStack(spacing: 8) {
-                playerActionButton(
-                    icon: showLyrics ? .musicNote : .karaoke,
-                    title: showLyrics ? String(localized: "封面") : String(localized: "歌词"),
-                    tint: showLyrics ? PetWhiteStyle.butter : PetWhiteStyle.sky,
-                    isActive: showLyrics
-                ) {
-                    toggleLyrics()
-                }
+            Spacer(minLength: 6)
 
-                playerActionButton(
-                    icon: .soundQuality,
-                    title: player.qualityButtonText,
-                    tint: PetWhiteStyle.mint,
-                    isActive: false
-                ) {
-                    showQualitySheet = true
-                }
-                .playerQualitySelectionAvailability()
-
-                if let song = player.currentSong {
-                    pawLikeActionButton(song: song)
-                }
+            if let song = player.currentSong {
+                pawLikeButton(song: song)
             }
         }
-        .padding(14)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 24, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.sky))
+        .padding(.horizontal, usesIllustratedBackground ? 14 : 0)
+        .padding(.vertical, usesIllustratedBackground ? 10 : 0)
+        .background {
+            playerReadabilityBackground(cornerRadius: PetWhiteStyle.cardRadius, opacity: 0.72)
+        }
     }
 
-    private var pawProgressSection: some View {
-        PawPlaybackProgressBar(
-            isDragging: $isDraggingSlider,
-            dragValue: $dragTimeValue,
-            onSeek: { time in
-                player.seek(to: time)
+    private func pawLikeButton(song: Song) -> some View {
+        let isLiked = likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+
+        return Button {
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+            likeManager.toggleLike(songId: song.id, isQQMusic: song.isQQMusic, song: song)
+        } label: {
+            PetWhiteClayPuck(
+                shape: Circle(),
+                tint: isLiked ? PetWhiteStyle.blush : PetWhiteStyle.surfaceRaised,
+                pressedLook: isLiked
+            )
+            .frame(width: 44, height: 44)
+            .overlay(
+                PetWhitePackIcon(
+                    icon: isLiked ? .liked : .like,
+                    size: 20,
+                    visualScale: 1.04,
+                    fallbackColor: PetWhiteStyle.ink,
+                    lineWidth: 1.8
+                )
+                .scaleEffect(isLiked ? 1.06 : 1)
+            )
+            .animation(.spring(response: 0.32, dampingFraction: 0.55), value: isLiked)
+        }
+        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.85))
+    }
+
+    // MARK: - Progress
+
+    private var progressSection: some View {
+        let duration = timePublisher.duration
+        let current = isDraggingSlider ? dragTimeValue : timePublisher.currentTime
+        let progress = duration > 0 ? CGFloat(min(max(current / duration, 0), 1)) : 0
+
+        return VStack(spacing: 7) {
+            GlobalWaveformPlaybackProgressBar(
+                progress: progress,
+                isPlaying: player.isPlaying && !isDraggingSlider,
+                color: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
+                trackOpacity: usesIllustratedBackground ? 0.22 : 0.15,
+                fillColors: [PetWhiteStyle.dogOrange.opacity(0.85), PetWhiteStyle.dogEar],
+                onSeek: { p in
+                    isDraggingSlider = true
+                    dragTimeValue = Double(p) * duration
+                },
+                onCommit: { p in
+                    isDraggingSlider = false
+                    player.seek(to: Double(p) * duration)
+                }
+            )
+            .frame(height: 34)
+
+            HStack {
+                Text(formatPlayerTime(current))
+                Spacer()
+                Text(formatPlayerTime(duration))
             }
-        )
+            .font(PetWhiteStyle.labelFont(10, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkMuted)
+        }
+        .padding(.horizontal, usesIllustratedBackground ? 12 : 0)
+        .padding(.vertical, usesIllustratedBackground ? 9 : 0)
+        .background {
+            playerReadabilityBackground(cornerRadius: PetWhiteStyle.compactRadius + 3, opacity: 0.62)
+        }
     }
 
-    private var geometryAwareCoverHeight: CGFloat {
-        if DeviceLayout.isPad { return 360 }
-        return min(248, max(216, DeviceLayout.screenWidth * 0.58))
-    }
+    // MARK: - Layout metrics
 
-    private var geometryAwareLyricsHeight: CGFloat {
-        DeviceLayout.isPad ? 420 : 340
-    }
-
-    private var pawPlayerSectionSpacing: CGFloat {
-        DeviceLayout.isPad ? 18 : 12
+    private var coverSide: CGFloat {
+        if DeviceLayout.isPad {
+            return min(430, DeviceLayout.screenHeight * 0.4)
+        }
+        let widthBound = DeviceLayout.screenWidth - DeviceLayout.playerHorizontalPadding * 2 - 12
+        let heightBound = DeviceLayout.screenHeight * 0.4
+        return min(widthBound, heightBound)
     }
 
     private var pawPlayerBottomPadding: CGFloat {
-        max(DeviceLayout.safeAreaBottom + 44, DeviceLayout.isPad ? 76 : 64)
-    }
-
-    private var pawPlayerBottomBreathingRoom: CGFloat {
-        max(DeviceLayout.safeAreaBottom + 12, 28)
+        max(DeviceLayout.safeAreaBottom + 8, 22)
     }
 
     private var usesIllustratedBackground: Bool {
@@ -444,11 +502,11 @@ struct PawcelainPlayerLayout: View {
     }
 
     private var illustratedPrimaryText: Color {
-        colorScheme == .dark ? Color.white : PetWhiteStyle.stroke
+        colorScheme == .dark ? Color.white : PetWhiteStyle.ink
     }
 
     private var illustratedSecondaryText: Color {
-        colorScheme == .dark ? Color.white.opacity(0.76) : PetWhiteStyle.stroke.opacity(0.78)
+        colorScheme == .dark ? Color.white.opacity(0.76) : PetWhiteStyle.ink.opacity(0.78)
     }
 
     @ViewBuilder
@@ -458,102 +516,17 @@ struct PawcelainPlayerLayout: View {
                 .fill((colorScheme == .dark ? Color.black : PetWhiteStyle.surfaceRaised).opacity(opacity))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke((colorScheme == .dark ? Color.white : PetWhiteStyle.stroke).opacity(colorScheme == .dark ? 0.28 : 0.74), lineWidth: 1.35)
+                        .stroke((colorScheme == .dark ? Color.white : PetWhiteStyle.stroke).opacity(colorScheme == .dark ? 0.28 : 0.9), lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.24 : 0.10), radius: 12, x: 0, y: 6)
+                .shadow(color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.24 : 0.08), radius: 12, x: 0, y: 6)
         }
     }
 
     private func toggleLyrics() {
         guard player.currentSong != nil else { return }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
             showLyrics.toggle()
         }
-    }
-
-    private func headerIconButton(
-        icon: MonologueIcon.IconType,
-        assetName: String? = nil,
-        tint: Color,
-        isActive: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(isActive ? tint : PetWhiteStyle.surfaceRaised)
-                .frame(width: 42, height: 42)
-                .overlay(
-                    headerButtonIcon(icon: icon, assetName: assetName)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
-                )
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
-    }
-
-    @ViewBuilder
-    private func headerButtonIcon(icon: MonologueIcon.IconType, assetName: String?) -> some View {
-        if let assetName {
-            PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: 24)
-        } else {
-            PetWhitePackIcon(
-                icon: icon,
-                size: 22,
-                visualScale: icon == .more ? 0.98 : 1.06,
-                fallbackColor: PetWhiteStyle.stroke,
-                lineWidth: 2
-            )
-        }
-    }
-
-    private func playerActionButton(
-        icon: MonologueIcon.IconType,
-        title: String,
-        tint: Color,
-        isActive: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                PetWhitePackIcon(icon: icon, size: 15, visualScale: 1.04, lineWidth: 1.9)
-                Text(title)
-                    .font(PetWhiteStyle.labelFont(11, weight: .black))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.74)
-            }
-            .foregroundStyle(PetWhiteStyle.ink)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .background(isActive ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
-            .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
-    }
-
-    private func pawLikeActionButton(song: Song) -> some View {
-        let isLiked = likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
-
-        return Button {
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            likeManager.toggleLike(songId: song.id, isQQMusic: song.isQQMusic, song: song)
-        } label: {
-            HStack(spacing: 6) {
-                PetWhitePackIcon(icon: isLiked ? .liked : .like, size: 15, visualScale: 1.04, lineWidth: 1.9)
-                Text(isLiked ? String(localized: "已喜欢") : String(localized: "喜欢"))
-                    .font(PetWhiteStyle.labelFont(11, weight: .black))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.74)
-            }
-            .foregroundStyle(PetWhiteStyle.ink)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .background(isLiked ? PetWhiteStyle.blush.opacity(0.82) : PetWhiteStyle.surfaceRaised, in: Capsule())
-            .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
     }
 
     private func lyricsOptionLabel(
@@ -565,14 +538,19 @@ struct PawcelainPlayerLayout: View {
         HStack(spacing: 5) {
             lyricsToggleIcon(icon: icon, isActive: isActive)
             Text(text)
-                .font(PetWhiteStyle.labelFont(10, weight: .black))
+                .font(PetWhiteStyle.labelFont(10, weight: .semibold))
                 .lineLimit(1)
         }
         .foregroundStyle(PetWhiteStyle.ink)
         .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .background(isActive ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
-        .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1))
+        .padding(.vertical, 6)
+        .background(
+            PetWhiteClayPuck(
+                shape: Capsule(style: .continuous),
+                tint: isActive ? tint : PetWhiteStyle.surfaceRaised.opacity(0.92),
+                pressedLook: isActive
+            )
+        )
     }
 
     @ViewBuilder
@@ -604,6 +582,12 @@ struct PawcelainPlayerLayout: View {
         default:
             return nil
         }
+    }
+
+    private func formatPlayerTime(_ seconds: Double) -> String {
+        guard !seconds.isNaN && !seconds.isInfinite else { return "0:00" }
+        let total = Int(max(seconds, 0))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 
     private func streamInfoText(_ info: StreamInfo) -> String {

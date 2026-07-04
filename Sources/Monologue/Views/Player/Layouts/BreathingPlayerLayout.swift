@@ -10,7 +10,7 @@ struct BreathingPlayerLayout: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
     @State private var showQualitySheet = false
     @State private var showEQSettings = false
     @State private var showThemePicker = false

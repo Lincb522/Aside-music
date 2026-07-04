@@ -20,6 +20,8 @@ struct ThemedPageBackground: View {
                         MangaRootBackdrop()
                     } else if PetWhiteStyle.isActive {
                         PetWhiteRootBackdrop()
+                    } else if MinimalWhiteStyle.isActive {
+                        MinimalWhiteRootBackdrop()
                     } else if PureWhiteStyle.isActive {
                         PureWhiteRootBackdrop()
                     } else if MujiStyle.isActive {
@@ -107,10 +109,16 @@ struct ThemedPageHeader<Accessory: View>: View {
                 title: title,
                 subtitle: subtitle
             ) {
-                HStack(spacing: 10) {
-                    accessory
-                    PetWhiteIconBadge(icon: icon, tint: PetWhiteStyle.mint, size: 48)
-                }
+                accessory
+            }
+        } else if MinimalWhiteStyle.isActive {
+            MinimalWhitePageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle,
+                icon: icon
+            ) {
+                accessory
             }
         } else if PureWhiteStyle.isActive {
             PureWhitePageHeader(
@@ -306,7 +314,7 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     @Environment(\.monologueSheetContext) private var monologueSheetContext
 
     private var isThemed: Bool {
-        MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     private var shouldRenderInlineHeader: Bool {
@@ -336,7 +344,17 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
     let mangaTint: Color
 
     func body(content: Content) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            content
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 8), elevated ? MinimalWhiteStyle.chromeRadius : MinimalWhiteStyle.cardRadius),
+                        elevated: elevated,
+                        tint: elevated ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if MangaStyle.isActive {
             content
                 .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: elevated, tint: mangaTint))
                 .themeRenderSurfaceLayer()
@@ -450,10 +468,11 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var listSpacing: CGFloat {
+        if MinimalWhiteStyle.isActive { return 6 }
         if MangaStyle.isActive { return 10 }
         if PetWhiteStyle.isActive { return 10 }
         if PureWhiteStyle.isActive { return 10 }
@@ -469,6 +488,7 @@ enum ThemedPageStyle {
     }
 
     static var looseListSpacing: CGFloat {
+        if MinimalWhiteStyle.isActive { return 12 }
         if MangaStyle.isActive { return 14 }
         if PetWhiteStyle.isActive { return 14 }
         if PureWhiteStyle.isActive { return 14 }
@@ -492,6 +512,7 @@ enum ThemedPageStyle {
     }
 
     static var surfaceCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.chromeRadius }
         if MangaStyle.isActive { return 18 }
         if PetWhiteStyle.isActive { return 22 }
         if PureWhiteStyle.isActive { return 22 }
@@ -507,6 +528,7 @@ enum ThemedPageStyle {
     }
 
     static var compactSurfaceCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.compactRadius }
         if MangaStyle.isActive { return 14 }
         if PetWhiteStyle.isActive { return 16 }
         if PureWhiteStyle.isActive { return 16 }

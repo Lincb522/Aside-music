@@ -6,7 +6,7 @@ struct PlaylistDetailView: View {
     let initialSongs: [Song]?
     let bannerCoverURL: URL?
 
-    @State private var viewModel = PlaylistDetailViewModel()
+    @StateObject private var viewModel = PlaylistDetailViewModel()
 
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
@@ -53,7 +53,9 @@ struct PlaylistDetailView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
+            } else if MangaStyle.isActive {
                 MangaRootBackdrop()
             } else if PetWhiteStyle.isActive {
                 PetWhiteRootBackdrop()
@@ -170,7 +172,9 @@ struct PlaylistDetailView: View {
 
     @ViewBuilder
     private var playlistHeaderContent: some View {
-        if let bannerCoverURL {
+        if MinimalWhiteStyle.isActive {
+            minimalWhitePlaylistHeaderContent
+        } else if let bannerCoverURL {
             bannerPlaylistHeaderContent(bannerCoverURL)
         } else if PetWhiteStyle.isActive {
             petWhitePlaylistHeaderContent
@@ -291,6 +295,108 @@ struct PlaylistDetailView: View {
         }
     }
 
+    private var minimalWhitePlaylistHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(MinimalWhiteStyle.controlGlassFill)
+                        .overlay(MonologueIcon(icon: .musicNoteList, size: 26, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 156 : 118, height: DeviceLayout.isPad ? 156 : 118)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 7) {
+                        minimalWhiteDetailPill(text: playlist.isQQMusic ? "QCM" : "NCM")
+                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                            minimalWhiteDetailPill(text: "\(count) \(String(localized: "songs_unit"))")
+                        }
+                    }
+
+                    Text(viewModel.playlistDetail?.name ?? playlist.name)
+                        .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 22, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
+                            .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: playBannerPlaylist) {
+                    HStack(spacing: 7) {
+                        MonologueIcon(icon: .play, size: 13, color: MinimalWhiteStyle.onAccent, lineWidth: 1.75)
+                        Text(LocalizedStringKey("play_now"))
+                            .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                    }
+                    .foregroundStyle(MinimalWhiteStyle.onAccent)
+                    .padding(.horizontal, 16)
+                    .frame(height: 38)
+                    .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                .disabled(viewModel.songs.isEmpty)
+
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: handleBannerPlaylistCollectTap
+                    )
+                    .disabled(playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty))
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 12)
+        .padding(.bottom, 14)
+        .iPadContentWidth(900)
+        .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+            Button(String(localized: "收藏到本地")) {
+                collectBannerPlaylistLocally()
+            }
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+            Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                subManager.togglePlaylistSubscription(id: playlist.id)
+            }
+
+            Button(String(localized: "取消"), role: .cancel) {}
+        }
+    }
+
+    private func minimalWhiteDetailPill(text: String) -> some View {
+        Text(text)
+            .font(MinimalWhiteStyle.labelFont(11, weight: .medium))
+            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(MinimalWhiteCapsuleBackground())
+    }
+
     private var petWhitePlaylistHeaderContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
@@ -299,30 +405,33 @@ struct PlaylistDetailView: View {
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.isPad ? 168 : 124, height: DeviceLayout.isPad ? 168 : 124)
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.strokeWidth)
-                )
-                .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+                .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
+                .petWhiteClayShadow()
 
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(spacing: 7) {
-                        PetWhitePill(text: playlist.isQQMusic ? "QCM" : "NCM", tint: playlist.isQQMusic ? PetWhiteStyle.sky : PetWhiteStyle.mint)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text(playlist.isQQMusic ? "QCM" : "NCM")
+                            .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                            .tracking(1.2)
+                            .foregroundStyle(PetWhiteStyle.dogEar)
+
                         if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
-                            PetWhitePill(text: "\(count) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                            Text("· \(count) \(String(localized: "songs_unit"))")
+                                .font(PetWhiteStyle.labelFont(11))
+                                .foregroundStyle(PetWhiteStyle.inkMuted)
                         }
                     }
+                    .lineLimit(1)
 
                     Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .black))
+                        .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .bold))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
                         Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
-                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            .font(PetWhiteStyle.labelFont(12))
                             .foregroundStyle(PetWhiteStyle.inkSoft)
                             .lineLimit(1)
                     }
@@ -388,7 +497,7 @@ struct PlaylistDetailView: View {
             }
         }
         .padding(16)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         .padding(.horizontal, petWhiteDetailHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 10)
         .padding(.bottom, 14)
@@ -397,11 +506,11 @@ struct PlaylistDetailView: View {
 
     private func petWhiteHeaderAction(title: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool) -> some View {
         HStack(spacing: 7) {
-            PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.05, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+            PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.05, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.ink)
             Text(title)
                 .font(PetWhiteStyle.labelFont(12, weight: .black))
         }
-        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.ink)
         .padding(.horizontal, 14)
         .frame(height: 38)
         .background(filled ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
@@ -1551,7 +1660,9 @@ struct PlaylistDetailView: View {
 
     private func toolbarTrackCountView(_ count: Int) -> some View {
         Group {
-            if MujiStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                minimalWhiteDetailPill(text: "\(count)")
+            } else if MujiStyle.isActive {
                 MujiPill(text: "\(count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
             } else if NeumorphicStyle.isActive {
                 NeumorphicPill(text: "\(count)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
@@ -1598,7 +1709,9 @@ struct PlaylistDetailView: View {
 
     private var songListSection: some View {
         Group {
-            if CapsuleStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                minimalWhiteSongListSection
+            } else if CapsuleStyle.isActive {
                 capsuleSongListSection
             } else if PetWhiteStyle.isActive {
                 petWhiteSongListSection
@@ -1606,6 +1719,55 @@ struct PlaylistDetailView: View {
                 defaultSongListSection
             }
         }
+    }
+
+    private var minimalWhiteSongListSection: some View {
+        LazyVStack(alignment: .leading, spacing: 14) {
+            MinimalWhiteSectionTitle(title: String(localized: "歌曲")) {
+                if !filteredSongs.isEmpty {
+                    Text("\(filteredSongs.count)")
+                        .font(MinimalWhiteStyle.labelFont(12, weight: .medium))
+                        .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+            if viewModel.isLoading {
+                MonologueLoadingView(text: "")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                    .background(
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else if filteredSongs.isEmpty {
+                playlistEmptyState
+            } else {
+                LazyVStack(spacing: 0) {
+                    playlistSongRows
+                    playlistPagination
+                }
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                )
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                if !isSearching && !viewModel.relatedPlaylists.isEmpty && !viewModel.isLoading {
+                    relatedPlaylistsSection
+                }
+
+                FloatingBarBottomSpacer()
+            }
+        }
+        .padding(.top, 4)
     }
 
     private var capsuleSongListSection: some View {
@@ -1692,7 +1854,7 @@ struct PlaylistDetailView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
         .padding(.horizontal, petWhiteDetailHorizontalPadding)
     }
 
@@ -1722,7 +1884,9 @@ struct PlaylistDetailView: View {
 
     private var playlistEmptyState: some View {
         VStack(spacing: 14) {
-            if NeumorphicStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .musicNoteList, size: 54)
+            } else if NeumorphicStyle.isActive {
                 NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.accent, size: 54)
             } else if SignalStyle.isActive {
                 SignalIconBadge(icon: .musicNoteList, tint: SignalStyle.accent, size: 54)
@@ -1731,19 +1895,25 @@ struct PlaylistDetailView: View {
             }
 
             Text(LocalizedStringKey("album_no_songs"))
-                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .rounded(size: 15))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, ThemedPageStyle.isActive ? 34 : 0)
+        .padding(.vertical, (ThemedPageStyle.isActive || MinimalWhiteStyle.isActive) ? 34 : 0)
         .background {
-            if NeumorphicStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
             } else if SignalStyle.isActive {
                 SignalSurfaceBackground(cornerRadius: 26, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
             }
         }
-        .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.horizontal, (ThemedPageStyle.isActive || MinimalWhiteStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
         .padding(.top, 40)
     }
 
@@ -1801,7 +1971,11 @@ struct PlaylistDetailView: View {
 
     private var relatedPlaylistsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSectionTitle(title: String(localized: "related_playlists"))
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 20)
+            } else if MangaStyle.isActive {
                 MangaSectionTitle(title: String(localized: "related_playlists"), mark: .star)
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 20)
@@ -1879,6 +2053,9 @@ struct PlaylistDetailView: View {
                                     } else if SignalStyle.isActive {
                                         RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous)
                                             .stroke(SignalStyle.separator.opacity(0.68), lineWidth: 0.8)
+                                    } else if MinimalWhiteStyle.isActive {
+                                        RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous)
+                                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                                     }
                                 }
 
@@ -1904,6 +2081,12 @@ struct PlaylistDetailView: View {
                                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, lightweight: true)
                                 } else if SignalStyle.isActive {
                                     SignalSurfaceBackground(cornerRadius: 22, elevated: false, fill: SignalStyle.paper)
+                                } else if MinimalWhiteStyle.isActive {
+                                    MinimalWhiteSurfaceBackground(
+                                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                                        elevated: false,
+                                        tint: MinimalWhiteStyle.glassFill
+                                    )
                                 }
                             }
                         }
@@ -1918,6 +2101,7 @@ struct PlaylistDetailView: View {
     }
 
     private var relatedPlaylistCoverRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 12 }
         if MangaStyle.isActive { return 8 }
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 16 }
@@ -1926,6 +2110,7 @@ struct PlaylistDetailView: View {
     }
 
     private var relatedPlaylistCoverFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if MangaStyle.isActive { return MangaStyle.paperCool }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
@@ -1934,6 +2119,7 @@ struct PlaylistDetailView: View {
     }
 
     private var relatedPlaylistTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(13, weight: .medium) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(13, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .semibold) }
@@ -1942,6 +2128,7 @@ struct PlaylistDetailView: View {
     }
 
     private var relatedPlaylistMetaFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(11, weight: .regular) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(11, weight: .medium) }
@@ -1950,6 +2137,7 @@ struct PlaylistDetailView: View {
     }
 
     private var relatedPlaylistTitleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -1958,6 +2146,7 @@ struct PlaylistDetailView: View {
     }
 
     private var relatedPlaylistMetaColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SongDetailView: View {
     let song: Song
-    @State private var viewModel = SongDetailViewModel()
+    @StateObject private var viewModel = SongDetailViewModel()
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared

@@ -9,7 +9,7 @@ public struct ContentView: View {
     @State private var didSynchronizeLaunchTheme = false
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
-    @State private var themeManager = GlobalThemeManager.shared
+    @ObservedObject private var themeManager = GlobalThemeManager.shared
     @Environment(\.colorScheme) private var systemColorScheme
 
     @State private var showPersonalFM = false
@@ -299,21 +299,42 @@ public struct ContentView: View {
     private func tabIcon(for tab: Tab) -> some View {
         let iconSet = AppInterfaceIconSet.selectedFromDefaults
 
-        if iconSet == .pawPrint {
-            MonologueIcon(
-                icon: pawPrintTabIcon(for: tab),
-                size: pawPrintTabIconVisualSize(for: tab)
-            )
-            .frame(width: tabIconFrameSize, height: tabIconFrameSize)
-        } else if iconSet == .hicon {
+        if iconSet == .hicon {
             defaultTabIcon(for: tab)
+        } else if iconSet == .pawPrint {
+            originalArtworkTabIcon(
+                icon: pawPrintTabIcon(for: tab),
+                iconSet: iconSet,
+                visualSize: pawPrintTabIconVisualSize(for: tab)
+            )
+        } else if iconSet.usesOriginalArtwork {
+            originalArtworkTabIcon(
+                icon: themedTabIcon(for: tab),
+                iconSet: iconSet,
+                visualSize: themedTabIconVisualSize(for: iconSet)
+            )
         } else {
             MonologueIcon(
                 icon: themedTabIcon(for: tab),
-                size: themedTabIconVisualSize(for: iconSet)
+                size: themedTabIconVisualSize(for: iconSet),
+                normalizesBitmapScale: true
             )
             .frame(width: tabIconFrameSize, height: tabIconFrameSize)
         }
+    }
+
+    private func originalArtworkTabIcon(
+        icon: MonologueIcon.IconType,
+        iconSet: AppInterfaceIconSet,
+        visualSize: CGFloat
+    ) -> some View {
+        Image(uiImage: iconSet.image(for: icon).withRenderingMode(.alwaysOriginal))
+            .resizable()
+            .interpolation(.high)
+            .antialiased(true)
+            .scaledToFit()
+            .frame(width: visualSize, height: visualSize)
+            .frame(width: tabIconFrameSize, height: tabIconFrameSize)
     }
 
     private var tabIconFrameSize: CGFloat { 23 }
@@ -350,7 +371,7 @@ public struct ContentView: View {
         switch iconSet {
         case .doodlePop:
             return 16.5
-        case .blobIcons, .iconExport, .dotDogSnake:
+        case .blobIcons, .iconExport, .dotDogSnake, .minimalWhiteIcons:
             return 17
         case .pawPrint:
             return 18

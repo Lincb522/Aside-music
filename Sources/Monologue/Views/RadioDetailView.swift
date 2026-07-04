@@ -3,7 +3,7 @@ import SwiftUI
 /// 电台详情页面，展示电台信息和节目列表
 struct RadioDetailView: View {
     let radioId: Int
-    @State private var viewModel: RadioDetailViewModel
+    @StateObject private var viewModel: RadioDetailViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -15,7 +15,7 @@ struct RadioDetailView: View {
 
     init(radioId: Int) {
         self.radioId = radioId
-        _viewModel = State(initialValue: RadioDetailViewModel(radioId: radioId))
+        _viewModel = StateObject(wrappedValue: RadioDetailViewModel(radioId: radioId))
     }
 
     var body: some View {

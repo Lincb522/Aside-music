@@ -68,6 +68,7 @@ class PlayerManager: ObservableObject {
     var lastWidgetPlaybackState: PlaybackSurfaceState = .idle
     var lastWidgetMetadataSignature: String = ""
     var lastWidgetLyricText: String = ""
+    var lastWidgetLyricsSignature: String = ""
     var lastWidgetProgressAnchorTime: TimeInterval = 0
     var lastWidgetProgressAnchorDate: Date?
     var lastWidgetProgressDuration: TimeInterval = 0

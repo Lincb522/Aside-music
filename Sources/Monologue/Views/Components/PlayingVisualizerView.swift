@@ -54,16 +54,11 @@ struct PlayingVisualizerView: View {
                     : minHeight + CGFloat(index % 2)
 
                 Capsule()
-                    .fill(index.isMultiple(of: 2) ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint)
-                    .frame(width: 2.6, height: h)
-                    .overlay(Capsule().stroke(PetWhiteStyle.stroke.opacity(0.24), lineWidth: 0.5))
+                    .fill(PetWhiteStyle.dogOrange.opacity(0.85))
+                    .frame(width: 2.4, height: h)
             }
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 4)
-        .background(PetWhiteStyle.catWhite.opacity(0.88), in: Capsule())
-        .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
-        .frame(height: maxHeight + 8)
+        .frame(height: maxHeight)
     }
     
     private func barHeight(index: Int, time: Double, phaseOffset: Double) -> CGFloat {

@@ -6,8 +6,7 @@ import PackageDescription
 let package = Package(
     name: "LucideIcons",
 	platforms: [
-		.iOS(.v13),
-		.macOS(.v10_13)
+		.iOS(.v13)
 	],
     products: [
         .library(

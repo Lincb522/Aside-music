@@ -12,9 +12,9 @@ struct PetWhiteThemeProvider: GlobalThemeProvider {
             accent: PetWhiteStyle.accent,
             accentGradient: PetWhiteStyle.accentGradient,
             separator: PetWhiteStyle.separator,
-            navBarTint: PetWhiteStyle.stroke,
+            navBarTint: PetWhiteStyle.ink,
             iconBackground: PetWhiteStyle.mint,
-            iconForeground: PetWhiteStyle.stroke,
+            iconForeground: PetWhiteStyle.ink,
             cardBackground: PetWhiteStyle.surfaceRaised,
             floatingBarFill: PetWhiteStyle.surfaceRaised,
             destructive: PetWhiteStyle.destructive
@@ -23,10 +23,10 @@ struct PetWhiteThemeProvider: GlobalThemeProvider {
 
     var typography: GlobalTypography {
         GlobalTypography(
-            titleFont: { size in PetWhiteStyle.titleFont(size, weight: .black) },
-            bodyFont: { size in PetWhiteStyle.bodyFont(size, weight: .semibold) },
-            captionFont: { size in PetWhiteStyle.labelFont(size, weight: .bold) },
-            monoFont: { size in .system(size: size, weight: .bold, design: .monospaced) },
+            titleFont: { size in PetWhiteStyle.titleFont(size, weight: .bold) },
+            bodyFont: { size in PetWhiteStyle.bodyFont(size, weight: .medium) },
+            captionFont: { size in PetWhiteStyle.labelFont(size, weight: .semibold) },
+            monoFont: { size in .system(size: size, weight: .medium, design: .monospaced) },
             fontDesign: .rounded,
             letterSpacing: 0
         )
@@ -35,9 +35,9 @@ struct PetWhiteThemeProvider: GlobalThemeProvider {
     var shapeLanguage: GlobalShapeLanguage {
         GlobalShapeLanguage(
             cardRadius: PetWhiteStyle.cardRadius,
-            buttonRadius: 16,
-            sheetRadius: 28,
-            shadowStyle: .hard,
+            buttonRadius: 20,
+            sheetRadius: 34,
+            shadowStyle: .soft,
             borderWidth: PetWhiteStyle.strokeWidth
         )
     }
@@ -45,17 +45,18 @@ struct PetWhiteThemeProvider: GlobalThemeProvider {
     var iconStyle: GlobalIconStyle {
         GlobalIconStyle(
             variant: .outlined,
-            weight: .bold,
-            badgeRadius: 16
+            weight: .medium,
+            badgeRadius: 18
         )
     }
 
     var animationStyle: GlobalAnimationStyle {
+        // 黏土手感：按压回弹更 Q，卡片入场带一点果冻感
         GlobalAnimationStyle(
-            pageTransition: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom)),
-            cardAppear: .spring(response: 0.38, dampingFraction: 0.84),
-            buttonPress: .spring(response: 0.18, dampingFraction: 0.72),
-            staggerDelay: 0.035
+            pageTransition: .opacity.combined(with: .scale(scale: 0.97, anchor: .bottom)),
+            cardAppear: .spring(response: 0.44, dampingFraction: 0.72),
+            buttonPress: .spring(response: 0.28, dampingFraction: 0.55),
+            staggerDelay: 0.05
         )
     }
 

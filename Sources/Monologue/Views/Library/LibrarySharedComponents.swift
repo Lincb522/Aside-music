@@ -135,7 +135,7 @@ struct LibraryLoadingStateView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: resolvedMinHeight, alignment: .center)
-            .background(CapsuleSurfaceBackground(cornerRadius: 26, elevated: true, tint: CapsuleStyle.surface.opacity(0.9)))
+            .background(Color.clear)
             .padding(.horizontal, resolvedPadding)
         } else {
             MonologueLoadingView(text: text)
@@ -173,16 +173,18 @@ struct ThemedLibraryEmptyState: View {
                 MonologueIcon(icon: icon, size: 28, color: tint.opacity(0.72), lineWidth: 1.8)
             }
             Text(title)
-                .font(PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(13, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded))))))
-                .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : .monologueTextSecondary)))))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(13, weight: .medium) : (PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(13, weight: .black) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(13, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(13, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded)))))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkSoft : (PetWhiteStyle.isActive ? PetWhiteStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : .monologueTextSecondary))))))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
         .background {
-            if PetWhiteStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                Color.clear
+            } else if PetWhiteStyle.isActive {
                 PetWhiteSurfaceBackground(
-                    cornerRadius: 24,
-                    elevated: true,
+                    cornerRadius: PetWhiteStyle.cardRadius,
+                    elevated: false,
                     tint: PetWhiteStyle.surfaceRaised,
                     accent: tint
                 )
@@ -195,7 +197,7 @@ struct ThemedLibraryEmptyState: View {
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
             } else if CapsuleStyle.isActive {
-                CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
+                Color.clear
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
@@ -218,7 +220,7 @@ struct ThemedLibraryPodcastRow: View {
             .overlay {
                 if PetWhiteStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                 } else if SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
@@ -240,7 +242,7 @@ struct ThemedLibraryPodcastRow: View {
             Spacer()
 
             if PetWhiteStyle.isActive {
-                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.05, fallbackColor: PetWhiteStyle.inkMuted)
             } else {
                 MonologueIcon(icon: .chevronRight, size: 12, color: tint.opacity(0.72), lineWidth: 1.8)
             }
@@ -259,7 +261,7 @@ struct ThemedLibraryPodcastRow: View {
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
             } else if CapsuleStyle.isActive {
-                CapsuleSurfaceBackground(cornerRadius: 22, elevated: true, tint: CapsuleStyle.surface.opacity(0.88))
+                CapsuleFlatRowBackground(cornerRadius: 18)
             } else {
                 Color.clear.monologueGlass(cornerRadius: 18)
             }
@@ -286,7 +288,7 @@ struct ThemedLibraryArtistCard: View {
                 .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : .monologueTextPrimary)))))
                 .lineLimit(1)
         }
-        .padding(PetWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive ? 12 : 0)
+        .padding(PetWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive ? 12 : 0)
         .frame(maxWidth: .infinity)
         .background {
             if PetWhiteStyle.isActive {
@@ -295,8 +297,6 @@ struct ThemedLibraryArtistCard: View {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, tint: tint.opacity(0.06), lightweight: true)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
-            } else if CapsuleStyle.isActive {
-                CapsuleSurfaceBackground(cornerRadius: 22, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
             }
         }
     }

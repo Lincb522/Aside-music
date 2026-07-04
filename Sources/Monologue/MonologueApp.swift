@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import HiconIcons
 import UserNotifications
 import WidgetKit
@@ -113,7 +112,7 @@ struct MonologueApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .fontDesign(.rounded)
+                .compatFontDesign(.rounded)
                 .preferredColorScheme(effectiveColorScheme)
                 .background(SwipeBackInjector())
                 .onAppear {
@@ -196,6 +195,7 @@ struct MonologueApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     PlayerManager.shared.saveStateImmediately()
+                    DatabaseManager.shared.save()
                     UserDefaults.standard.set(false, forKey: "qqDevMode")
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
@@ -206,7 +206,6 @@ struct MonologueApp: App {
                     }
                     #endif
                 }
-                .modelContainer(DatabaseManager.shared.container)
         }
     }
     

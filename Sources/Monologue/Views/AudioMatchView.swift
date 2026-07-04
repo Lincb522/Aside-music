@@ -45,7 +45,7 @@ final class AudioMatchViewModel: ObservableObject {
     private var shazamDelegate: ShazamDelegate?
 
     func startListening() {
-        AVAudioApplication.requestRecordPermission { [weak self] granted in
+        let handlePermission: @Sendable (Bool) -> Void = { [weak self] granted in
             Task { @MainActor in
                 guard let self else { return }
                 if granted {
@@ -54,6 +54,11 @@ final class AudioMatchViewModel: ObservableObject {
                     self.state = .error(NSLocalizedString("audio_match_mic_denied", comment: ""))
                 }
             }
+        }
+        if #available(iOS 17.0, *) {
+            AVAudioApplication.requestRecordPermission(completionHandler: handlePermission)
+        } else {
+            AVAudioSession.sharedInstance().requestRecordPermission(handlePermission)
         }
     }
 

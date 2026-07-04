@@ -1,5 +1,57 @@
 import SwiftUI
 
+// MARK: - Classic Aside Content Surface
+
+/// 经典 Aside 的内容承载面。与页面底色同源，不使用实时玻璃折射，
+/// 避免非交互信息区像独立玻璃片一样浮在图片背景上。
+struct ClassicAsideEmbeddedSurface: View {
+    let cornerRadius: CGFloat
+    var showsTopSeparator = false
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.monologueBackground.opacity(colorScheme == .dark ? 0.68 : 0.78))
+            .overlay {
+                if cornerRadius > 0 {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(Color.monologueTextPrimary.opacity(colorScheme == .dark ? 0.1 : 0.055), lineWidth: 0.6)
+                }
+            }
+            .overlay(alignment: .top) {
+                if showsTopSeparator {
+                    Rectangle()
+                        .fill(Color.monologueTextPrimary.opacity(colorScheme == .dark ? 0.1 : 0.06))
+                        .frame(height: 0.5)
+                }
+            }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func homeInformationSurface(cornerRadius: CGFloat = 0, showsTopSeparator: Bool = false) -> some View {
+        if MinimalWhiteStyle.isActive {
+            self.background(
+                ClassicAsideEmbeddedSurface(
+                    cornerRadius: cornerRadius,
+                    showsTopSeparator: showsTopSeparator
+                )
+            )
+        } else if ThemedPageStyle.isActive {
+            self.monologueGlass(cornerRadius: cornerRadius)
+        } else {
+            self.background(
+                ClassicAsideEmbeddedSurface(
+                    cornerRadius: cornerRadius,
+                    showsTopSeparator: showsTopSeparator
+                )
+            )
+        }
+    }
+}
+
 // MARK: - Section Header
 
 struct SectionHeader: View {
@@ -8,37 +60,49 @@ struct SectionHeader: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(sectionTitleFont)
-                    .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary)
-                    .tracking(MujiStyle.isActive ? 0.5 : 0)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(sectionSubtitleFont)
-                        .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary)
-                }
-            }
-            Spacer()
-            if let action {
-                Button(action: action) {
-                    HStack(spacing: 4) {
-                        Text(LocalizedStringKey("view_all"))
-                            .font(sectionActionFont)
-                        MonologueIcon(icon: .chevronRight, size: 8, color: .monologueTextSecondary)
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSectionTitle(title: title) {
+                if let action {
+                    Button(action: action) {
+                        MinimalWhiteDisclosureGlyph()
                     }
-                    .foregroundColor(.monologueTextSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(actionBackground)
-                    .overlay(Capsule().stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                .padding(.bottom, 1)
             }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        } else {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(sectionTitleFont)
+                        .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : .monologueTextPrimary)
+                        .tracking(MujiStyle.isActive ? 0.5 : 0)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(sectionSubtitleFont)
+                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : .monologueTextSecondary)
+                    }
+                }
+                Spacer()
+                if let action {
+                    Button(action: action) {
+                        HStack(spacing: 4) {
+                            Text(LocalizedStringKey("view_all"))
+                                .font(sectionActionFont)
+                            MonologueIcon(icon: .chevronRight, size: 8, color: .monologueTextSecondary)
+                        }
+                        .foregroundColor(.monologueTextSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(actionBackground)
+                        .overlay(Capsule().stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle())
+                    .padding(.bottom, 1)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         }
-        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
     }
 
     private var sectionTitleFont: Font {

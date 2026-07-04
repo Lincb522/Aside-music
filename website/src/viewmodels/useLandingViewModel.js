@@ -452,23 +452,7 @@ export function useLandingViewModel() {
     testFlightDuplicateDialog.value = null
     testFlightNoticeDialog.value = null
 
-    if (!isTrial) {
-      testFlightCheckingEmail.value = true
-      try {
-        const canSubmit = await checkTestFlightEmail(email)
-        if (!canSubmit) return
-      } catch (error) {
-        showTestFlightNotice({
-          type: 'error',
-          title: '申请失败',
-          message: error.message || '邮箱查重失败，请稍后重试。',
-          email,
-        })
-        return
-      } finally {
-        testFlightCheckingEmail.value = false
-      }
-    }
+    // 正式申请（带保护码）：不再前置查重拦截，交由后端处理「新加入 / 试用转正 / 已是正式」
 
     if (isTrial) {
       testFlightTrialSubmitting.value = true
@@ -517,13 +501,16 @@ export function useLandingViewModel() {
 
       testFlightResult.value = payload.data
       testFlightMessage.value = payload.message || siteContent.testflight.successTitle
+      const issuedToken = payload.data?.token_auto?.key || null
+      const upgraded = payload.data?.upgraded === true
       showTestFlightNotice({
         type: 'success',
-        title: isTrial ? '体验申请成功' : '邀请申请成功',
+        title: isTrial ? '体验申请成功' : (upgraded ? '已升级为正式' : '邀请申请成功'),
         message: payload.message || (isTrial ? '已获得 1 小时体验，请查收 TestFlight 邀请邮件。' : '邀请邮件将发送到你的 Apple ID 邮箱，请前往邮箱查看。'),
         email: payload.data?.email || email,
         canOpenMailbox: true,
-        canQueryToken: false,
+        canQueryToken: true,
+        token: issuedToken,
       })
     } catch (error) {
       showTestFlightNotice({
@@ -589,7 +576,7 @@ export function useLandingViewModel() {
     closeTestFlightDuplicateDialog()
   }
 
-  function showTestFlightNotice({ type, title, message, email = '', canOpenMailbox = false, canQueryToken = false }) {
+  function showTestFlightNotice({ type, title, message, email = '', canOpenMailbox = false, canQueryToken = false, token = null }) {
     testFlightNoticeDialog.value = {
       type,
       title,
@@ -597,6 +584,7 @@ export function useLandingViewModel() {
       email,
       canOpenMailbox,
       canQueryToken,
+      token,
     }
   }
 

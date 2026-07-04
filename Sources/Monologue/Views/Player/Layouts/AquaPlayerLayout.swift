@@ -112,7 +112,7 @@ struct AquaPlayerLayout: View {
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: showLyrics)
-        .fontDesign(nil) // 重置全局 .rounded，让泡泡体自定义字体生效
+        .compatFontDesign(nil) // 重置全局 .rounded，让泡泡体自定义字体生效
         }
         .onAppear { 
             loadLyricsIfNeeded() 

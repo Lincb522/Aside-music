@@ -29,6 +29,8 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             return 25
+        case .minimalWhite:
+            return 24
         case .pureWhite:
             return 24
         case .petWhite:
@@ -64,10 +66,12 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.28 : 0.18)
+        case .minimalWhite:
+            return MinimalWhiteStyle.ink.opacity(0.075)
         case .pureWhite:
             return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.14 : 0.08)
         case .petWhite:
-            return PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.16 : 0.10)
+            return PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.28 : 0.08)
         case .muji:
             return MujiStyle.ink.opacity(colorScheme == .dark ? 0.20 : 0.10)
         case .neumorphic:
@@ -91,6 +95,8 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             return MangaStyle.strokeInk.opacity(0.18)
+        case .minimalWhite:
+            return MinimalWhiteStyle.hairline
         case .pureWhite:
             return PureWhiteStyle.separator.opacity(0.86)
         case .petWhite:
@@ -117,6 +123,8 @@ struct ClassicFloatingBar: View {
     var body: some View {
         if settings.globalThemeId == .petWhite {
             PetWhiteClassicCushionDock(currentTab: $currentTab)
+        } else if settings.globalThemeId == .minimalWhite {
+            MinimalWhiteClassicDock(currentTab: $currentTab)
         } else {
             classicBody
         }
@@ -191,6 +199,11 @@ struct ClassicFloatingBar: View {
                     )
                 )
                 .overlay(MangaDotsTexture(opacity: colorScheme == .dark ? 0.02 : 0.028, gap: 12).clipShape(shape))
+        case .minimalWhite:
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(shape.fill(MinimalWhiteStyle.glassStrongFill))
+                .overlay(shape.stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
         case .pureWhite:
             shape
                 .fill(PureWhiteStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.95 : 0.99))
@@ -303,6 +316,9 @@ struct ClassicFloatingBar: View {
                     dockShape
                         .stroke(MangaStyle.strokeInk.opacity(0.18), lineWidth: 2.2)
                         .offset(y: 2)
+                } else if settings.globalThemeId == .minimalWhite {
+                    dockShape
+                        .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
                 } else if settings.globalThemeId == .pureWhite {
                     dockShape
                         .stroke(PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.6 : 0.86), lineWidth: 1)
@@ -322,6 +338,8 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             return MangaStyle.strokeInk.opacity(0.72)
+        case .minimalWhite:
+            return MinimalWhiteStyle.separator
         case .pureWhite:
             return PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.64 : 0.86)
         case .petWhite:
@@ -347,6 +365,7 @@ struct ClassicFloatingBar: View {
 
     private var dockStrokeWidth: CGFloat {
         if settings.globalThemeId == .manga { return 1.4 }
+        if settings.globalThemeId == .minimalWhite { return MinimalWhiteStyle.strokeWidth }
         if settings.globalThemeId == .pureWhite || settings.globalThemeId == .petWhite { return 1.0 }
         return 0.85
     }
@@ -363,6 +382,8 @@ struct ClassicFloatingBar: View {
             .frame(width: 82, height: 5)
             .padding(.leading, 18)
             .padding(.top, 6)
+        case .minimalWhite:
+            EmptyView()
         case .pureWhite:
             HStack(spacing: 6) {
                 Capsule()
@@ -379,9 +400,7 @@ struct ClassicFloatingBar: View {
             .padding(.leading, 18)
             .padding(.top, 7)
         case .petWhite:
-            PetWhiteFloatingSignature(compact: true, tint: PetWhiteStyle.mint)
-                .padding(.leading, 16)
-                .offset(y: -10)
+            EmptyView()
         case .capsule:
             HStack(spacing: 5) {
                 Capsule().fill(CapsuleStyle.accent)
@@ -418,6 +437,8 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             return 0.78
+        case .minimalWhite:
+            return 0.8
         case .pureWhite:
             return 0.76
         case .petWhite:
@@ -433,6 +454,8 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             return 0
+        case .minimalWhite:
+            return 4
         case .pureWhite:
             return 6
         case .petWhite:
@@ -447,7 +470,193 @@ struct ClassicFloatingBar: View {
     }
 
     private var dockShadowY: CGFloat {
-        settings.globalThemeId == .manga ? -1 : ((settings.globalThemeId == .pureWhite || settings.globalThemeId == .petWhite) ? 0 : -3)
+        settings.globalThemeId == .manga ? -1 : ((settings.globalThemeId == .minimalWhite || settings.globalThemeId == .pureWhite || settings.globalThemeId == .petWhite) ? 0 : -3)
+    }
+}
+
+private struct MinimalWhiteClassicDock: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+
+    private var bottomInset: CGFloat {
+        let safeArea = max(DeviceLayout.safeAreaBottom, 0)
+        return min(safeArea * 0.42, DeviceLayout.isPad ? 12 : 15)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 9) {
+                if let song = player.currentSong {
+                    MinimalWhiteClassicNowPlaying(song: song)
+                        .swipeToSkip()
+                        .padding(.horizontal, DeviceLayout.isPad ? 36 : 16)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .bottom)),
+                            removal: .opacity.combined(with: .move(edge: .bottom))
+                        ))
+                }
+
+                MinimalWhiteClassicTabRail(currentTab: $currentTab)
+                    .padding(.horizontal, DeviceLayout.isPad ? 38 : 18)
+            }
+            .padding(.top, player.currentSong == nil ? 10 : 11)
+            .padding(.bottom, 10 + bottomInset)
+            .background {
+                UnevenRoundedRectangle(
+                    cornerRadii: .init(
+                        topLeading: 28,
+                        bottomLeading: 0,
+                        bottomTrailing: 0,
+                        topTrailing: 28
+                    ),
+                    style: .continuous
+                )
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    UnevenRoundedRectangle(
+                        cornerRadii: .init(topLeading: 28, bottomLeading: 0, bottomTrailing: 0, topTrailing: 28),
+                        style: .continuous
+                    )
+                    .fill(Color.white.opacity(0.92))
+                )
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(MinimalWhiteStyle.separator)
+                        .frame(height: MinimalWhiteStyle.strokeWidth)
+                }
+                .shadow(color: MinimalWhiteStyle.ink.opacity(0.055), radius: 10, x: 0, y: -2)
+            }
+            .themeRenderInteractiveLayer()
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+}
+
+private struct MinimalWhiteClassicNowPlaying: View {
+    let song: Song
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @State private var showPlaylist = false
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                CachedAsyncImage(url: song.coverUrl, width: 36, height: 36) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(MinimalWhiteStyle.controlGlassFill)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    MarqueeText(text: song.name, font: MinimalWhiteStyle.bodyFont(13, weight: .semibold), color: MinimalWhiteStyle.ink, speed: 24)
+                        .frame(height: 16)
+                    MarqueeText(text: player.lyricLineText ?? song.artistName, font: MinimalWhiteStyle.labelFont(11, weight: .regular), color: MinimalWhiteStyle.inkMuted, speed: 22)
+                        .frame(height: 14)
+                }
+                .swipeSkipTextMotion()
+
+                Spacer(minLength: 6)
+
+                Button(action: { player.togglePlayPause() }) {
+                    MonologueIcon(
+                        icon: player.isPlaying ? .pause : .play,
+                        size: 13,
+                        color: MinimalWhiteStyle.ink,
+                        lineWidth: 1.8
+                    )
+                    .frame(width: 32, height: 32)
+                    .background(MinimalWhiteCircleBackground(selected: true))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+
+                Button(action: { showPlaylist.toggle() }) {
+                    MonologueIcon(icon: .list, size: 14, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.7)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            }
+            .contentShape(Rectangle())
+            .onTapWithHaptic { openPlayer() }
+
+            ProgressBarView(height: 2, minFillWidth: 5)
+                .frame(height: 2)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: 17,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private func openPlayer() {
+        withAnimation(MonologueAnimation.playerTransition) {
+            switch player.playSource {
+            case .fm:
+                NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+            case let .podcast(radioId):
+                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+            case .normal:
+                NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+            }
+        }
+    }
+}
+
+private struct MinimalWhiteClassicTabRail: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                Button {
+                    HapticManager.shared.light()
+                    withAnimation(MonologueAnimation.tabSwitch) {
+                        currentTab = tab
+                    }
+                } label: {
+                    let selected = currentTab == tab
+                    VStack(spacing: 5) {
+                        Capsule(style: .continuous)
+                            .fill(selected ? MinimalWhiteStyle.ink : Color.clear)
+                            .frame(width: 18, height: 2)
+
+                        MonologueIcon(
+                            icon: selected ? tab.icon : tab.monologueIcon,
+                            size: 18,
+                            color: selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted,
+                            lineWidth: 1.7
+                        )
+
+                        Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
+                            .font(MinimalWhiteStyle.labelFont(10, weight: selected ? .semibold : .regular))
+                            .foregroundStyle(selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 
@@ -554,7 +763,7 @@ private struct PetWhiteClassicNowPlayingChip: View {
                     Capsule(style: .continuous)
                         .fill(player.isPlaying ? PetWhiteStyle.dogOrange : PetWhiteStyle.mint)
                         .frame(width: 42, height: 32)
-                        .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                        .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.stroke, lineWidth: 1))
 
                     if player.isLoading {
                         ProgressView()
@@ -568,7 +777,7 @@ private struct PetWhiteClassicNowPlayingChip: View {
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
             Button(action: { showPlaylist.toggle() }) {
-                PetWhitePackIcon(icon: .list, size: 21, visualScale: 1.04, fallbackColor: PetWhiteStyle.stroke)
+                PetWhitePackIcon(icon: .list, size: 21, visualScale: 1.04, fallbackColor: PetWhiteStyle.ink)
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
@@ -651,27 +860,31 @@ private struct PetWhiteClassicTabRail: View {
                             icon: selected ? tab.icon : tab.monologueIcon,
                             size: selected ? 18 : 16,
                             visualScale: 1,
-                            fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkMuted,
+                            fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted,
                             lineWidth: 1.45
                         )
 
                         if selected {
                             Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
                                 .font(PetWhiteStyle.labelFont(10, weight: .black))
-                                .foregroundColor(PetWhiteStyle.stroke)
+                                .foregroundColor(PetWhiteStyle.ink)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.75)
                         }
                     }
                     .frame(maxWidth: selected ? 120 : 48, minHeight: 42)
                     .background {
-                        Capsule(style: .continuous)
-                            .fill(selected ? tabTint(tab) : PetWhiteStyle.surfaceRaised)
-                            .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.stroke.opacity(selected ? 1 : 0.34), lineWidth: selected ? 1.4 : 1))
+                        if selected {
+                            PetWhiteClayPuck(
+                                shape: Capsule(style: .continuous),
+                                tint: tabTint(tab),
+                                pressedLook: true
+                            )
+                        }
                     }
                     .contentShape(Capsule(style: .continuous))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.9))
             }
         }
     }
@@ -898,6 +1111,12 @@ private struct ClassicMiniPlayerSection: View {
             shape
                 .fill(MangaStyle.bubbleWhite.opacity(colorScheme == .dark ? 0.66 : 0.82))
                 .overlay(MangaDotsTexture(opacity: colorScheme == .dark ? 0.018 : 0.024, gap: 10).clipShape(shape))
+        } else if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: miniPillCornerRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
         } else if PureWhiteStyle.isActive {
             PureWhiteSurfaceBackground(
                 cornerRadius: miniPillCornerRadius,
@@ -962,8 +1181,9 @@ private struct ClassicMiniPlayerSection: View {
 
     private var miniPillStrokeColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.72) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.58 : 0.78) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.58 : 0.78) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(colorScheme == .dark ? 0.30 : 0.36) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.36) }
         if CapsuleStyle.isActive { return CapsuleStyle.hairline.opacity(0.54) }
@@ -976,14 +1196,16 @@ private struct ClassicMiniPlayerSection: View {
 
     private var miniPillShadowColor: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.20 : 0.12) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink.opacity(0.04) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.20 : 0.12) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.20 : 0.12) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.26 : 0.09) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.darkShadow(colorScheme, intensity: 0.35) }
         return Color.black.opacity(colorScheme == .dark ? 0.18 : 0.08)
     }
 
     private var miniPillShadowRadius: CGFloat {
-        (MangaStyle.isActive || PureWhiteStyle.isActive || PetWhiteStyle.isActive) ? 0 : 11
+        if PetWhiteStyle.isActive { return 10 }
+        return (MangaStyle.isActive || MinimalWhiteStyle.isActive || PureWhiteStyle.isActive) ? 0 : 11
     }
 
     private var miniPillShadowY: CGFloat {
@@ -1008,6 +1230,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var titleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(13, weight: .medium) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(13, weight: .black) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.bodyFont(13, weight: .black) }
@@ -1022,6 +1245,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var subtitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(11, weight: .regular) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(11, weight: .medium) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(11, weight: .semibold) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.bodyFont(11, weight: .semibold) }
@@ -1036,6 +1260,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var titleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.ink }
@@ -1050,6 +1275,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var subtitleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if PureWhiteStyle.isActive { return PureWhiteStyle.inkSoft }
@@ -1064,6 +1290,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var coverPlaceholderFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlFill }
         if MangaStyle.isActive { return MangaStyle.paperCool }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceTint }
@@ -1084,10 +1311,13 @@ private struct ClassicMiniPlayerSection: View {
                 .stroke(MangaStyle.strokeInk, lineWidth: 1.6)
         } else if PetWhiteStyle.isActive {
             RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
-                .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                .stroke(PetWhiteStyle.stroke, lineWidth: 1)
         } else if PureWhiteStyle.isActive {
             RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                 .stroke(PureWhiteStyle.separator, lineWidth: 1)
+        } else if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                 .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
@@ -1113,6 +1343,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var controlFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
@@ -1127,6 +1358,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var secondaryControlFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.08) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceTint }
@@ -1141,6 +1373,7 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var controlForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
@@ -1159,9 +1392,11 @@ private struct ClassicMiniPlayerSection: View {
         if MangaStyle.isActive {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.5)
         } else if PetWhiteStyle.isActive {
-            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1)
         } else if PureWhiteStyle.isActive {
             Circle().stroke(PureWhiteStyle.strokeInk, lineWidth: 1.5)
+        } else if MinimalWhiteStyle.isActive {
+            Circle().stroke(MinimalWhiteStyle.ink, lineWidth: 0)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
@@ -1180,8 +1415,9 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var closeFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.12) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.10) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink.opacity(0.08) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.10) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
@@ -1220,7 +1456,7 @@ private struct ClassicMiniPlayerSection: View {
 
     private var sourceIndicatorForeground: Color {
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
@@ -1345,7 +1581,7 @@ private struct ClassicTabBarSection: View {
         if BentoStyle.isActive {
             return BentoStyle.labelFont(9.5, weight: isSelected ? .heavy : .semibold)
         }
-        return .system(size: 9.5, weight: isSelected ? .semibold : .medium)
+        return .system(size: 9.5, weight: isSelected ? .bold : .medium, design: .rounded)
     }
 
     private func tabForeground(_ index: Int, isSelected: Bool) -> Color {
@@ -1360,11 +1596,11 @@ private struct ClassicTabBarSection: View {
             if ClayStyle.isActive { return ClayStyle.inkMuted }
             if MujiStyle.isActive { return MujiStyle.inkMuted }
             if BentoStyle.isActive { return BentoStyle.inkMuted }
-            return .monologueTextPrimary.opacity(0.35)
+            return .monologueTextSecondary.opacity(0.55)
         }
 
         if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk }
         if NeumorphicStyle.isActive { return neumorphicTabTint(index) }
         if SequoiaStyle.isActive { return sequoiaTabTint(index) }
@@ -1373,7 +1609,7 @@ private struct ClassicTabBarSection: View {
         if ClayStyle.isActive { return clayTabTint(index) }
         if MujiStyle.isActive { return mujiTabTint(index) }
         if BentoStyle.isActive { return bentoTabTint(index) == BentoStyle.mustard ? BentoStyle.ink : BentoStyle.onAccent }
-        return .monologueTextPrimary
+        return .monologueAccent
     }
 
     @ViewBuilder
@@ -1467,10 +1703,10 @@ private struct ClassicTabBarSection: View {
                 .padding(.horizontal, 4)
         } else {
             RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .fill(Color.monologueTextPrimary.opacity(colorScheme == .dark ? 0.12 : 0.08))
+                .fill(Color.monologueAccent.opacity(colorScheme == .dark ? 0.16 : 0.12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.34), lineWidth: 0.6)
+                        .stroke(Color.monologueAccent.opacity(colorScheme == .dark ? 0.30 : 0.22), lineWidth: 0.7)
                 )
                 .padding(.horizontal, 4)
         }

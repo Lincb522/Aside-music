@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import SwiftData
 import QQMusicKit
 
 /// 音乐下载管理器
@@ -106,16 +105,16 @@ final class DownloadManager: NSObject, ObservableObject {
         }
         
         // 保存到数据库（区分 qcm和ncm）
-        let context = DatabaseManager.shared.context
+        let store = DatabaseManager.shared.store
         if song.isQQMusic {
             let downloaded = DownloadedSong(from: song, qqQuality: Self.defaultQQDownloadQuality)
-            context.insert(downloaded)
+            store.insert(downloaded)
         } else {
             let targetQuality = quality ?? Self.defaultNeteaseDownloadQuality
             let downloaded = DownloadedSong(from: song, quality: targetQuality)
-            context.insert(downloaded)
+            store.insert(downloaded)
         }
-        try? context.save()
+        store.save()
         
         // 加入队列
         waitingQueue.append(key)
@@ -136,10 +135,10 @@ final class DownloadManager: NSObject, ObservableObject {
             return
         }
         
-        let context = DatabaseManager.shared.context
+        let store = DatabaseManager.shared.store
         let downloaded = DownloadedSong(from: song, qqQuality: quality)
-        context.insert(downloaded)
-        try? context.save()
+        store.insert(downloaded)
+        store.save()
         
         waitingQueue.append(key)
         AppLogger.info("[QQMusic] 歌曲加入下载队列: \(song.name)")
@@ -158,7 +157,7 @@ final class DownloadManager: NSObject, ObservableObject {
             return
         }
 
-        let context = DatabaseManager.shared.context
+        let store = DatabaseManager.shared.store
         let downloaded = DownloadedSong(
             id: song.id,
             name: song.name,
@@ -172,8 +171,8 @@ final class DownloadManager: NSObject, ObservableObject {
             qishuiQualityRaw: quality
         )
         downloaded.uniqueKey = key
-        context.insert(downloaded)
-        try? context.save()
+        store.insert(downloaded)
+        store.save()
 
         waitingQueue.append(key)
         AppLogger.info("[Qishui] 歌曲加入下载队列: \(song.name) (\(quality))")
@@ -274,13 +273,9 @@ final class DownloadManager: NSObject, ObservableObject {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         
         // 清空数据库中的下载记录
-        let context = DatabaseManager.shared.context
-        do {
-            try context.delete(model: DownloadedSong.self)
-            try context.save()
-        } catch {
-            AppLogger.error("清空下载数据库失败: \(error)")
-        }
+        let store = DatabaseManager.shared.store
+        store.deleteAll(DownloadedSong.self)
+        store.save()
         
         downloadedSongIds.removeAll()
         
@@ -311,23 +306,15 @@ final class DownloadManager: NSObject, ObservableObject {
     /// 获取本地文件 URL
     func localFileURL(songId: Int, isQQ: Bool = false) -> URL? {
         let key = Self.makeKey(songId: songId, isQQ: isQQ)
-        let context = DatabaseManager.shared.context
+        let store = DatabaseManager.shared.store
         let completed = "completed"
-        var descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.uniqueKey == key && $0.statusRaw == completed }
-        )
-        descriptor.fetchLimit = 1
-        guard let record = try? context.fetch(descriptor).first,
+        guard let record = store.first(DownloadedSong.self, where: { $0.uniqueKey == key && $0.statusRaw == completed }),
               let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
               FileManager.default.fileExists(atPath: url.path) else {
             // 回退：按 songId 查找（兼容旧数据）
-            var fallback = FetchDescriptor<DownloadedSong>(
-                predicate: #Predicate {
-                    $0.id == songId && $0.isQQMusic == isQQ && $0.statusRaw == completed
-                }
-            )
-            fallback.fetchLimit = 1
-            guard let record = try? context.fetch(fallback).first,
+            guard let record = store.first(DownloadedSong.self, where: {
+                      $0.id == songId && $0.isQQMusic == isQQ && $0.statusRaw == completed
+                  }),
                   let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
                   FileManager.default.fileExists(atPath: url.path) else {
                 return nil
@@ -339,12 +326,11 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 获取所有已下载歌曲
     func fetchAllDownloaded() -> [DownloadedSong] {
-        let context = DatabaseManager.shared.context
-        let descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.statusRaw == "completed" },
-            sortBy: [SortDescriptor(\.downloadedAt, order: .reverse)]
+        let records = DatabaseManager.shared.store.fetch(
+            DownloadedSong.self,
+            where: { $0.statusRaw == "completed" },
+            sortBy: { ($0.downloadedAt ?? .distantPast) > ($1.downloadedAt ?? .distantPast) }
         )
-        let records = (try? context.fetch(descriptor)) ?? []
         for record in records {
             _ = normalizeCompletedFileNameIfNeeded(for: record)
         }
@@ -362,7 +348,7 @@ final class DownloadManager: NSObject, ObservableObject {
     func restoreCloudDownloadRecords(_ records: [CloudDownloadRecord]) {
         guard !records.isEmpty else { return }
 
-        let context = DatabaseManager.shared.context
+        let store = DatabaseManager.shared.store
         for cloudRecord in records {
             let key = Self.makeKey(for: cloudRecord)
             let existing = getDownloadRecord(key: key)
@@ -407,11 +393,11 @@ final class DownloadManager: NSObject, ObservableObject {
             target.downloadedAt = cloudRecord.downloadedAt
 
             if existing == nil {
-                context.insert(target)
+                store.insert(target)
             }
         }
 
-        try? context.save()
+        store.save()
     }
 
     func enqueueRestoredDownloadIfNeeded(for song: Song) {
@@ -428,7 +414,7 @@ final class DownloadManager: NSObject, ObservableObject {
         record.progress = 0
         record.localPath = nil
         record.fileSize = 0
-        try? DatabaseManager.shared.context.save()
+        DatabaseManager.shared.save()
         waitingQueue.append(key)
         AppLogger.info("[DownloadRestore] 本地文件缺失，按原音质重新加入下载队列: \(record.name)")
         processQueue()
@@ -436,14 +422,13 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 获取下载中的歌曲
     func fetchDownloading() -> [DownloadedSong] {
-        let context = DatabaseManager.shared.context
         let completed = DownloadedSong.Status.completed.rawValue
         let restored = DownloadedSong.Status.restored.rawValue
-        let descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.statusRaw != completed && $0.statusRaw != restored },
-            sortBy: [SortDescriptor(\.createdAt)]
+        return DatabaseManager.shared.store.fetch(
+            DownloadedSong.self,
+            where: { $0.statusRaw != completed && $0.statusRaw != restored },
+            sortBy: { $0.createdAt < $1.createdAt }
         )
-        return (try? context.fetch(descriptor)) ?? []
     }
     
     /// 计算已下载总大小
@@ -471,7 +456,7 @@ final class DownloadManager: NSObject, ObservableObject {
         
         // 更新数据库状态
         record.status = .downloading
-        try? DatabaseManager.shared.context.save()
+        DatabaseManager.shared.save()
         
         if key.hasPrefix("qishui_") {
             let trackIdStr = key.replacingOccurrences(of: "qishui_", with: "")
@@ -571,7 +556,7 @@ final class DownloadManager: NSObject, ObservableObject {
         downloadingTasks.removeValue(forKey: key)
         if let record = getDownloadRecord(key: key) {
             record.status = .failed
-            try? DatabaseManager.shared.context.save()
+            DatabaseManager.shared.save()
         }
         PushService.shared.sendDownloadFailedNotification(songName: songName)
         let msg = reason ?? String(localized: "下载出错，可能是该音质无版权或需要会员")
@@ -677,7 +662,7 @@ final class DownloadManager: NSObject, ObservableObject {
         do {
             try FileManager.default.moveItem(at: currentURL, to: targetURL)
             record.localPath = targetURL.lastPathComponent
-            try? DatabaseManager.shared.context.save()
+            DatabaseManager.shared.save()
             AppLogger.info("已规范下载文件名: \(targetURL.lastPathComponent)")
             return targetURL
         } catch {
@@ -735,7 +720,7 @@ final class DownloadManager: NSObject, ObservableObject {
                         record.localPath = destURL.lastPathComponent
                         record.fileSize = fileSize
                         record.downloadedAt = Date()
-                        try? DatabaseManager.shared.context.save()
+                        DatabaseManager.shared.save()
                         
                         let songName = record.name
                         PushService.shared.sendDownloadCompleteNotification(songName: songName)
@@ -762,24 +747,23 @@ final class DownloadManager: NSObject, ObservableObject {
     // MARK: - 数据库辅助
     
     private func loadDownloadedIds() {
-        let context = DatabaseManager.shared.context
-        let descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.statusRaw == "completed" }
-        )
-        if let records = try? context.fetch(descriptor) {
-            downloadedSongIds = Set(records.map { $0.uniqueKey })
-        }
+        let records = DatabaseManager.shared.store.fetch(DownloadedSong.self, where: { $0.statusRaw == "completed" })
+        downloadedSongIds = Set(records.map { $0.uniqueKey })
     }
 
     private func fetchDownloadRecords(includingRestored: Bool) -> [DownloadedSong] {
-        let context = DatabaseManager.shared.context
-        let descriptor = FetchDescriptor<DownloadedSong>(
-            sortBy: [SortDescriptor(\.downloadedAt, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
+        let sorted = DatabaseManager.shared.store.fetch(
+            DownloadedSong.self,
+            sortBy: {
+                let lhs = ($0.downloadedAt ?? .distantPast, $0.createdAt)
+                let rhs = ($1.downloadedAt ?? .distantPast, $1.createdAt)
+                return lhs > rhs
+            }
         )
         let allowedStatuses: Set<DownloadedSong.Status> = includingRestored
             ? [.completed, .restored, .waiting, .downloading]
             : [.completed]
-        let records = ((try? context.fetch(descriptor)) ?? []).filter { allowedStatuses.contains($0.status) }
+        let records = sorted.filter { allowedStatuses.contains($0.status) }
         for record in records where record.status == .completed {
             _ = normalizeCompletedFileNameIfNeeded(for: record)
         }
@@ -791,12 +775,7 @@ final class DownloadManager: NSObject, ObservableObject {
     }
     
     private func getDownloadRecord(key: String) -> DownloadedSong? {
-        let context = DatabaseManager.shared.context
-        var descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.uniqueKey == key }
-        )
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
+        DatabaseManager.shared.store.first(DownloadedSong.self, where: { $0.uniqueKey == key })
     }
 
     private func localFileURL(forKey key: String) -> URL? {
@@ -809,14 +788,10 @@ final class DownloadManager: NSObject, ObservableObject {
     }
     
     private func deleteFromDB(key: String) {
-        let context = DatabaseManager.shared.context
-        var descriptor = FetchDescriptor<DownloadedSong>(
-            predicate: #Predicate { $0.uniqueKey == key }
-        )
-        descriptor.fetchLimit = 1
-        if let record = try? context.fetch(descriptor).first {
-            context.delete(record)
-            try? context.save()
+        let store = DatabaseManager.shared.store
+        if let record = store.first(DownloadedSong.self, where: { $0.uniqueKey == key }) {
+            store.delete(record)
+            store.save()
         }
     }
 }

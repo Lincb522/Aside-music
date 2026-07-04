@@ -1,10 +1,8 @@
 import Foundation
-import SwiftData
 
 /// 播放历史记录
-@Model
 final class PlayHistory {
-    @Attribute(.unique) var id: UUID
+    var id: UUID
     var songId: Int
     var songName: String
     var artistName: String
@@ -92,9 +90,8 @@ final class PlayHistory {
 }
 
 /// 搜索历史记录
-@Model
 final class SearchHistory {
-    @Attribute(.unique) var id: UUID
+    var id: UUID
     var keyword: String
     var searchedAt: Date
     var resultCount: Int
@@ -107,10 +104,98 @@ final class SearchHistory {
     }
 }
 
+// MARK: - MonoEntity (PlayHistory / SearchHistory / CachedLyrics)
+
+extension PlayHistory: MonoEntity {
+    static let monoEntityName = "PlayHistory"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("id", .uuid), .init("songId", .int), .init("songName", .string),
+        .init("artistName", .string), .init("coverUrl", .string), .init("playedAt", .date),
+        .init("playDuration", .int), .init("completed", .bool), .init("sourceRaw", .string),
+        .init("qqMid", .string), .init("qqAlbumMid", .string), .init("qishuiTrackId", .int)
+    ]
+
+    var monoUniqueKey: String { id.uuidString }
+
+    func monoSnapshot() -> [String: Any?] {
+        [
+            "id": id, "songId": songId, "songName": songName, "artistName": artistName,
+            "coverUrl": coverUrl, "playedAt": playedAt, "playDuration": playDuration,
+            "completed": completed, "sourceRaw": sourceRaw, "qqMid": qqMid,
+            "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId
+        ]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = PlayHistory(
+            songId: MonoSnapshotValue.int(s, "songId"),
+            songName: MonoSnapshotValue.string(s, "songName"),
+            artistName: MonoSnapshotValue.string(s, "artistName"),
+            coverUrl: MonoSnapshotValue.stringOpt(s, "coverUrl"),
+            playDuration: MonoSnapshotValue.int(s, "playDuration"),
+            completed: MonoSnapshotValue.bool(s, "completed"),
+            sourceRaw: MonoSnapshotValue.stringOpt(s, "sourceRaw"),
+            qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
+            qqAlbumMid: MonoSnapshotValue.stringOpt(s, "qqAlbumMid"),
+            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId")
+        )
+        obj.id = MonoSnapshotValue.uuid(s, "id")
+        obj.playedAt = MonoSnapshotValue.date(s, "playedAt")
+        return unsafeDowncast(obj, to: Self.self)
+    }
+}
+
+extension SearchHistory: MonoEntity {
+    static let monoEntityName = "SearchHistory"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("id", .uuid), .init("keyword", .string),
+        .init("searchedAt", .date), .init("resultCount", .int)
+    ]
+
+    var monoUniqueKey: String { id.uuidString }
+
+    func monoSnapshot() -> [String: Any?] {
+        ["id": id, "keyword": keyword, "searchedAt": searchedAt, "resultCount": resultCount]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = SearchHistory(
+            keyword: MonoSnapshotValue.string(s, "keyword"),
+            resultCount: MonoSnapshotValue.int(s, "resultCount")
+        )
+        obj.id = MonoSnapshotValue.uuid(s, "id")
+        obj.searchedAt = MonoSnapshotValue.date(s, "searchedAt")
+        return unsafeDowncast(obj, to: Self.self)
+    }
+}
+
+extension CachedLyrics: MonoEntity {
+    static let monoEntityName = "CachedLyrics"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("songId", .int), .init("lyrics", .string),
+        .init("translatedLyrics", .string), .init("cachedAt", .date)
+    ]
+
+    var monoUniqueKey: String { String(songId) }
+
+    func monoSnapshot() -> [String: Any?] {
+        ["songId": songId, "lyrics": lyrics, "translatedLyrics": translatedLyrics, "cachedAt": cachedAt]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = CachedLyrics(
+            songId: MonoSnapshotValue.int(s, "songId"),
+            lyrics: MonoSnapshotValue.string(s, "lyrics"),
+            translatedLyrics: MonoSnapshotValue.stringOpt(s, "translatedLyrics")
+        )
+        obj.cachedAt = MonoSnapshotValue.date(s, "cachedAt")
+        return unsafeDowncast(obj, to: Self.self)
+    }
+}
+
 /// 缓存的歌词
-@Model
 final class CachedLyrics {
-    @Attribute(.unique) var songId: Int
+    var songId: Int
     var lyrics: String // 原始歌词
     var translatedLyrics: String? // 翻译歌词
     var cachedAt: Date

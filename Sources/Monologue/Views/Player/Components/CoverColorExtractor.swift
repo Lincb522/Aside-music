@@ -4,13 +4,13 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 /// 从封面图片提取主色调
-@MainActor @Observable
-final class CoverColorExtractor {
-    var dominantColor: Color = .gray
-    var secondaryColor: Color = .gray.opacity(0.6)
-    var isDark: Bool = true
-    var isTopDark: Bool = true
-    var luminance: CGFloat = 0.3
+@MainActor
+final class CoverColorExtractor: ObservableObject {
+    @Published var dominantColor: Color = .gray
+    @Published var secondaryColor: Color = .gray.opacity(0.6)
+    @Published var isDark: Bool = true
+    @Published var isTopDark: Bool = true
+    @Published var luminance: CGFloat = 0.3
     
     private var lastURL: String?
     

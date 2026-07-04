@@ -392,13 +392,24 @@ extension FolkPlayerLayout {
                     }
                     
                     if let song = player.currentSong {
-                        Button {
-                            if !downloadManager.isDownloaded(songId: song.id) { showDownloadSheet = true }
-                        } label: {
-                            MonologueIcon(icon: .download, size: 16, color: downloadManager.isDownloaded(songId: song.id) ? inkFaded.opacity(0.3) : inkFaded)
-                                .frame(width: 36, height: 36)
+                        if AppConfig.Features.downloadEnabled {
+                            // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                            Button {
+                                if !downloadManager.isDownloaded(songId: song.id) { showDownloadSheet = true }
+                            } label: {
+                                MonologueIcon(icon: .download, size: 16, color: downloadManager.isDownloaded(songId: song.id) ? inkFaded.opacity(0.3) : inkFaded)
+                                    .frame(width: 36, height: 36)
+                            }
+                            .disabled(downloadManager.isDownloaded(songId: song.id))
+                        } else {
+                            // 沉浸模式按钮 — 占用原下载按钮的位置
+                            Button {
+                                CinemaModeController.shared.present()
+                            } label: {
+                                MonologueIcon(icon: .immersive, size: 16, color: inkFaded)
+                                    .frame(width: 36, height: 36)
+                            }
                         }
-                        .disabled(downloadManager.isDownloaded(songId: song.id))
                     }
                 }
                 

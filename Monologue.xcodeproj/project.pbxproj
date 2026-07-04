@@ -18,6 +18,7 @@
 		C0DE30000000000000000001 /* doodlePop in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE30000000000000000003 /* doodlePop */; };
 		C0DE40000000000000000001 /* PawPrintIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE40000000000000000003 /* PawPrintIcons */; };
 		C0DE50000000000000000001 /* DotDogSnakeIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE50000000000000000003 /* DotDogSnakeIcons */; };
+		C0DE60000000000000000001 /* MinimalWhiteIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE60000000000000000003 /* MinimalWhiteIcons */; };
 		DD300001DD300001DD300001 /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = DD300002DD300002DD300002 /* HiconIcons */; };
 		F4087C202F543A24006005CB /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = F4087C1F2F543A24006005CB /* HiconIcons */; };
 		F41CFD832F6C1576006ACEF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
@@ -131,6 +132,7 @@
 				C0DE30000000000000000001 /* doodlePop in Frameworks */,
 				C0DE40000000000000000001 /* PawPrintIcons in Frameworks */,
 				C0DE50000000000000000001 /* DotDogSnakeIcons in Frameworks */,
+				C0DE60000000000000000001 /* MinimalWhiteIcons in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +230,7 @@
 				C0DE30000000000000000003 /* doodlePop */,
 				C0DE40000000000000000003 /* PawPrintIcons */,
 				C0DE50000000000000000003 /* DotDogSnakeIcons */,
+				C0DE60000000000000000003 /* MinimalWhiteIcons */,
 			);
 			productName = Monologue;
 			productReference = F4CCFD782F320B5900FC36CA /* Monologue.app */;
@@ -274,6 +277,7 @@
 				C0DE30000000000000000002 /* XCLocalSwiftPackageReference "doodlePop" */,
 				C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */,
 				C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */,
+				C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -337,7 +341,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 45;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -356,6 +360,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -372,7 +377,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 45;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -395,6 +400,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_SERIALIZE_DEBUGGING_OPTIONS = NO;
@@ -459,7 +465,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -525,7 +531,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -549,7 +555,7 @@
 				CODE_SIGN_ENTITLEMENTS = MonologueDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 45;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				ENABLE_PREVIEWS = YES;
@@ -563,16 +569,24 @@
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-weak_framework",
+					SwiftData,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = zijiu.Monologue.com;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "MAIN_APP $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -592,7 +606,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 45;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -609,16 +623,24 @@
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-weak_framework",
+					SwiftData,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = zijiu.Monologue.com;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "MAIN_APP $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_SERIALIZE_DEBUGGING_OPTIONS = NO;
@@ -688,6 +710,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = DotDogSnakeIcons;
 		};
+		C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MinimalWhiteIcons;
+		};
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "SolarIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = SolarIcons;
@@ -745,6 +771,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */;
 			productName = DotDogSnakeIcons;
+		};
+		C0DE60000000000000000003 /* MinimalWhiteIcons */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */;
+			productName = MinimalWhiteIcons;
 		};
 		DD300002DD300002DD300002 /* HiconIcons */ = {
 			isa = XCSwiftPackageProductDependency;

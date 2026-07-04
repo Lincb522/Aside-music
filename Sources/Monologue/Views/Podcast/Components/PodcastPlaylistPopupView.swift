@@ -2,26 +2,32 @@ import SwiftUI
 
 private enum PodcastQueuePalette {
     static var accent: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccentBlue
     }
 
     static var primaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
     static var secondaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
     }
 
     static var mutedText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
     }
 
     static var separator: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         return NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.42) : .monologueSeparator
     }
 
     static var pressedSurface: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
     }
 }
@@ -39,8 +45,8 @@ struct PodcastPlaylistPopupView: View {
 
         VStack(spacing: 0) {
             headerView
-                .padding(.top, 24)
-                .padding(.bottom, 14)
+                .padding(.top, MinimalWhiteStyle.isActive ? 18 : 24)
+                .padding(.bottom, MinimalWhiteStyle.isActive ? 12 : 14)
 
             if isSearchExpanded {
                 searchFieldView
@@ -102,12 +108,12 @@ struct PodcastPlaylistPopupView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(radioName)
-                    .font(.rounded(size: 18, weight: .bold))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(18, weight: .semibold) : .rounded(size: 18, weight: .bold))
                     .foregroundColor(PodcastQueuePalette.primaryText)
                     .lineLimit(1)
 
                 Text(String(format: String(localized: "podcast_playlist_count"), player.context.count))
-                    .font(.rounded(size: 13, weight: .medium))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(13, weight: .regular) : .rounded(size: 13, weight: .medium))
                     .foregroundColor(PodcastQueuePalette.secondaryText)
             }
 
@@ -126,6 +132,8 @@ struct PodcastPlaylistPopupView: View {
                     .background {
                         if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+                        } else if MinimalWhiteStyle.isActive {
+                            MinimalWhiteCircleBackground(elevated: false, selected: isSearchExpanded)
                         } else {
                             PodcastQueuePalette.pressedSurface.opacity(0.8)
                         }
@@ -138,7 +146,7 @@ struct PodcastPlaylistPopupView: View {
                 HStack(spacing: 6) {
                     MonologueIcon(icon: .repeatMode, size: 16, color: PodcastQueuePalette.secondaryText)
                     Text(NSLocalizedString("mode_sequence", comment: ""))
-                        .font(.rounded(size: 14, weight: .medium))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .regular) : .rounded(size: 14, weight: .medium))
                 }
                 .foregroundColor(PodcastQueuePalette.secondaryText)
                 .padding(.horizontal, 16)
@@ -146,6 +154,8 @@ struct PodcastPlaylistPopupView: View {
                 .background {
                     if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: 17, elevated: false, pressed: true, lightweight: true)
+                    } else if MinimalWhiteStyle.isActive {
+                        MinimalWhiteCapsuleBackground()
                     } else {
                         Capsule().fill(PodcastQueuePalette.pressedSurface)
                     }
@@ -175,7 +185,7 @@ struct PodcastPlaylistPopupView: View {
             } label: {
                 MonologueIcon(icon: .close, size: 12, color: PodcastQueuePalette.secondaryText)
                     .frame(width: 22, height: 22)
-                    .background(PodcastQueuePalette.pressedSurface)
+                    .background(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : PodcastQueuePalette.pressedSurface)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -185,6 +195,12 @@ struct PodcastPlaylistPopupView: View {
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
             } else {
                 PodcastQueuePalette.pressedSurface.opacity(0.85)
             }
@@ -211,12 +227,27 @@ struct PodcastPlaylistPopupView: View {
     private var emptyView: some View {
         VStack(spacing: 16) {
             Spacer().frame(height: 100)
-            MonologueIcon(icon: .radio, size: 48, color: PodcastQueuePalette.mutedText.opacity(0.36))
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .radio, size: 54)
+            } else {
+                MonologueIcon(icon: .radio, size: 48, color: PodcastQueuePalette.mutedText.opacity(0.36))
+            }
             Text(LocalizedStringKey("podcast_playlist_empty"))
-                .font(.rounded(size: 16, weight: .medium))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : .rounded(size: 16, weight: .medium))
                 .foregroundColor(PodcastQueuePalette.secondaryText)
             Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
 
     // MARK: - Data
@@ -348,15 +379,21 @@ private struct PodcastQueueRow: View {
                     leadingIndicator
 
                     CachedAsyncImage(url: song.coverUrl) {
-                        Color.gray.opacity(0.2)
+                        MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.gray.opacity(0.2)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 46, height: 46)
-                    .clipShape(.rect(cornerRadius: 10))
+                    .frame(width: MinimalWhiteStyle.isActive ? 48 : 46, height: MinimalWhiteStyle.isActive ? 48 : 46)
+                    .clipShape(.rect(cornerRadius: MinimalWhiteStyle.isActive ? 12 : 10))
+                    .overlay {
+                        if MinimalWhiteStyle.isActive {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                        }
+                    }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
-                            .font(.rounded(size: 15, weight: isCurrent ? .bold : .medium))
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) : .rounded(size: 15, weight: isCurrent ? .bold : .medium))
                             .foregroundColor(
                                 isCurrent
                                     ? PodcastQueuePalette.accent
@@ -366,12 +403,12 @@ private struct PodcastQueueRow: View {
 
                         if let radioName, !radioName.isEmpty {
                             Text(radioName)
-                                .font(.rounded(size: 12, weight: .medium))
+                                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .medium))
                                 .foregroundColor(PodcastQueuePalette.secondaryText.opacity(isPlayed ? 0.7 : 1))
                                 .lineLimit(1)
                         } else {
                             Text(song.artistName)
-                                .font(.rounded(size: 12, weight: .medium))
+                                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .medium))
                                 .foregroundColor(PodcastQueuePalette.secondaryText.opacity(isPlayed ? 0.7 : 1))
                                 .lineLimit(1)
                         }
@@ -386,7 +423,12 @@ private struct PodcastQueueRow: View {
             if let removeAction, !isCurrent {
                 Button(action: removeAction) {
                     MonologueIcon(icon: .xmark, size: 11, color: PodcastQueuePalette.mutedText.opacity(0.55), lineWidth: 1.6)
-                        .padding(8)
+                        .frame(width: MinimalWhiteStyle.isActive ? 32 : 27, height: MinimalWhiteStyle.isActive ? 32 : 27)
+                        .background {
+                            if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCircleBackground()
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
             }
@@ -401,6 +443,12 @@ private struct PodcastQueueRow: View {
                     pressed: !isCurrent,
                     tint: isCurrent ? PodcastQueuePalette.accent.opacity(0.18) : NeumorphicStyle.surface,
                     lightweight: !isCurrent
+                )
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: isCurrent,
+                    tint: isCurrent ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
                 )
             } else {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)

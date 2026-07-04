@@ -190,7 +190,7 @@ struct SongListRow: View {
                 return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 0.72)
             }
             if PetWhiteStyle.isActive {
-                return PetWhiteStyle.stroke.opacity(isDisabled ? 0.34 : 0.72)
+                return PetWhiteStyle.ink.opacity(isDisabled ? 0.34 : 0.72)
             }
             return Theme.secondaryText.opacity(isDisabled ? 0.34 : 0.62)
         }
@@ -198,7 +198,7 @@ struct SongListRow: View {
             return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 1)
         }
         if PetWhiteStyle.isActive {
-            return PetWhiteStyle.stroke.opacity(isDisabled ? 0.34 : 1)
+            return PetWhiteStyle.ink.opacity(isDisabled ? 0.34 : 1)
         }
         if MujiStyle.isActive {
             return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 0.95)
@@ -521,8 +521,8 @@ struct SongListRow: View {
             
             Divider()
             
-            if !isLocalSong {
-                // 下载选项
+            // 下载选项（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled, !isLocalSong {
                 if rowDownloads.isDownloaded(songId: song.id) {
                     Button(role: .destructive) {
                         rowDownloads.deleteDownload(song: song)
@@ -1014,7 +1014,7 @@ struct SongListRow: View {
     }
 
     private func songMetaBadgeForeground(_ color: Color) -> Color {
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive { return color }
         return MangaStyle.isActive ? MangaStyle.ink : color
     }
@@ -1111,7 +1111,8 @@ struct SongListRow: View {
                 playback.addToQueue(song: song)
             }
 
-            if !isLocalSong {
+            // 下载快捷按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled, !isLocalSong {
                 quickActionButton(icon: .download, kind: .download, isDisabled: isDownloaded) {
                     downloadSong()
                 }

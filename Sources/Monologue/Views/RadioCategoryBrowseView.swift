@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 电台分类浏览页面 — 顶部分类标签，选中后展示该分类下的电台列表，无限加载
 struct RadioCategoryBrowseView: View {
-    @State private var viewModel = RadioCategoryBrowseViewModel()
+    @StateObject private var viewModel = RadioCategoryBrowseViewModel()
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
 
@@ -22,16 +22,32 @@ struct RadioCategoryBrowseView: View {
                 // 内容区
                 if viewModel.isLoading && viewModel.radios.isEmpty {
                     Spacer()
-                    MonologueLoadingView(text: "LOADING")
+                    MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
                     Spacer()
                 } else if viewModel.radios.isEmpty && !viewModel.isLoading {
                     Spacer()
                     VStack(spacing: 12) {
-                        MonologueIcon(icon: .micSlash, size: 40, color: emptyStateColor)
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteIconBadge(icon: .micSlash, size: 54)
+                        } else {
+                            MonologueIcon(icon: .micSlash, size: 40, color: emptyStateColor)
+                        }
                         Text("radio_empty")
                             .font(emptyStateFont)
                             .foregroundColor(emptyStateColor)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 44)
+                    .background {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteSurfaceBackground(
+                                cornerRadius: MinimalWhiteStyle.cardRadius,
+                                elevated: false,
+                                tint: MinimalWhiteStyle.glassFill
+                            )
+                        }
+                    }
+                    .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
                     Spacer()
                 } else {
                     ScrollView {
@@ -87,8 +103,8 @@ struct RadioCategoryBrowseView: View {
                             Text(cat.name)
                                 .font(categoryChipFont(isSelected: isSelected))
                                 .foregroundColor(categoryTextColor(isSelected: isSelected))
-                            .padding(.horizontal, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 14)
-                            .padding(.vertical, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 9 : 8)
+                            .padding(.horizontal, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 14)
+                            .padding(.vertical, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 9 : 8)
                             .background(categoryChipBackground(isSelected: isSelected))
                             .clipShape(Capsule())
                             .overlay {
@@ -101,6 +117,9 @@ struct RadioCategoryBrowseView: View {
                                 } else if SequoiaStyle.isActive {
                                     Capsule()
                                         .stroke((isSelected ? SequoiaStyle.accent : SequoiaStyle.separator).opacity(0.45), lineWidth: 0.55)
+                                } else if MinimalWhiteStyle.isActive {
+                                    Capsule()
+                                        .stroke(isSelected ? MinimalWhiteStyle.separator : MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                                 }
                             }
                     }
@@ -115,6 +134,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private func categoryChipFont(isSelected: Bool) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: isSelected ? .black : .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
@@ -123,7 +143,9 @@ struct RadioCategoryBrowseView: View {
     }
 
     private func categoryTextColor(isSelected: Bool) -> Color {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            return isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted
+        } else if MangaStyle.isActive {
             return isSelected ? MangaStyle.ink : .monologueTextPrimary
         } else if MujiStyle.isActive {
             return isSelected ? MujiStyle.paper : .monologueTextPrimary
@@ -138,7 +160,9 @@ struct RadioCategoryBrowseView: View {
 
     @ViewBuilder
     private func categoryChipBackground(isSelected: Bool) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteCapsuleBackground(selected: isSelected)
+        } else if MangaStyle.isActive {
             Capsule().fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
         } else if MujiStyle.isActive {
             Capsule().fill(isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised)
@@ -201,7 +225,8 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var coverRadius: CGFloat {
-        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
+        if MinimalWhiteStyle.isActive { return 12 }
+        return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
     }
 
     @ViewBuilder
@@ -212,56 +237,68 @@ struct RadioCategoryBrowseView: View {
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+        } else if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
         }
     }
 
     private var rowTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
         return .system(size: 15, weight: .medium, design: .rounded)
     }
 
     private var rowMetaFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
         return .system(size: 12, design: .rounded)
     }
 
     private var emptyStateFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(14, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(16, weight: .medium) }
         return .system(size: 16, weight: .medium, design: .rounded)
     }
 
     private var primaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var tertiaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         return .monologueTextSecondary
     }
 
     private var emptyStateColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var accentColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return .monologueTextSecondary
     }
 
     private var coverPlaceholderFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
         return Color.monologueGlassTint

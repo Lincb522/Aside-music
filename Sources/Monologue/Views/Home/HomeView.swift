@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var playback = SongRowPlaybackModel.shared
     @State private var showPersonalFM = false
     @State private var navigationPath = NavigationPath()
     @State private var bannerWebURL: URL?
@@ -46,6 +47,14 @@ struct HomeView: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteBody
+        } else {
+            defaultBody
+        }
+    }
+
+    private var defaultBody: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true).ignoresSafeArea()
@@ -101,13 +110,301 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .monologueGlassCapsule()
+                    .modifier(HomeToolbarCapsuleModifier())
                 }
             }
             .navigationDestination(for: HomeDestination.self, destination: destinationView)
             .fullScreenCover(isPresented: $showPersonalFM) { PersonalFMView() }
             .fullScreenCover(item: $bannerWebURL) { url in MonologueWebView(url: url, title: nil) }
         }
+    }
+
+    private var minimalWhiteBody: some View {
+        NavigationStack(path: $navigationPath) {
+            ZStack {
+                MinimalWhiteRootBackdrop().ignoresSafeArea()
+
+                if viewModel.isLoading {
+                    MonologueLoadingView(text: "")
+                } else {
+                    minimalWhiteScrollBody
+                }
+            }
+            .onAppear {
+                viewModel.ensureHomeDataLoaded(reason: "minimal white home appear")
+                appeared = true
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: HomeDestination.self, destination: destinationView)
+            .fullScreenCover(isPresented: $showPersonalFM) { PersonalFMView() }
+            .fullScreenCover(item: $bannerWebURL) { url in MonologueWebView(url: url, title: nil) }
+        }
+    }
+
+    private var minimalWhiteScrollBody: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                minimalWhiteHeader
+
+                if !viewModel.banners.isEmpty {
+                    HomeBannerSection(banners: viewModel.banners, onTap: handleBannerTap)
+                }
+
+                minimalWhiteQuickActions
+
+                if !viewModel.dailySongs.isEmpty || !viewModel.qqNewSongs.isEmpty {
+                    minimalWhiteMusicBoard
+                }
+
+                if !viewModel.recommendPlaylists.isEmpty {
+                    HomeNCMPlaylistSection(
+                        playlists: viewModel.recommendPlaylists,
+                        onViewAll: { switchToLibrarySquare() },
+                        onTap: { playlist in navigationPath.append(HomeDestination.playlist(playlist)) }
+                    )
+                }
+
+                if !viewModel.qqRecommendPlaylists.isEmpty {
+                    HomeQQPlaylistSection(
+                        playlists: viewModel.qqRecommendPlaylists,
+                        onViewAll: { switchToLibrarySquare() },
+                        onTap: { playlist in navigationPath.append(HomeDestination.playlist(playlist)) }
+                    )
+                }
+
+                FloatingBarBottomSpacer()
+            }
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .padding(.bottom, 8)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+        .refreshable { viewModel.retryHomeDataLoad(reason: "minimal white home refresh") }
+    }
+
+    private var minimalWhiteHeader: some View {
+        HStack(spacing: 14) {
+            Button {
+                NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
+            } label: {
+                homeAvatarView
+            }
+            .buttonStyle(.plain)
+
+            Text(String(localized: "tabbar_home"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            Spacer(minLength: 8)
+
+            MinimalWhiteHeaderButton(icon: .moon) {
+                navigationPath.append(HomeDestination.meditationMode)
+            }
+            MinimalWhiteHeaderButton(icon: .fm) {
+                showPersonalFM = true
+            }
+            MinimalWhiteHeaderButton(icon: .search, selected: true) {
+                navigationPath.append(HomeDestination.search)
+            }
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var minimalWhiteQuickActions: some View {
+        HStack(spacing: 10) {
+            minimalWhiteQuickAction(icon: .musicNoteList, title: String(localized: "daily_recommend")) {
+                navigationPath.append(HomeDestination.dailyRecommend)
+            }
+
+            minimalWhiteQuickAction(icon: .musicNote, title: String(localized: "new_song_express")) {
+                navigationPath.append(HomeDestination.newSongExpress)
+            }
+
+            minimalWhiteQuickAction(icon: .mv, title: String(localized: "home_mv_zone")) {
+                navigationPath.append(HomeDestination.mvDiscover)
+            }
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private func minimalWhiteQuickAction(
+        icon: MonologueIcon.IconType,
+        title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                MonologueIcon(icon: icon, size: 15, color: MinimalWhiteStyle.inkSoft, lineWidth: 1.7)
+                    .frame(width: 30, height: 30)
+                    .background(MinimalWhiteCircleBackground())
+
+                Text(title)
+                    .font(MinimalWhiteStyle.labelFont(12, weight: .medium))
+                    .foregroundStyle(MinimalWhiteStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.74)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: 15,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+    }
+
+    @ViewBuilder
+    private var minimalWhiteMusicBoard: some View {
+        VStack(spacing: 0) {
+            if !viewModel.dailySongs.isEmpty {
+                minimalWhiteDailyBlock
+            }
+
+            if !viewModel.dailySongs.isEmpty && !viewModel.qqNewSongs.isEmpty {
+                Rectangle()
+                    .fill(MinimalWhiteStyle.hairline)
+                    .frame(height: 1)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+            }
+
+            if !viewModel.qqNewSongs.isEmpty {
+                minimalWhiteNewSongsBlock
+            }
+        }
+        .padding(.vertical, 8)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: 22,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var minimalWhiteDailyBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            minimalWhiteBoardHeader(
+                title: String(localized: "made_for_you"),
+                action: { navigationPath.append(HomeDestination.dailyRecommend) }
+            )
+
+            ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                Button {
+                    PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
+                } label: {
+                    minimalWhiteBoardSongRow(song, index: index + 1)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var minimalWhiteNewSongsBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            minimalWhiteBoardHeader(
+                title: NSLocalizedString("qq_new_songs", comment: ""),
+                action: { navigationPath.append(HomeDestination.qcmNewSongs) }
+            )
+
+            ForEach(Array(viewModel.qqNewSongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                Button {
+                    PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
+                } label: {
+                    minimalWhiteBoardSongRow(song, index: index + 1)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private func minimalWhiteBoardHeader(title: String, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(MinimalWhiteStyle.titleFont(18, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Button(action: action) {
+                MinimalWhiteDisclosureGlyph()
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func minimalWhiteBoardSongRow(_ song: Song, index: Int) -> some View {
+        let isCurrent = playback.currentSongId == song.id
+
+        return HStack(spacing: 11) {
+            Text(String(format: "%02d", index))
+                .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
+                .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                .frame(width: 24, alignment: .leading)
+
+            CachedAsyncImage(url: song.coverUrl, width: 44, height: 44) {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(MinimalWhiteStyle.controlGlassFill)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(song.name)
+                    .font(MinimalWhiteStyle.bodyFont(14, weight: isCurrent ? .semibold : .medium))
+                    .foregroundStyle(MinimalWhiteStyle.ink)
+                    .lineLimit(1)
+
+                Text(song.artistName)
+                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            if isCurrent {
+                PlayingVisualizerView(isAnimating: playback.isPlaying, color: MinimalWhiteStyle.ink)
+                    .frame(width: 18, height: 14)
+            } else {
+                MonologueIcon(icon: .play, size: 11, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6)
+                    .frame(width: 24, height: 24)
+                    .background(MinimalWhiteCircleBackground())
+            }
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
+
+    private func minimalWhiteHeaderButton(
+        icon: MonologueIcon.IconType,
+        action: @escaping () -> Void
+    ) -> some View {
+        MinimalWhiteHeaderButton(icon: icon, action: action)
+    }
+
+    private func switchToLibrarySquare() {
+        UserDefaults.standard.set(true, forKey: "pendingLibrarySquareSwitch")
+        NotificationCenter.default.post(name: .init("SwitchToLibrarySquare"), object: nil)
     }
 
 
@@ -146,7 +443,9 @@ struct HomeView: View {
     private var homeAvatarView: some View {
         let size: CGFloat = 36
         if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
-            CachedAsyncImage(url: url) { Circle().fill(Color.monologueSeparator) }
+            CachedAsyncImage(url: url, width: size, height: size) {
+                Circle().fill(Color.monologueSeparator)
+            }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size, height: size)
                 .clipShape(Circle())
@@ -254,72 +553,74 @@ struct HomeView: View {
         MonologueTimeGreeting.localizedKey
     }
 
-    // MARK: - Scroll Body
+    // MARK: - Scroll Body (Now Showing cinema layout)
 
     private var scrollBody: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                homeGreetingSection
-                    .padding(.bottom, 14)
+            LazyVStack(spacing: 0) {
+                cinemaMasthead
+                    .padding(.bottom, 20)
 
                 if !viewModel.banners.isEmpty {
-                    HomeBannerSection(
-                        banners: viewModel.banners,
-                        onTap: handleBannerTap
-                    )
-                    .stagger(appeared, order: 0)
-                    .padding(.bottom, 28)
+                    CinemaHeroCarousel(banners: viewModel.banners, onTap: handleBannerTap)
+                        .stagger(appeared, order: 0)
+                        .padding(.bottom, 30)
                 }
 
                 if !viewModel.dailySongs.isEmpty {
-                    HomeDailySection(
+                    CinemaSongPosterRail(
+                        sceneNumber: 1,
+                        kicker: "Today's Feature",
+                        title: NSLocalizedString("made_for_you", comment: ""),
                         songs: viewModel.dailySongs,
+                        showsRank: true,
                         onViewAll: { navigationPath.append(HomeDestination.dailyRecommend) },
                         onPlay: { song in PlayerManager.shared.play(song: song, in: viewModel.dailySongs) }
                     )
                     .stagger(appeared, order: 1)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 30)
                 }
 
                 if !viewModel.recommendPlaylists.isEmpty {
-                    HomeNCMPlaylistSection(
+                    CinemaPlaylistPosterRail(
+                        sceneNumber: 2,
+                        kicker: "Feature Presentation",
+                        title: NSLocalizedString("playlists_love", comment: ""),
                         playlists: viewModel.recommendPlaylists,
-                        onViewAll: {
-                            UserDefaults.standard.set(true, forKey: "pendingLibrarySquareSwitch")
-                            NotificationCenter.default.post(name: .init("SwitchToLibrarySquare"), object: nil)
-                        },
+                        onViewAll: { switchToLibrarySquare() },
                         onTap: { pl in navigationPath.append(HomeDestination.playlist(pl)) }
                     )
                     .stagger(appeared, order: 2)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 30)
                 }
 
                 if !viewModel.qqRecommendPlaylists.isEmpty {
-                    HomeQQPlaylistSection(
+                    CinemaPlaylistPosterRail(
+                        sceneNumber: 3,
+                        kicker: "Selected Screenings",
+                        title: NSLocalizedString("qq_recommend_playlists", comment: ""),
                         playlists: viewModel.qqRecommendPlaylists,
-                        onViewAll: {
-                            UserDefaults.standard.set(true, forKey: "pendingLibrarySquareSwitch")
-                            NotificationCenter.default.post(name: .init("SwitchToLibrarySquare"), object: nil)
-                        },
+                        onViewAll: { switchToLibrarySquare() },
                         onTap: { pl in navigationPath.append(HomeDestination.playlist(pl)) }
                     )
                     .stagger(appeared, order: 3)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 30)
                 }
 
                 if !viewModel.qqNewSongs.isEmpty {
-                    HomeNewSongsSection(
+                    CinemaSongPosterRail(
+                        sceneNumber: 4,
+                        kicker: "Coming Soon",
+                        title: NSLocalizedString("qq_new_songs", comment: ""),
                         songs: viewModel.qqNewSongs,
                         onViewAll: { navigationPath.append(HomeDestination.qcmNewSongs) },
-                        onPlay: { song in
-                            PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
-                        }
+                        onPlay: { song in PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs) }
                     )
                     .stagger(appeared, order: 4)
-                    .padding(.bottom, 36)
+                    .padding(.bottom, 34)
                 }
 
-                HomeEntryCards(
+                CinemaTrailerRow(
                     onNewSongExpress: { navigationPath.append(HomeDestination.newSongExpress) },
                     onMVDiscover: { navigationPath.append(HomeDestination.mvDiscover) }
                 )
@@ -327,10 +628,73 @@ struct HomeView: View {
 
                 FloatingBarBottomSpacer()
             }
+            .padding(.top, 4)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
         .refreshable { viewModel.retryHomeDataLoad(reason: "home pull refresh") }
+    }
+
+    // MARK: - Cinema Masthead
+
+    private var cinemaMasthead: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextSecondary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                Text(cinemaDateString)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.8))
+            }
+
+            Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                .font(.system(size: 27, weight: .heavy, design: .serif))
+                .foregroundColor(.monologueTextPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            if settings.hitokotoEnabled {
+                let hitokotoText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                cinemaTagline(hitokotoText.isEmpty ? HitokotoFallbackSlogan.text : hitokotoText)
+            }
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var cinemaDateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM.dd"
+        return formatter.string(from: Date())
+    }
+
+    private func cinemaTagline(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Capsule()
+                .fill(Color.monologueAccent.opacity(0.65))
+                .frame(width: 2.5)
+
+            Text(text)
+                .font(.system(size: 13, weight: .medium, design: .serif))
+                .italic()
+                .foregroundColor(.monologueTextPrimary.opacity(0.72))
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                viewModel.refreshHitokoto(force: true)
+            } label: {
+                MonologueIcon(icon: .refresh, size: 11, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.5)
+            }
+            .buttonStyle(.plain)
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Banner Tap
@@ -380,6 +744,20 @@ struct HomeView: View {
         case .newSongExpress:   NewSongExpressView()
         case .qcmNewSongs:      QCMNewSongsView()
         case .meditationMode:   MeditationModeView()
+        }
+    }
+}
+
+private struct HomeToolbarCapsuleModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if ThemedPageStyle.isActive {
+            content.monologueGlassCapsule()
+        } else if #available(iOS 26, *) {
+            // iOS 26 的 ToolbarItem 已自带系统胶囊，经典主题不再重复叠玻璃。
+            content
+        } else {
+            content.monologueGlassCapsule()
         }
     }
 }

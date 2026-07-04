@@ -61,7 +61,7 @@ struct MeditationModeView: View {
             subtitle: "",
             icon: .moon
         ) {
-            PetWhiteIconBadge(icon: .moon, tint: PetWhiteStyle.mint, size: 50)
+            EmptyView()
         }
     }
 
@@ -327,7 +327,7 @@ struct MeditationModeView: View {
     @ViewBuilder
     private var playButtonStroke: some View {
         if PetWhiteStyle.isActive {
-            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.3)
+            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1)
         }
     }
 

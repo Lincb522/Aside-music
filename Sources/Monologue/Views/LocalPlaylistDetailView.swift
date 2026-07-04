@@ -577,27 +577,31 @@ struct LocalPlaylistDetailView: View {
                         }
                     }
                     .frame(width: DeviceLayout.isPad ? 168 : 124, height: DeviceLayout.isPad ? 168 : 124)
-                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.strokeWidth)
-                    )
+                    .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
+                    .petWhiteClayShadow()
 
-                    VStack(alignment: .leading, spacing: 9) {
-                        HStack(spacing: 7) {
-                            PetWhitePill(text: String(localized: "local_playlist_label"), tint: PetWhiteStyle.mint)
-                            PetWhitePill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Text(String(localized: "local_playlist_label").uppercased())
+                                .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                                .tracking(1.2)
+                                .foregroundStyle(PetWhiteStyle.dogEar)
+
+                            Text("· \(playlistTrackCount) \(String(localized: "songs_unit"))")
+                                .font(PetWhiteStyle.labelFont(11))
+                                .foregroundStyle(PetWhiteStyle.inkMuted)
                         }
+                        .lineLimit(1)
 
                         Text(p.name)
-                            .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .black))
+                            .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .bold))
                             .foregroundStyle(PetWhiteStyle.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
 
                         if let desc = p.desc, !desc.isEmpty {
                             Text(desc)
-                                .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                                .font(PetWhiteStyle.labelFont(12))
                                 .foregroundStyle(PetWhiteStyle.inkSoft)
                                 .lineLimit(2)
                         }
@@ -665,7 +669,7 @@ struct LocalPlaylistDetailView: View {
             }
         }
         .padding(16)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         .padding(.horizontal, petWhiteDetailHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 10)
         .padding(.bottom, 14)
@@ -674,11 +678,11 @@ struct LocalPlaylistDetailView: View {
 
     private func petWhiteLocalAction(title: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool) -> some View {
         HStack(spacing: 7) {
-            PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.05, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+            PetWhitePackIcon(icon: icon, size: 14, visualScale: 1.05, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.ink)
             Text(title)
                 .font(PetWhiteStyle.labelFont(12, weight: .black))
         }
-        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.ink)
         .padding(.horizontal, 14)
         .frame(height: 38)
         .background(filled ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
@@ -686,7 +690,7 @@ struct LocalPlaylistDetailView: View {
     }
 
     private func petWhiteLocalIconAction(icon: MonologueIcon.IconType, tint: Color) -> some View {
-        PetWhitePackIcon(icon: icon, size: 15, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
+        PetWhitePackIcon(icon: icon, size: 15, visualScale: 1.05, fallbackColor: PetWhiteStyle.ink)
             .frame(width: 38, height: 38)
             .background(PetWhiteSurfaceBackground(cornerRadius: 15, elevated: false, tint: tint.opacity(0.20), accent: tint))
     }
@@ -1391,7 +1395,7 @@ struct LocalPlaylistDetailView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+                .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
                 .padding(.horizontal, petWhiteDetailHorizontalPadding)
             }
 

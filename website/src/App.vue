@@ -633,6 +633,13 @@ const {
         <p v-if="testFlightNoticeDialog.email">
           <strong>{{ testFlightNoticeDialog.email }}</strong>
         </p>
+        <div v-if="testFlightNoticeDialog.token" style="margin: 10px 0 4px; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,.05); display: flex; flex-direction: column; gap: 6px; align-items: center;">
+          <span style="font-size: 12px; opacity: .7;">你的 Token（请妥善保存）</span>
+          <code style="font-size: 16px; font-weight: 700; letter-spacing: 1px; word-break: break-all;">{{ testFlightNoticeDialog.token }}</code>
+          <button type="button" class="tf-duplicate-secondary" @click="copyTokenKey(testFlightNoticeDialog.token)">
+            {{ copiedTokenKey === testFlightNoticeDialog.token ? content.tokenQuery.copiedLabel : content.tokenQuery.copyLabel }}
+          </button>
+        </div>
         <div class="tf-duplicate-actions" :class="{ 'is-single': !(testFlightNoticeDialog.canOpenMailbox && testFlightNoticeDialog.canQueryToken) }">
           <button v-if="testFlightNoticeDialog.canOpenMailbox" class="tf-duplicate-primary" type="button" @click="openMailboxForTestFlight(testFlightNoticeDialog.email)">
             前往邮箱

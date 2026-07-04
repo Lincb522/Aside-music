@@ -17,6 +17,7 @@ struct LibraryView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var libraryHeaderCollapseProgress: CGFloat = 0
     @State private var libraryHeaderDragStart: CGFloat?
+    @State private var libraryHeaderHeight: CGFloat = 0
 
     private let allTabs = LibraryViewModel.LibraryTab.allCases
 
@@ -124,6 +125,16 @@ struct LibraryView: View {
 
             VStack(spacing: 0) {
                 libraryHeaderView
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(key: LibraryHeaderHeightPreferenceKey.self, value: geo.size.height)
+                        }
+                    )
+                    .frame(height: defaultLibraryHeaderCollapsedHeight, alignment: .top)
+                    .opacity(Double(1 - libraryHeaderCollapseProgress))
+                    .clipped()
+                    .allowsHitTesting(libraryHeaderCollapseProgress < 0.5)
 
                 TabView(selection: $tabIndex) {
                     MyPlaylistsContainerView(viewModel: viewModel)
@@ -140,17 +151,33 @@ struct LibraryView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .indexViewStyle(.page(backgroundDisplayMode: .never))
+                .simultaneousGesture(libraryHeaderScrollGesture)
+            }
+        }
+        .onPreferenceChange(LibraryHeaderHeightPreferenceKey.self) { height in
+            if height > libraryHeaderHeight {
+                libraryHeaderHeight = height
             }
         }
         .onAppear {
             loadDefaultLibraryTab(viewModel.currentTab)
         }
         .onChange(of: tabIndex) { _, index in
+            if libraryHeaderCollapseProgress != 0 {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    libraryHeaderCollapseProgress = 0
+                }
+            }
             guard allTabs.indices.contains(index) else { return }
             let tab = allTabs[index]
             guard viewModel.currentTab != tab else { return }
             viewModel.currentTab = tab
         }
+    }
+
+    private var defaultLibraryHeaderCollapsedHeight: CGFloat? {
+        guard libraryHeaderHeight > 0 else { return nil }
+        return libraryHeaderHeight * (1 - libraryHeaderCollapseProgress)
     }
 
     private func switchToTab(_ tab: LibraryViewModel.LibraryTab) {
@@ -204,54 +231,42 @@ struct LibraryView: View {
     private var libraryHeaderView: some View {
         if MangaStyle.isActive {
             VStack(spacing: 14) {
-                MangaPageHeader(
-                    eyebrow: "COLLECTION",
-                    title: String(localized: "tabbar_library"),
-                    subtitle: ""
-                ) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(MangaStyle.decoBlue)
-
-                        MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.strokeInk, lineWidth: 2)
-                    }
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(MangaStyle.strokeInk)
-                            .offset(x: 2.5, y: 2.5)
-                    )
-                }
+                Text(String(localized: "tabbar_library"))
+                    .font(MangaStyle.titleFont(28, weight: .black))
+                    .foregroundStyle(MangaStyle.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.top, DeviceLayout.headerTopPadding + 8)
 
                 libraryTabPicker
             }
             .padding(.bottom, 10)
         } else if NeumorphicStyle.isActive {
             VStack(spacing: 14) {
-                NeumorphicPageHeader(
-                    eyebrow: "library",
-                    title: String(localized: "tabbar_library"),
-                    subtitle: ""
-                ) {
-                    NeumorphicIconBadge(icon: .library, tint: NeumorphicStyle.sage, size: 48)
-                }
+                Text(String(localized: "tabbar_library"))
+                    .font(NeumorphicStyle.titleFont(29, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.top, DeviceLayout.headerTopPadding + 8)
 
                 libraryTabPicker
             }
             .padding(.bottom, 10)
         } else if MujiStyle.isActive {
             VStack(spacing: 14) {
-                MujiPageHeader(
-                    eyebrow: "collection shelves",
-                    title: String(localized: "tabbar_library"),
-                    subtitle: ""
-                ) {
-                    MujiIconBadge(icon: .library, tint: MujiStyle.tea, size: 48)
+                HStack(alignment: .bottom, spacing: 12) {
+                    Text(String(localized: "tabbar_library"))
+                        .font(MujiStyle.titleFont(24, weight: .regular))
+                        .foregroundStyle(MujiStyle.ink)
+
+                    Rectangle()
+                        .fill(MujiStyle.separator)
+                        .frame(height: 0.6)
+                        .padding(.bottom, 8)
                 }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.top, DeviceLayout.headerTopPadding + 8)
 
                 libraryTabPicker
             }
@@ -389,5 +404,12 @@ struct LibraryView: View {
             return isSelected ? defaultLibrarySelectedTabForeground : Color.monologueTextSecondary.opacity(0.82)
         }
         return isSelected ? Color.monologueTextPrimary : Color.monologueTextSecondary.opacity(0.72)
+    }
+}
+
+private struct LibraryHeaderHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

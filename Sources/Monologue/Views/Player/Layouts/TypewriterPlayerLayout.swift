@@ -240,9 +240,7 @@ private struct TypewriterLyricsView: View {
         Text("▌")
             .font(.system(size: 17, weight: .semibold, design: .monospaced))
             .foregroundStyle(ribbon)
-            .phaseAnimator([false, true]) { content, phase in
-                content.opacity(phase ? 0.1 : 1.0)
-            } animation: { _ in .easeInOut(duration: 0.45) }
+            .compatBlink(dimOpacity: 0.1, duration: 0.45)
     }
 }
 
@@ -702,17 +700,26 @@ struct TypewriterPlayerLayout: View {
                         showComments = true
                     }
 
-                    let saved = player.currentSong.map {
-                        downloadManager.isDownloaded(songId: $0.id, isQQ: $0.isQQMusic)
-                    } ?? false
-                    labelKey(
-                        text: saved ? "SAVED" : "SAVE",
-                        icon: .playerDownload,
-                        disabled: saved
-                    ) {
-                        if !saved {
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按键（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        let saved = player.currentSong.map {
+                            downloadManager.isDownloaded(songId: $0.id, isQQ: $0.isQQMusic)
+                        } ?? false
+                        labelKey(
+                            text: saved ? "SAVED" : "SAVE",
+                            icon: .playerDownload,
+                            disabled: saved
+                        ) {
+                            if !saved {
+                                HapticManager.shared.light()
+                                showDownloadSheet = true
+                            }
+                        }
+                    } else {
+                        // 沉浸模式按键 — 占用原下载按键的位置
+                        labelKey(text: "CINEMA", icon: .immersive) {
                             HapticManager.shared.light()
-                            showDownloadSheet = true
+                            CinemaModeController.shared.present()
                         }
                     }
 

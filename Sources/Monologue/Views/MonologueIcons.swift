@@ -8,6 +8,7 @@ import BlobIcons
 import doodlePop
 import PawPrintIcons
 import DotDogSnakeIcons
+import MinimalWhiteIcons
 
 // MARK: - Monologue Icon System (Hicon Icons)
 
@@ -164,6 +165,7 @@ struct MonologueIcon: View {
     var size: CGFloat = 24
     var color: Color = .primary
     var lineWidth: CGFloat? = nil
+    var normalizesBitmapScale: Bool = false
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
     @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
@@ -208,6 +210,8 @@ struct MonologueIcon: View {
             return icon.pawPrintImage
         case .dotDogSnake:
             return icon.dotDogSnakeImage
+        case .minimalWhiteIcons:
+            return icon.minimalWhiteIconImage
         }
     }
 
@@ -216,11 +220,13 @@ struct MonologueIcon: View {
     }
 
     private var usesBitmapVisualScale: Bool {
-        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake
+        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake || iconSet == .minimalWhiteIcons
     }
 
     private var bitmapIconVisualScale: CGFloat {
         switch iconSet {
+        case .minimalWhiteIcons:
+            return 1.18
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:
@@ -239,6 +245,11 @@ struct MonologueIcon: View {
         }
     }
 
+    private var effectiveBitmapVisualScale: CGFloat {
+        guard usesBitmapVisualScale, !normalizesBitmapScale else { return 1 }
+        return bitmapIconVisualScale
+    }
+
     private var iconImage: some View {
         rawIconImage(currentImage)
     }
@@ -250,7 +261,7 @@ struct MonologueIcon: View {
             .renderingMode(usesOriginalArtwork ? .original : .template)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .scaleEffect(usesBitmapVisualScale ? bitmapIconVisualScale : 1)
+            .scaleEffect(effectiveBitmapVisualScale)
     }
     
     @ViewBuilder
@@ -270,7 +281,7 @@ struct MonologueIcon: View {
                     .aspectRatio(contentMode: .fit)
                     .foregroundColor(color)
             }
-            .scaleEffect(usesBitmapVisualScale ? bitmapIconVisualScale : 1)
+            .scaleEffect(effectiveBitmapVisualScale)
         }
     }
 }
@@ -343,7 +354,6 @@ private struct MonologuePawPrintChevronIcon: View {
 
     @ViewBuilder
     private var platformImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: direction.assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -354,20 +364,6 @@ private struct MonologuePawPrintChevronIcon: View {
         } else {
             fallbackIcon
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: direction.assetName) {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            fallbackIcon
-        }
-        #else
-        fallbackIcon
-        #endif
     }
 
     private var fallbackIcon: some View {
@@ -436,6 +432,8 @@ extension MonologueIcon.IconType {
             return (.shuffle, .zero)
         case "waveform":
             return (.waveform, .zero)
+        case "tv", "film", "play.tv":
+            return (.immersive, .zero)
         case "bubble.left.fill", "bubble.left.and.bubble.right.fill":
             return (.comment, .zero)
         case "cart":
@@ -560,7 +558,8 @@ extension MonologueIcon.IconType {
         
         // Settings Icons
         case .equalizer:        return Hicon.setting
-        case .immersive:        return Hicon.zoomIn
+        // 沉浸模式改用电视/影院图标（原为 zoomIn 放大镜样式）
+        case .immersive:        return Hicon.tv
         case .playerTheme:      return Hicon.palette
         
         // Podcast Categories
@@ -640,6 +639,8 @@ extension AppInterfaceIconSet {
             return icon.pawPrintImage
         case .dotDogSnake:
             return icon.dotDogSnakeImage
+        case .minimalWhiteIcons:
+            return icon.minimalWhiteIconImage
         }
     }
 }
@@ -647,24 +648,37 @@ extension AppInterfaceIconSet {
 // MARK: - IconType → Icon Export Mapping
 
 extension MonologueIcon.IconType {
+    /// 位图图标包的资源 id。
+    /// 沉浸模式改用「mv」视频图标（各包原有的 immersive 资源为放大箭头样式，与影院沉浸含义不符）。
+    private var bitmapIconId: String {
+        switch self {
+        case .immersive: return "mv"
+        default: return String(describing: self)
+        }
+    }
+
     var iconExportImage: UIImage {
-        UIImage(iconExportId: String(describing: self)) ?? hiconImage
+        UIImage(iconExportId: bitmapIconId) ?? hiconImage
     }
 
     var blobIconImage: UIImage {
-        UIImage(blobIconId: String(describing: self)) ?? hiconImage
+        UIImage(blobIconId: bitmapIconId) ?? hiconImage
     }
 
     var doodlePopImage: UIImage {
-        UIImage(doodlePopIconId: String(describing: self)) ?? hiconImage
+        UIImage(doodlePopIconId: bitmapIconId) ?? hiconImage
     }
 
     var pawPrintImage: UIImage {
-        UIImage(pawPrintIconId: String(describing: self)) ?? hiconImage
+        UIImage(pawPrintIconId: bitmapIconId) ?? hiconImage
     }
 
     var dotDogSnakeImage: UIImage {
-        UIImage(dotDogSnakeIconId: String(describing: self)) ?? hiconImage
+        UIImage(dotDogSnakeIconId: bitmapIconId) ?? hiconImage
+    }
+
+    var minimalWhiteIconImage: UIImage {
+        UIImage(minimalWhiteIconId: bitmapIconId) ?? hiconImage
     }
 }
 
@@ -791,7 +805,8 @@ extension MonologueIcon.IconType {
 
         // Settings Icons
         case .equalizer:        name = "gear"
-        case .immersive:        name = "arrows-expand"
+        // 沉浸模式改用电视/影院图标（原为 arrows-expand）
+        case .immersive:        name = "tv"
         case .playerTheme:      name = "palette"
 
         // Podcast Categories
@@ -964,7 +979,8 @@ extension MonologueIcon.IconType {
 
         // Settings Icons
         case .equalizer:        name = "settings-2"
-        case .immersive:        name = "maximize-2"
+        // 沉浸模式改用「电视 + 播放」图标（原为 maximize-2）
+        case .immersive:        name = "tv-minimal-play"
         case .playerTheme:      name = "palette"
 
         // Podcast Categories
@@ -1116,7 +1132,8 @@ extension MonologueIcon.IconType {
         case .moon:             name = "moon"
         case .halfCircle:       name = "moon"
         case .equalizer:        name = "gear"
-        case .immersive:        name = "expand"
+        // 沉浸模式改用电视/影院图标（原为 expand）
+        case .immersive:        name = "tv"
         case .playerTheme:      name = "color-palette"
         case .catMusic:         name = "music"
         case .catLife:          name = "compass"

@@ -23,7 +23,7 @@ struct Game2048PlayerLayout: View {
     @State private var showComments = false
     @State private var showArtistDetail = false
     @State private var showDownloadSheet = false
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
 
     // 动画
     @State private var tilesAppeared = false
@@ -238,7 +238,7 @@ struct Game2048PlayerLayout: View {
                 }
             }
         }
-        .fontDesign(nil)
+        .compatFontDesign(nil)
         .onAppear {
             colorExtractor.extract(from: player.currentSong?.coverUrl?.absoluteString)
             currentLayout = Int.random(in: 0..<Self.layouts.count)
@@ -558,7 +558,7 @@ extension Game2048PlayerLayout {
         } label: {
             gameTile(value: 4, cell: cell) {
                 MonologueIcon(icon: isLiked ? .liked : .like, size: 17, color: isLiked ? .red : tileFg(4), lineWidth: 1.8)
-                    .symbolEffect(.bounce, value: isLiked)
+                    .compatSymbolBounce(value: isLiked)
             }
         }.buttonStyle(MonologueBouncingButtonStyle())
     }
@@ -679,9 +679,15 @@ extension Game2048PlayerLayout {
         HStack(spacing: 10) {
             bottomBtn(icon: "bubble.left", label: "128") { showComments = true }
             if let s = player.currentSong {
-                let done = downloadManager.isDownloaded(songId: s.id)
-                bottomBtn(icon: done ? "checkmark.circle.fill" : "arrow.down.circle",
-                          label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
+                if AppConfig.Features.downloadEnabled {
+                    // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                    let done = downloadManager.isDownloaded(songId: s.id)
+                    bottomBtn(icon: done ? "checkmark.circle.fill" : "arrow.down.circle",
+                              label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
+                } else {
+                    // 沉浸模式按钮 — 占用原下载按钮的位置
+                    bottomBtn(icon: "tv", label: "64") { CinemaModeController.shared.present() }
+                }
             }
             bottomBtn(icon: "list.bullet", label: "32") { showPlaylist = true }
             bottomBtn(icon: "paintpalette", label: "16") { showThemePicker = true }

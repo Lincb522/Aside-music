@@ -237,7 +237,7 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
 // MARK: - MV 发现页
 
 struct MVDiscoverView: View {
-    @State private var viewModel = MVDiscoverViewModel()
+    @StateObject private var viewModel = MVDiscoverViewModel()
     @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedMV: MVIdItem?
     @State private var selectedMlog: MlogItem?
@@ -673,13 +673,13 @@ struct MVListDestination: Hashable {
 // MARK: - MV 完整列表页
 
 struct MVFullListView: View {
-    @State private var viewModel: MVListViewModel
+    @StateObject private var viewModel: MVListViewModel
     @State private var selectedMV: MVIdItem?
 
     let title: String
 
     init(listType: MVListViewModel.ListType, title: String) {
-        _viewModel = State(initialValue: MVListViewModel(listType: listType))
+        _viewModel = StateObject(wrappedValue: MVListViewModel(listType: listType))
         self.title = title
     }
 
@@ -753,7 +753,7 @@ struct MVFullListView: View {
 // MARK: - 已收藏 MV Sheet
 
 struct MVSublistSheet: View {
-    @State private var viewModel = MVSublistViewModel()
+    @StateObject private var viewModel = MVSublistViewModel()
     @State private var selectedMV: MVIdItem?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
