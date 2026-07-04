@@ -50,9 +50,11 @@ enum WidgetTheme: String, CaseIterable, AppEnum {
     case dashboard
     case soundwave
     case typewriter
+    case lyrics
 
     static let allCases: [WidgetTheme] = [
         .polaroid,
+        .lyrics,
         .poster,
         .manga,
         .magazine,
@@ -78,7 +80,8 @@ enum WidgetTheme: String, CaseIterable, AppEnum {
         .radio:       "收音机",
         .dashboard:   "仪表盘",
         .soundwave:   "声波",
-        .typewriter:  "打字机"
+        .typewriter:  "打字机",
+        .lyrics:      "歌词"
     ]
 }
 
@@ -354,6 +357,19 @@ struct NowPlayingEntry: TimelineEntry {
 
 }
 
+// MARK: - Synced Lyrics Payload (App Group)
+
+struct WidgetLyricLine: Decodable {
+    let t: TimeInterval
+    let x: String
+    let tr: String?
+}
+
+private struct WidgetLyricsPayload: Decodable {
+    let songId: Int
+    let lines: [WidgetLyricLine]
+}
+
 struct NowPlayingProvider: AppIntentTimelineProvider {
     private var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroupID) }
 
@@ -370,10 +386,79 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: ThemeConfigIntent, in context: Context) async -> Timeline<NowPlayingEntry> {
-        let base = currentEntry(theme: configuration.theme)
+        var base = currentEntry(theme: configuration.theme)
+        let fallbackUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: base.date) ?? base.date.addingTimeInterval(300)
 
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: base.date) ?? base.date.addingTimeInterval(300)
-        return Timeline(entries: [base], policy: .after(nextUpdate))
+        // 播放中且有整首同步歌词时，按歌词时间戳预生成未来条目，
+        // 由 WidgetKit 在准确时刻自动换行，无需主 App 逐句 reload。
+        let lines = loadLyricLines()
+        guard base.isPlaying, !lines.isEmpty else {
+            return Timeline(entries: [base], policy: .after(fallbackUpdate))
+        }
+
+        let now = Date()
+        let elapsed = max(0, now.timeIntervalSince(base.playbackReferenceDate))
+        let position = base.playbackCurrentTime + elapsed
+
+        base.date = now
+        applyLyricContext(&base, lines: lines, index: lyricIndex(in: lines, at: position))
+
+        var entries: [NowPlayingEntry] = [base]
+        let maxFutureEntries = 60
+        for (index, line) in lines.enumerated() where line.t > position + 0.05 {
+            guard entries.count <= maxFutureEntries else { break }
+            var entry = base
+            entry.date = now.addingTimeInterval(line.t - position)
+            entry.playbackCurrentTime = line.t
+            entry.playbackReferenceDate = entry.date
+            applyLyricContext(&entry, lines: lines, index: index)
+            if let last = entries.last, entry.date.timeIntervalSince(last.date) < 0.05 {
+                entries[entries.count - 1] = entry
+            } else {
+                entries.append(entry)
+            }
+        }
+
+        // 歌曲结束（或时间线窗口耗尽）后再请求新时间线
+        let horizonEnd: Date
+        if base.playbackDuration > position {
+            let songEnd = now.addingTimeInterval(base.playbackDuration - position + 2)
+            let windowEnd = (entries.last?.date ?? now).addingTimeInterval(300)
+            horizonEnd = min(songEnd, windowEnd)
+        } else {
+            horizonEnd = (entries.last?.date ?? now).addingTimeInterval(300)
+        }
+        return Timeline(entries: entries, policy: .after(max(horizonEnd, now.addingTimeInterval(15))))
+    }
+
+    // MARK: - Synced Lyrics
+
+    private func loadLyricLines() -> [WidgetLyricLine] {
+        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else { return [] }
+        let fileURL = containerURL.appendingPathComponent("widget_lyrics.json")
+        guard let data = try? Data(contentsOf: fileURL, options: [.mappedIfSafe]),
+              let payload = try? JSONDecoder().decode(WidgetLyricsPayload.self, from: data) else { return [] }
+        let expectedSongId = groupDefaults?.integer(forKey: "widget_song_id") ?? 0
+        if expectedSongId != 0, payload.songId != expectedSongId { return [] }
+        return payload.lines
+    }
+
+    private func lyricIndex(in lines: [WidgetLyricLine], at position: TimeInterval) -> Int {
+        lines.lastIndex(where: { $0.t <= position }) ?? -1
+    }
+
+    private func applyLyricContext(_ entry: inout NowPlayingEntry, lines: [WidgetLyricLine], index: Int) {
+        entry.lyricCount = lines.count
+        entry.lyricIndex = index
+        entry.prevLyricText = index > 0 ? lines[index - 1].x : ""
+        entry.nextLyricText = (index + 1) < lines.count && index >= -1 ? lines[index + 1].x : ""
+        if index >= 0 {
+            entry.lyricText = lines[index].x
+            entry.lyricTranslation = lines[index].tr ?? ""
+        } else {
+            entry.lyricText = ""
+            entry.lyricTranslation = ""
+        }
     }
 
     private func currentEntry(theme: WidgetTheme) -> NowPlayingEntry {
@@ -424,7 +509,7 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
             )
         }
 
-        return NowPlayingEntry(
+        var entry = NowPlayingEntry(
             date: .now, songName: songName, artistName: artistName, albumName: albumName,
             playbackState: playbackState, coverImageData: coverData, theme: theme,
             dominantRGB: dominantRGB, secondaryRGB: secondaryRGB, coverIsDark: coverIsDark,
@@ -436,6 +521,13 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
             playbackDuration: playbackDuration,
             playbackReferenceDate: playbackReferenceDate
         )
+        let lines = loadLyricLines()
+        if !lines.isEmpty {
+            let elapsed = playbackState.isPlaying ? max(0, Date().timeIntervalSince(playbackReferenceDate)) : 0
+            let position = playbackCurrentTime + elapsed
+            applyLyricContext(&entry, lines: lines, index: lyricIndex(in: lines, at: position))
+        }
+        return entry
     }
 
     private func cachedTheme() -> WidgetTheme {
@@ -528,6 +620,8 @@ struct NowPlayingWidgetView: View {
             SoundwaveTheme(entry: entry, family: family)
         case .typewriter:
             TypewriterWidgetTheme(entry: entry, family: family)
+        case .lyrics:
+            LyricsWidgetTheme(entry: entry, family: family)
         }
     }
 
