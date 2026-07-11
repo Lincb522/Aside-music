@@ -39,6 +39,7 @@ struct RadioDetailView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         headerSection
+                            .monologuePageHeaderCollapse()
                         programListSection
                     }
                     .padding(.bottom, 120)

@@ -75,6 +75,7 @@ struct FullScreenPlayerView: View {
 
 
         }
+        .compatFontDesign(nil)
         .monologueEdgeSwipeToDismiss()
         .fullScreenCover(isPresented: $cinemaController.isPresented) {
             AriaStageView()

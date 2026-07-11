@@ -70,6 +70,7 @@ struct AlbumDetailView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     albumHeaderContent
+                        .monologuePageHeaderCollapse()
                     songListSection
                         .padding(.bottom, 100)
                 }

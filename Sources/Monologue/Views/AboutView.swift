@@ -67,16 +67,6 @@ struct AboutView: View {
 
             ScrollView {
                 VStack(spacing: 32) {
-                    if MinimalWhiteStyle.isActive {
-                        MinimalWhitePageHeader(eyebrow: "", title: String(localized: "关于"), icon: .infoCircle)
-                    } else {
-                        SettingsScrollablePageHeader(
-                            title: String(localized: "关于"),
-                            eyebrow: "ABOUT",
-                            icon: .infoCircle
-                        )
-                    }
-
                     // App Icon + 名称 + 版本
                     VStack(spacing: 32) {
                         appIdentity
@@ -117,9 +107,8 @@ struct AboutView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .themedInlineNavigationTitle(String(localized: "关于"))
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.1)) {
                 logoVisible = true

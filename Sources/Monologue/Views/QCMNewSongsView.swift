@@ -72,7 +72,9 @@ struct QCMNewSongsView: View {
                         emptyState
                     } else if CapsuleStyle.isActive {
                         capsuleSongList
-                    } else if PetWhiteStyle.isActive {
+                    } else if PetWhiteStyle.isActive || MinimalWhiteStyle.isActive {
+                        // PetWhite / 纯白极简的 songRows 卡片内部已含 toolbar，
+                        // 外层不能再渲染一次，否则"全部播放"等按钮会重复
                         songRows
                     } else {
                         toolbar
@@ -90,17 +92,6 @@ struct QCMNewSongsView: View {
         .navigationTitle(ThemedPageStyle.isActive ? "" : "QCM 新歌")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    playAll()
-                } label: {
-                    MonologueIcon(icon: .play, size: 16)
-                }
-                .disabled(songs.isEmpty)
-                .opacity(songs.isEmpty ? 0.35 : 1)
-            }
-        }
         .onAppear {
             if songs.isEmpty {
                 viewModel.fetchData()
@@ -142,8 +133,16 @@ struct QCMNewSongsView: View {
             }
             .padding(.bottom, 2)
         } else if MinimalWhiteStyle.isActive {
-            MinimalWhitePageHeader(eyebrow: "", title: "QCM 新歌", icon: .musicNote)
-                .padding(.bottom, 2)
+            MinimalWhitePageHeader(eyebrow: "", title: "QCM 新歌", icon: .musicNote) {
+                Text("\(songs.count) \(String(localized: "首"))")
+                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(MinimalWhiteStyle.controlGlassFill))
+                    .overlay(Capsule().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+            }
+            .padding(.bottom, 2)
         } else if ThemedPageStyle.isActive {
             ThemedPageHeader(
                 eyebrow: "QCM NEW",
@@ -178,6 +177,7 @@ struct QCMNewSongsView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, DeviceLayout.headerTopPadding + 8)
             .padding(.bottom, 12)
+            .monologuePageHeaderCollapse()
         }
     }
 
@@ -217,15 +217,6 @@ struct QCMNewSongsView: View {
                 .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
             } else if MinimalWhiteStyle.isActive {
                 VStack(alignment: .leading, spacing: 12) {
-                    MinimalWhiteSectionTitle(title: "QCM 新歌") {
-                        Text("\(songs.count) \(String(localized: "首"))")
-                            .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
-                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(MinimalWhiteStyle.controlGlassFill))
-                            .overlay(Capsule().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
-                    }
                     toolbar
                         .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
                     songRowsContent

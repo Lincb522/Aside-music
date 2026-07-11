@@ -246,6 +246,7 @@ struct CapsulePageHeader<Accessory: View>: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 10)
         .padding(.bottom, 8)
+        .monologuePageHeaderCollapse()
     }
 }
 

@@ -458,6 +458,7 @@ struct NeumorphicPageHeader<Accessory: View>: View {
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
         .themeRenderSurfaceLayer()
+        .monologuePageHeaderCollapse()
     }
 }
 

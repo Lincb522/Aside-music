@@ -14,8 +14,10 @@ public struct ContentView: View {
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
+    @State private var showImmersivePlayer = false
     @State private var showRadioPlayer = false
     @State private var radioPlayerRadioId: Int? = nil
+    @AppStorage("immersivePersistent") private var immersivePersistent = false
 
     public init() {}
 
@@ -36,6 +38,11 @@ public struct ContentView: View {
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
         .onChange(of: showNormalPlayer) { _, show in
+            withAnimation(MonologueAnimation.playerTransition) {
+                PlayerManager.shared.isTabBarHidden = show
+            }
+        }
+        .onChange(of: showImmersivePlayer) { _, show in
             withAnimation(MonologueAnimation.playerTransition) {
                 PlayerManager.shared.isTabBarHidden = show
             }
@@ -87,7 +94,7 @@ public struct ContentView: View {
                     showPersonalFM = true
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
-                    showNormalPlayer = true
+                    openNormalPlaybackSurface()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
                     selectTabImmediately(.library)
@@ -112,6 +119,9 @@ public struct ContentView: View {
                 }
                 .fullScreenCover(isPresented: $showNormalPlayer) {
                     FullScreenPlayerView()
+                }
+                .fullScreenCover(isPresented: $showImmersivePlayer) {
+                    AriaStageView()
                 }
                 .fullScreenCover(isPresented: $showRadioPlayer) {
                     if let radioId = radioPlayerRadioId {
@@ -452,6 +462,17 @@ public struct ContentView: View {
             radioPlayerRadioId = radioID
             showRadioPlayer = true
         case .normal:
+            openNormalPlaybackSurface()
+        }
+    }
+
+    private func openNormalPlaybackSurface() {
+        guard PlayerManager.shared.currentSong != nil else { return }
+
+        if immersivePersistent {
+            OrientationManager.shared.enterLandscape()
+            showImmersivePlayer = true
+        } else {
             showNormalPlayer = true
         }
     }

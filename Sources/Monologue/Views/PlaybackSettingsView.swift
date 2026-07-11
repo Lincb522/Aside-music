@@ -23,12 +23,6 @@ struct PlaybackSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "settings_navigation_playback_title"),
-                        eyebrow: "PLAY",
-                        icon: .soundQuality
-                    )
-
                     VStack(spacing: 20) {
                         qualitySection
                         queueSection
@@ -43,8 +37,7 @@ struct PlaybackSettingsView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
+        .themedInlineNavigationTitle(String(localized: "settings_navigation_playback_title"))
         .toolbarBackground(.hidden, for: .navigationBar)
         .onChange(of: settings.gaplessPlaybackEnabled) { _, enabled in
             PlayerManager.shared.handleGaplessPlaybackSettingChanged(enabled: enabled)

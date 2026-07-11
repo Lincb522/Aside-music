@@ -461,7 +461,11 @@ extension PixelPlayerLayout {
         VStack(spacing: 4) {
             MarqueeText(
                 text: player.currentSong?.name ?? "NO DATA",
-                font: .custom(pixelFont, size: 18),
+                font: MonologuePlayerFont.activeFont(
+                    size: 18,
+                    weight: .bold,
+                    fallback: .custom(pixelFont, size: 18)
+                ),
                 color: fg,
                 speed: 30,
                 alignment: .center
@@ -596,8 +600,17 @@ extension PixelPlayerLayout {
                                         .foregroundColor(accent)
                                         .frame(width: 20)
                                     
-                                    Text(line.text)
-                                        .font(.custom(pixelFont, size: isCurrent ? 16 : 13))
+                                    Text(line.text.monologueLyricDisplayText)
+                                        .font(
+                                            MonologuePlayerFont.activeFont(
+                                                size: isCurrent ? 16 : 13,
+                                                weight: isCurrent ? .bold : .medium,
+                                                fallback: .custom(
+                                                    pixelFont,
+                                                    size: isCurrent ? 16 : 13
+                                                )
+                                            )
+                                        )
                                         .foregroundColor(
                                             isCurrent ? fg :
                                             (isPast ? fgDim : fg.opacity(0.25))

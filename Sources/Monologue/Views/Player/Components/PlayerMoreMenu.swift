@@ -31,6 +31,8 @@ struct PlayerMoreMenu: View {
     @ObservedObject private var gameMode = GameModeManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @State private var showTimerSheet = false
+    @State private var showImmersiveSettings = false
+    @State private var showPlayerTypography = false
 
     private let textColor: Color = .monologueTextPrimary
     
@@ -107,18 +109,25 @@ struct PlayerMoreMenu: View {
                             .frame(height: 0.5)
                     }
 
-                    // 沉浸模式入口已移至播放器控制栏（原下载按钮位置），三点菜单暂不显示。
-                    // 如需恢复菜单入口，取消下方注释即可。
-                    // if showImmersiveEntry {
-                    //     menuItem(icon: .immersive, title: String(localized: "沉浸模式（实验室功能）")) {
-                    //         isPresented = false
-                    //         CinemaModeController.shared.present()
-                    //     }
-                    //
-                    //     Rectangle()
-                    //         .fill(Color.monologueSeparator)
-                    //         .frame(height: 0.5)
-                    // }
+                    menuItem(icon: .translate, title: String(localized: "播放器字体")) {
+                        showPlayerTypography = true
+                    }
+
+                    Rectangle()
+                        .fill(Color.monologueSeparator)
+                        .frame(height: 0.5)
+
+                    // 沉浸模式入口已移至播放器控制栏（原下载按钮位置）；
+                    // 三点菜单保留沉浸模式的设置入口（沉浸舞台内不再放设置）。
+                    if showImmersiveEntry {
+                        menuItem(icon: .immersive, title: String(localized: "沉浸模式设置")) {
+                            showImmersiveSettings = true
+                        }
+
+                        Rectangle()
+                            .fill(Color.monologueSeparator)
+                            .frame(height: 0.5)
+                    }
 
                     // 游戏模式快捷开关（边打游戏边听歌）
                     menuItem(
@@ -153,6 +162,21 @@ struct PlayerMoreMenu: View {
         }, preset: .standard){
             PodcastTimerSheet()
 
+        }
+        .fullScreenCover(isPresented: $showImmersiveSettings, onDismiss: {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                isPresented = false
+            }
+        }) {
+            // 从普通播放器进入：全程竖屏，不做横竖屏切换
+            AriaSettingsPage(palette: .fallback, managesOrientation: false)
+        }
+        .fullScreenCover(isPresented: $showPlayerTypography, onDismiss: {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                isPresented = false
+            }
+        }) {
+            PlayerTypographySettingsView()
         }
     }
 

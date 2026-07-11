@@ -13,12 +13,6 @@ struct CloudSyncSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "settings_navigation_cloud_sync_title"),
-                        eyebrow: "SYNC",
-                        icon: .cloud
-                    )
-
                     VStack(spacing: 20) {
                         syncSection
                         actionSection
@@ -31,8 +25,7 @@ struct CloudSyncSettingsView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
+        .themedInlineNavigationTitle(String(localized: "settings_navigation_cloud_sync_title"))
         .toolbarBackground(.hidden, for: .navigationBar)
         .onChange(of: settings.playlistSyncAutoEnabled) { _, enabled in
             guard enabled else { return }

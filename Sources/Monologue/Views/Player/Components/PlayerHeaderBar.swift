@@ -24,7 +24,11 @@ struct PlayerHeaderBar: View {
                 
                 if let name = player.currentSong?.name {
                     Text(name)
-                        .font(.rounded(size: 13, weight: .semibold))
+                        .monologuePlayerDisplayFont(
+                            size: 13,
+                            weight: .semibold,
+                            fallback: .rounded(size: 13, weight: .semibold)
+                        )
                         .foregroundColor(secondaryColor)
                         .lineLimit(1)
                 }

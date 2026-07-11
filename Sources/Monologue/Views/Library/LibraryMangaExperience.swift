@@ -80,6 +80,7 @@ struct MangaLibraryExperience: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     magazineHeader
+                        .monologuePageHeaderCollapse()
                     tabContent
                 }
                 .padding(.bottom, 128)

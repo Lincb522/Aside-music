@@ -73,6 +73,7 @@ struct SongDetailView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     songHeaderContent
+                        .monologuePageHeaderCollapse()
                     // 音乐百科
                     if !viewModel.wikiBlocks.isEmpty {
                         songWikiSection

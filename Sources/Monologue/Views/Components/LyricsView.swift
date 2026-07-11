@@ -958,6 +958,11 @@ struct KaraokeLineView: View {
     var lyricSolidColorHex: String = "007AFF"
     var lyricGradientStartHex: String = "FF6B6B"
     var lyricGradientEndHex: String = "4ECDC4"
+    var lyricAutoPalette: [Color] = []
+    var forceUppercaseEnglish = false
+    var playerFontSelectionRaw = MonologuePlayerFont.followThemeRawValue
+    var playerCustomFontID = ""
+    var playerFontScale = 1.0
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -976,57 +981,111 @@ struct KaraokeLineView: View {
         PlayerThemeManager.shared.currentTheme == .typewriter
     }
     
-    private var isDefaultTheme: Bool {
-        !isPoster && !isAqua && !isTypewriter
-    }
-    
     // 字魂半天云魅黑手书字体
     private let posterFont = "zihunbantianyunmeiheishoushu"
     
     // 文道泡泡体（水韵主题）
     private let aquaFont = "WDPPT"
+
+    private var displayText: String {
+        forceUppercaseEnglish
+            ? line.text.monologueUppercasingEnglish()
+            : line.text
+    }
+
+    private var displayTranslation: String? {
+        guard let translation = line.translation else { return nil }
+        return forceUppercaseEnglish
+            ? translation.monologueUppercasingEnglish()
+            : translation
+    }
     
     // 当前行字体
     private var currentLineFont: Font {
+        let size: CGFloat
+        let fallback: Font
         if isPoster {
-            return .custom(posterFont, size: 28)
+            size = 28 * CGFloat(playerFontScale)
+            fallback = .custom(posterFont, size: size)
         } else if isAqua {
-            return .custom(aquaFont, size: 26)
+            size = 26 * CGFloat(playerFontScale)
+            fallback = .custom(aquaFont, size: size)
         } else if isTypewriter {
-            return .system(size: 24, weight: .semibold, design: .monospaced)
+            size = 24 * CGFloat(playerFontScale)
+            fallback = .system(size: size, weight: .semibold, design: .monospaced)
+        } else {
+            size = 26 * CGFloat(playerFontScale)
+            fallback = .rounded(size: size, weight: .bold)
         }
-        return .rounded(size: 26, weight: .bold)
+        return MonologuePlayerFont.font(
+            selectionRaw: playerFontSelectionRaw,
+            customFontID: playerCustomFontID,
+            size: size,
+            weight: .bold,
+            fallback: fallback
+        )
     }
     
     // 非当前行字体
     private var normalLineFont: Font {
+        let size: CGFloat
+        let fallback: Font
         if isPoster {
-            return .custom(posterFont, size: 16)
+            size = 16 * CGFloat(playerFontScale)
+            fallback = .custom(posterFont, size: size)
         } else if isAqua {
-            return .custom(aquaFont, size: 16)
+            size = 16 * CGFloat(playerFontScale)
+            fallback = .custom(aquaFont, size: size)
         } else if isTypewriter {
-            return .system(size: 15, weight: .medium, design: .monospaced)
+            size = 15 * CGFloat(playerFontScale)
+            fallback = .system(size: size, weight: .medium, design: .monospaced)
+        } else {
+            size = 16 * CGFloat(playerFontScale)
+            fallback = .rounded(size: size, weight: .medium)
         }
-        return .rounded(size: 16, weight: .medium)
+        return MonologuePlayerFont.font(
+            selectionRaw: playerFontSelectionRaw,
+            customFontID: playerCustomFontID,
+            size: size,
+            weight: .medium,
+            fallback: fallback
+        )
     }
     
     // 翻译字体
     private func translationFont(isCurrent: Bool) -> Font {
+        let size: CGFloat
+        let fallback: Font
         if isPoster {
-            return .custom(posterFont, size: isCurrent ? 16 : 12)
+            size = (isCurrent ? 16 : 12) * CGFloat(playerFontScale)
+            fallback = .custom(posterFont, size: size)
         } else if isAqua {
-            return .custom(aquaFont, size: isCurrent ? 15 : 13)
+            size = (isCurrent ? 15 : 13) * CGFloat(playerFontScale)
+            fallback = .custom(aquaFont, size: size)
         } else if isTypewriter {
-            return .system(size: isCurrent ? 14 : 12, weight: .regular, design: .monospaced)
+            size = (isCurrent ? 14 : 12) * CGFloat(playerFontScale)
+            fallback = .system(size: size, weight: .regular, design: .monospaced)
+        } else {
+            size = (isCurrent ? 15 : 13) * CGFloat(playerFontScale)
+            fallback = .rounded(size: size, weight: .regular)
         }
-        return .rounded(size: isCurrent ? 15 : 13, weight: .regular)
+        return MonologuePlayerFont.font(
+            selectionRaw: playerFontSelectionRaw,
+            customFontID: playerCustomFontID,
+            size: size,
+            weight: .regular,
+            fallback: fallback
+        )
     }
     
     // MARK: - 自定义歌词颜色（仅默认主题）
     
     private var customActiveColor: Color {
-        guard isDefaultTheme, lyricColorMode != "default" else {
+        guard lyricColorMode != "default" else {
             return .monologueTextPrimary
+        }
+        if lyricColorMode == "auto" {
+            return lyricAutoPalette.first ?? .monologueTextPrimary
         }
         if lyricColorMode == "solid" {
             return Color(hex: lyricSolidColorHex)
@@ -1035,17 +1094,19 @@ struct KaraokeLineView: View {
     }
     
     private var customActiveGradient: LinearGradient? {
-        guard isDefaultTheme, lyricColorMode == "gradient" else { return nil }
+        if lyricColorMode == "auto", lyricAutoPalette.count > 1 {
+            return LinearGradient(
+                colors: Array(lyricAutoPalette.prefix(6)),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+        guard lyricColorMode == "gradient" else { return nil }
         return LinearGradient(
             colors: [Color(hex: lyricGradientStartHex), Color(hex: lyricGradientEndHex)],
             startPoint: .leading,
             endPoint: .trailing
         )
-    }
-    
-    // 大字报当前行颜色
-    private var posterActiveColor: Color {
-        Color(hex: "FF0000")
     }
     
     var body: some View {
@@ -1059,7 +1120,7 @@ struct KaraokeLineView: View {
             }
             
             // 翻译
-            if showTranslation, let trans = line.translation, !trans.isEmpty {
+            if showTranslation, let trans = displayTranslation, !trans.isEmpty {
                 if isPoster {
                     let transColor: Color = isCurrent
                         ? (colorScheme == .dark ? .black.opacity(0.7) : .white.opacity(0.7))
@@ -1087,7 +1148,7 @@ struct KaraokeLineView: View {
     // MARK: - 大字报歌词样式
     @ViewBuilder
     private var posterLyricContent: some View {
-        if isCurrent && !line.text.trimmingCharacters(in: .whitespaces).isEmpty {
+        if isCurrent && !displayText.trimmingCharacters(in: .whitespaces).isEmpty {
             // 当前行 — 黑条贴左边缘，和屏幕左边连成一体，支持自动换行
             HStack(spacing: 0) {
                 currentPosterLine
@@ -1106,7 +1167,7 @@ struct KaraokeLineView: View {
             .id("poster_\(line.time)")
         } else {
             // 非当前行
-            Text(line.text)
+            Text(displayText)
                 .font(normalLineFont)
                 .foregroundColor(.monologueTextPrimary.opacity(0.15))
                 .tracking(1)
@@ -1121,7 +1182,7 @@ struct KaraokeLineView: View {
         // 大字报当前行：背景是 fg（深色=白，浅色=黑），文字需要反色
         let invertedFg: Color = colorScheme == .dark ? .black : .white
         
-        Text(line.text)
+        Text(displayText)
             .font(currentLineFont)
             .foregroundColor(invertedFg)
             .tracking(-1)
@@ -1158,14 +1219,14 @@ struct KaraokeLineView: View {
                 }
             } else {
                 if let gradient = customActiveGradient {
-                    Text(line.text)
+                    Text(displayText)
                         .font(currentLineFont)
                         .foregroundStyle(gradient)
                         .multilineTextAlignment(.center)
                         .scaleEffect(1.05)
                         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
                 } else {
-                    Text(line.text)
+                    Text(displayText)
                         .font(currentLineFont)
                         .foregroundColor(customActiveColor)
                         .multilineTextAlignment(.center)
@@ -1174,7 +1235,7 @@ struct KaraokeLineView: View {
                 }
             }
         } else {
-            Text(line.text)
+            Text(displayText)
                 .font(normalLineFont)
                 .foregroundColor(.gray.opacity(0.6))
                 .multilineTextAlignment(.center)
@@ -1184,7 +1245,7 @@ struct KaraokeLineView: View {
     }
     
     private func syntheticWords() -> [LyricWord] {
-        let chars = Array(line.text)
+        let chars = Array(displayText)
         guard !chars.isEmpty, line.duration > 0 else { return [] }
         let charDuration = line.duration / Double(chars.count)
         return chars.enumerated().map { (i, char) in
@@ -1197,7 +1258,7 @@ struct KaraokeLineView: View {
     }
 
     private func constructFallbackText() -> Text {
-        let chars = Array(line.text)
+        let chars = Array(displayText)
         let threshold = Int(Double(chars.count) * progress)
         
         var combined = Text("")
@@ -1219,6 +1280,7 @@ struct LyricsView: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var viewModel = LyricViewModel.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    @StateObject private var coverColors = CoverColorExtractor()
     
     @State private var isUserScrolling = false
     @State private var userScrollTimer: Timer?
@@ -1229,9 +1291,13 @@ struct LyricsView: View {
     @AppStorage("lyricSolidColorHex") private var lyricSolidColorHex: String = "007AFF"
     @AppStorage("lyricGradientStartHex") private var lyricGradientStartHex: String = "FF6B6B"
     @AppStorage("lyricGradientEndHex") private var lyricGradientEndHex: String = "4ECDC4"
+    @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
+    @AppStorage("playerDisplayFont") private var playerFontSelectionRaw = MonologuePlayerFont.followThemeRawValue
+    @AppStorage("playerCustomFontID") private var playerCustomFontID = ""
+    @AppStorage("playerFontScale") private var playerFontScale = 1.0
     
     var body: some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { _ in
             let rawTime = player.streamPlayer.currentTime
             let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : timePublisher.currentTime
             
@@ -1253,7 +1319,7 @@ struct LyricsView: View {
                         ScrollView {
                             VStack(spacing: 24) {
                                 Color.clear.frame(height: 200)
-                                
+
                                 ForEach(Array(viewModel.lyrics.enumerated()), id: \.element.id) { index, line in
                                     Button(action: {
                                         HapticManager.shared.light()
@@ -1269,61 +1335,68 @@ struct LyricsView: View {
                                             lyricColorMode: lyricColorMode,
                                             lyricSolidColorHex: lyricSolidColorHex,
                                             lyricGradientStartHex: lyricGradientStartHex,
-                                            lyricGradientEndHex: lyricGradientEndHex
+                                            lyricGradientEndHex: lyricGradientEndHex,
+                                            lyricAutoPalette: coverColors.palette,
+                                            forceUppercaseEnglish: forceUppercaseEnglish,
+                                            playerFontSelectionRaw: playerFontSelectionRaw,
+                                            playerCustomFontID: playerCustomFontID,
+                                            playerFontScale: playerFontScale
                                         )
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.horizontal, 32)
-                                    .animation(.easeInOut(duration: 0.3), value: viewModel.currentLineIndex)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 32)
+                                        .animation(.easeInOut(duration: 0.3), value: viewModel.currentLineIndex)
+                                    }
+                                    .buttonStyle(.plain)
                                     .id(index)
                                 }
-                                .buttonStyle(PlainButtonStyle())
+
+                                Color.clear.frame(height: 300)
                             }
-                            
-                            Color.clear.frame(height: 300)
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
-                    }
-                    .scrollIndicators(.hidden)
-
-                    .simultaneousGesture(
-                        DragGesture().onChanged { _ in
-                            isUserScrolling = true
-                            resetScrollTimer()
-                        }
-                    )
-                    .onChange(of: viewModel.currentLineIndex) { _, newIndex in
-                        if !isUserScrolling {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                proxy.scrollTo(newIndex, anchor: .center)
+                        .scrollIndicators(.hidden)
+                        .simultaneousGesture(
+                            DragGesture().onChanged { _ in
+                                isUserScrolling = true
+                                resetScrollTimer()
+                            }
+                        )
+                        .onChange(of: viewModel.currentLineIndex) { _, newIndex in
+                            if !isUserScrolling {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                    proxy.scrollTo(newIndex, anchor: .center)
+                                }
                             }
                         }
-                    }
-                    .onTapGesture {
-                        isUserScrolling = false
-                        onBackgroundTap?()
-                    }
-                    .onAppear {
-                        // 视图出现时立即无动画跳转到当前行，做到无缝定位
-                        isUserScrolling = false
-                        proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
+                        .onTapGesture {
+                            isUserScrolling = false
+                            onBackgroundTap?()
+                        }
+                        .onAppear {
+                            isUserScrolling = false
+                            proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
+                        }
+                        .mask(
+                            LinearGradient(
+                                gradient: Gradient(stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .black, location: 0.15),
+                                    .init(color: .black, location: 0.85),
+                                    .init(color: .clear, location: 1.0)
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                     }
                 }
-                .mask(
-                    LinearGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black, location: 0.15),
-                            .init(color: .black, location: 0.85),
-                            .init(color: .clear, location: 1.0)
-                        ]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                
             }
         }
+        .task(id: song.coverUrl?.absoluteString) {
+            coverColors.extract(
+                from: song.coverUrl?.sized(200).absoluteString
+            )
         }
     }
     

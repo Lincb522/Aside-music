@@ -89,6 +89,8 @@ struct CinemaPosterCard: View {
     var isPlaying: Bool = false
     var onTap: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         let w = HomeCinemaStyle.posterWidth
 
@@ -148,9 +150,16 @@ struct CinemaPosterCard: View {
                 .frame(width: w, height: HomeCinemaStyle.posterBlockHeight, alignment: .topLeading)
             }
             .frame(width: w)
+            // 半透明卡面：底板透出页面背景色，随任意背景自适应融合；
+            // 浅色模式不加投影（投影会在底缘压出灰线），轮廓由卡面自带描边承担
             .background(ClassicAsideEmbeddedSurface(cornerRadius: HomeCinemaStyle.posterCorner))
             .clipShape(RoundedRectangle(cornerRadius: HomeCinemaStyle.posterCorner, style: .continuous))
-            .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 5)
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.12 : 0),
+                radius: colorScheme == .dark ? 8 : 0,
+                x: 0,
+                y: colorScheme == .dark ? 5 : 0
+            )
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }

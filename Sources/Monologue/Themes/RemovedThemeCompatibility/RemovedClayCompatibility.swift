@@ -348,6 +348,7 @@ struct ClayPageHeader<Accessory: View>: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, subtitle.isEmpty ? 8 : 10)
+        .monologuePageHeaderCollapse()
     }
 }
 

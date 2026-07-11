@@ -257,7 +257,12 @@ struct SongListRow: View {
     }
 
     private var rowHorizontalPadding: CGFloat {
-        if let horizontalPadding = horizontalPadding { return horizontalPadding }
+        if let horizontalPadding = horizontalPadding {
+            // 纯白极简列表以 0 边距嵌入卡片，行内容需要最小内边距，
+            // 否则序号会顶在当前播放高亮的圆角边缘上
+            if MinimalWhiteStyle.isActive { return max(horizontalPadding, 10) }
+            return horizontalPadding
+        }
         if MangaStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
         if PetWhiteStyle.isActive { return DeviceLayout.viewHorizontalPadding }
         if MujiStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
@@ -740,6 +745,16 @@ struct SongListRow: View {
             .padding(.horizontal, 5)
         } else if PetWhiteStyle.isActive {
             petWhiteCurrentRowBackground
+        } else if MinimalWhiteStyle.isActive {
+            // 纯白极简：列表行以零边距嵌在卡片里，高亮必须与内容同宽、
+            // 且不加左侧强调条（会压在序号上）——用整行淡色选中面 + 细描边
+            RoundedRectangle(cornerRadius: MinimalWhiteStyle.compactRadius, style: .continuous)
+                .fill(MinimalWhiteStyle.selectedFill.opacity(0.9))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MinimalWhiteStyle.compactRadius, style: .continuous)
+                        .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+                .padding(.horizontal, 3)
         } else {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)

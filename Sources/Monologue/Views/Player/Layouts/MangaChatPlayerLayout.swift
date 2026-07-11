@@ -269,7 +269,11 @@ extension MangaChatPlayerLayout {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.currentSong?.name ?? NSLocalizedString("not_playing", comment: "未在播放"))
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .monologuePlayerDisplayFont(
+                        size: 18,
+                        weight: .heavy,
+                        fallback: .system(size: 18, weight: .heavy, design: .rounded)
+                    )
                     .foregroundColor(ink)
                     .lineLimit(1)
 
@@ -373,8 +377,8 @@ extension MangaChatPlayerLayout {
                                     // 仅显示已经播放到或正在播放的歌词（类似聊天时逐条出现）
                                     if index <= lyricVM.currentLineIndex {
                                         chatBubble(
-                                            text: line.text,
-                                            translation: line.translation,
+                                            text: line.text.monologueLyricDisplayText,
+                                            translation: line.translation?.monologueLyricDisplayText,
                                             isLeft: isLeft,
                                             isCurrent: isCurrent,
                                             index: index
@@ -499,13 +503,29 @@ extension MangaChatPlayerLayout {
     func leftBubbleContent(text: String, translation: String?, isCurrent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(text)
-                .font(.system(size: isCurrent ? 17 : 15, weight: isCurrent ? .heavy : .bold, design: .rounded))
+                .font(
+                    MonologuePlayerFont.activeFont(
+                        size: isCurrent ? 17 : 15,
+                        weight: isCurrent ? .heavy : .bold,
+                        fallback: .system(
+                            size: isCurrent ? 17 : 15,
+                            weight: isCurrent ? .heavy : .bold,
+                            design: .rounded
+                        )
+                    )
+                )
                 .foregroundColor(ink)
                 .multilineTextAlignment(.leading)
 
             if let trans = translation, !trans.isEmpty {
                 Text(trans)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 12,
+                            weight: .medium,
+                            fallback: .system(size: 12, weight: .medium, design: .rounded)
+                        )
+                    )
                     .foregroundColor(inkSub)
             }
         }
@@ -529,13 +549,29 @@ extension MangaChatPlayerLayout {
     func rightBubbleContent(text: String, translation: String?, isCurrent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(text)
-                .font(.system(size: isCurrent ? 17 : 15, weight: isCurrent ? .heavy : .bold, design: .rounded))
+                .font(
+                    MonologuePlayerFont.activeFont(
+                        size: isCurrent ? 17 : 15,
+                        weight: isCurrent ? .heavy : .bold,
+                        fallback: .system(
+                            size: isCurrent ? 17 : 15,
+                            weight: isCurrent ? .heavy : .bold,
+                            design: .rounded
+                        )
+                    )
+                )
                 .foregroundColor(ink)
                 .multilineTextAlignment(.leading)
 
             if let trans = translation, !trans.isEmpty {
                 Text(trans)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 12,
+                            weight: .medium,
+                            fallback: .system(size: 12, weight: .medium, design: .rounded)
+                        )
+                    )
                     .foregroundColor(inkSub)
                     .multilineTextAlignment(.leading)
             }

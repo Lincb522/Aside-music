@@ -258,6 +258,7 @@ struct LocalModeHomeView: View {
                 showImporter = true
             }
         }
+        .monologuePageHeaderCollapse()
     }
 
     private var minimalWhiteLocalHomeSummary: some View {
@@ -849,6 +850,7 @@ struct LocalMusicView: View {
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .monologuePageHeaderCollapse()
     }
 
     private var minimalWhiteLocalMusicOverview: some View {
@@ -1141,6 +1143,7 @@ struct LocalLibraryView: View {
                 .foregroundStyle(MinimalWhiteStyle.ink)
             Spacer(minLength: 0)
         }
+        .monologuePageHeaderCollapse()
     }
 
     private var mujiLocalLibraryHeader: some View {
@@ -1155,6 +1158,7 @@ struct LocalLibraryView: View {
                 .padding(.bottom, 8)
         }
         .padding(.top, DeviceLayout.headerTopPadding + 2)
+        .monologuePageHeaderCollapse()
     }
 
     private var mangaLocalLibraryHeader: some View {
@@ -1163,6 +1167,7 @@ struct LocalLibraryView: View {
             .foregroundStyle(MangaStyle.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, DeviceLayout.headerTopPadding + 2)
+            .monologuePageHeaderCollapse()
     }
 
     private var neumorphicLocalLibraryHeader: some View {
@@ -1171,6 +1176,7 @@ struct LocalLibraryView: View {
             .foregroundStyle(NeumorphicStyle.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, DeviceLayout.headerTopPadding + 2)
+            .monologuePageHeaderCollapse()
     }
 
     private var signalLocalLibraryHeader: some View {
@@ -1597,6 +1603,7 @@ struct LocalModeProfileView: View {
             .buttonStyle(.plain)
         }
         .padding(.top, DeviceLayout.headerTopPadding + 8)
+        .monologuePageHeaderCollapse()
     }
 
     private var minimalWhiteLocalProfileIdentity: some View {

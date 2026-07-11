@@ -191,6 +191,7 @@ struct MinimalWhitePageHeader<Accessory: View>: View {
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 10)
         .iPadContentWidth(700)
+        .monologuePageHeaderCollapse()
     }
 }
 

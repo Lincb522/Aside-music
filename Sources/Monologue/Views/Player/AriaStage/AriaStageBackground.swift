@@ -2,12 +2,10 @@
 //  AriaStageBackground.swift
 //  Monologue
 //
-//  全新沉浸模式的背景舞台 —— 从零复刻 folia-major 的 VisualizerShell 分层：
-//  1. AriaFluidBackground（FluidBackground.tsx）：封面 40px 模糊铺满 + 主/次色对角渐变叠加
-//  2. 主题底色层：backgroundColor 以 0.75 透明度压在流体层之上，保证歌词可读
-//  3. AriaGeometricBackground（GeometricBackground.tsx）：15 个几何漂浮体（圆/方/三角/十字）
-//     按分频能量弹簧缩放（圆→bass、方→lowMid、三角→mid、十字→treble）+ 20 颗上升粒子
-//  4. AriaVignette：径向暗角，把视线聚拢到舞台中央
+//  Folia-inspired immersive stage:
+//  blurred cover identity, audio-reactive light,
+//  depth/readability veils, restrained film grain, and a final vignette.
+//  Ambient motion can freeze without removing the stage's visual hierarchy.
 //
 
 import SwiftUI
@@ -24,6 +22,25 @@ struct AriaPalette: Equatable {
     var secondary: Color
     /// 强调色（激活词高亮 / 辉光 / 粒子）
     var accent: Color
+    /// 封面提取的完整调色板，供背景光场共享。
+    var ambient: [Color] = []
+    /// 歌词高亮多色轮换：全部封面色规范化为可读的强调色，逐句换色。
+    var accentCycle: [Color] = []
+
+    /// 取第 index 句歌词的强调色；未提取到多色时退回单一 accent。
+    func cycledAccent(_ index: Int) -> Color {
+        guard !accentCycle.isEmpty else { return accent }
+        let count = accentCycle.count
+        return accentCycle[((index % count) + count) % count]
+    }
+
+    /// 派生「本句专属」调色板：仅替换 accent，白色主字与背景不变。
+    func lineVariant(_ index: Int) -> AriaPalette {
+        guard accentCycle.count > 1 else { return self }
+        var copy = self
+        copy.accent = cycledAccent(index)
+        return copy
+    }
 
     static let fallback = AriaPalette(
         background: Color(red: 0.07, green: 0.07, blue: 0.10),
@@ -77,7 +94,54 @@ struct AriaPalette: Equatable {
             brightness: 0.98
         ).color
 
-        return AriaPalette(background: background, primary: primary, secondary: secondaryColor, accent: accent)
+        return AriaPalette(
+            background: background,
+            primary: primary,
+            secondary: secondaryColor,
+            accent: accent,
+            ambient: [dominant, secondary]
+        )
+    }
+
+    static func derive(colors: [Color]) -> AriaPalette {
+        guard let dominant = colors.first else { return .fallback }
+        var palette = derive(
+            dominant: dominant,
+            secondary: colors.dropFirst().first ?? dominant
+        )
+        palette.ambient = colors
+
+        if colors.count > 2 {
+            var third = HSB(colors[2])
+            third.saturation = min(max(third.saturation, 0.22), 0.62)
+            third.brightness = min(max(third.brightness, 0.62), 0.88)
+            palette.secondary = third.color
+        }
+
+        // 每个封面色都规范化成深底可读的强调色；灰色不产生色相，剔除。
+        // 同色相（15° 内）去重，避免两句歌词看起来是同一种颜色。
+        var cycle: [Color] = []
+        var usedHues: [CGFloat] = []
+        for color in colors {
+            let hsb = HSB(color)
+            guard hsb.saturation >= 0.10 else { continue }
+            let hueGap = usedHues
+                .map { min(abs($0 - hsb.hue), 1 - abs($0 - hsb.hue)) }
+                .min() ?? 1
+            guard hueGap > 1.0 / 24.0 else { continue }
+            usedHues.append(hsb.hue)
+            cycle.append(
+                HSB(
+                    hue: hsb.hue,
+                    saturation: min(max(hsb.saturation * 1.35, 0.48), 0.95),
+                    brightness: max(hsb.brightness, 0.80)
+                ).color
+            )
+        }
+        if cycle.count > 1 {
+            palette.accentCycle = cycle
+        }
+        return palette
     }
 
     private struct HSB {
@@ -112,58 +176,61 @@ struct AriaFluidBackground: View {
     let palette: AriaPalette
     /// shell backgroundOpacity：越高越暗（歌词可读性 ↔ 封面显色），folia 默认 0.75
     let backgroundOpacity: Double
+    /// 歌词景深：拉大与歌词的对焦差 —— 封面更虚、更远、更沉。
+    var depthIntensity: Double = 0
 
     var body: some View {
         GeometryReader { geo in
+            let depth = pow(min(max(depthIntensity, 0), 1), 0.72)
+            let themeVeilOpacity = min(
+                max(backgroundOpacity * 0.78, 0.34) + depth * 0.07,
+                0.82
+            )
+
             ZStack {
+                palette.background
+
                 if let coverUrl {
-                    // 封面模糊铺满：blur(40px) + scale(1.5)
+                    // 模糊必须大到让封面暗部化成色雾：半径不足时，
+                    // 高对比封面会在背景上留下成块的"脏影"轮廓。
                     CachedAsyncImage(url: coverUrl) {
                         palette.background
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
-                    .blur(radius: 40)
-                    .scaleEffect(1.5)
+                    .scaleEffect(1.52 + depth * 0.08)
+                    .blur(radius: 64 + depth * 22)
+                    .saturation(1.18 - depth * 0.14)
+                    .contrast(0.88)
+                    .brightness(-0.03 - depth * 0.05)
+                    .opacity(0.86)
                 } else {
-                    palette.background.opacity(0.8)
+                    palette.background
                 }
 
-                // 对角渐变（primary → 透明 → secondary），overlay 混合提亮质感
+                // 不再用 overlay 混合叠色：overlay 会重新拉高模糊封面的
+                // 局部对比，把化开的暗部又显影成不规则脏斑。普通混合只做轻着色。
                 LinearGradient(
-                    colors: [palette.primary, .clear, palette.secondary],
+                    colors: [
+                        palette.secondary.opacity(0.10),
+                        .clear
+                    ],
+                    startPoint: .bottomTrailing,
+                    endPoint: .center
+                )
+
+                LinearGradient(
+                    stops: [
+                        .init(color: palette.accent.opacity(0.10), location: 0),
+                        .init(color: palette.accent.opacity(0.025), location: 0.42),
+                        .init(color: .clear, location: 0.76)
+                    ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .opacity(0.4)
-                .blendMode(.overlay)
 
-                // 三团径向色晕（folia iOS 路径的 radial washes）：给纯模糊封面补上色彩纵深
-                ZStack {
-                    RadialGradient(
-                        colors: [palette.accent.opacity(0.33), .clear],
-                        center: UnitPoint(x: 0.2, y: 0.2),
-                        startRadius: 0,
-                        endRadius: max(geo.size.width, geo.size.height) * 0.42
-                    )
-                    RadialGradient(
-                        colors: [palette.secondary.opacity(0.31), .clear],
-                        center: UnitPoint(x: 0.8, y: 0.28),
-                        startRadius: 0,
-                        endRadius: max(geo.size.width, geo.size.height) * 0.44
-                    )
-                    RadialGradient(
-                        colors: [palette.primary.opacity(0.16), .clear],
-                        center: UnitPoint(x: 0.5, y: 0.78),
-                        startRadius: 0,
-                        endRadius: max(geo.size.width, geo.size.height) * 0.52
-                    )
-                }
-                .opacity(0.5)
-
-                // 主题底色压暗层（shell backgroundOpacity）
-                palette.background.opacity(min(max(backgroundOpacity, 0.45), 0.95))
+                palette.background.opacity(themeVeilOpacity)
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
@@ -248,6 +315,8 @@ struct AriaGeometricBackground: View {
     @State private var springs = AriaBandSprings()
     /// 换曲淡入（folia GeometricLayer 0.6s fade）
     @State private var appeared = false
+    /// 热度/省电自动降档：medium 24fps、low 20fps
+    @ObservedObject private var perf = CinemaPerformanceGovernor.shared
 
     private var shapes: [AriaShape] {
         Self.buildShapes(seed: seed)
@@ -257,11 +326,20 @@ struct AriaGeometricBackground: View {
         Self.buildParticles(seed: seed)
     }
 
+    /// 漂浮体周期 30~60s，30fps 已远超视觉需求；发热/省电时继续降
+    private var canvasFPS: Int {
+        switch perf.tier {
+        case .high: return 30
+        case .medium: return 24
+        case .low: return 20
+        }
+    }
+
     var body: some View {
         let shapes = self.shapes
         let particles = self.particles
 
-        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 60, paused: false)) { timeline in
+        TimelineView(AppFrameRate.throttledTimeline(maximumFramesPerSecond: canvasFPS, paused: !isPlaying)) { timeline in
             Canvas { context, size in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let dt = springs.advance(to: t)
@@ -408,6 +486,243 @@ struct AriaGeometricBackground: View {
     }
 }
 
+// MARK: - Folia atmosphere
+
+/// A low-frequency light composition instead of decorative floating objects.
+/// Cover-derived glows establish depth while two broad light ribbons respond
+/// to the audio envelope. The layer is always present; disabling motion only
+/// freezes its choreography.
+private struct AriaFoliaAtmosphere: View {
+    let pulse: CinemaAudioPulse
+    let palette: AriaPalette
+    let isPlaying: Bool
+    let motionEnabled: Bool
+    let seed: Double
+
+    @ObservedObject private var performance = CinemaPerformanceGovernor.shared
+    @State private var appeared = false
+
+    private var timelineFPS: Int {
+        switch performance.tier {
+        case .high: return 15
+        case .medium: return 12
+        case .low: return 8
+        }
+    }
+
+    var body: some View {
+        TimelineView(
+            AppFrameRate.throttledTimeline(
+                maximumFramesPerSecond: timelineFPS,
+                paused: !isPlaying || !motionEnabled
+            )
+        ) { timeline in
+            Canvas(
+                opaque: false,
+                colorMode: .linear,
+                rendersAsynchronously: true
+            ) { context, size in
+                let liveTime = timeline.date.timeIntervalSinceReferenceDate
+                let time = motionEnabled && isPlaying ? liveTime : seed
+                let phase = seed.truncatingRemainder(dividingBy: 360) / 57.2958
+                let driftA = CGFloat(sin(time / 17 + phase))
+                let driftB = CGFloat(cos(time / 23 + phase * 0.7))
+                let snapshot = pulse.snapshot()
+                let energy = isPlaying
+                    ? min(max(snapshot.energy * 0.82 + snapshot.mid * 0.18, 0), 1)
+                    : 0
+                let ribbonLift = driftA * size.height * 0.025
+                let lowerRibbonLift = driftB * size.height * 0.022
+                var upperRibbon = Path()
+                upperRibbon.move(to: CGPoint(x: -size.width * 0.08, y: size.height * 0.34))
+                upperRibbon.addCurve(
+                    to: CGPoint(x: size.width * 1.08, y: size.height * 0.48),
+                    control1: CGPoint(
+                        x: size.width * 0.26,
+                        y: size.height * 0.18 + ribbonLift
+                    ),
+                    control2: CGPoint(
+                        x: size.width * 0.72,
+                        y: size.height * 0.60 - ribbonLift
+                    )
+                )
+
+                var lowerRibbon = Path()
+                lowerRibbon.move(to: CGPoint(x: -size.width * 0.06, y: size.height * 0.76))
+                lowerRibbon.addCurve(
+                    to: CGPoint(x: size.width * 1.06, y: size.height * 0.62),
+                    control1: CGPoint(
+                        x: size.width * 0.30,
+                        y: size.height * 0.88 - lowerRibbonLift
+                    ),
+                    control2: CGPoint(
+                        x: size.width * 0.68,
+                        y: size.height * 0.48 + lowerRibbonLift
+                    )
+                )
+
+                // 大气光雾：整幅解析渐变填充，无任何描边几何。
+                // 之前的超宽描边曲线在急弯处内缘自我折叠，模糊后仍会露出
+                // 锯齿状"撕纸"边，这里的渐变在数学上连续，不可能出现形状边缘。
+                let fullRect = Path(CGRect(origin: .zero, size: size))
+                let washCenterA = 0.40 + Double(driftA) * 0.06
+                let washCenterB = 0.62 + Double(driftB) * 0.05
+
+                var washContext = context
+                washContext.blendMode = .screen
+                washContext.fill(
+                    fullRect,
+                    with: .linearGradient(
+                        Gradient(stops: [
+                            .init(color: .clear, location: 0),
+                            .init(
+                                color: palette.accent.opacity(0.045 + energy * 0.04),
+                                location: max(0.02, washCenterA - 0.17)
+                            ),
+                            .init(
+                                color: palette.accent.opacity(0.065 + energy * 0.05),
+                                location: washCenterA
+                            ),
+                            .init(
+                                color: palette.primary.opacity(0.02),
+                                location: min(0.97, washCenterA + 0.19)
+                            ),
+                            .init(color: .clear, location: 1)
+                        ]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: size.width, y: size.height)
+                    )
+                )
+                washContext.fill(
+                    fullRect,
+                    with: .linearGradient(
+                        Gradient(stops: [
+                            .init(color: .clear, location: 0),
+                            .init(
+                                color: palette.secondary.opacity(0.035 + energy * 0.03),
+                                location: max(0.02, washCenterB - 0.16)
+                            ),
+                            .init(
+                                color: palette.secondary.opacity(0.05 + energy * 0.035),
+                                location: washCenterB
+                            ),
+                            .init(color: .clear, location: 1)
+                        ]),
+                        startPoint: CGPoint(x: 0, y: size.height),
+                        endPoint: CGPoint(x: size.width, y: 0)
+                    )
+                )
+
+                var ribbonContext = context
+                ribbonContext.blendMode = .plusLighter
+                ribbonContext.addFilter(.blur(radius: 12))
+                ribbonContext.stroke(
+                    upperRibbon,
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            .clear,
+                            palette.accent.opacity(0.08 + energy * 0.05),
+                            palette.primary.opacity(0.025),
+                            .clear
+                        ]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: size.width, y: size.height)
+                    ),
+                    lineWidth: 1.2 + CGFloat(energy) * 2.4
+                )
+                ribbonContext.stroke(
+                    lowerRibbon,
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            .clear,
+                            palette.secondary.opacity(0.065 + energy * 0.035),
+                            palette.accent.opacity(0.03),
+                            .clear
+                        ]),
+                        startPoint: CGPoint(x: 0, y: size.height),
+                        endPoint: CGPoint(x: size.width, y: 0)
+                    ),
+                    lineWidth: 1 + CGFloat(energy) * 1.8
+                )
+            }
+        }
+        .opacity(appeared ? 1 : 0)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.9)) {
+                appeared = true
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+}
+
+private struct AriaStageReadabilityVeil: View {
+    var videoMode = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            let longestSide = max(proxy.size.width, proxy.size.height)
+
+            ZStack {
+                RadialGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .clear, location: 0.38),
+                        .init(color: .black.opacity(videoMode ? 0.16 : 0.10), location: 0.72),
+                        .init(color: .black.opacity(videoMode ? 0.42 : 0.30), location: 1)
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: longestSide * 0.76
+                )
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(videoMode ? 0.30 : 0.18), location: 0),
+                        .init(color: .clear, location: 0.28),
+                        .init(color: .clear, location: 0.67),
+                        .init(color: .black.opacity(videoMode ? 0.44 : 0.28), location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Fine static luminance variation breaks up large gradients without looking
+/// like particles or a star field.
+private struct AriaStageGrain: View {
+    let seed: Double
+
+    var body: some View {
+        Canvas(
+            opaque: false,
+            colorMode: .linear,
+            rendersAsynchronously: true
+        ) { context, size in
+            var grain = Path()
+            for index in 0..<280 {
+                let pointSeed = seed + Double(index) * 7.13
+                let x = CGFloat(AriaLyricEngine.seededRandom(pointSeed, 1)) * size.width
+                let y = CGFloat(AriaLyricEngine.seededRandom(pointSeed, 2)) * size.height
+                let side = CGFloat(
+                    0.45 + AriaLyricEngine.seededRandom(pointSeed, 3) * 0.75
+                )
+                grain.addRect(CGRect(x: x, y: y, width: side, height: side))
+            }
+
+            context.opacity = 0.035
+            context.fill(grain, with: .color(.white))
+        }
+        .blendMode(.softLight)
+        .allowsHitTesting(false)
+    }
+}
+
 // MARK: - 暗角（GeometricBackground.tsx VignetteOverlay）
 
 struct AriaVignette: View {
@@ -416,12 +731,13 @@ struct AriaVignette: View {
             RadialGradient(
                 stops: [
                     .init(color: .clear, location: 0),
-                    .init(color: .clear, location: 0.4),
-                    .init(color: Color.black.opacity(0.6), location: 1)
+                    .init(color: .clear, location: 0.48),
+                    .init(color: Color.black.opacity(0.16), location: 0.74),
+                    .init(color: Color.black.opacity(0.48), location: 1)
                 ],
                 center: .center,
                 startRadius: 0,
-                endRadius: max(geo.size.width, geo.size.height) * 0.72
+                endRadius: max(geo.size.width, geo.size.height) * 0.82
             )
         }
         .allowsHitTesting(false)
@@ -437,26 +753,47 @@ struct AriaStageShell: View {
     let isPlaying: Bool
     let seed: Double
     let backgroundOpacity: Double
-    /// staticMode 语义：关掉重资源几何层，保留底色 / 流体 / 歌词
+    /// Freezes ambient choreography while preserving the complete stage.
     let reduceMotion: Bool
+    /// A bound video remains the primary background; only the readability and
+    /// texture finishing layers are shared with the cover-driven stage.
+    var videoURL: URL? = nil
+    /// 歌词景深强度：以「背景更虚、更沉」表达对焦分离，不绘制任何形状化底衬。
+    var depthIntensity: Double = 0
 
     var body: some View {
-        ZStack {
-            AriaFluidBackground(
-                coverUrl: coverUrl,
-                palette: palette,
-                backgroundOpacity: backgroundOpacity
-            )
+        let depth = pow(min(max(depthIntensity, 0), 1), 0.72)
 
-            if !reduceMotion {
-                AriaGeometricBackground(
+        ZStack {
+            if let videoURL {
+                ImmersiveVideoBackground(url: videoURL, isActive: isPlaying)
+                    .ignoresSafeArea()
+
+                // 视频不逐帧模糊（代价过高），用均匀压暗表达景深，无边界即无伪影。
+                Color.black.opacity(0.16 * depth)
+
+                AriaStageReadabilityVeil(videoMode: true)
+                AriaStageGrain(seed: seed)
+            } else {
+                AriaFluidBackground(
+                    coverUrl: coverUrl,
+                    palette: palette,
+                    backgroundOpacity: backgroundOpacity,
+                    depthIntensity: depthIntensity
+                )
+
+                AriaFoliaAtmosphere(
                     pulse: pulse,
                     palette: palette,
                     isPlaying: isPlaying,
+                    motionEnabled: !reduceMotion,
                     seed: seed
                 )
-                // 换曲重建几何布局并重新淡入
+                // Rebuild on track changes so each album gets a stable scene.
                 .id(seed)
+
+                AriaStageReadabilityVeil()
+                AriaStageGrain(seed: seed)
             }
 
             AriaVignette()

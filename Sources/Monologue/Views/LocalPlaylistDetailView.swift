@@ -87,28 +87,13 @@ struct LocalPlaylistDetailView: View {
                 ThemedPageBackground()
             }
 
-            if ThemedPageStyle.isActive {
-                ScrollView {
-                    localPlaylistScrollableContent(includeHeader: true)
-                }
-                .scrollIndicators(.hidden)
+            ScrollView {
+                localPlaylistScrollableContent(includeHeader: true)
+            }
+            .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
-                .refreshable {
-                    _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
-                }
-            } else {
-                VStack(spacing: 0) {
-                    headerView
-
-                    ScrollView {
-                        localPlaylistScrollableContent(includeHeader: false)
-                    }
-                    .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-                    .refreshable {
-                        _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
-                    }
-                }
+            .refreshable {
+                _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -192,6 +177,7 @@ struct LocalPlaylistDetailView: View {
         VStack(spacing: 0) {
             if includeHeader {
                 headerView
+                    .monologuePageHeaderCollapse()
             }
 
             PlaylistSearchBar(

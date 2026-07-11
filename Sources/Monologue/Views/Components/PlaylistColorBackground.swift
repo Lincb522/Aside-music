@@ -8,6 +8,7 @@ struct PlaylistColorBackground: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var coverImage: UIImage?
+    @StateObject private var colorExtractor = CoverColorExtractor()
 
     private var baseColor: Color {
         colorScheme == .dark ? Color(hex: "050507") : Color(hex: "F8F9FB")
@@ -28,6 +29,12 @@ struct PlaylistColorBackground: View {
                     .ignoresSafeArea()
                     .transition(.opacity.animation(.easeOut(duration: 0.6)))
 
+                DynamicCoverPaletteLayer(
+                    colors: colorExtractor.palette,
+                    opacity: colorScheme == .dark ? 0.52 : 0.34
+                )
+                .blendMode(colorScheme == .dark ? .plusLighter : .softLight)
+
                 tintOverlay
                 bottomFade
             }
@@ -39,8 +46,10 @@ struct PlaylistColorBackground: View {
                     coverImage = nil
                 }
                 onBrightnessChanged?(false)
+                colorExtractor.reset()
                 return
             }
+            colorExtractor.extract(from: url.absoluteString)
             let loaded = await ImageLoadCoordinator.shared.loadImage(url: url)
             if let loaded {
                 let isDark = loaded.averageBrightness < 0.45
@@ -49,6 +58,9 @@ struct PlaylistColorBackground: View {
             withAnimation(.easeOut(duration: 0.6)) {
                 coverImage = loaded
             }
+        }
+        .onChange(of: colorExtractor.isDark) { _, isDark in
+            onBrightnessChanged?(isDark)
         }
     }
 

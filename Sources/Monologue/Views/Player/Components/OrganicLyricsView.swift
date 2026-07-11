@@ -25,6 +25,10 @@ struct OrganicLyricsView: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var viewModel = LyricViewModel.shared
     @AppStorage("showTranslation") var showTranslation: Bool = true
+    @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
+    @AppStorage("playerDisplayFont") private var playerFontRaw = "theme"
+    @AppStorage("playerCustomFontID") private var playerCustomFontID = ""
+    @AppStorage("playerFontScale") private var playerFontScale = 1.0
     
     @State private var isUserScrolling = false
     @State private var userScrollTimer: Timer?
@@ -58,7 +62,8 @@ struct OrganicLyricsView: View {
                                         OrganicLyricLineViewWrapper(
                                             line: line,
                                             isCurrent: isCurrent,
-                                            showTranslation: showTranslation
+                                            showTranslation: showTranslation,
+                                            renderIdentity: lyricRenderIdentity
                                         )
                                     }
                                     .buttonStyle(PlainButtonStyle())
@@ -120,6 +125,10 @@ struct OrganicLyricsView: View {
             }
         }
     }
+
+    private var lyricRenderIdentity: String {
+        "\(forceUppercaseEnglish)-\(playerFontRaw)-\(playerCustomFontID)-\(playerFontScale)"
+    }
     
     private func resetScrollTimer() {
         userScrollTimer?.invalidate()
@@ -139,6 +148,7 @@ struct OrganicLyricLineViewWrapper: View {
     let line: LyricLine
     let isCurrent: Bool
     let showTranslation: Bool
+    let renderIdentity: String
     
     var body: some View {
         // TimelineView explicitly pauses updates when line is not active, saving up to 99% CPU
@@ -152,6 +162,7 @@ struct OrganicLyricLineViewWrapper: View {
                 currentTime: isCurrent ? realTime : 0.0,
                 showTranslation: showTranslation
             )
+            .id("\(line.id)-\(renderIdentity)")
         }
     }
 }
@@ -167,6 +178,16 @@ struct OrganicLyricLineView: View {
     @State private var wordGroups: [OrganicWordGroup] = []
     
     var body: some View {
+        let mainFont = MonologuePlayerFont.activeFont(
+            size: isCurrent ? 36 : 28,
+            weight: isCurrent ? .heavy : .bold,
+            fallback: .system(
+                size: isCurrent ? 36 : 28,
+                weight: isCurrent ? .heavy : .bold,
+                design: .rounded
+            )
+        )
+
         VStack(alignment: .leading, spacing: 8) {
             if isCurrent {
                 FlowLayout(spacing: 0) {
@@ -176,7 +197,8 @@ struct OrganicLyricLineView: View {
                                 OrganicLyricCharacterView(
                                     glyph: glyph,
                                     isCurrent: isCurrent,
-                                    currentTime: currentTime
+                                    currentTime: currentTime,
+                                    font: mainFont
                                 )
                             }
                         }
@@ -185,23 +207,36 @@ struct OrganicLyricLineView: View {
                 .fixedSize(horizontal: false, vertical: true)
             } else {
                 // 性能优化防御：未唱到的歌词行回退为极简原生单体 Text，砍掉单行几百个遮罩修饰符的巨量开销，秒解滑动掉帧卡顿
-                Text(line.text)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                Text(line.text.monologueLyricDisplayText)
+                    .font(mainFont)
                     .foregroundColor(.white.opacity(0.25))
                     .blur(radius: 2.5) // 全局单次高斯模糊，省GPU
             }
             
-            if showTranslation, let trans = line.translation, !trans.isEmpty {
+            if showTranslation, let rawTranslation = line.translation, !rawTranslation.isEmpty {
+                let trans = rawTranslation.monologueLyricDisplayText
                 let transProgress = calculateTranslationProgress()
                 
                 if isCurrent {
                     ZStack(alignment: .leading) {
                         Text(trans)
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .font(
+                                MonologuePlayerFont.activeFont(
+                                    size: 18,
+                                    weight: .semibold,
+                                    fallback: .system(size: 18, weight: .semibold, design: .rounded)
+                                )
+                            )
                             .foregroundColor(.white.opacity(0.3)) // 未到翻译字
                         
                         Text(trans)
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .font(
+                                MonologuePlayerFont.activeFont(
+                                    size: 18,
+                                    weight: .semibold,
+                                    fallback: .system(size: 18, weight: .semibold, design: .rounded)
+                                )
+                            )
                             .foregroundColor(.white.opacity(0.8)) // 到的翻译字高亮
                             .mask(
                                 GeometryReader { geo in
@@ -226,7 +261,13 @@ struct OrganicLyricLineView: View {
                     }
                 } else {
                     Text(trans)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(
+                            MonologuePlayerFont.activeFont(
+                                size: 16,
+                                weight: .semibold,
+                                fallback: .system(size: 16, weight: .semibold, design: .rounded)
+                            )
+                        )
                         .foregroundColor(.white.opacity(0.3))
                         .blur(radius: 2.0)
                 }
@@ -249,7 +290,7 @@ struct OrganicLyricLineView: View {
     
     private func prepareWordGroups(line: LyricLine) -> [OrganicWordGroup] {
         func syntheticWords(for l: LyricLine) -> [LyricWord] {
-            let chars = Array(l.text)
+            let chars = Array(l.text.monologueLyricDisplayText)
             guard !chars.isEmpty, l.duration > 0 else { return [] }
             let cd = l.duration / Double(chars.count)
             return chars.enumerated().map { (i, char) in
@@ -258,7 +299,26 @@ struct OrganicLyricLineView: View {
         }
         
         // 若没有原始词组断句则自动切分
-        let sourceWords = (line.words.isEmpty && line.duration > 0) ? syntheticWords(for: line) : (line.words.isEmpty ? [LyricWord(text: line.text, startTime: line.time, duration: 2.0)] : line.words)
+        let sourceWords: [LyricWord]
+        if line.words.isEmpty, line.duration > 0 {
+            sourceWords = syntheticWords(for: line)
+        } else if line.words.isEmpty {
+            sourceWords = [
+                LyricWord(
+                    text: line.text.monologueLyricDisplayText,
+                    startTime: line.time,
+                    duration: 2.0
+                )
+            ]
+        } else {
+            sourceWords = line.words.map {
+                LyricWord(
+                    text: $0.text.monologueLyricDisplayText,
+                    startTime: $0.startTime,
+                    duration: $0.duration
+                )
+            }
+        }
         
         var groups: [OrganicWordGroup] = []
         var globalIndex = 0
@@ -294,6 +354,7 @@ struct OrganicLyricCharacterView: View {
     let glyph: OrganicGlyph
     let isCurrent: Bool
     let currentTime: TimeInterval
+    let font: Font
     
     // 数学旗帜横波偏移量 (数学正弦波随时间传播)
     private var continuousFlagWaveOffset: CGFloat {
@@ -315,12 +376,12 @@ struct OrganicLyricCharacterView: View {
         ZStack(alignment: .leading) {
             // 背景层未唱到的字，半透明
             Text(glyph.char)
-                .font(.system(size: isCurrent ? 36 : 28, weight: isCurrent ? .heavy : .bold, design: .rounded))
+                .font(font)
                 .foregroundColor(.white.opacity(isCurrent ? 0.35 : 0.25))
             
             // 纯色高亮唱到的字
             Text(glyph.char)
-                .font(.system(size: isCurrent ? 36 : 28, weight: isCurrent ? .heavy : .bold, design: .rounded))
+                .font(font)
                 .foregroundColor(.white)
                 .mask(
                     GeometryReader { geo in

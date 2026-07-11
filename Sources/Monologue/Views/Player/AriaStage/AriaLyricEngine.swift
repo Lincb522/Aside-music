@@ -145,7 +145,10 @@ enum AriaLyricEngine {
 
     // MARK: 管线入口：项目 LyricLine → AriaLine
 
-    static func buildLines(from source: [LyricLine]) -> [AriaLine] {
+    static func buildLines(
+        from source: [LyricLine],
+        forceUppercaseEnglish: Bool = false
+    ) -> [AriaLine] {
         guard !source.isEmpty else { return [] }
 
         // 1. 归一化每行的结束时间：LRC 无 duration 时以下一行开头兜底
@@ -160,7 +163,10 @@ enum AriaLyricEngine {
         var rawLines: [RawLine] = []
         var wordIdSeed = 0
         for (index, line) in source.enumerated() {
-            let text = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let originalText = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = forceUppercaseEnglish
+                ? originalText.monologueUppercasingEnglish()
+                : originalText
             guard !text.isEmpty else { continue }
 
             let nextStart = index + 1 < source.count ? source[index + 1].time : line.time + 6
@@ -177,7 +183,9 @@ enum AriaLyricEngine {
                     wordIdSeed += 1
                     return AriaWord(
                         id: wordIdSeed,
-                        text: w.text,
+                        text: forceUppercaseEnglish
+                            ? w.text.monologueUppercasingEnglish()
+                            : w.text,
                         startTime: w.startTime,
                         endTime: w.startTime + max(w.duration, 0.05)
                     )
@@ -191,7 +199,11 @@ enum AriaLyricEngine {
                 startTime: line.time,
                 endTime: endTime,
                 text: text,
-                translation: line.translation?.isEmpty == false ? line.translation : nil,
+                translation: line.translation?.isEmpty == false
+                    ? (forceUppercaseEnglish
+                        ? line.translation?.monologueUppercasingEnglish()
+                        : line.translation)
+                    : nil,
                 words: words
             ))
         }
@@ -434,6 +446,26 @@ enum AriaLyricEngine {
                 idSeed += 1
                 display.append(AriaWord(id: idSeed, text: unit.text, startTime: unit.startTime, endTime: unit.endTime))
             }
+        }
+        return display.isEmpty ? words : display
+    }
+
+    /// Folia 的重排类可视化以语义词组为排版单位，而不是把 CJK 动态歌词
+    /// 拆成散落的单字。时间范围仍覆盖词组内原始计时词，逐字模式继续使用
+    /// `buildDisplayWords`，两条管线互不影响。
+    static func buildVisualizerDisplayWords(fullText: String, words: [AriaWord]) -> [AriaWord] {
+        let units = applyStickyPunctuation(
+            buildSemanticUnits(fullText: fullText, words: words)
+        )
+        let display = units.compactMap { unit -> AriaWord? in
+            let text = unit.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty, let first = unit.words.first else { return nil }
+            return AriaWord(
+                id: first.id,
+                text: text,
+                startTime: unit.startTime,
+                endTime: unit.endTime
+            )
         }
         return display.isEmpty ? words : display
     }

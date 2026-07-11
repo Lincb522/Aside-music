@@ -27,12 +27,6 @@ struct GameModeSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "game_mode_settings_title"),
-                        eyebrow: "GAME",
-                        icon: .gridSquare
-                    )
-
                     VStack(spacing: 20) {
                         mainSection
                         scenariosSection
@@ -52,8 +46,7 @@ struct GameModeSettingsView: View {
             .onChange(of: settings.gameModeSilentNowPlaying) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeAutoExit) { _, _ in refreshMatchedPreset() }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
+        .themedInlineNavigationTitle(String(localized: "game_mode_settings_title"))
         .confirmationDialog(
             String(localized: "game_mode_preferred_quality_title"),
             isPresented: $showQualityDialog,

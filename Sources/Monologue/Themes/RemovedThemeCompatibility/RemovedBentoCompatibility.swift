@@ -263,6 +263,7 @@ struct BentoPageHeader<Accessory: View>: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 6)
         .padding(.bottom, 14)
+        .monologuePageHeaderCollapse()
     }
 }
 

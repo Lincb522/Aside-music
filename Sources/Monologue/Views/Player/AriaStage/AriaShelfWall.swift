@@ -32,8 +32,14 @@ struct AriaShelfWall: View {
 
     var body: some View {
         GeometryReader { geo in
-            // folia 桌面档位的等比缩放：卡片尺寸随可用高度走
-            let coverSize = min(geo.size.height * 0.42, 280)
+            // 先给顶栏与底部歌名标题预留空间，再按剩余高度定卡片尺寸：
+            // 聚焦卡放大 1.22×，若直接按整屏高度取尺寸，横屏手机上
+            // 卡片底缘会压到下方的歌名标题（歌架名字与封面重叠）
+            let topReserve: CGFloat = DeviceLayout.headerTopPadding + 52
+            let captionReserve: CGFloat = 92
+            let availableHeight = max(140, geo.size.height - topReserve - captionReserve)
+            let coverSize = min(availableHeight / 1.30, 280)
+            let wallCenterOffset = (topReserve - captionReserve) / 2
             let pitch = coverSize + 46
             let maxScroll = pitch * CGFloat(max(queue.count - 1, 0))
             let focused = focusedIndex(pitch: pitch)
@@ -53,8 +59,8 @@ struct AriaShelfWall: View {
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.45))
                 } else {
-                    // 封面长廊
-                    wall(coverSize: coverSize, pitch: pitch, geo: geo)
+                    // 封面长廊（居中在顶栏与底部标题之间的可用带内）
+                    wall(coverSize: coverSize, pitch: pitch, geo: geo, centerOffset: wallCenterOffset)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .contentShape(Rectangle())
                         .gesture(dragGesture(pitch: pitch, maxScroll: maxScroll))
@@ -105,7 +111,7 @@ struct AriaShelfWall: View {
     // MARK: 长廊
 
     @ViewBuilder
-    private func wall(coverSize: CGFloat, pitch: CGFloat, geo: GeometryProxy) -> some View {
+    private func wall(coverSize: CGFloat, pitch: CGFloat, geo: GeometryProxy, centerOffset: CGFloat) -> some View {
         let halfWindow = geo.size.width / 2 + coverSize
         // 只装配视窗附近的卡片（folia 的 LOD/懒加载思路）
         let lower = max(0, Int((scrollX - halfWindow) / pitch))
@@ -130,8 +136,8 @@ struct AriaShelfWall: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // 长廊整体略高于几何中心，给下方 caption 留出呼吸
-        .offset(y: -18)
+        // 长廊居中于顶栏与底部歌名标题之间的可用带，避免与标题重叠
+        .offset(y: centerOffset)
     }
 
     @ViewBuilder

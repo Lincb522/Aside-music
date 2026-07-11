@@ -222,6 +222,7 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
         }
+        .monologuePageHeaderCollapse()
     }
 
     private var minimalWhiteIdentity: some View {
@@ -664,6 +665,7 @@ struct ProfileView: View {
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)
+        .monologuePageHeaderCollapse()
     }
 
     @ViewBuilder
@@ -944,6 +946,7 @@ struct ProfileView: View {
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)
+        .monologuePageHeaderCollapse()
     }
 
     @ViewBuilder
@@ -1003,6 +1006,7 @@ struct ProfileView: View {
         .background(SequoiaChromeBar(cornerRadius: 23))
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)
+        .monologuePageHeaderCollapse()
     }
 
     @ViewBuilder
@@ -1052,6 +1056,7 @@ struct ProfileView: View {
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)
+        .monologuePageHeaderCollapse()
     }
 
     private var liquidGlassProfileLensBoard: some View {
@@ -1370,6 +1375,7 @@ struct ProfileView: View {
         .background(LiquidGlassChromeBar(cornerRadius: 24))
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)
+        .monologuePageHeaderCollapse()
     }
 
     private var liquidGlassProfileHeroPanel: some View {

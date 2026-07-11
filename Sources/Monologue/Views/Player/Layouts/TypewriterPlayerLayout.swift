@@ -146,13 +146,25 @@ private struct TypewriterLyricsView: View {
     private func historyLine(_ line: LyricLine, opacity: Double) -> some View {
         Button { PlayerManager.shared.seek(to: line.time) } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(line.text)
-                    .font(.system(size: 14, weight: .regular, design: .monospaced))
+                Text(line.text.monologueLyricDisplayText)
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 14,
+                            weight: .regular,
+                            fallback: .system(size: 14, weight: .regular, design: .monospaced)
+                        )
+                    )
                     .foregroundStyle(inkFaded.opacity(opacity))
 
                 if let trans = line.translation {
-                    Text(trans)
-                        .font(.system(size: 11, weight: .regular, design: .serif))
+                    Text(trans.monologueLyricDisplayText)
+                        .font(
+                            MonologuePlayerFont.activeFont(
+                                size: 11,
+                                weight: .regular,
+                                fallback: .system(size: 11, weight: .regular, design: .serif)
+                            )
+                        )
                         .foregroundStyle(inkFaded.opacity(opacity * 0.6))
                 }
             }
@@ -165,16 +177,23 @@ private struct TypewriterLyricsView: View {
     // MARK: - Current Typing Line
 
     private func currentLine(_ line: LyricLine, realTime: TimeInterval) -> some View {
-        let total = line.text.count
+        let displayText = line.text.monologueLyricDisplayText
+        let total = displayText.count
         let visible = typedCharCount(line: line, realTime: realTime)
         let clamped = min(visible, total)
-        let typed = String(line.text.prefix(clamped))
+        let typed = String(displayText.prefix(clamped))
         let finished = clamped >= total
 
         return VStack(alignment: .leading, spacing: 3) {
             ZStack(alignment: .bottomTrailing) {
                 Text(typed)
-                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 17,
+                            weight: .semibold,
+                            fallback: .system(size: 17, weight: .semibold, design: .monospaced)
+                        )
+                    )
                     .foregroundStyle(ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -185,11 +204,18 @@ private struct TypewriterLyricsView: View {
                 }
             }
 
-            if let trans = line.translation {
+            if let rawTranslation = line.translation {
+                let trans = rawTranslation.monologueLyricDisplayText
                 let tTotal = trans.count
                 let tVisible = total > 0 ? Int(ceil(Double(clamped) / Double(total) * Double(tTotal))) : 0
                 Text(String(trans.prefix(max(0, min(tVisible, tTotal)))))
-                    .font(.system(size: 12, weight: .regular, design: .serif))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 12,
+                            weight: .regular,
+                            fallback: .system(size: 12, weight: .regular, design: .serif)
+                        )
+                    )
                     .foregroundStyle(inkFaded.opacity(0.75))
             }
         }
@@ -225,8 +251,14 @@ private struct TypewriterLyricsView: View {
 
     private func previewLine(_ line: LyricLine) -> some View {
         Button { PlayerManager.shared.seek(to: line.time) } label: {
-            Text(line.text)
-                .font(.system(size: 13, weight: .light, design: .monospaced))
+            Text(line.text.monologueLyricDisplayText)
+                .font(
+                    MonologuePlayerFont.activeFont(
+                        size: 13,
+                        weight: .light,
+                        fallback: .system(size: 13, weight: .light, design: .monospaced)
+                    )
+                )
                 .foregroundStyle(inkFaded.opacity(0.12))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 3)
@@ -557,7 +589,11 @@ struct TypewriterPlayerLayout: View {
 
                 MarqueeText(
                     text: player.currentSong?.name ?? "Insert Record",
-                    font: .system(size: 22, weight: .bold, design: .serif),
+                    font: MonologuePlayerFont.activeFont(
+                        size: 22,
+                        weight: .bold,
+                        fallback: .system(size: 22, weight: .bold, design: .serif)
+                    ),
                     color: ink,
                     speed: 26,
                     delayBeforeScroll: 1.6,
@@ -882,7 +918,11 @@ struct TypewriterPlayerLayout: View {
                 if let name = player.currentSong?.name {
                     MarqueeText(
                         text: name,
-                        font: .system(size: 10, weight: .medium, design: .monospaced),
+                        font: MonologuePlayerFont.activeFont(
+                            size: 10,
+                            weight: .medium,
+                            fallback: .system(size: 10, weight: .medium, design: .monospaced)
+                        ),
                         color: topBtnFg.opacity(0.7),
                         speed: 24,
                         delayBeforeScroll: 1.8,

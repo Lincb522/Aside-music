@@ -120,8 +120,11 @@ class LocalPlaylistManager: ObservableObject {
         var sorted: [LocalPlaylist] = []
         if let f = favorite { sorted.append(f) }
         if let l = localMusic { sorted.append(l) }
-        // 「下载」系统歌单随下载功能一并隐藏（数据保留，恢复时打开 AppConfig.Features.downloadEnabled 即可重新显示）
-        if let d = download, AppConfig.Features.downloadEnabled { sorted.append(d) }
+        // 下载入口虽然不再提供新建下载，但历史下载仍属于本地资料库。
+        // 始终保留这个只读系统歌单，避免关闭下载功能后旧用户无法找到已下载歌曲。
+        if let download {
+            sorted.append(download)
+        }
         sorted.append(contentsOf: all)
         
         trimCaches(validIds: Set(sorted.map(\.id)))

@@ -178,6 +178,8 @@ struct PureWhiteSurfaceBackground: View {
     var cornerRadius: CGFloat = PureWhiteStyle.cardRadius
     var elevated = true
     var tint: Color = PureWhiteStyle.surfaceRaised
+    /// 角落印刷短线；紧凑容器（迷你播放器、队列行）内容贴边，需关掉避免重叠
+    var showsCornerMarks = true
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -210,22 +212,29 @@ struct PureWhiteSurfaceBackground: View {
                         lineWidth: elevated ? PureWhiteStyle.strokeWidth : PureWhiteStyle.fineStrokeWidth
                     )
                 )
-                .overlay(alignment: .topLeading) {
-                    if elevated {
-                        Capsule(style: .continuous)
-                            .fill(PureWhiteStyle.accent.opacity(colorScheme == .dark ? 0.56 : 0.82))
-                            .frame(width: max(18, cornerRadius * 0.9), height: 3)
-                            .padding(.top, 12)
-                            .padding(.leading, 12)
-                    }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if elevated {
-                        Capsule(style: .continuous)
-                            .fill(PureWhiteStyle.separator.opacity(0.82))
-                            .frame(width: 22, height: 2)
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 12)
+                .overlay {
+                    if elevated && showsCornerMarks {
+                        // 尺寸感知：小容器（图标按钮、紧凑行）画不下角落短线，只在大卡面上绘制
+                        GeometryReader { proxy in
+                            if proxy.size.width >= 120 && proxy.size.height >= 96 {
+                                ZStack(alignment: .topLeading) {
+                                    Color.clear
+                                    Capsule(style: .continuous)
+                                        .fill(PureWhiteStyle.accent.opacity(colorScheme == .dark ? 0.56 : 0.82))
+                                        .frame(width: max(18, cornerRadius * 0.9), height: 3)
+                                        .padding(.top, 12)
+                                        .padding(.leading, 12)
+                                }
+                                .overlay(alignment: .bottomTrailing) {
+                                    Capsule(style: .continuous)
+                                        .fill(PureWhiteStyle.separator.opacity(0.82))
+                                        .frame(width: 22, height: 2)
+                                        .padding(.trailing, 12)
+                                        .padding(.bottom, 12)
+                                }
+                            }
+                        }
+                        .allowsHitTesting(false)
                     }
                 }
                 .shadow(
@@ -294,6 +303,7 @@ struct PureWhitePageHeader<Accessory: View>: View {
         .padding(.top, 14)
         .padding(.bottom, 6)
         .iPadContentWidth(700)
+        .monologuePageHeaderCollapse()
     }
 }
 

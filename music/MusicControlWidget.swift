@@ -119,7 +119,7 @@ struct NowPlayingEntry: TimelineEntry {
     let artistName: String
     let albumName: String
     let playbackState: PlaybackSurfaceState
-    let coverImageData: Data?
+    var coverImageData: Data?
     let theme: WidgetTheme
     let dominantRGB: [CGFloat]
     let secondaryRGB: [CGFloat]
@@ -137,6 +137,8 @@ struct NowPlayingEntry: TimelineEntry {
     var nextLyricText: String = ""
     var lyricIndex: Int = -1
     var lyricCount: Int = 0
+    /// 本条 entry 预计展示时长（到下一条 entry 的间隔），用于把过渡动画铺满整个展示期
+    var entryDisplayDuration: TimeInterval = 0
     var playbackCurrentTime: TimeInterval
     var playbackDuration: TimeInterval
     var playbackReferenceDate: Date
@@ -418,10 +420,7 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
         var base = currentEntry(theme: configuration.theme)
         let fallbackUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: base.date) ?? base.date.addingTimeInterval(300)
 
-        // 播放中且有整首同步歌词时，按歌词时间戳预生成未来条目，
-        // 由 WidgetKit 在准确时刻自动换行，无需主 App 逐句 reload。
-        let lines = loadLyricLines()
-        guard base.isPlaying, !lines.isEmpty else {
+        guard base.isPlaying else {
             return Timeline(entries: [base], policy: .after(fallbackUpdate))
         }
 
@@ -430,37 +429,119 @@ struct NowPlayingProvider: AppIntentTimelineProvider {
         let position = base.playbackCurrentTime + elapsed
 
         base.date = now
-        applyLyricContext(&base, lines: lines, index: lyricIndex(in: lines, at: position))
+        base.playbackCurrentTime = position
+        base.playbackReferenceDate = now
 
-        var entries: [NowPlayingEntry] = [base]
-        let maxFutureEntries = 60
-        for (index, line) in lines.enumerated() where line.t > position + 0.05 {
-            guard entries.count <= maxFutureEntries else { break }
-            var entry = base
-            entry.date = now.addingTimeInterval(line.t - position)
-            entry.playbackCurrentTime = line.t
-            entry.playbackReferenceDate = entry.date
-            applyLyricContext(&entry, lines: lines, index: index)
-            if let last = entries.last, entry.date.timeIntervalSince(last.date) < 0.05 {
-                entries[entries.count - 1] = entry
-            } else {
+        // 唱片旋转主题需要连续转动：WidgetKit 的过渡动画有 2 秒硬上限，
+        // 只有让相邻 entry 间隔 ≤2 秒、每段动画铺满间隔，旋转才能首尾无缝衔接。
+        let rotatingThemes: Set<WidgetTheme> = [.aperture, .vinyl]
+        let needsContinuousRotation = rotatingThemes.contains(configuration.theme)
+
+        // 多条目时间线会把每条 entry 的视图连同封面一起归档，
+        // 必须用缩小后的封面控制归档体积，否则扩展会被系统按内存上限杀掉。
+        // 旋转主题条目数量大，封面压得更小。
+        base.coverImageData = downscaledCoverData(
+            base.coverImageData,
+            maxDimension: needsContinuousRotation ? 360 : 500
+        )
+
+        var entries: [NowPlayingEntry] = []
+        let lines = loadLyricLines()
+
+        if needsContinuousRotation {
+            // 严格 1.5 秒等距网格：动画时长恒为「间隔 + 0.5 秒提前量」= 2 秒
+            // （顶满 WidgetKit 动画上限）。等距让每段动画形状完全相同，
+            // entry 切换的随机延迟只造成极小的速度修正，不会忽快忽慢；
+            // 不再为歌词时间戳插入额外切换点（歌词改在最近的网格点换行，
+            // 最多迟 1.5 秒），减少切换次数就是减少抖动机会。
+            let step: TimeInterval = 1.5
+            let maxEntries = 150
+            let remaining = base.playbackDuration > position
+                ? (base.playbackDuration - position + step)
+                : 300
+            let horizon = min(remaining, Double(maxEntries) * step)
+
+            for offset in stride(from: 0, through: horizon, by: step) {
+                var entry = base
+                entry.date = now.addingTimeInterval(offset)
+                entry.playbackCurrentTime = position + offset
+                entry.playbackReferenceDate = entry.date
+                if !lines.isEmpty {
+                    applyLyricContext(&entry, lines: lines, index: lyricIndex(in: lines, at: position + offset))
+                }
                 entries.append(entry)
+            }
+        } else if lines.isEmpty {
+            // 无同步歌词：按固定节拍生成条目，让旋转等随进度推进的动画持续衔接
+            let step: TimeInterval = 15
+            let remaining = base.playbackDuration > position ? (base.playbackDuration - position + 2) : 300
+            let count = min(20, max(1, Int(remaining / step) + 1))
+            for index in 0..<count {
+                var entry = base
+                entry.date = now.addingTimeInterval(Double(index) * step)
+                entry.playbackCurrentTime = position + Double(index) * step
+                entry.playbackReferenceDate = entry.date
+                entries.append(entry)
+            }
+        } else {
+            // 有整首同步歌词：按歌词时间戳预生成条目，
+            // 由 WidgetKit 在准确时刻自动换行，无需主 App 逐句 reload。
+            applyLyricContext(&base, lines: lines, index: lyricIndex(in: lines, at: position))
+            entries.append(base)
+
+            let maxFutureEntries = 30
+            for (index, line) in lines.enumerated() where line.t > position + 0.05 {
+                guard entries.count <= maxFutureEntries else { break }
+                var entry = base
+                entry.date = now.addingTimeInterval(line.t - position)
+                entry.playbackCurrentTime = line.t
+                entry.playbackReferenceDate = entry.date
+                applyLyricContext(&entry, lines: lines, index: index)
+                if let last = entries.last, entry.date.timeIntervalSince(last.date) < 0.05 {
+                    entries[entries.count - 1] = entry
+                } else {
+                    entries.append(entry)
+                }
             }
         }
 
         // 歌曲结束（或时间线窗口耗尽）后再请求新时间线
         let horizonEnd: Date
-        if base.playbackDuration > position {
+        if needsContinuousRotation {
+            // 旋转主题：窗口用完立刻续一条时间线，避免最后一条 entry 长时间停转
+            horizonEnd = (entries.last?.date ?? now).addingTimeInterval(2)
+        } else if base.playbackDuration > position {
             let songEnd = now.addingTimeInterval(base.playbackDuration - position + 2)
             let windowEnd = (entries.last?.date ?? now).addingTimeInterval(300)
             horizonEnd = min(songEnd, windowEnd)
         } else {
             horizonEnd = (entries.last?.date ?? now).addingTimeInterval(300)
         }
-        return Timeline(entries: entries, policy: .after(max(horizonEnd, now.addingTimeInterval(15))))
+        let policyDate = max(horizonEnd, now.addingTimeInterval(15))
+
+        // 标记每条 entry 的展示时长，供视图把过渡动画铺满整个展示期（如唱片持续旋转）
+        for index in entries.indices {
+            let nextDate = index + 1 < entries.count ? entries[index + 1].date : policyDate
+            entries[index].entryDisplayDuration = max(0, nextDate.timeIntervalSince(entries[index].date))
+        }
+
+        return Timeline(entries: entries, policy: .after(policyDate))
     }
 
     // MARK: - Synced Lyrics
+
+    private func downscaledCoverData(_ data: Data?, maxDimension: CGFloat = 500) -> Data? {
+        guard let data, let image = UIImage(data: data) else { return data }
+        let maxSide = max(image.size.width, image.size.height)
+        guard maxSide > maxDimension else { return data }
+        let scale = maxDimension / maxSide
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
+        return resized.jpegData(compressionQuality: 0.82) ?? data
+    }
 
     private func loadLyricLines() -> [WidgetLyricLine] {
         guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else { return [] }
@@ -2109,8 +2190,18 @@ private struct VinylRecordView: View {
     let glossAngle: Double
     let animationFrame: VinylWidgetAnimationFrame
 
+    /// 由整首歌播放进度派生的转角（18°/秒）：目标取本条 entry 展示结束时刻，
+    /// 动画铺满 entry 间隔（时间线按 ≤2 秒网格生成），整曲匀速慢转不间断。
     private var rotationDegrees: Double {
-        animationFrame.recordRotationDegrees(base: glossAngle)
+        guard !entry.isEmpty else { return glossAngle }
+        let targetTime = max(0, entry.playbackCurrentTime) + (entry.isPlaying ? max(0, entry.entryDisplayDuration) : 0)
+        return targetTime * 18 + glossAngle
+    }
+
+    private var rotationAnimation: Animation {
+        entry.isPlaying
+            ? .linear(duration: min(2.0, max(0.1, entry.entryDisplayDuration)))
+            : .snappy(duration: 0.4)
     }
 
     private var discPlate: some View {
@@ -2215,6 +2306,7 @@ private struct VinylRecordView: View {
                 glossRing(angle: .degrees(rotationDegrees))
             }
             .rotationEffect(.degrees(rotationDegrees))
+            .animation(rotationAnimation, value: rotationDegrees)
         }
         .frame(width: size, height: size)
     }
@@ -3944,19 +4036,74 @@ struct ApertureWidgetTheme: View {
             let w = geo.size.width
             let h = geo.size.height
             let radius = min(h * 0.24, 28)
-            let pad: CGFloat = 10
-            let discSide = min(h - pad * 2.3, 130)
-            let deckHeight = h - pad * 2
+            let discSide = h * 1.14
 
             ZStack {
                 apertureSurface
 
-                mediumDeck(width: w, height: h, pad: pad, deckHeight: deckHeight, discSide: discSide)
+                // 唱片吸附在右缘，露出约 58%，与小尺寸「圆窗探出」语言呼应
+                coverDisc(side: discSide, hubSize: discSide * 0.24)
+                    .offset(x: w - discSide * 0.62, y: (h - discSide) / 2)
+                    .frame(width: w, height: h, alignment: .topLeading)
+
+                mediumInfoColumn(width: w * 0.56, height: h)
+                    .padding(.leading, 16)
+                    .frame(width: w, height: h, alignment: .leading)
             }
             .frame(width: w, height: h)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(cardStroke(radius: radius))
             .widgetURL(URL(string: "monologue://player"))
+        }
+    }
+
+    private func mediumInfoColumn(width: CGFloat, height: CGFloat) -> some View {
+        TimelineView(.periodic(from: entry.playbackReferenceDate, by: 1.0)) { timeline in
+            let activeDate = entry.isPlaying ? timeline.date : entry.playbackReferenceDate
+            let activeSeconds = playbackSeconds(at: activeDate)
+            let progress = progressValue(at: activeDate)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 7) {
+                    statusBadge(entry.isPlaying ? "PLAYING" : "READY", fontSize: 8)
+                    Text(formatTime(activeSeconds))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(ink.opacity(0.36))
+                        .monospacedDigit()
+                }
+
+                Spacer(minLength: 6)
+
+                Text(artist.uppercased())
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(ink.opacity(0.34))
+                    .tracking(1.3)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+
+                Text(song)
+                    .font(.system(size: 19, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(ink.opacity(entry.isEmpty ? 0.46 : 0.98))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.55)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+
+                HStack(spacing: 8) {
+                    progressBar(width: min(width * 0.6, 108), progress: progress)
+                    Text(durationText)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(ink.opacity(0.28))
+                        .monospacedDigit()
+                }
+                .padding(.top, 9)
+
+                Spacer(minLength: 8)
+
+                transportControls(buttonSize: 27, playSize: 38, spacing: 12, elevated: true)
+            }
+            .padding(.vertical, 13)
+            .frame(width: width, height: height, alignment: .leading)
         }
     }
 
@@ -4026,138 +4173,6 @@ struct ApertureWidgetTheme: View {
                 .padding(.top, 1)
             }
             .frame(width: width)
-        }
-    }
-
-    private func mediumDeck(
-        width: CGFloat,
-        height: CGFloat,
-        pad: CGFloat,
-        deckHeight: CGFloat,
-        discSide: CGFloat
-    ) -> some View {
-        let deckWidth = width - pad * 2
-        let contentLeft = pad + discSide * 0.82
-        let contentWidth = max(122, width - contentLeft - pad * 1.5)
-
-        return ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: deckHeight * 0.28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.36),
-                            Color.white.opacity(0.20),
-                            paperBottom.opacity(0.18)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: deckHeight * 0.28, style: .continuous)
-                        .stroke(Color.white.opacity(0.46), lineWidth: 1)
-                )
-                .overlay(
-                    HStack(spacing: 5) {
-                        ForEach(0..<12, id: \.self) { index in
-                            Capsule()
-                                .fill(Color.black.opacity(index % 3 == 0 ? 0.08 : 0.045))
-                                .frame(width: 1, height: deckHeight * (index % 3 == 0 ? 0.68 : 0.46))
-                        }
-                    }
-                    .padding(.leading, discSide + 2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    .blendMode(.multiply)
-                )
-                .frame(width: deckWidth, height: deckHeight)
-                .offset(x: pad)
-                .shadow(color: Color.black.opacity(0.07), radius: 12, x: 0, y: 6)
-
-            mediumEmbeddedDisc(side: discSide)
-                .offset(x: pad + 3)
-
-            mediumPanel(width: contentWidth, height: deckHeight - 20)
-                .offset(x: contentLeft)
-        }
-        .frame(width: width, height: height)
-    }
-
-    private func mediumEmbeddedDisc(side: CGFloat) -> some View {
-        ZStack {
-            Circle()
-                .fill(paperTop.opacity(0.94))
-                .frame(width: side + 14, height: side + 14)
-                .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
-
-            coverDisc(side: side, hubSize: side * 0.26)
-
-            Circle()
-                .stroke(Color.white.opacity(0.72), lineWidth: 4)
-                .frame(width: side + 5, height: side + 5)
-
-            Circle()
-                .stroke(Color.black.opacity(0.08), lineWidth: 1)
-                .frame(width: side + 15, height: side + 15)
-        }
-        .frame(width: side + 16, height: side + 16)
-    }
-
-    private func mediumPanel(width: CGFloat, height: CGFloat) -> some View {
-        TimelineView(.periodic(from: entry.playbackReferenceDate, by: 1.0)) { timeline in
-            let activeDate = entry.isPlaying ? timeline.date : entry.playbackReferenceDate
-            let activeSeconds = playbackSeconds(at: activeDate)
-            let progress = progressValue(at: activeDate)
-
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 7) {
-                    statusBadge(entry.isPlaying ? "PLAYING" : "READY", fontSize: 8)
-                    Spacer(minLength: 6)
-                    Text(formatTime(activeSeconds))
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(ink.opacity(0.36))
-                        .monospacedDigit()
-                }
-
-                Spacer(minLength: 4)
-
-                Text(song)
-                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(ink.opacity(entry.isEmpty ? 0.46 : 0.98))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.62)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(artist)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(ink.opacity(0.34))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.55)
-                    .padding(.top, 3)
-
-                HStack(spacing: 8) {
-                    progressBar(width: min(width * 0.62, 118), progress: progress)
-                    Text(durationText)
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(ink.opacity(0.28))
-                        .monospacedDigit()
-                }
-                .padding(.top, 8)
-
-                Spacer(minLength: 6)
-
-                HStack {
-                    Image(systemName: entry.statusSymbolName)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(mutedInk.opacity(0.72))
-                        .frame(width: 20, height: 20)
-                        .background(Circle().fill(Color.white.opacity(0.32)))
-                        .contentTransition(.symbolEffect(.replace))
-                    Spacer(minLength: 8)
-                    transportControls(buttonSize: 25, playSize: 35, spacing: 10, elevated: true)
-                }
-            }
-            .padding(.vertical, 1)
-            .frame(width: width, height: height, alignment: .leading)
         }
     }
 
@@ -4315,31 +4330,59 @@ struct ApertureWidgetTheme: View {
             .stroke(Color.black.opacity(0.10), lineWidth: 1)
     }
 
+    /// 唱片旋转目标角：由整首歌的播放进度派生（9°/秒，约 40 秒一圈）。
+    /// 动画时长 = entry 间隔 + 0.5 秒提前量（顶满 WidgetKit 2 秒上限）：
+    /// 下一条 entry 准点到达时动画尚在飞行中，线性动画从当前呈现值无缝续接；
+    /// 迟到 ≤0.5 秒时唱片仍以原速转动，只会轻微变速而不是突停。
+    /// 切换时机的随机抖动无法消除，慢速旋转让残余的速度修正难以察觉。
+    private var discAnimationDuration: TimeInterval {
+        min(2.0, max(0.1, entry.entryDisplayDuration) + 0.5)
+    }
+
+    private var discRotationAngle: Angle {
+        guard !entry.isEmpty else { return .zero }
+        let targetTime = max(0, entry.playbackCurrentTime)
+            + (entry.isPlaying ? discAnimationDuration : 0)
+        return .degrees(targetTime * 9)
+    }
+
+    private var discRotationAnimation: Animation {
+        entry.isPlaying
+            ? .linear(duration: discAnimationDuration)
+            : .snappy(duration: 0.4)
+    }
+
     private func coverDisc(side: CGFloat, hubSize: CGFloat) -> some View {
         ZStack {
-            Circle()
-                .fill(
-                    AngularGradient(
-                        colors: [
-                            entry.secondaryColor.opacity(0.88),
-                            entry.dominantColor.opacity(0.9),
-                            Color(hex: "ECEAE7"),
-                            entry.dominantColor.opacity(0.78),
-                            entry.secondaryColor.opacity(0.88)
-                        ],
-                        center: .center
+            // 旋转部分：盘面渐变 + 封面
+            ZStack {
+                Circle()
+                    .fill(
+                        AngularGradient(
+                            colors: [
+                                entry.secondaryColor.opacity(0.88),
+                                entry.dominantColor.opacity(0.9),
+                                Color(hex: "ECEAE7"),
+                                entry.dominantColor.opacity(0.78),
+                                entry.secondaryColor.opacity(0.88)
+                            ],
+                            center: .center
+                        )
                     )
-                )
 
-            if let data = entry.coverImageData,
-               let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: side, height: side)
-                    .clipShape(Circle())
+                if let data = entry.coverImageData,
+                   let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: side, height: side)
+                        .clipShape(Circle())
+                }
             }
+            .rotationEffect(discRotationAngle)
+            .animation(discRotationAnimation, value: discRotationAngle)
 
+            // 固定部分：高光、描边、轴心不随盘面旋转
             LinearGradient(
                 colors: [Color.white.opacity(0.22), Color.clear, Color.black.opacity(0.18)],
                 startPoint: .topLeading,
@@ -7287,5 +7330,436 @@ struct TypewriterWidgetTheme: View {
             }
         }
         .widgetURL(URL(string: "monologue://player"))
+    }
+}
+
+// MARK: - Lyrics Theme (歌词)
+
+struct LyricsWidgetTheme: View {
+    let entry: NowPlayingEntry
+    let family: WidgetFamily
+
+    /// 磨砂封面背景：封面放大重模糊，左上主色晕染定光向，下部压暗保白字。
+    static func background(for entry: NowPlayingEntry) -> some View {
+        ZStack {
+            if let data = entry.coverImageData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .scaleEffect(1.4)
+                    .blur(radius: 40, opaque: true)
+                    .saturation(1.25)
+            } else {
+                LinearGradient(
+                    colors: entry.isEmpty
+                        ? [Color(hex: "1C1E26"), Color(hex: "0D0E13")]
+                        : [entry.secondaryColor, entry.dominantColor.opacity(0.85)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+
+            LinearGradient(
+                colors: [
+                    entry.dominantColor.opacity(entry.isEmpty ? 0 : 0.32),
+                    .clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .center
+            )
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.38),
+                    Color.black.opacity(0.54),
+                    Color.black.opacity(0.76)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+    /// 装饰强调色：仅用于引号/侧栏/进度等非正文元素，正文保持白色对比度
+    private var accent: Color {
+        entry.isEmpty ? Color(hex: "8FA8FF") : entry.dominantColor
+    }
+
+    private var displayCurrentLine: String {
+        if entry.isEmpty { return "未在播放" }
+        return entry.lyricText.isEmpty ? entry.songName : entry.lyricText
+    }
+
+    private var hasSyncedLyrics: Bool { entry.lyricCount > 0 }
+
+    private var progressInterval: ClosedRange<Date>? {
+        guard entry.playbackDuration > 0 else { return nil }
+        let start = entry.playbackReferenceDate.addingTimeInterval(-entry.playbackCurrentTime)
+        let end = start.addingTimeInterval(entry.playbackDuration)
+        guard start < end else { return nil }
+        return start...end
+    }
+
+    /// 歌词整体进度（0-1），用于小尺寸底部的位置刻度
+    private var lyricProgress: CGFloat {
+        guard hasSyncedLyrics, entry.lyricIndex >= 0, entry.lyricCount > 1 else { return 0 }
+        return CGFloat(entry.lyricIndex) / CGFloat(entry.lyricCount - 1)
+    }
+
+    var body: some View {
+        Group {
+            switch family {
+            case .systemMedium: mediumLayout
+            case .systemLarge: largeLayout
+            default: smallLayout
+            }
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    // MARK: - Small
+
+    /// 小尺寸：诗签。强调色巨引号压角，衬线歌词居中偏左，
+    /// 底部歌名前置强调色短杠，刻度线右端悬浮动态波形。
+    private var smallLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                quoteMark(size: 34)
+                Spacer(minLength: 6)
+                playbackGlyph(size: 10)
+                    .padding(.top, 2)
+            }
+
+            Spacer(minLength: 2)
+
+            lyricBlock(
+                currentSize: 17,
+                currentLineLimit: 4,
+                lineSpacing: 3,
+                showPrev: false,
+                showNext: false,
+                showTranslation: false
+            )
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    Capsule()
+                        .fill(accent)
+                        .frame(width: 10, height: 2.4)
+                    Text(entry.isEmpty ? "Mono" : entry.songName)
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+
+                lyricTrack(height: 2.5)
+            }
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 13)
+    }
+
+    // MARK: - Medium
+
+    /// 中尺寸：侧栏歌词条。强调色渐变竖杠作视觉锚，歌词与下一句沿杠排布，
+    /// 头部信息与控制键收窄，让正文成为绝对主角。
+    private var mediumLayout: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [accent, accent.opacity(0.14)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 3)
+                .frame(maxHeight: .infinity)
+                .padding(.vertical, 2)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    CoverImage(data: entry.coverImageData, radius: 7)
+                        .frame(width: 26, height: 26)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+                        )
+
+                    Text(entry.isEmpty ? "未在播放" : entry.songName)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(1)
+
+                    Text(entry.isEmpty ? "" : "· \(entry.artistName)")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+
+                    if !entry.isEmpty {
+                        controlButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, diameter: 28, iconSize: 11, prominent: true)
+                        controlButton(intent: NextTrackIntent(), icon: "forward.fill", diameter: 28, iconSize: 10, prominent: false)
+                    }
+                }
+
+                Spacer(minLength: 7)
+
+                lyricBlock(
+                    currentSize: 19,
+                    currentLineLimit: 2,
+                    lineSpacing: 2,
+                    showPrev: false,
+                    showNext: true,
+                    showTranslation: false
+                )
+
+                Spacer(minLength: 9)
+
+                progressBar(height: 2.5)
+            }
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 13)
+    }
+
+    // MARK: - Large
+
+    /// 大尺寸：杂志内页。巨型强调色引号衬底，衬线大字 + 翻译 + 前后句，
+    /// 底部控制键与「句号 / 总句数」徽章分列两端。
+    private var largeLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 11) {
+                CoverImage(data: entry.coverImageData, radius: 11)
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.isEmpty ? "未在播放" : entry.songName)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(entry.isEmpty ? "Mono" : entry.artistName)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                playbackGlyph(size: 13)
+            }
+
+            Spacer(minLength: 6)
+
+            lyricBlock(
+                currentSize: 24,
+                currentLineLimit: 3,
+                lineSpacing: 4,
+                showPrev: true,
+                showNext: true,
+                showTranslation: true
+            )
+            .background(alignment: .topLeading) {
+                quoteMark(size: 78)
+                    .opacity(0.5)
+                    .offset(x: -6, y: -30)
+            }
+            .padding(.top, 22)
+
+            Spacer(minLength: 10)
+
+            if !entry.isEmpty {
+                HStack(spacing: 0) {
+                    HStack(spacing: 13) {
+                        controlButton(intent: PreviousTrackIntent(), icon: "backward.fill", diameter: 35, iconSize: 12, prominent: false)
+                        controlButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, diameter: 44, iconSize: 16, prominent: true)
+                        controlButton(intent: NextTrackIntent(), icon: "forward.fill", diameter: 35, iconSize: 12, prominent: false)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    if hasSyncedLyrics, entry.lyricIndex >= 0 {
+                        Text("\(entry.lyricIndex + 1) / \(entry.lyricCount)")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.66))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.1)))
+                            .overlay(
+                                Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+                            )
+                    }
+                }
+                .padding(.bottom, 12)
+            }
+
+            progressBar(height: 3)
+        }
+        .padding(.horizontal, 17)
+        .padding(.vertical, 15)
+    }
+
+    // MARK: - Shared Pieces
+
+    /// 歌词块：上一句 / 当前句（衬线大字）/ 翻译 / 下一句。
+    /// 前后句沿一条微弱的时间线排布；以 lyricIndex 作身份触发推入过渡。
+    @ViewBuilder
+    private func lyricBlock(
+        currentSize: CGFloat,
+        currentLineLimit: Int,
+        lineSpacing: CGFloat,
+        showPrev: Bool,
+        showNext: Bool,
+        showTranslation: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if showPrev, !entry.prevLyricText.isEmpty {
+                neighborLine(entry.prevLyricText)
+            }
+
+            Text(displayCurrentLine)
+                .font(.system(size: currentSize, weight: .bold, design: .serif))
+                .foregroundStyle(.white)
+                .lineSpacing(lineSpacing)
+                .lineLimit(currentLineLimit)
+                .minimumScaleFactor(0.58)
+                .fixedSize(horizontal: false, vertical: true)
+                .shadow(color: .black.opacity(0.4), radius: 5, y: 2)
+
+            if showTranslation, !entry.lyricTranslation.isEmpty {
+                Text(entry.lyricTranslation)
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(2)
+            }
+
+            if showNext, !entry.nextLyricText.isEmpty {
+                neighborLine(entry.nextLyricText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .id("lyricBlock-\(entry.lyricIndex)-\(entry.lyricText)")
+        .transition(.push(from: .bottom).combined(with: .opacity))
+    }
+
+    /// 前后句：强调色小圆点引导的暗色行，衬出当前句的层级
+    private func neighborLine(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(accent.opacity(0.75))
+                .frame(width: 3.5, height: 3.5)
+            Text(text)
+                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.38))
+                .lineLimit(1)
+        }
+    }
+
+    /// 装饰引号：强调色渐变，衬线黑体
+    private func quoteMark(size: CGFloat) -> some View {
+        Text("\u{201C}")
+            .font(.system(size: size, weight: .black, design: .serif))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [accent, accent.opacity(0.4)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .brightness(0.18)
+            .saturation(1.15)
+            .frame(height: size * 0.52, alignment: .top)
+            .clipped()
+    }
+
+    /// 播放状态图形（波形/音符/沙漏）
+    private func playbackGlyph(size: CGFloat) -> some View {
+        Image(systemName: entry.statusSymbolName)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.72))
+            .symbolEffect(.variableColor.iterative, options: .repeating, isActive: entry.isPlaying)
+            .contentTransition(.symbolEffect(.replace))
+    }
+
+    private func controlButton<I: AppIntent>(
+        intent: I,
+        icon: String,
+        diameter: CGFloat,
+        iconSize: CGFloat,
+        prominent: Bool
+    ) -> some View {
+        Button(intent: intent) {
+            Image(systemName: icon)
+                .font(.system(size: iconSize, weight: .bold))
+                .foregroundStyle(prominent ? Color.black.opacity(0.85) : .white.opacity(0.85))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: diameter, height: diameter)
+                .background(
+                    Circle()
+                        .fill(prominent ? AnyShapeStyle(Color.white.opacity(0.92)) : AnyShapeStyle(Color.white.opacity(0.14)))
+                )
+                .overlay(
+                    Circle().stroke(Color.white.opacity(prominent ? 0 : 0.18), lineWidth: 0.8)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 歌词位置刻度（小尺寸底部）：当前句在整首歌词中的位置，
+    /// 亮段用强调色→白渐变，刻度头一颗光点。
+    @ViewBuilder
+    private func lyricTrack(height: CGFloat) -> some View {
+        if hasSyncedLyrics {
+            GeometryReader { geo in
+                let filled = max(height, geo.size.width * lyricProgress)
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.16))
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [accent.opacity(0.9), .white.opacity(0.92)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: filled)
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: height * 1.8, height: height * 1.8)
+                        .offset(x: filled - height * 0.9)
+                        .shadow(color: .white.opacity(0.6), radius: 2)
+                }
+            }
+            .frame(height: height)
+        } else {
+            progressBar(height: height)
+        }
+    }
+
+    @ViewBuilder
+    private func progressBar(height: CGFloat) -> some View {
+        if entry.isEmpty || entry.playbackDuration <= 0 {
+            EmptyView()
+        } else if entry.isPlaying, let interval = progressInterval {
+            ProgressView(timerInterval: interval, countsDown: false, label: { EmptyView() }, currentValueLabel: { EmptyView() })
+                .progressViewStyle(.linear)
+                .tint(.white.opacity(0.85))
+                .frame(height: height)
+        } else {
+            ProgressView(value: min(max(entry.playbackCurrentTime / entry.playbackDuration, 0), 1))
+                .progressViewStyle(.linear)
+                .tint(.white.opacity(0.85))
+                .frame(height: height)
+        }
     }
 }

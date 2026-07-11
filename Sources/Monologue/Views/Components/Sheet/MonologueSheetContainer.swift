@@ -161,16 +161,20 @@ private struct MonologueSheetLiquidSurfaceModifier: ViewModifier {
 }
 
 enum MonologueSheetThemeStyle {
+    /// 把手直接绘制在同一张 Sheet 表面上，不再创建独立的玻璃胶囊底座。
+    static let usesIntegratedHandle = true
+
     static var usesCustomThemeSurface: Bool {
-        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var shadowColor: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink.opacity(0.08) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.10) }
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.22) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.shadowInk.opacity(0.14) }
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
@@ -187,6 +191,7 @@ enum MonologueSheetThemeStyle {
     static func shadowRadius(colorScheme: ColorScheme, isInteractiveMotionActive: Bool) -> CGFloat {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 8 : 10 }
         if MinimalWhiteStyle.isActive { return 6 }
+        if PureWhiteStyle.isActive { return colorScheme == .dark ? 14 : 10 }
         if MangaStyle.isActive { return 0 }
         if PetWhiteStyle.isActive { return colorScheme == .dark ? 24 : 18 }
         if MujiStyle.isActive { return 18 }
@@ -203,6 +208,7 @@ enum MonologueSheetThemeStyle {
     static func shadowYOffset(isInteractiveMotionActive: Bool) -> CGFloat {
         if isInteractiveMotionActive { return usesCustomThemeSurface ? 3 : 4 }
         if MinimalWhiteStyle.isActive { return 2 }
+        if PureWhiteStyle.isActive { return 4 }
         if MangaStyle.isActive { return 5 }
         if PetWhiteStyle.isActive { return 8 }
         if MujiStyle.isActive { return 9 }
@@ -259,7 +265,12 @@ struct MonologueSheetHandleView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        if MinimalWhiteStyle.isActive {
+        if MonologueSheetThemeStyle.usesIntegratedHandle {
+            Capsule(style: .continuous)
+                .fill(Color.monologueSheetHandle.opacity(colorScheme == .dark ? 0.76 : 0.62))
+                .frame(width: 36, height: 4)
+                .accessibilityHidden(true)
+        } else if MinimalWhiteStyle.isActive {
             Capsule()
                 .fill(MinimalWhiteStyle.hairline)
                 .frame(width: 36, height: 4)
@@ -277,6 +288,29 @@ struct MonologueSheetHandleView: View {
                 .fill(PetWhiteStyle.surfacePressed)
                 .frame(width: 42, height: 6)
                 .overlay(PetWhiteClayInnerShadow(shape: Capsule(), depth: 1.6))
+        } else if PureWhiteStyle.isActive {
+            HStack(spacing: 5) {
+                Capsule(style: .continuous)
+                    .fill(PureWhiteStyle.accent)
+                    .frame(width: 26, height: 4)
+                Capsule(style: .continuous)
+                    .fill(PureWhiteStyle.separator)
+                    .frame(width: 12, height: 4)
+                Capsule(style: .continuous)
+                    .fill(PureWhiteStyle.paperBlue.opacity(0.85))
+                    .frame(width: 12, height: 4)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(PureWhiteStyle.surfaceRaised)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(PureWhiteStyle.separator, lineWidth: 1)
+                    )
+            )
+            .shadow(color: PureWhiteStyle.strokeInk.opacity(0.08), radius: 0, x: 0, y: 2)
         } else if MujiStyle.isActive {
             Capsule()
                 .fill(MujiStyle.hairline.opacity(0.78))
@@ -468,6 +502,20 @@ struct MonologueSheetSurfaceBackground: View {
                 PetWhitePawPattern()
                     .opacity(colorScheme == .dark ? 0.10 : 0.16)
                     .clipShape(shape)
+            } else if PureWhiteStyle.isActive {
+                shape
+                    .fill(PureWhiteStyle.surfaceRaised)
+
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.06 : 0.85),
+                        Color.clear,
+                        PureWhiteStyle.paperBlue.opacity(colorScheme == .dark ? 0.05 : 0.10)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
             } else if MujiStyle.isActive {
                 shape
                     .fill(MujiStyle.surface)
@@ -736,6 +784,22 @@ struct MonologueSheetSurfaceOverlay: View {
                     )
                     .frame(height: 116)
                     .clipShape(shape)
+                }
+            } else if PureWhiteStyle.isActive {
+                shape
+                    .strokeBorder(
+                        PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.72 : 1),
+                        lineWidth: PureWhiteStyle.strokeWidth
+                    )
+
+                if !isInteractiveMotionActive {
+                    // 左上角的印刷标记短线，与 PureWhite 卡面语言一致
+                    Capsule(style: .continuous)
+                        .fill(PureWhiteStyle.accent.opacity(colorScheme == .dark ? 0.56 : 0.82))
+                        .frame(width: 30, height: 3)
+                        .padding(.top, 14)
+                        .padding(.leading, 16)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             } else if MujiStyle.isActive {
                 shape

@@ -10,11 +10,15 @@ extension PlayerManager {
     // MARK: - Seek
     
     func seek(to time: Double) {
+        guard time.isFinite else { return }
+        let upperBound = duration.isFinite && duration > 0 ? duration : max(time, 0)
+        let target = min(max(time, 0), upperBound)
+
         isSeeking = true
-        seekTargetTime = time
+        seekTargetTime = target
         seekStartedAt = Date()
-        currentTime = time
-        pendingRestoreTime = time
+        currentTime = target
+        pendingRestoreTime = target
         updateNowPlayingTime()
         saveState()
         
@@ -28,7 +32,7 @@ extension PlayerManager {
         // 保留“仅执行最后一次 seek”的语义，但不再额外等待 50ms。
         seekDebounceWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
-            self?.streamPlayer.seek(to: time)
+            self?.streamPlayer.seek(to: target)
         }
         seekDebounceWorkItem = workItem
         DispatchQueue.main.async(execute: workItem)

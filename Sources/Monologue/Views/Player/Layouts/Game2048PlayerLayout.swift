@@ -513,8 +513,14 @@ extension Game2048PlayerLayout {
                 }; Spacer() }
 
                 if let text = lyricVM.currentLineText, !text.isEmpty {
-                    Text(text)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                    Text(text.monologueLyricDisplayText)
+                        .font(
+                            MonologuePlayerFont.activeFont(
+                                size: 14,
+                                weight: .bold,
+                                fallback: .system(size: 14, weight: .bold, design: .rounded)
+                            )
+                        )
                         .foregroundColor(tileFg(256)).multilineTextAlignment(.center)
                         .lineLimit(4).padding(10)
                         .id(lyricVM.currentLineIndex)
@@ -588,7 +594,11 @@ extension Game2048PlayerLayout {
             Text("1024").font(.system(size: 10, weight: .black, design: .rounded))
                 .foregroundColor(tileFg(1024).opacity(0.25)).padding(5)
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .monologuePlayerDisplayFont(
+                    size: 15,
+                    weight: .heavy,
+                    fallback: .system(size: 15, weight: .heavy, design: .rounded)
+                )
                 .foregroundColor(tileFg(1024)).lineLimit(2).multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 8)
             RoundedRectangle(cornerRadius: tileRadius, style: .continuous)

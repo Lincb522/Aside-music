@@ -538,7 +538,11 @@ extension VinylPlayerLayout {
     var songInfoSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 24, weight: .bold, design: .default))
+                .monologuePlayerDisplayFont(
+                    size: 24,
+                    weight: .bold,
+                    fallback: .system(size: 24, weight: .bold, design: .default)
+                )
                 .foregroundColor(contentColor)
                 .lineLimit(1)
 

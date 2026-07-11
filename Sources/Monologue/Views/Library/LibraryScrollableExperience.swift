@@ -90,6 +90,7 @@ struct ScrollableLibraryExperience: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     header
+                        .monologuePageHeaderCollapse()
                     tabContent
                 }
                 .padding(.bottom, 128)

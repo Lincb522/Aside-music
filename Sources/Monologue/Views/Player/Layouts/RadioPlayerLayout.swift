@@ -351,21 +351,50 @@ struct RadioPlayerLayout: View {
                         let nextIdx = idx + 1 < lyricVM.lyrics.count ? idx + 1 : nil
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(cur.text)
-                                .font(.system(size: isLand ? 15 : 13, weight: .bold, design: .rounded))
+                            Text(cur.text.monologueLyricDisplayText)
+                                .font(
+                                    MonologuePlayerFont.activeFont(
+                                        size: isLand ? 15 : 13,
+                                        weight: .bold,
+                                        fallback: .system(
+                                            size: isLand ? 15 : 13,
+                                            weight: .bold,
+                                            design: .rounded
+                                        )
+                                    )
+                                )
                                 .foregroundStyle(textW)
                                 .lineLimit(2)
 
                             if let t = cur.translation, !t.isEmpty {
-                                Text(t)
-                                    .font(.system(size: isLand ? 11 : 10, weight: .medium))
+                                Text(t.monologueLyricDisplayText)
+                                    .font(
+                                        MonologuePlayerFont.activeFont(
+                                            size: isLand ? 11 : 10,
+                                            weight: .medium,
+                                            fallback: .system(
+                                                size: isLand ? 11 : 10,
+                                                weight: .medium
+                                            )
+                                        )
+                                    )
                                     .foregroundStyle(textDim)
                                     .lineLimit(1)
                             }
 
                             if let ni = nextIdx {
-                                Text(lyricVM.lyrics[ni].text)
-                                    .font(.system(size: isLand ? 12 : 11, weight: .medium, design: .rounded))
+                                Text(lyricVM.lyrics[ni].text.monologueLyricDisplayText)
+                                    .font(
+                                        MonologuePlayerFont.activeFont(
+                                            size: isLand ? 12 : 11,
+                                            weight: .medium,
+                                            fallback: .system(
+                                                size: isLand ? 12 : 11,
+                                                weight: .medium,
+                                                design: .rounded
+                                            )
+                                        )
+                                    )
                                     .foregroundStyle(textW.opacity(0.45))
                                     .lineLimit(1)
                             }
@@ -378,7 +407,15 @@ struct RadioPlayerLayout: View {
                         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: idx)
                     } else {
                         Text(player.currentSong?.name ?? "Ready")
-                            .font(.system(size: isLand ? 15 : 13, weight: .bold, design: .rounded))
+                            .monologuePlayerDisplayFont(
+                                size: isLand ? 15 : 13,
+                                weight: .bold,
+                                fallback: .system(
+                                    size: isLand ? 15 : 13,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
                             .foregroundStyle(textW).lineLimit(1)
                         Button { showArtistDetail = true } label: {
                             Text(player.currentSong?.artistName ?? "—")

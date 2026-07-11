@@ -102,6 +102,10 @@ extension PlayerManager {
         guard let coverUrl = song?.coverUrl else { return }
         let songId = song?.id
         let groupID = Self.widgetGroupID
+        let palettePreferences = CoverPalettePreferences.shared
+        let paletteColorCount = palettePreferences.colorCount
+        let paletteMode = palettePreferences.mode
+        let paletteRandomSeed = palettePreferences.randomSeed
         
         Task.detached { [weak self] in
             do {
@@ -116,15 +120,26 @@ extension PlayerManager {
                     image.draw(in: CGRect(origin: .zero, size: thumbSize))
                 }
                 
-                let colors = image.extractColors()
+                let colors = image.extractColors(
+                    count: paletteColorCount,
+                    mode: paletteMode,
+                    randomSeed: paletteRandomSeed,
+                    sourceSeed: songId ?? 0
+                )
                 var dominantRGB: [CGFloat] = [0.15, 0.12, 0.25]
                 var secondaryRGB: [CGFloat] = [0.10, 0.10, 0.18]
+                var paletteRGB: [[CGFloat]] = []
                 var coverIsDark = true
                 if let dComps = UIColor(colors.dominant).cgColor.components, dComps.count >= 3 {
                     dominantRGB = [dComps[0], dComps[1], dComps[2]]
                 }
                 if let sComps = UIColor(colors.secondary).cgColor.components, sComps.count >= 3 {
                     secondaryRGB = [sComps[0], sComps[1], sComps[2]]
+                }
+                paletteRGB = colors.palette.compactMap { color in
+                    let components = UIColor(color).cgColor.components ?? []
+                    guard components.count >= 3 else { return nil }
+                    return [components[0], components[1], components[2]]
                 }
                 coverIsDark = colors.isDark
                 
@@ -136,6 +151,7 @@ extension PlayerManager {
                     let defaults = UserDefaults(suiteName: groupID)
                     defaults?.set(dominantRGB, forKey: "widget_dominantRGB")
                     defaults?.set(secondaryRGB, forKey: "widget_secondaryRGB")
+                    defaults?.set(paletteRGB, forKey: "widget_paletteRGB")
                     defaults?.set(coverIsDark, forKey: "widget_coverIsDark")
                 }
                 
@@ -290,6 +306,7 @@ extension PlayerManager {
         var lines: [[String: Any]] = []
         lines.reserveCapacity(lyricVM.lyrics.count)
         for line in lyricVM.lyrics {
+            guard line.time.isFinite else { continue }
             let text = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
             var item: [String: Any] = ["t": line.time, "x": text]
             if let translation = line.translation?.trimmingCharacters(in: .whitespacesAndNewlines),

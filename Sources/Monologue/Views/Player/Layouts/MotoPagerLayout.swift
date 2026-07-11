@@ -270,7 +270,7 @@ struct MotoPagerLayout: View {
             ejectReceipt(text: fullLyricText)
         }
         
-        fullLyricText = line.text
+        fullLyricText = line.text.monologueLyricDisplayText
         typingText = ""
         isTyping = true
         typingDone = false
@@ -375,7 +375,11 @@ extension MotoPagerLayout {
                     Button { showArtistDetail = true } label: {
                         MarqueeText(
                             text: "\(song.artistName) — \(song.name)",
-                            font: .system(size: 9, weight: .regular, design: .monospaced),
+                            font: MonologuePlayerFont.activeFont(
+                                size: 9,
+                                weight: .regular,
+                                fallback: .system(size: 9, weight: .regular, design: .monospaced)
+                            ),
                             color: brandSubColor,
                             speed: 25,
                             alignment: .center
@@ -430,8 +434,17 @@ extension MotoPagerLayout {
                                 .foregroundColor(screenTextColor.opacity(0.5))
                                 .lineLimit(2)
                         } else {
-                            Text(typingText + (showCursor && (isTyping || typingDone) ? "▌" : ""))
-                                .font(.custom("HYPixel-11px-U", size: 20))
+                            Text(
+                                typingText.monologueLyricDisplayText
+                                    + (showCursor && (isTyping || typingDone) ? "▌" : "")
+                            )
+                                .font(
+                                    MonologuePlayerFont.activeFont(
+                                        size: 20,
+                                        weight: .bold,
+                                        fallback: .custom("HYPixel-11px-U", size: 20)
+                                    )
+                                )
                                 .foregroundColor(screenTextColor)
                                 .shadow(color: screenTextColor.opacity(0.5), radius: 3)
                                 .lineLimit(2)
@@ -593,8 +606,14 @@ extension MotoPagerLayout {
                 }
                 
                 // 歌词文字 — 待机时不显示，飞出瞬间显示完整歌词
-                Text(isEjecting ? pendingEjectText : " ")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                Text(isEjecting ? pendingEjectText.monologueLyricDisplayText : " ")
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 16,
+                            weight: .bold,
+                            fallback: .system(size: 16, weight: .bold, design: .monospaced)
+                        )
+                    )
                     .foregroundColor(paperTextColor)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
@@ -695,8 +714,14 @@ struct ReceiptEntryView: View {
                 .foregroundColor(metaColor)
                 
                 // Content
-                Text(content)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                Text(content.monologueLyricDisplayText)
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 16,
+                            weight: .bold,
+                            fallback: .system(size: 16, weight: .bold, design: .monospaced)
+                        )
+                    )
                     .foregroundColor(textColor)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)

@@ -135,6 +135,7 @@ struct MujiHomeView: View {
                 mujiGreeting
                     .padding(.horizontal, 28)
                     .padding(.bottom, 14)
+                    .monologuePageHeaderCollapse()
                     .mujiStagger(appeared, order: 0, reduceMotion: reduceMotion)
 
                 mujiIntroCard

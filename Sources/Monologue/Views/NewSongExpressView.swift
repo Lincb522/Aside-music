@@ -314,16 +314,6 @@ struct NewSongExpressView: View {
 
     private var minimalWhiteFullListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            MinimalWhiteSectionTitle(title: String(localized: "new_song_express")) {
-                Text(String(format: NSLocalizedString("songs_count_format", comment: ""), viewModel.songs.count))
-                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
-                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(MinimalWhiteStyle.controlGlassFill))
-                    .overlay(Capsule().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
-            }
-
             fullListToolbar
                 .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
 

@@ -83,12 +83,6 @@ struct EQSettingsView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 28) {
-                        SettingsScrollablePageHeader(
-                            title: String(localized: "eq_title"),
-                            eyebrow: "EQ",
-                            icon: .equalizer
-                        )
-
                         VStack(spacing: 28) {
                             toggleCard
 
@@ -161,9 +155,8 @@ struct EQSettingsView: View {
             }
             */
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .themedInlineNavigationTitle(String(localized: "eq_title"))
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if eqManager.isEnabled {

@@ -74,12 +74,6 @@ struct StorageManageView: View {
                 if isLoading {
                     ScrollView {
                         VStack(spacing: 28) {
-                            SettingsScrollablePageHeader(
-                                title: String(localized: "storage_title"),
-                                eyebrow: "STORAGE",
-                                icon: .storage
-                            )
-
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .monologueTextSecondary))
                                 .padding(.top, 80)
@@ -90,12 +84,6 @@ struct StorageManageView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
-                            SettingsScrollablePageHeader(
-                                title: String(localized: "storage_title"),
-                                eyebrow: "STORAGE",
-                                icon: .storage
-                            )
-
                             VStack(spacing: 20) {
                                 // 总览卡片
                                 overviewCard
@@ -116,9 +104,8 @@ struct StorageManageView: View {
                 }
             }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .themedInlineNavigationTitle(String(localized: "storage_title"))
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

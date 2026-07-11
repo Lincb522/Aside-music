@@ -4,14 +4,15 @@ import PhotosUI
 import UniformTypeIdentifiers
 import UIKit
 
-/// 影院沉浸背景 — 从照片图库/文件导入视频，按「当前歌曲 / 当前歌单」绑定。
-/// 深色影院风：暗底 + 主题色辉光，16:9 海报网格。
+/// 沉浸背景管理 — 从照片图库/文件导入视频，按「当前歌曲 / 全局沉浸」绑定。
+/// 视觉语言与 Aria 沉浸设置保持一致。
 struct ImmersiveBackgroundSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var bgManager = ImmersiveBackgroundManager.shared
     @ObservedObject private var player = PlayerManager.shared
+    let palette: AriaPalette
 
-    enum BindTarget: Hashable { case song, context }
+    enum BindTarget: Hashable { case song, global }
 
     @State private var target: BindTarget = .song
     @State private var showFileImporter = false
@@ -22,9 +23,8 @@ struct ImmersiveBackgroundSheet: View {
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)]
 
     private var songId: Int? { player.currentSong?.id }
-    private var context: PlayerManager.PlayContext? {
-        guard let ctx = player.playContext, ImmersiveBackgroundManager.contextBindingKey(ctx) != nil else { return nil }
-        return ctx
+    init(palette: AriaPalette = .fallback) {
+        self.palette = palette
     }
 
     private var currentBoundVideoId: String? {
@@ -32,9 +32,8 @@ struct ImmersiveBackgroundSheet: View {
         case .song:
             guard let songId else { return nil }
             return bgManager.boundVideoId(forSong: songId)
-        case .context:
-            guard let context else { return nil }
-            return bgManager.boundVideoId(forContext: context)
+        case .global:
+            return bgManager.boundGlobalVideoId()
         }
     }
 
@@ -69,7 +68,9 @@ struct ImmersiveBackgroundSheet: View {
             Task { await importFromPhotos(item) }
         }
         .onAppear {
-            if context == nil { target = .song }
+            if songId == nil {
+                target = .global
+            }
         }
     }
 
@@ -82,9 +83,8 @@ struct ImmersiveBackgroundSheet: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            // 顶部主题色辉光，呼应沉浸舞台
             RadialGradient(
-                colors: [Color.monologueAccent.opacity(0.16), .clear],
+                colors: [palette.accent.opacity(0.16), .clear],
                 center: .init(x: 0.5, y: -0.1),
                 startRadius: 0,
                 endRadius: 360
@@ -96,31 +96,22 @@ struct ImmersiveBackgroundSheet: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            MonologueIcon(icon: .mv, size: 18, color: .monologueAccent)
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(Color.monologueAccent.opacity(0.14)))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "immersive_bg_title"))
-                    .font(.rounded(size: 19, weight: .bold))
-                    .foregroundColor(.white)
-                Text(String(localized: "immersive_bg_subtitle"))
-                    .font(.rounded(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
-            }
-
-            Spacer()
-
             Button(action: { dismiss() }) {
-                MonologueIcon(icon: .close, size: 14, color: .white.opacity(0.7))
-                    .frame(width: 32, height: 32)
+                MonologueIcon(icon: .back, size: 18, color: .white.opacity(0.9))
+                    .frame(width: 40, height: 40)
                     .background(Circle().fill(Color.white.opacity(0.08)))
             }
             .buttonStyle(MonologueBouncingButtonStyle())
+
+            Text(String(localized: "immersive_bg_title"))
+                .font(.system(size: 19, weight: .bold))
+                .foregroundColor(.white)
+
+            Spacer()
         }
         .padding(.horizontal, 20)
-        .padding(.top, 18)
-        .padding(.bottom, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
     }
 
     // MARK: - 导入入口
@@ -131,7 +122,7 @@ struct ImmersiveBackgroundSheet: View {
                 ImportCardLabel(
                     icon: .album,
                     title: String(localized: "immersive_bg_from_photos"),
-                    hint: String(localized: "immersive_bg_from_photos_hint")
+                    accent: palette.accent
                 )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -143,7 +134,7 @@ struct ImmersiveBackgroundSheet: View {
                 ImportCardLabel(
                     icon: .arrowDownToLine,
                     title: String(localized: "immersive_bg_from_files"),
-                    hint: String(localized: "immersive_bg_from_files_hint")
+                    accent: palette.accent
                 )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -171,40 +162,29 @@ struct ImmersiveBackgroundSheet: View {
     private struct ImportCardLabel: View {
         let icon: MonologueIcon.IconType
         let title: String
-        let hint: String
+        let accent: Color
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
-                MonologueIcon(icon: icon, size: 17, color: .monologueAccent)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.monologueAccent.opacity(0.15)))
+            HStack(spacing: 10) {
+                MonologueIcon(icon: icon, size: 16, color: accent)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(accent.opacity(0.13)))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.rounded(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(hint)
-                        .font(.rounded(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.45))
-                        .lineLimit(1)
-                }
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
+            .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.14), Color.white.opacity(0.03)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
             )
         }
     }
@@ -237,9 +217,14 @@ struct ImmersiveBackgroundSheet: View {
 
             HStack(spacing: 10) {
                 targetChip(.song, icon: .musicNote, title: String(localized: "immersive_bg_target_song"), subtitle: player.currentSong?.name)
-                if context != nil {
-                    targetChip(.context, icon: .musicNoteList, title: String(localized: "immersive_bg_target_playlist"), subtitle: context?.name)
-                }
+                    .disabled(songId == nil)
+                    .opacity(songId == nil ? 0.42 : 1)
+                targetChip(
+                    .global,
+                    icon: .immersive,
+                    title: String(localized: "全局沉浸模式"),
+                    subtitle: String(localized: "所有未单独绑定的歌曲")
+                )
             }
 
             bindingSummary
@@ -252,7 +237,7 @@ struct ImmersiveBackgroundSheet: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { target = value }
         } label: {
             HStack(spacing: 10) {
-                MonologueIcon(icon: icon, size: 14, color: selected ? .monologueAccent : .white.opacity(0.6))
+                MonologueIcon(icon: icon, size: 14, color: selected ? palette.accent : .white.opacity(0.6))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -270,7 +255,7 @@ struct ImmersiveBackgroundSheet: View {
 
                 if selected {
                     Circle()
-                        .fill(Color.monologueAccent)
+                        .fill(palette.accent)
                         .frame(width: 7, height: 7)
                 }
             }
@@ -279,11 +264,11 @@ struct ImmersiveBackgroundSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(selected ? Color.monologueAccent.opacity(0.16) : Color.white.opacity(0.05))
+                    .fill(selected ? palette.accent.opacity(0.16) : Color.white.opacity(0.05))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(selected ? Color.monologueAccent.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 1)
+                    .stroke(selected ? palette.accent.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 1)
             )
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -304,7 +289,7 @@ struct ImmersiveBackgroundSheet: View {
                         .lineLimit(1)
                     Text(String(localized: "immersive_bg_in_use"))
                         .font(.rounded(size: 10, weight: .bold))
-                        .foregroundColor(.monologueAccent)
+                        .foregroundColor(palette.accent)
                 }
 
                 Spacer()
@@ -423,7 +408,7 @@ struct ImmersiveBackgroundSheet: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.monologueAccent))
+                    .background(Capsule().fill(palette.accent))
                     .padding(7)
                 }
             }
@@ -442,9 +427,9 @@ struct ImmersiveBackgroundSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isBound ? Color.monologueAccent : Color.white.opacity(0.08), lineWidth: isBound ? 1.6 : 1)
+                    .stroke(isBound ? palette.accent : Color.white.opacity(0.08), lineWidth: isBound ? 1.6 : 1)
             )
-            .shadow(color: isBound ? Color.monologueAccent.opacity(0.35) : .clear, radius: 12)
+            .shadow(color: isBound ? palette.accent.opacity(0.24) : .clear, radius: 8)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
@@ -456,9 +441,8 @@ struct ImmersiveBackgroundSheet: View {
         case .song:
             guard let songId else { return }
             bgManager.bindSong(songId, to: videoId)
-        case .context:
-            guard let context else { return }
-            bgManager.bindContext(context, to: videoId)
+        case .global:
+            bgManager.bindGlobal(to: videoId)
         }
     }
 
@@ -467,10 +451,18 @@ struct ImmersiveBackgroundSheet: View {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            if let video = bgManager.importVideo(from: url) {
-                applyBinding(video.id)
-            } else {
-                importError = String(localized: "immersive_bg_import_failed")
+            isImporting = true
+            Task {
+                defer { isImporting = false }
+                guard await Self.videoWithin4K(url) else {
+                    importError = String(localized: "视频分辨率超过 4K，无法导入")
+                    return
+                }
+                if let video = bgManager.importVideo(from: url) {
+                    applyBinding(video.id)
+                } else {
+                    importError = String(localized: "immersive_bg_import_failed")
+                }
             }
         case .failure(let error):
             importError = error.localizedDescription
@@ -493,6 +485,11 @@ struct ImmersiveBackgroundSheet: View {
             }
             defer { try? FileManager.default.removeItem(at: picked.url) }
 
+            guard await Self.videoWithin4K(picked.url) else {
+                importError = String(localized: "视频分辨率超过 4K，无法导入")
+                return
+            }
+
             let name = Date().formatted(.dateTime.month().day().hour().minute())
             if let video = bgManager.importVideo(
                 from: picked.url,
@@ -505,6 +502,24 @@ struct ImmersiveBackgroundSheet: View {
         } catch {
             importError = error.localizedDescription
         }
+    }
+
+    /// 分辨率校验：支持导入最大 4K（DCI 4096×2160 / UHD 3840×2160，含竖屏方向）
+    private static func videoWithin4K(_ url: URL) async -> Bool {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let asset = AVURLAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let size = try? await track.load(.naturalSize),
+              let transform = try? await track.load(.preferredTransform) else {
+            // 读不出轨道信息时放行，交由播放层兜底
+            return true
+        }
+        let rect = CGRect(origin: .zero, size: size).applying(transform)
+        let w = abs(rect.width)
+        let h = abs(rect.height)
+        return max(w, h) <= 4200 && min(w, h) <= 2400
     }
 }
 

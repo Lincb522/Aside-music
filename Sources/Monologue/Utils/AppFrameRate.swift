@@ -38,7 +38,33 @@ enum AppFrameRate {
         return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
     }
 
+    /// 低功耗 timeline：不受 60fps 下限保护，fpsCap 是真实上限。
+    /// 供重负载全屏场景（沉浸模式的背景 Canvas / 歌词时间轴）使用，避免长时间高频重绘发热。
+    static func throttledTimeline(maximumFramesPerSecond fpsCap: Int, paused: Bool = false) -> AnimationTimelineSchedule {
+        let fps = max(1, min(fpsCap, preferredFramesPerSecond))
+        return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
+    }
+
     #if os(iOS)
+    /// 全局帧率封顶（nil = 不封顶）。沉浸模式等重负载全屏场景把 ProMotion 从 120Hz 压回 60Hz，
+    /// 整机渲染开销直接减半，是发热/耗电的第一杠杆。
+    @MainActor
+    private static var frameRateCeiling: Int?
+
+    /// 进入重负载场景时调用：把所有场景的锁定帧率压到 ceiling（如 60）
+    @MainActor
+    static func pushFrameRateCeiling(_ ceiling: Int, reason: String) {
+        frameRateCeiling = ceiling
+        lockConnectedScenesToPreferredFrameRate(reason: "ceiling on: \(reason)")
+    }
+
+    /// 离开重负载场景时调用：恢复原始锁定帧率
+    @MainActor
+    static func popFrameRateCeiling(reason: String) {
+        frameRateCeiling = nil
+        lockConnectedScenesToPreferredFrameRate(reason: "ceiling off: \(reason)")
+    }
+
     @MainActor
     private static var activeDisplayLinks: [ObjectIdentifier: CADisplayLink] = [:]
 
@@ -105,7 +131,11 @@ enum AppFrameRate {
 
     @MainActor
     private static func preferredFramesPerSecond(for screen: UIScreen) -> Int {
-        min(max(screen.maximumFramesPerSecond, 60), preferredMaximumFramesPerSecond)
+        let base = min(max(screen.maximumFramesPerSecond, 60), preferredMaximumFramesPerSecond)
+        if let ceiling = frameRateCeiling {
+            return min(base, max(ceiling, 30))
+        }
+        return base
     }
 
     @MainActor

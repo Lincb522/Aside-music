@@ -234,6 +234,7 @@ struct MujiPageHeader<Accessory: View>: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
+        .monologuePageHeaderCollapse()
     }
 }
 

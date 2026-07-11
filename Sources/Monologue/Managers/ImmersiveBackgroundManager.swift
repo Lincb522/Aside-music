@@ -9,7 +9,7 @@ struct ImmersiveVideo: Identifiable, Codable, Equatable {
     let importedAt: Date
 }
 
-/// 沉浸视频背景管理：导入的视频库 + 按歌曲/歌单的绑定关系 + 解析当前应显示的视频。
+/// 沉浸视频背景管理：导入的视频库 + 歌曲/全局绑定 + 旧上下文兼容回退。
 /// 视频文件存放在 Documents/ImmersiveBackgrounds/，元数据与绑定关系存 UserDefaults。
 @MainActor
 final class ImmersiveBackgroundManager: ObservableObject {
@@ -21,12 +21,23 @@ final class ImmersiveBackgroundManager: ObservableObject {
     @Published private(set) var songBindings: [String: String] = [:]
     /// 歌单/专辑等上下文绑定： "<contextType>:<id>" -> videoId
     @Published private(set) var contextBindings: [String: String] = [:]
+    /// 未被歌曲或旧版上下文覆盖时使用的全局沉浸背景
+    @Published private(set) var globalVideoID: String?
+    /// 视频背景总开关：关闭只是暂停使用，绑定关系全部保留
+    @Published var videoBackgroundEnabled: Bool = true {
+        didSet {
+            guard videoBackgroundEnabled != oldValue else { return }
+            defaults.set(videoBackgroundEnabled, forKey: enabledKey)
+        }
+    }
 
     private let fm = FileManager.default
     private let defaults = UserDefaults.standard
     private let libraryKey = "immersiveBg.library.v1"
     private let songKey = "immersiveBg.songBindings.v1"
     private let contextKey = "immersiveBg.contextBindings.v1"
+    private let globalKey = "immersiveBg.globalVideo.v1"
+    private let enabledKey = "immersiveBg.enabled.v1"
 
     private init() { load() }
 
@@ -60,16 +71,25 @@ final class ImmersiveBackgroundManager: ObservableObject {
         return "\(context.type.rawValue):\(id)"
     }
 
-    // MARK: - 解析当前视频（歌曲绑定优先，其次歌单/上下文绑定）
+    // MARK: - 解析当前视频（歌曲优先，其次全局背景，旧版上下文仅作兼容回退）
 
-    func resolvedVideo(for song: Song?, context: PlayerManager.PlayContext?) -> ImmersiveVideo? {
+    /// 无视总开关的绑定解析：舞台开关按钮据此判断「有无提前设定」
+    func boundVideo(for song: Song?, context: PlayerManager.PlayContext?) -> ImmersiveVideo? {
         if let song, let v = video(withId: songBindings[Self.songBindingKey(song.id)]) {
+            return v
+        }
+        if let v = video(withId: globalVideoID) {
             return v
         }
         if let context, let key = Self.contextBindingKey(context), let v = video(withId: contextBindings[key]) {
             return v
         }
         return nil
+    }
+
+    func resolvedVideo(for song: Song?, context: PlayerManager.PlayContext?) -> ImmersiveVideo? {
+        guard videoBackgroundEnabled else { return nil }
+        return boundVideo(for: song, context: context)
     }
 
     func resolvedVideoURL(for song: Song?, context: PlayerManager.PlayContext?) -> URL? {
@@ -123,6 +143,9 @@ final class ImmersiveBackgroundManager: ObservableObject {
         library.removeAll { $0.id == video.id }
         songBindings = songBindings.filter { $0.value != video.id }
         contextBindings = contextBindings.filter { $0.value != video.id }
+        if globalVideoID == video.id {
+            globalVideoID = nil
+        }
         save()
     }
 
@@ -131,12 +154,20 @@ final class ImmersiveBackgroundManager: ObservableObject {
     func bindSong(_ songId: Int, to videoId: String?) {
         let key = Self.songBindingKey(songId)
         if let videoId { songBindings[key] = videoId } else { songBindings.removeValue(forKey: key) }
+        if videoId != nil { videoBackgroundEnabled = true }
         save()
     }
 
     func bindContext(_ context: PlayerManager.PlayContext, to videoId: String?) {
         guard let key = Self.contextBindingKey(context) else { return }
         if let videoId { contextBindings[key] = videoId } else { contextBindings.removeValue(forKey: key) }
+        if videoId != nil { videoBackgroundEnabled = true }
+        save()
+    }
+
+    func bindGlobal(to videoId: String?) {
+        globalVideoID = videoId
+        if videoId != nil { videoBackgroundEnabled = true }
         save()
     }
 
@@ -147,6 +178,10 @@ final class ImmersiveBackgroundManager: ObservableObject {
     func boundVideoId(forContext context: PlayerManager.PlayContext) -> String? {
         guard let key = Self.contextBindingKey(context) else { return nil }
         return contextBindings[key]
+    }
+
+    func boundGlobalVideoId() -> String? {
+        globalVideoID
     }
 
     // MARK: - 持久化
@@ -162,7 +197,13 @@ final class ImmersiveBackgroundManager: ObservableObject {
         if let d = defaults.data(forKey: contextKey), let v = try? dec.decode([String: String].self, from: d) {
             contextBindings = v
         }
+        globalVideoID = defaults.string(forKey: globalKey)
+        videoBackgroundEnabled = defaults.object(forKey: enabledKey) as? Bool ?? true
         pruneMissingFiles()
+        if globalVideoID != nil, video(withId: globalVideoID) == nil {
+            globalVideoID = nil
+            save()
+        }
     }
 
     /// 清理文件已不存在的库项与其绑定
@@ -173,6 +214,9 @@ final class ImmersiveBackgroundManager: ObservableObject {
         library.removeAll { missingIds.contains($0.id) }
         songBindings = songBindings.filter { !missingIds.contains($0.value) }
         contextBindings = contextBindings.filter { !missingIds.contains($0.value) }
+        if let globalVideoID, missingIds.contains(globalVideoID) {
+            self.globalVideoID = nil
+        }
         save()
     }
 
@@ -181,5 +225,10 @@ final class ImmersiveBackgroundManager: ObservableObject {
         if let d = try? enc.encode(library) { defaults.set(d, forKey: libraryKey) }
         if let d = try? enc.encode(songBindings) { defaults.set(d, forKey: songKey) }
         if let d = try? enc.encode(contextBindings) { defaults.set(d, forKey: contextKey) }
+        if let globalVideoID {
+            defaults.set(globalVideoID, forKey: globalKey)
+        } else {
+            defaults.removeObject(forKey: globalKey)
+        }
     }
 }

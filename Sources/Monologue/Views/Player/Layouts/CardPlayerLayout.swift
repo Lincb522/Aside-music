@@ -305,8 +305,18 @@ extension CardPlayerLayout {
                             Color.clear.frame(height: 20)
                             ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
                                 let isCurrent = index == lyricVM.currentLineIndex
-                                Text(line.text)
-                                    .font(.system(size: isCurrent ? 22 : 18, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                Text(line.text.monologueLyricDisplayText)
+                                    .font(
+                                        MonologuePlayerFont.activeFont(
+                                            size: isCurrent ? 22 : 18,
+                                            weight: isCurrent ? .bold : .medium,
+                                            fallback: .system(
+                                                size: isCurrent ? 22 : 18,
+                                                weight: isCurrent ? .bold : .medium,
+                                                design: .rounded
+                                            )
+                                        )
+                                    )
                                     .foregroundColor(isCurrent ? .primary : .secondary.opacity(0.6))
                                     .multilineTextAlignment(.center)
                                     .scaleEffect(isCurrent ? 1.05 : 1.0)
@@ -346,7 +356,11 @@ extension CardPlayerLayout {
             // Song Text
             VStack(spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Track")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .monologuePlayerDisplayFont(
+                        size: 22,
+                        weight: .bold,
+                        fallback: .system(size: 22, weight: .bold, design: .rounded)
+                    )
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 

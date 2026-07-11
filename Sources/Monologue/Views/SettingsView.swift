@@ -154,8 +154,7 @@ struct SettingsView: View {
                 .scrollIndicators(.hidden)
                 .themeRenderScrollLayer()
             }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .themedInlineNavigationTitle(String(localized: "settings_title"))
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: SettingsNavigationDestination.self) { destination in
                 AnyView(destination.view)
@@ -213,8 +212,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var defaultSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
         settingsHeaderCard
         themeSection
         navigationCardsSection
@@ -225,9 +222,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var mangaSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         settingsHeaderCard
 
         mangaSettingsModePanel
@@ -240,9 +234,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var petWhiteSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         petWhiteSettingsModeBoard
         petWhiteSettingsPortalGrid
         settingsHeaderCard
@@ -254,9 +245,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var neumorphicSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         settingsHeaderCard
         themeSection
         navigationCardsSection
@@ -268,9 +256,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var signalSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         settingsHeaderCard
         themeSection
         navigationCardsSection
@@ -282,9 +267,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var bentoSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         settingsHeaderCard
         bentoSettingsModeBlock
         bentoSettingsGrid
@@ -296,9 +278,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var capsuleSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         capsuleModeDeck
         capsuleSettingsMatrix
 
@@ -311,9 +290,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var sequoiaSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         settingsHeaderCard
         themeSection
         navigationCardsSection
@@ -325,9 +301,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var liquidGlassSettingsContent: some View {
-        liquidGlassSettingsHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         liquidGlassModeDeck
 
         liquidGlassSettingsMatrix
@@ -341,9 +314,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var mujiSettingsContent: some View {
-        settingsMainPageHeader
-            .padding(.horizontal, -settingsOuterHorizontalPadding)
-
         settingsHeaderCard
         mujiSettingsNotebook
 
@@ -457,14 +427,6 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
         }
-    }
-
-    private var settingsMainPageHeader: some View {
-        SettingsScrollablePageHeader(
-            title: String(localized: "settings_title"),
-            eyebrow: "SETTINGS",
-            icon: .infoCircle
-        )
     }
 
     private var capsuleModeDeck: some View {
@@ -581,35 +543,6 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
         }
-    }
-
-    private var liquidGlassSettingsHeader: some View {
-        HStack(spacing: 14) {
-            LiquidGlassDropletMark(tint: LiquidGlassStyle.accent)
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Capsule()
-                        .fill(LiquidGlassStyle.accentGradient)
-                        .frame(width: 26, height: 5)
-                    Capsule()
-                        .fill(LiquidGlassStyle.mint.opacity(0.44))
-                        .frame(width: 10, height: 5)
-                }
-
-                Text(String(localized: "settings_title"))
-                    .font(LiquidGlassStyle.titleFont(27, weight: .semibold))
-                    .foregroundStyle(LiquidGlassStyle.ink)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 10)
-
-            LiquidGlassIconBadge(icon: .settings, tint: LiquidGlassStyle.cyan, size: 44)
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 8)
-        .padding(.bottom, 4)
     }
 
     private var liquidGlassModeDeck: some View {

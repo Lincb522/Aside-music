@@ -210,6 +210,7 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .monologuePageHeaderCollapse()
     }
 
     private var minimalWhiteQuickActions: some View {
@@ -665,6 +666,7 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .monologuePageHeaderCollapse()
     }
 
     private var cinemaDateString: String {

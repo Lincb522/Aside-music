@@ -388,7 +388,10 @@ extension PlayerManager {
                 if seeking {
                     var resolved = false
                     if let target = seekTarget {
-                        if timeValid && time >= target - 1.0 {
+                        // 必须确认播放内核已经到达目标附近。旧逻辑只判断
+                        // `time >= target - 1`，向后拖动时旧时间天然大于目标，
+                        // 会立刻结束 seeking 并把进度覆盖回拖动前的位置。
+                        if timeValid && abs(time - target) <= 1.0 {
                             resolved = true
                         } else if let started = seekStarted,
                                   Date().timeIntervalSince(started) > 3.0 {

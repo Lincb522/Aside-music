@@ -3,7 +3,7 @@
 //  Monologue
 //
 //  全新沉浸模式 —— folia-major 舞台世界观的 SwiftUI 复刻：
-//  VisualizerShell（流体背景 + 分频几何漂浮体 + 暗角）承载舞台氛围，
+//  VisualizerShell（封面流体 + 音频光场 + 景深纹理）承载舞台氛围，
 //  classic 渲染器负责歌词叙事，字幕层提供翻译 / 下一句。
 //
 //  Chrome 遵循 folia 播放页语言：屏幕上没有通栏工具条，
@@ -22,15 +22,31 @@ final class AriaLyricStore: ObservableObject {
     @Published private(set) var lines: [AriaLine] = []
 
     private var cancellables = Set<AnyCancellable>()
+    private var sourceLyrics: [LyricLine] = []
 
     init() {
         LyricViewModel.shared.$lyrics
             .receive(on: DispatchQueue.main)
             .sink { [weak self] lyrics in
-                self?.lines = AriaLyricEngine.buildLines(from: lyrics)
-                AriaLayoutCache.shared.clear()
+                guard let self else { return }
+                sourceLyrics = lyrics
+                lines = AriaLyricEngine.buildLines(
+                    from: lyrics,
+                    forceUppercaseEnglish: UserDefaults.standard.bool(
+                        forKey: "lyricsForceUppercaseEnglish"
+                    )
+                )
+                AriaFoliaTokenCache.clear()
             }
             .store(in: &cancellables)
+    }
+
+    func rebuild(forceUppercaseEnglish: Bool) {
+        lines = AriaLyricEngine.buildLines(
+            from: sourceLyrics,
+            forceUppercaseEnglish: forceUppercaseEnglish
+        )
+        AriaFoliaTokenCache.clear()
     }
 }
 
@@ -39,23 +55,44 @@ final class AriaLyricStore: ObservableObject {
 struct AriaStageView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    /// 刻意不做 @ObservedObject：歌词由 TimelineView 逐帧驱动，
+    /// 再订阅时间发布器会让整个舞台 body 每个时间 tick 重算一遍（双重驱动白耗 CPU）
+    private let timePublisher = PlaybackTimePublisher.shared
+    @ObservedObject private var bgManager = ImmersiveBackgroundManager.shared
 
     @StateObject private var lyricStore = AriaLyricStore()
     @StateObject private var audioPulse = CinemaAudioPulse()
     @StateObject private var stageColors = CoverColorExtractor()
+    @ObservedObject private var perf = CinemaPerformanceGovernor.shared
 
-    @AppStorage("ariaIntensity") private var intensityRaw = AriaIntensity.normal.rawValue
     @AppStorage("ariaShowTranslation") private var showTranslation = true
-    @AppStorage("ariaGeometricBackground") private var geometricBackground = true
-    @AppStorage("ariaWordRotation") private var wordRotation = true
+    @AppStorage("ariaGeometricBackground") private var ambientMotion = true
     @AppStorage("ariaLyricsFontScale") private var fontScale = 1.0
-    @AppStorage("ariaWordSpacing") private var wordSpacing = 0.7
-    @AppStorage("ariaBreathing") private var breathingMultiplier = 1.0
     @AppStorage("ariaBackgroundOpacity") private var backgroundOpacity = 0.75
+    @AppStorage("ariaLyricEffect") private var lyricEffectRaw = AriaLyricEffect.classic.rawValue
+    @AppStorage("ariaLyricFont") private var lyricFontRaw = AriaLyricFontChoice.system.rawValue
+    @AppStorage("ariaLyricAutoColor") private var lyricAutoColor = true
+    @AppStorage("ariaLyricColorHex") private var lyricColorHex = "FFFFFF"
+    @AppStorage("ariaLyricLayout") private var lyricLayoutRaw = AriaLyricLayoutChoice.center.rawValue
+    @AppStorage("ariaLyricMaterialStyle") private var lyricMaterialStyleRaw = AriaLyricMaterialStyle.solid.rawValue
+    @AppStorage("ariaLyricOpacity") private var lyricOpacity = 1.0
+    @AppStorage("ariaLyricGlowStrength") private var lyricGlowStrength = 0.0
+    @AppStorage("ariaLyricParticleDensity") private var particleDensity = 0.58
+    @AppStorage("ariaLyricParticleSize") private var particleSize = 1.15
+    @AppStorage("ariaLyricParticleMotion") private var particleMotion = true
+    @AppStorage("ariaLyricGlassIntensity") private var glassIntensity = 0.64
+    @AppStorage("ariaCustomLyricFontID") private var customFontID = ""
+    @AppStorage("ariaForeignLyricFont") private var foreignLyricFontRaw = MonologuePlayerFont.followThemeRawValue
+    @AppStorage("ariaForeignCustomLyricFontID") private var foreignCustomFontID = ""
+    @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
+    @AppStorage("ariaLyricDepthIntensity") private var lyricDepthIntensity = 0.68
+    @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
+    @AppStorage("ariaCanopyCaptionTranslation") private var canopyCaptionTranslation = false
 
     @State private var showPanel = false
     @State private var panelTab: AriaPanelTab = .cover
+    @State private var showLandscapeSettings = false
+    @State private var showVideoSheet = false
     /// folia 首页歌架墙：全屏惯性封面长廊
     @State private var showShelfWall = false
     /// 胶囊展开态：暂停时或触碰后展开，播放中静置自动收起为细进度条
@@ -71,25 +108,133 @@ struct AriaStageView: View {
     /// folia：播放中悬浮胶囊静置后收起为一条细进度
     private let capsuleCollapseDelay: TimeInterval = 4
 
-    private var intensity: AriaIntensity {
-        AriaIntensity(rawValue: intensityRaw) ?? .normal
-    }
-
     private var palette: AriaPalette {
-        AriaPalette.derive(
-            dominant: stageColors.dominantColor,
-            secondary: stageColors.secondaryColor
-        )
+        AriaPalette.derive(colors: stageColors.palette)
     }
 
     private var stageSeed: Double {
         Double(abs((player.currentSong?.id ?? 1) % 100_000))
     }
 
+    private var lyricEffect: AriaLyricEffect {
+        AriaLyricEffect.resolveStored(lyricEffectRaw)
+    }
+
+    private var lyricFont: AriaLyricFontChoice {
+        AriaLyricFontChoice(rawValue: lyricFontRaw) ?? .system
+    }
+
+    /// 外语歌的独立字体；「复用中文字体」或中文歌一律回落到主歌词字体。
+    /// 中文歌里夹带的英文因此始终使用中文字体自带的拉丁字形。
+    private func effectiveLyricFont(
+        for language: AriaLyricLanguage
+    ) -> AriaLyricFontChoice {
+        guard language == .foreign,
+              foreignLyricFontRaw != MonologuePlayerFont.followThemeRawValue,
+              let choice = AriaLyricFontChoice(rawValue: foreignLyricFontRaw) else {
+            AriaLyricFontChoice.customFontIDOverride = nil
+            return lyricFont
+        }
+        AriaLyricFontChoice.customFontIDOverride =
+            choice == .custom ? foreignCustomFontID : nil
+        return choice
+    }
+
+    private var lyricLayout: AriaLyricLayoutChoice {
+        AriaLyricLayoutChoice(rawValue: lyricLayoutRaw) ?? .center
+    }
+
+    private var lyricMaterialStyle: AriaLyricMaterialStyle {
+        AriaLyricMaterialStyle.resolveStored(lyricMaterialStyleRaw)
+    }
+
+    private var lyricTypography: AriaLyricTypographyConfiguration {
+        AriaLyricTypographyConfiguration(
+            style: lyricMaterialStyle,
+            opacity: lyricOpacity,
+            glowStrength: lyricGlowStrength,
+            particleDensity: particleDensity,
+            particleSize: particleSize,
+            particleMotion: particleMotion,
+            glassIntensity: glassIntensity
+        )
+    }
+
+    /// 自定义字幕色（自动取色关闭时生效）
+    private var customLyricColor: Color? {
+        lyricAutoColor ? nil : Color(hex: lyricColorHex)
+    }
+
+    /// 歌词层调色板：自定义颜色覆盖 primary/accent，背景层仍用封面取色
+    private var lyricPalette: AriaPalette {
+        guard let custom = customLyricColor else { return palette }
+        var p = palette
+        p.primary = custom
+        p.accent = custom
+        p.accentCycle = []
+        return p
+    }
+
+    /// 绑定的视频背景（歌曲优先，其次全局；旧上下文仅作兼容回退）
+    private var videoURL: URL? {
+        bgManager.resolvedVideoURL(for: player.currentSong, context: player.playContext)
+    }
+
+    /// 字幕排版位置 → 纵向偏移
+    private func lyricLayoutOffset(stageHeight: CGFloat) -> CGFloat {
+        switch lyricLayout {
+        case .center: return 0
+        case .lower: return stageHeight * 0.16
+        case .upper: return -stageHeight * 0.16
+        }
+    }
+
+    /// 歌词时间轴帧率：词入场弹簧由 SwiftUI 隐式动画按屏幕刷新率插值，
+    /// 时间轴只负责推进 time 驱动的包络（辉光/浸染/呼吸），30fps 足够平滑。
+    private var lyricFPS: Int {
+        guard player.isPlaying else { return 12 }
+        if lyricMaterialStyle == .particle {
+            switch perf.tier {
+            case .high: return 24
+            case .medium: return 20
+            case .low: return 16
+            }
+        }
+        if lyricEffect.usesFullStage {
+            switch perf.tier {
+            case .high: return 24
+            case .medium: return 20
+            case .low: return 16
+            }
+        }
+        switch perf.tier {
+        case .high: return 30
+        case .medium: return 24
+        case .low: return 20
+        }
+    }
+
     var body: some View {
+        // 帧闭包外提：这些值与帧无关，避免 60fps 逐帧重算（调色板派生含多次 UIColor 转换）
+        let palette = self.palette
+        let lyricPalette = self.lyricPalette
+        let lyricEffect = self.lyricEffect
+        let lyricLanguage = AriaLyricLanguage.resolve(lines: lyricStore.lines)
+        // 翻译字体先于外语字体覆盖解析：确保 .custom 绑定的是主字体的导入 ID
+        let translationFont: Font = {
+            AriaLyricFontChoice.customFontIDOverride = nil
+            return self.lyricFont.font(
+                size: 20 * CGFloat(fontScale),
+                weight: .medium
+            )
+        }()
+        let lyricFont = effectiveLyricFont(for: lyricLanguage)
+        let lyricTypography = self.lyricTypography
+        let lyricDepthAmount = pow(min(max(lyricDepthIntensity, 0), 1), 0.72)
+
         GeometryReader { geo in
             ZStack {
-                // 舞台底座：流体背景 + 几何漂浮体 + 暗角
+                // 舞台底座：封面流体 + 音频光场 + 景深纹理
                 AriaStageShell(
                     coverUrl: player.currentSong?.coverUrl?.sized(500),
                     palette: palette,
@@ -97,7 +242,9 @@ struct AriaStageView: View {
                     isPlaying: player.isPlaying,
                     seed: stageSeed,
                     backgroundOpacity: backgroundOpacity,
-                    reduceMotion: !geometricBackground
+                    reduceMotion: !ambientMotion,
+                    videoURL: videoURL,
+                    depthIntensity: lyricDepthIntensity
                 )
 
                 // 歌词舞台 + 字幕层：同一条时间轴逐帧驱动
@@ -105,36 +252,117 @@ struct AriaStageView: View {
                     if lyricStore.lines.isEmpty {
                         emptyLyricsState
                     } else {
-                        TimelineView(AppFrameRate.animationTimeline(
-                            maximumFramesPerSecond: player.isPlaying ? 60 : 30,
-                            paused: false
+                        TimelineView(AppFrameRate.throttledTimeline(
+                            maximumFramesPerSecond: lyricFPS,
+                            paused: showLandscapeSettings || showVideoSheet
                         )) { _ in
                             let time = currentPlaybackTime
+                            let activeIndex = AriaLyricEngine.activeLineIndex(
+                                in: lyricStore.lines,
+                                at: time
+                            )
+                            let activeLine = lyricStore.lines.indices.contains(activeIndex)
+                                ? lyricStore.lines[activeIndex]
+                                : nil
 
                             ZStack {
-                                AriaClassicLyricStage(
-                                    lines: lyricStore.lines,
-                                    palette: palette,
-                                    intensity: intensity,
-                                    enableRotation: wordRotation,
-                                    wordSpacing: wordSpacing,
-                                    breathingMultiplier: breathingMultiplier,
-                                    fontScale: fontScale,
-                                    time: time,
-                                    stageSize: geo.size
+                                Group {
+                                    if lyricEffect == .classic {
+                                        if let activeLine {
+                                            if lyricLanguage == .foreign {
+                                                AriaForeignClassicLyricStage(
+                                                    line: activeLine,
+                                                    palette: lyricPalette.lineVariant(activeLine.id),
+                                                    fontChoice: lyricFont,
+                                                    fontScale: fontScale,
+                                                    time: time,
+                                                    stageSize: geo.size
+                                                )
+                                            } else {
+                                                AriaClassicLyricStage(
+                                                    line: activeLine,
+                                                    palette: lyricPalette.lineVariant(activeLine.id),
+                                                    fontChoice: lyricFont,
+                                                    fontScale: fontScale,
+                                                    time: time,
+                                                    stageSize: geo.size
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        AriaFoliaLyricStage(
+                                            lines: lyricStore.lines,
+                                            palette: lyricPalette,
+                                            effect: lyricEffect,
+                                            language: lyricLanguage,
+                                            fontChoice: lyricFont,
+                                            fontScale: fontScale,
+                                            time: time,
+                                            stageSize: geo.size
+                                        )
+                                    }
+                                }
+                                .id(
+                                    "\(lyricEffect.rawValue)|\(lyricFont.cacheIdentity)|\(customFontID)|\(foreignLyricFontRaw)|\(foreignCustomFontID)|\(lyricLanguage)|\(lyricTypography)"
                                 )
-                                .frame(width: geo.size.width, height: geo.size.height * 0.7)
+                                .frame(
+                                    width: geo.size.width,
+                                    height: lyricEffect.usesFullStage
+                                        ? geo.size.height
+                                        : geo.size.height * 0.7
+                                )
+                                .offset(
+                                    y: lyricEffect.usesFullStage
+                                        ? 0
+                                        : lyricLayoutOffset(stageHeight: geo.size.height)
+                                )
                                 .frame(width: geo.size.width, height: geo.size.height)
+                                .ariaLyricTypography(
+                                    configuration: lyricTypography,
+                                    palette: lyricPalette,
+                                    time: time
+                                )
+                                .ariaLyricSpatialDepth(
+                                    palette: lyricPalette,
+                                    intensity: lyricDepthIntensity,
+                                    time: time,
+                                    motionEnabled: ambientMotion && player.isPlaying,
+                                    usesFullStage: lyricEffect.usesFullStage,
+                                    embossEnabled: lyricEmbossEnabled
+                                )
 
-                                VStack {
-                                    Spacer()
-                                    AriaSubtitleOverlay(
-                                        lines: lyricStore.lines,
-                                        palette: palette,
-                                        time: time,
-                                        showTranslation: showTranslation,
-                                        chromeHidden: chromeHidden
-                                    )
+                                // 天幕开启「小字显示翻译」后，翻译已内嵌到注音位，
+                                // 不再叠加底部字幕胶囊
+                                if showTranslation,
+                                   !(lyricEffect == .canopy && canopyCaptionTranslation),
+                                   let translation = activeLine?.translation,
+                                   !translation.isEmpty,
+                                   !chromeHidden {
+                                    VStack {
+                                        Spacer()
+                                        AriaSubtitleOverlay(
+                                            translation: translation,
+                                            palette: lyricPalette,
+                                            font: translationFont
+                                        )
+                                        .padding(.bottom, capsuleExpanded ? 118 : 62)
+                                        .opacity(lyricTypography.opacity)
+                                        .shadow(
+                                            color: .white.opacity(
+                                                lyricEmbossEnabled ? 0.18 * lyricDepthAmount : 0
+                                            ),
+                                            radius: 1.5,
+                                            y: -1
+                                        )
+                                        .shadow(
+                                            color: .black.opacity(
+                                                lyricEmbossEnabled ? 0.4 * lyricDepthAmount : 0
+                                            ),
+                                            radius: CGFloat(2 + 3 * lyricDepthAmount),
+                                            y: CGFloat(2 + 2 * lyricDepthAmount)
+                                        )
+                                    }
+                                    .transition(.opacity)
                                 }
                             }
                         }
@@ -153,6 +381,10 @@ struct AriaStageView: View {
                     HStack {
                         exitButton
                         Spacer()
+                        HStack(spacing: 10) {
+                            videoBackgroundToggleButton
+                            settingsButton
+                        }
                     }
                     .padding(.top, DeviceLayout.headerTopPadding)
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -181,13 +413,6 @@ struct AriaStageView: View {
                             markInteraction()
                             withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
                                 showShelfWall.toggle()
-                            }
-                        },
-                        onTogglePanel: {
-                            markInteraction()
-                            panelTab = .cover
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.85)) {
-                                showPanel.toggle()
                             }
                         }
                     )
@@ -230,13 +455,35 @@ struct AriaStageView: View {
                         .transition(.opacity.combined(with: .scale(scale: 1.04)))
                         .zIndex(10)
                 }
+
+                if showLandscapeSettings {
+                    AriaLandscapeSettingsView(palette: palette) {
+                        markInteraction()
+                        withAnimation(.smooth(duration: 0.28)) {
+                            showLandscapeSettings = false
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                    .zIndex(20)
+                }
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
+        .compatFontDesign(nil)
         .environment(\.colorScheme, .dark)
+        .fullScreenCover(isPresented: $showVideoSheet) {
+            ImmersiveBackgroundSheet(palette: palette)
+        }
         .onAppear {
             audioPulse.start()
             OrientationManager.shared.enterLandscape()
+            // ProMotion 压回 60Hz：沉浸模式全屏动画在 120Hz 下渲染开销翻倍，是发热主源之一；
+            // 录屏/投屏时系统还要逐帧抓取编码，进一步压到 30Hz。
+            AppFrameRate.pushFrameRateCeiling(
+                perf.isScreenCaptured ? 30 : 60,
+                reason: "aria stage"
+            )
             stageColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
             withAnimation(.easeOut(duration: 0.7).delay(0.15)) {
                 stageRevealed = true
@@ -245,10 +492,21 @@ struct AriaStageView: View {
         .onDisappear {
             audioPulse.stop()
             OrientationManager.shared.exitLandscape()
+            AppFrameRate.popFrameRateCeiling(reason: "aria stage")
+            // 离开舞台清掉外语字体的自定义 ID 覆盖，避免污染设置页预览
+            AriaLyricFontChoice.customFontIDOverride = nil
         }
         .onReceive(idleTicker) { _ in
             audioPulse.reattachIfNeeded()
-            guard capsuleExpanded, player.isPlaying, !isDraggingSlider, !showPanel, !showShelfWall else { return }
+            guard capsuleExpanded,
+                  player.isPlaying,
+                  !isDraggingSlider,
+                  !showPanel,
+                  !showShelfWall,
+                  !showLandscapeSettings,
+                  !showVideoSheet else {
+                return
+            }
             if Date().timeIntervalSince(lastInteractionAt) >= capsuleCollapseDelay {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     capsuleExpanded = false
@@ -267,6 +525,15 @@ struct AriaStageView: View {
                 }
             }
             markInteraction()
+        }
+        .onChange(of: forceUppercaseEnglish) { _, enabled in
+            lyricStore.rebuild(forceUppercaseEnglish: enabled)
+        }
+        .onChange(of: perf.isScreenCaptured) { _, captured in
+            AppFrameRate.pushFrameRateCeiling(
+                captured ? 30 : 60,
+                reason: "aria stage capture \(captured ? "on" : "off")"
+            )
         }
         .onChange(of: isDraggingSlider) { _, _ in markInteraction() }
         .task(id: player.currentSong?.coverUrl?.absoluteString) {
@@ -337,6 +604,82 @@ struct AriaStageView: View {
         }
         .buttonStyle(MonologueBouncingButtonStyle())
     }
+
+    private var settingsButton: some View {
+        Button {
+            markInteraction()
+            withAnimation(.smooth(duration: 0.28)) {
+                showLandscapeSettings = true
+            }
+        } label: {
+            MonologueIcon(icon: .settings, size: 18, color: .white.opacity(0.9))
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.black.opacity(0.25)))
+                )
+                .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
+    }
+
+    /// 视频背景开关：开着 → 一键暂停（绑定保留）；有设定但关着 → 一键恢复；
+    /// 完全没设定 → 跳到视频背景设置界面选择视频。
+    private var videoBackgroundToggleButton: some View {
+        let isActive = videoURL != nil
+
+        return Button(action: toggleVideoBackground) {
+            ZStack {
+                MonologueIcon(
+                    icon: .mv,
+                    size: 17,
+                    color: .white.opacity(isActive ? 0.9 : 0.5)
+                )
+                if isActive {
+                    Capsule()
+                        .fill(Color.white.opacity(0.92))
+                        .frame(width: 1.6, height: 23)
+                        .rotationEffect(.degrees(45))
+                }
+            }
+            .frame(width: 44, height: 44)
+            .background(
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Circle().fill(Color.black.opacity(0.25)))
+            )
+            .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
+        .accessibilityLabel(
+            isActive
+                ? String(localized: "关闭视频背景")
+                : String(localized: "开启视频背景")
+        )
+    }
+
+    private func toggleVideoBackground() {
+        markInteraction()
+
+        if videoURL != nil {
+            bgManager.videoBackgroundEnabled = false
+            HapticManager.shared.light()
+            return
+        }
+
+        let hasBinding = bgManager.boundVideo(
+            for: player.currentSong,
+            context: player.playContext
+        ) != nil
+
+        if hasBinding {
+            bgManager.videoBackgroundEnabled = true
+            HapticManager.shared.light()
+        } else {
+            showVideoSheet = true
+        }
+    }
 }
 
 // MARK: - 悬浮控制胶囊（folia FloatingPlayerControls）
@@ -352,7 +695,6 @@ private struct AriaControlCapsule: View {
     let onExpand: () -> Void
     let onInteract: () -> Void
     let onToggleShelf: () -> Void
-    let onTogglePanel: () -> Void
 
     @ObservedObject private var player = PlayerManager.shared
 
@@ -425,9 +767,6 @@ private struct AriaControlCapsule: View {
                 }
                 smallButton(icon: .list, size: 16) {
                     onToggleShelf()
-                }
-                smallButton(icon: .settings, size: 16) {
-                    onTogglePanel()
                 }
             }
         }

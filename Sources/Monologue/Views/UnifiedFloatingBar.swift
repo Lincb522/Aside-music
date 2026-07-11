@@ -110,6 +110,8 @@ struct MiniPlayerSection: View {
         Group {
             if MinimalWhiteStyle.isActive {
                 minimalWhiteBody
+            } else if PureWhiteStyle.isActive {
+                pureWhiteBody
             } else {
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
@@ -381,6 +383,149 @@ struct MiniPlayerSection: View {
                 .frame(width: 22, height: 22)
                 .background(MinimalWhiteCircleBackground(elevated: false))
                 .offset(x: 5, y: 5)
+        }
+    }
+
+    // MARK: - PureWhite 印刷风迷你播放器
+
+    private var pureWhiteBody: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                CachedAsyncImage(url: song.coverUrl) {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(PureWhiteStyle.surfaceTint)
+                        .overlay(MonologueIcon(icon: .musicNote, size: 20, color: PureWhiteStyle.inkMuted, lineWidth: 1.6))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 46, height: 46)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(PureWhiteStyle.separator, lineWidth: 1)
+                )
+                .shadow(color: PureWhiteStyle.strokeInk.opacity(0.10), radius: 0, x: 0, y: 2)
+                .overlay(alignment: .bottomTrailing) {
+                    pureWhiteSourceBadge
+                }
+
+                HStack(spacing: 9) {
+                    Capsule(style: .continuous)
+                        .fill(PureWhiteStyle.accent)
+                        .frame(width: 3, height: 30)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        MarqueeText(
+                            text: song.name,
+                            font: PureWhiteStyle.bodyFont(13, weight: .black),
+                            color: PureWhiteStyle.ink,
+                            speed: 25
+                        )
+                        .frame(height: 16)
+
+                        MarqueeText(
+                            text: subtitleText,
+                            font: PureWhiteStyle.bodyFont(11, weight: .semibold),
+                            color: PureWhiteStyle.inkSoft,
+                            speed: 22
+                        )
+                        .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeSkipTextMotion()
+
+                HStack(spacing: 8) {
+                    Button(action: { showPlaylist.toggle() }) {
+                        MonologueIcon(icon: .list, size: 14, color: PureWhiteStyle.inkSoft, lineWidth: 1.7)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                Circle()
+                                    .fill(PureWhiteStyle.surfaceRaised)
+                                    .overlay(Circle().stroke(PureWhiteStyle.separator, lineWidth: 1))
+                            )
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+
+                    Button(action: togglePlayPause) {
+                        ZStack {
+                            Circle()
+                                .fill(PureWhiteStyle.accent)
+                                .frame(width: 38, height: 38)
+                                .shadow(color: PureWhiteStyle.strokeInk.opacity(0.14), radius: 0, x: 0, y: 2)
+
+                            if player.isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: PureWhiteStyle.onAccent))
+                                    .scaleEffect(0.58)
+                            } else {
+                                MonologueIcon(
+                                    icon: isPlaying ? .pause : .play,
+                                    size: 15,
+                                    color: PureWhiteStyle.onAccent,
+                                    lineWidth: 1.8
+                                )
+                            }
+                        }
+                        .contentShape(Circle())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+
+                    if !isPlaying {
+                        Button(action: {
+                            withAnimation(MonologueAnimation.floatingBar) {
+                                player.dismissMiniPlayerPreservingQueue()
+                            }
+                        }) {
+                            MonologueIcon(icon: .close, size: 11, color: PureWhiteStyle.inkMuted, lineWidth: 1.6)
+                                .frame(width: 30, height: 30)
+                                .background(
+                                    Circle()
+                                        .fill(PureWhiteStyle.surfaceTint)
+                                        .overlay(Circle().stroke(PureWhiteStyle.separator, lineWidth: 1))
+                                )
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .zIndex(1)
+            }
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapWithHaptic {
+                        openCurrentPlayer()
+                    }
+            }
+
+            ProgressBarView(height: 2.5, minFillWidth: 4)
+                .padding(.leading, 58)
+                .padding(.trailing, 2)
+        }
+        .padding(.horizontal, DeviceLayout.isPad ? 12 : 6)
+        .padding(.top, 11)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var pureWhiteSourceBadge: some View {
+        if player.playSource == .fm || player.isPlayingPodcast {
+            MonologueIcon(
+                icon: player.playSource == .fm ? .fm : .radio,
+                size: 12,
+                color: PureWhiteStyle.ink,
+                lineWidth: 1.5
+            )
+            .frame(width: 20, height: 20)
+            .background(
+                Circle()
+                    .fill(PureWhiteStyle.surfaceRaised)
+                    .overlay(Circle().stroke(PureWhiteStyle.separator, lineWidth: 1))
+            )
+            .offset(x: 5, y: 5)
         }
     }
 
@@ -775,22 +920,14 @@ struct UnifiedFloatingBar: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 7)
         .background(
+            // 角落短线关掉：迷你播放器的封面（头部）与 Tab 栏尾部会和短线重叠
             PureWhiteSurfaceBackground(
                 cornerRadius: cornerRadius,
                 elevated: true,
-                tint: PureWhiteStyle.surfaceRaised
+                tint: PureWhiteStyle.surfaceRaised,
+                showsCornerMarks: false
             )
         )
-        .overlay(alignment: .topLeading) {
-            HStack(spacing: 5) {
-                Capsule().fill(PureWhiteStyle.accent).frame(width: 34, height: 4)
-                Capsule().fill(PureWhiteStyle.separator).frame(width: 18, height: 4)
-                Capsule().fill(PureWhiteStyle.paperBlue.opacity(0.72)).frame(width: 22, height: 4)
-            }
-            .frame(width: 84, height: 8)
-            .padding(.leading, 20)
-            .padding(.top, 9)
-        }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .shadow(color: PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.12 : 0.08), radius: 6, x: 0, y: 3)
         .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)

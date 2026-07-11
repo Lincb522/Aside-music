@@ -275,7 +275,11 @@ extension NeumorphicPlayerLayout {
     private var songInfoSection: some View {
         VStack(spacing: 8) {
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .monologuePlayerDisplayFont(
+                    size: 22,
+                    weight: .bold,
+                    fallback: .system(size: 22, weight: .bold, design: .rounded)
+                )
                 .foregroundColor(textColor)
                 .lineLimit(1)
             

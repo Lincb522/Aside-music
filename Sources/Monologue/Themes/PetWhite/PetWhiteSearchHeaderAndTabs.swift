@@ -15,6 +15,7 @@ struct PetWhiteSearchHeader: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 2)
         .padding(.bottom, 10)
+        .monologuePageHeaderCollapse()
     }
 }
 

@@ -1483,34 +1483,32 @@ struct QQAlbumDetailView: View {
                 }
             }
 
-            VStack(spacing: 0) {
-                headerView
-                
-                ScrollView {
-                    VStack(spacing: 0) {
-                        PlaylistSearchBar(
-                            searchText: $albumSearchText,
-                            isSearching: $isAlbumSearching,
-                            isSelectMode: $isAlbumSelectMode,
-                            selectedIds: $albumSelectedIds,
-                            songs: viewModel.songs.filtered(by: albumSearchText),
-                            onBatchQueue: {
-                                let selected = viewModel.songs.filtered(by: albumSearchText).filter { albumSelectedIds.contains($0.id) }
-                                SongBatchActionHelper.addToQueue(selected) {
-                                    isAlbumSelectMode = false
-                                    albumSelectedIds.removeAll()
-                                }
-                            },
-                            onBatchDownload: { batchDownload(from: viewModel.songs.filtered(by: albumSearchText), ids: albumSelectedIds, reset: { isAlbumSelectMode = false; albumSelectedIds.removeAll() }) },
-                            onBatchCollect: { showAlbumBatchPlaylist = true }
-                        )
-                        songListSection
-                    }
-                    .padding(.bottom, 100)
+            ScrollView {
+                VStack(spacing: 0) {
+                    headerView
+                        .monologuePageHeaderCollapse()
+                    PlaylistSearchBar(
+                        searchText: $albumSearchText,
+                        isSearching: $isAlbumSearching,
+                        isSelectMode: $isAlbumSelectMode,
+                        selectedIds: $albumSelectedIds,
+                        songs: viewModel.songs.filtered(by: albumSearchText),
+                        onBatchQueue: {
+                            let selected = viewModel.songs.filtered(by: albumSearchText).filter { albumSelectedIds.contains($0.id) }
+                            SongBatchActionHelper.addToQueue(selected) {
+                                isAlbumSelectMode = false
+                                albumSelectedIds.removeAll()
+                            }
+                        },
+                        onBatchDownload: { batchDownload(from: viewModel.songs.filtered(by: albumSearchText), ids: albumSelectedIds, reset: { isAlbumSelectMode = false; albumSelectedIds.removeAll() }) },
+                        onBatchCollect: { showAlbumBatchPlaylist = true }
+                    )
+                    songListSection
                 }
-                .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .padding(.bottom, 100)
             }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -2155,6 +2153,7 @@ struct QQPlaylistDetailView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         headerSection
+                            .monologuePageHeaderCollapse()
                         PlaylistSearchBar(
                             searchText: $searchText,
                             isSearching: $isSearching,

@@ -285,7 +285,11 @@ extension MinimalPlayerLayout {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(player.currentSong?.name ?? "")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .monologuePlayerDisplayFont(
+                            size: 20,
+                            weight: .bold,
+                            fallback: .system(size: 20, weight: .bold, design: .rounded)
+                        )
                         .foregroundColor(contentColor)
                         .lineLimit(2)
 
@@ -430,22 +434,34 @@ extension MinimalPlayerLayout {
                                                 }
                                             }
                                         } else {
-                                            Text(line.text)
-                                                .font(.system(
-                                                    size: isCurrent ? 28 : 16,
-                                                    weight: isCurrent ? .heavy : .medium,
-                                                    design: .rounded
-                                                ))
+                                            Text(line.text.monologueLyricDisplayText)
+                                                .font(
+                                                    MonologuePlayerFont.activeFont(
+                                                        size: isCurrent ? 28 : 16,
+                                                        weight: isCurrent ? .heavy : .medium,
+                                                        fallback: .system(
+                                                            size: isCurrent ? 28 : 16,
+                                                            weight: isCurrent ? .heavy : .medium,
+                                                            design: .rounded
+                                                        )
+                                                    )
+                                                )
                                                 .foregroundColor(isCurrent ? contentColor : contentColor.opacity(0.3))
                                         }
 
                                         if showTranslation, let trans = line.translation, !trans.isEmpty {
-                                            Text(trans)
-                                                .font(.system(
-                                                    size: isCurrent ? 15 : 12,
-                                                    weight: .regular,
-                                                    design: .rounded
-                                                ))
+                                            Text(trans.monologueLyricDisplayText)
+                                                .font(
+                                                    MonologuePlayerFont.activeFont(
+                                                        size: isCurrent ? 15 : 12,
+                                                        weight: .regular,
+                                                        fallback: .system(
+                                                            size: isCurrent ? 15 : 12,
+                                                            weight: .regular,
+                                                            design: .rounded
+                                                        )
+                                                    )
+                                                )
                                                 .foregroundColor(isCurrent ? contentColor.opacity(0.6) : contentColor.opacity(0.15))
                                         }
                                     }
@@ -515,13 +531,25 @@ private struct MinimalKaraokeWord: View {
     var body: some View {
         let progress = calculateProgress()
 
-        Text(word.text)
-            .font(.system(size: 28, weight: .heavy, design: .rounded))
+        Text(word.text.monologueLyricDisplayText)
+            .font(
+                MonologuePlayerFont.activeFont(
+                    size: 28,
+                    weight: .heavy,
+                    fallback: .system(size: 28, weight: .heavy, design: .rounded)
+                )
+            )
             .foregroundColor(contentColor.opacity(0.25))
             .overlay(
                 GeometryReader { geo in
-                    Text(word.text)
-                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    Text(word.text.monologueLyricDisplayText)
+                        .font(
+                            MonologuePlayerFont.activeFont(
+                                size: 28,
+                                weight: .heavy,
+                                fallback: .system(size: 28, weight: .heavy, design: .rounded)
+                            )
+                        )
                         .foregroundColor(contentColor)
                         .frame(width: geo.size.width * progress, alignment: .leading)
                         .clipped()

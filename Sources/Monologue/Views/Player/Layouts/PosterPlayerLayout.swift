@@ -214,7 +214,11 @@ extension PosterPlayerLayout {
             
             // 巨型歌名
             Text(songName)
-                .font(.custom(posterFont, size: 72))
+                .monologuePlayerDisplayFont(
+                    size: 72,
+                    weight: .bold,
+                    fallback: .custom(posterFont, size: 72)
+                )
                 .foregroundColor(fg)
                 .tracking(-3)
                 .lineSpacing(-8)
@@ -393,7 +397,11 @@ extension PosterPlayerLayout {
             
             // 歌名 — 使用字魂字体
             Text(player.currentSong?.name ?? "")
-                .font(.custom(posterFont, size: 14))
+                .monologuePlayerDisplayFont(
+                    size: 14,
+                    weight: .semibold,
+                    fallback: .custom(posterFont, size: 14)
+                )
                 .foregroundColor(fg)
                 .lineLimit(1)
             

@@ -185,6 +185,7 @@ struct MangaHomeView: View {
         return ScrollView {
             VStack(spacing: 20) {
                 mangaTopBar
+                    .monologuePageHeaderCollapse()
                     .mangaStagger(appeared, order: 0)
 
                 mangaHeroPanel

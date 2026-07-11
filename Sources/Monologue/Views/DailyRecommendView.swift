@@ -115,27 +115,30 @@ struct DailyRecommendView: View {
 
     @ViewBuilder
     private var headerSection: some View {
-        if MinimalWhiteStyle.isActive {
-            minimalWhiteHeaderSection
-        } else if MangaStyle.isActive {
-            mangaHeaderSection
-        } else if PetWhiteStyle.isActive {
-            petWhiteHeaderSection
-        } else if NeumorphicStyle.isActive {
-            neumorphicHeaderSection
-        } else if SignalStyle.isActive {
-            signalHeaderSection
-        } else if MujiStyle.isActive {
-            mujiHeaderSection
-        } else if SequoiaStyle.isActive {
-            sequoiaHeaderSection
-        } else if CapsuleStyle.isActive {
-            capsuleHeaderSection
-        } else if BentoStyle.isActive {
-            bentoHeaderSection
-        } else {
-            defaultHeaderSection
+        Group {
+            if MinimalWhiteStyle.isActive {
+                minimalWhiteHeaderSection
+            } else if MangaStyle.isActive {
+                mangaHeaderSection
+            } else if PetWhiteStyle.isActive {
+                petWhiteHeaderSection
+            } else if NeumorphicStyle.isActive {
+                neumorphicHeaderSection
+            } else if SignalStyle.isActive {
+                signalHeaderSection
+            } else if MujiStyle.isActive {
+                mujiHeaderSection
+            } else if SequoiaStyle.isActive {
+                sequoiaHeaderSection
+            } else if CapsuleStyle.isActive {
+                capsuleHeaderSection
+            } else if BentoStyle.isActive {
+                bentoHeaderSection
+            } else {
+                defaultHeaderSection
+            }
         }
+        .monologuePageHeaderCollapse()
     }
 
     private var minimalWhiteHeaderSection: some View {
@@ -1149,16 +1152,6 @@ struct DailyRecommendView: View {
                 headerSection
 
                 VStack(alignment: .leading, spacing: 12) {
-                    MinimalWhiteSectionTitle(title: String(localized: "daily_recommend")) {
-                        Text(String(format: NSLocalizedString("songs_count_format", comment: ""), dailyFilteredSongs.count))
-                            .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
-                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(MinimalWhiteStyle.controlGlassFill))
-                            .overlay(Capsule().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
-                    }
-
                     if !viewModel.showStyleMenu {
                         dailySearchBar
                             .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)

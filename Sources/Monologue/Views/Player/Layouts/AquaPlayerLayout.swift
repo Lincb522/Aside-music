@@ -353,7 +353,11 @@ extension AquaPlayerLayout {
         VStack(spacing: 16) {
             // 歌名 — 泡泡体，与水韵卡通风格一致
             Text(player.currentSong?.name ?? "")
-                .font(.custom(bubbleFont, size: 34))
+                .monologuePlayerDisplayFont(
+                    size: 34,
+                    weight: .bold,
+                    fallback: .custom(bubbleFont, size: 34)
+                )
                 .foregroundColor(textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)

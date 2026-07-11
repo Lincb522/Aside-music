@@ -198,7 +198,11 @@ extension ImmersiveLyricPlayerLayout {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(player.currentSong?.name ?? "No Title")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .monologuePlayerDisplayFont(
+                            size: 24,
+                            weight: .bold,
+                            fallback: .system(size: 24, weight: .bold, design: .rounded)
+                        )
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
@@ -317,7 +321,11 @@ extension ImmersiveLyricPlayerLayout {
             // 歌曲信息
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.currentSong?.name ?? "No Title")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .monologuePlayerDisplayFont(
+                        size: 16,
+                        weight: .bold,
+                        fallback: .system(size: 16, weight: .bold, design: .rounded)
+                    )
                     .foregroundColor(.white)
                     .lineLimit(1)
                 

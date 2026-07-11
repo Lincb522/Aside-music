@@ -121,7 +121,11 @@ struct AriaUnifiedPanel: View {
         VStack(spacing: 12) {
             VStack(spacing: 4) {
                 Text(player.currentSong?.name ?? String(localized: "未在播放"))
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .monologuePlayerDisplayFont(
+                        size: 20,
+                        weight: .bold,
+                        fallback: .system(size: 20, weight: .bold, design: .rounded)
+                    )
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -276,103 +280,31 @@ struct AriaUnifiedPanel: View {
 // MARK: - 舞台调校控件组
 
 struct AriaTuningControls: View {
-    @AppStorage("ariaIntensity") private var intensityRaw = AriaIntensity.normal.rawValue
-    @AppStorage("ariaShowTranslation") private var showTranslation = true
-    @AppStorage("ariaGeometricBackground") private var geometricBackground = true
-    @AppStorage("ariaWordRotation") private var wordRotation = true
-    @AppStorage("ariaLyricsFontScale") private var fontScale = 1.0
-    @AppStorage("ariaWordSpacing") private var wordSpacing = 0.7
-    @AppStorage("ariaBreathing") private var breathingMultiplier = 1.0
+    @AppStorage("ariaGeometricBackground") private var ambientMotion = true
     @AppStorage("ariaBackgroundOpacity") private var backgroundOpacity = 0.75
+    @AppStorage("ariaLyricDepthIntensity") private var lyricDepthIntensity = 0.68
+    @AppStorage("immersivePersistent") private var immersivePersistent = false
+    @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
 
     let palette: AriaPalette
 
     var body: some View {
-        VStack(spacing: 16) {
-            intensitySection
-            slidersSection
-            togglesSection
-        }
-    }
-
-    // MARK: 动画强度
-
-    private var intensitySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel(String(localized: "动画强度"))
-
-            HStack(spacing: 4) {
-                ForEach(AriaIntensity.allCases, id: \.rawValue) { level in
-                    let selected = intensityRaw == level.rawValue
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            intensityRaw = level.rawValue
-                        }
-                    } label: {
-                        Text(level.label)
-                            .font(.system(size: 12, weight: selected ? .bold : .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(selected ? 1 : 0.4))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 32)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(selected ? Color.white.opacity(0.10) : Color.clear)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(4)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
-            )
-
-            Text(intensityCaption)
-                .font(.system(size: 11, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.38))
-                .animation(.easeOut(duration: 0.2), value: intensityRaw)
-        }
-    }
-
-    private var intensityCaption: String {
-        switch AriaIntensity(rawValue: intensityRaw) ?? .normal {
-        case .calm: return String(localized: "词居中排列，无散点与旋转")
-        case .normal: return String(localized: "轻度散点与旋转")
-        case .chaotic: return String(localized: "大幅散落与错落")
-        }
-    }
-
-    // MARK: 滑杆组
-
-    private var slidersSection: some View {
         VStack(spacing: 12) {
-            tuningSlider(
-                title: String(localized: "歌词字号"),
-                value: $fontScale,
-                range: 0.8...1.3,
-                display: String(format: "%.2f×", fontScale)
-            )
-            tuningSlider(
-                title: String(localized: "词间距"),
-                value: $wordSpacing,
-                range: 0...2,
-                display: String(format: "%.1f", wordSpacing)
-            )
-            tuningSlider(
-                title: String(localized: "呼吸幅度"),
-                value: $breathingMultiplier,
-                range: 0...2,
-                display: breathingMultiplier <= 0.01
-                    ? String(localized: "关")
-                    : String(format: "%.1f×", breathingMultiplier)
-            )
             tuningSlider(
                 title: String(localized: "背景压暗"),
                 value: $backgroundOpacity,
                 range: 0.45...0.95,
                 display: "\(Int(backgroundOpacity * 100))%"
             )
+            tuningSlider(
+                title: String(localized: "歌词景深"),
+                value: $lyricDepthIntensity,
+                range: 0.2...1,
+                display: "\(Int(lyricDepthIntensity * 100))%"
+            )
+            stageToggle(String(localized: "立体浮雕"), isOn: $lyricEmbossEnabled)
+            stageToggle(String(localized: "动态色彩呼吸"), isOn: $ambientMotion)
+            stageToggle(String(localized: "常驻沉浸模式"), isOn: $immersivePersistent)
         }
     }
 
@@ -398,16 +330,6 @@ struct AriaTuningControls: View {
         }
     }
 
-    // MARK: 开关组
-
-    private var togglesSection: some View {
-        VStack(spacing: 2) {
-            stageToggle(String(localized: "显示翻译"), isOn: $showTranslation)
-            stageToggle(String(localized: "词随机旋转"), isOn: $wordRotation)
-            stageToggle(String(localized: "几何漂浮背景"), isOn: $geometricBackground)
-        }
-    }
-
     private func stageToggle(_ title: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
             Text(title)
@@ -415,13 +337,8 @@ struct AriaTuningControls: View {
                 .foregroundStyle(.white.opacity(0.75))
         }
         .tint(palette.accent)
-        .controlSize(.mini)
         .padding(.vertical, 4)
+        .padding(.trailing, 3)
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 13, weight: .bold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.85))
-    }
 }

@@ -122,3 +122,24 @@ test_layout.swift
 /backup
 /website-redesign
 /Tessera
+*.swift
+*.py
+*.txt
+/ExternalSources
+/mineradio-vue
+
+# Folia lyric renderers are app sources, not generated Swift files.
+!Sources/Monologue/Views/Player/AriaStage/AriaLyricFX.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaSettingsPage.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaFoliaCadenzaView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaFoliaPartitaView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaFoliaTiltView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaFoliaFumeView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaFoliaCappellaView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaFoliaCanopyView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaForeignLyricStages.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaLandscapeSettingsView.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaLyricTypography.swift
+!Sources/Monologue/Views/Player/AriaStage/AriaLyricDepth.swift
+!Sources/Monologue/Views/Player/Components/MonologueFontPicker.swift
+!Sources/Monologue/Managers/CustomFontManager.swift

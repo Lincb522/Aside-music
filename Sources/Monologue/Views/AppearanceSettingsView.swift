@@ -32,6 +32,8 @@ private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medi
 
 struct AppearanceSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var player = PlayerManager.shared
+    @StateObject private var coverColors = CoverColorExtractor()
     @State private var isGlobalThemeExpanded = false
     @State private var isAppBrandStyleExpanded = false
     @State private var isThemeColorExpanded = false
@@ -42,12 +44,6 @@ struct AppearanceSettingsView: View {
 
             ScrollView {
                 LazyVStack(spacing: 20) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "settings_navigation_appearance_title"),
-                        eyebrow: "STYLE",
-                        icon: .sparkle
-                    )
-
                     LazyVStack(spacing: 20) {
                         globalThemeSection
                         if ThemeColorCustomization.supports(settings.globalThemeId) {
@@ -67,11 +63,18 @@ struct AppearanceSettingsView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
+        .themedInlineNavigationTitle(String(localized: "settings_navigation_appearance_title"))
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             settings.enforceCoverBackgroundPolicyForCurrentTheme()
+            coverColors.extract(
+                from: player.currentSong?.coverUrl?.sized(200).absoluteString
+            )
+        }
+        .onChange(of: player.currentSong?.id) { _, _ in
+            coverColors.extract(
+                from: player.currentSong?.coverUrl?.sized(200).absoluteString
+            )
         }
     }
 
@@ -194,7 +197,12 @@ struct AppearanceSettingsView: View {
     }
 
     private var dynamicBackgroundSection: some View {
-        SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
+        let paletteAccent = GlobalThemeManager.shared
+            .provider(for: settings.globalThemeId)
+            .colorPalette
+            .accent
+
+        return SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
             VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .layers,
@@ -227,6 +235,23 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlayer,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
+
+                Divider()
+                    .opacity(0.4)
+                    .padding(.leading, 62)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(String(localized: "全局自动取色"))
+                        .font(appearanceSettingsFont(14, weight: .semibold))
+                        .foregroundStyle(Color.monologueTextPrimary)
+
+                    CoverPaletteSettingsControls(
+                        accent: paletteAccent,
+                        darkStyle: false
+                    )
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
 
             }
         }
@@ -377,6 +402,7 @@ struct AppearanceSettingsView: View {
 
             Picker("", selection: $settings.lyricColorMode) {
                 Text(String(localized: "settings_lyric_color_mode_default")).tag("default")
+                Text(String(localized: "自动")).tag("auto")
                 Text(String(localized: "settings_lyric_color_mode_solid")).tag("solid")
                 Text(String(localized: "settings_lyric_color_mode_gradient")).tag("gradient")
             }
@@ -415,7 +441,17 @@ struct AppearanceSettingsView: View {
 
     private var lyricPreview: some View {
         VStack(spacing: 8) {
-            if settings.lyricColorMode == "gradient" {
+            if settings.lyricColorMode == "auto" {
+                Text(String(localized: "settings_lyric_preview"))
+                    .font(.rounded(size: 20, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: Array(coverColors.palette.prefix(6)),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            } else if settings.lyricColorMode == "gradient" {
                 Text(String(localized: "settings_lyric_preview"))
                     .font(.rounded(size: 20, weight: .bold))
                     .foregroundStyle(

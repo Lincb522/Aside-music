@@ -81,12 +81,6 @@ struct DownloadManageView: View {
             
             ScrollView {
                 VStack(spacing: 20) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "下载管理"),
-                        eyebrow: "DOWNLOAD",
-                        icon: .download
-                    )
-
                     tabBar
 
                     if selectedTab == 0 {
@@ -101,9 +95,8 @@ struct DownloadManageView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+        .themedInlineNavigationTitle(String(localized: "下载管理"))
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if selectedTab == 0 {

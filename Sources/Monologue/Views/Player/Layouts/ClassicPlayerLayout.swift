@@ -392,7 +392,11 @@ struct ClassicPlayerLayout: View {
     private var mangaTitleBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(player.currentSong?.name ?? "Unknown Song")
-                .font(MangaStyle.titleFont(25, weight: .black))
+                .monologuePlayerDisplayFont(
+                    size: 25,
+                    weight: .black,
+                    fallback: MangaStyle.titleFont(25, weight: .black)
+                )
                 .foregroundColor(MangaStyle.ink)
                 .lineLimit(3)
                 .minimumScaleFactor(0.76)
@@ -455,7 +459,11 @@ struct ClassicPlayerLayout: View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 7) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(MujiStyle.titleFont(24, weight: .medium))
+                    .monologuePlayerDisplayFont(
+                        size: 24,
+                        weight: .medium,
+                        fallback: MujiStyle.titleFont(24, weight: .medium)
+                    )
                     .foregroundColor(MujiStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
@@ -561,7 +569,11 @@ struct ClassicPlayerLayout: View {
                 VStack(alignment: .leading, spacing: 13) {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(player.currentSong?.name ?? "Unknown Song")
-                            .font(NeumorphicStyle.titleFont(24, weight: .semibold))
+                            .monologuePlayerDisplayFont(
+                                size: 24,
+                                weight: .semibold,
+                                fallback: NeumorphicStyle.titleFont(24, weight: .semibold)
+                            )
                             .foregroundStyle(NeumorphicStyle.ink)
                             .lineLimit(3)
                             .minimumScaleFactor(0.74)
@@ -1108,7 +1120,11 @@ struct ClassicPlayerLayout: View {
 
             VStack(spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(CapsuleStyle.titleFont(24, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 24,
+                        weight: .bold,
+                        fallback: CapsuleStyle.titleFont(24, weight: .bold)
+                    )
                     .foregroundStyle(CapsuleStyle.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -1677,7 +1693,11 @@ struct ClassicPlayerLayout: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(ClayStyle.titleFont(23, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 23,
+                        weight: .bold,
+                        fallback: ClayStyle.titleFont(23, weight: .bold)
+                    )
                     .foregroundStyle(ClayStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
@@ -1967,7 +1987,11 @@ struct ClassicPlayerLayout: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(classicTitleFont(26, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 26,
+                        weight: .bold,
+                        fallback: classicTitleFont(26, weight: .bold)
+                    )
                     .foregroundColor(contentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -2080,7 +2104,11 @@ struct ClassicPlayerLayout: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(player.currentSong?.name ?? "")
-                    .font(classicTitleFont(20, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 20,
+                        weight: .bold,
+                        fallback: classicTitleFont(20, weight: .bold)
+                    )
                     .foregroundColor(contentColor)
                     .lineLimit(1)
                 Button { showArtistDetail = true } label: {

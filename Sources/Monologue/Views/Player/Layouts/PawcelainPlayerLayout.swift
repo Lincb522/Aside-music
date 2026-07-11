@@ -350,7 +350,11 @@ struct PawcelainPlayerLayout: View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(player.currentSong?.name ?? String(localized: "暂无播放内容"))
-                    .font(PetWhiteStyle.titleFont(23, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 23,
+                        weight: .bold,
+                        fallback: PetWhiteStyle.titleFont(23, weight: .bold)
+                    )
                     .foregroundStyle(usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink)
                     .lineLimit(showLyrics ? 1 : 2)
                     .minimumScaleFactor(0.72)

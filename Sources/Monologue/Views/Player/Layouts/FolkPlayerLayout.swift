@@ -238,7 +238,11 @@ extension FolkPlayerLayout {
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .foregroundColor(redStamp)
                     Text(player.currentSong?.name ?? "Unknown Track")
-                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .monologuePlayerDisplayFont(
+                            size: 16,
+                            weight: .bold,
+                            fallback: .system(size: 16, weight: .bold, design: .serif)
+                        )
                         .foregroundColor(inkDark)
                         .lineLimit(nil)
                 }
@@ -299,15 +303,35 @@ extension FolkPlayerLayout {
                                                 .offset(y: 2)
 
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text(line.text)
-                                                    .font(.system(size: isCurrent ? 18 : 16, weight: isCurrent ? .bold : .medium, design: .monospaced))
+                                                Text(line.text.monologueLyricDisplayText)
+                                                    .font(
+                                                        MonologuePlayerFont.activeFont(
+                                                            size: isCurrent ? 18 : 16,
+                                                            weight: isCurrent ? .bold : .medium,
+                                                            fallback: .system(
+                                                                size: isCurrent ? 18 : 16,
+                                                                weight: isCurrent ? .bold : .medium,
+                                                                design: .monospaced
+                                                            )
+                                                        )
+                                                    )
                                                     .foregroundColor(isCurrent ? inkDark : inkFaded)
                                                     .lineLimit(nil)
                                                     .multilineTextAlignment(.leading)
 
                                                 if let trans = line.translation, !trans.isEmpty {
-                                                    Text(trans)
-                                                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                                                    Text(trans.monologueLyricDisplayText)
+                                                        .font(
+                                                            MonologuePlayerFont.activeFont(
+                                                                size: 12,
+                                                                weight: .regular,
+                                                                fallback: .system(
+                                                                    size: 12,
+                                                                    weight: .regular,
+                                                                    design: .monospaced
+                                                                )
+                                                            )
+                                                        )
                                                         .foregroundColor(isCurrent ? inkFaded : inkFaded.opacity(0.5))
                                                         .multilineTextAlignment(.leading)
                                                 }

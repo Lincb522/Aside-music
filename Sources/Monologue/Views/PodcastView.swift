@@ -257,6 +257,7 @@ struct PodcastView: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, padH)
+        .monologuePageHeaderCollapse()
     }
 
     @ViewBuilder

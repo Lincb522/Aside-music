@@ -61,15 +61,13 @@ private struct PureWhiteThemeRoot<Content: View>: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        ZStack {
-            content()
-                .padding(.top, 4)
-                .tint(PureWhiteStyle.accent)
-                .themeRenderSceneLayer()
-
-            PureWhitePageChrome(page: page)
-        }
-        .background(PureWhiteRootBackdrop())
+        // 注意：不要在这里叠 PureWhitePageChrome —— NavigationStack 在 content() 内部，
+        // 角落标签/短线会盖在所有推入的子页面上，与各页自己的头部形成"双头部"
+        content()
+            .padding(.top, 4)
+            .tint(PureWhiteStyle.accent)
+            .themeRenderSceneLayer()
+            .background(PureWhiteRootBackdrop())
     }
 }
 

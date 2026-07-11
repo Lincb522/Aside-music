@@ -100,6 +100,7 @@ struct CapsuleHomeView: View {
         ScrollView {
             LazyVStack(spacing: 18) {
                 commandBar
+                    .monologuePageHeaderCollapse()
                     .capsuleHomeAppear(appeared, order: 0)
 
                 capsuleConsole

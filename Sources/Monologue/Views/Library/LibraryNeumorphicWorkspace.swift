@@ -106,6 +106,7 @@ struct NeumorphicLibraryWorkspace: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     headerConsole
+                        .monologuePageHeaderCollapse()
                     pageContent
                 }
                 .padding(.bottom, 128)

@@ -302,7 +302,11 @@ extension BreathingPlayerLayout {
 
     private func titleSignature(_ song: Song, metrics: BreathingLayoutMetrics) -> some View {
         Text(song.name)
-            .font(.system(size: metrics.titleFont, weight: .black, design: .rounded))
+            .monologuePlayerDisplayFont(
+                size: metrics.titleFont,
+                weight: .black,
+                fallback: .system(size: metrics.titleFont, weight: .black, design: .rounded)
+            )
             .foregroundStyle(textColor)
             .frame(width: metrics.titleWidth, alignment: metrics.isLandscape ? .leading : .center)
             .multilineTextAlignment(metrics.isLandscape ? .leading : .center)

@@ -483,7 +483,11 @@ extension CassettePlayerLayout {
     private var songInfoArea: some View {
         VStack(spacing: 8) {
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .monologuePlayerDisplayFont(
+                    size: 24,
+                    weight: .bold,
+                    fallback: .system(size: 24, weight: .bold, design: .rounded)
+                )
                 .foregroundColor(textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

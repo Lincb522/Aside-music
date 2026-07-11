@@ -78,6 +78,7 @@ struct PlaylistDetailView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     playlistHeaderContent
+                        .monologuePageHeaderCollapse()
                     PlaylistSearchBar(
                         searchText: $searchText,
                         isSearching: $isSearching,

@@ -27,7 +27,7 @@ class OrientationManager: ObservableObject {
     func exitLandscape() {
         isLandscapeLocked = false
         allowedOrientations = .portrait
-        rotateToPortrait()
+        rotateToPortrait(retries: 3)
     }
 
     /// 从后台恢复或冷启动时，如果之前锁定了横屏就重新应用
@@ -72,19 +72,47 @@ class OrientationManager: ObservableObject {
         return scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
     }
 
-    private func rotateToPortrait() {
-        guard let windowScene = activeWindowScene else { return }
+    private func rotateToPortrait(retries: Int) {
+        // 横屏锁一旦重新生效（如设置页返回沉浸舞台），残留的竖屏重试立即作废
+        guard retries > 0, !isLandscapeLocked else { return }
+        guard let windowScene = activeWindowScene else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.rotateToPortrait(retries: retries - 1)
+            }
+            return
+        }
+
+        if windowScene.interfaceOrientation.isPortrait {
+            return
+        }
+
+        // 与 applyLandscape 同序：先通知系统支持方向已变，再请求旋转，
+        // 否则请求会被旧的横屏掩码拒绝（全屏转场中调用时尤其如此）
+        setNeedsUpdateOfSupportedInterfaceOrientations()
         let prefs = UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: .portrait)
         windowScene.requestGeometryUpdate(prefs) { error in
             AppLogger.error("竖屏旋转失败: \(error.localizedDescription)")
         }
-        setNeedsUpdateOfSupportedInterfaceOrientations()
+
+        // 稍后校验一次；仍是横屏则重试（修复全屏弹出转场期间请求被吞的问题）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self, !self.isLandscapeLocked else { return }
+            if self.activeWindowScene?.interfaceOrientation.isPortrait == true { return }
+            self.rotateToPortrait(retries: retries - 1)
+        }
     }
 
     private func setNeedsUpdateOfSupportedInterfaceOrientations() {
         guard let windowScene = activeWindowScene else { return }
         for window in windowScene.windows {
-            window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            // 系统按"最顶层被呈现控制器"的支持方向决定能否旋转；
+            // 沉浸模式/设置页都是 fullScreenCover 叠出来的模态链，
+            // 只通知 rootViewController 时顶层掩码不刷新，旋转请求会一直被拒
+            var viewController = window.rootViewController
+            while let current = viewController {
+                current.setNeedsUpdateOfSupportedInterfaceOrientations()
+                viewController = current.presentedViewController
+            }
         }
     }
 }

@@ -185,6 +185,7 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 10)
+        .monologuePageHeaderCollapse()
     }
 
     private var mujiSearchHeader: some View {
@@ -201,6 +202,7 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 2)
         .padding(.bottom, 8)
+        .monologuePageHeaderCollapse()
     }
 
     private var neumorphicSearchHeader: some View {
@@ -211,6 +213,7 @@ struct SearchView: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
             .padding(.top, DeviceLayout.headerTopPadding + 8)
             .padding(.bottom, 10)
+            .monologuePageHeaderCollapse()
     }
 
     private var signalSearchHeader: some View {
@@ -268,6 +271,7 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
+        .monologuePageHeaderCollapse()
     }
 
     private var capsuleSearchHeader: some View {
@@ -279,6 +283,7 @@ struct SearchView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, DeviceLayout.headerTopPadding + 8)
             .padding(.bottom, 12)
+            .monologuePageHeaderCollapse()
     }
 
     private var petWhiteSearchHeader: some View {
